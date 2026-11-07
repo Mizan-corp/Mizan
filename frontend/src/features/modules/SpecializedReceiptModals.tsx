@@ -1,4 +1,4 @@
-import { Printer, GraduationCap, UtensilsCrossed, Pill } from "lucide-react";
+import { Printer, GraduationCap, UtensilsCrossed, Pill, Stethoscope } from "lucide-react";
 import { Button } from "@/components/kit/button";
 import { Modal } from "@/components/ui";
 import { moneyEGP } from "@/lib/format";
@@ -52,7 +52,7 @@ export function SchoolTuitionReceiptModal({
               </div>
               <div>
                 <h3 className="text-base font-black tracking-tight text-foreground">
-                  مدارس فيندورا الدولية للتعليم المتطور
+                  مدارس ميزان النموذجية للتعليم المتطور
                 </h3>
                 <p className="text-[11px] text-muted-foreground font-medium">
                   إدارة الحسابات والشؤون المالية · إيصال تحصيل رسمي
@@ -225,7 +225,7 @@ export function RestaurantGuestCheckModal({
             <div className="inline-flex size-10 items-center justify-center rounded-xl bg-amber-500 text-white mb-1.5">
               <UtensilsCrossed className="size-5" />
             </div>
-            <h3 className="font-black text-sm text-foreground tracking-tight">مطعم وكافيه فيندورا</h3>
+            <h3 className="font-black text-sm text-foreground tracking-tight">مطعم ومقهى ميزان</h3>
             <p className="text-[10px] text-muted-foreground">صالة الطعام والضيافة · بون فحص الطاولة</p>
           </div>
 
@@ -362,12 +362,12 @@ export function PharmacyPrescriptionReceiptModal({
           {/* Header */}
           <div className="flex items-start justify-between border-b border-border pb-4">
             <div className="flex items-center gap-3">
-              <div className="flex size-12 items-center justify-center rounded-xl bg-teal-600 text-white shadow-xs">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-xs">
                 <Pill className="size-6" />
               </div>
               <div>
                 <h3 className="text-base font-black tracking-tight text-foreground">
-                  صيدلية فيندورا للرعاية الدوائية
+                  صيدلية ميزان للرعاية الدوائية
                 </h3>
                 <p className="text-[11px] text-muted-foreground font-medium">
                   إدارة الصرف السريري والتأمين الطبي · إيصال رسمي
@@ -375,7 +375,7 @@ export function PharmacyPrescriptionReceiptModal({
               </div>
             </div>
             <div className="text-left font-mono text-xs">
-              <span className="rounded bg-teal-500/10 px-2 py-0.5 font-bold text-teal-700 dark:text-teal-400">
+              <span className="rounded bg-primary/10 px-2 py-0.5 font-bold text-primary">
                 {data.rx_number}
               </span>
               <p className="mt-1 text-[11px] text-muted-foreground">{dateStr}</p>
@@ -412,11 +412,11 @@ export function PharmacyPrescriptionReceiptModal({
             )}
 
             {data.insurance_company && (
-              <div className="col-span-2 flex items-center justify-between rounded-lg border border-teal-500/20 bg-teal-500/5 px-2.5 py-1.5 text-[11px]">
-                <span className="font-medium text-teal-800 dark:text-teal-300">
+              <div className="col-span-2 flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[11px]">
+                <span className="font-medium text-foreground">
                   جهة التأمين: {data.insurance_company}
                 </span>
-                <span className="font-bold text-teal-700 dark:text-teal-400">
+                <span className="font-bold text-primary">
                   نسبة التحمل: {data.copay_percentage}%
                 </span>
               </div>
@@ -460,14 +460,14 @@ export function PharmacyPrescriptionReceiptModal({
               <span className="num font-semibold">{moneyEGP(data.total_amount)}</span>
             </div>
             {data.insurance_covered > 0 && (
-              <div className="flex justify-between text-teal-600 dark:text-teal-400 font-medium">
+              <div className="flex justify-between text-muted-foreground font-medium">
                 <span>تغطية شركة التأمين ({100 - data.copay_percentage}%):</span>
-                <span className="num font-semibold">-{moneyEGP(data.insurance_covered)}</span>
+                <span className="num font-semibold text-emerald-600 dark:text-emerald-400">-{moneyEGP(data.insurance_covered)}</span>
               </div>
             )}
             <div className="flex justify-between border-t border-border/80 pt-2 text-sm font-black text-foreground">
               <span>المبلغ المسدد نقداً من المريض:</span>
-              <span className="num font-black text-teal-600 dark:text-teal-400">{moneyEGP(data.patient_paid)}</span>
+              <span className="num font-black text-primary">{moneyEGP(data.patient_paid)}</span>
             </div>
           </div>
 
@@ -498,10 +498,191 @@ export function PharmacyPrescriptionReceiptModal({
           <Button
             type="button"
             onClick={handlePrint}
-            className="flex-1 h-9 font-bold text-xs gap-1.5 bg-teal-600 hover:bg-teal-700 text-white"
+            className="flex-1 h-9 font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             <Printer className="size-3.5" />
             طباعة إيصال الصرف (A5 / 80mm)
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+export interface ClinicInvoiceReceiptData {
+  invoice_no: string;
+  patient_name: string;
+  patient_mrn?: string;
+  patient_phone?: string;
+  doctor_name: string;
+  specialty?: string;
+  insurance_company?: string;
+  copay_percentage: number;
+  items: {
+    description: string;
+    qty: number;
+    unit_price: number;
+    total: number;
+  }[];
+  total_amount: number;
+  insurance_covered: number;
+  patient_paid: number;
+  created_at?: string;
+}
+
+export function ClinicInvoiceReceiptModal({
+  open,
+  onClose,
+  data,
+}: {
+  open: boolean;
+  onClose: () => void;
+  data: ClinicInvoiceReceiptData | null;
+}) {
+  if (!data) return null;
+
+  function handlePrint() {
+    sound.click();
+    window.print();
+  }
+
+  const dateStr = data.created_at || new Date().toLocaleString("ar-EG", { dateStyle: "long", timeStyle: "short" });
+
+  return (
+    <Modal open={open} onClose={onClose} title="فاتورة كشف وخدمات طبية رسمية">
+      <div className="flex flex-col gap-5">
+        <div
+          id="clinic-print-invoice"
+          className="relative rounded-2xl border border-border bg-card p-6 shadow-sm text-foreground"
+        >
+          {/* Header */}
+          <div className="flex items-start justify-between border-b border-border pb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-xs">
+                <Stethoscope className="size-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black tracking-tight text-foreground">
+                  مجمع ميزان الطبي والرعاية الصحية
+                </h3>
+                <p className="text-[11px] text-muted-foreground font-medium">
+                  العيادات الخارجية والخدمات التشخيصية · فاتورة علاجية رسمية
+                </p>
+              </div>
+            </div>
+            <div className="text-left font-mono text-xs">
+              <span className="rounded bg-primary/10 px-2 py-0.5 font-bold text-primary">
+                {data.invoice_no}
+              </span>
+              <p className="mt-1 text-[11px] text-muted-foreground">{dateStr}</p>
+            </div>
+          </div>
+
+          {/* Details */}
+          <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <span className="text-muted-foreground">المريض:</span>
+              <p className="font-bold text-foreground">{data.patient_name}</p>
+              {data.patient_mrn && (
+                <p className="text-[11px] text-muted-foreground font-mono">رقم الملف: {data.patient_mrn}</p>
+              )}
+              {data.patient_phone && (
+                <p className="text-[11px] text-muted-foreground font-mono">{data.patient_phone}</p>
+              )}
+            </div>
+            <div>
+              <span className="text-muted-foreground">الطبيب المعالج:</span>
+              <p className="font-bold text-foreground">{data.doctor_name}</p>
+              {data.specialty && (
+                <p className="text-[11px] text-muted-foreground">{data.specialty}</p>
+              )}
+            </div>
+
+            {data.insurance_company && (
+              <div className="col-span-2 flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1.5 text-[11px]">
+                <span className="font-medium text-foreground">
+                  شركة التأمين: {data.insurance_company}
+                </span>
+                <span className="font-bold text-primary">
+                  نسبة التحمل: {data.copay_percentage}%
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Items Table */}
+          <div className="mt-4 overflow-hidden rounded-xl border border-border">
+            <table className="w-full text-xs">
+              <thead className="bg-secondary/60 text-muted-foreground">
+                <tr>
+                  <th className="p-2.5 text-start font-semibold">الخدمة / الإجراء الطبي</th>
+                  <th className="p-2.5 text-center font-semibold">العدد</th>
+                  <th className="p-2.5 text-end font-semibold">السعر</th>
+                  <th className="p-2.5 text-end font-semibold">الإجمالي</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {data.items.map((item, idx) => (
+                  <tr key={idx} className="hover:bg-muted/20">
+                    <td className="p-2.5 font-medium">{item.description}</td>
+                    <td className="num p-2.5 text-center font-mono">{item.qty}</td>
+                    <td className="num p-2.5 text-end font-mono">{moneyEGP(item.unit_price)}</td>
+                    <td className="num p-2.5 text-end font-bold font-mono">{moneyEGP(item.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pricing & Co-Pay Breakdown */}
+          <div className="mt-4 space-y-1.5 border-t border-border pt-3 text-xs">
+            <div className="flex justify-between text-muted-foreground">
+              <span>إجمالي قيمة الفاتورة:</span>
+              <span className="num font-semibold">{moneyEGP(data.total_amount)}</span>
+            </div>
+            {data.insurance_covered > 0 && (
+              <div className="flex justify-between text-muted-foreground font-medium">
+                <span>تغطية شركة التأمين:</span>
+                <span className="num font-semibold text-emerald-600 dark:text-emerald-400">-{moneyEGP(data.insurance_covered)}</span>
+              </div>
+            )}
+            <div className="flex justify-between border-t border-border/80 pt-2 text-sm font-black text-foreground">
+              <span>المطلوب تحصيله نقداً:</span>
+              <span className="num font-black text-primary">{moneyEGP(data.patient_paid)}</span>
+            </div>
+          </div>
+
+          {/* Verification stamp */}
+          <div className="mt-4 flex items-center justify-between border-t border-dashed border-border pt-3 text-[10px] text-muted-foreground">
+            <div>
+              <p className="font-bold text-foreground">قسم الاستقبال والحسابات الطبية</p>
+              <p>تخضع هذه الفاتورة لضوابط الهيئة العامة للتأمين الصحي</p>
+            </div>
+            <div className="rounded border border-border px-2 py-1 text-center font-mono text-[9px]">
+              رقم الإيصال
+              <br />
+              <span className="font-bold text-foreground">{data.invoice_no}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Modal Controls */}
+        <div className="flex items-center gap-2 pt-2 border-t border-border/60">
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1 h-9 text-xs"
+            onClick={onClose}
+          >
+            إغلاق
+          </Button>
+          <Button
+            type="button"
+            onClick={handlePrint}
+            className="flex-1 h-9 font-bold text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground"
+          >
+            <Printer className="size-3.5" />
+            طباعة الفاتورة (A5 / 80mm)
           </Button>
         </div>
       </div>

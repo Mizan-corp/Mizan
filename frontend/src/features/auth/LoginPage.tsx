@@ -47,6 +47,17 @@ export default function LoginPage(props: LoginPageProps = {}) {
   const rawSlug = props.tenantSlug || currentTenant?.slug;
   const targetSlug = rawSlug && rawSlug !== "undefined" && rawSlug !== "null" ? rawSlug : undefined;
 
+  const loginCfg = currentTenant?.login_config;
+  const customCompany = loginCfg?.company_name || currentTenant?.name;
+  const customLogo = loginCfg?.logo_url || currentTenant?.logo_url;
+  const customTitle = loginCfg?.login_title;
+  const customSubtitle = loginCfg?.login_subtitle;
+  const customCover = loginCfg?.cover_url;
+  const customSupport = loginCfg?.support_contact;
+  const customPrimary = loginCfg?.primary_color;
+  const showPoweredBy = loginCfg?.show_powered_by !== false;
+  const isCustomPortal = Boolean(targetSlug || currentTenant);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -101,11 +112,30 @@ export default function LoginPage(props: LoginPageProps = {}) {
       }`}
     >
       {/* ── LEFT PANEL: Deep Merlot Architectural Brand Cover (#35151D) ── */}
-      <div className="lg:col-span-5 bg-[#35151D] text-[#FAF6F0] hero-concentric-arcs p-8 sm:p-12 lg:p-16 flex flex-col justify-between relative overflow-hidden border-b lg:border-b-0 lg:border-e border-[#481822]">
+      <div
+        className="lg:col-span-5 bg-[#35151D] text-[#FAF6F0] hero-concentric-arcs p-8 sm:p-12 lg:p-16 flex flex-col justify-between relative overflow-hidden border-b lg:border-b-0 lg:border-e border-[#481822]"
+        style={customCover ? { backgroundImage: `linear-gradient(rgba(53, 21, 29, 0.85), rgba(53, 21, 29, 0.94)), url('${customCover}')`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+      >
         {/* Top Header */}
         <div className="flex items-center justify-between z-10">
-          <Link to="/" aria-label="Mizan ERP">
-            <MizanLogo size="lg" theme="dark" locale={locale} />
+          <Link to="/" aria-label={customCompany || "Mizan ERP"} className="flex items-center gap-3">
+            {customLogo ? (
+              <div className="flex items-center gap-2.5">
+                <img
+                  src={customLogo}
+                  alt={customCompany || "Logo"}
+                  className="h-9 w-auto max-w-[130px] rounded-lg object-contain bg-white/10 p-1 backdrop-blur-xs border border-white/15"
+                  onError={(e) => { e.currentTarget.style.display = "none"; }}
+                />
+                {customCompany && (
+                  <span className="font-semibold text-sm tracking-tight text-[#FAF6F0]">
+                    {customCompany}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <MizanLogo size="lg" theme="dark" locale={locale} />
+            )}
           </Link>
           <button
             onClick={toggleLocale}
@@ -116,11 +146,20 @@ export default function LoginPage(props: LoginPageProps = {}) {
           </button>
         </div>
 
-        {/* Center Brand Statement matching Image 4 */}
+        {/* Center Brand Statement */}
         <div className="my-auto py-12 space-y-4 text-center z-10 max-w-sm mx-auto">
           <div className="flex justify-center mb-6">
             <div className="p-4 rounded-3xl bg-white/5 border border-white/10 shadow-2xl backdrop-blur-md">
-              <MizanLogo size="xl" variant="icon" theme="dark" />
+              {customLogo ? (
+                <img
+                  src={customLogo}
+                  alt={customCompany || "Logo"}
+                  className="h-16 w-16 rounded-2xl object-contain"
+                  onError={(e) => { e.currentTarget.style.display = "none"; }}
+                />
+              ) : (
+                <MizanLogo size="xl" variant="icon" theme="dark" />
+              )}
             </div>
           </div>
 
@@ -129,23 +168,33 @@ export default function LoginPage(props: LoginPageProps = {}) {
               isAr ? "font-serif-ar" : "font-serif-en"
             }`}
           >
-            {isAr ? "مرحباً بعودتك،" : "Welcome back,"}
-            <br />
-            <span className="italic text-[#D4626E]">
-              {isAr ? "لنكمل معاً رحلتك." : "let's continue your journey."}
-            </span>
+            {customTitle ? (
+              <span>{customTitle}</span>
+            ) : (
+              <>
+                {isAr ? "مرحباً بعودتك،" : "Welcome back,"}
+                <br />
+                <span className="italic text-[#D4626E]">
+                  {customCompany ? customCompany : (isAr ? "لنكمل معاً رحلتك." : "let's continue your journey.")}
+                </span>
+              </>
+            )}
           </h2>
 
           <p className="text-xs sm:text-sm text-[#E7D6C1]/80 leading-relaxed font-light">
-            {isAr
-              ? "نظام موحد ومرن لجميع الأنشطة التجارية والخدمية — توازن تام في كل تفاصيل الإدارة."
-              : "An integrated, modular ecosystem uniting operations, finances, and people in perfect equilibrium."}
+            {customSubtitle ? (
+              customSubtitle
+            ) : isAr ? (
+              "نظام موحد ومرن لجميع الأنشطة التجارية والخدمية — توازن تام في كل تفاصيل الإدارة."
+            ) : (
+              "An integrated, modular ecosystem uniting operations, finances, and people in perfect equilibrium."
+            )}
           </p>
         </div>
 
         {/* Bottom Status */}
         <div className="pt-6 border-t border-white/10 flex items-center justify-between text-xs text-[#E7D6C1]/60 z-10 font-mono">
-          <span>© {new Date().getFullYear()} Mizan ERP</span>
+          <span>© {new Date().getFullYear()} {customCompany || "Mizan ERP"}</span>
           <span className="flex items-center gap-1.5 text-[#27835C]">
             <span className="w-1.5 h-1.5 rounded-full bg-[#27835C]" />
             <span>{isAr ? "المنظومة متصلة" : "All Systems Online"}</span>
@@ -157,12 +206,29 @@ export default function LoginPage(props: LoginPageProps = {}) {
       <div className="lg:col-span-7 flex items-center justify-center p-6 sm:p-12 lg:p-16">
         <div className="w-full max-w-md space-y-8 bg-[#FFFFFF] p-8 sm:p-10 rounded-3xl border border-[#DECFC0] shadow-xl">
           <div className="space-y-2 text-start">
+            {customLogo && (
+              <div className="mb-3 flex items-center gap-2.5">
+                <img
+                  src={customLogo}
+                  alt={customCompany || "Logo"}
+                  className="h-9 w-auto max-w-[120px] rounded-lg object-contain border border-[#E6DCD2] p-1 bg-[#FAF6F0]"
+                  onError={(e) => { e.currentTarget.style.display = "none"; }}
+                />
+                {customCompany && (
+                  <span className="text-xs font-semibold text-[#77716E]">
+                    {customCompany}
+                  </span>
+                )}
+              </div>
+            )}
             <h1
               className={`text-2xl sm:text-3xl font-semibold text-[#262321] tracking-tight ${
                 isAr ? "font-serif-ar" : "font-serif-en"
               }`}
             >
-              {isAr ? "تسجيل الدخول" : "Sign In to Mizan"}
+              {customCompany
+                ? (isAr ? `تسجيل الدخول إلى ${customCompany}` : `Sign In to ${customCompany}`)
+                : (isAr ? "تسجيل الدخول" : "Sign In to Mizan")}
             </h1>
             <p className="text-xs sm:text-sm text-[#77716E]">
               {isAr
@@ -233,6 +299,7 @@ export default function LoginPage(props: LoginPageProps = {}) {
             <button
               type="submit"
               disabled={busy}
+              style={customPrimary ? { backgroundColor: customPrimary } : undefined}
               className="w-full rounded-full bg-[#651E2C] hover:bg-[#521723] text-[#FAF6F0] py-3 text-sm font-semibold shadow-md transition-all flex items-center justify-center gap-2 hover:scale-[1.01] disabled:opacity-50"
             >
               {busy ? (
@@ -246,12 +313,30 @@ export default function LoginPage(props: LoginPageProps = {}) {
             </button>
           </form>
 
-          <div className="pt-4 border-t border-[#E6DCD2] text-center text-xs text-[#77716E]">
-            <span>{isAr ? "ليس لديك حساب بعد؟" : "Don't have an account yet?"} </span>
-            <Link to="/signup" className="font-semibold text-[#651E2C] hover:underline">
-              {isAr ? "أنشئ حساباً جديداً مجاناً" : "Start 14-day free trial"}
-            </Link>
-          </div>
+          {customSupport && (
+            <div className="p-3.5 rounded-2xl bg-[#FAF6F0] border border-[#DECFC0] text-xs text-center space-y-1">
+              <span className="font-semibold text-[#262321]">
+                {isAr ? "للدعم الفني والمساعدة:" : "Need Help & Support?"}
+              </span>
+              <p className="text-[#651E2C] font-mono select-all dir-ltr font-semibold">{customSupport}</p>
+            </div>
+          )}
+
+          {isCustomPortal ? (
+            showPoweredBy && (
+              <div className="pt-4 border-t border-[#E6DCD2] flex items-center justify-center gap-2 text-xs text-[#77716E]/70 font-mono">
+                <MizanLogo size="sm" variant="icon" theme="light" />
+                <span>{isAr ? "مشغّل بواسطة منصة ميزان ERP" : "Powered by Mizan ERP Engine"}</span>
+              </div>
+            )
+          ) : (
+            <div className="pt-4 border-t border-[#E6DCD2] text-center text-xs text-[#77716E]">
+              <span>{isAr ? "ليس لديك حساب بعد؟" : "Don't have an account yet?"} </span>
+              <Link to="/signup" className="font-semibold text-[#651E2C] hover:underline">
+                {isAr ? "أنشئ حساباً جديداً مجاناً" : "Start 14-day free trial"}
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </div>

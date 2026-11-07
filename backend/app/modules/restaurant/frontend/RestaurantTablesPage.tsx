@@ -323,7 +323,7 @@ export default function RestaurantTablesPage() {
                             isOccupied
                               ? "bg-amber-500 text-white"
                               : isReserved
-                              ? "bg-blue-600 text-white"
+                              ? "bg-primary text-primary-foreground"
                               : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                           }`}
                         >

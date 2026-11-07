@@ -493,7 +493,7 @@ export default function OilGasPage() {
                 sound.click();
                 setIsTankModalOpen(true);
               }}
-              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Plus className="h-4 w-4" />
               إضافة خزان تخزين
@@ -692,7 +692,7 @@ export default function OilGasPage() {
             }}
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
               activeTab === "tanks"
-                ? "bg-blue-600 text-white shadow-sm"
+                ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
             }`}
           >
@@ -1530,7 +1530,7 @@ export default function OilGasPage() {
                 <Button type="button" variant="outline" onClick={() => setIsTankModalOpen(false)}>
                   إلغاء
                 </Button>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   حفظ الخزان
                 </Button>
               </div>

@@ -438,13 +438,13 @@ export default function GymFitnessPage() {
 
         <Card className="p-4 bg-card/60 backdrop-blur border-border/50">
           <div className="flex items-center gap-2 text-muted-foreground mb-1 text-xs">
-            <Calendar className="h-4 w-4 text-teal-500" />
+            <Calendar className="h-4 w-4 text-primary" />
             كلاسات مجدولة
           </div>
           {isSummaryLoading ? (
             <Skeleton className="h-7 w-16" />
           ) : (
-            <div className="text-2xl font-mono font-bold text-teal-500">
+            <div className="text-2xl font-mono font-bold text-primary">
               {summary?.classes_scheduled_count || 0}
             </div>
           )}

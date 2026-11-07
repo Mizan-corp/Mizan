@@ -416,7 +416,7 @@ export default function EntertainmentPage() {
                 sound.click();
                 setIsCardModalOpen(true);
               }}
-              className="gap-2 bg-cyan-600 hover:bg-cyan-700 text-white"
+              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Plus className="h-4 w-4" />
               إصدار بطاقة ألعاب RFID
@@ -579,7 +579,7 @@ export default function EntertainmentPage() {
             }}
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all ${
               activeTab === "cards"
-                ? "bg-cyan-600 text-white shadow-sm"
+                ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
             }`}
           >
@@ -1225,7 +1225,7 @@ export default function EntertainmentPage() {
                 <Button type="button" variant="outline" onClick={() => setIsCardModalOpen(false)}>
                   إلغاء
                 </Button>
-                <Button type="submit" className="bg-cyan-600 hover:bg-cyan-700 text-white">
+                <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   شحن وتسليم البطاقة
                 </Button>
               </div>

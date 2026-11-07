@@ -322,7 +322,7 @@ export default function BankingPage() {
                 sound.click();
                 setIsAccountModalOpen(true);
               }}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Plus className="ml-2 h-4 w-4" />
               فتح حساب مصرفي (CIF)
@@ -339,7 +339,7 @@ export default function BankingPage() {
                 }
                 setIsTxnModalOpen(true);
               }}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Plus className="ml-2 h-4 w-4" />
               قيد معاملة مصرفية
@@ -353,7 +353,7 @@ export default function BankingPage() {
                 sound.click();
                 setIsLoanModalOpen(true);
               }}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Plus className="ml-2 h-4 w-4" />
               طلب تسهيل ائتماني
@@ -370,7 +370,7 @@ export default function BankingPage() {
                 }
                 setIsAlertModalOpen(true);
               }}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Plus className="ml-2 h-4 w-4" />
               تسجيل إشعار AML
@@ -494,7 +494,7 @@ export default function BankingPage() {
             }}
             className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
               activeTab === "accounts"
-                ? "bg-blue-600 text-white"
+                ? "bg-primary text-primary-foreground"
                 : "bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
             }`}
           >
@@ -509,7 +509,7 @@ export default function BankingPage() {
             }}
             className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
               activeTab === "transactions"
-                ? "bg-blue-600 text-white"
+                ? "bg-primary text-primary-foreground"
                 : "bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
             }`}
           >
@@ -524,7 +524,7 @@ export default function BankingPage() {
             }}
             className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
               activeTab === "loans"
-                ? "bg-blue-600 text-white"
+                ? "bg-primary text-primary-foreground"
                 : "bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
             }`}
           >
@@ -539,7 +539,7 @@ export default function BankingPage() {
             }}
             className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
               activeTab === "compliance"
-                ? "bg-blue-600 text-white"
+                ? "bg-primary text-primary-foreground"
                 : "bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
             }`}
           >
@@ -1068,7 +1068,7 @@ export default function BankingPage() {
                 <Button type="button" variant="outline" onClick={() => setIsAccountModalOpen(false)}>
                   إلغاء
                 </Button>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   فتح الحساب
                 </Button>
               </div>
@@ -1175,7 +1175,7 @@ export default function BankingPage() {
                 <Button type="button" variant="outline" onClick={() => setIsTxnModalOpen(false)}>
                   إلغاء
                 </Button>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   قيد الحركة
                 </Button>
               </div>
@@ -1325,7 +1325,7 @@ export default function BankingPage() {
                 <Button type="button" variant="outline" onClick={() => setIsLoanModalOpen(false)}>
                   إلغاء
                 </Button>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   اعتماد وصرف القرض
                 </Button>
               </div>

@@ -557,7 +557,7 @@ export default function EcommerceHubPage() {
                         <Button
                           size="sm"
                           onClick={() => handlePackOrder(ord.id)}
-                          className="text-xs h-7 px-2.5 bg-blue-600 hover:bg-blue-500 text-white gap-1"
+                          className="text-xs h-7 px-2.5 bg-primary hover:bg-primary/90 text-primary-foreground gap-1"
                         >
                           <Package className="w-3.5 h-3.5" />
                           تغليف وتوليد بوليصة

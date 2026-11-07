@@ -32,6 +32,8 @@ from app.models.billing import BillingInvoice
 from app.models.user import User
 from app.models.warehouse import Warehouse
 from app.services import auth_service
+from app.services.admoon_service import admoon_service
+from app.services.licensing_service import licensing_service
 from app.services.demo_seed import seed_demo
 from admoon.audit import audit_service
 from admoon.backup import backup_service
@@ -130,11 +132,42 @@ async def resolve_tenant_slug(slug_or_domain: str, db: AsyncSession = Depends(ge
         )
 
     from app.api.routers.platform import SECTOR_PRIMARY_MODULES, SECTOR_PRIMARY_ROUTES
+    from app.models.settings import StoreSetting
+
     active_mods = tenant.active_modules
     if not active_mods or active_mods == ["pos", "inventory"]:
         active_mods = SECTOR_PRIMARY_MODULES.get(tenant.sector, ["pos", "inventory", "finance"])
 
     primary_route = SECTOR_PRIMARY_ROUTES.get(tenant.sector, "/pos")
+
+    s_rows = (await db.execute(
+        select(StoreSetting).where(
+            StoreSetting.tenant_id == tenant.id,
+            StoreSetting.key.in_([
+                "store_name",
+                "logo_url",
+                "login_title",
+                "login_subtitle",
+                "login_cover_url",
+                "login_support_contact",
+                "theme_primary",
+                "theme_color",
+                "login_show_powered_by",
+            ])
+        )
+    )).scalars().all()
+    s_map = {row.key: row.value for row in s_rows}
+
+    login_config = {
+        "company_name": s_map.get("store_name") or tenant.name,
+        "logo_url": s_map.get("logo_url") or (tenant.palette or {}).get("logo_url"),
+        "login_title": s_map.get("login_title") or (tenant.palette or {}).get("login_title"),
+        "login_subtitle": s_map.get("login_subtitle") or (tenant.palette or {}).get("login_subtitle"),
+        "cover_url": s_map.get("login_cover_url") or (tenant.palette or {}).get("login_cover_url"),
+        "support_contact": s_map.get("login_support_contact") or (tenant.palette or {}).get("support_contact"),
+        "primary_color": s_map.get("theme_primary") or s_map.get("theme_color") or (tenant.palette or {}).get("primary"),
+        "show_powered_by": s_map.get("login_show_powered_by", "true") != "false",
+    }
 
     return {
         "id": str(tenant.id),
@@ -150,6 +183,7 @@ async def resolve_tenant_slug(slug_or_domain: str, db: AsyncSession = Depends(ge
         "deployment_mode": tenant.deployment_mode,
         "active_modules": active_mods,
         "limits": tenant.limits,
+        "login_config": login_config,
     }
 
 
@@ -162,55 +196,7 @@ async def get_admoon_overview(
     _superadmin: User = Depends(require_superadmin),
 ):
     """Aggregate KPIs across all client companies, tech stack footprints, and business sectors."""
-    total_tenants = (await db.execute(select(func.count(Tenant.id)))).scalar() or 0
-    active_tenants = (
-        await db.execute(select(func.count(Tenant.id)).where(Tenant.status == "active"))
-    ).scalar() or 0
-    trial_tenants = (
-        await db.execute(select(func.count(Tenant.id)).where(Tenant.status == "trial"))
-    ).scalar() or 0
-    suspended_tenants = (
-        await db.execute(select(func.count(Tenant.id)).where(Tenant.status == "suspended"))
-    ).scalar() or 0
-
-    total_users = (await db.execute(select(func.count(User.id)))).scalar() or 0
-    total_sales = (await db.execute(select(func.count(Sale.id)))).scalar() or 0
-    total_sales_volume = (await db.execute(select(func.coalesce(func.sum(Sale.net_total), 0)))).scalar() or 0
-    total_products = (await db.execute(select(func.count(Product.id)))).scalar() or 0
-
-    # Deployment mode breakdown
-    modes_res = (
-        await db.execute(select(Tenant.deployment_mode, func.count(Tenant.id)).group_by(Tenant.deployment_mode))
-    ).all()
-    deployment_modes = {mode or "cloud_saas": count for mode, count in modes_res}
-
-    # Business sector breakdown
-    sectors_res = (
-        await db.execute(select(Tenant.business_type, func.count(Tenant.id)).group_by(Tenant.business_type))
-    ).all()
-    business_types = {btype or "retail": count for btype, count in sectors_res}
-
-    # Plans breakdown
-    plans_res = (await db.execute(select(Tenant.plan, func.count(Tenant.id)).group_by(Tenant.plan))).all()
-    plans = {plan or "trial": count for plan, count in plans_res}
-
-    return {
-        "kpis": {
-            "total_tenants": total_tenants,
-            "active_tenants": active_tenants,
-            "trial_tenants": trial_tenants,
-            "suspended_tenants": suspended_tenants,
-            "total_users": total_users,
-            "total_sales": total_sales,
-            "total_sales_volume_egp": float(total_sales_volume),
-            "total_products": total_products,
-        },
-        "breakdowns": {
-            "deployment_modes": deployment_modes,
-            "business_types": business_types,
-            "plans": plans,
-        },
-    }
+    return await admoon_service.get_overview(db)
 
 
 # -------------------------------------------------------------------------
@@ -657,6 +643,7 @@ async def impersonate_tenant(
 async def generate_license_key(
     tenant_id: uuid.UUID,
     valid_days: int = Query(365, ge=30, le=3650),
+    hardware_fingerprint: str | None = Query(None, description="Optional hardware fingerprint hash"),
     db: AsyncSession = Depends(get_db),
     _superadmin: User = Depends(require_superadmin),
 ):
@@ -665,23 +652,17 @@ async def generate_license_key(
     if not tenant:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="المنشأة غير موجودة")
 
-    expires = datetime.now(UTC) + timedelta(days=valid_days)
-    payload = {
-        "v": 1,
-        "tenant_id": str(tenant.id),
-        "name": tenant.name,
-        "slug": tenant.slug,
-        "modules": tenant.active_modules or ["pos", "inventory"],
-        "max_branches": (tenant.limits or {}).get("max_branches", 3),
-        "max_users": (tenant.limits or {}).get("max_users", 10),
-        "issued_at": datetime.now(UTC).isoformat(),
-        "expires_at": expires.isoformat(),
-    }
-
-    raw = json.dumps(payload, sort_keys=True)
-    secret = settings.SECRET_KEY.encode()
-    signature = hashlib.sha256(raw.encode() + secret).hexdigest()[:32]
-    encoded_token = base64.b64encode(f"{raw}::{signature}".encode()).decode()
+    limits = tenant.limits or {}
+    encoded_token, payload, expires = licensing_service.generate_license(
+        tenant_id=tenant.id,
+        name=tenant.name,
+        slug=tenant.slug or f"tenant-{str(tenant.id)[:8]}",
+        modules=tenant.active_modules or ["pos", "inventory"],
+        valid_days=valid_days,
+        max_branches=limits.get("max_branches", 3),
+        max_users=limits.get("max_users", 10),
+        hardware_fingerprint=hardware_fingerprint,
+    )
 
     # Save generated license into tech_stack
     current_stack = dict(tenant.tech_stack or {})
@@ -750,35 +731,14 @@ async def clone_tenant(
     if collision:
         raise HTTPException(status_code=409, detail=f"الرابط '{new_slug}' مستخدم مسبقاً")
 
-    cloned_id = uuid.uuid4()
-    cloned = Tenant(
-        id=cloned_id,
-        name=new_name.strip(),
-        slug=new_slug.strip(),
-        sector=source.sector,
-        scale=source.scale,
-        business_type=source.business_type,
-        status="active",
-        plan=source.plan,
-        palette=source.palette,
-        deployment_mode=source.deployment_mode,
-        tech_stack=dict(source.tech_stack or {}),
-        active_modules=list(source.active_modules or []),
-        limits=dict(source.limits or {}),
-        trial_ends_at=datetime.now(UTC) + timedelta(days=30),
-    )
-    db.add(cloned)
-    await db.commit()
-
-    await audit_service.log_action(
+    cloned = await admoon_service.clone_tenant(
         db,
-        action="tenant_cloned",
-        platform_user_id=superadmin.id,
-        tenant_id=cloned_id,
-        details={"source_tenant_id": str(tenant_id), "cloned_slug": new_slug},
+        source=source,
+        new_name=new_name,
+        new_slug=new_slug,
+        superadmin_id=superadmin.id,
     )
-
-    return {"ok": True, "cloned_tenant_id": str(cloned_id), "slug": new_slug, "message": "تم استنساخ إعدادات المنشأة بنجاح"}
+    return {"ok": True, "cloned_tenant_id": str(cloned.id), "slug": new_slug, "message": "تم استنساخ إعدادات المنشأة بنجاح"}
 
 
 @router.post("/tenants/{tenant_id}/reset")
@@ -791,20 +751,7 @@ async def reset_tenant_environment(
     if not tenant:
         raise HTTPException(status_code=404, detail="المنشأة غير موجودة")
 
-    # Reset sales and non-core demo records while preserving catalog & users
-    await db.execute(text(f"DELETE FROM sales WHERE tenant_id = '{tenant_id}'"))
-    await db.execute(text(f"DELETE FROM expenses WHERE tenant_id = '{tenant_id}'"))
-    await db.execute(text(f"DELETE FROM shifts WHERE tenant_id = '{tenant_id}'"))
-    await db.commit()
-
-    await audit_service.log_action(
-        db,
-        action="tenant_reset",
-        platform_user_id=superadmin.id,
-        tenant_id=tenant_id,
-        details={"message": "Reset operational demo data"},
-    )
-
+    await admoon_service.reset_tenant_data(db, tenant=tenant, superadmin_id=superadmin.id)
     return {"ok": True, "message": f"تم تصفية وإعادة ضبط بيئة العمل لمنشأة '{tenant.name}'"}
 
 

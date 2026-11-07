@@ -244,6 +244,7 @@ async def signup(data: SignupRequest, request: Request, db: AsyncSession = Depen
         username=data.owner_username,
         full_name=data.owner_full_name.strip(),
         role="admin",
+        permissions=["*"],
         password_hash=hash_password(data.owner_password),
         tenant_id=tenant.id,
     )
@@ -393,3 +394,20 @@ async def wipe_demo(
             "suppliers": len(del_suppliers),
         },
     }
+
+
+class VerifyLicenseRequest(BaseModel):
+    license_key: str
+    hardware_fingerprint: str | None = None
+
+
+@router.post("/verify-license")
+async def verify_license(data: VerifyLicenseRequest):
+    """Verifies a digital offline/standalone license key."""
+    from app.services.licensing_service import LicensingService, LicenseVerificationError
+
+    try:
+        payload = LicensingService.verify_license(data.license_key, data.hardware_fingerprint)
+        return {"valid": True, "payload": payload}
+    except LicenseVerificationError as err:
+        raise HTTPException(status_code=400, detail=str(err))

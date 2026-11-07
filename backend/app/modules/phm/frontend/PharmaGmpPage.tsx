@@ -415,7 +415,7 @@ export default function PharmaGmpPage() {
                 sound.click();
                 setIsNewCipOpen(true);
               }}
-              className="gap-2 bg-cyan-600 hover:bg-cyan-700 text-white"
+              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Sparkles className="h-4 w-4" />
               محضر خلو خط CIP جديد
@@ -1575,7 +1575,7 @@ export default function PharmaGmpPage() {
                 <Button type="button" variant="outline" onClick={() => setIsNewCipOpen(false)}>
                   إلغاء
                 </Button>
-                <Button type="submit" className="bg-cyan-600 hover:bg-cyan-700 text-white">
+                <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   اعتماد خلو الخط والسماح بالتشغيل
                 </Button>
               </div>

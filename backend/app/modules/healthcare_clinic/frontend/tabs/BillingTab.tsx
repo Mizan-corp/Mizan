@@ -1,59 +1,92 @@
+import { useState } from "react";
 import { Badge } from "@/components/kit/badge";
 import { Button } from "@/components/kit/button";
-import { FileText } from "lucide-react";
+import { FileText, Printer } from "lucide-react";
 import { useClinic } from "../ClinicContext";
+import { ClinicInvoiceReceiptModal, type ClinicInvoiceReceiptData } from "@/features/modules/SpecializedReceiptModals";
 
 const moneyEGP = (amount: number) =>
   `${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
 
 export default function BillingTab() {
   const c = useClinic();
+  const [printData, setPrintData] = useState<ClinicInvoiceReceiptData | null>(null);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-            <FileText className="w-4 h-4 text-teal-400" />
+            <FileText className="size-4 text-primary" />
             فواتير الكشوفات والتحصيل (Billing &amp; Invoices)
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            إصدار فواتير الكشوفات، احتساب نسب التحمل (Copay)، وتسجيل المدفوعات
+            إصدار فواتير الكشوفات، احتساب نسب التحمل (Copay)، وتسجيل المدفوعات وطباعة الإيصالات
           </p>
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border/60">
+      <div className="overflow-x-auto rounded-xl border border-border/70 bg-card/80 shadow-xs">
         <table className="w-full text-xs">
-          <thead className="bg-muted/40">
+          <thead className="bg-muted/30 border-b border-border/60">
             <tr>
-              <th className="text-start py-2 px-3">رقم الفاتورة</th>
-              <th className="text-start py-2 px-3">المريض</th>
-              <th className="text-start py-2 px-3">المجموع</th>
-              <th className="text-start py-2 px-3">تحمل التأمين</th>
-              <th className="text-start py-2 px-3">تحمل المريض</th>
-              <th className="text-start py-2 px-3">المدفوع</th>
-              <th className="text-start py-2 px-3">الحالة</th>
-              <th className="text-start py-2 px-3">إجراء</th>
+              <th className="text-start py-2.5 px-3 font-semibold">رقم الفاتورة</th>
+              <th className="text-start py-2.5 px-3 font-semibold">المريض</th>
+              <th className="text-start py-2.5 px-3 font-semibold">المجموع</th>
+              <th className="text-start py-2.5 px-3 font-semibold">تحمل التأمين</th>
+              <th className="text-start py-2.5 px-3 font-semibold">تحمل المريض</th>
+              <th className="text-start py-2.5 px-3 font-semibold">المدفوع</th>
+              <th className="text-start py-2.5 px-3 font-semibold">الحالة</th>
+              <th className="text-start py-2.5 px-3 font-semibold">إجراء</th>
             </tr>
           </thead>
           <tbody>
             {c.invoicesData.map((inv: any) => (
-              <tr key={inv.id} className="border-t border-border/40">
-                <td className="py-2 px-3 font-mono">{inv.invoice_ref}</td>
-                <td className="py-2 px-3">{inv.patient_name}</td>
-                <td className="py-2 px-3 font-mono">{moneyEGP(inv.total)}</td>
-                <td className="py-2 px-3 font-mono">{moneyEGP(inv.insurance_amount)}</td>
-                <td className="py-2 px-3 font-mono">{moneyEGP(inv.patient_amount)}</td>
-                <td className="py-2 px-3 font-mono">{moneyEGP(inv.paid_amount)}</td>
-                <td className="py-2 px-3">
-                  <Badge variant={inv.status === "paid" ? "success" : "outline"}>{inv.status}</Badge>
+              <tr key={inv.id} className="border-t border-border/40 hover:bg-primary/[0.03] transition-colors">
+                <td className="py-2.5 px-3 num font-bold text-foreground">{inv.invoice_ref}</td>
+                <td className="py-2.5 px-3 font-medium text-foreground">{inv.patient_name}</td>
+                <td className="py-2.5 px-3 num font-semibold">{moneyEGP(inv.total)}</td>
+                <td className="py-2.5 px-3 num text-muted-foreground">{moneyEGP(inv.insurance_amount)}</td>
+                <td className="py-2.5 px-3 num font-semibold text-primary">{moneyEGP(inv.patient_amount)}</td>
+                <td className="py-2.5 px-3 num font-semibold text-emerald-700 dark:text-emerald-400">{moneyEGP(inv.paid_amount)}</td>
+                <td className="py-2.5 px-3">
+                  <Badge variant={inv.status === "paid" ? "success" : "outline"} className="text-[10px]">{inv.status}</Badge>
                 </td>
-                <td className="py-2 px-3">
-                  {inv.status !== "paid" && (
-                    <Button size="sm" onClick={() => c.handlePayInvoice(inv)} className="text-xs h-7">
-                      تسجيل دفع
+                <td className="py-2.5 px-3">
+                  <div className="flex items-center gap-1.5">
+                    {inv.status !== "paid" && (
+                      <Button size="sm" onClick={() => c.handlePayInvoice(inv)} className="text-xs h-7 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+                        تسجيل دفع
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setPrintData({
+                          invoice_no: inv.invoice_ref || `INV-${String(inv.id).slice(0, 8)}`,
+                          patient_name: inv.patient_name || "مريض عام",
+                          doctor_name: "د. استشاري العيادة",
+                          copay_percentage: inv.insurance_amount > 0 && inv.total > 0 ? Math.round((inv.patient_amount / inv.total) * 100) : 100,
+                          items: [
+                            {
+                              description: "كشف واستشارة طبية سريرية",
+                              qty: 1,
+                              unit_price: Number(inv.total),
+                              total: Number(inv.total),
+                            },
+                          ],
+                          total_amount: Number(inv.total),
+                          insurance_covered: Number(inv.insurance_amount || 0),
+                          patient_paid: Number(inv.paid_amount || inv.patient_amount || 0),
+                        });
+                      }}
+                      className="text-xs h-7 gap-1 font-semibold"
+                    >
+                      <Printer className="size-3" />
+                      طباعة
                     </Button>
-                  )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -67,6 +100,12 @@ export default function BillingTab() {
           </tbody>
         </table>
       </div>
+
+      <ClinicInvoiceReceiptModal
+        open={!!printData}
+        onClose={() => setPrintData(null)}
+        data={printData}
+      />
     </div>
   );
 }
