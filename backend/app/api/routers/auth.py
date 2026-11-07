@@ -81,13 +81,17 @@ async def me(current_user: User = Depends(get_current_user), db: AsyncSession = 
                 "trial_ends_at": t.trial_ends_at.isoformat() if t.trial_ends_at else None,
             }
 
+    perms = list(user.permissions or [])
+    if (user.role in ("admin", "owner") or user.is_superadmin) and "*" not in perms:
+        perms.append("*")
+
     return {
         "id": str(user.id),
         "username": user.username,
         "full_name": user.full_name,
         "role": user.role,
         "tenant_id": str(user.tenant_id) if user.tenant_id else None,
-        "permissions": user.permissions or [],
+        "permissions": perms,
         "is_manager": bool(user.is_manager) if user.is_manager is not None else False,
         "is_superadmin": bool(user.is_superadmin),
         "default_warehouse_id": str(user.default_warehouse_id) if user.default_warehouse_id else None,
