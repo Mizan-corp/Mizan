@@ -382,7 +382,7 @@ export default function LogisticsFleetPage() {
                 sound.click();
                 setIsAddingConsignment(true);
               }}
-              className="gap-2 bg-blue-600 hover:bg-blue-500 text-white shadow-sm"
+              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
             >
               <Plus className="w-4 h-4" />
               إصدار بوليصة شحن AWB
@@ -394,7 +394,7 @@ export default function LogisticsFleetPage() {
                 sound.click();
                 setIsAddingVehicle(true);
               }}
-              className="gap-2 bg-blue-600 hover:bg-blue-500 text-white shadow-sm"
+              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
             >
               <Plus className="w-4 h-4" />
               تسجيل مركبة بالأسطول
@@ -1093,7 +1093,7 @@ export default function LogisticsFleetPage() {
             <Button type="button" variant="ghost" onClick={() => setIsAddingConsignment(false)}>
               إلغاء
             </Button>
-            <Button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white">
+            <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
               إصدار بوليصة AWB
             </Button>
           </div>
@@ -1156,7 +1156,7 @@ export default function LogisticsFleetPage() {
             <Button type="button" variant="ghost" onClick={() => setIsAddingVehicle(false)}>
               إلغاء
             </Button>
-            <Button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white">
+            <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
               حفظ المركبة
             </Button>
           </div>

@@ -398,7 +398,7 @@ export default function PrintingPackagingPage() {
                 }
                 setIsNewFinishingOpen(true);
               }}
-              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Scissors className="h-4 w-4" />
               توثيق تشطيب وتكسير
@@ -1551,7 +1551,7 @@ export default function PrintingPackagingPage() {
                 <Button type="button" variant="outline" onClick={() => setIsNewFinishingOpen(false)}>
                   إلغاء
                 </Button>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   حفظ سجل التشطيب
                 </Button>
               </div>

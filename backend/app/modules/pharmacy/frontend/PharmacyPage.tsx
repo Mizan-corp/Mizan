@@ -340,7 +340,7 @@ export default function PharmacyPage() {
       {/* Header Banner */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-5">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-teal-600 dark:text-teal-400">
+          <div className="flex items-center gap-2 text-xs font-semibold text-primary">
             <Pill className="size-4" />
             <span>نظام الصيدليات وإدارة الأدوية السريرية (PHA-01..12)</span>
           </div>
@@ -378,7 +378,7 @@ export default function PharmacyPage() {
           </Button>
 
           <Button
-            className="h-9 gap-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs"
+            className="h-9 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow-xs"
             onClick={() => {
               sound.click();
               setIsDispenseOpen(true);
@@ -395,7 +395,7 @@ export default function PharmacyPage() {
         <Card className="p-4 border-border/70">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-medium">أصناف الأدوية</span>
-            <Pill className="size-4 text-teal-600" />
+            <Pill className="size-4 text-primary" />
           </div>
           <div className="mt-2 text-2xl font-bold num text-foreground">
             {summaryQuery.isLoading ? <Skeleton className="h-7 w-12" /> : summary?.total_drugs ?? 0}
@@ -457,7 +457,7 @@ export default function PharmacyPage() {
           }}
           className={`flex items-center gap-2 border-b-2 px-4 py-2.5 transition-colors ${
             activeTab === "formulary"
-              ? "border-teal-600 font-bold text-teal-600 dark:text-teal-400"
+              ? "border-primary font-bold text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -472,7 +472,7 @@ export default function PharmacyPage() {
           }}
           className={`flex items-center gap-2 border-b-2 px-4 py-2.5 transition-colors ${
             activeTab === "dispensing"
-              ? "border-teal-600 font-bold text-teal-600 dark:text-teal-400"
+              ? "border-primary font-bold text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -487,7 +487,7 @@ export default function PharmacyPage() {
           }}
           className={`flex items-center gap-2 border-b-2 px-4 py-2.5 transition-colors ${
             activeTab === "batches"
-              ? "border-teal-600 font-bold text-teal-600 dark:text-teal-400"
+              ? "border-primary font-bold text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
@@ -523,7 +523,7 @@ export default function PharmacyPage() {
                 placeholder="ابحث بالاسم التجاري، الاسم العلمي (INN)، أو الباركود..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-lg border border-border bg-background py-2 pr-9 pl-4 text-xs focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                className="w-full rounded-lg border border-border bg-background py-2 pr-9 pl-4 text-xs focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
               />
             </div>
 
@@ -594,7 +594,7 @@ export default function PharmacyPage() {
                         </td>
                         <td className="p-3">{drug.dosage_form}</td>
                         <td className="p-3 font-mono text-[11px]">{drug.strength || "—"}</td>
-                        <td className="p-3 font-bold num text-teal-600 dark:text-teal-400">
+                        <td className="p-3 font-bold num text-primary">
                           {moneyEGP(drug.unit_price)}
                         </td>
                         <td className="p-3">
@@ -611,7 +611,7 @@ export default function PharmacyPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-7 gap-1 text-[11px] border-teal-500/30 bg-teal-500/5 text-teal-700 dark:text-teal-300 hover:bg-teal-500/10"
+                              className="h-7 gap-1 text-[11px] border-primary/30 bg-primary/5 text-primary hover:bg-primary/10"
                               onClick={() => {
                                 sound.click();
                                 setSelectedDrugForAlt(drug);
@@ -628,7 +628,7 @@ export default function PharmacyPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 text-[11px] gap-1 text-teal-600 hover:text-teal-700"
+                            className="h-7 text-[11px] gap-1 text-primary hover:text-primary/80"
                             onClick={() => {
                               sound.click();
                               setDispenseForm((prev) => ({ ...prev, drug_id: drug.id }));
@@ -655,7 +655,7 @@ export default function PharmacyPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-foreground">سجل الروشتات والتذاكر المصروفة</h2>
             <Button
-              className="h-8 gap-1.5 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs"
+              className="h-8 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs"
               onClick={() => {
                 sound.click();
                 setIsDispenseOpen(true);
@@ -699,7 +699,7 @@ export default function PharmacyPage() {
                   ) : (
                     prescriptionsQuery.data?.map((rx) => (
                       <tr key={rx.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="p-3 font-mono font-bold text-teal-600 dark:text-teal-400">
+                        <td className="p-3 font-mono font-bold text-primary">
                           {rx.rx_number}
                         </td>
                         <td className="p-3 font-bold text-foreground">{rx.patient_name}</td>
@@ -707,7 +707,7 @@ export default function PharmacyPage() {
                         <td className="p-3">{rx.insurance_company || "نقدي (بدون تأمين)"}</td>
                         <td className="p-3 font-mono">{rx.copay_percentage}%</td>
                         <td className="p-3 font-bold num">{moneyEGP(rx.total_amount)}</td>
-                        <td className="p-3 font-bold num text-teal-600 dark:text-teal-400">
+                        <td className="p-3 font-bold num text-primary">
                           {moneyEGP(rx.patient_paid)}
                         </td>
                         <td className="p-3 font-bold num text-blue-600 dark:text-blue-400">
@@ -940,7 +940,7 @@ export default function PharmacyPage() {
 
             <div className="space-y-2">
               <h5 className="font-bold text-foreground flex items-center gap-1.5">
-                <Sparkles className="size-3.5 text-teal-600" />
+                <Sparkles className="size-3.5 text-primary" />
                 <span>البدائل الجنيسة المتاحة المطابقة لنفس المادة الفعالة:</span>
               </h5>
 
@@ -958,7 +958,7 @@ export default function PharmacyPage() {
                   {alternativesQuery.data?.alternatives.map((alt) => (
                     <div
                       key={alt.id}
-                      className="flex items-center justify-between rounded-xl border border-border/80 bg-card p-3 shadow-2xs hover:border-teal-500/40 transition-colors"
+                      className="flex items-center justify-between rounded-xl border border-border/80 bg-card p-3 shadow-2xs hover:border-primary/40 transition-colors"
                     >
                       <div>
                         <div className="flex items-center gap-2">
@@ -1032,7 +1032,7 @@ export default function PharmacyPage() {
                 placeholder="أحمد محمد السيد"
                 value={dispenseForm.patient_name}
                 onChange={(e) => setDispenseForm({ ...dispenseForm, patient_name: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1043,7 +1043,7 @@ export default function PharmacyPage() {
                 placeholder="010XXXXXXXX"
                 value={dispenseForm.patient_phone}
                 onChange={(e) => setDispenseForm({ ...dispenseForm, patient_phone: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1055,7 +1055,7 @@ export default function PharmacyPage() {
                 placeholder="د. طارق العوضي"
                 value={dispenseForm.doctor_name}
                 onChange={(e) => setDispenseForm({ ...dispenseForm, doctor_name: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1066,7 +1066,7 @@ export default function PharmacyPage() {
                 placeholder="MED-12345"
                 value={dispenseForm.doctor_license}
                 onChange={(e) => setDispenseForm({ ...dispenseForm, doctor_license: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1077,7 +1077,7 @@ export default function PharmacyPage() {
                 placeholder="ارتفاع ضغط دم مزمن، حساسية صدرية، التهاب..."
                 value={dispenseForm.diagnosis}
                 onChange={(e) => setDispenseForm({ ...dispenseForm, diagnosis: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1088,7 +1088,7 @@ export default function PharmacyPage() {
                 placeholder="بوبا، كير بلس، متلايف، نقابة المهندسين..."
                 value={dispenseForm.insurance_company}
                 onChange={(e) => setDispenseForm({ ...dispenseForm, insurance_company: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1102,7 +1102,7 @@ export default function PharmacyPage() {
                 onChange={(e) =>
                   setDispenseForm({ ...dispenseForm, copay_percentage: Number(e.target.value) })
                 }
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1112,7 +1112,7 @@ export default function PharmacyPage() {
                 required
                 value={dispenseForm.drug_id}
                 onChange={(e) => setDispenseForm({ ...dispenseForm, drug_id: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               >
                 <option value="">اختر الدواء من الدليل...</option>
                 {drugsQuery.data?.map((d) => (
@@ -1132,7 +1132,7 @@ export default function PharmacyPage() {
                 required
                 value={dispenseForm.quantity}
                 onChange={(e) => setDispenseForm({ ...dispenseForm, quantity: Number(e.target.value) })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1159,7 +1159,7 @@ export default function PharmacyPage() {
 
           {/* Pricing & Co-Pay Preview */}
           {dispenseForm.drug_id && (
-            <div className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-3 space-y-1">
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-1">
               <div className="flex justify-between font-medium text-muted-foreground">
                 <span>القيمة الكلية للدواء:</span>
                 <span className="font-bold num text-foreground">{moneyEGP(calculatedTotal)}</span>
@@ -1168,7 +1168,7 @@ export default function PharmacyPage() {
                 <span>تغطية التأمين ({100 - dispenseForm.copay_percentage}%):</span>
                 <span className="font-bold num">-{moneyEGP(calculatedInsurance)}</span>
               </div>
-              <div className="flex justify-between border-t border-teal-500/20 pt-1.5 font-black text-teal-700 dark:text-teal-400 text-sm">
+              <div className="flex justify-between border-t border-primary/20 pt-1.5 font-black text-primary text-sm">
                 <span>المطلوب تحصيله من المريض نقداً:</span>
                 <span className="num">{moneyEGP(calculatedPatientPaid)}</span>
               </div>
@@ -1187,7 +1187,7 @@ export default function PharmacyPage() {
             <Button
               type="submit"
               disabled={dispenseMutation.isPending}
-              className="flex-1 h-9 font-bold text-xs bg-teal-600 hover:bg-teal-700 text-white"
+              className="flex-1 h-9 font-bold text-xs bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               {dispenseMutation.isPending ? "جارٍ الصرف وخصم المخزون..." : "تأكيد الصرف وطباعة الإيصال"}
             </Button>
@@ -1217,7 +1217,7 @@ export default function PharmacyPage() {
                 placeholder="DRG-2001"
                 value={newDrug.code}
                 onChange={(e) => setNewDrug({ ...newDrug, code: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-mono focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-mono focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1229,7 +1229,7 @@ export default function PharmacyPage() {
                 placeholder="Cataflam 50mg"
                 value={newDrug.trade_name}
                 onChange={(e) => setNewDrug({ ...newDrug, trade_name: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1243,7 +1243,7 @@ export default function PharmacyPage() {
                 placeholder="Diclofenac Potassium"
                 value={newDrug.scientific_name}
                 onChange={(e) => setNewDrug({ ...newDrug, scientific_name: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1252,7 +1252,7 @@ export default function PharmacyPage() {
               <select
                 value={newDrug.dosage_form}
                 onChange={(e) => setNewDrug({ ...newDrug, dosage_form: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               >
                 <option value="أقراص">أقراص (Tablets)</option>
                 <option value="كبسولات">كبسولات (Capsules)</option>
@@ -1271,7 +1271,7 @@ export default function PharmacyPage() {
                 placeholder="50mg, 1000mg/ml"
                 value={newDrug.strength}
                 onChange={(e) => setNewDrug({ ...newDrug, strength: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1283,7 +1283,7 @@ export default function PharmacyPage() {
                 required
                 value={newDrug.unit_price}
                 onChange={(e) => setNewDrug({ ...newDrug, unit_price: Number(e.target.value) })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1294,7 +1294,7 @@ export default function PharmacyPage() {
                 placeholder="622100..."
                 value={newDrug.barcode}
                 onChange={(e) => setNewDrug({ ...newDrug, barcode: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-mono focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-mono focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1335,7 +1335,7 @@ export default function PharmacyPage() {
             <Button
               type="submit"
               disabled={createDrugMutation.isPending}
-              className="flex-1 h-9 font-bold text-xs bg-teal-600 hover:bg-teal-700 text-white"
+              className="flex-1 h-9 font-bold text-xs bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               {createDrugMutation.isPending ? "جارٍ الحفظ..." : "حفظ الدواء في الدليل"}
             </Button>
@@ -1362,7 +1362,7 @@ export default function PharmacyPage() {
               required
               value={newBatch.drug_id}
               onChange={(e) => setNewBatch({ ...newBatch, drug_id: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
             >
               <option value="">اختر الدواء...</option>
               {drugsQuery.data?.map((d) => (
@@ -1382,7 +1382,7 @@ export default function PharmacyPage() {
                 placeholder="AUG-2026-B12"
                 value={newBatch.batch_number}
                 onChange={(e) => setNewBatch({ ...newBatch, batch_number: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-mono focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-mono focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1393,7 +1393,7 @@ export default function PharmacyPage() {
                 required
                 value={newBatch.expiry_date}
                 onChange={(e) => setNewBatch({ ...newBatch, expiry_date: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-mono focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-mono focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1405,7 +1405,7 @@ export default function PharmacyPage() {
                 required
                 value={newBatch.quantity}
                 onChange={(e) => setNewBatch({ ...newBatch, quantity: Number(e.target.value) })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1419,7 +1419,7 @@ export default function PharmacyPage() {
                 onChange={(e) =>
                   setNewBatch({ ...newBatch, purchase_cost: Number(e.target.value) })
                 }
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               />
             </div>
 
@@ -1430,7 +1430,7 @@ export default function PharmacyPage() {
                 placeholder="الشركة المتحدة للتوزيع، ابن سينا فارما، فارما أوفرسيز..."
                 value={newBatch.supplier_name}
                 onChange={(e) => setNewBatch({ ...newBatch, supplier_name: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-teal-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs focus:border-primary focus:outline-none"
               />
             </div>
           </div>
@@ -1447,7 +1447,7 @@ export default function PharmacyPage() {
             <Button
               type="submit"
               disabled={createBatchMutation.isPending}
-              className="flex-1 h-9 font-bold text-xs bg-teal-600 hover:bg-teal-700 text-white"
+              className="flex-1 h-9 font-bold text-xs bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               {createBatchMutation.isPending ? "جارٍ التوريد..." : "تسجيل التشغيلة في المخزون"}
             </Button>

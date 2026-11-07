@@ -404,7 +404,7 @@ export default function ConstructionPage() {
                 }
                 setIsNewCoOpen(true);
               }}
-              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Plus className="h-4 w-4" />
               أمر تغيير تعاقدي (Change Order)
@@ -1381,7 +1381,7 @@ export default function ConstructionPage() {
                 <Button type="button" variant="outline" onClick={() => setIsNewCoOpen(false)}>
                   إلغاء
                 </Button>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">
                   حفظ واعتماد أمر التغيير
                 </Button>
               </div>
