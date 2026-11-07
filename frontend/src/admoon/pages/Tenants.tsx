@@ -63,6 +63,126 @@ interface TenantItem {
   };
 }
 
+interface TenantActionHandlers {
+  onImpersonate: (tenantId: string) => void;
+  onConfigure: (tenant: TenantItem) => void;
+  onGenerateLicense: (tenant: TenantItem) => void;
+  onSetStatus: (tenantId: string, status: string) => void;
+  onDelete: (tenant: TenantItem) => void;
+}
+
+function TenantActions({
+  tenant,
+  layout,
+  onImpersonate,
+  onConfigure,
+  onGenerateLicense,
+  onSetStatus,
+  onDelete,
+}: TenantActionHandlers & { tenant: TenantItem; layout: "table" | "card" }) {
+  const isCard = layout === "card";
+  const nextStatus = tenant.status === "active" ? "suspended" : "active";
+  const statusLabel = nextStatus === "suspended" ? "تعليق" : "تنشيط";
+
+  return (
+    <div className={`flex items-center gap-2 ${isCard ? "flex-wrap" : "justify-center gap-1.5"}`}>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => onImpersonate(tenant.id)}
+        className={`${isCard ? "h-8 px-2 text-xs" : "h-7 px-2 text-xs"} gap-1 font-semibold text-primary`}
+        title="الدخول الفوري كمدير لهذه الشركة"
+      >
+        <LogIn className="size-3.5" />
+        دخول
+      </Button>
+
+      <Button
+        size="sm"
+        variant={isCard ? "outline" : "ghost"}
+        onClick={() => onConfigure(tenant)}
+        className={`${isCard ? "h-8 gap-1 px-2 text-[11px]" : "h-8 w-8 p-0"} text-muted-foreground`}
+        aria-label={`تخصيص البنية التقنية لـ ${tenant.name}`}
+        title="تخصيص البنية التقنية ومحرك DB"
+      >
+        <Sliders className="size-3.5" />
+        {isCard && "التقنية"}
+      </Button>
+
+      <Button
+        size="sm"
+        variant={isCard ? "outline" : "ghost"}
+        onClick={() => onGenerateLicense(tenant)}
+        className={`${isCard ? "h-8 gap-1 px-2 text-[11px]" : "h-8 w-8 p-0"} text-purple-500`}
+        aria-label={`توليد ترخيص لـ ${tenant.name}`}
+        title="توليد ترخيص مكتبي"
+      >
+        <KeyRound className="size-3.5" />
+        {isCard && "ترخيص"}
+      </Button>
+
+      <Button
+        size="sm"
+        variant={isCard ? "outline" : "ghost"}
+        onClick={() => onSetStatus(tenant.id, nextStatus)}
+        className={`${isCard ? "h-8 gap-1 px-2 text-[11px]" : "h-8 w-8 p-0"} ${
+          tenant.status === "active" ? "text-amber-500" : "text-emerald-500"
+        }`}
+        aria-label={`${statusLabel} ${tenant.name}`}
+        title={tenant.status === "active" ? "تعليق المنشأة" : "تنشيط المنشأة"}
+      >
+        {tenant.status === "active" ? <PauseCircle className="size-3.5" /> : <PlayCircle className="size-3.5" />}
+        {isCard && statusLabel}
+      </Button>
+
+      <Button
+        size="sm"
+        variant="destructive"
+        onClick={() => onDelete(tenant)}
+        className={`${isCard ? "order-first" : ""} h-8 gap-1 px-2.5 font-semibold`}
+        aria-label={`حذف المنشأة ${tenant.name}`}
+        title={`حذف المنشأة ${tenant.name}`}
+      >
+        <Trash2 className="size-3.5" aria-hidden="true" />
+        <span>حذف</span>
+      </Button>
+    </div>
+  );
+}
+
+function TenantCard({
+  tenant,
+  ...actions
+}: TenantActionHandlers & { tenant: TenantItem }) {
+  return (
+    <article className="rounded-xl border border-border bg-card p-3 shadow-xs">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <Link to={`/admoon/tenants/${tenant.id}`} className="font-bold text-sm text-foreground hover:text-primary">
+            {tenant.name}
+          </Link>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            {tenant.business_type} · {tenant.slug ? `/${tenant.slug}` : tenant.id.slice(0, 8)}
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full border border-border px-2 py-1 text-[11px] font-semibold">
+          {tenant.status === "active" ? "نشط" : tenant.status === "trial" ? "تجريبي" : tenant.status === "suspended" ? "معلق" : tenant.status}
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <span>{tenant.stats?.users_count || 0} مستخدم</span>
+        <span>{tenant.stats?.products_count || 0} صنف</span>
+        <span className="font-semibold text-foreground">{formatCurrency(tenant.stats?.sales_volume_egp || 0)}</span>
+      </div>
+
+      <div className="mt-3 border-t border-border pt-3">
+        <TenantActions tenant={tenant} layout="card" {...actions} />
+      </div>
+    </article>
+  );
+}
+
 export default function Tenants() {
   const navigate = useNavigate();
   const [tenants, setTenants] = useState<TenantItem[]>([]);
@@ -229,9 +349,9 @@ export default function Tenants() {
       </div>
 
       {/* Main Tenants Table */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
+      <div className="hidden rounded-xl border border-border bg-card overflow-hidden shadow-xs md:block">
         <div className="overflow-x-auto">
-          <table className="w-full text-right text-xs">
+          <table className="w-full min-w-[1120px] text-right text-xs">
             <thead className="bg-muted/40 border-b border-border text-muted-foreground font-bold">
               <tr>
                 <th className="py-3 px-4">الشركة والرابط</th>
@@ -240,7 +360,7 @@ export default function Tenants() {
                 <th className="py-3 px-3">الوحدات النمطية</th>
                 <th className="py-3 px-3">المستخدمون والمبيعات</th>
                 <th className="py-3 px-3">الحالة</th>
-                <th className="py-3 px-4 text-center">إجراءات المالك</th>
+                <th className="py-3 px-4 text-center">إجراءات المنشأة</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -343,79 +463,46 @@ export default function Tenants() {
                   </td>
 
                   <td className="py-3 px-4">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleImpersonate(t.id)}
-                        className="h-7 px-2 text-xs text-primary hover:bg-primary/10 gap-1 font-semibold"
-                        title="الدخول الفوري كمدير لهذه الشركة"
-                      >
-                        <LogIn className="size-3.5" />
-                        دخول
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setSelectedTenant(t);
-                          setIsTechStackModalOpen(true);
-                        }}
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                        title="تخصيص البنية التقنية ومحرك DB"
-                      >
-                        <Sliders className="size-3.5" />
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleGenerateLicense(t)}
-                        className="h-7 w-7 p-0 text-purple-500 hover:bg-purple-500/10"
-                        title="توليد ترخيص مكتبي .exe"
-                      >
-                        <KeyRound className="size-3.5" />
-                      </Button>
-
-                      {t.status === "active" ? (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleSetStatus(t.id, "suspended")}
-                          className="h-7 w-7 p-0 text-amber-500 hover:bg-amber-500/10"
-                          title="تعليق المنشأة"
-                        >
-                          <PauseCircle className="size-3.5" />
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleSetStatus(t.id, "active")}
-                          className="h-7 w-7 p-0 text-emerald-500 hover:bg-emerald-500/10"
-                          title="تنشيط المنشأة"
-                        >
-                          <PlayCircle className="size-3.5" />
-                        </Button>
-                      )}
-
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setDeleteConfirmTarget(t)}
-                        className="h-7 w-7 p-0 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-                        title="حذف المنشأة"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    </div>
+                    <TenantActions
+                      tenant={t}
+                      layout="table"
+                      onImpersonate={handleImpersonate}
+                      onConfigure={(tenant) => {
+                        setSelectedTenant(tenant);
+                        setIsTechStackModalOpen(true);
+                      }}
+                      onGenerateLicense={handleGenerateLicense}
+                      onSetStatus={handleSetStatus}
+                      onDelete={setDeleteConfirmTarget}
+                    />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="space-y-3 md:hidden">
+        {filtered.map((t) => (
+          <TenantCard
+            key={t.id}
+            tenant={t}
+            onImpersonate={handleImpersonate}
+            onConfigure={(tenant) => {
+              setSelectedTenant(tenant);
+              setIsTechStackModalOpen(true);
+            }}
+            onGenerateLicense={handleGenerateLicense}
+            onSetStatus={handleSetStatus}
+            onDelete={setDeleteConfirmTarget}
+          />
+        ))}
+        {filtered.length === 0 && !loading && (
+          <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            لا توجد منشآت مطابقة
+          </p>
+        )}
       </div>
 
       {/* Delete Confirmation Dialog */}
@@ -434,7 +521,8 @@ export default function Tenants() {
 
             <p className="text-xs text-foreground/80 leading-relaxed">
               هل أنت متأكد من رغبتك في حذف منشأة{" "}
-              <strong className="text-foreground font-bold">"{deleteConfirmTarget.name}"</strong> (/{deleteConfirmTarget.slug})؟
+              <strong className="text-foreground font-bold">"{deleteConfirmTarget.name}"</strong>
+              {deleteConfirmTarget.slug && ` (/${deleteConfirmTarget.slug})`}؟
               سيتم حذف كافة البيانات والفواتير وحسابات المستخدمين التابعة لها.
             </p>
 

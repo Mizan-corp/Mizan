@@ -53,7 +53,7 @@ export default function AdmoonLayout() {
   const theme = useUiStore((s) => s.themeMode);
   const toggleTheme = useUiStore((s) => s.toggleThemeMode);
 
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => window.innerWidth < 768);
   const [tenants, setTenants] = useState<TenantQuickItem[]>([]);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [switcherSearch, setSwitcherSearch] = useState("");
@@ -66,8 +66,8 @@ export default function AdmoonLayout() {
   // Superadmin Gate State
   const [isForbidden, setIsForbidden] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [superUser, setSuperUser] = useState("ammar");
-  const [superPass, setSuperPass] = useState("changeme");
+  const [superUser, setSuperUser] = useState("");
+  const [superPass, setSuperPass] = useState("");
   const [authenticating, setAuthenticating] = useState(false);
 
   const verifySuperadmin = async () => {
@@ -212,8 +212,9 @@ export default function AdmoonLayout() {
             className="space-y-4 pt-1"
           >
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">اسم المستخدم للمالك</label>
+              <label htmlFor="admoon-username" className="block text-xs font-semibold text-foreground mb-1">اسم المستخدم للمالك</label>
               <input
+                id="admoon-username"
                 type="text"
                 value={superUser}
                 onChange={(e) => setSuperUser(e.target.value)}
@@ -222,8 +223,9 @@ export default function AdmoonLayout() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">كلمة المرور</label>
+              <label htmlFor="admoon-password" className="block text-xs font-semibold text-foreground mb-1">كلمة المرور</label>
               <input
+                id="admoon-password"
                 type="password"
                 value={superPass}
                 onChange={(e) => setSuperPass(e.target.value)}
@@ -237,15 +239,7 @@ export default function AdmoonLayout() {
               {authenticating ? "جارٍ التحقق..." : "مصادقة المالك الخارق والدخول"}
             </Button>
 
-            <div className="pt-2 border-t border-border/60 flex items-center justify-between text-xs">
-              <button
-                type="button"
-                onClick={() => handleSuperadminLogin("ammar", "changeme")}
-                disabled={authenticating}
-                className="text-primary hover:underline font-semibold"
-              >
-                دخول سريع كـ ammar (Superadmin)
-              </button>
+            <div className="pt-2 border-t border-border/60 flex items-center justify-end text-xs">
               <Link to="/" className="text-muted-foreground hover:text-foreground">
                 العودة للرئيسية
               </Link>
