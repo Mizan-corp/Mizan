@@ -59,8 +59,71 @@ class ModuleRegistry:
         self._routers: dict[str, APIRouter] = {}
         self._discovered = False
 
+    def _load_module_from_dir(self, entry: Path, parent_pkg: str | None = None) -> None:
+        """Parse manifest.json and mount router for a module directory."""
+        manifest_file = entry / "manifest.json"
+        if not manifest_file.exists():
+            return
+
+        try:
+            data = json.loads(manifest_file.read_text(encoding="utf-8"))
+            fields_raw = data.get("settings_schema", [])
+            settings_schema = [
+                SettingField(
+                    key=f["key"],
+                    label=f.get("label", f["key"]),
+                    type=f.get("type", "string"),
+                    default=f.get("default"),
+                    description=f.get("description", ""),
+                    options=f.get("options"),
+                )
+                for f in fields_raw
+            ]
+
+            manifest = ModuleManifest(
+                id=data["id"],
+                name=data["name"],
+                name_en=data.get("name_en", data["name"]),
+                category=data.get("category", parent_pkg or "general"),
+                version=data.get("version", "1.0.0"),
+                icon=data.get("icon", "Blocks"),
+                description=data.get("description", ""),
+                target_business_types=data.get("target_business_types", []),
+                dependencies=data.get("dependencies", []),
+                is_core=data.get("is_core", False),
+                badge=data.get("badge"),
+                nav_items=data.get("nav_items", []),
+                settings_schema=settings_schema,
+            )
+            self._manifests[manifest.id] = manifest
+            logger.info("Discovered module: %s v%s (path: %s)", manifest.id, manifest.version, entry)
+
+            # Dynamically load router.py if present (supports backend/ and flat layouts, top-level and nested)
+            pkg_prefix = f"app.modules.{parent_pkg}.{entry.name}" if parent_pkg else f"app.modules.{entry.name}"
+            router_backend = entry / "backend" / "router.py"
+            router_flat = entry / "router.py"
+            if router_backend.exists():
+                try:
+                    mod = importlib.import_module(f"{pkg_prefix}.backend.router")
+                    if hasattr(mod, "router") and isinstance(mod.router, APIRouter):
+                        self._routers[manifest.id] = mod.router
+                        logger.info("Mounted router for module: %s (%s.backend.router)", manifest.id, pkg_prefix)
+                except Exception as err:
+                    logger.error("Failed to load router for module %s: %s", manifest.id, err)
+            elif router_flat.exists():
+                try:
+                    mod = importlib.import_module(f"{pkg_prefix}.router")
+                    if hasattr(mod, "router") and isinstance(mod.router, APIRouter):
+                        self._routers[manifest.id] = mod.router
+                        logger.info("Mounted router for module: %s (%s.router)", manifest.id, pkg_prefix)
+                except Exception as err:
+                    logger.error("Failed to load router for module %s: %s", manifest.id, err)
+
+        except Exception as err:
+            logger.error("Failed to parse module manifest at %s: %s", manifest_file, err)
+
     def discover_modules(self) -> dict[str, ModuleManifest]:
-        """Scan directory for modules with manifest.json and load them."""
+        """Scan directory for modules with manifest.json and load them (both flat and nested business activity folders)."""
         if self._discovered:
             return self._manifests
 
@@ -69,64 +132,15 @@ class ModuleRegistry:
                 continue
 
             manifest_file = entry / "manifest.json"
-            if not manifest_file.exists():
-                continue
-
-            try:
-                data = json.loads(manifest_file.read_text(encoding="utf-8"))
-                fields_raw = data.get("settings_schema", [])
-                settings_schema = [
-                    SettingField(
-                        key=f["key"],
-                        label=f.get("label", f["key"]),
-                        type=f.get("type", "string"),
-                        default=f.get("default"),
-                        description=f.get("description", ""),
-                        options=f.get("options"),
-                    )
-                    for f in fields_raw
-                ]
-
-                manifest = ModuleManifest(
-                    id=data["id"],
-                    name=data["name"],
-                    name_en=data.get("name_en", data["name"]),
-                    category=data.get("category", "general"),
-                    version=data.get("version", "1.0.0"),
-                    icon=data.get("icon", "Blocks"),
-                    description=data.get("description", ""),
-                    target_business_types=data.get("target_business_types", []),
-                    dependencies=data.get("dependencies", []),
-                    is_core=data.get("is_core", False),
-                    badge=data.get("badge"),
-                    nav_items=data.get("nav_items", []),
-                    settings_schema=settings_schema,
-                )
-                self._manifests[manifest.id] = manifest
-                logger.info("Discovered module: %s v%s", manifest.id, manifest.version)
-
-                # Dynamically load router.py if present (supports both modular backend/ and flat layouts)
-                router_backend = entry / "backend" / "router.py"
-                router_flat = entry / "router.py"
-                if router_backend.exists():
-                    try:
-                        mod = importlib.import_module(f"app.modules.{entry.name}.backend.router")
-                        if hasattr(mod, "router") and isinstance(mod.router, APIRouter):
-                            self._routers[manifest.id] = mod.router
-                            logger.info("Mounted router for module: %s (backend/)", manifest.id)
-                    except Exception as err:
-                        logger.error("Failed to load router for module %s: %s", manifest.id, err)
-                elif router_flat.exists():
-                    try:
-                        mod = importlib.import_module(f"app.modules.{entry.name}.router")
-                        if hasattr(mod, "router") and isinstance(mod.router, APIRouter):
-                            self._routers[manifest.id] = mod.router
-                            logger.info("Mounted router for module: %s (flat)", manifest.id)
-                    except Exception as err:
-                        logger.error("Failed to load router for module %s: %s", manifest.id, err)
-
-            except Exception as err:
-                logger.error("Failed to parse module manifest at %s: %s", manifest_file, err)
+            if manifest_file.exists():
+                self._load_module_from_dir(entry)
+            else:
+                # Potential business activity category folder (e.g. healthcare, hospitality)
+                for sub_entry in entry.iterdir():
+                    if not sub_entry.is_dir() or sub_entry.name.startswith(("_", ".")):
+                        continue
+                    if (sub_entry / "manifest.json").exists():
+                        self._load_module_from_dir(sub_entry, parent_pkg=entry.name)
 
         self._discovered = True
         return self._manifests

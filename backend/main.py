@@ -58,6 +58,7 @@ import app.modules.logistics.models
 import app.modules.wms.models
 import app.modules.ecommerce.models
 import app.modules.healthcare_clinic.backend.models
+import app.modules.healthcare.models
 import app.modules.law.models
 import app.modules.travel.models
 import app.modules.hospitality.models

@@ -1,0 +1,35 @@
+{
+  "id": "hlt_hr_workforce",
+  "name": "الموارد البشرية والامتيازات السريرية",
+  "name_en": "HR & Clinical Workforce Management",
+  "category": "healthcare",
+  "version": "1.0.0",
+  "icon": "Briefcase",
+  "description": "تراخيص المزاولة الطبية، الامتيازات السريرية، ساعات التعليم الطبي المستمر (CME)، وتبادل الورديات.",
+  "target_business_types": [
+    "clinic",
+    "hospital",
+    "healthcare"
+  ],
+  "dependencies": [
+    "core"
+  ],
+  "is_core": false,
+  "badge": "HLT-19",
+  "nav_items": [
+    {
+      "label": "الموارد البشرية والامتيازات السريرية",
+      "path": "/clinic/hr_workforce",
+      "icon": "Briefcase"
+    }
+  ],
+  "settings_schema": [
+    {
+      "key": "hr_workforce_auto_notify",
+      "label": "إرسال إشعارات تلقائية",
+      "type": "boolean",
+      "default": true,
+      "description": "تفعيل تنبيهات النظام الطبية التلقائية"
+    }
+  ]
+}

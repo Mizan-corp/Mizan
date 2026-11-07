@@ -1,0 +1,35 @@
+{
+  "id": "hlt_nursing",
+  "name": "التمريض وسجل إعطاء الأدوية (MAR)",
+  "name_en": "Nursing Care & Medication Administration",
+  "category": "healthcare",
+  "version": "1.0.0",
+  "icon": "HeartPulse",
+  "description": "خطة الرعاية التمريضية، سجل إعطاء الدواء (MAR)، توازن السوائل، وتقارير تسليم الورديات.",
+  "target_business_types": [
+    "clinic",
+    "hospital",
+    "healthcare"
+  ],
+  "dependencies": [
+    "core"
+  ],
+  "is_core": false,
+  "badge": "HLT-09",
+  "nav_items": [
+    {
+      "label": "التمريض وسجل إعطاء الأدوية (MAR)",
+      "path": "/clinic/nursing",
+      "icon": "HeartPulse"
+    }
+  ],
+  "settings_schema": [
+    {
+      "key": "nursing_auto_notify",
+      "label": "إرسال إشعارات تلقائية",
+      "type": "boolean",
+      "default": true,
+      "description": "تفعيل تنبيهات النظام الطبية التلقائية"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "id": "hlt_patient_identity",
+  "name": "تسجيل وهوية المرضى (MPI)",
+  "name_en": "Patient Registration & Master Patient Index",
+  "category": "healthcare",
+  "version": "1.0.0",
+  "icon": "Users",
+  "description": "ملفات المرضى، الرقم الطبي الموحد (MRN)، الهوية الوطنية، فحص الازدواجية، ودمج السجلات.",
+  "target_business_types": [
+    "clinic",
+    "hospital",
+    "healthcare"
+  ],
+  "dependencies": [
+    "core"
+  ],
+  "is_core": false,
+  "badge": "HLT-02",
+  "nav_items": [
+    {
+      "label": "تسجيل وهوية المرضى (MPI)",
+      "path": "/clinic/patient_identity",
+      "icon": "Users"
+    }
+  ],
+  "settings_schema": [
+    {
+      "key": "patient_identity_auto_notify",
+      "label": "إرسال إشعارات تلقائية",
+      "type": "boolean",
+      "default": true,
+      "description": "تفعيل تنبيهات النظام الطبية التلقائية"
+    }
+  ]
+}

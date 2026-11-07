@@ -7,7 +7,7 @@ import subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
-COMPOSE = ["docker", "compose", "-f", str(ROOT / "docker-compose.yml")]
+COMPOSE = ["docker", "compose", "-p", "vendora", "-f", str(ROOT / "docker-compose.yml")]
 
 def split_statements(sql: str):
     """Split on top-level semicolons, respecting dollar-quoted blocks
@@ -1497,6 +1497,396 @@ MIGRATIONS = [
                         WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
                 END IF;
             END IF;
+        END $$;
+    """),
+    # v40 — Standalone Healthcare ERP 24 Modules tables and RLS enforcement
+    ("v40_healthcare_standalone_suite", """
+        CREATE TABLE IF NOT EXISTS hlt_facilities (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            name VARCHAR(150) NOT NULL,
+            name_en VARCHAR(150),
+            code VARCHAR(50) NOT NULL,
+            facility_type VARCHAR(50) DEFAULT 'clinic',
+            phone VARCHAR(50),
+            email VARCHAR(100),
+            license_no VARCHAR(100),
+            accreditation VARCHAR(100),
+            currency VARCHAR(10) DEFAULT 'SAR',
+            operating_hours JSONB,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_departments (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            facility_id INTEGER NOT NULL REFERENCES hlt_facilities(id) ON DELETE CASCADE,
+            name VARCHAR(100) NOT NULL,
+            name_en VARCHAR(100),
+            code VARCHAR(50) NOT NULL,
+            dept_type VARCHAR(50) DEFAULT 'outpatient',
+            floor VARCHAR(50),
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_patients (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            mrn VARCHAR(50) NOT NULL,
+            national_id VARCHAR(50),
+            first_name VARCHAR(100) NOT NULL,
+            last_name VARCHAR(100) NOT NULL,
+            date_of_birth DATE,
+            gender VARCHAR(20) DEFAULT 'unknown',
+            phone VARCHAR(50) NOT NULL,
+            email VARCHAR(100),
+            blood_group VARCHAR(10),
+            emergency_contact_name VARCHAR(100),
+            emergency_contact_phone VARCHAR(50),
+            guardian_name VARCHAR(100),
+            is_merged BOOLEAN DEFAULT FALSE,
+            merged_into_id INTEGER,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_appointments (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            appointment_number VARCHAR(50) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            doctor_id INTEGER NOT NULL,
+            department_id INTEGER,
+            service_type VARCHAR(50) DEFAULT 'consultation',
+            appointment_date DATE NOT NULL,
+            start_time VARCHAR(20) NOT NULL,
+            end_time VARCHAR(20),
+            status VARCHAR(30) DEFAULT 'scheduled',
+            cancellation_reason TEXT,
+            queue_number INTEGER,
+            notes TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_medical_staff (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            staff_type VARCHAR(50) DEFAULT 'physician',
+            first_name VARCHAR(100) NOT NULL,
+            last_name VARCHAR(100) NOT NULL,
+            specialty VARCHAR(100) NOT NULL,
+            license_number VARCHAR(100),
+            license_expiry DATE,
+            consultation_fee NUMERIC(10, 2) DEFAULT 0.0,
+            commission_rate NUMERIC(5, 2) DEFAULT 0.0,
+            phone VARCHAR(50),
+            email VARCHAR(100),
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_patient_vitals (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            patient_id INTEGER NOT NULL,
+            systolic_bp INTEGER,
+            diastolic_bp INTEGER,
+            pulse_rate INTEGER,
+            temperature NUMERIC(4, 1),
+            respiratory_rate INTEGER,
+            oxygen_saturation INTEGER,
+            height_cm NUMERIC(5, 1),
+            weight_kg NUMERIC(5, 1),
+            bmi NUMERIC(4, 1),
+            recorded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_patient_allergies (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            patient_id INTEGER NOT NULL,
+            allergen VARCHAR(150) NOT NULL,
+            allergy_type VARCHAR(50) DEFAULT 'medication',
+            severity VARCHAR(50) DEFAULT 'moderate',
+            reaction VARCHAR(200),
+            is_active BOOLEAN DEFAULT TRUE
+        );
+        CREATE TABLE IF NOT EXISTS hlt_clinical_encounters (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            encounter_number VARCHAR(50) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            doctor_id INTEGER NOT NULL,
+            chief_complaint TEXT NOT NULL,
+            examination TEXT,
+            diagnosis VARCHAR(255),
+            icd10_code VARCHAR(50),
+            treatment_plan TEXT,
+            status VARCHAR(30) DEFAULT 'draft',
+            signed_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_inpatient_admissions (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            admission_number VARCHAR(50) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            doctor_id INTEGER NOT NULL,
+            ward_id INTEGER,
+            bed_id INTEGER,
+            admission_date TIMESTAMPTZ NOT NULL DEFAULT now(),
+            discharge_date TIMESTAMPTZ,
+            admission_reason TEXT NOT NULL,
+            discharge_summary TEXT,
+            status VARCHAR(30) DEFAULT 'admitted'
+        );
+        CREATE TABLE IF NOT EXISTS hlt_hospital_wards (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            name VARCHAR(100) NOT NULL,
+            code VARCHAR(50) NOT NULL,
+            ward_type VARCHAR(50) DEFAULT 'general',
+            floor VARCHAR(50),
+            is_active BOOLEAN DEFAULT TRUE
+        );
+        CREATE TABLE IF NOT EXISTS hlt_hospital_beds (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            ward_id INTEGER NOT NULL REFERENCES hlt_hospital_wards(id) ON DELETE CASCADE,
+            bed_number VARCHAR(50) NOT NULL,
+            bed_type VARCHAR(50) DEFAULT 'standard',
+            daily_rate NUMERIC(10, 2) DEFAULT 0.0,
+            status VARCHAR(30) DEFAULT 'available',
+            current_patient_id INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS hlt_mar_records (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            patient_id INTEGER NOT NULL,
+            medication_name VARCHAR(150) NOT NULL,
+            dosage VARCHAR(50) NOT NULL,
+            route VARCHAR(30) DEFAULT 'oral',
+            scheduled_time VARCHAR(30) NOT NULL,
+            status VARCHAR(30) DEFAULT 'given',
+            nurse_notes TEXT,
+            administered_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_lab_catalog (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            code VARCHAR(50) NOT NULL,
+            name VARCHAR(150) NOT NULL,
+            category VARCHAR(50) DEFAULT 'biochemistry',
+            sample_type VARCHAR(50) DEFAULT 'blood',
+            unit VARCHAR(30),
+            normal_range VARCHAR(100),
+            price NUMERIC(10, 2) DEFAULT 0.0
+        );
+        CREATE TABLE IF NOT EXISTS hlt_lab_specimens (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            barcode VARCHAR(50) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            test_id INTEGER NOT NULL,
+            result_value VARCHAR(100),
+            is_abnormal BOOLEAN DEFAULT FALSE,
+            is_critical BOOLEAN DEFAULT FALSE,
+            status VARCHAR(30) DEFAULT 'collected',
+            completed_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_radiology_orders (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            order_number VARCHAR(50) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            doctor_id INTEGER NOT NULL,
+            modality VARCHAR(20) NOT NULL,
+            body_part VARCHAR(100) NOT NULL,
+            clinical_notes TEXT,
+            findings TEXT,
+            status VARCHAR(30) DEFAULT 'scheduled',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_pharmacy_formulary (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            code VARCHAR(50) NOT NULL,
+            trade_name VARCHAR(150) NOT NULL,
+            generic_name VARCHAR(150) NOT NULL,
+            dosage_form VARCHAR(50) DEFAULT 'tablet',
+            strength VARCHAR(50),
+            unit_price NUMERIC(10, 2) DEFAULT 0.0,
+            stock_qty INTEGER DEFAULT 0,
+            is_controlled BOOLEAN DEFAULT FALSE
+        );
+        CREATE TABLE IF NOT EXISTS hlt_prescription_dispense (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            patient_id INTEGER NOT NULL,
+            medication_id INTEGER NOT NULL,
+            quantity INTEGER DEFAULT 1,
+            dispensed_by VARCHAR(100),
+            dispensed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_emergency_admissions (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            case_number VARCHAR(50) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            triage_level INTEGER DEFAULT 3,
+            chief_complaint TEXT NOT NULL,
+            arrival_mode VARCHAR(50) DEFAULT 'walk_in',
+            assigned_bay VARCHAR(50),
+            status VARCHAR(30) DEFAULT 'triaged',
+            arrived_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_surgical_cases (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            case_number VARCHAR(50) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            surgeon_id INTEGER NOT NULL,
+            theater_name VARCHAR(50) NOT NULL,
+            procedure_name VARCHAR(200) NOT NULL,
+            scheduled_date DATE NOT NULL,
+            who_checklist_completed BOOLEAN DEFAULT FALSE,
+            status VARCHAR(30) DEFAULT 'scheduled',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_patient_invoices (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            invoice_number VARCHAR(50) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            total_amount NUMERIC(10, 2) DEFAULT 0.0,
+            insurance_share NUMERIC(10, 2) DEFAULT 0.0,
+            patient_share NUMERIC(10, 2) DEFAULT 0.0,
+            paid_amount NUMERIC(10, 2) DEFAULT 0.0,
+            payment_status VARCHAR(30) DEFAULT 'unpaid',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_insurance_claims (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            claim_number VARCHAR(50) NOT NULL,
+            provider_name VARCHAR(100) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            claimed_amount NUMERIC(10, 2) DEFAULT 0.0,
+            approved_amount NUMERIC(10, 2) DEFAULT 0.0,
+            status VARCHAR(30) DEFAULT 'submitted',
+            rejection_reason TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_medical_items (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            item_code VARCHAR(50) NOT NULL,
+            name VARCHAR(150) NOT NULL,
+            category VARCHAR(50) DEFAULT 'consumable',
+            unit VARCHAR(30) DEFAULT 'piece',
+            stock_qty INTEGER DEFAULT 0,
+            min_alert_qty INTEGER DEFAULT 10,
+            cost_price NUMERIC(10, 2) DEFAULT 0.0
+        );
+        CREATE TABLE IF NOT EXISTS hlt_cost_centers (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            code VARCHAR(50) NOT NULL,
+            name VARCHAR(100) NOT NULL,
+            center_type VARCHAR(50) DEFAULT 'cost_center',
+            budget NUMERIC(12, 2) DEFAULT 0.0,
+            actual_spent NUMERIC(12, 2) DEFAULT 0.0
+        );
+        CREATE TABLE IF NOT EXISTS hlt_clinical_credentials (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            staff_id INTEGER NOT NULL,
+            credential_title VARCHAR(150) NOT NULL,
+            issuing_authority VARCHAR(100) NOT NULL,
+            expiry_date DATE NOT NULL,
+            status VARCHAR(30) DEFAULT 'active'
+        );
+        CREATE TABLE IF NOT EXISTS hlt_biomedical_devices (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            asset_tag VARCHAR(50) NOT NULL,
+            device_name VARCHAR(150) NOT NULL,
+            serial_number VARCHAR(100),
+            department_name VARCHAR(100),
+            last_calibration_date DATE,
+            next_calibration_due DATE,
+            status VARCHAR(30) DEFAULT 'operational'
+        );
+        CREATE TABLE IF NOT EXISTS hlt_portal_requests (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            patient_id INTEGER NOT NULL,
+            request_type VARCHAR(50) NOT NULL,
+            details TEXT,
+            status VARCHAR(30) DEFAULT 'submitted',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_teleconsultations (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            session_id VARCHAR(100) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            doctor_id INTEGER NOT NULL,
+            scheduled_at TIMESTAMPTZ NOT NULL,
+            meeting_link VARCHAR(255),
+            status VARCHAR(30) DEFAULT 'waiting',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_alerts (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            alert_type VARCHAR(50) NOT NULL,
+            patient_id INTEGER,
+            title VARCHAR(150) NOT NULL,
+            message TEXT NOT NULL,
+            priority VARCHAR(20) DEFAULT 'normal',
+            is_read BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_daily_metrics (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            metric_date DATE NOT NULL,
+            total_visits INTEGER DEFAULT 0,
+            admissions_count INTEGER DEFAULT 0,
+            discharges_count INTEGER DEFAULT 0,
+            bed_occupancy_rate NUMERIC(5, 2) DEFAULT 0.0,
+            average_wait_minutes INTEGER DEFAULT 0,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        -- Apply Row-Level Security (RLS) to all 24 healthcare tables
+        DO $$
+        DECLARE
+            tbl text;
+            tables text[] := ARRAY[
+                'hlt_facilities', 'hlt_departments', 'hlt_patients', 'hlt_appointments',
+                'hlt_medical_staff', 'hlt_patient_vitals', 'hlt_patient_allergies',
+                'hlt_clinical_encounters', 'hlt_inpatient_admissions', 'hlt_hospital_wards',
+                'hlt_hospital_beds', 'hlt_mar_records', 'hlt_lab_catalog', 'hlt_lab_specimens',
+                'hlt_radiology_orders', 'hlt_pharmacy_formulary', 'hlt_prescription_dispense',
+                'hlt_emergency_admissions', 'hlt_surgical_cases', 'hlt_patient_invoices',
+                'hlt_insurance_claims', 'hlt_medical_items', 'hlt_cost_centers',
+                'hlt_clinical_credentials', 'hlt_biomedical_devices', 'hlt_portal_requests',
+                'hlt_teleconsultations', 'hlt_alerts', 'hlt_daily_metrics'
+            ];
+        BEGIN
+            FOREACH tbl IN ARRAY tables LOOP
+                IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = tbl) THEN
+                    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', tbl);
+                    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', tbl);
+                    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = tbl AND policyname = 'tenant_isolation') THEN
+                        EXECUTE format('
+                            CREATE POLICY tenant_isolation ON %I
+                            USING (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid OR current_setting(''app.bypass'', true) = ''on'')
+                            WITH CHECK (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid OR current_setting(''app.bypass'', true) = ''on'');
+                        ', tbl);
+                    END IF;
+                END IF;
+            END LOOP;
         END $$;
     """),
 ]

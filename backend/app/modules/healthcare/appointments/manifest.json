@@ -1,0 +1,35 @@
+{
+  "id": "hlt_appointments",
+  "name": "المواعيد وجدولة الأطباء",
+  "name_en": "Appointment & Scheduling Management",
+  "category": "healthcare",
+  "version": "1.0.0",
+  "icon": "Calendar",
+  "description": "حجز المواعيد، جداول الأطباء، منع التعارض، قوائم الانتظار، وإدارة دور الانتظار اللحظي.",
+  "target_business_types": [
+    "clinic",
+    "hospital",
+    "healthcare"
+  ],
+  "dependencies": [
+    "core"
+  ],
+  "is_core": false,
+  "badge": "HLT-03",
+  "nav_items": [
+    {
+      "label": "المواعيد وجدولة الأطباء",
+      "path": "/clinic/appointments",
+      "icon": "Calendar"
+    }
+  ],
+  "settings_schema": [
+    {
+      "key": "appointments_auto_notify",
+      "label": "إرسال إشعارات تلقائية",
+      "type": "boolean",
+      "default": true,
+      "description": "تفعيل تنبيهات النظام الطبية التلقائية"
+    }
+  ]
+}

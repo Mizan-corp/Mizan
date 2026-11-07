@@ -1,0 +1,35 @@
+{
+  "id": "hlt_notifications",
+  "name": "الإشعارات والتنبيهات الطبية",
+  "name_en": "Healthcare Notifications & Alerts",
+  "category": "healthcare",
+  "version": "1.0.0",
+  "icon": "Bell",
+  "description": "تذكير المواعيد عبر SMS/واتساب، تنبيهات النتائج المخبرية الحرجة، استدعاء الأطباء، وإشعارات الفواتير.",
+  "target_business_types": [
+    "clinic",
+    "hospital",
+    "healthcare"
+  ],
+  "dependencies": [
+    "core"
+  ],
+  "is_core": false,
+  "badge": "HLT-23",
+  "nav_items": [
+    {
+      "label": "الإشعارات والتنبيهات الطبية",
+      "path": "/clinic/notifications",
+      "icon": "Bell"
+    }
+  ],
+  "settings_schema": [
+    {
+      "key": "notifications_auto_notify",
+      "label": "إرسال إشعارات تلقائية",
+      "type": "boolean",
+      "default": true,
+      "description": "تفعيل تنبيهات النظام الطبية التلقائية"
+    }
+  ]
+}

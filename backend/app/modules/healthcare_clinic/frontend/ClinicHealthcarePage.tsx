@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import React, { useState, useEffect, lazy, Suspense } from "react";
+import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bed, Calendar, CheckCircle2, FileText, HeartPulse, Hospital, Microscope, Pill, Search, ShieldCheck, UserPlus, Users, X } from "lucide-react";
+import { Activity, BarChart3, Bed, Bell, Briefcase, Building2, Calculator, Calendar, CheckCircle2, DoorOpen, FileText, Flame, FlaskConical, HeartPulse, Hospital, Laptop, Microscope, Package, Pill, RefreshCw, Scan, Scissors, Search, ShieldCheck, Stethoscope, UserCheck, UserPlus, Users, Video, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui";
 import { Badge } from "@/components/kit/badge";
@@ -17,6 +17,35 @@ import BedsTab from "./tabs/BedsTab";
 import BillingTab from "./tabs/BillingTab";
 import ClaimsTab from "./tabs/ClaimsTab";
 import PatientsTab from "./tabs/PatientsTab";
+
+// Standalone 24 Healthcare ERP Modules (HLT-01..24)
+export const HEALTHCARE_MODULES_MAP: Record<string, { code: string; title: string; category: string; icon: any; component: React.LazyExoticComponent<any> }> = {
+  facility_management: { code: "HLT-01", title: "إدارة المنشآت والمرافق", category: "Core", icon: Building2, component: lazy(() => import("@modules/healthcare/facility_management/frontend/index")) },
+  patient_identity: { code: "HLT-02", title: "تسجيل وهوية المرضى (MPI)", category: "Patients", icon: Users, component: lazy(() => import("@modules/healthcare/patient_identity/frontend/index")) },
+  appointments_sched: { code: "HLT-03", title: "المواعيد وجدولة الأطباء", category: "Patients", icon: Calendar, component: lazy(() => import("@modules/healthcare/appointments/frontend/index")) },
+  medical_staff: { code: "HLT-04", title: "الأطباء والكوادر الطبية", category: "Core", icon: UserCheck, component: lazy(() => import("@modules/healthcare/medical_staff/frontend/index")) },
+  emr_records: { code: "HLT-05", title: "السجل الطبي التراكمي (EMR)", category: "Clinical", icon: FileText, component: lazy(() => import("@modules/healthcare/emr/frontend/index")) },
+  consultation: { code: "HLT-06", title: "الكشف السريري (SOAP)", category: "Clinical", icon: Stethoscope, component: lazy(() => import("@modules/healthcare/consultation/frontend/index")) },
+  admissions: { code: "HLT-07", title: "التنويم والإدخال والخروج", category: "Hospital", icon: DoorOpen, component: lazy(() => import("@modules/healthcare/admissions/frontend/index")) },
+  beds_mgmt: { code: "HLT-08", title: "إدارة الأسرة والأجنحة", category: "Hospital", icon: Bed, component: lazy(() => import("@modules/healthcare/beds/frontend/index")) },
+  nursing: { code: "HLT-09", title: "التمريض وسجل الأدوية (MAR)", category: "Hospital", icon: HeartPulse, component: lazy(() => import("@modules/healthcare/nursing/frontend/index")) },
+  laboratory: { code: "HLT-10", title: "المختبرات والتحاليل (LIS)", category: "Diagnostics", icon: FlaskConical, component: lazy(() => import("@modules/healthcare/laboratory/frontend/index")) },
+  radiology: { code: "HLT-11", title: "الأشعة والتصوير (RIS/PACS)", category: "Diagnostics", icon: Scan, component: lazy(() => import("@modules/healthcare/radiology/frontend/index")) },
+  pharmacy: { code: "HLT-12", title: "صيدلية المستشفى وصرف الدواء", category: "Diagnostics", icon: Pill, component: lazy(() => import("@modules/healthcare/pharmacy/frontend/index")) },
+  emergency: { code: "HLT-13", title: "قسم الطوارئ والفرز (ER)", category: "Hospital", icon: Flame, component: lazy(() => import("@modules/healthcare/emergency/frontend/index")) },
+  surgery: { code: "HLT-14", title: "العمليات الجراحية (OT)", category: "Hospital", icon: Scissors, component: lazy(() => import("@modules/healthcare/surgery/frontend/index")) },
+  billing_accounts: { code: "HLT-15", title: "الفوترة الطبية وحسابات المرضى", category: "Revenue", icon: FileText, component: lazy(() => import("@modules/healthcare/billing/frontend/index")) },
+  insurance_claims: { code: "HLT-16", title: "التأمين الطبي والمطالبات", category: "Revenue", icon: ShieldCheck, component: lazy(() => import("@modules/healthcare/insurance/frontend/index")) },
+  inventory_procurement: { code: "HLT-17", title: "المستودعات الطبية والمشتريات", category: "Revenue", icon: Package, component: lazy(() => import("@modules/healthcare/inventory_procurement/frontend/index")) },
+  accounting_cost: { code: "HLT-18", title: "المحاسبة ومراكز التكلفة", category: "Revenue", icon: Calculator, component: lazy(() => import("@modules/healthcare/accounting/frontend/index")) },
+  hr_workforce: { code: "HLT-19", title: "الموارد البشرية والامتيازات", category: "Core", icon: Briefcase, component: lazy(() => import("@modules/healthcare/hr_workforce/frontend/index")) },
+  equipment_maintenance: { code: "HLT-20", title: "الأجهزة والمعايرة الحيوية", category: "Diagnostics", icon: Activity, component: lazy(() => import("@modules/healthcare/equipment_maintenance/frontend/index")) },
+  patient_portal: { code: "HLT-21", title: "بوابة المريض والخدمات الذاتية", category: "Patients", icon: Laptop, component: lazy(() => import("@modules/healthcare/patient_portal/frontend/index")) },
+  telemedicine: { code: "HLT-22", title: "الطب الاتصالي والاستشارات المرئية", category: "Clinical", icon: Video, component: lazy(() => import("@modules/healthcare/telemedicine/frontend/index")) },
+  notifications: { code: "HLT-23", title: "الإشعارات والتنبيهات الطبية", category: "Patients", icon: Bell, component: lazy(() => import("@modules/healthcare/notifications/frontend/index")) },
+  analytics: { code: "HLT-24", title: "المؤشرات والذكاء السريري", category: "Revenue", icon: BarChart3, component: lazy(() => import("@modules/healthcare/analytics/frontend/index")) },
+};
+
 
 // ─── Interfaces ─────────────────────────────────────────────────────────────
 interface ClinicSummary {
@@ -475,15 +504,35 @@ export default function ClinicHealthcarePage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Tab routing with URL parameter sync
+  const { moduleSlug } = useParams<{ moduleSlug?: string }>();
+  const navigate = useNavigate();
   const tabParam = searchParams.get("tab");
+  const activeModuleKey = moduleSlug || (tabParam && HEALTHCARE_MODULES_MAP[tabParam] ? tabParam : null);
+  const [activeCategory, setActiveCategory] = useState<string>("All");
+
   const validTabs = ["appointments", "patients", "emr", "rx_labs", "labs", "beds", "billing", "claims"];
   const tab = tabParam && validTabs.includes(tabParam)
     ? (tabParam === "labs" ? "rx_labs" : (tabParam as "appointments" | "patients" | "emr" | "rx_labs" | "beds" | "billing" | "claims"))
     : "appointments";
 
-  const handleTabChange = (newTab: "appointments" | "patients" | "emr" | "rx_labs" | "beds" | "billing" | "claims") => {
+  const handleTabChange = (newTab: string) => {
     sound.click();
-    setSearchParams({ tab: newTab });
+    if (moduleSlug) {
+      navigate(`/clinic?tab=${newTab}`);
+    } else {
+      setSearchParams({ tab: newTab });
+    }
+  };
+
+  const handleSelectModule = (modKey: string | null) => {
+    sound.click();
+    if (!modKey) {
+      if (moduleSlug) navigate("/clinic");
+      else setSearchParams({ tab: "appointments" });
+    } else {
+      if (moduleSlug) navigate(`/clinic/${modKey}`);
+      else setSearchParams({ tab: modKey });
+    }
   };
 
   const [search, setSearch] = useState("");
@@ -1057,117 +1106,209 @@ export default function ClinicHealthcarePage() {
         </Card>
       </div>
 
-      {/* Main Tabs Navigation - Ledger Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/70 pb-1">
-        <div className="flex flex-wrap items-center gap-1">
-          <button
-            onClick={() => handleTabChange("appointments")}
-            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
-              tab === "appointments"
-                ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
-            }`}
-          >
-            <Calendar className="size-3.5" />
-            الكشوفات والانتظار (<span className="num">{appointments.length}</span>)
-          </button>
+      {/* Enterprise Healthcare Suite Header & 24 Standalone Modules Navigator */}
+      <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-xs space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-[#651E2C] text-[#FAF6F0]">
+              Mizan Healthcare ERP
+            </span>
+            <span className="text-xs text-muted-foreground font-medium">
+              مصفوفة الرعاية الصحية والمستشفيات (24 وحدة معتمدة HLT-01..24)
+            </span>
+          </div>
 
-          <button
-            onClick={() => handleTabChange("patients")}
-            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
-              tab === "patients"
-                ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
-            }`}
-          >
-            <Users className="size-3.5" />
-            سجلات المرضى (EMR) (<span className="num">{patients.length}</span>)
-          </button>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              onClick={() => handleSelectModule(null)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                !activeModuleKey
+                  ? "bg-[#651E2C] text-[#FAF6F0] shadow-xs"
+                  : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <Hospital className="w-3.5 h-3.5" />
+              العيادة السريعة اليومية
+            </button>
 
-          <button
-            onClick={() => handleTabChange("emr")}
-            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
-              tab === "emr"
-                ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
-            }`}
-          >
-            <HeartPulse className="size-3.5" />
-            الكشوفات السريرية (<span className="num">{encounters.length}</span>)
-          </button>
-
-          <button
-            onClick={() => handleTabChange("rx_labs")}
-            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
-              tab === "rx_labs"
-                ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
-            }`}
-          >
-            <Pill className="size-3.5" />
-            الروشتات والتحاليل (<span className="num">{prescriptions.length + labOrders.length}</span>)
-          </button>
-
-          <button
-            onClick={() => handleTabChange("beds")}
-            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
-              tab === "beds"
-                ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
-            }`}
-          >
-            <Bed className="size-3.5" />
-            أسرّة التنويم (<span className="num">{beds.length}</span>)
-          </button>
-
-          <button
-            onClick={() => handleTabChange("billing")}
-            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
-              tab === "billing"
-                ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
-            }`}
-          >
-            <FileText className="size-3.5" />
-            الفواتير والتحصيل (<span className="num">{invoicesData.length}</span>)
-          </button>
-
-          <button
-            onClick={() => handleTabChange("claims")}
-            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
-              tab === "claims"
-                ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
-            }`}
-          >
-            <ShieldCheck className="size-3.5" />
-            مطالبات التأمين (<span className="num">{claimsData.length}</span>)
-          </button>
+            {["All", "Core", "Patients", "Clinical", "Hospital", "Diagnostics", "Revenue"].map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors ${
+                  activeCategory === cat
+                    ? "bg-[#651E2C]/10 text-[#651E2C] font-semibold"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                }`}
+              >
+                {cat === "All" ? "الكل (24)" : cat}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="relative w-full sm:w-64">
-          <Search className="size-4 absolute right-3 top-2.5 text-muted-foreground" />
-          <Input
-            placeholder="بحث بالمريض، الطبيب، أو الكود..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pr-9 h-9 text-xs"
-          />
+        {/* 24 Modules Horizontal Drawer / Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 scrollbar-thin">
+          {Object.entries(HEALTHCARE_MODULES_MAP)
+            .filter(([_, mod]) => activeCategory === "All" || mod.category === activeCategory)
+            .map(([key, mod]) => {
+              const IconComp = mod.icon;
+              const isSelected = activeModuleKey === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => handleSelectModule(key)}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all border shrink-0 cursor-pointer ${
+                    isSelected
+                      ? "bg-[#651E2C] text-[#FAF6F0] border-[#651E2C] shadow-xs font-semibold"
+                      : "bg-card border-border/70 text-muted-foreground hover:border-[#651E2C]/40 hover:text-foreground hover:bg-muted/30"
+                  }`}
+                >
+                  <IconComp className="w-3.5 h-3.5" />
+                  <span className="font-mono text-[10px] opacity-75">{mod.code}</span>
+                  <span>{mod.title}</span>
+                </button>
+              );
+            })}
         </div>
       </div>
 
-      {tab === "appointments" && <AppointmentsTab />}
+      {/* Main Content Area */}
+      {activeModuleKey && HEALTHCARE_MODULES_MAP[activeModuleKey] ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => handleSelectModule(null)}
+              className="inline-flex items-center gap-1.5 text-xs text-[#651E2C] hover:underline font-medium cursor-pointer"
+            >
+              ← العودة إلى جدول الكشوفات والعيادة السريعة
+            </button>
+            <span className="text-xs text-muted-foreground font-mono">
+              Module: {activeModuleKey}
+            </span>
+          </div>
+          <Suspense
+            fallback={
+              <div className="p-16 text-center text-muted-foreground bg-card border border-border rounded-2xl">
+                <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-3 text-[#651E2C]" />
+                <p className="text-sm font-medium">جاري تحميل الوحدة الطبية المستقلة...</p>
+                <p className="text-xs text-muted-foreground mt-1">تطبيق قواعد العزل الأمني والتكامل الرقابي</p>
+              </div>
+            }
+          >
+            {React.createElement(HEALTHCARE_MODULES_MAP[activeModuleKey].component)}
+          </Suspense>
+        </div>
+      ) : (
+        <>
+          {/* Main Tabs Navigation - Ledger Tabs */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/70 pb-1">
+            <div className="flex flex-wrap items-center gap-1">
+              <button
+                onClick={() => handleTabChange("appointments")}
+                className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  tab === "appointments"
+                    ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
+                }`}
+              >
+                <Calendar className="size-3.5" />
+                الكشوفات والانتظار (<span className="num">{appointments.length}</span>)
+              </button>
 
-      {tab === "patients" && <PatientsTab />}
+              <button
+                onClick={() => handleTabChange("patients")}
+                className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  tab === "patients"
+                    ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
+                }`}
+              >
+                <Users className="size-3.5" />
+                سجلات المرضى (EMR) (<span className="num">{patients.length}</span>)
+              </button>
 
-      {tab === "emr" && <EMRTab />}
+              <button
+                onClick={() => handleTabChange("emr")}
+                className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  tab === "emr"
+                    ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
+                }`}
+              >
+                <HeartPulse className="size-3.5" />
+                الكشوفات السريرية (<span className="num">{encounters.length}</span>)
+              </button>
 
-      {tab === "rx_labs" && <RxLabsTab />}
+              <button
+                onClick={() => handleTabChange("rx_labs")}
+                className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  tab === "rx_labs"
+                    ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
+                }`}
+              >
+                <Pill className="size-3.5" />
+                الروشتات والتحاليل (<span className="num">{prescriptions.length + labOrders.length}</span>)
+              </button>
 
-      {tab === "beds" && <BedsTab />}
+              <button
+                onClick={() => handleTabChange("beds")}
+                className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  tab === "beds"
+                    ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
+                }`}
+              >
+                <Bed className="size-3.5" />
+                أسرّة التنويم (<span className="num">{beds.length}</span>)
+              </button>
 
-      {tab === "billing" && <BillingTab />}
-      {tab === "claims" && <ClaimsTab />}
+              <button
+                onClick={() => handleTabChange("billing")}
+                className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  tab === "billing"
+                    ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
+                }`}
+              >
+                <FileText className="size-3.5" />
+                الفواتير والتحصيل (<span className="num">{invoicesData.length}</span>)
+              </button>
+
+              <button
+                onClick={() => handleTabChange("claims")}
+                className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  tab === "claims"
+                    ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
+                }`}
+              >
+                <ShieldCheck className="size-3.5" />
+                مطالبات التأمين (<span className="num">{claimsData.length}</span>)
+              </button>
+            </div>
+
+            <div className="relative w-full sm:w-64">
+              <Search className="size-4 absolute right-3 top-2.5 text-muted-foreground" />
+              <Input
+                placeholder="بحث بالمريض، الطبيب، أو الكود..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pr-9 h-9 text-xs"
+              />
+            </div>
+          </div>
+
+          {tab === "appointments" && <AppointmentsTab />}
+          {tab === "patients" && <PatientsTab />}
+          {tab === "emr" && <EMRTab />}
+          {tab === "rx_labs" && <RxLabsTab />}
+          {tab === "beds" && <BedsTab />}
+          {tab === "billing" && <BillingTab />}
+          {tab === "claims" && <ClaimsTab />}
+        </>
+      )}
 
       {/* ── Modal: Register Patient ────────────────────────────────────────── */}
       {isPatientModalOpen && (
