@@ -214,7 +214,7 @@ class DB:
             f"DELETE FROM sales WHERE id IN ({q(sale)}) OR customer_id IN ({q(cust)}) OR warehouse_id IN ({q(wh)})",
             f"DELETE FROM customer_payments WHERE customer_id IN ({q(cust)}) OR sale_id IN ({q(sale)}) OR id IN ({q(pay)})",
             f"DELETE FROM purchase_order_items WHERE po_id IN ({q(po)}) OR product_id IN ({q(pid)})",
-            f"DELETE FROM purchase_orders WHERE id IN ({q(po)}) OR supplier_id IN ({q(supp)}) OR warehouse_id IN ({q(wh)})",
+            f"DELETE FROM purchase_orders WHERE id IN ({q(po)}) OR supplier_id IN ({q(supp)}) OR warehouse_id IN ({q(wh)}) OR created_by IN ({q(usr)})",
             f"DELETE FROM purchase_price_history WHERE product_id IN ({q(pid)}) OR po_id IN ({q(po)}) OR supplier_id IN ({q(supp)})",
             f"DELETE FROM supplier_prices WHERE supplier_id IN ({q(supp)}) OR product_id IN ({q(pid)}) OR id IN ({q(reg.ids('supplier_price'))})",
             f"DELETE FROM supplier_transactions WHERE supplier_id IN ({q(supp)})",

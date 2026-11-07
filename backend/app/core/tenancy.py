@@ -102,6 +102,7 @@ async def unbind_tenant(db) -> None:
     from sqlalchemy import text
     current_tenant_id.set(None)
     try:
-        await db.execute(text("RESET app.tenant_id; RESET app.bypass;"))
+        await db.execute(text("RESET app.tenant_id"))
+        await db.execute(text("RESET app.bypass"))
     except Exception:
         pass  # connection already gone
