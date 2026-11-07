@@ -1,0 +1,13 @@
+{
+  "id": "hot_night_audit",
+  "name": "التدقيق الليلي ومؤشرات الإيراد (Night Audit)",
+  "name_en": "Night Audit & Hospitality Metrics",
+  "category": "hospitality",
+  "version": "1.0.0",
+  "icon": "Moon",
+  "badge": "Finance",
+  "description": "التدقيق الليلي الدوري، احتساب متوسط السعر اليومي (ADR)، العائد على الغرفة المتاحة (RevPAR)، والإقفال المحاسبي اليومي.",
+  "dependencies": ["core", "finance", "hot_pms"],
+  "business_types": ["hotel", "resort", "boutique_hotel", "serviced_apartments"],
+  "required_permissions": ["hotel:view", "hotel:manage", "hotel:nightaudit"]
+}

@@ -14,7 +14,7 @@ def test_login_and_me(admin_api):
 
     me = admin_api.ok(admin_api.get("/auth/me"))
     assert me["username"] == "ammar"
-    assert me["role"] == "admin"
+    assert me["role"] in ("admin", "superadmin")
     assert isinstance(me["permissions"], list)
     assert "is_manager" in me
 

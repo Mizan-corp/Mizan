@@ -134,13 +134,13 @@ class ModuleRegistry:
             manifest_file = entry / "manifest.json"
             if manifest_file.exists():
                 self._load_module_from_dir(entry)
-            else:
-                # Potential business activity category folder (e.g. healthcare, hospitality)
-                for sub_entry in entry.iterdir():
-                    if not sub_entry.is_dir() or sub_entry.name.startswith(("_", ".")):
-                        continue
-                    if (sub_entry / "manifest.json").exists():
-                        self._load_module_from_dir(sub_entry, parent_pkg=entry.name)
+
+            # Potential business activity category folder (e.g. healthcare, hospitality)
+            for sub_entry in entry.iterdir():
+                if not sub_entry.is_dir() or sub_entry.name.startswith(("_", ".")):
+                    continue
+                if (sub_entry / "manifest.json").exists():
+                    self._load_module_from_dir(sub_entry, parent_pkg=entry.name)
 
         self._discovered = True
         return self._manifests

@@ -195,11 +195,12 @@ router.include_router(contacts_module_router)
 from app.modules.hr.router import router as hr_module_router
 router.include_router(hr_module_router)
 
-# Standalone Healthcare ERP Modules (HLT-01 through HLT-24)
+# Standalone Healthcare ERP Modules (HLT-01..24) and Hospitality Modules (HOT-01..09)
 from app.modules.loader import registry
 for mod_id, mod_router in registry.get_routers().items():
-    if mod_id.startswith("hlt_"):
+    if mod_id.startswith("hlt_") or mod_id.startswith("hot_"):
         router.include_router(mod_router)
+
 
 
 

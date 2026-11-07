@@ -21,6 +21,7 @@ from app.modules.hospitality.models import (
     HotelNightAudit,
     HotelReservation,
     HotelRoom,
+    HotelBanquetEvent,
 )
 
 router = APIRouter(prefix="/hospitality", tags=["Hotel & Hospitality PMS"])
@@ -607,5 +608,40 @@ async def seed_hospitality_data(
     )
     db.add(audit1)
 
+    # Seed Banquet & Conference Events
+    bnq1 = HotelBanquetEvent(
+        tenant_id=tenant_id,
+        booking_ref="BNQ-2026-101",
+        hall_name="قاعة اللؤلؤة الكبرى (Grand Pearl Ballroom)",
+        client_name="شركة النيل للتقنية والاستثمار",
+        client_phone="01011223344",
+        event_type="المؤتمر السنوي لتقنية المعلومات والذكاء الاصطناعي",
+        event_date="2026-11-15",
+        start_time="09:00",
+        end_time="17:00",
+        guest_count=250,
+        catering_package="بوفيه ملكي مفتوح مع استراحة قهوة متواصلة",
+        total_amount=95000.0,
+        deposit_amount=40000.0,
+        status="confirmed",
+    )
+    bnq2 = HotelBanquetEvent(
+        tenant_id=tenant_id,
+        booking_ref="BNQ-2026-102",
+        hall_name="قاعة النيل للمؤتمرات (Nile Conference Hall)",
+        client_name="د. طارق المنشاوي",
+        client_phone="01122334455",
+        event_type="حفل عشاء وتكريم كبار الأطباء والرواد",
+        event_date="2026-11-20",
+        start_time="19:00",
+        end_time="23:30",
+        guest_count=120,
+        catering_package="عشاء فاخر VIP من 4 أطباق رئيسية",
+        total_amount=52000.0,
+        deposit_amount=25000.0,
+        status="confirmed",
+    )
+    db.add_all([bnq1, bnq2])
+
     await db.commit()
-    return {"message": "تم تهيئة وتوليد بيانات الفندق والغرف والتدبير المنزلي والتدقيق الليلي بنجاح"}
+    return {"message": "تم تهيئة وتوليد بيانات الفندق والغرف والتدبير المنزلي والتدقيق الليلي والحفلات بنجاح"}

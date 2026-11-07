@@ -1903,6 +1903,56 @@ MIGRATIONS = [
             END LOOP;
         END $$;
     """),
+    # v41 — Hospitality Suite (Banquets, Rooms, Housekeeping, Folios, Night Audit) RLS enforcement
+    ("v41_hospitality_suite_rls", """
+        CREATE TABLE IF NOT EXISTS hotel_banquet_events (
+            id VARCHAR(36) PRIMARY KEY,
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+            booking_ref VARCHAR(32) NOT NULL,
+            hall_name VARCHAR(128) NOT NULL,
+            client_name VARCHAR(128) NOT NULL,
+            client_phone VARCHAR(32) NOT NULL,
+            event_type VARCHAR(64) NOT NULL,
+            event_date VARCHAR(32) NOT NULL,
+            start_time VARCHAR(32) NOT NULL,
+            end_time VARCHAR(32) NOT NULL,
+            guest_count INTEGER DEFAULT 100,
+            catering_package VARCHAR(128) NOT NULL,
+            total_amount DOUBLE PRECISION DEFAULT 0.0,
+            deposit_amount DOUBLE PRECISION DEFAULT 0.0,
+            status VARCHAR(32) DEFAULT 'confirmed',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        DO $$
+        DECLARE
+            tbl text;
+            hotel_tables text[] := ARRAY[
+                'hotel_rooms',
+                'hotel_reservations',
+                'hotel_folio_items',
+                'hotel_housekeeping_tasks',
+                'hotel_night_audits',
+                'hotel_banquet_events'
+            ];
+        BEGIN
+            FOREACH tbl IN ARRAY hotel_tables LOOP
+                IF to_regclass('public.' || tbl) IS NOT NULL THEN
+                    EXECUTE format('ALTER TABLE %I ALTER COLUMN tenant_id SET DEFAULT NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid;', tbl);
+                    EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%s_tenant ON %I (tenant_id);', tbl, tbl);
+                    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', tbl);
+                    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', tbl);
+                    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = tbl AND policyname = 'tenant_isolation') THEN
+                        EXECUTE format('
+                            CREATE POLICY tenant_isolation ON %I
+                            USING (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid OR current_setting(''app.bypass'', true) = ''on'')
+                            WITH CHECK (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid OR current_setting(''app.bypass'', true) = ''on'');
+                        ', tbl);
+                    END IF;
+                END IF;
+            END LOOP;
+        END $$;
+    """),
 ]
 
 def ensure_foundation():

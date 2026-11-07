@@ -96,3 +96,25 @@ class HotelNightAudit(TenantScoped, Base):
     revpar: Mapped[float] = mapped_column(Float)  # Revenue Per Available Room
     conducted_by: Mapped[str] = mapped_column(String(128))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class HotelBanquetEvent(TenantScoped, Base):
+    """Banquet & Conference Hall Reservations & Catering (HOT-09)."""
+    __tablename__ = "hotel_banquet_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    booking_ref: Mapped[str] = mapped_column(String(32), index=True)
+    hall_name: Mapped[str] = mapped_column(String(128), index=True)
+    client_name: Mapped[str] = mapped_column(String(128), index=True)
+    client_phone: Mapped[str] = mapped_column(String(32))
+    event_type: Mapped[str] = mapped_column(String(64))
+    event_date: Mapped[str] = mapped_column(String(32))
+    start_time: Mapped[str] = mapped_column(String(32))
+    end_time: Mapped[str] = mapped_column(String(32))
+    guest_count: Mapped[int] = mapped_column(Integer, default=100)
+    catering_package: Mapped[str] = mapped_column(String(128))
+    total_amount: Mapped[float] = mapped_column(Float, default=0.0)
+    deposit_amount: Mapped[float] = mapped_column(Float, default=0.0)
+    status: Mapped[str] = mapped_column(String(32), default="confirmed")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+

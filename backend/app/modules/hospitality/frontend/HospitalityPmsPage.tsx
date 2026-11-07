@@ -33,6 +33,7 @@ import {
   TableRow,
 } from "@/components/kit/table";
 import { sound } from "@/lib/sound";
+import BanquetEventsView from "../banquet_events/frontend/index";
 
 interface HospitalitySummary {
   total_rooms: number;
@@ -113,7 +114,7 @@ interface HotelNightAudit {
 }
 
 export default function HospitalityPmsPage() {
-  const [activeTab, setActiveTab] = useState<"rooms" | "reservations" | "folio" | "housekeeping" | "night_audit">("rooms");
+  const [activeTab, setActiveTab] = useState<"rooms" | "reservations" | "folio" | "housekeeping" | "night_audit" | "banquet">("rooms");
   const [searchTerm, setSearchTerm] = useState("");
   const [isNewRoomOpen, setIsNewRoomOpen] = useState(false);
   const [isNewReservationOpen, setIsNewReservationOpen] = useState(false);
@@ -495,6 +496,15 @@ export default function HospitalityPmsPage() {
           >
             <Moon className="h-4 w-4" />
             التدقيق الليلي والإيرادات
+          </Button>
+          <Button
+            variant={activeTab === "banquet" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveTab("banquet")}
+            className="gap-2"
+          >
+            <Users className="h-4 w-4" />
+            الحفلات والمؤتمرات (Banquets)
           </Button>
         </div>
 
@@ -959,6 +969,13 @@ export default function HospitalityPmsPage() {
               </TableBody>
             </Table>
           </Card>
+        </div>
+      )}
+
+      {/* TAB 6: Banquets & Conference Halls */}
+      {activeTab === "banquet" && (
+        <div className="space-y-4">
+          <BanquetEventsView />
         </div>
       )}
 
