@@ -206,11 +206,14 @@ async def update_period_status(
     db: AsyncSession, month: str, new_status: str, current_user_id: str
 ) -> None:
     """Update period status and all related payroll entries."""
+    prefix = "submitted" if new_status == "review" else new_status
+    by_col = f"{prefix}_by"
+    at_col = f"{prefix}_at"
     await db.execute(
         text(f"""
-            INSERT INTO hr_payroll_periods (month, status, {new_status}_by, {new_status}_at)
+            INSERT INTO hr_payroll_periods (month, status, {by_col}, {at_col})
             VALUES (:m, '{new_status}', :by, now())
-            ON CONFLICT (tenant_id, month) DO UPDATE SET status='{new_status}', {new_status}_by=:by, {new_status}_at=now(), updated_at=now()
+            ON CONFLICT (tenant_id, month) DO UPDATE SET status='{new_status}', {by_col}=:by, {at_col}=now(), updated_at=now()
         """),
         {"m": month, "by": current_user_id},
     )
