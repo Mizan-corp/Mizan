@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import ClinicalCredentialRecord
 from .schemas import CredentialCreate, CredentialResponse
 
-router = APIRouter(prefix="/api/healthcare/hr", tags=["Healthcare - HR & Credentials (HLT-19)"])
+router = APIRouter(prefix="/healthcare/hr", tags=["Healthcare - HR & Credentials (HLT-19)"])
 
 @router.get("/credentials", response_model=List[CredentialResponse])
 async def list_credentials(staff_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

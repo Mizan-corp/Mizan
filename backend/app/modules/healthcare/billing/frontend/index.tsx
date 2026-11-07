@@ -17,7 +17,7 @@ export default function BillingView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/billing");
+      const res = await api.get<any>("/healthcare/billing");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

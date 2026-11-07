@@ -17,7 +17,7 @@ export default function EquipmentMaintenanceView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/equipment");
+      const res = await api.get<any>("/healthcare/equipment");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

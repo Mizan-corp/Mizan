@@ -17,7 +17,7 @@ export default function EmergencyView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/emergency");
+      const res = await api.get<any>("/healthcare/emergency");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import HealthcareCostCenter
 from .schemas import CostCenterCreate, CostCenterResponse
 
-router = APIRouter(prefix="/api/healthcare/accounting", tags=["Healthcare - Accounting (HLT-18)"])
+router = APIRouter(prefix="/healthcare/accounting", tags=["Healthcare - Accounting (HLT-18)"])
 
 @router.get("/cost-centers", response_model=List[CostCenterResponse])
 async def list_cost_centers(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

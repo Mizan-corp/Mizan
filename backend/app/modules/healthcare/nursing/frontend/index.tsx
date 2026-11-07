@@ -17,7 +17,7 @@ export default function NursingView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/nursing");
+      const res = await api.get<any>("/healthcare/nursing");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

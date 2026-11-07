@@ -9,7 +9,7 @@ from app.dependencies import get_current_user
 from .models import ClinicalEncounter
 from .schemas import EncounterCreate, EncounterResponse
 
-router = APIRouter(prefix="/api/healthcare/consultations", tags=["Healthcare - Consultation (HLT-06)"])
+router = APIRouter(prefix="/healthcare/consultations", tags=["Healthcare - Consultation (HLT-06)"])
 
 @router.get("", response_model=List[EncounterResponse])
 async def list_encounters(patient_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

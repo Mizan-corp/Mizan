@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import HospitalWard, HospitalBed
 from .schemas import WardCreate, WardResponse, BedCreate, BedResponse
 
-router = APIRouter(prefix="/api/healthcare/beds", tags=["Healthcare - Beds & Wards (HLT-08)"])
+router = APIRouter(prefix="/healthcare/beds", tags=["Healthcare - Beds & Wards (HLT-08)"])
 
 @router.get("/wards", response_model=List[WardResponse])
 async def list_wards(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

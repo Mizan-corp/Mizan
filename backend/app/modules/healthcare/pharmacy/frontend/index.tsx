@@ -17,7 +17,7 @@ export default function PharmacyView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/pharmacy");
+      const res = await api.get<any>("/healthcare/pharmacy");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

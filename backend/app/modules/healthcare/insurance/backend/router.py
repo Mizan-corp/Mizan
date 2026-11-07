@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import InsuranceClaimRecord
 from .schemas import ClaimCreate, ClaimResponse
 
-router = APIRouter(prefix="/api/healthcare/insurance", tags=["Healthcare - Insurance (HLT-16)"])
+router = APIRouter(prefix="/healthcare/insurance", tags=["Healthcare - Insurance (HLT-16)"])
 
 @router.get("/claims", response_model=List[ClaimResponse])
 async def list_claims(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

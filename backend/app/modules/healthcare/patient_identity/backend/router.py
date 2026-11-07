@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import PatientIdentity
 from .schemas import PatientCreate, PatientResponse
 
-router = APIRouter(prefix="/api/healthcare/patients", tags=["Healthcare - Patient Identity (HLT-02)"])
+router = APIRouter(prefix="/healthcare/patients", tags=["Healthcare - Patient Identity (HLT-02)"])
 
 @router.get("", response_model=List[PatientResponse])
 async def list_patients(q: str | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

@@ -17,7 +17,7 @@ export default function SurgeryView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/surgery");
+      const res = await api.get<any>("/healthcare/surgery");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

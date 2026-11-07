@@ -9,7 +9,7 @@ from app.dependencies import get_current_user
 from .models import InpatientAdmission
 from .schemas import AdmissionCreate, AdmissionResponse
 
-router = APIRouter(prefix="/api/healthcare/admissions", tags=["Healthcare - Admissions (HLT-07)"])
+router = APIRouter(prefix="/healthcare/admissions", tags=["Healthcare - Admissions (HLT-07)"])
 
 @router.get("", response_model=List[AdmissionResponse])
 async def list_admissions(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

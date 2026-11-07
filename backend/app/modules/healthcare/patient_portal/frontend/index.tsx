@@ -17,7 +17,7 @@ export default function PatientPortalView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/portal");
+      const res = await api.get<any>("/healthcare/portal");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

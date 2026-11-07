@@ -17,7 +17,7 @@ export default function AdmissionsView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/admissions");
+      const res = await api.get<any>("/healthcare/admissions");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

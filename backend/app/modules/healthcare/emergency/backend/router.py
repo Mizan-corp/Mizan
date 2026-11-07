@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import EmergencyCase
 from .schemas import EmergencyCaseCreate, EmergencyCaseResponse
 
-router = APIRouter(prefix="/api/healthcare/emergency", tags=["Healthcare - Emergency (HLT-13)"])
+router = APIRouter(prefix="/healthcare/emergency", tags=["Healthcare - Emergency (HLT-13)"])
 
 @router.get("/cases", response_model=List[EmergencyCaseResponse])
 async def list_cases(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

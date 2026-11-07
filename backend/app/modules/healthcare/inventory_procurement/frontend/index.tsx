@@ -17,7 +17,7 @@ export default function InventoryProcurementView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/inventory");
+      const res = await api.get<any>("/healthcare/inventory");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

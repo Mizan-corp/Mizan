@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import MedicationAdminRecord
 from .schemas import MARCreate, MARResponse
 
-router = APIRouter(prefix="/api/healthcare/nursing", tags=["Healthcare - Nursing & MAR (HLT-09)"])
+router = APIRouter(prefix="/healthcare/nursing", tags=["Healthcare - Nursing & MAR (HLT-09)"])
 
 @router.get("/mar", response_model=List[MARResponse])
 async def list_mar_records(patient_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

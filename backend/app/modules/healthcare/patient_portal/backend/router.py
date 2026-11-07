@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import PatientPortalRequest
 from .schemas import PortalRequestCreate, PortalRequestResponse
 
-router = APIRouter(prefix="/api/healthcare/portal", tags=["Healthcare - Patient Portal (HLT-21)"])
+router = APIRouter(prefix="/healthcare/portal", tags=["Healthcare - Patient Portal (HLT-21)"])
 
 @router.get("/requests", response_model=List[PortalRequestResponse])
 async def list_requests(patient_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import TeleconsultationSession
 from .schemas import TeleconsultationCreate, TeleconsultationResponse
 
-router = APIRouter(prefix="/api/healthcare/telemedicine", tags=["Healthcare - Telemedicine (HLT-22)"])
+router = APIRouter(prefix="/healthcare/telemedicine", tags=["Healthcare - Telemedicine (HLT-22)"])
 
 @router.get("/sessions", response_model=List[TeleconsultationResponse])
 async def list_sessions(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

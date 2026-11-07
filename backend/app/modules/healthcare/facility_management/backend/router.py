@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import HealthcareFacility, FacilityDepartment
 from .schemas import FacilityCreate, FacilityResponse, DepartmentCreate, DepartmentResponse
 
-router = APIRouter(prefix="/api/healthcare/facilities", tags=["Healthcare - Facilities (HLT-01)"])
+router = APIRouter(prefix="/healthcare/facilities", tags=["Healthcare - Facilities (HLT-01)"])
 
 @router.get("", response_model=List[FacilityResponse])
 async def list_facilities(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

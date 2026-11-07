@@ -17,7 +17,7 @@ export default function TelemedicineView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/telemedicine");
+      const res = await api.get<any>("/healthcare/telemedicine");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

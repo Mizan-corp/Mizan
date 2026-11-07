@@ -17,7 +17,7 @@ export default function PatientIdentityView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/patients");
+      const res = await api.get<any>("/healthcare/patients");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

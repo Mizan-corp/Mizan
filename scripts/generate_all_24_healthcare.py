@@ -14,7 +14,7 @@ MODULES = [
         "name_en": "Healthcare Facility & Organization Management",
         "icon": "Building2",
         "desc": "إدارة المنشآت الطبية، المستشفيات، الفروع، الأقسام، العيادات، وساعات العمل والاعتمادات.",
-        "api_prefix": "/api/healthcare/facilities",
+        "api_prefix": "/healthcare/facilities",
         "models_code": """from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, DateTime, func, JSON
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -94,7 +94,7 @@ from app.dependencies import get_current_user
 from .models import HealthcareFacility, FacilityDepartment
 from .schemas import FacilityCreate, FacilityResponse, DepartmentCreate, DepartmentResponse
 
-router = APIRouter(prefix="/api/healthcare/facilities", tags=["Healthcare - Facilities (HLT-01)"])
+router = APIRouter(prefix="/healthcare/facilities", tags=["Healthcare - Facilities (HLT-01)"])
 
 @router.get("", response_model=List[FacilityResponse])
 async def list_facilities(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -135,7 +135,7 @@ async def create_department(data: DepartmentCreate, db: AsyncSession = Depends(g
         "name_en": "Patient Registration & Master Patient Index",
         "icon": "Users",
         "desc": "ملفات المرضى، الرقم الطبي الموحد (MRN)، الهوية الوطنية، فحص الازدواجية، ودمج السجلات.",
-        "api_prefix": "/api/healthcare/patients",
+        "api_prefix": "/healthcare/patients",
         "models_code": """from sqlalchemy import Column, Integer, String, Text, Boolean, Date, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -194,7 +194,7 @@ from app.dependencies import get_current_user
 from .models import PatientIdentity
 from .schemas import PatientCreate, PatientResponse
 
-router = APIRouter(prefix="/api/healthcare/patients", tags=["Healthcare - Patient Identity (HLT-02)"])
+router = APIRouter(prefix="/healthcare/patients", tags=["Healthcare - Patient Identity (HLT-02)"])
 
 @router.get("", response_model=List[PatientResponse])
 async def list_patients(q: str | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -238,7 +238,7 @@ async def get_patient(id: int, db: AsyncSession = Depends(get_db), _=Depends(get
         "name_en": "Appointment & Scheduling Management",
         "icon": "Calendar",
         "desc": "حجز المواعيد، جداول الأطباء، منع التعارض، قوائم الانتظار، وإدارة دور الانتظار اللحظي.",
-        "api_prefix": "/api/healthcare/appointments",
+        "api_prefix": "/healthcare/appointments",
         "models_code": """from sqlalchemy import Column, Integer, String, Text, Boolean, Date, DateTime, func, Time
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -295,7 +295,7 @@ from app.dependencies import get_current_user
 from .models import MedicalAppointment
 from .schemas import AppointmentCreate, AppointmentResponse, StatusUpdate
 
-router = APIRouter(prefix="/api/healthcare/appointments", tags=["Healthcare - Appointments (HLT-03)"])
+router = APIRouter(prefix="/healthcare/appointments", tags=["Healthcare - Appointments (HLT-03)"])
 
 @router.get("", response_model=List[AppointmentResponse])
 async def list_appointments(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -332,7 +332,7 @@ async def update_status(id: int, data: StatusUpdate, db: AsyncSession = Depends(
         "name_en": "Doctor & Medical Staff Management",
         "icon": "UserCheck",
         "desc": "ملفات الأطباء، التخصصات، التراخيص المهنية، بدلات الكشفية، وجداول المناوبات والورديات.",
-        "api_prefix": "/api/healthcare/medical-staff",
+        "api_prefix": "/healthcare/medical-staff",
         "models_code": """from sqlalchemy import Column, Integer, String, Text, Boolean, Numeric, Date, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -385,7 +385,7 @@ from app.dependencies import get_current_user
 from .models import MedicalStaff
 from .schemas import StaffCreate, StaffResponse
 
-router = APIRouter(prefix="/api/healthcare/medical-staff", tags=["Healthcare - Medical Staff (HLT-04)"])
+router = APIRouter(prefix="/healthcare/medical-staff", tags=["Healthcare - Medical Staff (HLT-04)"])
 
 @router.get("", response_model=List[StaffResponse])
 async def list_staff(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -410,7 +410,7 @@ async def create_staff(data: StaffCreate, db: AsyncSession = Depends(get_db), _=
         "name_en": "Longitudinal Electronic Medical Records (EMR)",
         "icon": "FileText",
         "desc": "العلامات الحيوية، التاريخ المرضي والجراحي، الحساسيات الدوائية، الأمراض المزمنة، والمرفقات.",
-        "api_prefix": "/api/healthcare/emr",
+        "api_prefix": "/healthcare/emr",
         "models_code": """from sqlalchemy import Column, Integer, String, Text, Boolean, Numeric, Date, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -483,7 +483,7 @@ from app.dependencies import get_current_user
 from .models import PatientVitalRecord, PatientAllergyRecord
 from .schemas import VitalCreate, VitalResponse, AllergyCreate, AllergyResponse
 
-router = APIRouter(prefix="/api/healthcare/emr", tags=["Healthcare - EMR (HLT-05)"])
+router = APIRouter(prefix="/healthcare/emr", tags=["Healthcare - EMR (HLT-05)"])
 
 @router.get("/vitals", response_model=List[VitalResponse])
 async def list_vitals(patient_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -531,7 +531,7 @@ async def record_allergy(data: AllergyCreate, db: AsyncSession = Depends(get_db)
         "name_en": "Consultation & Clinical Workflow",
         "icon": "Stethoscope",
         "desc": "توثيق الكشف السريري (SOAP)، الشكوى الحالية، التشخيص (ICD-10)، الوصفات والطلبات الطبية.",
-        "api_prefix": "/api/healthcare/consultations",
+        "api_prefix": "/healthcare/consultations",
         "models_code": """from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, func, JSON
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -583,7 +583,7 @@ from app.dependencies import get_current_user
 from .models import ClinicalEncounter
 from .schemas import EncounterCreate, EncounterResponse
 
-router = APIRouter(prefix="/api/healthcare/consultations", tags=["Healthcare - Consultation (HLT-06)"])
+router = APIRouter(prefix="/healthcare/consultations", tags=["Healthcare - Consultation (HLT-06)"])
 
 @router.get("", response_model=List[EncounterResponse])
 async def list_encounters(patient_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -622,7 +622,7 @@ async def finalize_encounter(id: int, db: AsyncSession = Depends(get_db), _=Depe
         "name_en": "Inpatient Admission & Discharge Management",
         "icon": "DoorOpen",
         "desc": "أوامر التنويم، تسكين الأسرة، تحويلات الأجنحة، ملخصات الخروج، ومتابعة الإقامة السريرية.",
-        "api_prefix": "/api/healthcare/admissions",
+        "api_prefix": "/healthcare/admissions",
         "models_code": """from sqlalchemy import Column, Integer, String, Text, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -671,7 +671,7 @@ from app.dependencies import get_current_user
 from .models import InpatientAdmission
 from .schemas import AdmissionCreate, AdmissionResponse
 
-router = APIRouter(prefix="/api/healthcare/admissions", tags=["Healthcare - Admissions (HLT-07)"])
+router = APIRouter(prefix="/healthcare/admissions", tags=["Healthcare - Admissions (HLT-07)"])
 
 @router.get("", response_model=List[AdmissionResponse])
 async def list_admissions(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -709,7 +709,7 @@ async def discharge_patient(id: int, summary: str | None = None, db: AsyncSessio
         "name_en": "Bed, Ward & Room Management",
         "icon": "Bed",
         "desc": "مخطط الأجنحة، حالة الأسرة اللحظية (شاغر، مشغول، تعقيم، صيانة)، وتسعيرة الإقامة اليومية.",
-        "api_prefix": "/api/healthcare/beds",
+        "api_prefix": "/healthcare/beds",
         "models_code": """from sqlalchemy import Column, Integer, String, Boolean, Numeric, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -769,7 +769,7 @@ from app.dependencies import get_current_user
 from .models import HospitalWard, HospitalBed
 from .schemas import WardCreate, WardResponse, BedCreate, BedResponse
 
-router = APIRouter(prefix="/api/healthcare/beds", tags=["Healthcare - Beds & Wards (HLT-08)"])
+router = APIRouter(prefix="/healthcare/beds", tags=["Healthcare - Beds & Wards (HLT-08)"])
 
 @router.get("/wards", response_model=List[WardResponse])
 async def list_wards(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -819,7 +819,7 @@ async def update_bed_status(id: int, status: str, db: AsyncSession = Depends(get
         "name_en": "Nursing Care & Medication Administration",
         "icon": "HeartPulse",
         "desc": "خطة الرعاية التمريضية، سجل إعطاء الدواء (MAR)، توازن السوائل، وتقارير تسليم الورديات.",
-        "api_prefix": "/api/healthcare/nursing",
+        "api_prefix": "/healthcare/nursing",
         "models_code": """from sqlalchemy import Column, Integer, String, Text, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -864,7 +864,7 @@ from app.dependencies import get_current_user
 from .models import MedicationAdminRecord
 from .schemas import MARCreate, MARResponse
 
-router = APIRouter(prefix="/api/healthcare/nursing", tags=["Healthcare - Nursing & MAR (HLT-09)"])
+router = APIRouter(prefix="/healthcare/nursing", tags=["Healthcare - Nursing & MAR (HLT-09)"])
 
 @router.get("/mar", response_model=List[MARResponse])
 async def list_mar_records(patient_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -892,7 +892,7 @@ async def record_administration(data: MARCreate, db: AsyncSession = Depends(get_
         "name_en": "Laboratory Information Management (LIS)",
         "icon": "FlaskConical",
         "desc": "دليل الفحوصات، باركود العينات، النتائج المخبرية، المعدلات الطبيعية، والتنبيه بالقيم الحرجة.",
-        "api_prefix": "/api/healthcare/laboratory",
+        "api_prefix": "/healthcare/laboratory",
         "models_code": """from sqlalchemy import Column, Integer, String, Text, Boolean, Numeric, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -963,7 +963,7 @@ from app.dependencies import get_current_user
 from .models import LabTestItem, LabSpecimenOrder
 from .schemas import LabTestCreate, LabTestResponse, SpecimenCreate, SpecimenResponse
 
-router = APIRouter(prefix="/api/healthcare/laboratory", tags=["Healthcare - Laboratory (HLT-10)"])
+router = APIRouter(prefix="/healthcare/laboratory", tags=["Healthcare - Laboratory (HLT-10)"])
 
 @router.get("/tests", response_model=List[LabTestResponse])
 async def list_tests(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -1018,7 +1018,7 @@ async def record_result(id: int, result_value: str, is_abnormal: bool = False, i
         "name_en": "Radiology & Imaging Management (RIS/PACS)",
         "icon": "Scan",
         "desc": "طلبات الأشعة (X-Ray, CT, MRI, US)، أجهزة التصوير، تقارير أطباء الأشعة، وحالة الفحوصات.",
-        "api_prefix": "/api/healthcare/radiology",
+        "api_prefix": "/healthcare/radiology",
         "models_code": """from sqlalchemy import Column, Integer, String, Text, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -1065,7 +1065,7 @@ from app.dependencies import get_current_user
 from .models import RadiologyStudyOrder
 from .schemas import RadiologyOrderCreate, RadiologyOrderResponse
 
-router = APIRouter(prefix="/api/healthcare/radiology", tags=["Healthcare - Radiology (HLT-11)"])
+router = APIRouter(prefix="/healthcare/radiology", tags=["Healthcare - Radiology (HLT-11)"])
 
 @router.get("/orders", response_model=List[RadiologyOrderResponse])
 async def list_orders(patient_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -1103,7 +1103,7 @@ async def record_findings(id: int, findings: str, db: AsyncSession = Depends(get
         "name_en": "Hospital Pharmacy & Medication Management",
         "icon": "Pill",
         "desc": "دليل الأدوية والبدائل، صرف الروشتات الرقمية، تتبع الصلاحيات (FEFO)، وسجل الأدوية المراقبة.",
-        "api_prefix": "/api/healthcare/pharmacy",
+        "api_prefix": "/healthcare/pharmacy",
         "models_code": """from sqlalchemy import Column, Integer, String, Text, Boolean, Numeric, Date, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -1168,7 +1168,7 @@ from app.dependencies import get_current_user
 from .models import MedicationProduct, MedicationDispenseRecord
 from .schemas import MedicationCreate, MedicationResponse, DispenseCreate, DispenseResponse
 
-router = APIRouter(prefix="/api/healthcare/pharmacy", tags=["Healthcare - Pharmacy (HLT-12)"])
+router = APIRouter(prefix="/healthcare/pharmacy", tags=["Healthcare - Pharmacy (HLT-12)"])
 
 @router.get("/formulary", response_model=List[MedicationResponse])
 async def list_medications(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -1207,7 +1207,7 @@ async def dispense_medication(data: DispenseCreate, db: AsyncSession = Depends(g
         "name_en": "Emergency Department & Triage Management",
         "icon": "Flame",
         "desc": "استقبال الطوارئ، تصنيف خطورة الحالات (ESI 1-5)، مسارات الإنعاش السريع، وتسكين أسرة الطوارئ.",
-        "api_prefix": "/api/healthcare/emergency",
+        "api_prefix": "/healthcare/emergency",
         "models_code": """from sqlalchemy import Column, Integer, String, Text, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -1252,7 +1252,7 @@ from app.dependencies import get_current_user
 from .models import EmergencyCase
 from .schemas import EmergencyCaseCreate, EmergencyCaseResponse
 
-router = APIRouter(prefix="/api/healthcare/emergency", tags=["Healthcare - Emergency (HLT-13)"])
+router = APIRouter(prefix="/healthcare/emergency", tags=["Healthcare - Emergency (HLT-13)"])
 
 @router.get("/cases", response_model=List[EmergencyCaseResponse])
 async def list_cases(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -1286,7 +1286,7 @@ async def update_case_status(id: int, status: str, db: AsyncSession = Depends(ge
         "name_en": "Operating Room & Surgery Management",
         "icon": "Scissors",
         "desc": "جدولة غرف العمليات، الفريق الجراحي والتخدير، قائمة التحقق الجراحية (WHO)، وغرفة الإفاقة.",
-        "api_prefix": "/api/healthcare/surgery",
+        "api_prefix": "/healthcare/surgery",
         "models_code": """from sqlalchemy import Column, Integer, String, Text, Boolean, Date, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -1333,7 +1333,7 @@ from app.dependencies import get_current_user
 from .models import SurgicalCase
 from .schemas import SurgicalCaseCreate, SurgicalCaseResponse
 
-router = APIRouter(prefix="/api/healthcare/surgery", tags=["Healthcare - Surgery (HLT-14)"])
+router = APIRouter(prefix="/healthcare/surgery", tags=["Healthcare - Surgery (HLT-14)"])
 
 @router.get("/cases", response_model=List[SurgicalCaseResponse])
 async def list_cases(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -1367,7 +1367,7 @@ async def complete_who_checklist(id: int, db: AsyncSession = Depends(get_db), _=
         "name_en": "Billing, Invoicing & Patient Accounts",
         "icon": "Receipt",
         "desc": "تسعيرة الخدمات، فواتير الكشوفات والإجراءات، حساب نسبة التحمل، سندات القبض، ودفعات المرضى.",
-        "api_prefix": "/api/healthcare/billing",
+        "api_prefix": "/healthcare/billing",
         "models_code": """from sqlalchemy import Column, Integer, String, Numeric, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -1412,7 +1412,7 @@ from app.dependencies import get_current_user
 from .models import PatientInvoice
 from .schemas import InvoiceCreate, InvoiceResponse
 
-router = APIRouter(prefix="/api/healthcare/billing", tags=["Healthcare - Billing (HLT-15)"])
+router = APIRouter(prefix="/healthcare/billing", tags=["Healthcare - Billing (HLT-15)"])
 
 @router.get("/invoices", response_model=List[InvoiceResponse])
 async def list_invoices(patient_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -1453,7 +1453,7 @@ async def pay_invoice(id: int, amount: float, db: AsyncSession = Depends(get_db)
         "name_en": "Insurance & Claims Management",
         "icon": "ShieldCheck",
         "desc": "شركات التأمين، بوالص المرضى، الموافقات المسبقة، تقديم المطالبات الإلكترونية، والتسوية والرفض.",
-        "api_prefix": "/api/healthcare/insurance",
+        "api_prefix": "/healthcare/insurance",
         "models_code": """from sqlalchemy import Column, Integer, String, Text, Numeric, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -1497,7 +1497,7 @@ from app.dependencies import get_current_user
 from .models import InsuranceClaimRecord
 from .schemas import ClaimCreate, ClaimResponse
 
-router = APIRouter(prefix="/api/healthcare/insurance", tags=["Healthcare - Insurance (HLT-16)"])
+router = APIRouter(prefix="/healthcare/insurance", tags=["Healthcare - Insurance (HLT-16)"])
 
 @router.get("/claims", response_model=List[ClaimResponse])
 async def list_claims(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -1534,7 +1534,7 @@ async def adjudicate_claim(id: int, status: str, approved_amount: float = 0.0, r
         "name_en": "Medical Inventory & Procurement",
         "icon": "Package",
         "desc": "المستلزمات الطبية، أدوات الجراحة، تتبع التشغيلات والصلاحيات، طلبات الشراء، وأرصدة الأقسام.",
-        "api_prefix": "/api/healthcare/inventory",
+        "api_prefix": "/healthcare/inventory",
         "models_code": """from sqlalchemy import Column, Integer, String, Numeric, Date, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -1575,7 +1575,7 @@ from app.dependencies import get_current_user
 from .models import MedicalSupplyItem
 from .schemas import SupplyItemCreate, SupplyItemResponse
 
-router = APIRouter(prefix="/api/healthcare/inventory", tags=["Healthcare - Medical Inventory (HLT-17)"])
+router = APIRouter(prefix="/healthcare/inventory", tags=["Healthcare - Medical Inventory (HLT-17)"])
 
 @router.get("/items", response_model=List[SupplyItemResponse])
 async def list_items(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -1600,7 +1600,7 @@ async def create_item(data: SupplyItemCreate, db: AsyncSession = Depends(get_db)
         "name_en": "Accounting & Healthcare Financial Management",
         "icon": "Calculator",
         "desc": "مراكز تكلفة الأقسام، عمولات وأتعاب الأطباء، إيرادات العيادات والأجنحة، وقيود اليومية التلقائية.",
-        "api_prefix": "/api/healthcare/accounting",
+        "api_prefix": "/healthcare/accounting",
         "models_code": """from sqlalchemy import Column, Integer, String, Numeric, Date, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -1637,7 +1637,7 @@ from app.dependencies import get_current_user
 from .models import HealthcareCostCenter
 from .schemas import CostCenterCreate, CostCenterResponse
 
-router = APIRouter(prefix="/api/healthcare/accounting", tags=["Healthcare - Accounting (HLT-18)"])
+router = APIRouter(prefix="/healthcare/accounting", tags=["Healthcare - Accounting (HLT-18)"])
 
 @router.get("/cost-centers", response_model=List[CostCenterResponse])
 async def list_cost_centers(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -1662,7 +1662,7 @@ async def create_cost_center(data: CostCenterCreate, db: AsyncSession = Depends(
         "name_en": "HR & Clinical Workforce Management",
         "icon": "Briefcase",
         "desc": "تراخيص المزاولة الطبية، الامتيازات السريرية، ساعات التعليم الطبي المستمر (CME)، وتبادل الورديات.",
-        "api_prefix": "/api/healthcare/hr",
+        "api_prefix": "/healthcare/hr",
         "models_code": """from sqlalchemy import Column, Integer, String, Date, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -1700,7 +1700,7 @@ from app.dependencies import get_current_user
 from .models import ClinicalCredentialRecord
 from .schemas import CredentialCreate, CredentialResponse
 
-router = APIRouter(prefix="/api/healthcare/hr", tags=["Healthcare - HR & Credentials (HLT-19)"])
+router = APIRouter(prefix="/healthcare/hr", tags=["Healthcare - HR & Credentials (HLT-19)"])
 
 @router.get("/credentials", response_model=List[CredentialResponse])
 async def list_credentials(staff_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -1727,7 +1727,7 @@ async def create_credential(data: CredentialCreate, db: AsyncSession = Depends(g
         "name_en": "Medical Equipment & Maintenance Management",
         "icon": "Activity",
         "desc": "سجل الأجهزة الطبية، الصيانة الوقائية، شهادات المعايرة الدورية، وتذاكر الأعطال والإصلاح.",
-        "api_prefix": "/api/healthcare/equipment",
+        "api_prefix": "/healthcare/equipment",
         "models_code": """from sqlalchemy import Column, Integer, String, Date, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -1769,7 +1769,7 @@ from app.dependencies import get_current_user
 from .models import BiomedicalDevice
 from .schemas import DeviceCreate, DeviceResponse
 
-router = APIRouter(prefix="/api/healthcare/equipment", tags=["Healthcare - Equipment (HLT-20)"])
+router = APIRouter(prefix="/healthcare/equipment", tags=["Healthcare - Equipment (HLT-20)"])
 
 @router.get("", response_model=List[DeviceResponse])
 async def list_devices(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -1794,7 +1794,7 @@ async def create_device(data: DeviceCreate, db: AsyncSession = Depends(get_db), 
         "name_en": "Patient Portal & Digital Services",
         "icon": "Laptop",
         "desc": "حسابات المرضى، حجز المواعيد الذاتي، استعراض نتائج التحاليل والأشعة، وسجل الوصفات والتقارير.",
-        "api_prefix": "/api/healthcare/portal",
+        "api_prefix": "/healthcare/portal",
         "models_code": """from sqlalchemy import Column, Integer, String, Text, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -1833,7 +1833,7 @@ from app.dependencies import get_current_user
 from .models import PatientPortalRequest
 from .schemas import PortalRequestCreate, PortalRequestResponse
 
-router = APIRouter(prefix="/api/healthcare/portal", tags=["Healthcare - Patient Portal (HLT-21)"])
+router = APIRouter(prefix="/healthcare/portal", tags=["Healthcare - Patient Portal (HLT-21)"])
 
 @router.get("/requests", response_model=List[PortalRequestResponse])
 async def list_requests(patient_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -1861,7 +1861,7 @@ async def submit_request(data: PortalRequestCreate, db: AsyncSession = Depends(g
         "name_en": "Telemedicine & Virtual Consultations",
         "icon": "Video",
         "desc": "جلسات الفيديو المشفرة، غرف الانتظار الافتراضية، التوثيق السريري عن بعد، والروشتات الرقمية.",
-        "api_prefix": "/api/healthcare/telemedicine",
+        "api_prefix": "/healthcare/telemedicine",
         "models_code": """from sqlalchemy import Column, Integer, String, Text, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -1904,7 +1904,7 @@ from app.dependencies import get_current_user
 from .models import TeleconsultationSession
 from .schemas import TeleconsultationCreate, TeleconsultationResponse
 
-router = APIRouter(prefix="/api/healthcare/telemedicine", tags=["Healthcare - Telemedicine (HLT-22)"])
+router = APIRouter(prefix="/healthcare/telemedicine", tags=["Healthcare - Telemedicine (HLT-22)"])
 
 @router.get("/sessions", response_model=List[TeleconsultationResponse])
 async def list_sessions(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -1929,7 +1929,7 @@ async def schedule_session(data: TeleconsultationCreate, db: AsyncSession = Depe
         "name_en": "Healthcare Notifications & Alerts",
         "icon": "Bell",
         "desc": "تذكير المواعيد عبر SMS/واتساب، تنبيهات النتائج المخبرية الحرجة، استدعاء الأطباء، وإشعارات الفواتير.",
-        "api_prefix": "/api/healthcare/notifications",
+        "api_prefix": "/healthcare/notifications",
         "models_code": """from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -1972,7 +1972,7 @@ from app.dependencies import get_current_user
 from .models import HealthcareAlert
 from .schemas import AlertCreate, AlertResponse
 
-router = APIRouter(prefix="/api/healthcare/notifications", tags=["Healthcare - Notifications (HLT-23)"])
+router = APIRouter(prefix="/healthcare/notifications", tags=["Healthcare - Notifications (HLT-23)"])
 
 @router.get("", response_model=List[AlertResponse])
 async def list_alerts(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -1997,7 +1997,7 @@ async def send_alert(data: AlertCreate, db: AsyncSession = Depends(get_db), _=De
         "name_en": "Clinical Analytics & Business Intelligence",
         "icon": "BarChart3",
         "desc": "نسبة إشغال الأسرة (BOR)، متوسط مدة الإقامة (ALOS)، إنتاجية الأطباء، ومؤشرات الجودة ومكافحة العدوى.",
-        "api_prefix": "/api/healthcare/analytics",
+        "api_prefix": "/healthcare/analytics",
         "models_code": """from sqlalchemy import Column, Integer, String, Numeric, Date, DateTime, func
 from app.db.base import Base
 from app.core.tenancy import TenantScoped
@@ -2035,7 +2035,7 @@ from app.db.base import get_db
 from app.dependencies import get_current_user
 from .models import HealthcareDailyMetric
 
-router = APIRouter(prefix="/api/healthcare/analytics", tags=["Healthcare - Analytics (HLT-24)"])
+router = APIRouter(prefix="/healthcare/analytics", tags=["Healthcare - Analytics (HLT-24)"])
 
 @router.get("/dashboard")
 async def get_dashboard_kpis(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)) -> Dict[str, Any]:

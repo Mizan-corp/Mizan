@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import MedicationProduct, MedicationDispenseRecord
 from .schemas import MedicationCreate, MedicationResponse, DispenseCreate, DispenseResponse
 
-router = APIRouter(prefix="/api/healthcare/pharmacy", tags=["Healthcare - Pharmacy (HLT-12)"])
+router = APIRouter(prefix="/healthcare/pharmacy", tags=["Healthcare - Pharmacy (HLT-12)"])
 
 @router.get("/formulary", response_model=List[MedicationResponse])
 async def list_medications(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

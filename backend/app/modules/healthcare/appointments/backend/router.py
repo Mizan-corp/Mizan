@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import MedicalAppointment
 from .schemas import AppointmentCreate, AppointmentResponse, StatusUpdate
 
-router = APIRouter(prefix="/api/healthcare/appointments", tags=["Healthcare - Appointments (HLT-03)"])
+router = APIRouter(prefix="/healthcare/appointments", tags=["Healthcare - Appointments (HLT-03)"])
 
 @router.get("", response_model=List[AppointmentResponse])
 async def list_appointments(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

@@ -9,7 +9,7 @@ from app.dependencies import get_current_user
 from .models import LabTestItem, LabSpecimenOrder
 from .schemas import LabTestCreate, LabTestResponse, SpecimenCreate, SpecimenResponse
 
-router = APIRouter(prefix="/api/healthcare/laboratory", tags=["Healthcare - Laboratory (HLT-10)"])
+router = APIRouter(prefix="/healthcare/laboratory", tags=["Healthcare - Laboratory (HLT-10)"])
 
 @router.get("/tests", response_model=List[LabTestResponse])
 async def list_tests(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

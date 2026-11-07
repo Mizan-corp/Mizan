@@ -17,7 +17,7 @@ export default function BedsView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/beds");
+      const res = await api.get<any>("/healthcare/beds");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

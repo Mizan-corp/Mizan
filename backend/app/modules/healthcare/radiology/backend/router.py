@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import RadiologyStudyOrder
 from .schemas import RadiologyOrderCreate, RadiologyOrderResponse
 
-router = APIRouter(prefix="/api/healthcare/radiology", tags=["Healthcare - Radiology (HLT-11)"])
+router = APIRouter(prefix="/healthcare/radiology", tags=["Healthcare - Radiology (HLT-11)"])
 
 @router.get("/orders", response_model=List[RadiologyOrderResponse])
 async def list_orders(patient_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

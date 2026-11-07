@@ -17,7 +17,7 @@ export default function MedicalStaffView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/medical-staff");
+      const res = await api.get<any>("/healthcare/medical-staff");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

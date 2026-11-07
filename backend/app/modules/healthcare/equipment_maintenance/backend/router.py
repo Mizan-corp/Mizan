@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import BiomedicalDevice
 from .schemas import DeviceCreate, DeviceResponse
 
-router = APIRouter(prefix="/api/healthcare/equipment", tags=["Healthcare - Equipment (HLT-20)"])
+router = APIRouter(prefix="/healthcare/equipment", tags=["Healthcare - Equipment (HLT-20)"])
 
 @router.get("", response_model=List[DeviceResponse])
 async def list_devices(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import PatientVitalRecord, PatientAllergyRecord
 from .schemas import VitalCreate, VitalResponse, AllergyCreate, AllergyResponse
 
-router = APIRouter(prefix="/api/healthcare/emr", tags=["Healthcare - EMR (HLT-05)"])
+router = APIRouter(prefix="/healthcare/emr", tags=["Healthcare - EMR (HLT-05)"])
 
 @router.get("/vitals", response_model=List[VitalResponse])
 async def list_vitals(patient_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

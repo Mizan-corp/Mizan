@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import SurgicalCase
 from .schemas import SurgicalCaseCreate, SurgicalCaseResponse
 
-router = APIRouter(prefix="/api/healthcare/surgery", tags=["Healthcare - Surgery (HLT-14)"])
+router = APIRouter(prefix="/healthcare/surgery", tags=["Healthcare - Surgery (HLT-14)"])
 
 @router.get("/cases", response_model=List[SurgicalCaseResponse])
 async def list_cases(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

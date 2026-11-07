@@ -17,7 +17,7 @@ export default function NotificationsView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/notifications");
+      const res = await api.get<any>("/healthcare/notifications");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

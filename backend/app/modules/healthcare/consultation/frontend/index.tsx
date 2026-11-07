@@ -17,7 +17,7 @@ export default function ConsultationView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/consultations");
+      const res = await api.get<any>("/healthcare/consultations");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

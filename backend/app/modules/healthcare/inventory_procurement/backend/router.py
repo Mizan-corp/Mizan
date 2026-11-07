@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import MedicalSupplyItem
 from .schemas import SupplyItemCreate, SupplyItemResponse
 
-router = APIRouter(prefix="/api/healthcare/inventory", tags=["Healthcare - Medical Inventory (HLT-17)"])
+router = APIRouter(prefix="/healthcare/inventory", tags=["Healthcare - Medical Inventory (HLT-17)"])
 
 @router.get("/items", response_model=List[SupplyItemResponse])
 async def list_items(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import PatientInvoice
 from .schemas import InvoiceCreate, InvoiceResponse
 
-router = APIRouter(prefix="/api/healthcare/billing", tags=["Healthcare - Billing (HLT-15)"])
+router = APIRouter(prefix="/healthcare/billing", tags=["Healthcare - Billing (HLT-15)"])
 
 @router.get("/invoices", response_model=List[InvoiceResponse])
 async def list_invoices(patient_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

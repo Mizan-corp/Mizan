@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import HealthcareAlert
 from .schemas import AlertCreate, AlertResponse
 
-router = APIRouter(prefix="/api/healthcare/notifications", tags=["Healthcare - Notifications (HLT-23)"])
+router = APIRouter(prefix="/healthcare/notifications", tags=["Healthcare - Notifications (HLT-23)"])
 
 @router.get("", response_model=List[AlertResponse])
 async def list_alerts(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

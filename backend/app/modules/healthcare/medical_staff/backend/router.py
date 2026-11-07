@@ -8,7 +8,7 @@ from app.dependencies import get_current_user
 from .models import MedicalStaff
 from .schemas import StaffCreate, StaffResponse
 
-router = APIRouter(prefix="/api/healthcare/medical-staff", tags=["Healthcare - Medical Staff (HLT-04)"])
+router = APIRouter(prefix="/healthcare/medical-staff", tags=["Healthcare - Medical Staff (HLT-04)"])
 
 @router.get("", response_model=List[StaffResponse])
 async def list_staff(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):

@@ -17,7 +17,7 @@ export default function HrWorkforceView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/hr");
+      const res = await api.get<any>("/healthcare/hr");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

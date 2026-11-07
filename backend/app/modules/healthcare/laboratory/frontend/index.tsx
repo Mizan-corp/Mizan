@@ -17,7 +17,7 @@ export default function LaboratoryView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/laboratory");
+      const res = await api.get<any>("/healthcare/laboratory");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

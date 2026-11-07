@@ -17,7 +17,7 @@ export default function AppointmentsView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/appointments");
+      const res = await api.get<any>("/healthcare/appointments");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {

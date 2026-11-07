@@ -17,7 +17,7 @@ export default function AccountingView() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await api.get<any>("/api/healthcare/accounting");
+      const res = await api.get<any>("/healthcare/accounting");
       if (Array.isArray(res)) {
         setItems(res);
       } else if (res && typeof res === "object") {
