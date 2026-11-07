@@ -16,9 +16,9 @@ ROLE_LABELS = {
 # Default permissions per role (used when creating new users)
 ROLE_DEFAULT_PERMISSIONS = {
     "admin": [
-        "pos", "sales", "quotations", "inventory", "operations",
+        "*", "pos", "sales", "quotations", "inventory", "operations",
         "customers", "reports", "archive", "payroll", "users",
-        "settings", "admin", "shifts", "finance",
+        "settings", "admin", "shifts", "finance", "clinic", "clinic:view", "clinic:manage",
     ],
     "manager": [
         "pos", "sales", "quotations", "inventory", "operations",

@@ -12,37 +12,37 @@ export default function ClaimsTab() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-teal-400" />
-            مطالبات التأمين (Insurance Claims)
+            <ShieldCheck className="size-4 text-primary" />
+            مطالبات التأمين الطبي (Insurance Claims)
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            تقديم ومتابعة مطالبات شركات التأمين (Copay، موافقة، رفض، صرف)
+            تقديم ومتابعة مطالبات شركات التأمين (Copay، موافقة، رفض، وصرف)
           </p>
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border/60">
+      <div className="overflow-x-auto rounded-xl border border-border/70 bg-card/80 shadow-xs">
         <table className="w-full text-xs">
-          <thead className="bg-muted/40">
+          <thead className="bg-muted/30 border-b border-border/60">
             <tr>
-              <th className="text-start py-2 px-3">رقم المطالبة</th>
-              <th className="text-start py-2 px-3">المريض</th>
-              <th className="text-start py-2 px-3">شركة التأمين</th>
-              <th className="text-start py-2 px-3">المبلغ المطالب</th>
-              <th className="text-start py-2 px-3">المعتمد</th>
-              <th className="text-start py-2 px-3">الحالة</th>
+              <th className="text-start py-2.5 px-3 font-semibold">رقم المطالبة</th>
+              <th className="text-start py-2.5 px-3 font-semibold">المريض</th>
+              <th className="text-start py-2.5 px-3 font-semibold">شركة التأمين</th>
+              <th className="text-start py-2.5 px-3 font-semibold">المبلغ المطالب</th>
+              <th className="text-start py-2.5 px-3 font-semibold">المعتمد</th>
+              <th className="text-start py-2.5 px-3 font-semibold">الحالة</th>
             </tr>
           </thead>
           <tbody>
             {c.claimsData.map((cl: any) => (
-              <tr key={cl.id} className="border-t border-border/40">
-                <td className="py-2 px-3 font-mono">{cl.claim_ref}</td>
-                <td className="py-2 px-3">{cl.patient_name}</td>
-                <td className="py-2 px-3">{cl.insurance_provider}</td>
-                <td className="py-2 px-3 font-mono">{moneyEGP(cl.claimed_amount)}</td>
-                <td className="py-2 px-3 font-mono">{moneyEGP(cl.approved_amount)}</td>
-                <td className="py-2 px-3">
-                  <Badge variant={cl.status === "approved" || cl.status === "paid" ? "success" : cl.status === "rejected" ? "destructive" : "outline"}>{cl.status}</Badge>
+              <tr key={cl.id} className="border-t border-border/40 hover:bg-primary/[0.03] transition-colors">
+                <td className="py-2.5 px-3 num font-bold text-foreground">{cl.claim_ref}</td>
+                <td className="py-2.5 px-3 font-medium text-foreground">{cl.patient_name}</td>
+                <td className="py-2.5 px-3">{cl.insurance_provider}</td>
+                <td className="py-2.5 px-3 num font-semibold">{moneyEGP(cl.claimed_amount)}</td>
+                <td className="py-2.5 px-3 num font-semibold text-primary">{moneyEGP(cl.approved_amount)}</td>
+                <td className="py-2.5 px-3">
+                  <Badge variant={cl.status === "approved" || cl.status === "paid" ? "success" : cl.status === "rejected" ? "destructive" : "outline"} className="text-[10px]">{cl.status}</Badge>
                 </td>
               </tr>
             ))}

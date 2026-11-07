@@ -944,21 +944,23 @@ export default function ClinicHealthcarePage() {
   };
   return (
     <ClinicProvider value={ctx}>
-    <div className="p-6 space-y-6 max-w-7xl mx-auto text-right" dir="rtl">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border/60">
+    <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto text-right" dir="rtl">
+      {/* Editorial Masthead Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border/80">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              <Hospital className="w-6 h-6 text-teal-400" />
-              منظومة المستشفيات والمراكز الطبية التخصصية
+            <span className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary border border-primary/20">
+              <Hospital className="size-5" />
+            </span>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground font-serif">
+              دفتر العيادات والمجمع الطبي التخصصي
             </h1>
-            <Badge variant="outline" className="border-teal-500/40 text-teal-400 bg-teal-500/10 text-xs font-mono">
-              HLT-ERP 3.0
+            <Badge variant="outline" className="border-primary/30 text-primary bg-primary/5 text-xs font-mono">
+              سجل سريري نشط
             </Badge>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            إدارة متكاملة للسجلات الطبية (EMR)، حجز المواعيد والكشوفات، الروشتات الإلكترونية (e-Rx)، المختبرات، والأجنحة وأسِرّة التنويم
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+            إدارة متكاملة للسجلات الطبية (EMR)، حجز المواعيد والكشوفات، الروشتات الإلكترونية (e-Rx)، والمختبرات وأسِرّة التنويم ومطالبات التأمين
           </p>
         </div>
 
@@ -969,10 +971,10 @@ export default function ClinicHealthcarePage() {
               setIsPatientModalOpen(true);
             }}
             variant="outline"
-            className="border-teal-500/30 text-teal-400 hover:bg-teal-500/10 gap-1.5 h-9 text-xs font-semibold"
+            className="border-primary/30 text-foreground hover:bg-primary/5 gap-1.5 h-9 text-xs font-semibold"
           >
-            <UserPlus className="w-4 h-4" />
-            فتح ملف مريض (EMR)
+            <UserPlus className="size-4 text-primary" />
+            فتح ملف مريض جديد (EMR)
           </Button>
 
           <Button
@@ -980,171 +982,171 @@ export default function ClinicHealthcarePage() {
               sound.click();
               setIsBookingOpen(true);
             }}
-            className="bg-teal-600 hover:bg-teal-500 text-white gap-1.5 h-9 text-xs font-semibold shadow-sm"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 h-9 text-xs font-semibold shadow-xs"
           >
-            <Calendar className="w-4 h-4" />
-            حجز موعد كشف جديد
+            <Calendar className="size-4" />
+            حجز موعد كشف فوري
           </Button>
         </div>
       </div>
 
-      {/* KPI Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-4 border-border/50 bg-card/60 backdrop-blur shadow-xs">
+      {/* KPI Overview Cards - Warm Editorial Daily Ledger Metrics */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <Card className="p-4 border-border/70 bg-card/80 shadow-xs hover:border-primary/40 transition-colors">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-medium">مواعيد وكشوفات اليوم</span>
-            <div className="p-2 rounded-xl bg-teal-500/10 text-teal-400">
-              <Calendar className="w-4 h-4" />
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+              <Calendar className="size-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold font-mono tracking-tight text-foreground">
+            <div className="num text-2xl font-bold tracking-tight text-foreground">
               {summary.today_appointments_count}
             </div>
-            <p className="text-xs text-muted-foreground mt-1 font-mono">
-              {summary.waiting_queue_count} مرضى بقائمة الانتظار الحالية
+            <p className="text-xs text-muted-foreground mt-1">
+              <span className="num font-semibold text-primary">{summary.waiting_queue_count}</span> في صالة الانتظار
             </p>
           </div>
         </Card>
 
-        <Card className="p-4 border-border/50 bg-card/60 backdrop-blur shadow-xs">
+        <Card className="p-4 border-border/70 bg-card/80 shadow-xs hover:border-primary/40 transition-colors">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-medium">إشغال أسِرّة التنويم والأجنحة</span>
-            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400">
-              <Bed className="w-4 h-4" />
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+              <Bed className="size-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold font-mono tracking-tight text-foreground">
+            <div className="num text-2xl font-bold tracking-tight text-foreground">
               {summary.bed_occupancy_percent}%
             </div>
-            <p className="text-xs text-muted-foreground mt-1 font-mono">
-              {summary.occupied_beds} مشغول من أصل {summary.total_beds} سرير
+            <p className="text-xs text-muted-foreground mt-1">
+              <span className="num font-semibold">{summary.occupied_beds}</span> شاغر من <span className="num font-semibold">{summary.total_beds}</span> سرير
             </p>
           </div>
         </Card>
 
-        <Card className="p-4 border-border/50 bg-card/60 backdrop-blur shadow-xs">
+        <Card className="p-4 border-border/70 bg-card/80 shadow-xs hover:border-primary/40 transition-colors">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-medium">سجلات المرضى (Master Index)</span>
-            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
-              <Users className="w-4 h-4" />
+            <span className="text-xs font-medium">سجلات المرضى النشطة (Master Index)</span>
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+              <Users className="size-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold font-mono tracking-tight text-foreground">
+            <div className="num text-2xl font-bold tracking-tight text-foreground">
               {summary.total_registered_patients}
             </div>
-            <p className="text-xs text-muted-foreground mt-1 font-mono">ملف طبي إلكتروني نشط ومعتمد</p>
+            <p className="text-xs text-muted-foreground mt-1">ملف طبي إلكتروني معتمد</p>
           </div>
         </Card>
 
-        <Card className="p-4 border-border/50 bg-card/60 backdrop-blur shadow-xs">
+        <Card className="p-4 border-border/70 bg-card/80 shadow-xs hover:border-primary/40 transition-colors">
           <div className="flex items-center justify-between text-muted-foreground">
             <span className="text-xs font-medium">الفحوصات والتحاليل المعلقة</span>
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
-              <Microscope className="w-4 h-4" />
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+              <Microscope className="size-4" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold font-mono tracking-tight text-foreground">
+            <div className="num text-2xl font-bold tracking-tight text-foreground">
               {summary.pending_lab_orders_count}
             </div>
-            <p className="text-xs text-muted-foreground mt-1 font-mono">بانتظار الفحص المخبري والاعتماد</p>
+            <p className="text-xs text-muted-foreground mt-1">بانتظار الاعتماد المخبري</p>
           </div>
         </Card>
       </div>
 
-      {/* Main Tabs Navigation */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/50 pb-2">
+      {/* Main Tabs Navigation - Ledger Tabs */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/70 pb-1">
         <div className="flex flex-wrap items-center gap-1">
           <button
             onClick={() => handleTabChange("appointments")}
-            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
               tab === "appointments"
-                ? "border-teal-500 text-teal-400 bg-teal-500/5 rounded-t-lg"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-t-lg"
+                ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
             }`}
           >
-            <Calendar className="w-3.5 h-3.5" />
-            الكشوفات وقائمة الانتظار ({appointments.length})
+            <Calendar className="size-3.5" />
+            الكشوفات والانتظار (<span className="num">{appointments.length}</span>)
           </button>
 
           <button
             onClick={() => handleTabChange("patients")}
-            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
               tab === "patients"
-                ? "border-teal-500 text-teal-400 bg-teal-500/5 rounded-t-lg"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-t-lg"
+                ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
             }`}
           >
-            <Users className="w-3.5 h-3.5" />
-            سجلات وملفات المرضى (EMR) ({patients.length})
+            <Users className="size-3.5" />
+            سجلات المرضى (EMR) (<span className="num">{patients.length}</span>)
           </button>
 
           <button
             onClick={() => handleTabChange("emr")}
-            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
               tab === "emr"
-                ? "border-teal-500 text-teal-400 bg-teal-500/5 rounded-t-lg"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-t-lg"
+                ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
             }`}
           >
-            <HeartPulse className="w-3.5 h-3.5" />
-            الكشوفات السريرية والتشخيص ({encounters.length})
+            <HeartPulse className="size-3.5" />
+            الكشوفات السريرية (<span className="num">{encounters.length}</span>)
           </button>
 
           <button
             onClick={() => handleTabChange("rx_labs")}
-            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
               tab === "rx_labs"
-                ? "border-teal-500 text-teal-400 bg-teal-500/5 rounded-t-lg"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-t-lg"
+                ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
             }`}
           >
-            <Pill className="w-3.5 h-3.5" />
-            الروشتات والتحاليل المخبرية ({prescriptions.length + labOrders.length})
+            <Pill className="size-3.5" />
+            الروشتات والتحاليل (<span className="num">{prescriptions.length + labOrders.length}</span>)
           </button>
 
           <button
             onClick={() => handleTabChange("beds")}
-            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
               tab === "beds"
-                ? "border-teal-500 text-teal-400 bg-teal-500/5 rounded-t-lg"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-t-lg"
+                ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
             }`}
           >
-            <Bed className="w-3.5 h-3.5" />
-            أقسام وأسِرّة التنويم ({beds.length})
+            <Bed className="size-3.5" />
+            أسرّة التنويم (<span className="num">{beds.length}</span>)
           </button>
 
           <button
             onClick={() => handleTabChange("billing")}
-            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
               tab === "billing"
-                ? "border-teal-500 text-teal-400 bg-teal-500/5 rounded-t-lg"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-t-lg"
+                ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
             }`}
           >
-            <FileText className="w-3.5 h-3.5" />
-            الفواتير والتحصيل ({invoicesData.length})
+            <FileText className="size-3.5" />
+            الفواتير والتحصيل (<span className="num">{invoicesData.length}</span>)
           </button>
 
           <button
             onClick={() => handleTabChange("claims")}
-            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 ${
+            className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
               tab === "claims"
-                ? "border-teal-500 text-teal-400 bg-teal-500/5 rounded-t-lg"
-                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-t-lg"
+                ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
             }`}
           >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            مطالبات التأمين ({claimsData.length})
+            <ShieldCheck className="size-3.5" />
+            مطالبات التأمين (<span className="num">{claimsData.length}</span>)
           </button>
         </div>
 
         <div className="relative w-full sm:w-64">
-          <Search className="w-4 h-4 absolute right-3 top-2.5 text-muted-foreground" />
+          <Search className="size-4 absolute right-3 top-2.5 text-muted-foreground" />
           <Input
             placeholder="بحث بالمريض، الطبيب، أو الكود..."
             value={search}
@@ -1178,7 +1180,7 @@ export default function ClinicHealthcarePage() {
               <X className="w-4 h-4" />
             </button>
             <h3 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
-              <UserPlus className="w-5 h-5 text-teal-400" />
+              <UserPlus className="size-5 text-primary" />
               تسجيل ملف مريض جديد (Master Patient Index)
             </h3>
             <form onSubmit={handleCreatePatient} className="space-y-3.5 text-xs">
@@ -1296,7 +1298,7 @@ export default function ClinicHealthcarePage() {
                 <Button type="button" variant="outline" onClick={() => setIsPatientModalOpen(false)} className="h-8 text-xs">
                   إلغاء
                 </Button>
-                <Button type="submit" className="h-8 text-xs bg-teal-600 hover:bg-teal-500 text-white font-semibold">
+                <Button type="submit" className="h-8 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs">
                   تسجيل الملف الطبي
                 </Button>
               </div>
@@ -1316,7 +1318,7 @@ export default function ClinicHealthcarePage() {
               <X className="w-4 h-4" />
             </button>
             <h3 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-teal-400" />
+              <Calendar className="size-5 text-primary" />
               حجز موعد كشف واستشارة طبية
             </h3>
             <form onSubmit={handleCreateAppointment} className="space-y-3.5 text-xs">
@@ -1396,7 +1398,7 @@ export default function ClinicHealthcarePage() {
                 <Button type="button" variant="outline" onClick={() => setIsBookingOpen(false)} className="h-8 text-xs">
                   إلغاء
                 </Button>
-                <Button type="submit" className="h-8 text-xs bg-teal-600 hover:bg-teal-500 text-white font-semibold">
+                <Button type="submit" className="h-8 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs">
                   تأكيد الحجز وقيد الانتظار
                 </Button>
               </div>
@@ -1416,7 +1418,7 @@ export default function ClinicHealthcarePage() {
               <X className="w-4 h-4" />
             </button>
             <h3 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
-              <HeartPulse className="w-5 h-5 text-teal-400" />
+              <HeartPulse className="size-5 text-primary" />
               توثيق كشف سريري وتشخيص طبي (EMR)
             </h3>
             <form onSubmit={handleCreateEncounter} className="space-y-3.5 text-xs">
@@ -1534,7 +1536,7 @@ export default function ClinicHealthcarePage() {
                 <Button type="button" variant="outline" onClick={() => setIsEncounterModalOpen(false)} className="h-8 text-xs">
                   إلغاء
                 </Button>
-                <Button type="submit" className="h-8 text-xs bg-teal-600 hover:bg-teal-500 text-white font-semibold">
+                <Button type="submit" className="h-8 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs">
                   حفظ الكشف الطبي
                 </Button>
               </div>
@@ -1554,7 +1556,7 @@ export default function ClinicHealthcarePage() {
               <X className="w-4 h-4" />
             </button>
             <h3 className="text-base font-bold text-foreground mb-4 flex items-center gap-2">
-              <Pill className="w-5 h-5 text-teal-400" />
+              <Pill className="size-5 text-primary" />
               إصدار روشتة طبية رقمية (e-Prescription)
             </h3>
             <form onSubmit={handleCreatePrescription} className="space-y-3.5 text-xs">
@@ -1621,7 +1623,7 @@ export default function ClinicHealthcarePage() {
                 <Button type="button" variant="outline" onClick={() => setIsRxModalOpen(false)} className="h-8 text-xs">
                   إلغاء
                 </Button>
-                <Button type="submit" className="h-8 text-xs bg-teal-600 hover:bg-teal-500 text-white font-semibold">
+                <Button type="submit" className="h-8 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs">
                   إصدار وإرسال للصيدلية
                 </Button>
               </div>
@@ -1716,7 +1718,7 @@ export default function ClinicHealthcarePage() {
               <X className="w-4 h-4" />
             </button>
             <h3 className="text-base font-bold text-foreground mb-1 flex items-center gap-2">
-              <Bed className="w-5 h-5 text-teal-400" />
+              <Bed className="size-5 text-primary" />
               تسكين مريض بالسرير: {admitBedTarget.bed_code}
             </h3>
             <p className="text-xs text-muted-foreground mb-4 font-mono">

@@ -6,8 +6,8 @@
  * Primary action: step 0..1 → «التالي»؛ step 2 → «أنشئ مساحة عملي الآن»؛ busy → جارٍ التجهيز
  * Art Direction: Warm Editorial Luxury (Oxblood, Deep Merlot, Warm Ivory, Muted Rose)
  */
-import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Check,
   Scale as ScaleIcon,
@@ -135,6 +135,7 @@ const CATEGORIES = [
 
 export default function OnboardingWizard() {
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
   const draft: OwnerDraft | null = (() => {
     try {
       return JSON.parse(
@@ -145,14 +146,15 @@ export default function OnboardingWizard() {
     }
   })();
 
+  const initialSector = searchParams.get("sector") || "retail";
   const [step, setStep] = useState(0);
-  const [sector, setSector] = useState("retail");
+  const [sector, setSector] = useState(initialSector);
   const [sectorCategory, setSectorCategory] = useState<string>("all");
   const [sectorSearch, setSectorSearch] = useState<string>("");
   const [company, setCompany] = useState("");
   const [scale, setScale] = useState("medium");
   const [palette, setPalette] = useState<string>("mizan");
-  const [features, setFeatures] = useState<string[]>(() => getSectorDefaultFeatures("retail"));
+  const [features, setFeatures] = useState<string[]>(() => getSectorDefaultFeatures(initialSector));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -160,6 +162,15 @@ export default function OnboardingWizard() {
     setSector(newSector);
     setFeatures(getSectorDefaultFeatures(newSector));
   }
+
+  // Ensure features are updated if sector changes externally or initializes
+  useEffect(() => {
+    const validModuleIds = new Set(getSectorModules(sector).map((m) => m.id));
+    const hasAnyCurrentModule = features.some((f) => validModuleIds.has(f));
+    if (!hasAnyCurrentModule || features.length === 0) {
+      setFeatures(getSectorDefaultFeatures(sector));
+    }
+  }, [sector]);
 
   // Enriched sectors list
   const enrichedSectors: SectorMeta[] = useMemo(() => {

@@ -66,9 +66,16 @@ def install_tenancy_events() -> None:
     def _stamp_tenant(session, flush_context, instances):
         tid = current_tenant_id.get()
         for obj in session.new:
-            if isinstance(obj, TenantScoped) and getattr(obj, "tenant_id", None) is None:
-                if tid is not None:
-                    obj.tenant_id = tid
+            if isinstance(obj, TenantScoped):
+                obj_tid = getattr(obj, "tenant_id", None)
+                if obj_tid is None:
+                    if tid is not None:
+                        obj.tenant_id = tid
+                elif tid is not None and obj_tid != tid:
+                    raise PermissionError(
+                        f"Tenant isolation mismatch: {obj.__class__.__name__} carrying tenant_id={obj_tid} "
+                        f"does not match active tenant_id={tid}"
+                    )
 
 
 async def primary_tenant_id(db) -> uuid.UUID | None:

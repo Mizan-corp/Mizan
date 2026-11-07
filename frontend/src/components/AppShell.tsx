@@ -82,7 +82,11 @@ function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
     : "";
 
   const sectorBadge = tenant?.sector ? SECTOR_BADGES[tenant.sector] : null;
-  const isSpecializedSector = tenant?.sector === "healthcare" || tenant?.sector === "restaurant" || tenant?.sector === "pharmacy";
+  const isSpecializedSector = Boolean(tenant?.sector && [
+    "healthcare", "restaurant", "pharmacy", "school", "gym", "salon",
+    "hotel", "wholesale", "construction", "discrete_mfg", "food_mfg",
+    "pharma_mfg", "real_estate", "field_service", "travel", "logistics", "wms_3pl",
+  ].includes(tenant.sector));
   const sectorPrimaryPath = tenant?.sector ? SECTOR_PRIMARY_ROUTES[tenant.sector] : null;
   const sectorFeaturedItem = !isSpecializedSector && sectorPrimaryPath && sectorPrimaryPath !== "/" && sectorPrimaryPath !== "/pos"
     ? NAV_ITEMS.find((n) => n.to === sectorPrimaryPath)

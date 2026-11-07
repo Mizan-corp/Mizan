@@ -1452,6 +1452,37 @@ MIGRATIONS = [
             FROM jsonb_array_elements_text(value::jsonb) AS elem
         ) WHERE key = 'installed_modules' AND value::jsonb @> '["clinic"]'::jsonb;
     """),
+    # v38 — RLS enforcement for healthcare & vertical module tables
+    ("v38_module_rls", """
+        DO $$
+        DECLARE
+            tbl text;
+            tables text[] := ARRAY[
+                'clinic_patients',
+                'clinic_appointments',
+                'clinic_encounters',
+                'clinic_prescriptions',
+                'clinic_lab_orders',
+                'clinic_beds',
+                'clinic_invoices',
+                'clinic_insurance_claims'
+            ];
+        BEGIN
+            FOREACH tbl IN ARRAY tables LOOP
+                IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = tbl) THEN
+                    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', tbl);
+                    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', tbl);
+                    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = tbl AND policyname = 'tenant_isolation') THEN
+                        EXECUTE format('
+                            CREATE POLICY tenant_isolation ON %I
+                            USING (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid OR current_setting(''app.bypass'', true) = ''on'')
+                            WITH CHECK (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid OR current_setting(''app.bypass'', true) = ''on'');
+                        ', tbl);
+                    END IF;
+                END IF;
+            END LOOP;
+        END $$;
+    """),
 ]
 
 def ensure_foundation():
