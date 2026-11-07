@@ -7,7 +7,21 @@ import subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
-COMPOSE = ["docker", "compose", "-p", "vendora", "-f", str(ROOT / "docker-compose.yml")]
+
+
+def _resolve_compose():
+    for cmd in [
+        ["docker", "compose", "-f", str(ROOT / "docker-compose.yml")],
+        ["docker", "compose", "-p", "vendora", "-f", str(ROOT / "docker-compose.yml")],
+        ["docker", "compose", "-p", "mizan", "-f", str(ROOT / "docker-compose.yml")],
+    ]:
+        res = subprocess.run(cmd + ["ps", "-q", "db"], capture_output=True, text=True)
+        if res.returncode == 0 and res.stdout.strip():
+            return cmd
+    return ["docker", "compose", "-p", "vendora", "-f", str(ROOT / "docker-compose.yml")]
+
+
+COMPOSE = _resolve_compose()
 
 def split_statements(sql: str):
     """Split on top-level semicolons, respecting dollar-quoted blocks

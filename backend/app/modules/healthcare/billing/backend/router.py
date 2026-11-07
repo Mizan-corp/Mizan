@@ -10,6 +10,7 @@ from .schemas import InvoiceCreate, InvoiceResponse
 
 router = APIRouter(prefix="/healthcare/billing", tags=["Healthcare - Billing (HLT-15)"])
 
+@router.get("")
 @router.get("/invoices", response_model=List[InvoiceResponse])
 async def list_invoices(patient_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     stmt = select(PatientInvoice)
@@ -19,6 +20,7 @@ async def list_invoices(patient_id: int | None = None, db: AsyncSession = Depend
     res = await db.execute(stmt)
     return res.scalars().all()
 
+@router.post("")
 @router.post("/invoices", response_model=InvoiceResponse)
 async def create_invoice(data: InvoiceCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     inv = PatientInvoice(**data.model_dump())

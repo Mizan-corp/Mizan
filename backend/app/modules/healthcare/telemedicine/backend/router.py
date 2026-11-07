@@ -10,12 +10,14 @@ from .schemas import TeleconsultationCreate, TeleconsultationResponse
 
 router = APIRouter(prefix="/healthcare/telemedicine", tags=["Healthcare - Telemedicine (HLT-22)"])
 
+@router.get("")
 @router.get("/sessions", response_model=List[TeleconsultationResponse])
 async def list_sessions(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     stmt = select(TeleconsultationSession).order_by(TeleconsultationSession.scheduled_at.desc())
     res = await db.execute(stmt)
     return res.scalars().all()
 
+@router.post("")
 @router.post("/sessions", response_model=TeleconsultationResponse)
 async def schedule_session(data: TeleconsultationCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     sess = TeleconsultationSession(**data.model_dump())

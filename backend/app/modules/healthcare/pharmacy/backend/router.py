@@ -10,12 +10,14 @@ from .schemas import MedicationCreate, MedicationResponse, DispenseCreate, Dispe
 
 router = APIRouter(prefix="/healthcare/pharmacy", tags=["Healthcare - Pharmacy (HLT-12)"])
 
+@router.get("")
 @router.get("/formulary", response_model=List[MedicationResponse])
 async def list_medications(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     stmt = select(MedicationProduct)
     res = await db.execute(stmt)
     return res.scalars().all()
 
+@router.post("")
 @router.post("/formulary", response_model=MedicationResponse)
 async def create_medication(data: MedicationCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     med = MedicationProduct(**data.model_dump())

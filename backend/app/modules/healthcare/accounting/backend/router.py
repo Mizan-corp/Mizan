@@ -10,12 +10,14 @@ from .schemas import CostCenterCreate, CostCenterResponse
 
 router = APIRouter(prefix="/healthcare/accounting", tags=["Healthcare - Accounting (HLT-18)"])
 
+@router.get("")
 @router.get("/cost-centers", response_model=List[CostCenterResponse])
 async def list_cost_centers(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     stmt = select(HealthcareCostCenter)
     res = await db.execute(stmt)
     return res.scalars().all()
 
+@router.post("")
 @router.post("/cost-centers", response_model=CostCenterResponse)
 async def create_cost_center(data: CostCenterCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     cc = HealthcareCostCenter(**data.model_dump())

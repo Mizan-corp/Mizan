@@ -10,6 +10,7 @@ from .schemas import RadiologyOrderCreate, RadiologyOrderResponse
 
 router = APIRouter(prefix="/healthcare/radiology", tags=["Healthcare - Radiology (HLT-11)"])
 
+@router.get("")
 @router.get("/orders", response_model=List[RadiologyOrderResponse])
 async def list_orders(patient_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     stmt = select(RadiologyStudyOrder)
@@ -19,6 +20,7 @@ async def list_orders(patient_id: int | None = None, db: AsyncSession = Depends(
     res = await db.execute(stmt)
     return res.scalars().all()
 
+@router.post("")
 @router.post("/orders", response_model=RadiologyOrderResponse)
 async def create_order(data: RadiologyOrderCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     ord = RadiologyStudyOrder(**data.model_dump())

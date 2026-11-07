@@ -10,12 +10,14 @@ from .schemas import SurgicalCaseCreate, SurgicalCaseResponse
 
 router = APIRouter(prefix="/healthcare/surgery", tags=["Healthcare - Surgery (HLT-14)"])
 
+@router.get("")
 @router.get("/cases", response_model=List[SurgicalCaseResponse])
 async def list_cases(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     stmt = select(SurgicalCase).order_by(SurgicalCase.scheduled_date.desc(), SurgicalCase.id.desc())
     res = await db.execute(stmt)
     return res.scalars().all()
 
+@router.post("")
 @router.post("/cases", response_model=SurgicalCaseResponse)
 async def create_case(data: SurgicalCaseCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     sc = SurgicalCase(**data.model_dump())

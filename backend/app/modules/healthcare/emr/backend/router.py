@@ -10,6 +10,7 @@ from .schemas import VitalCreate, VitalResponse, AllergyCreate, AllergyResponse
 
 router = APIRouter(prefix="/healthcare/emr", tags=["Healthcare - EMR (HLT-05)"])
 
+@router.get("")
 @router.get("/vitals", response_model=List[VitalResponse])
 async def list_vitals(patient_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     stmt = select(PatientVitalRecord)
@@ -19,6 +20,7 @@ async def list_vitals(patient_id: int | None = None, db: AsyncSession = Depends(
     res = await db.execute(stmt)
     return res.scalars().all()
 
+@router.post("")
 @router.post("/vitals", response_model=VitalResponse)
 async def record_vitals(data: VitalCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     bmi = None

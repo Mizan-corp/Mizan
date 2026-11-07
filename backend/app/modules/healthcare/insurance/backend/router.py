@@ -10,12 +10,14 @@ from .schemas import ClaimCreate, ClaimResponse
 
 router = APIRouter(prefix="/healthcare/insurance", tags=["Healthcare - Insurance (HLT-16)"])
 
+@router.get("")
 @router.get("/claims", response_model=List[ClaimResponse])
 async def list_claims(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     stmt = select(InsuranceClaimRecord).order_by(InsuranceClaimRecord.id.desc())
     res = await db.execute(stmt)
     return res.scalars().all()
 
+@router.post("")
 @router.post("/claims", response_model=ClaimResponse)
 async def create_claim(data: ClaimCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     cl = InsuranceClaimRecord(**data.model_dump())

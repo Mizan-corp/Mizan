@@ -10,6 +10,7 @@ from .schemas import MARCreate, MARResponse
 
 router = APIRouter(prefix="/healthcare/nursing", tags=["Healthcare - Nursing & MAR (HLT-09)"])
 
+@router.get("")
 @router.get("/mar", response_model=List[MARResponse])
 async def list_mar_records(patient_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     stmt = select(MedicationAdminRecord)
@@ -19,6 +20,7 @@ async def list_mar_records(patient_id: int | None = None, db: AsyncSession = Dep
     res = await db.execute(stmt)
     return res.scalars().all()
 
+@router.post("")
 @router.post("/mar", response_model=MARResponse)
 async def record_administration(data: MARCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     rec = MedicationAdminRecord(**data.model_dump())

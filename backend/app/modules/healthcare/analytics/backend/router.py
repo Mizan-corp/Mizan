@@ -10,6 +10,7 @@ from .models import HealthcareDailyMetric
 
 router = APIRouter(prefix="/healthcare/analytics", tags=["Healthcare - Analytics (HLT-24)"])
 
+@router.get("")
 @router.get("/dashboard")
 async def get_dashboard_kpis(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)) -> Dict[str, Any]:
     return {

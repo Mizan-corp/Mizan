@@ -10,6 +10,7 @@ from .schemas import PortalRequestCreate, PortalRequestResponse
 
 router = APIRouter(prefix="/healthcare/portal", tags=["Healthcare - Patient Portal (HLT-21)"])
 
+@router.get("")
 @router.get("/requests", response_model=List[PortalRequestResponse])
 async def list_requests(patient_id: int | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     stmt = select(PatientPortalRequest)
@@ -19,6 +20,7 @@ async def list_requests(patient_id: int | None = None, db: AsyncSession = Depend
     res = await db.execute(stmt)
     return res.scalars().all()
 
+@router.post("")
 @router.post("/requests", response_model=PortalRequestResponse)
 async def submit_request(data: PortalRequestCreate, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     r = PatientPortalRequest(**data.model_dump())
