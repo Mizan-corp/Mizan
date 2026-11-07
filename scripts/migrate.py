@@ -1464,6 +1464,7 @@ MIGRATIONS = [
                 'clinic_prescriptions',
                 'clinic_lab_orders',
                 'clinic_beds',
+                'clinic_inpatient_beds',
                 'clinic_invoices',
                 'clinic_insurance_claims'
             ];
@@ -1481,6 +1482,21 @@ MIGRATIONS = [
                     END IF;
                 END IF;
             END LOOP;
+        END $$;
+    """),
+    # v39 — RLS enforcement for clinic inpatient beds
+    ("v39_inpatient_beds_rls", """
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'clinic_inpatient_beds') THEN
+                ALTER TABLE clinic_inpatient_beds ENABLE ROW LEVEL SECURITY;
+                ALTER TABLE clinic_inpatient_beds FORCE ROW LEVEL SECURITY;
+                IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'clinic_inpatient_beds' AND policyname = 'tenant_isolation') THEN
+                    CREATE POLICY tenant_isolation ON clinic_inpatient_beds
+                        USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+                        WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+                END IF;
+            END IF;
         END $$;
     """),
 ]
