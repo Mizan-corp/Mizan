@@ -1,13 +1,17 @@
+import { useState } from "react";
 import { Badge } from "@/components/kit/badge";
 import { Button } from "@/components/kit/button";
-import { FileText } from "lucide-react";
+import { FileText, Printer } from "lucide-react";
 import { useClinic } from "../ClinicContext";
+import { ClinicInvoiceReceiptModal, type ClinicInvoiceReceiptData } from "@/features/modules/SpecializedReceiptModals";
 
 const moneyEGP = (amount: number) =>
   `${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
 
 export default function BillingTab() {
   const c = useClinic();
+  const [printData, setPrintData] = useState<ClinicInvoiceReceiptData | null>(null);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -17,7 +21,7 @@ export default function BillingTab() {
             فواتير الكشوفات والتحصيل (Billing &amp; Invoices)
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            إصدار فواتير الكشوفات، احتساب نسب التحمل (Copay)، وتسجيل المدفوعات
+            إصدار فواتير الكشوفات، احتساب نسب التحمل (Copay)، وتسجيل المدفوعات وطباعة الإيصالات
           </p>
         </div>
       </div>
@@ -49,11 +53,40 @@ export default function BillingTab() {
                   <Badge variant={inv.status === "paid" ? "success" : "outline"} className="text-[10px]">{inv.status}</Badge>
                 </td>
                 <td className="py-2.5 px-3">
-                  {inv.status !== "paid" && (
-                    <Button size="sm" onClick={() => c.handlePayInvoice(inv)} className="text-xs h-7 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
-                      تسجيل دفع
+                  <div className="flex items-center gap-1.5">
+                    {inv.status !== "paid" && (
+                      <Button size="sm" onClick={() => c.handlePayInvoice(inv)} className="text-xs h-7 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+                        تسجيل دفع
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setPrintData({
+                          invoice_no: inv.invoice_ref || `INV-${String(inv.id).slice(0, 8)}`,
+                          patient_name: inv.patient_name || "مريض عام",
+                          doctor_name: "د. استشاري العيادة",
+                          copay_percentage: inv.insurance_amount > 0 && inv.total > 0 ? Math.round((inv.patient_amount / inv.total) * 100) : 100,
+                          items: [
+                            {
+                              description: "كشف واستشارة طبية سريرية",
+                              qty: 1,
+                              unit_price: Number(inv.total),
+                              total: Number(inv.total),
+                            },
+                          ],
+                          total_amount: Number(inv.total),
+                          insurance_covered: Number(inv.insurance_amount || 0),
+                          patient_paid: Number(inv.paid_amount || inv.patient_amount || 0),
+                        });
+                      }}
+                      className="text-xs h-7 gap-1 font-semibold"
+                    >
+                      <Printer className="size-3" />
+                      طباعة
                     </Button>
-                  )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -67,6 +100,12 @@ export default function BillingTab() {
           </tbody>
         </table>
       </div>
+
+      <ClinicInvoiceReceiptModal
+        open={!!printData}
+        onClose={() => setPrintData(null)}
+        data={printData}
+      />
     </div>
   );
 }
