@@ -14,9 +14,21 @@ export interface User {
   default_warehouse_id: string | null;
 }
 
+export interface LoginConfig {
+  company_name?: string;
+  logo_url?: string;
+  login_title?: string;
+  login_subtitle?: string;
+  cover_url?: string;
+  support_contact?: string;
+  primary_color?: string;
+  show_powered_by?: boolean;
+}
+
 export interface TenantInfo {
   id: string;
   name: string;
+  logo_url?: string;
   slug?: string | null;
   custom_domain?: string | null;
   sector: string;
@@ -31,6 +43,7 @@ export interface TenantInfo {
   deployment_mode?: string;
   tech_stack?: Record<string, unknown>;
   limits?: Record<string, unknown>;
+  login_config?: LoginConfig;
 }
 
 interface AuthState {

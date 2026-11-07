@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -20,13 +21,18 @@ MAX_UPLOAD_SIZE = 5 * 1024 * 1024
 
 
 class SettingsUpdate(BaseModel):
-    settings: dict[str, Any]
+    settings: dict[str, Any] | None = None
 
 
 @router.post("/upload-logo")
-async def upload_logo(file: UploadFile = File(...), db: AsyncSession = Depends(get_db), _=Depends(require_perm("settings"))):
+async def upload_logo(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_perm("settings")),
+):
     import io
     import os
+    import uuid
 
     from PIL import Image
 
@@ -43,13 +49,14 @@ async def upload_logo(file: UploadFile = File(...), db: AsyncSession = Depends(g
     except Exception:
         raise HTTPException(400, "الملف ليس صورة صالحة") from None
     os.makedirs(cfg.UPLOAD_DIR, exist_ok=True)
-    # Clean old generated PWA icons
-    for f in os.listdir(cfg.UPLOAD_DIR):
-        if f.startswith("logo-") and f.endswith(".png"):
-            os.remove(os.path.join(cfg.UPLOAD_DIR, f))
-    safe_name = re.sub(r'[^a-zA-Z0-9._-]', '_', file.filename or "logo.png")
-    ext = os.path.splitext(safe_name)[1] or ".png"
-    dest = os.path.join(cfg.UPLOAD_DIR, f"logo{ext}")
+
+    t_prefix = f"tenant_{current_user.tenant_id}_" if current_user.tenant_id else ""
+    safe_uid = uuid.uuid4().hex[:8]
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in [".png", ".jpg", ".jpeg", ".webp", ".gif"]:
+        ext = ".png"
+    dest_name = f"logo_{t_prefix}{safe_uid}{ext}"
+    dest = os.path.join(cfg.UPLOAD_DIR, dest_name)
     with open(dest, "wb") as f:
         f.write(contents)
     # Generate square PWA icons from uploaded image
@@ -61,13 +68,55 @@ async def upload_logo(file: UploadFile = File(...), db: AsyncSession = Depends(g
         cropped = img.crop((left, top, left + size, top + size))
         for icon_size in (192, 512):
             resized = cropped.resize((icon_size, icon_size), Image.LANCZOS)
-            resized.save(os.path.join(cfg.UPLOAD_DIR, f"logo-{icon_size}x{icon_size}.png"), "PNG")
+            pwa_name = f"logo_{t_prefix}{safe_uid}-{icon_size}x{icon_size}.png"
+            resized.save(os.path.join(cfg.UPLOAD_DIR, pwa_name), "PNG")
     except Exception:
-        raise HTTPException(400, "الملف ليس صورة صالحة") from None
-    url = f"/uploads/logo{ext}"
+        pass
+    url = f"/uploads/{dest_name}"
     await _upsert_setting(db, "logo_url", url)
     await db.commit()
     return {"logo_url": url}
+
+
+@router.post("/upload-cover")
+async def upload_cover(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_perm("settings")),
+):
+    import io
+    import os
+    import uuid
+
+    from PIL import Image
+
+    from app.core.config import settings as cfg
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(400, "نوع الملف غير مدعوم. الأنواع المسموحة: JPEG, PNG, GIF, WebP")
+    contents = await file.read()
+    if len(contents) > MAX_UPLOAD_SIZE:
+        raise HTTPException(400, "حجم الملف يتجاوز 5 ميجابايت")
+    try:
+        img = Image.open(io.BytesIO(contents))
+        img.verify()
+    except Exception:
+        raise HTTPException(400, "الملف ليس صورة صالحة") from None
+    os.makedirs(cfg.UPLOAD_DIR, exist_ok=True)
+
+    t_prefix = f"tenant_{current_user.tenant_id}_" if current_user.tenant_id else ""
+    safe_uid = uuid.uuid4().hex[:8]
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in [".png", ".jpg", ".jpeg", ".webp", ".gif"]:
+        ext = ".png"
+    dest_name = f"cover_{t_prefix}{safe_uid}{ext}"
+    dest = os.path.join(cfg.UPLOAD_DIR, dest_name)
+    with open(dest, "wb") as f:
+        f.write(contents)
+
+    url = f"/uploads/{dest_name}"
+    await _upsert_setting(db, "login_cover_url", url)
+    await db.commit()
+    return {"cover_url": url}
 
 
 async def _upsert_setting(db: AsyncSession, key: str, value: Any) -> None:
@@ -173,11 +222,14 @@ async def get_settings(db: AsyncSession = Depends(get_db)):
 
 
 @router.put("")
-async def update_settings(data: SettingsUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("settings"))):
+async def update_settings(data: dict[str, Any], db: AsyncSession = Depends(get_db), _=Depends(require_perm("settings"))):
     import json as _json
 
     from app.models.settings import StoreSetting
-    for key, value in data.settings.items():
+    items = data.get("settings") if isinstance(data.get("settings"), dict) else data
+    for key, value in items.items():
+        if key == "settings" and isinstance(value, dict):
+            continue
         # Store lists/dicts as JSON string
         str_value = _json.dumps(value, ensure_ascii=False) if isinstance(value, (list, dict)) else str(value)
         result = await db.execute(select(StoreSetting).where(StoreSetting.key == key))

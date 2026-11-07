@@ -132,11 +132,42 @@ async def resolve_tenant_slug(slug_or_domain: str, db: AsyncSession = Depends(ge
         )
 
     from app.api.routers.platform import SECTOR_PRIMARY_MODULES, SECTOR_PRIMARY_ROUTES
+    from app.models.settings import StoreSetting
+
     active_mods = tenant.active_modules
     if not active_mods or active_mods == ["pos", "inventory"]:
         active_mods = SECTOR_PRIMARY_MODULES.get(tenant.sector, ["pos", "inventory", "finance"])
 
     primary_route = SECTOR_PRIMARY_ROUTES.get(tenant.sector, "/pos")
+
+    s_rows = (await db.execute(
+        select(StoreSetting).where(
+            StoreSetting.tenant_id == tenant.id,
+            StoreSetting.key.in_([
+                "store_name",
+                "logo_url",
+                "login_title",
+                "login_subtitle",
+                "login_cover_url",
+                "login_support_contact",
+                "theme_primary",
+                "theme_color",
+                "login_show_powered_by",
+            ])
+        )
+    )).scalars().all()
+    s_map = {row.key: row.value for row in s_rows}
+
+    login_config = {
+        "company_name": s_map.get("store_name") or tenant.name,
+        "logo_url": s_map.get("logo_url") or (tenant.palette or {}).get("logo_url"),
+        "login_title": s_map.get("login_title") or (tenant.palette or {}).get("login_title"),
+        "login_subtitle": s_map.get("login_subtitle") or (tenant.palette or {}).get("login_subtitle"),
+        "cover_url": s_map.get("login_cover_url") or (tenant.palette or {}).get("login_cover_url"),
+        "support_contact": s_map.get("login_support_contact") or (tenant.palette or {}).get("support_contact"),
+        "primary_color": s_map.get("theme_primary") or s_map.get("theme_color") or (tenant.palette or {}).get("primary"),
+        "show_powered_by": s_map.get("login_show_powered_by", "true") != "false",
+    }
 
     return {
         "id": str(tenant.id),
@@ -152,6 +183,7 @@ async def resolve_tenant_slug(slug_or_domain: str, db: AsyncSession = Depends(ge
         "deployment_mode": tenant.deployment_mode,
         "active_modules": active_mods,
         "limits": tenant.limits,
+        "login_config": login_config,
     }
 
 
