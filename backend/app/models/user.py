@@ -11,6 +11,10 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.warehouse import Warehouse
+    from app.models.auth_access import (
+        UserPosition, UserRoleAssignment, UserFacilityAssignment,
+        UserPermissionOverride, PatientAccessAssignment
+    )
 
 
 user_warehouses = Table(
@@ -25,9 +29,11 @@ class User(Base, TenantScoped):
     __table_args__ = (UniqueConstraint("tenant_id", "username", name="uq_users_tenant_username"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     username: Mapped[str] = mapped_column(String(64), nullable=False)
     full_name: Mapped[str] = mapped_column(String(128), nullable=False)
     role: Mapped[str] = mapped_column(String(32), nullable=False, default="cashier")
+    account_type: Mapped[str] = mapped_column(String(32), nullable=False, default="employee", server_default=text("'employee'"))
     password_hash: Mapped[str] = mapped_column(String(256), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_manager: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -40,3 +46,8 @@ class User(Base, TenantScoped):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     warehouses: Mapped[list["Warehouse"]] = relationship(secondary=user_warehouses, back_populates="users", lazy="selectin")
+    positions: Mapped[list["UserPosition"]] = relationship("UserPosition", back_populates="user", cascade="all, delete-orphan", lazy="selectin")
+    role_assignments: Mapped[list["UserRoleAssignment"]] = relationship("UserRoleAssignment", back_populates="user", cascade="all, delete-orphan", lazy="selectin")
+    facility_assignments: Mapped[list["UserFacilityAssignment"]] = relationship("UserFacilityAssignment", back_populates="user", cascade="all, delete-orphan", lazy="selectin")
+    permission_overrides: Mapped[list["UserPermissionOverride"]] = relationship("UserPermissionOverride", foreign_keys="UserPermissionOverride.user_id", back_populates="user", cascade="all, delete-orphan", lazy="selectin")
+    patient_assignments: Mapped[list["PatientAccessAssignment"]] = relationship("PatientAccessAssignment", back_populates="user", cascade="all, delete-orphan", lazy="selectin")

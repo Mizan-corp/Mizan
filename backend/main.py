@@ -12,6 +12,7 @@ from sqlalchemy import text
 
 import app.models.archive
 import app.models.audit_log
+import app.models.auth_access
 import app.models.collection
 import app.models.customer_payment
 import app.models.device_token

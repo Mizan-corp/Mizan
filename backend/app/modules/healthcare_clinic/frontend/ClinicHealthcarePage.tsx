@@ -44,6 +44,7 @@ export const HEALTHCARE_MODULES_MAP: Record<string, { code: string; title: strin
   telemedicine: { code: "HLT-22", title: "الطب الاتصالي والاستشارات المرئية", category: "Clinical", icon: Video, component: lazy(() => import("@modules/healthcare/telemedicine/frontend/index")) },
   notifications: { code: "HLT-23", title: "الإشعارات والتنبيهات الطبية", category: "Patients", icon: Bell, component: lazy(() => import("@modules/healthcare/notifications/frontend/index")) },
   analytics: { code: "HLT-24", title: "المؤشرات والذكاء السريري", category: "Revenue", icon: BarChart3, component: lazy(() => import("@modules/healthcare/analytics/frontend/index")) },
+  access_control: { code: "SEC-01", title: "الصلاحيات والمسميات والتحكم (RBAC/ABAC)", category: "Core", icon: ShieldCheck, component: lazy(() => import("@/features/users/AccessControlManagement")) },
 };
 
 

@@ -1949,6 +1949,204 @@ MIGRATIONS = [
             END LOOP;
         END $$;
     """),
+
+    # v42 — Platform-wide RBAC & ABAC Suite (Positions, Account Types, Roles, Permissions, Overrides, Break-Glass & HIPAA Audit)
+    ("v42_platform_rbac_abac_suite", """
+        -- 1. Extend users with account_type
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS account_type VARCHAR(32) NOT NULL DEFAULT 'employee';
+
+        -- 2. Positions Catalog (Job Titles A-I)
+        CREATE TABLE IF NOT EXISTS org_positions (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID,
+            code VARCHAR(64) NOT NULL,
+            name VARCHAR(128) NOT NULL,
+            name_en VARCHAR(128) NOT NULL,
+            category VARCHAR(64) NOT NULL,
+            department_name VARCHAR(128),
+            description TEXT,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_position_code_tenant ON org_positions(code, COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'::uuid));
+        CREATE INDEX IF NOT EXISTS idx_org_positions_cat ON org_positions(category);
+
+        -- 3. Granular System Permissions Catalog
+        CREATE TABLE IF NOT EXISTS sys_permissions (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            code VARCHAR(64) UNIQUE NOT NULL,
+            module VARCHAR(64) NOT NULL,
+            action VARCHAR(32) NOT NULL,
+            name VARCHAR(128) NOT NULL,
+            name_en VARCHAR(128) NOT NULL,
+            description TEXT,
+            is_clinical BOOLEAN DEFAULT FALSE,
+            data_sensitivity VARCHAR(32) DEFAULT 'normal',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_sys_permissions_module ON sys_permissions(module);
+
+        -- 4. Roles (RBAC)
+        CREATE TABLE IF NOT EXISTS sys_roles (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID,
+            code VARCHAR(64) NOT NULL,
+            name VARCHAR(128) NOT NULL,
+            name_en VARCHAR(128) NOT NULL,
+            description TEXT,
+            is_system BOOLEAN DEFAULT FALSE,
+            is_clinical BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_sys_role_code_tenant ON sys_roles(code, COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'::uuid));
+
+        -- 5. Role Permissions Junction
+        CREATE TABLE IF NOT EXISTS sys_role_permissions (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            role_id UUID NOT NULL REFERENCES sys_roles(id) ON DELETE CASCADE,
+            permission_id UUID NOT NULL REFERENCES sys_permissions(id) ON DELETE CASCADE,
+            CONSTRAINT uq_role_permission UNIQUE (role_id, permission_id)
+        );
+
+        -- 6. User Position Assignment
+        CREATE TABLE IF NOT EXISTS user_positions (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            position_id UUID NOT NULL REFERENCES org_positions(id) ON DELETE CASCADE,
+            department_id INTEGER,
+            department_name VARCHAR(128),
+            start_date DATE DEFAULT CURRENT_DATE,
+            end_date DATE,
+            is_primary BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        -- 7. User Role Assignments (with ABAC facility and department scope)
+        CREATE TABLE IF NOT EXISTS user_role_assignments (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            role_id UUID NOT NULL REFERENCES sys_roles(id) ON DELETE CASCADE,
+            facility_id INTEGER,
+            department_id INTEGER,
+            valid_from TIMESTAMPTZ,
+            valid_until TIMESTAMPTZ,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        -- 8. User Facility Assignments (Physical ABAC boundary)
+        CREATE TABLE IF NOT EXISTS user_facility_assignments (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            facility_id INTEGER NOT NULL,
+            facility_name VARCHAR(150) NOT NULL,
+            department_id INTEGER,
+            department_name VARCHAR(150),
+            is_primary BOOLEAN DEFAULT TRUE,
+            can_switch_facility BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        -- 9. Explicit User Permission Overrides
+        CREATE TABLE IF NOT EXISTS user_permission_overrides (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            permission_id UUID NOT NULL REFERENCES sys_permissions(id) ON DELETE CASCADE,
+            override_type VARCHAR(16) NOT NULL,
+            reason TEXT,
+            granted_by UUID REFERENCES users(id),
+            expires_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            CONSTRAINT uq_user_perm_override UNIQUE (user_id, permission_id)
+        );
+
+        -- 10. Patient Access Assignments (ABAC Patient Boundary)
+        CREATE TABLE IF NOT EXISTS patient_access_assignments (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            patient_id INTEGER NOT NULL,
+            encounter_id INTEGER,
+            admission_id INTEGER,
+            assignment_type VARCHAR(32) DEFAULT 'primary_physician',
+            access_level VARCHAR(32) DEFAULT 'full',
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        -- 11. Temporary Access Grants (Emergency Break-Glass & Delegation)
+        CREATE TABLE IF NOT EXISTS temporary_access_grants (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            target_patient_id INTEGER,
+            target_facility_id INTEGER,
+            grant_reason TEXT NOT NULL,
+            granted_role_id UUID REFERENCES sys_roles(id),
+            granted_permissions JSONB DEFAULT '[]'::jsonb,
+            authorized_by UUID REFERENCES users(id),
+            starts_at TIMESTAMPTZ DEFAULT now(),
+            expires_at TIMESTAMPTZ NOT NULL,
+            is_revoked BOOLEAN DEFAULT FALSE,
+            revoked_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        -- 12. User Access Audit Log (HIPAA/GDPR Grade)
+        CREATE TABLE IF NOT EXISTS user_access_audits (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL,
+            user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+            account_type VARCHAR(32) DEFAULT 'employee',
+            action VARCHAR(64) NOT NULL,
+            resource_type VARCHAR(64) NOT NULL,
+            resource_id VARCHAR(64),
+            is_clinical BOOLEAN DEFAULT FALSE,
+            decision VARCHAR(16) DEFAULT 'granted',
+            facility_id INTEGER,
+            department_id INTEGER,
+            ip_address VARCHAR(64),
+            user_agent TEXT,
+            details JSONB DEFAULT '{}'::jsonb,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        -- 13. Tenant Isolation & Row-Level Security Policies
+        DO $$
+        DECLARE
+            tbl text;
+            authz_tables text[] := ARRAY[
+                'user_positions',
+                'user_role_assignments',
+                'user_facility_assignments',
+                'user_permission_overrides',
+                'patient_access_assignments',
+                'temporary_access_grants',
+                'user_access_audits'
+            ];
+        BEGIN
+            FOREACH tbl IN ARRAY authz_tables LOOP
+                IF to_regclass('public.' || tbl) IS NOT NULL THEN
+                    EXECUTE format('ALTER TABLE %I ALTER COLUMN tenant_id SET DEFAULT NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid;', tbl);
+                    EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%s_tenant ON %I (tenant_id);', tbl, tbl);
+                    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', tbl);
+                    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', tbl);
+                    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = tbl AND policyname = 'tenant_isolation') THEN
+                        EXECUTE format('
+                            CREATE POLICY tenant_isolation ON %I
+                            USING (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid OR current_setting(''app.bypass'', true) = ''on'')
+                            WITH CHECK (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid OR current_setting(''app.bypass'', true) = ''on'');
+                        ', tbl);
+                    END IF;
+                END IF;
+            END LOOP;
+        END $$;
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

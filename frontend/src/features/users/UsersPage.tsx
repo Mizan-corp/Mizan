@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Plus } from "lucide-react";
+import { KeyRound, Plus, ShieldCheck, ListOrdered } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
 import { Badge, Button, Empty, ErrorBox, Input, Modal, Select, Spinner } from "@/components/ui";
+import AccessControlManagement from "./AccessControlManagement";
 
 interface UserRow {
   id: string; username: string; full_name: string; role: string; is_active: boolean;
@@ -27,6 +28,7 @@ const ROLES = ["admin", "manager", "cashier", "storekeeper", "accountant"];
 
 export default function UsersPage() {
   const qc = useQueryClient();
+  const [viewMode, setViewMode] = useState<"rbac" | "classic">("rbac");
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ username: "", full_name: "", password: "", role: "cashier" });
   const [permFor, setPermFor] = useState<UserRow | null>(null);
@@ -59,11 +61,35 @@ export default function UsersPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">المستخدمون والصلاحيات</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">المستخدمون والصلاحيات</h1>
+          <div className="flex rounded-xl bg-[#FAF6F0] p-1 border border-[#E5DDD0] text-xs">
+            <button
+              onClick={() => setViewMode("rbac")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
+                viewMode === "rbac" ? "bg-[#651E2C] text-white shadow-xs font-semibold" : "text-[#706A60] hover:text-[#262321]"
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              المنظومة المتقدمة (RBAC + ABAC)
+            </button>
+            <button
+              onClick={() => setViewMode("classic")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
+                viewMode === "classic" ? "bg-[#651E2C] text-white shadow-xs font-semibold" : "text-[#706A60] hover:text-[#262321]"
+              }`}
+            >
+              <ListOrdered className="w-3.5 h-3.5" />
+              الجدول السريع
+            </button>
+          </div>
+        </div>
         <Button onClick={() => setCreating(true)}><Plus size={16} /> مستخدم جديد</Button>
       </div>
 
-      {list.isLoading ? (
+      {viewMode === "rbac" ? (
+        <AccessControlManagement />
+      ) : list.isLoading ? (
         <div className="flex flex-col gap-2" aria-busy="true" aria-label="جارٍ التحميل">
             <Skeleton className="h-10 w-full" />
             {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
