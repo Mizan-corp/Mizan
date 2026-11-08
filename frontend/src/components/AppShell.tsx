@@ -66,7 +66,33 @@ export function useBranch() {
     queryFn: () => api.get<Warehouse[]>("/stock/warehouses"),
     staleTime: 5 * 60_000,
   });
-  const [branchId, setBranchId] = useState<string | null>(() => localStorage.getItem("mizan.branch") ?? localStorage.getItem("vendora.branch"));
+  const [branchId, setBranchState] = useState<string | null>(() => localStorage.getItem("mizan.branch") ?? localStorage.getItem("vendora.branch"));
+
+  useEffect(() => {
+    const handleStorage = () => {
+      const stored = localStorage.getItem("mizan.branch") ?? localStorage.getItem("vendora.branch");
+      if (stored) setBranchState(stored);
+    };
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("mizan-branch-changed", handleStorage);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("mizan-branch-changed", handleStorage);
+    };
+  }, []);
+
+  const setBranchId = (id: string | null) => {
+    if (id) {
+      localStorage.setItem("mizan.branch", id);
+      localStorage.setItem("vendora.branch", id);
+    } else {
+      localStorage.removeItem("mizan.branch");
+      localStorage.removeItem("vendora.branch");
+    }
+    setBranchState(id);
+    window.dispatchEvent(new Event("mizan-branch-changed"));
+  };
+
   const current = data?.find((w: Warehouse) => w.id === branchId) ?? data?.find((w: Warehouse) => w.id === user?.default_warehouse_id) ?? data?.[0];
   return { warehouses: data ?? [], branchId: current?.id ?? null, branchName: current?.name ?? "…", setBranchId };
 }

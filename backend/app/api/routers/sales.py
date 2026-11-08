@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select, text
+from sqlalchemy import or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -32,6 +32,17 @@ async def create_sale(data: SaleCreate, db: AsyncSession = Depends(get_db), curr
         await check_sales_volume_limit(db, current_user.tenant_id)
     sale = await sale_service.create_sale(db, data, current_user.id)
     await audit_log(db, "sale", "create", current_user.id, current_user.full_name, sale.id, {"invoice_number": sale.invoice_number, "total": float(sale.total)}, f"فاتورة {sale.invoice_number}")
+
+    # Check stock after sale and notify manager if stock <= reorder_level
+    product_ids = [item.product_id for item in data.items if hasattr(item, "product_id")]
+    if product_ids and data.warehouse_id:
+        try:
+            from app.services.stock_service import check_low_stock_and_notify
+            await check_low_stock_and_notify(db, current_user.tenant_id, product_ids, data.warehouse_id)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Failed low stock alert check: %s", e)
+
     return sale
 
 
@@ -82,6 +93,9 @@ async def list_sales(
     cashier_id: uuid.UUID | None = None,
     status: str | None = None,
     product_search: str | None = None,
+    search: str | None = None,
+    page: int | None = Query(None, ge=1),
+    page_size: int | None = Query(None, ge=1, le=200),
     limit: int = Query(50, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -90,8 +104,16 @@ async def list_sales(
     from sqlalchemy import text as sqlt
 
     from app.models.party import Customer
+    if page_size is not None:
+        limit = page_size
+    if page is not None:
+        offset = (page - 1) * limit
+
     q = select(Sale, Customer.name.label("customer_name")).outerjoin(Customer, Sale.customer_id == Customer.id)
     q = q.options(selectinload(Sale.items)).order_by(Sale.created_at.desc()).limit(limit).offset(offset)
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        q = q.where(or_(Sale.invoice_number.ilike(term), Customer.name.ilike(term)))
     if from_date:
         q = q.where(Sale.created_at >= from_date)
     if to_date:

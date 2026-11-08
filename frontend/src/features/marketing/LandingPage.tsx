@@ -151,7 +151,7 @@ export default function LandingPage() {
 
                 {/* Display Headline with Signature Rose-Coral Emphasis */}
                 <h1
-                  className={`text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight text-[#FAF6F0] leading-[1.15] ${
+                  className={`text-3xl sm:text-5xl lg:text-6xl font-normal tracking-tight text-[#FAF6F0] leading-[1.15] ${
                     isAr ? "font-serif-ar" : "font-serif-en"
                   }`}
                 >
@@ -162,7 +162,7 @@ export default function LandingPage() {
                         بتوازن.
                       </span>
                       <br />
-                      <span className="text-2xl sm:text-3xl lg:text-4xl block mt-2 text-[#FAF6F0]/90">
+                      <span className="text-xl sm:text-3xl lg:text-4xl block mt-2 text-[#FAF6F0]/90">
                         نظام واحد. رؤية أوضح. نمو أكثر ذكاءً.
                       </span>
                     </>
@@ -181,18 +181,18 @@ export default function LandingPage() {
                 </h1>
 
                 {/* Subtitle */}
-                <p className="text-base sm:text-lg text-[#E7D6C1]/85 leading-relaxed max-w-lg font-light">
+                <p className="text-sm sm:text-lg text-[#E7D6C1]/85 leading-relaxed max-w-lg font-light">
                   {isAr
                     ? "منصة ميزان لإدارة أعمالك، تجمع العمليات المالية والإدارية والتشغيلية في منظومة واحدة متكاملة."
                     : "Mizan is a powerful, modular ERP platform that connects your operations, finances, and people — in one elegant system."}
                 </p>
 
-                {/* CTAs matching mockup */}
-                <div className="flex flex-wrap items-center gap-4 pt-2">
+                {/* CTAs matching mockup - full width on mobile, inline on desktop */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-2 w-full sm:w-auto">
                   <MizanMagnetic>
                     <Button
                       size="lg"
-                      className="bg-[#651E2C] text-[#FAF6F0] hover:bg-[#521723] rounded-full px-7 py-3.5 text-sm sm:text-base font-medium shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                      className="w-full sm:w-auto justify-center bg-[#651E2C] text-[#FAF6F0] hover:bg-[#521723] rounded-full px-7 py-3.5 text-sm sm:text-base font-medium shadow-lg hover:shadow-xl hover:scale-105 transition-all"
                       render={<Link to="/signup" />}
                       nativeButton={false}
                     >
@@ -208,7 +208,7 @@ export default function LandingPage() {
                   <MizanMagnetic>
                     <a
                       href="#demo"
-                      className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 px-6 py-3.5 text-sm sm:text-base font-medium text-[#FAF6F0] backdrop-blur-sm transition-all hover:border-white/30"
+                      className="w-full sm:w-auto justify-center inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 hover:bg-white/10 px-6 py-3.5 text-sm sm:text-base font-medium text-[#FAF6F0] backdrop-blur-sm transition-all hover:border-white/30 text-center"
                     >
                       <Play className="h-4 w-4 fill-current text-[#D4626E]" />
                       <span>{isAr ? "استكشف المنصة" : "Watch Demo"}</span>

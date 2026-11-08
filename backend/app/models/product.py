@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -51,6 +51,7 @@ class Product(TenantScoped, Base):
     cost_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     reorder_point: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=0)
     reorder_qty: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=0)
+    reorder_level: Mapped[int] = mapped_column(Integer, default=5, server_default=text("5"))
     stock_status: Mapped[str] = mapped_column(String(32), default="untracked")
     # Extra descriptive fields from the original system
     company: Mapped[str | None] = mapped_column(String(128), nullable=True)

@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.tenancy import TenantScoped
@@ -13,9 +13,10 @@ from app.db.base import Base
 
 class PharmacyDrug(TenantScoped, Base):
     __tablename__ = "pharmacy_drugs"
+    __table_args__ = (UniqueConstraint("tenant_id", "code", name="uq_pharmacy_drugs_tenant_code"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    code: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    code: Mapped[str] = mapped_column(String(32), index=True)
     trade_name: Mapped[str] = mapped_column(String(128), index=True)
     scientific_name: Mapped[str] = mapped_column(String(128), index=True)
     dosage_form: Mapped[str] = mapped_column(String(64), default="أقراص")

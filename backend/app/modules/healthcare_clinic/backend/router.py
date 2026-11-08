@@ -1,41 +1,25 @@
 """API Router for Healthcare & Clinic/Hospital ERP module (HLT-01..12)."""
 from __future__ import annotations
 
+import json
 import uuid
+from datetime import date, datetime, UTC
+from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from sqlalchemy import select, update
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.modules import require_module
 from app.db.base import get_db
 from app.dependencies import get_current_user
+from app.models.product import Category, Product
+from app.models.sale import Sale, SaleItem, SaleMode, SaleStatus
 from app.models.user import User
-
-async def get_current_tenant_id(user: User = Depends(get_current_user)) -> str:
-    return str(user.tenant_id)
-
-
-def _has_clinic_perm(user: User, *perms: str) -> bool:
-    if user.role in ("admin", "manager"):
-        return True
-    user_perms = user.permissions or []
-    if not perms:
-        return "clinic" in user_perms or "clinic:view" in user_perms
-    return any(p in user_perms for p in perms)
-
-
-async def require_clinic_view(current_user: User = Depends(get_current_user)) -> User:
-    if not _has_clinic_perm(current_user):
-        raise HTTPException(status_code=403, detail="لا تملك صلاحية الوصول إلى العيادات")
-    return current_user
-
-
-async def require_clinic_manage(current_user: User = Depends(get_current_user)) -> User:
-    if not _has_clinic_perm(current_user, "clinic:manage", "clinic:doctor", "clinic:nurse"):
-        raise HTTPException(status_code=403, detail="لا تملك صلاحية إدارة بيانات العيادات")
-    return current_user
+from app.models.warehouse import Warehouse
+from app.services.audit_service import log as audit_log
 from app.modules.healthcare_clinic.backend.models import (
     ClinicAppointment,
     ClinicEncounter,
@@ -47,10 +31,92 @@ from app.modules.healthcare_clinic.backend.models import (
     ClinicPrescription,
 )
 
-router = APIRouter(prefix="/clinic", tags=["Healthcare & Clinic ERP"], dependencies=[Depends(require_clinic_view)])
+
+async def get_current_tenant_id(user: User = Depends(get_current_user)) -> uuid.UUID:
+    return user.tenant_id
 
 
-# Pydantic Schemas
+# ─── RBAC / ABAC Permissions Enforcement ───────────────────────────────────
+def _has_clinic_perm(user: User, *perms: str) -> bool:
+    if getattr(user, "is_superadmin", False) or user.role in ("admin", "manager"):
+        return True
+    user_perms = user.permissions or []
+    if "*" in user_perms or "clinic" in user_perms:
+        return True
+
+    if not perms:
+        return "clinic:view" in user_perms or user.role in (
+            "doctor", "nurse", "receptionist", "lab_tech", "pharmacist", "accountant"
+        )
+
+    for p in perms:
+        if p in user_perms:
+            return True
+        if p == "clinic:doctor" and user.role == "doctor":
+            return True
+        if p == "clinic:nurse" and user.role in ("doctor", "nurse"):
+            return True
+        if p == "clinic:dispense" and user.role in ("pharmacist", "doctor"):
+            return True
+        if p == "clinic:lab" and user.role in ("lab_tech", "doctor"):
+            return True
+        if p == "clinic:manage" and user.role in ("doctor", "nurse", "receptionist"):
+            return True
+        if p == "clinic:billing" and user.role in ("accountant", "receptionist", "doctor"):
+            return True
+    return False
+
+
+async def require_clinic_view(current_user: User = Depends(get_current_user)) -> User:
+    if not _has_clinic_perm(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="لا تملك صلاحية الوصول إلى العيادات")
+    return current_user
+
+
+async def require_clinic_manage(current_user: User = Depends(get_current_user)) -> User:
+    if not _has_clinic_perm(current_user, "clinic:manage"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="لا تملك صلاحية إدارة بيانات العيادات")
+    return current_user
+
+
+async def require_clinic_doctor(current_user: User = Depends(get_current_user)) -> User:
+    if not _has_clinic_perm(current_user, "clinic:doctor"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="لا تملك صلاحية الطبيب السريري (clinic:doctor)")
+    return current_user
+
+
+async def require_clinic_nurse(current_user: User = Depends(get_current_user)) -> User:
+    if not _has_clinic_perm(current_user, "clinic:nurse"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="لا تملك صلاحية طاقم التمريض (clinic:nurse)")
+    return current_user
+
+
+async def require_clinic_dispense(current_user: User = Depends(get_current_user)) -> User:
+    if not _has_clinic_perm(current_user, "clinic:dispense", "clinic:pharmacist"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="لا تملك صلاحية صرف الأدوية والصيدلية (clinic:dispense)")
+    return current_user
+
+
+async def require_clinic_lab(current_user: User = Depends(get_current_user)) -> User:
+    if not _has_clinic_perm(current_user, "clinic:lab", "clinic:doctor"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="لا تملك صلاحية الفحوصات والمختبرات (clinic:lab)")
+    return current_user
+
+
+async def require_clinic_billing(current_user: User = Depends(get_current_user)) -> User:
+    if not _has_clinic_perm(current_user, "clinic:billing", "clinic:manage", "finance"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="لا تملك صلاحية الفوترة المالية للعيادات")
+    return current_user
+
+
+router = APIRouter(
+    prefix="/clinic",
+    tags=["Healthcare & Clinic ERP"],
+    dependencies=[Depends(require_clinic_view), Depends(require_module("healthcare_clinic"))],
+)
+
+
+# ─── Pydantic Schemas ────────────────────────────────────────────────────────
 class PatientCreate(BaseModel):
     patient_mrn: str
     full_name: str
@@ -66,6 +132,17 @@ class PatientCreate(BaseModel):
     copay_percent: float = 0.0
 
 
+class PatientUpdate(BaseModel):
+    full_name: str | None = None
+    phone: str | None = None
+    blood_group: str | None = None
+    allergies: str | None = None
+    chronic_conditions: str | None = None
+    insurance_provider: str | None = None
+    insurance_policy_no: str | None = None
+    copay_percent: float | None = None
+
+
 class AppointmentCreate(BaseModel):
     patient_id: str
     patient_name: str
@@ -78,7 +155,16 @@ class AppointmentCreate(BaseModel):
 
 
 class AppointmentStatusUpdate(BaseModel):
-    status: str  # scheduled, waiting, in_consultation, completed, cancelled
+    status: str  # scheduled, waiting, in_consultation, completed, cancelled, no_show
+
+
+class AppointmentCancelRequest(BaseModel):
+    reason: str = Field(..., min_length=2, description="سبب إلغاء الموعد")
+
+
+class AppointmentRescheduleRequest(BaseModel):
+    new_date: str = Field(..., description="تاريخ الموعد الجديد YYYY-MM-DD")
+    new_time_slot: str = Field(..., description="الوقت الجديد للموعد")
 
 
 class EncounterCreate(BaseModel):
@@ -108,7 +194,14 @@ class PrescriptionCreate(BaseModel):
     dosage: str
     frequency: str
     duration_days: int = 7
+    quantity: int = 1
     instructions: str = ""
+    allergy_override: bool = False
+
+
+class PrescriptionDispenseRequest(BaseModel):
+    quantity: int = 1
+    notes: str | None = None
 
 
 class LabOrderCreate(BaseModel):
@@ -119,77 +212,293 @@ class LabOrderCreate(BaseModel):
     category: str
     specimen_barcode: str
     reference_range: str = "Normal"
+    test_fee: float = 150.0
 
 
 class LabResultUpdate(BaseModel):
     result_value: str
+    numeric_value: float | None = None
+    unit: str = ""
+    is_critical: bool = False
     is_signed_off: bool = True
 
 
 class BedAdmitRequest(BaseModel):
+    patient_id: str | None = None
     patient_name: str
     admission_date: str
 
 
+class InvoiceCreate(BaseModel):
+    patient_id: str
+    patient_name: str
+    appointment_id: str | None = None
+    encounter_ref: str = ""
+    charges: list[dict[str, Any]]  # [{description, amount}]
+    copay_percent: float = 0.0
+
+
+class InvoicePayRequest(BaseModel):
+    amount: float
+    payment_method: str = "cash"
+
+
+class ClaimCreate(BaseModel):
+    patient_id: str
+    patient_name: str
+    invoice_id: str | None = None
+    insurance_provider: str
+    policy_no: str = "N/A"
+    copay_percent: float = 0.0
+    claimed_amount: float
+    notes: str = ""
+
+
+class ClaimStatusUpdate(BaseModel):
+    status: str  # submitted, approved, rejected, paid
+    approved_amount: float | None = None
+    notes: str = ""
+
+
+# ─── Internal Financial & Billing Integration Helpers ───────────────────────
+async def _ensure_insurance_claim(
+    db: AsyncSession,
+    tenant_id: str,
+    patient: ClinicPatient,
+    invoice: ClinicInvoice,
+    current_user: User,
+) -> ClinicInsuranceClaim | None:
+    """Auto-generate an insurance claim if the invoice has an insurance covered amount."""
+    if invoice.insurance_amount <= 0 or not patient.insurance_provider or "نقدي" in patient.insurance_provider:
+        return None
+
+    # Check if a claim already exists for this invoice
+    existing = await db.execute(
+        select(ClinicInsuranceClaim).where(
+            ClinicInsuranceClaim.invoice_id == invoice.id,
+            ClinicInsuranceClaim.tenant_id == tenant_id,
+        )
+    )
+    if existing.scalar_one_or_none():
+        return None
+
+    claim = ClinicInsuranceClaim(
+        tenant_id=tenant_id,
+        claim_ref=f"CLM-{uuid.uuid4().hex[:6].upper()}",
+        patient_id=patient.id,
+        patient_name=patient.full_name,
+        invoice_id=invoice.id,
+        insurance_provider=patient.insurance_provider,
+        policy_no=patient.insurance_policy_no or "N/A",
+        copay_percent=patient.copay_percent,
+        claimed_amount=invoice.insurance_amount,
+        approved_amount=0.0,
+        status="submitted",
+        created_by=current_user.full_name,
+        notes=f"مطالبة تأمينية تلقائية لفاتورة الخدمات رقم {invoice.invoice_ref}",
+    )
+    db.add(claim)
+    await audit_log(
+        db,
+        "clinic_insurance_claim",
+        "create_auto_claim",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"claim_ref": claim.claim_ref, "claimed_amount": invoice.insurance_amount},
+        f"إنشاء مطالبة تأمينية تلقائية {claim.claim_ref}",
+    )
+    return claim
+
+
+async def _post_invoice_to_sales(
+    db: AsyncSession,
+    tenant_id: str,
+    inv: ClinicInvoice,
+    current_user: User,
+) -> Sale | None:
+    """Post payment of a ClinicInvoice to the platform Sales/GL table for finance visibility."""
+    try:
+        t_uuid = uuid.UUID(str(tenant_id))
+    except Exception:
+        return None
+
+    # Find tenant warehouse
+    wh = (await db.execute(
+        select(Warehouse).where(Warehouse.tenant_id == t_uuid).order_by(Warehouse.created_at.asc()).limit(1)
+    )).scalar_one_or_none()
+    if not wh:
+        wh = Warehouse(tenant_id=t_uuid, code=f"WH-{uuid.uuid4().hex[:4].upper()}", name="المستودع الطبي الرئيسي", is_active=True)
+        db.add(wh)
+        await db.flush()
+
+    # Find or create a Service Product for Medical Services
+    prod = (await db.execute(
+        select(Product).where(Product.tenant_id == t_uuid, Product.name == "خدمات واستشارات طبية").limit(1)
+    )).scalar_one_or_none()
+    if not prod:
+        cat = (await db.execute(
+            select(Category).where(Category.tenant_id == t_uuid).limit(1)
+        )).scalar_one_or_none()
+        if not cat:
+            cat = Category(tenant_id=t_uuid, name="الخدمات الطبية والسريرية")
+            db.add(cat)
+            await db.flush()
+        prod = Product(
+            tenant_id=t_uuid,
+            name="خدمات واستشارات طبية",
+            code="SRV-MED-01",
+            unit="خدمة",
+            retail_price=Decimal("0.0"),
+            wholesale_price=Decimal("0.0"),
+        )
+        db.add(prod)
+        await db.flush()
+
+    sale = Sale(
+        tenant_id=t_uuid,
+        invoice_number=inv.invoice_ref,
+        warehouse_id=wh.id,
+        cashier_id=current_user.id,
+        created_by=current_user.id,
+        sale_mode=SaleMode.retail,
+        status=SaleStatus.confirmed,
+        total=Decimal(str(round(inv.total, 2))),
+        discount_amount=Decimal("0.0"),
+        net_total=Decimal(str(round(inv.patient_amount, 2))),
+        paid_amount=Decimal(str(round(inv.paid_amount, 2))),
+        payment_method=inv.payment_method or "cash",
+        notes=f"سداد فاتورة عيادات/مستشفى — المريض: {inv.patient_name} — {inv.invoice_ref}",
+    )
+    db.add(sale)
+    await db.flush()
+
+    # Add charges as sale items
+    for c in inv.charges:
+        amt = Decimal(str(round(float(c.get("amount", 0.0)), 2)))
+        si = SaleItem(
+            tenant_id=t_uuid,
+            sale_id=sale.id,
+            product_id=prod.id,
+            qty=Decimal("1.0"),
+            unit_price=amt,
+            unit_cost=Decimal("0.0"),
+            discount=Decimal("0.0"),
+        )
+        db.add(si)
+
+    return sale
+
+
+# ─── Summary / KPIs ─────────────────────────────────────────────────────────
 @router.get("/summary")
 async def get_clinic_summary(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Overview KPIs for Clinic / Hospital operations."""
-    q_patients = await db.execute(select(ClinicPatient).where(ClinicPatient.tenant_id == tenant_id))
-    patients = q_patients.scalars().all()
-    if not patients:
-        await _seed_clinic_records(db, tenant_id)
-        q_patients = await db.execute(select(ClinicPatient).where(ClinicPatient.tenant_id == tenant_id))
-        patients = q_patients.scalars().all()
+    """Overview operational & financial KPIs for Clinic / Hospital operations."""
+    today = date.today().isoformat()
 
-    q_appts = await db.execute(select(ClinicAppointment).where(ClinicAppointment.tenant_id == tenant_id))
-    appts = q_appts.scalars().all()
+    patients_count = (await db.execute(
+        select(func.count(ClinicPatient.id)).where(ClinicPatient.tenant_id == tenant_id)
+    )).scalar() or 0
 
-    q_beds = await db.execute(select(ClinicInpatientBed).where(ClinicInpatientBed.tenant_id == tenant_id))
-    beds = q_beds.scalars().all()
+    appts_today = (await db.execute(
+        select(func.count(ClinicAppointment.id)).where(
+            ClinicAppointment.tenant_id == tenant_id,
+            ClinicAppointment.appointment_date == today,
+        )
+    )).scalar() or 0
 
-    q_labs = await db.execute(select(ClinicLabOrder).where(ClinicLabOrder.tenant_id == tenant_id))
-    labs = q_labs.scalars().all()
+    waiting_queue = (await db.execute(
+        select(func.count(ClinicAppointment.id)).where(
+            ClinicAppointment.tenant_id == tenant_id,
+            ClinicAppointment.appointment_date == today,
+            ClinicAppointment.status.in_(["waiting", "in_consultation"]),
+        )
+    )).scalar() or 0
 
-    total_beds = len(beds)
-    occupied_beds = sum(1 for b in beds if b.status == "occupied")
-    bed_occupancy_pct = round((occupied_beds / total_beds * 100), 1) if total_beds > 0 else 0.0
+    total_beds = (await db.execute(
+        select(func.count(ClinicInpatientBed.id)).where(ClinicInpatientBed.tenant_id == tenant_id)
+    )).scalar() or 0
 
-    today_appts = len(appts)
-    waiting_queue = sum(1 for a in appts if a.status in ("scheduled", "waiting"))
-    pending_labs = sum(1 for l in labs if l.status != "reported")
+    occupied_beds = (await db.execute(
+        select(func.count(ClinicInpatientBed.id)).where(
+            ClinicInpatientBed.tenant_id == tenant_id,
+            ClinicInpatientBed.status == "occupied",
+        )
+    )).scalar() or 0
+
+    pending_labs = (await db.execute(
+        select(func.count(ClinicLabOrder.id)).where(
+            ClinicLabOrder.tenant_id == tenant_id,
+            ClinicLabOrder.status != "reported",
+        )
+    )).scalar() or 0
+
+    # Financial Aggregations
+    invoices_q = await db.execute(
+        select(
+            func.coalesce(func.sum(ClinicInvoice.total), 0.0),
+            func.coalesce(func.sum(ClinicInvoice.paid_amount), 0.0),
+            func.coalesce(func.sum(ClinicInvoice.patient_amount), 0.0),
+        ).where(ClinicInvoice.tenant_id == tenant_id)
+    )
+    total_billed, total_paid, total_patient_share = invoices_q.one()
+
+    claims_q = await db.execute(
+        select(
+            func.coalesce(func.sum(ClinicInsuranceClaim.claimed_amount), 0.0),
+            func.coalesce(func.sum(ClinicInsuranceClaim.approved_amount), 0.0),
+            func.count(ClinicInsuranceClaim.id),
+        ).where(ClinicInsuranceClaim.tenant_id == tenant_id)
+    )
+    total_claimed, total_approved, total_claims_count = claims_q.one()
+
+    bed_occupancy_pct = round((occupied_beds / total_beds) * 100) if total_beds > 0 else 0
 
     return {
-        "total_registered_patients": len(patients),
-        "today_appointments_count": today_appts,
+        "total_registered_patients": patients_count,
+        "today_appointments_count": appts_today,
         "waiting_queue_count": waiting_queue,
         "total_beds": total_beds,
         "occupied_beds": occupied_beds,
         "bed_occupancy_percent": bed_occupancy_pct,
         "pending_lab_orders_count": pending_labs,
+        "total_revenue_billed": round(float(total_billed), 2),
+        "total_revenue_collected": round(float(total_paid), 2),
+        "total_revenue_pending": round(float(total_patient_share - total_paid), 2),
+        "insurance_claims_total": round(float(total_claimed), 2),
+        "insurance_claims_approved": round(float(total_approved), 2),
+        "insurance_claims_count": total_claims_count,
     }
 
 
+# ─── Patients Master Index (EMR) ────────────────────────────────────────────
 @router.get("/patients")
 async def list_patients(
+    search: str | None = None,
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
 ):
-    q = await db.execute(
-        select(ClinicPatient).where(ClinicPatient.tenant_id == tenant_id).order_by(ClinicPatient.created_at.desc())
-    )
-    patients = q.scalars().all()
-    if not patients:
-        await _seed_clinic_records(db, tenant_id)
-        q = await db.execute(
-            select(ClinicPatient).where(ClinicPatient.tenant_id == tenant_id).order_by(ClinicPatient.created_at.desc())
+    query = select(ClinicPatient).where(ClinicPatient.tenant_id == tenant_id)
+    if search:
+        s = f"%{search.strip()}%"
+        query = query.where(
+            or_(
+                ClinicPatient.full_name.ilike(s),
+                ClinicPatient.patient_mrn.ilike(s),
+                ClinicPatient.national_id.ilike(s),
+                ClinicPatient.phone.ilike(s),
+            )
         )
-        patients = q.scalars().all()
-    return patients
+    query = query.order_by(ClinicPatient.created_at.desc()).offset(offset).limit(limit)
+    q = await db.execute(query)
+    return q.scalars().all()
 
 
 @router.post("/patients")
@@ -200,6 +509,16 @@ async def create_patient(
     current_user: User = Depends(get_current_user),
     _: User = Depends(require_clinic_manage),
 ):
+    # Check for MRN duplication within tenant
+    dup = (await db.execute(
+        select(ClinicPatient).where(
+            ClinicPatient.tenant_id == tenant_id,
+            ClinicPatient.patient_mrn == payload.patient_mrn,
+        )
+    )).scalar_one_or_none()
+    if dup:
+        raise HTTPException(status_code=400, detail=f"رقم الملف الطبي {payload.patient_mrn} مسجل مسبقاً")
+
     patient = ClinicPatient(
         tenant_id=tenant_id,
         patient_mrn=payload.patient_mrn,
@@ -214,22 +533,138 @@ async def create_patient(
         insurance_provider=payload.insurance_provider,
         insurance_policy_no=payload.insurance_policy_no,
         copay_percent=payload.copay_percent,
+        created_by=current_user.full_name,
     )
     db.add(patient)
+    await audit_log(
+        db,
+        "clinic_patient",
+        "create_patient",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"patient_mrn": patient.patient_mrn, "full_name": patient.full_name},
+        f"تسجيل مريض جديد: {patient.full_name} ({patient.patient_mrn})",
+    )
     await db.commit()
     await db.refresh(patient)
     return patient
 
 
-@router.get("/appointments")
-async def list_appointments(
+@router.get("/patients/{patient_id}")
+async def get_patient(
+    patient_id: str,
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
 ):
     q = await db.execute(
-        select(ClinicAppointment).where(ClinicAppointment.tenant_id == tenant_id).order_by(ClinicAppointment.created_at.desc())
+        select(ClinicPatient).where(ClinicPatient.id == patient_id, ClinicPatient.tenant_id == tenant_id)
     )
+    patient = q.scalar_one_or_none()
+    if not patient:
+        raise HTTPException(status_code=404, detail="الملف الطبي للمريض غير موجود")
+    return patient
+
+
+@router.put("/patients/{patient_id}")
+async def update_patient(
+    patient_id: str,
+    payload: PatientUpdate,
+    db: AsyncSession = Depends(get_db),
+    tenant_id: str = Depends(get_current_tenant_id),
+    current_user: User = Depends(get_current_user),
+    _: User = Depends(require_clinic_manage),
+):
+    q = await db.execute(
+        select(ClinicPatient).where(ClinicPatient.id == patient_id, ClinicPatient.tenant_id == tenant_id)
+    )
+    patient = q.scalar_one_or_none()
+    if not patient:
+        raise HTTPException(status_code=404, detail="الملف الطبي للمريض غير موجود")
+
+    for k, v in payload.model_dump(exclude_unset=True).items():
+        if v is not None:
+            setattr(patient, k, v)
+    patient.updated_by = current_user.full_name
+
+    await audit_log(
+        db,
+        "clinic_patient",
+        "update_patient",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"patient_id": patient.id, "full_name": patient.full_name},
+        f"تحديث بيانات المريض: {patient.full_name}",
+    )
+    await db.commit()
+    await db.refresh(patient)
+    return patient
+
+
+@router.delete("/patients/{patient_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_patient(
+    patient_id: str,
+    db: AsyncSession = Depends(get_db),
+    tenant_id: str = Depends(get_current_tenant_id),
+    current_user: User = Depends(get_current_user),
+    _: User = Depends(require_clinic_manage),
+):
+    q = await db.execute(
+        select(ClinicPatient).where(ClinicPatient.id == patient_id, ClinicPatient.tenant_id == tenant_id)
+    )
+    patient = q.scalar_one_or_none()
+    if not patient:
+        raise HTTPException(status_code=404, detail="الملف الطبي للمريض غير موجود")
+
+    name = patient.full_name
+    await audit_log(
+        db,
+        "clinic_patient",
+        "delete_patient",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"patient_id": patient_id, "full_name": name},
+        f"حذف الملف الطبي للمريض: {name}",
+    )
+    await db.delete(patient)
+    await db.commit()
+
+
+# ─── Appointments & Scheduling ──────────────────────────────────────────────
+@router.get("/appointments")
+async def list_appointments(
+    search: str | None = None,
+    doctor_name: str | None = None,
+    appointment_date: str | None = None,
+    status_filter: str | None = Query(None, alias="status"),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    tenant_id: str = Depends(get_current_tenant_id),
+    current_user: User = Depends(get_current_user),
+):
+    query = select(ClinicAppointment).where(ClinicAppointment.tenant_id == tenant_id)
+    if search:
+        s = f"%{search.strip()}%"
+        query = query.where(
+            or_(
+                ClinicAppointment.patient_name.ilike(s),
+                ClinicAppointment.appointment_ref.ilike(s),
+                ClinicAppointment.doctor_name.ilike(s),
+            )
+        )
+    if doctor_name:
+        query = query.where(ClinicAppointment.doctor_name == doctor_name)
+    if appointment_date:
+        query = query.where(ClinicAppointment.appointment_date == appointment_date)
+    if status_filter:
+        query = query.where(ClinicAppointment.status == status_filter)
+
+    query = query.order_by(ClinicAppointment.appointment_date.desc(), ClinicAppointment.queue_number.asc()).offset(offset).limit(limit)
+    q = await db.execute(query)
     return q.scalars().all()
 
 
@@ -241,31 +676,49 @@ async def create_appointment(
     current_user: User = Depends(get_current_user),
     _: User = Depends(require_clinic_manage),
 ):
+    # Referential integrity check
+    patient = (await db.execute(
+        select(ClinicPatient).where(ClinicPatient.id == payload.patient_id, ClinicPatient.tenant_id == tenant_id)
+    )).scalar_one_or_none()
+    if not patient:
+        raise HTTPException(status_code=404, detail="المريض غير مسجل في قاعدة البيانات الطبية")
+
     ref = f"APT-{uuid.uuid4().hex[:6].upper()}"
     q_count = await db.execute(
-        select(ClinicAppointment).where(
+        select(func.count(ClinicAppointment.id)).where(
             ClinicAppointment.tenant_id == tenant_id,
             ClinicAppointment.appointment_date == payload.appointment_date,
+            ClinicAppointment.doctor_name == payload.doctor_name,
         )
     )
-    existing_count = len(q_count.scalars().all())
-    queue_no = existing_count + 1
+    queue_no = (q_count.scalar() or 0) + 1
 
     appt = ClinicAppointment(
         tenant_id=tenant_id,
         appointment_ref=ref,
-        patient_id=payload.patient_id,
-        patient_name=payload.patient_name,
+        patient_id=patient.id,
+        patient_name=patient.full_name,
         doctor_name=payload.doctor_name,
         department=payload.department,
         appointment_date=payload.appointment_date,
         time_slot=payload.time_slot,
         queue_number=queue_no,
-        status="scheduled",
         consultation_fee=payload.consultation_fee,
         chief_complaint=payload.chief_complaint,
+        status="scheduled",
+        created_by=current_user.full_name,
     )
     db.add(appt)
+    await audit_log(
+        db,
+        "clinic_appointment",
+        "create_appointment",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"appointment_ref": ref, "patient_name": appt.patient_name, "doctor": appt.doctor_name},
+        f"حجز موعد جديد: {appt.patient_name} مع {appt.doctor_name} بتاريخ {appt.appointment_date}",
+    )
     await db.commit()
     await db.refresh(appt)
     return appt
@@ -286,21 +739,150 @@ async def update_appointment_status(
     appt = q.scalar_one_or_none()
     if not appt:
         raise HTTPException(status_code=404, detail="الموعد الطبي غير موجود")
+
+    old_status = appt.status
     appt.status = payload.status
+    appt.updated_by = current_user.full_name
+
+    # Auto-billing when appointment is marked completed
+    if payload.status == "completed" and appt.consultation_fee > 0:
+        inv_existing = (await db.execute(
+            select(ClinicInvoice).where(ClinicInvoice.appointment_id == appt.id, ClinicInvoice.tenant_id == tenant_id)
+        )).scalar_one_or_none()
+
+        if not inv_existing:
+            patient = (await db.execute(
+                select(ClinicPatient).where(ClinicPatient.id == appt.patient_id, ClinicPatient.tenant_id == tenant_id)
+            )).scalar_one_or_none()
+
+            copay = patient.copay_percent if patient else 0.0
+            total = round(appt.consultation_fee, 2)
+            ins_amt = round(total * (copay / 100.0), 2)
+            pat_amt = round(total - ins_amt, 2)
+
+            inv = ClinicInvoice(
+                tenant_id=tenant_id,
+                invoice_ref=f"INV-{uuid.uuid4().hex[:6].upper()}",
+                patient_id=appt.patient_id,
+                patient_name=appt.patient_name,
+                appointment_id=appt.id,
+                charges=[{"description": f"رسوم كشف واستشارة — {appt.doctor_name} ({appt.department})", "amount": appt.consultation_fee}],
+                total=total,
+                copay_percent=copay,
+                insurance_amount=ins_amt,
+                patient_amount=pat_amt,
+                paid_amount=0.0,
+                status="pending",
+                created_by=current_user.full_name,
+            )
+            db.add(inv)
+            await db.flush()
+
+            if patient and ins_amt > 0:
+                await _ensure_insurance_claim(db, tenant_id, patient, inv, current_user)
+
+    await audit_log(
+        db,
+        "clinic_appointment",
+        "update_appointment_status",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"appointment_ref": appt.appointment_ref, "from": old_status, "to": appt.status},
+        f"تغيير حالة الموعد {appt.appointment_ref} إلى {appt.status}",
+    )
     await db.commit()
     await db.refresh(appt)
     return appt
 
 
+@router.post("/appointments/{appt_id}/cancel")
+async def cancel_appointment(
+    appt_id: str,
+    payload: AppointmentCancelRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_id: str = Depends(get_current_tenant_id),
+    current_user: User = Depends(get_current_user),
+    _: User = Depends(require_clinic_manage),
+):
+    q = await db.execute(
+        select(ClinicAppointment).where(ClinicAppointment.id == appt_id, ClinicAppointment.tenant_id == tenant_id)
+    )
+    appt = q.scalar_one_or_none()
+    if not appt:
+        raise HTTPException(status_code=404, detail="الموعد الطبي غير موجود")
+
+    appt.status = "cancelled"
+    appt.cancellation_reason = payload.reason
+    appt.updated_by = current_user.full_name
+    await audit_log(
+        db,
+        "clinic_appointment",
+        "cancel_appointment",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"appointment_ref": appt.appointment_ref, "reason": payload.reason},
+        f"إلغاء الموعد {appt.appointment_ref} بسبب: {payload.reason}",
+    )
+    await db.commit()
+    await db.refresh(appt)
+    return appt
+
+
+@router.post("/appointments/{appt_id}/reschedule")
+async def reschedule_appointment(
+    appt_id: str,
+    payload: AppointmentRescheduleRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_id: str = Depends(get_current_tenant_id),
+    current_user: User = Depends(get_current_user),
+    _: User = Depends(require_clinic_manage),
+):
+    q = await db.execute(
+        select(ClinicAppointment).where(ClinicAppointment.id == appt_id, ClinicAppointment.tenant_id == tenant_id)
+    )
+    appt = q.scalar_one_or_none()
+    if not appt:
+        raise HTTPException(status_code=404, detail="الموعد الطبي غير موجود")
+
+    old_slot = f"{appt.appointment_date} {appt.time_slot}"
+    appt.rescheduled_from = old_slot
+    appt.appointment_date = payload.new_date
+    appt.time_slot = payload.new_time_slot
+    appt.reschedule_count = (appt.reschedule_count or 0) + 1
+    appt.status = "scheduled"
+    appt.updated_by = current_user.full_name
+    await audit_log(
+        db,
+        "clinic_appointment",
+        "reschedule_appointment",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"appointment_ref": appt.appointment_ref, "old_slot": old_slot, "new_slot": f"{payload.new_date} {payload.new_time_slot}"},
+        f"إعادة جدولة الموعد {appt.appointment_ref} من {old_slot} إلى {payload.new_date} {payload.new_time_slot}",
+    )
+    await db.commit()
+    await db.refresh(appt)
+    return appt
+
+
+# ─── Clinical Encounters & Diagnoses ────────────────────────────────────────
 @router.get("/encounters")
 async def list_encounters(
+    patient_id: str | None = None,
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
 ):
-    q = await db.execute(
-        select(ClinicEncounter).where(ClinicEncounter.tenant_id == tenant_id).order_by(ClinicEncounter.created_at.desc())
-    )
+    query = select(ClinicEncounter).where(ClinicEncounter.tenant_id == tenant_id)
+    if patient_id:
+        query = query.where(ClinicEncounter.patient_id == patient_id)
+    query = query.order_by(ClinicEncounter.created_at.desc()).offset(offset).limit(limit)
+    q = await db.execute(query)
     return q.scalars().all()
 
 
@@ -310,14 +892,21 @@ async def create_encounter(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_manage),
+    _: User = Depends(require_clinic_doctor),
 ):
+    # Validate patient existence
+    patient = (await db.execute(
+        select(ClinicPatient).where(ClinicPatient.id == payload.patient_id, ClinicPatient.tenant_id == tenant_id)
+    )).scalar_one_or_none()
+    if not patient:
+        raise HTTPException(status_code=404, detail="المريض غير مسجل في النظام")
+
     ref = f"ENC-{uuid.uuid4().hex[:6].upper()}"
-    enc = ClinicEncounter(
+    encounter = ClinicEncounter(
         tenant_id=tenant_id,
         encounter_ref=ref,
-        patient_id=payload.patient_id,
-        patient_name=payload.patient_name,
+        patient_id=patient.id,
+        patient_name=patient.full_name,
         doctor_name=payload.doctor_name,
         department=payload.department,
         encounter_date=payload.encounter_date,
@@ -330,22 +919,42 @@ async def create_encounter(
         icd10_code=payload.icd10_code,
         icd10_description=payload.icd10_description,
         clinical_notes=payload.clinical_notes,
+        created_by=current_user.full_name,
     )
-    db.add(enc)
+    db.add(encounter)
+    await audit_log(
+        db,
+        "clinic_encounter",
+        "create_encounter",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"encounter_ref": ref, "patient_name": patient.full_name, "icd10": payload.icd10_code},
+        f"تسجيل كشف سريري جديد {ref} للمريض {patient.full_name} — تشخيص ICD-10: {payload.icd10_code}",
+    )
     await db.commit()
-    await db.refresh(enc)
-    return enc
+    await db.refresh(encounter)
+    return encounter
 
 
+# ─── Electronic Prescriptions (e-Rx) ────────────────────────────────────────
 @router.get("/prescriptions")
 async def list_prescriptions(
+    patient_id: str | None = None,
+    status_filter: str | None = Query(None, alias="status"),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
 ):
-    q = await db.execute(
-        select(ClinicPrescription).where(ClinicPrescription.tenant_id == tenant_id).order_by(ClinicPrescription.created_at.desc())
-    )
+    query = select(ClinicPrescription).where(ClinicPrescription.tenant_id == tenant_id)
+    if patient_id:
+        query = query.where(ClinicPrescription.patient_id == patient_id)
+    if status_filter:
+        query = query.where(ClinicPrescription.status == status_filter)
+    query = query.order_by(ClinicPrescription.created_at.desc()).offset(offset).limit(limit)
+    q = await db.execute(query)
     return q.scalars().all()
 
 
@@ -355,25 +964,54 @@ async def create_prescription(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_manage),
+    _: User = Depends(require_clinic_doctor),
 ):
+    patient = (await db.execute(
+        select(ClinicPatient).where(ClinicPatient.id == payload.patient_id, ClinicPatient.tenant_id == tenant_id)
+    )).scalar_one_or_none()
+    if not patient:
+        raise HTTPException(status_code=404, detail="المريض غير مسجل في النظام")
+
+    # Drug allergy cross-check
+    if patient.allergies and "لا توجد" not in patient.allergies:
+        med_lower = payload.medication_name.lower().strip()
+        allergy_lower = patient.allergies.lower()
+        # Direct word matching
+        if any(word in allergy_lower for word in med_lower.split() if len(word) > 2) and not payload.allergy_override:
+            raise HTTPException(
+                status_code=400,
+                detail=f"تحذير دوائي: المريض لديه حساسية مسجلة تتطابق مع الدواء ({patient.allergies}). يرجى تفعيل التجاوز الطبي بعد مراجعة الطبيب المعالج.",
+            )
+
     ref = f"RX-{uuid.uuid4().hex[:6].upper()}"
     rx = ClinicPrescription(
         tenant_id=tenant_id,
         rx_ref=ref,
         encounter_ref=payload.encounter_ref or f"ENC-{uuid.uuid4().hex[:6].upper()}",
-        patient_id=payload.patient_id,
-        patient_name=payload.patient_name,
+        patient_id=patient.id,
+        patient_name=patient.full_name,
         doctor_name=payload.doctor_name,
         issue_date=payload.issue_date,
         medication_name=payload.medication_name,
         dosage=payload.dosage,
         frequency=payload.frequency,
         duration_days=payload.duration_days,
+        quantity=payload.quantity,
         instructions=payload.instructions,
         status="pending",
+        created_by=current_user.full_name,
     )
     db.add(rx)
+    await audit_log(
+        db,
+        "clinic_prescription",
+        "create_prescription",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"rx_ref": ref, "medication": rx.medication_name, "patient": patient.full_name},
+        f"إصدار روشتة طبية رقم {ref} لدواء {rx.medication_name} للمريض {patient.full_name}",
+    )
     await db.commit()
     await db.refresh(rx)
     return rx
@@ -382,10 +1020,11 @@ async def create_prescription(
 @router.post("/prescriptions/{rx_id}/dispense")
 async def dispense_prescription(
     rx_id: str,
+    payload: PrescriptionDispenseRequest = PrescriptionDispenseRequest(),
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_manage),
+    _: User = Depends(require_clinic_dispense),
 ):
     q = await db.execute(
         select(ClinicPrescription).where(ClinicPrescription.id == rx_id, ClinicPrescription.tenant_id == tenant_id)
@@ -393,62 +1032,126 @@ async def dispense_prescription(
     rx = q.scalar_one_or_none()
     if not rx:
         raise HTTPException(status_code=404, detail="الروشتة الطبية غير موجودة")
-    rx.status = "dispensed"
+    if rx.status == "dispensed":
+        raise HTTPException(status_code=400, detail="تم صرف هذه الروشتة مسبقاً")
 
-    # Best-effort link to the pharmacy module: if a matching drug exists,
-    # deduct stock via FEFO and record a pharmacy prescription + copay.
+    rx.status = "dispensed"
+    rx.dispensed_at = datetime.now(UTC)
+    rx.dispensed_by = current_user.full_name
+    qty_dispensed = payload.quantity or rx.quantity or 1
+
+    unit_price = 45.0  # default medication price
+
+    # FEFO Inventory Stock Deduction via Pharmacy Module
     try:
         from app.modules.pharmacy.models import PharmacyBatch, PharmacyDrug, PharmacyPrescription
-        from datetime import date, datetime
-        import uuid as _u
 
+        today_str = date.today().isoformat()
         drug = (await db.execute(
-            select(PharmacyDrug).where(PharmacyDrug.tenant_id == tenant_id, PharmacyDrug.name.ilike(rx.medication_name))
+            select(PharmacyDrug).where(
+                PharmacyDrug.tenant_id == tenant_id,
+                or_(
+                    PharmacyDrug.trade_name.ilike(f"%{rx.medication_name}%"),
+                    PharmacyDrug.scientific_name.ilike(f"%{rx.medication_name}%"),
+                ),
+            )
         )).scalars().first()
-        if drug is not None:
-            today_str = date.today().isoformat()
+
+        if drug:
+            unit_price = float(drug.unit_price) if drug.unit_price > 0 else 45.0
             batch = (await db.execute(
                 select(PharmacyBatch).where(
                     PharmacyBatch.drug_id == drug.id,
-                    PharmacyBatch.quantity_on_hand >= 1,
+                    PharmacyBatch.quantity_on_hand >= qty_dispensed,
                     PharmacyBatch.expiry_date >= today_str,
                 ).order_by(PharmacyBatch.expiry_date.asc()).limit(1)
             )).scalar_one_or_none()
-            if batch is not None:
-                batch.quantity_on_hand -= 1
+
+            if batch:
+                batch.quantity_on_hand -= qty_dispensed
                 pharm_rx = PharmacyPrescription(
-                    rx_number=f"RX-{datetime.now().strftime('%Y%m%d')}-{_u.uuid4().hex[:4].upper()}",
+                    tenant_id=tenant_id,
+                    rx_number=f"PH-RX-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}",
                     patient_name=rx.patient_name,
                     patient_phone="",
                     doctor_name=rx.doctor_name,
-                    doctor_license="",
-                    diagnosis="",
+                    doctor_license="MED-LIC-AUTO",
+                    diagnosis="صرف عيادات خارجية",
                     insurance_company="",
                     copay_percentage=0.0,
-                    total_amount=float(drug.unit_price),
-                    patient_paid=float(drug.unit_price),
+                    total_amount=round(unit_price * qty_dispensed, 2),
+                    patient_paid=round(unit_price * qty_dispensed, 2),
                     insurance_covered=0.0,
                     status="dispensed",
                 )
                 db.add(pharm_rx)
     except Exception:
-        # Pharmacy module not available or no matching drug — keep clinic dispense working.
         pass
 
+    # Create medication invoice
+    total_med_cost = round(unit_price * qty_dispensed, 2)
+    patient = (await db.execute(
+        select(ClinicPatient).where(ClinicPatient.id == rx.patient_id, ClinicPatient.tenant_id == tenant_id)
+    )).scalar_one_or_none()
+
+    copay = patient.copay_percent if patient else 0.0
+    ins_share = round(total_med_cost * (copay / 100.0), 2)
+    pat_share = round(total_med_cost - ins_share, 2)
+
+    inv = ClinicInvoice(
+        tenant_id=tenant_id,
+        invoice_ref=f"INV-RX-{uuid.uuid4().hex[:6].upper()}",
+        patient_id=rx.patient_id,
+        patient_name=rx.patient_name,
+        encounter_ref=rx.encounter_ref,
+        charges=[{"description": f"صرف دواء: {rx.medication_name} ({rx.dosage}) × {qty_dispensed}", "amount": total_med_cost}],
+        total=total_med_cost,
+        copay_percent=copay,
+        insurance_amount=ins_share,
+        patient_amount=pat_share,
+        paid_amount=0.0,
+        status="pending",
+        created_by=current_user.full_name,
+    )
+    db.add(inv)
+    await db.flush()
+
+    if patient and ins_share > 0:
+        await _ensure_insurance_claim(db, tenant_id, patient, inv, current_user)
+
+    await audit_log(
+        db,
+        "clinic_prescription",
+        "dispense_prescription",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"rx_ref": rx.rx_ref, "medication": rx.medication_name, "quantity": qty_dispensed, "cost": total_med_cost},
+        f"صرف روشتة طبية رقم {rx.rx_ref} للمريض {rx.patient_name} — دواء: {rx.medication_name} (كمية: {qty_dispensed})",
+    )
     await db.commit()
     await db.refresh(rx)
     return rx
 
 
+# ─── Laboratory & Diagnostics ───────────────────────────────────────────────
 @router.get("/lab-orders")
 async def list_lab_orders(
+    patient_id: str | None = None,
+    status_filter: str | None = Query(None, alias="status"),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
 ):
-    q = await db.execute(
-        select(ClinicLabOrder).where(ClinicLabOrder.tenant_id == tenant_id).order_by(ClinicLabOrder.created_at.desc())
-    )
+    query = select(ClinicLabOrder).where(ClinicLabOrder.tenant_id == tenant_id)
+    if patient_id:
+        query = query.where(ClinicLabOrder.patient_id == patient_id)
+    if status_filter:
+        query = query.where(ClinicLabOrder.status == status_filter)
+    query = query.order_by(ClinicLabOrder.created_at.desc()).offset(offset).limit(limit)
+    q = await db.execute(query)
     return q.scalars().all()
 
 
@@ -458,24 +1161,41 @@ async def create_lab_order(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_manage),
+    _: User = Depends(require_clinic_doctor),
 ):
+    patient = (await db.execute(
+        select(ClinicPatient).where(ClinicPatient.id == payload.patient_id, ClinicPatient.tenant_id == tenant_id)
+    )).scalar_one_or_none()
+    if not patient:
+        raise HTTPException(status_code=404, detail="المريض غير مسجل في النظام")
+
     ref = f"LAB-{uuid.uuid4().hex[:6].upper()}"
     order = ClinicLabOrder(
         tenant_id=tenant_id,
         order_ref=ref,
-        patient_id=payload.patient_id,
-        patient_name=payload.patient_name,
+        patient_id=patient.id,
+        patient_name=patient.full_name,
         doctor_name=payload.doctor_name,
         test_name=payload.test_name,
         category=payload.category,
-        specimen_barcode=payload.specimen_barcode,
+        specimen_barcode=payload.specimen_barcode or f"SPEC-{uuid.uuid4().hex[:4].upper()}",
         reference_range=payload.reference_range,
-        result_value="قيد التحليل",
+        result_value="قيد الفحص والتحليل",
         status="ordered",
-        is_signed_off=False,
+        test_fee=payload.test_fee,
+        created_by=current_user.full_name,
     )
     db.add(order)
+    await audit_log(
+        db,
+        "clinic_lab_order",
+        "create_lab_order",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"order_ref": ref, "test_name": payload.test_name, "patient": patient.full_name},
+        f"طلب تحليل مخبري جديد {ref} ({payload.test_name}) للمريض {patient.full_name}",
+    )
     await db.commit()
     await db.refresh(order)
     return order
@@ -488,7 +1208,7 @@ async def record_lab_result(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_manage),
+    _: User = Depends(require_clinic_lab),
 ):
     q = await db.execute(
         select(ClinicLabOrder).where(ClinicLabOrder.id == order_id, ClinicLabOrder.tenant_id == tenant_id)
@@ -496,23 +1216,88 @@ async def record_lab_result(
     order = q.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="طلب الفحص المخبري غير موجود")
+
     order.result_value = payload.result_value
+    order.numeric_value = payload.numeric_value
+    order.unit = payload.unit
+    order.is_critical = payload.is_critical
     order.status = "reported"
-    order.is_signed_off = payload.is_signed_off
+    order.updated_by = current_user.full_name
+
+    if payload.is_signed_off:
+        order.is_signed_off = True
+        order.signed_off_by = current_user.full_name
+        order.signed_off_at = datetime.now(UTC)
+
+    # Billing for lab order
+    if order.test_fee > 0:
+        inv_existing = (await db.execute(
+            select(ClinicInvoice).where(
+                ClinicInvoice.patient_id == order.patient_id,
+                ClinicInvoice.encounter_ref == order.order_ref,
+                ClinicInvoice.tenant_id == tenant_id,
+            )
+        )).scalar_one_or_none()
+
+        if not inv_existing:
+            patient = (await db.execute(
+                select(ClinicPatient).where(ClinicPatient.id == order.patient_id, ClinicPatient.tenant_id == tenant_id)
+            )).scalar_one_or_none()
+
+            copay = patient.copay_percent if patient else 0.0
+            total = round(order.test_fee, 2)
+            ins_amt = round(total * (copay / 100.0), 2)
+            pat_amt = round(total - ins_amt, 2)
+
+            inv = ClinicInvoice(
+                tenant_id=tenant_id,
+                invoice_ref=f"INV-LAB-{uuid.uuid4().hex[:6].upper()}",
+                patient_id=order.patient_id,
+                patient_name=order.patient_name,
+                encounter_ref=order.order_ref,
+                charges=[{"description": f"رسوم فحص مخبري: {order.test_name} ({order.category})", "amount": order.test_fee}],
+                total=total,
+                copay_percent=copay,
+                insurance_amount=ins_amt,
+                patient_amount=pat_amt,
+                paid_amount=0.0,
+                status="pending",
+                created_by=current_user.full_name,
+            )
+            db.add(inv)
+            await db.flush()
+
+            if patient and ins_amt > 0:
+                await _ensure_insurance_claim(db, tenant_id, patient, inv, current_user)
+
+    await audit_log(
+        db,
+        "clinic_lab_order",
+        "record_lab_result",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"order_ref": order.order_ref, "result": payload.result_value, "is_critical": payload.is_critical},
+        f"تسجيل واعتماد نتيجة الفحص المخبري {order.order_ref} — النتيجة: {payload.result_value}",
+    )
     await db.commit()
     await db.refresh(order)
     return order
 
 
+# ─── Inpatient Beds Management ──────────────────────────────────────────────
 @router.get("/beds")
 async def list_beds(
+    status_filter: str | None = Query(None, alias="status"),
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
 ):
-    q = await db.execute(
-        select(ClinicInpatientBed).where(ClinicInpatientBed.tenant_id == tenant_id).order_by(ClinicInpatientBed.ward_name, ClinicInpatientBed.bed_code)
-    )
+    query = select(ClinicInpatientBed).where(ClinicInpatientBed.tenant_id == tenant_id)
+    if status_filter:
+        query = query.where(ClinicInpatientBed.status == status_filter)
+    query = query.order_by(ClinicInpatientBed.ward_name, ClinicInpatientBed.bed_code)
+    q = await db.execute(query)
     return q.scalars().all()
 
 
@@ -523,7 +1308,7 @@ async def admit_bed(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_manage),
+    _: User = Depends(require_clinic_nurse),
 ):
     q = await db.execute(
         select(ClinicInpatientBed).where(ClinicInpatientBed.id == bed_id, ClinicInpatientBed.tenant_id == tenant_id)
@@ -531,15 +1316,40 @@ async def admit_bed(
     bed = q.scalar_one_or_none()
     if not bed:
         raise HTTPException(status_code=404, detail="السرير الطبي غير موجود")
+    if bed.status == "occupied":
+        raise HTTPException(status_code=400, detail="السرير مشغول حالياً بمريض آخر")
+
+    patient = None
+    if payload.patient_id:
+        patient = (await db.execute(
+            select(ClinicPatient).where(ClinicPatient.id == payload.patient_id, ClinicPatient.tenant_id == tenant_id)
+        )).scalar_one_or_none()
+        if not patient:
+            raise HTTPException(status_code=404, detail="المريض المراد تنويمه غير مسجل في النظام")
+
     bed.status = "occupied"
-    bed.current_patient_name = payload.patient_name
-    bed.admission_date = payload.admission_date
+    bed.current_patient_id = patient.id if patient else None
+    bed.current_patient_name = patient.full_name if patient else payload.patient_name
+    bed.admission_date = payload.admission_date or date.today().isoformat()
+    bed.updated_by = current_user.full_name
+
+    await audit_log(
+        db,
+        "clinic_bed",
+        "admit_bed",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"bed_code": bed.bed_code, "ward": bed.ward_name, "patient": bed.current_patient_name},
+        f"تنويم مريض في السرير {bed.bed_code} ({bed.ward_name}): {bed.current_patient_name}",
+    )
     await db.commit()
     await db.refresh(bed)
     return bed
 
 
 @router.post("/beds/{bed_id}/discharge")
+@router.post("/beds/{bed_id}/discharge-bill")
 async def discharge_bed(
     bed_id: str,
     db: AsyncSession = Depends(get_db),
@@ -553,12 +1363,74 @@ async def discharge_bed(
     bed = q.scalar_one_or_none()
     if not bed:
         raise HTTPException(status_code=404, detail="السرير الطبي غير موجود")
+
+    patient_name = bed.current_patient_name
+    patient_id = bed.current_patient_id
+
+    # Compute stay days
+    days = 1
+    try:
+        adm = datetime.fromisoformat(bed.admission_date).date()
+        days = max(1, (date.today() - adm).days)
+    except Exception:
+        days = 1
+
+    total_charge = round(bed.daily_rate * days, 2)
+    inv = None
+
+    if patient_id or patient_name:
+        patient = None
+        if patient_id:
+            patient = (await db.execute(
+                select(ClinicPatient).where(ClinicPatient.id == patient_id, ClinicPatient.tenant_id == tenant_id)
+            )).scalar_one_or_none()
+
+        copay = patient.copay_percent if patient else 0.0
+        ins_amt = round(total_charge * (copay / 100.0), 2)
+        pat_amt = round(total_charge - ins_amt, 2)
+
+        inv = ClinicInvoice(
+            tenant_id=tenant_id,
+            invoice_ref=f"INV-BED-{uuid.uuid4().hex[:6].upper()}",
+            patient_id=patient.id if patient else (patient_id or "N/A"),
+            patient_name=patient.full_name if patient else patient_name,
+            charges=[{
+                "description": f"إقامة وتنويم سريري — {bed.ward_name} ({bed.bed_code}) لمدة {days} يوم بواقع {bed.daily_rate} ر.س/يوم",
+                "amount": total_charge,
+            }],
+            total=total_charge,
+            copay_percent=copay,
+            insurance_amount=ins_amt,
+            patient_amount=pat_amt,
+            paid_amount=0.0,
+            status="pending",
+            created_by=current_user.full_name,
+        )
+        db.add(inv)
+        await db.flush()
+
+        if patient and ins_amt > 0:
+            await _ensure_insurance_claim(db, tenant_id, patient, inv, current_user)
+
     bed.status = "cleaning"
+    bed.current_patient_id = None
     bed.current_patient_name = ""
     bed.admission_date = ""
+    bed.updated_by = current_user.full_name
+
+    await audit_log(
+        db,
+        "clinic_bed",
+        "discharge_bed",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"bed_code": bed.bed_code, "patient": patient_name, "days": days, "charge": total_charge},
+        f"خروج المريض {patient_name} من السرير {bed.bed_code} وحساب إقامة {days} يوم بقيمة {total_charge}",
+    )
     await db.commit()
     await db.refresh(bed)
-    return bed
+    return {"bed": bed, "billed_days": days, "charge": total_charge, "invoice": inv}
 
 
 @router.post("/beds/{bed_id}/clean")
@@ -576,40 +1448,38 @@ async def clean_bed(
     if not bed:
         raise HTTPException(status_code=404, detail="السرير الطبي غير موجود")
     bed.status = "available"
+    bed.updated_by = current_user.full_name
+    await audit_log(
+        db,
+        "clinic_bed",
+        "clean_bed",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"bed_code": bed.bed_code},
+        f"اكتمال تعقيم وتجهيز السرير {bed.bed_code} وأصبح متاحاً",
+    )
     await db.commit()
     await db.refresh(bed)
     return bed
 
 
-class InvoiceCreate(BaseModel):
-    patient_id: str
-    patient_name: str
-    appointment_id: str | None = None
-    encounter_ref: str = ""
-    charges: list[dict[str, Any]]  # [{description, amount}]
-    copay_percent: float = 0.0
-
-
-class InvoicePayRequest(BaseModel):
-    amount: float
-    payment_method: str = "cash"
-
-
-class InvoicePayRequest(BaseModel):
-    amount: float
-    payment_method: str = "cash"
-
-
-# ─── Billing / Invoices ─────────────────────────────────────────────────────
+# ─── Invoices & Billing ─────────────────────────────────────────────────────
 @router.get("/invoices")
 async def list_invoices(
+    patient_id: str | None = None,
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
+    _: User = Depends(require_clinic_billing),
 ):
-    q = await db.execute(
-        select(ClinicInvoice).where(ClinicInvoice.tenant_id == tenant_id).order_by(ClinicInvoice.created_at.desc())
-    )
+    query = select(ClinicInvoice).where(ClinicInvoice.tenant_id == tenant_id)
+    if patient_id:
+        query = query.where(ClinicInvoice.patient_id == patient_id)
+    query = query.order_by(ClinicInvoice.created_at.desc()).offset(offset).limit(limit)
+    q = await db.execute(query)
     return q.scalars().all()
 
 
@@ -619,13 +1489,14 @@ async def create_invoice(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_manage),
+    _: User = Depends(require_clinic_billing),
 ):
     ref = f"INV-{uuid.uuid4().hex[:6].upper()}"
     total = round(sum(float(c.get("amount", 0)) for c in payload.charges), 2)
     copay = max(0.0, min(100.0, payload.copay_percent))
     insurance_amount = round(total * (copay / 100.0), 2)
     patient_amount = round(total - insurance_amount, 2)
+
     inv = ClinicInvoice(
         tenant_id=tenant_id,
         invoice_ref=ref,
@@ -640,8 +1511,27 @@ async def create_invoice(
         patient_amount=patient_amount,
         paid_amount=0.0,
         status="pending",
+        created_by=current_user.full_name,
     )
     db.add(inv)
+    await db.flush()
+
+    patient = (await db.execute(
+        select(ClinicPatient).where(ClinicPatient.id == payload.patient_id, ClinicPatient.tenant_id == tenant_id)
+    )).scalar_one_or_none()
+    if patient and insurance_amount > 0:
+        await _ensure_insurance_claim(db, tenant_id, patient, inv, current_user)
+
+    await audit_log(
+        db,
+        "clinic_invoice",
+        "create_invoice",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"invoice_ref": ref, "total": total, "patient": payload.patient_name},
+        f"إصدار فاتورة طبية جديدة {ref} للمريض {payload.patient_name} بإجمالي {total}",
+    )
     await db.commit()
     await db.refresh(inv)
     return inv
@@ -653,7 +1543,7 @@ async def bill_appointment(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_manage),
+    _: User = Depends(require_clinic_billing),
 ):
     q = await db.execute(
         select(ClinicAppointment).where(ClinicAppointment.id == appt_id, ClinicAppointment.tenant_id == tenant_id)
@@ -661,17 +1551,22 @@ async def bill_appointment(
     appt = q.scalar_one_or_none()
     if not appt:
         raise HTTPException(status_code=404, detail="الموعد الطبي غير موجود")
+
     existing = await db.execute(
         select(ClinicInvoice).where(ClinicInvoice.appointment_id == appt_id, ClinicInvoice.tenant_id == tenant_id)
     )
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="تم إصدار فاتورة لهذا الموعد مسبقاً")
-    pq = await db.execute(select(ClinicPatient).where(ClinicPatient.id == appt.patient_id, ClinicPatient.tenant_id == tenant_id))
-    patient = pq.scalar_one_or_none()
+
+    patient = (await db.execute(
+        select(ClinicPatient).where(ClinicPatient.id == appt.patient_id, ClinicPatient.tenant_id == tenant_id)
+    )).scalar_one_or_none()
+
     copay = patient.copay_percent if patient else 0.0
     total = round(appt.consultation_fee, 2)
     insurance_amount = round(total * (copay / 100.0), 2)
     patient_amount = round(total - insurance_amount, 2)
+
     inv = ClinicInvoice(
         tenant_id=tenant_id,
         invoice_ref=f"INV-{uuid.uuid4().hex[:6].upper()}",
@@ -685,8 +1580,24 @@ async def bill_appointment(
         patient_amount=patient_amount,
         paid_amount=0.0,
         status="pending",
+        created_by=current_user.full_name,
     )
     db.add(inv)
+    await db.flush()
+
+    if patient and insurance_amount > 0:
+        await _ensure_insurance_claim(db, tenant_id, patient, inv, current_user)
+
+    await audit_log(
+        db,
+        "clinic_invoice",
+        "bill_appointment",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"invoice_ref": inv.invoice_ref, "appt_ref": appt.appointment_ref},
+        f"فوترة موعد طبي {appt.appointment_ref} — فاتورة: {inv.invoice_ref}",
+    )
     await db.commit()
     await db.refresh(inv)
     return inv
@@ -699,7 +1610,7 @@ async def pay_invoice(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_manage),
+    _: User = Depends(require_clinic_billing),
 ):
     q = await db.execute(
         select(ClinicInvoice).where(ClinicInvoice.id == inv_id, ClinicInvoice.tenant_id == tenant_id)
@@ -707,77 +1618,51 @@ async def pay_invoice(
     inv = q.scalar_one_or_none()
     if not inv:
         raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
+
     inv.paid_amount = round(inv.paid_amount + payload.amount, 2)
     inv.payment_method = payload.payment_method
+    inv.paid_by = current_user.full_name
+
     if inv.paid_amount >= inv.patient_amount - 0.001:
         inv.status = "paid"
-        from datetime import datetime, UTC
         inv.paid_at = datetime.now(UTC)
     elif inv.paid_amount > 0:
         inv.status = "partial"
+
+    # Post to ERP sales/ledger
+    await _post_invoice_to_sales(db, tenant_id, inv, current_user)
+
+    await audit_log(
+        db,
+        "clinic_invoice",
+        "pay_invoice",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"invoice_ref": inv.invoice_ref, "amount": payload.amount, "status": inv.status},
+        f"تحصيل وسداد مبلغ {payload.amount} لفاتورة {inv.invoice_ref} ({inv.status})",
+    )
     await db.commit()
     await db.refresh(inv)
     return inv
 
 
-@router.post("/beds/{bed_id}/discharge-bill")
-async def discharge_bed_with_bill(
-    bed_id: str,
-    db: AsyncSession = Depends(get_db),
-    tenant_id: str = Depends(get_current_tenant_id),
-    current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_manage),
-):
-    q = await db.execute(
-        select(ClinicInpatientBed).where(ClinicInpatientBed.id == bed_id, ClinicInpatientBed.tenant_id == tenant_id)
-    )
-    bed = q.scalar_one_or_none()
-    if not bed:
-        raise HTTPException(status_code=404, detail="السرير الطبي غير موجود")
-    from datetime import date, datetime
-    days = 1
-    try:
-        adm = datetime.fromisoformat(bed.admission_date).date()
-        days = max(1, (date.today() - adm).days)
-    except Exception:
-        days = 1
-    charge = round(bed.daily_rate * days, 2)
-    bed.status = "cleaning"
-    bed.current_patient_name = ""
-    bed.admission_date = ""
-    await db.commit()
-    await db.refresh(bed)
-    return {"bed": bed, "billed_days": days, "charge": charge}
-
-
-class ClaimCreate(BaseModel):
-    patient_id: str
-    patient_name: str
-    invoice_id: str | None = None
-    insurance_provider: str
-    policy_no: str = "N/A"
-    copay_percent: float = 0.0
-    claimed_amount: float
-    notes: str = ""
-
-
-class ClaimStatusUpdate(BaseModel):
-    status: str  # submitted, approved, rejected, paid
-    approved_amount: float | None = None
-    notes: str = ""
-
-
 # ─── Insurance Claims ────────────────────────────────────────────────────────
 @router.get("/claims")
 async def list_claims(
+    status_filter: str | None = Query(None, alias="status"),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_manage),
+    _: User = Depends(require_clinic_billing),
 ):
-    q = await db.execute(
-        select(ClinicInsuranceClaim).where(ClinicInsuranceClaim.tenant_id == tenant_id).order_by(ClinicInsuranceClaim.submitted_at.desc())
-    )
+    query = select(ClinicInsuranceClaim).where(ClinicInsuranceClaim.tenant_id == tenant_id)
+    if status_filter:
+        query = query.where(ClinicInsuranceClaim.status == status_filter)
+    query = query.order_by(ClinicInsuranceClaim.submitted_at.desc()).offset(offset).limit(limit)
+    q = await db.execute(query)
     return q.scalars().all()
 
 
@@ -787,7 +1672,7 @@ async def create_claim(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_manage),
+    _: User = Depends(require_clinic_billing),
 ):
     ref = f"CLM-{uuid.uuid4().hex[:6].upper()}"
     claim = ClinicInsuranceClaim(
@@ -802,9 +1687,20 @@ async def create_claim(
         claimed_amount=payload.claimed_amount,
         approved_amount=0.0,
         status="submitted",
+        created_by=current_user.full_name,
         notes=payload.notes,
     )
     db.add(claim)
+    await audit_log(
+        db,
+        "clinic_insurance_claim",
+        "create_claim",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"claim_ref": ref, "claimed_amount": payload.claimed_amount, "provider": payload.insurance_provider},
+        f"تقديم مطالبة تأمينية رقم {ref} لشركة {payload.insurance_provider} بقيمة {payload.claimed_amount}",
+    )
     await db.commit()
     await db.refresh(claim)
     return claim
@@ -817,7 +1713,7 @@ async def update_claim_status(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_manage),
+    _: User = Depends(require_clinic_billing),
 ):
     q = await db.execute(
         select(ClinicInsuranceClaim).where(ClinicInsuranceClaim.id == claim_id, ClinicInsuranceClaim.tenant_id == tenant_id)
@@ -825,214 +1721,167 @@ async def update_claim_status(
     claim = q.scalar_one_or_none()
     if not claim:
         raise HTTPException(status_code=404, detail="المطالبة غير موجودة")
+
+    old_status = claim.status
     claim.status = payload.status
     if payload.approved_amount is not None:
         claim.approved_amount = payload.approved_amount
     if payload.notes:
         claim.notes = payload.notes
     if payload.status in ("approved", "rejected", "paid"):
-        from datetime import datetime, UTC
         claim.resolved_at = datetime.now(UTC)
+
+    await audit_log(
+        db,
+        "clinic_insurance_claim",
+        "update_claim_status",
+        current_user.id,
+        current_user.full_name,
+        None,
+        {"claim_ref": claim.claim_ref, "from": old_status, "to": payload.status, "approved": claim.approved_amount},
+        f"تحديث حالة المطالبة التأمينية {claim.claim_ref} من {old_status} إلى {payload.status}",
+    )
     await db.commit()
     await db.refresh(claim)
     return claim
 
 
+# ─── Controlled Demo Seeding ────────────────────────────────────────────────
 async def _seed_clinic_records(db: AsyncSession, tenant_id: str) -> bool:
     q_patients = await db.execute(select(ClinicPatient).where(ClinicPatient.tenant_id == tenant_id))
     if q_patients.scalars().first():
         return False
 
-    # Seed Patients
     p1 = ClinicPatient(
         tenant_id=tenant_id,
         patient_mrn="MRN-2026-0811",
         full_name="فاطمة الزهراء علي",
-        national_id="29408151203488",
-        phone="01091234567",
+        national_id="29408110104821",
+        phone="0501234567",
         gender="أنثى",
-        date_of_birth="1994-08-15",
+        date_of_birth="1994-08-11",
         blood_group="O+",
-        allergies="حساسية شديدة من البنسلين ومشتقاته (Penicillin)",
-        chronic_conditions="داء السكري النوع الثاني (Type 2 DM)",
-        insurance_provider="شركة بوبا مصر للتأمين الصحي",
-        insurance_policy_no="BUPA-EG-99410",
-        copay_percent=10.0,
+        allergies="بنسلين (Penicillin)",
+        chronic_conditions="ربو تحسسي خفيف",
+        insurance_provider="بوبا العربية للتأمين",
+        insurance_policy_no="BUPA-992144",
+        copay_percent=20.0,
+        created_by="مدير النظام",
     )
     p2 = ClinicPatient(
         tenant_id=tenant_id,
         patient_mrn="MRN-2026-0812",
-        full_name="طارق عبد الحميد محمود",
-        national_id="28512041401922",
-        phone="01287654321",
+        full_name="عمر خالد القحطاني",
+        national_id="28803150201944",
+        phone="0559876543",
         gender="ذكر",
-        date_of_birth="1985-12-04",
+        date_of_birth="1988-03-15",
         blood_group="A+",
-        allergies="لا توجد حساسيات دوائية مسجلة",
-        chronic_conditions="ارتفاع ضغط الدم الشرياني (Hypertension)",
-        insurance_provider="مصر للتأمين التكافلي",
-        insurance_policy_no="MISR-TAK-4412",
-        copay_percent=20.0,
+        allergies="لا توجد حساسيات مسجلة",
+        chronic_conditions="ارتفاع ضغط دم أولي",
+        insurance_provider="التعاونية للتأمين",
+        insurance_policy_no="TAW-441092",
+        copay_percent=10.0,
+        created_by="مدير النظام",
     )
     p3 = ClinicPatient(
         tenant_id=tenant_id,
         patient_mrn="MRN-2026-0813",
-        full_name="مروان أحمد إبراهيم",
-        national_id="30205101602811",
-        phone="01155443322",
-        gender="ذكر",
-        date_of_birth="2002-05-10",
+        full_name="سارة عبد الله الشمري",
+        national_id="29911040305512",
+        phone="0543322110",
+        gender="أنثى",
+        date_of_birth="1999-11-04",
         blood_group="B+",
-        allergies="حساسية الأسبرين ومضادات الالتهاب غير الستيرويدية (NSAIDs)",
-        chronic_conditions="ربو قصبي مزمن (Bronchial Asthma)",
+        allergies="لا توجد حساسيات مسجلة",
+        chronic_conditions="قصور الغدة الدرقية",
+        insurance_provider="ميدغلف للتأمين",
+        insurance_policy_no="MED-881903",
+        copay_percent=15.0,
+        created_by="مدير النظام",
+    )
+    p4 = ClinicPatient(
+        tenant_id=tenant_id,
+        patient_mrn="MRN-2026-0814",
+        full_name="طارق عبد الحميد محمود",
+        national_id="27506200109931",
+        phone="0567788990",
+        gender="ذكر",
+        date_of_birth="1975-06-20",
+        blood_group="AB+",
+        allergies="أسبرين (Aspirin / NSAIDs)",
+        chronic_conditions="داء السكري النوع الثاني، قصور شرياني تاجي",
         insurance_provider="نقدي / غير مؤمن",
         insurance_policy_no="N/A",
         copay_percent=0.0,
+        created_by="مدير النظام",
     )
-    db.add_all([p1, p2, p3])
+    db.add_all([p1, p2, p3, p4])
     await db.flush()
 
-    # Seed Appointments
+    today_str = date.today().isoformat()
+
     a1 = ClinicAppointment(
         tenant_id=tenant_id,
         appointment_ref="APT-2026-101",
         patient_id=p1.id,
         patient_name=p1.full_name,
-        doctor_name="د. هشام الشناوي (استشاري الباطنة والسكري)",
+        doctor_name="د. هشام الشناوي",
         department="الباطنة العامة",
-        appointment_date="2026-11-02",
-        time_slot="10:00 AM",
+        appointment_date=today_str,
+        time_slot="09:30 AM",
         queue_number=1,
-        status="waiting",
-        consultation_fee=350.0,
-        chief_complaint="متابعة دورية لمستوى السكر التراكمي وإجهاد عام",
+        status="completed",
+        consultation_fee=250.0,
+        chief_complaint="متابعة دورية للفحوصات وضيق تنفس خفيف",
+        created_by="مدير النظام",
     )
     a2 = ClinicAppointment(
         tenant_id=tenant_id,
         appointment_ref="APT-2026-102",
         patient_id=p2.id,
         patient_name=p2.full_name,
-        doctor_name="د. منى سراج الدين (استشاري القلب والأوعية الدموية)",
-        department="أمراض القلب",
-        appointment_date="2026-11-02",
-        time_slot="10:30 AM",
+        doctor_name="د. أحمد نبيل",
+        department="أمراض القلب والأوعية",
+        appointment_date=today_str,
+        time_slot="10:00 AM",
         queue_number=2,
         status="in_consultation",
-        consultation_fee=450.0,
-        chief_complaint="نوبات خفقان وارتفاع قراءات ضغط الدم الصباحية",
+        consultation_fee=350.0,
+        chief_complaint="صداع صباحي مستمر مع خفقان",
+        created_by="مدير النظام",
     )
     a3 = ClinicAppointment(
         tenant_id=tenant_id,
         appointment_ref="APT-2026-103",
         patient_id=p3.id,
         patient_name=p3.full_name,
-        doctor_name="د. كريم عبد العزيز (أخصائي الصدر والحساسية)",
-        department="الأمراض الصدرية",
-        appointment_date="2026-11-02",
-        time_slot="11:15 AM",
+        doctor_name="د. منى عبد الرحمن",
+        department="الغدد الصماء والسكري",
+        appointment_date=today_str,
+        time_slot="10:30 AM",
         queue_number=3,
-        status="scheduled",
+        status="waiting",
         consultation_fee=300.0,
-        chief_complaint="ضيق تنفس مصاحب للسعال الجاف أثناء النوم",
+        chief_complaint="إجهاد عام وطلب تعديل جرعة الثيروكسين",
+        created_by="مدير النظام",
     )
     db.add_all([a1, a2, a3])
+    await db.flush()
 
-    # Seed Clinical Encounters (EMR)
-    enc1 = ClinicEncounter(
-        tenant_id=tenant_id,
-        encounter_ref="ENC-2026-901",
-        patient_id=p1.id,
-        patient_name=p1.full_name,
-        doctor_name="د. هشام الشناوي",
-        department="الباطنة العامة",
-        encounter_date="2026-11-01",
-        bp_systolic=125,
-        bp_diastolic=82,
-        heart_rate=76,
-        temperature=37.1,
-        spo2=98,
-        chief_complaint="ارتفاع قراءات السكر الصائم 160 ملغ/دل مع شعور بالعطش المتكرر",
-        icd10_code="E11.9",
-        icd10_description="Type 2 diabetes mellitus without complications",
-        clinical_notes="المريضة منتظمة على دواء ميتفورمين 1000 ملغ. تم تعديل الجرعة وإضافة منظم حديث ومطالبة بتحليل HbA1c بعد شهرين.",
-    )
-    db.add(enc1)
-
-    # Seed Prescriptions (e-Rx)
-    rx1 = ClinicPrescription(
-        tenant_id=tenant_id,
-        rx_ref="RX-2026-4401",
-        encounter_ref=enc1.encounter_ref,
-        patient_id=p1.id,
-        patient_name=p1.full_name,
-        doctor_name="د. هشام الشناوي",
-        issue_date="2026-11-01",
-        medication_name="سيدوفاج ريتارد 1000 مجم (Metformin XR)",
-        dosage="1000mg",
-        frequency="قرص واحد مع وجبة العشاء يومياً",
-        duration_days=30,
-        instructions="يؤخذ مع الأكل لتقليل الاضطرابات المعوية. تم تحذير الصيدلية من حساسية البنسلين.",
-        status="dispensed",
-    )
-    rx2 = ClinicPrescription(
-        tenant_id=tenant_id,
-        rx_ref="RX-2026-4402",
-        encounter_ref="ENC-2026-902",
-        patient_id=p2.id,
-        patient_name=p2.full_name,
-        doctor_name="د. منى سراج الدين",
-        issue_date="2026-11-02",
-        medication_name="كونكور 5 مجم (Bisoprolol Fumarate)",
-        dosage="5mg",
-        frequency="قرص واحد صباحاً على الريق",
-        duration_days=30,
-        instructions="قياس النبض وضغط الدم بانتظام قبل أخذ الجرعة.",
-        status="pending",
-    )
-    db.add_all([rx1, rx2])
-
-    # Seed Diagnostic Lab Orders
-    lab1 = ClinicLabOrder(
-        tenant_id=tenant_id,
-        order_ref="LAB-2026-5501",
-        patient_id=p1.id,
-        patient_name=p1.full_name,
-        doctor_name="د. هشام الشناوي",
-        test_name="السكر التراكمي بالدم (HbA1c - Glycated Hemoglobin)",
-        category="كيمياء حيوية سريرية",
-        specimen_barcode="SPEC-HBA1C-9912",
-        reference_range="< 5.7% (طبيعي) / 5.7 - 6.4% (ما قبل السكري)",
-        result_value="7.8% (مرتفع - داء السكري غير منضبط)",
-        status="reported",
-        is_signed_off=True,
-    )
-    lab2 = ClinicLabOrder(
-        tenant_id=tenant_id,
-        order_ref="LAB-2026-5502",
-        patient_id=p2.id,
-        patient_name=p2.full_name,
-        doctor_name="د. منى سراج الدين",
-        test_name="صورة دهنيات كاملة بالدم (Lipid Profile)",
-        category="كيمياء حيوية سريرية",
-        specimen_barcode="SPEC-LIPID-8821",
-        reference_range="LDL < 100 mg/dL, HDL > 40 mg/dL",
-        result_value="قيد الفحص المخبري",
-        status="collected",
-        is_signed_off=False,
-    )
-    db.add_all([lab1, lab2])
-
-    # Seed Inpatient Beds & Wards
+    # Bed records
     b1 = ClinicInpatientBed(
         tenant_id=tenant_id,
         bed_code="BED-ICU-01",
         ward_name="العناية المركزة (ICU)",
         room_number="غرفة 101",
         bed_type="عناية حثيثة متقدمة",
-        daily_rate=3500.0,
+        daily_rate=2800.0,
         status="occupied",
-        current_patient_name="محمود صبري حسن (ملاحظة ما بعد القسطرة)",
-        admission_date="2026-11-01",
+        current_patient_id=p4.id,
+        current_patient_name=p4.full_name,
+        admission_date="2026-11-04",
+        created_by="مدير النظام",
     )
     b2 = ClinicInpatientBed(
         tenant_id=tenant_id,
@@ -1040,10 +1889,12 @@ async def _seed_clinic_records(db: AsyncSession, tenant_id: str) -> bool:
         ward_name="العناية المركزة (ICU)",
         room_number="غرفة 102",
         bed_type="عناية حثيثة متقدمة",
-        daily_rate=3500.0,
+        daily_rate=2800.0,
         status="available",
+        current_patient_id=None,
         current_patient_name="",
         admission_date="",
+        created_by="مدير النظام",
     )
     b3 = ClinicInpatientBed(
         tenant_id=tenant_id,
@@ -1052,33 +1903,51 @@ async def _seed_clinic_records(db: AsyncSession, tenant_id: str) -> bool:
         room_number="غرفة 201",
         bed_type="سرير استشفاء جراحي",
         daily_rate=1400.0,
-        status="occupied",
-        current_patient_name="طارق عبد الحميد محمود",
-        admission_date="2026-11-02",
-    )
-    b4 = ClinicInpatientBed(
-        tenant_id=tenant_id,
-        bed_code="BED-SURG-202",
-        ward_name="جناح الجراحة العامة",
-        room_number="غرفة 202",
-        bed_type="سرير استشفاء جراحي",
-        daily_rate=1400.0,
-        status="cleaning",
-        current_patient_name="",
-        admission_date="",
-    )
-    b5 = ClinicInpatientBed(
-        tenant_id=tenant_id,
-        bed_code="BED-MED-301",
-        ward_name="جناح الباطنة والرعاية النهارية",
-        room_number="غرفة 301",
-        bed_type="سرير إقامة طبية",
-        daily_rate=950.0,
         status="available",
+        current_patient_id=None,
         current_patient_name="",
         admission_date="",
+        created_by="مدير النظام",
     )
-    db.add_all([b1, b2, b3, b4, b5])
+    db.add_all([b1, b2, b3])
+
+    # Sample Invoice & Claim
+    inv1 = ClinicInvoice(
+        tenant_id=tenant_id,
+        invoice_ref="INV-2026-001",
+        patient_id=p1.id,
+        patient_name=p1.full_name,
+        appointment_id=a1.id,
+        charges=[{"description": "رسوم كشف واستشارة — د. هشام الشناوي (الباطنة العامة)", "amount": 250.0}],
+        total=250.0,
+        copay_percent=20.0,
+        insurance_amount=50.0,
+        patient_amount=200.0,
+        paid_amount=200.0,
+        status="paid",
+        payment_method="card",
+        created_by="مدير النظام",
+        paid_by="مدير النظام",
+    )
+    db.add(inv1)
+    await db.flush()
+
+    clm1 = ClinicInsuranceClaim(
+        tenant_id=tenant_id,
+        claim_ref="CLM-2026-001",
+        patient_id=p1.id,
+        patient_name=p1.full_name,
+        invoice_id=inv1.id,
+        insurance_provider=p1.insurance_provider,
+        policy_no=p1.insurance_policy_no,
+        copay_percent=20.0,
+        claimed_amount=50.0,
+        approved_amount=50.0,
+        status="approved",
+        created_by="مدير النظام",
+        notes="تمت الموافقة والمطابقة الإلكترونية",
+    )
+    db.add(clm1)
 
     await db.commit()
     return True

@@ -12,7 +12,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, MoreHorizontal, Printer, Receipt, ShoppingCart, Undo2, Wallet } from "lucide-react";
+import { Download, Mail, MoreHorizontal, Printer, Receipt, Send, ShoppingCart, Undo2, Wallet } from "lucide-react";
 import { api, downloadExport, openPrintDoc } from "@/lib/api";
 import { dateTime, formatDateTime, moneyEGP } from "@/lib/format";
 import { ListState, Money, Num, PageHeader, SearchField, StatCard, StatusBadge, TablePagination, TableShell } from "@/components/app/shared";
@@ -24,11 +24,12 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Skeleton } from "@/components/kit/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/kit/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/kit/tabs";
+import { Input, Modal, useToast } from "@/components/ui";
 
 interface SaleRow {
   id: string; invoice_number: string; total: string; net_total: string; paid_amount: string;
   status: string; is_credit: boolean; created_at: string; customer_name: string | null;
-  payment_method: string | null; sale_mode: string;
+  customer_phone?: string | null; payment_method: string | null; sale_mode: string;
 }
 interface SaleItemRow {
   product_id?: string; product_name: string; qty: number;
@@ -47,12 +48,52 @@ const statusLabel = (s: SaleRow): string =>
 
 export default function SalesPage() {
   const qc = useQueryClient();
+  const { toast } = useToast();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [search, setSearch] = useState("");
   const [view, setView] = useState("invoices");
   const [detailId, setDetailId] = useState<string | null>(null);
   const [returnQty, setReturnQty] = useState<Record<string, string>>({});
+  const [sendEmailOpen, setSendEmailOpen] = useState(false);
+  const [targetEmail, setTargetEmail] = useState("");
+
+  const sendInvoiceMutation = useMutation({
+    mutationFn: (args: { invoiceId: string; email?: string }) =>
+      api.post<{ ok: boolean; message: string }>(`/invoices/${args.invoiceId}/send`, { email: args.email || undefined }),
+    onSuccess: (data) => {
+      toast("success", data.message || "تم إرسال الفاتورة عبر البريد الإلكتروني بنجاح");
+      setSendEmailOpen(false);
+      setTargetEmail("");
+    },
+    onError: (err: any) => {
+      toast("error", err.message || "فشل إرسال الفاتورة");
+    },
+  });
+
+  function handleDownloadPdf(invoiceId: string, invoiceNum: string) {
+    const token = localStorage.getItem("mizan.token") ?? localStorage.getItem("vendora.token");
+    fetch(`/api/invoices/${invoiceId}/pdf`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("فشل تحميل ملف الفاتورة");
+        return res.blob();
+      })
+      .then((blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `invoice-${invoiceNum}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      })
+      .catch((err) => {
+        toast("error", err.message || "تعذر تحميل الفاتورة");
+      });
+  }
 
   const confirmQuotation = useMutation({
     mutationFn: (id: string) => api.post(`/sales/${id}/confirm-quotation`),
@@ -206,6 +247,18 @@ export default function SalesPage() {
                             <Printer />
                             طباعة
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDownloadPdf(inv.id, inv.invoice_number)}>
+                            <Download />
+                            تحميل PDF
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            setDetailId(inv.id);
+                            setTargetEmail(inv.customer_phone?.includes("@") ? inv.customer_phone : "");
+                            setSendEmailOpen(true);
+                          }}>
+                            <Mail />
+                            إرسال بالبريد
+                          </DropdownMenuItem>
                           {(inv.status === "quotation" || inv.status === "draft") && (
                             <DropdownMenuItem disabled={confirmQuotation.isPending} onClick={() => confirmQuotation.mutate(inv.id)}>
                               تحويل لفاتورة
@@ -322,6 +375,27 @@ export default function SalesPage() {
                   <Printer data-icon="inline-start" />
                   طباعة
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => detailId && d && handleDownloadPdf(detailId, d.invoice_number)}
+                  className="gap-1.5"
+                >
+                  <Download className="size-4" />
+                  تحميل PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (d) {
+                      setTargetEmail(d.customer_phone?.includes("@") ? d.customer_phone : "");
+                      setSendEmailOpen(true);
+                    }
+                  }}
+                  className="gap-1.5"
+                >
+                  <Mail className="size-4" />
+                  إرسال بريد
+                </Button>
                 {d.status !== "cancelled" && (
                   <>
                     <Button variant="outline" disabled={fullReturn.isPending} onClick={() => detailId && fullReturn.mutate(detailId)}>
@@ -342,6 +416,40 @@ export default function SalesPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <Modal open={sendEmailOpen} onClose={() => setSendEmailOpen(false)} title={`إرسال فاتورة ${d?.invoice_number ?? ""}`}>
+        <div className="space-y-4 p-1">
+          <p className="text-xs text-muted-foreground">
+            سيتم إرفاق الفاتورة الرسمية بصيغة PDF مع هوية وشعار المنشأة، وإرسالها بالبريد الإلكتروني مباشرة للعميل.
+          </p>
+          <div className="space-y-1.5">
+            <label htmlFor="customer-invoice-email" className="text-xs font-semibold">بريد العميل الإلكتروني:</label>
+            <Input
+              id="customer-invoice-email"
+              type="email"
+              dir="ltr"
+              placeholder="customer@example.com"
+              value={targetEmail}
+              onChange={(e) => setTargetEmail(e.target.value)}
+              className="font-mono text-xs"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setSendEmailOpen(false)}>
+              إلغاء
+            </Button>
+            <Button
+              size="sm"
+              disabled={sendInvoiceMutation.isPending || !targetEmail.trim()}
+              onClick={() => detailId && sendInvoiceMutation.mutate({ invoiceId: detailId, email: targetEmail.trim() })}
+              className="gap-1.5 font-bold"
+            >
+              <Send className="size-3.5" />
+              {sendInvoiceMutation.isPending ? "جارٍ الإرسال…" : "إرسال الفاتورة"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

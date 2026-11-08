@@ -793,10 +793,16 @@ async def set_active_modules(db: AsyncSession, modules: list[str], preset_id: st
 
 def require_module(module_id: str):
     """FastAPI dependency to guard endpoints requiring a specific active module."""
+    MODULE_ALIASES = {
+        "clinic": "healthcare_clinic",
+        "healthcare_clinic": "clinic",
+    }
+
     async def _checker(db: AsyncSession = Depends(get_db)):
         active = await get_active_modules(db)
-        if module_id not in active:
-            manifest = MODULE_CATALOG.get(module_id)
+        target_alias = MODULE_ALIASES.get(module_id, module_id)
+        if module_id not in active and target_alias not in active:
+            manifest = MODULE_CATALOG.get(module_id) or MODULE_CATALOG.get(target_alias)
             name = manifest.name if manifest else module_id
             raise HTTPException(
                 status_code=403,

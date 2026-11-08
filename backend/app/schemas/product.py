@@ -51,6 +51,7 @@ class ProductCreate(BaseModel):
     shelf_number: str | None = None
     reorder_point: Decimal = Field(default=Decimal("0"), ge=0)
     reorder_qty: Decimal = Field(default=Decimal("0"), ge=0)
+    reorder_level: int = Field(default=5, ge=0)
 
 
 class ProductUpdate(BaseModel):
@@ -70,6 +71,7 @@ class ProductUpdate(BaseModel):
     is_active: bool | None = None
     reorder_point: Decimal | None = None
     reorder_qty: Decimal | None = None
+    reorder_level: int | None = Field(default=None, ge=0)
     stock_status: str | None = None
     description: str | None = None
 
@@ -100,6 +102,7 @@ class ProductOut(BaseModel):
     description: str | None = None
     reorder_point: Decimal
     reorder_qty: Decimal
+    reorder_level: int = 5
     stock_status: str = "untracked"
     created_at: datetime
     updated_at: datetime

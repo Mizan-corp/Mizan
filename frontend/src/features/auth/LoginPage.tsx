@@ -8,7 +8,7 @@ import {
   User as UserIcon,
   Globe,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import { ErrorBox, Spinner } from "@/components/ui";
 import { useAuth, type User, type TenantInfo } from "@/stores/auth";
 import { sound } from "@/lib/sound";
@@ -91,14 +91,12 @@ export default function LoginPage(props: LoginPageProps = {}) {
           : "/";
         navigate(prefix, { replace: true });
       }
-    } catch (err: any) {
+    } catch (err) {
       sound.error();
-      setError(
-        err?.response?.data?.detail ||
-          (isAr
-            ? "تعذر تسجيل الدخول، تأكد من صحة البيانات والمحاولة مجدداً"
-            : "Failed to sign in. Please check your credentials.")
-      );
+      const fallback = isAr
+        ? "تعذر تسجيل الدخول، تأكد من صحة البيانات والمحاولة مجدداً"
+        : "Failed to sign in. Please check your credentials.";
+      setError(err instanceof ApiError ? err.message : fallback);
     } finally {
       setBusy(false);
     }

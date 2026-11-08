@@ -190,10 +190,20 @@ async def list_plans():
     return {"plans": PLANS, "trial_days": TRIAL_DAYS}
 
 
+SCALE_ALIASES = {
+    "growing": "medium",
+    "starter": "small",
+    "micro": "small",
+    "enterprise": "large",
+}
+
+
 @router.post("/signup")
 async def signup(data: SignupRequest, request: Request, db: AsyncSession = Depends(get_db), _=Depends(signup_limiter)):
-    if data.sector not in SECTORS or data.scale not in SCALES:
+    norm_scale = SCALE_ALIASES.get(data.scale, data.scale)
+    if data.sector not in SECTORS or (data.scale not in SCALES and norm_scale not in SCALES):
         raise HTTPException(status_code=422, detail="نشاط غير معروف")
+    data.scale = norm_scale
 
     existing = await db.execute(select(User.id).where(User.username == data.owner_username))
     if existing.scalar():

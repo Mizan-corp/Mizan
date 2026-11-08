@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Activity, BarChart3, Bed, Bell, Briefcase, Building2, Calculator, Calendar, CheckCircle2, DoorOpen, FileText, Flame, FlaskConical, HeartPulse, Hospital, Laptop, Microscope, Package, Pill, RefreshCw, Scan, Scissors, Search, ShieldCheck, Stethoscope, UserCheck, UserPlus, Users, Video, X } from "lucide-react";
@@ -185,316 +185,6 @@ interface ClinicInsuranceClaim {
   notes: string;
 }
 
-// ─── Realistic Fallback Demo Data ───────────────────────────────────────────
-const FALLBACK_PATIENTS: ClinicPatient[] = [
-  {
-    id: "pat-seed-1",
-    patient_mrn: "MRN-2026-0811",
-    full_name: "فاطمة الزهراء علي",
-    national_id: "29408151203488",
-    phone: "01091234567",
-    gender: "أنثى",
-    date_of_birth: "1994-08-15",
-    blood_group: "O+",
-    allergies: "حساسية شديدة من البنسلين ومشتقاته (Penicillin Allergy)",
-    chronic_conditions: "داء السكري النوع الثاني (Type 2 DM)",
-    insurance_provider: "شركة بوبا مصر للرعاية الصحية (Bupa)",
-    insurance_policy_no: "BUPA-EG-99410",
-    copay_percent: 10,
-  },
-  {
-    id: "pat-seed-2",
-    patient_mrn: "MRN-2026-0812",
-    full_name: "طارق عبد الحميد محمود",
-    national_id: "28512041401922",
-    phone: "01287654321",
-    gender: "ذكر",
-    date_of_birth: "1985-12-04",
-    blood_group: "A+",
-    allergies: "لا توجد حساسيات دوائية مسجلة",
-    chronic_conditions: "ارتفاع ضغط الدم الشرياني (Hypertension)",
-    insurance_provider: "مصر للتأمين التكافلي",
-    insurance_policy_no: "MISR-TAK-4412",
-    copay_percent: 20,
-  },
-  {
-    id: "pat-seed-3",
-    patient_mrn: "MRN-2026-0813",
-    full_name: "مروان أحمد إبراهيم",
-    national_id: "30205101602811",
-    phone: "01155443322",
-    gender: "ذكر",
-    date_of_birth: "2002-05-10",
-    blood_group: "B+",
-    allergies: "حساسية الأسبرين ومسكنات NSAIDs",
-    chronic_conditions: "ربو قصبي مزمن (Bronchial Asthma)",
-    insurance_provider: "كشف نقدي (غير مشمول بتأمين)",
-    insurance_policy_no: "CASH-PAY",
-    copay_percent: 0,
-  },
-  {
-    id: "pat-seed-4",
-    patient_mrn: "MRN-2026-0814",
-    full_name: "سعاد فتحي إبراهيم",
-    national_id: "27803201802914",
-    phone: "01004455667",
-    gender: "أنثى",
-    date_of_birth: "1978-03-20",
-    blood_group: "AB+",
-    allergies: "حساسية السلفا (Sulfonamides)",
-    chronic_conditions: "قصور الغدة الدرقية (Hypothyroidism)",
-    insurance_provider: "أكسا للتأمين الطبي (AXA)",
-    insurance_policy_no: "AXA-MED-8819",
-    copay_percent: 15,
-  },
-];
-
-const FALLBACK_APPOINTMENTS: ClinicAppointment[] = [
-  {
-    id: "apt-seed-1",
-    appointment_ref: "APT-2026-101",
-    patient_id: "pat-seed-1",
-    patient_name: "فاطمة الزهراء علي",
-    doctor_name: "د. هشام الشناوي (استشاري الباطنة والسكري)",
-    department: "الباطنة العامة",
-    appointment_date: "2026-11-05",
-    time_slot: "10:00 AM",
-    queue_number: 1,
-    status: "in_consultation",
-    consultation_fee: 350,
-    chief_complaint: "متابعة دورية لمستوى السكر التراكمي وإجهاد عام",
-  },
-  {
-    id: "apt-seed-2",
-    appointment_ref: "APT-2026-102",
-    patient_id: "pat-seed-2",
-    patient_name: "طارق عبد الحميد محمود",
-    doctor_name: "د. منى سراج الدين (استشاري القلب والأوعية)",
-    department: "أمراض القلب",
-    appointment_date: "2026-11-05",
-    time_slot: "10:30 AM",
-    queue_number: 2,
-    status: "waiting",
-    consultation_fee: 450,
-    chief_complaint: "نوبات خفقان وارتفاع قراءات ضغط الدم الصباحية",
-  },
-  {
-    id: "apt-seed-3",
-    appointment_ref: "APT-2026-103",
-    patient_id: "pat-seed-3",
-    patient_name: "مروان أحمد إبراهيم",
-    doctor_name: "د. كريم عبد العزيز (أخصائي الصدر والحساسية)",
-    department: "الأمراض الصدرية",
-    appointment_date: "2026-11-05",
-    time_slot: "11:15 AM",
-    queue_number: 3,
-    status: "scheduled",
-    consultation_fee: 300,
-    chief_complaint: "ضيق تنفس مصاحب للسعال الجاف أثناء النوم",
-  },
-  {
-    id: "apt-seed-4",
-    appointment_ref: "APT-2026-104",
-    patient_id: "pat-seed-4",
-    patient_name: "سعاد فتحي إبراهيم",
-    doctor_name: "د. إيهاب القاضي (استشاري الجراحة العامة)",
-    department: "الجراحة العامة",
-    appointment_date: "2026-11-05",
-    time_slot: "12:00 PM",
-    queue_number: 4,
-    status: "completed",
-    consultation_fee: 500,
-    chief_complaint: "فحص ما بعد جراحة استئصال المرارة بالمنظار",
-  },
-];
-
-const FALLBACK_ENCOUNTERS: ClinicEncounter[] = [
-  {
-    id: "enc-seed-1",
-    encounter_ref: "ENC-2026-901",
-    patient_id: "pat-seed-1",
-    patient_name: "فاطمة الزهراء علي",
-    doctor_name: "د. هشام الشناوي",
-    department: "الباطنة العامة",
-    encounter_date: "2026-11-05",
-    bp_systolic: 125,
-    bp_diastolic: 82,
-    heart_rate: 76,
-    temperature: 37.1,
-    spo2: 98,
-    chief_complaint: "ارتفاع قراءات السكر الصائم 160 ملغ/دل مع شعور بالعطش المتكرر",
-    icd10_code: "E11.9",
-    icd10_description: "Type 2 diabetes mellitus without complications",
-    clinical_notes: "المريضة منتظمة على دواء ميتفورمين 1000 ملغ. تم تعديل الجرعة وإضافة منظم حديث ومطالبة بتحليل HbA1c ومتابعة وظائف الكلى بعد شهرين.",
-  },
-  {
-    id: "enc-seed-2",
-    encounter_ref: "ENC-2026-902",
-    patient_id: "pat-seed-2",
-    patient_name: "طارق عبد الحميد محمود",
-    doctor_name: "د. منى سراج الدين",
-    department: "أمراض القلب",
-    encounter_date: "2026-11-04",
-    bp_systolic: 145,
-    bp_diastolic: 95,
-    heart_rate: 88,
-    temperature: 36.8,
-    spo2: 97,
-    chief_complaint: "صداع خلفي وتوتر مصاحب لارتفاع ضغط الدم بعد مجهود العمل",
-    icd10_code: "I10",
-    icd10_description: "Essential (primary) hypertension",
-    clinical_notes: "رسم القلب الكهربائي ECG أظهر نظم جيبي سليم مع علامات إجهاد خفيف. تم وصف كونكور 5 ملغ صباحاً مع حمية قليلة الملح.",
-  },
-];
-
-const FALLBACK_PRESCRIPTIONS: ClinicPrescription[] = [
-  {
-    id: "rx-seed-1",
-    rx_ref: "RX-2026-4401",
-    patient_id: "pat-seed-1",
-    patient_name: "فاطمة الزهراء علي",
-    doctor_name: "د. هشام الشناوي",
-    issue_date: "2026-11-05",
-    medication_name: "سيدوفاج ريتارد 1000 مجم (Metformin XR)",
-    dosage: "1000mg",
-    frequency: "قرص واحد مع وجبة العشاء يومياً",
-    duration_days: 30,
-    instructions: "يؤخذ مع الأكل لتقليل الاضطرابات المعوية. تم تحذير الصيدلية من حساسية البنسلين.",
-    status: "dispensed",
-  },
-  {
-    id: "rx-seed-2",
-    rx_ref: "RX-2026-4402",
-    patient_id: "pat-seed-2",
-    doctor_name: "د. منى سراج الدين",
-    patient_name: "طارق عبد الحميد محمود",
-    issue_date: "2026-11-05",
-    medication_name: "كونكور 5 مجم (Bisoprolol Fumarate)",
-    dosage: "5mg",
-    frequency: "قرص واحد صباحاً على الريق",
-    duration_days: 30,
-    instructions: "قياس النبض وضغط الدم بانتظام قبل أخذ الجرعة.",
-    status: "pending",
-  },
-  {
-    id: "rx-seed-3",
-    rx_ref: "RX-2026-4403",
-    patient_id: "pat-seed-3",
-    doctor_name: "د. كريم عبد العزيز",
-    patient_name: "مروان أحمد إبراهيم",
-    issue_date: "2026-11-05",
-    medication_name: "بخاخ سيمبيكورت 160/4.5 (Symbicort Turbuhaler)",
-    dosage: "160/4.5 mcg",
-    frequency: "بخة صباحاً وبخة مساءً مع المضمضة بالماء",
-    duration_days: 60,
-    instructions: "علاج موسع وقائي للشعب الهوائية والربو القصبي.",
-    status: "pending",
-  },
-];
-
-const FALLBACK_LAB_ORDERS: ClinicLabOrder[] = [
-  {
-    id: "lab-seed-1",
-    order_ref: "LAB-2026-5501",
-    patient_id: "pat-seed-1",
-    patient_name: "فاطمة الزهراء علي",
-    doctor_name: "د. هشام الشناوي",
-    test_name: "السكر التراكمي بالدم (HbA1c - Glycated Hemoglobin)",
-    category: "كيمياء حيوية سريرية",
-    specimen_barcode: "SPEC-HBA1C-9912",
-    reference_range: "< 5.7% (طبيعي) / 5.7 - 6.4% (ما قبل السكري)",
-    result_value: "7.8% (مرتفع - داء السكري غير منضبط)",
-    status: "reported",
-    is_signed_off: true,
-  },
-  {
-    id: "lab-seed-2",
-    order_ref: "LAB-2026-5502",
-    patient_id: "pat-seed-2",
-    patient_name: "طارق عبد الحميد محمود",
-    doctor_name: "د. منى سراج الدين",
-    test_name: "صورة دهنيات كاملة بالدم (Lipid Profile)",
-    category: "كيمياء حيوية سريرية",
-    specimen_barcode: "SPEC-LIPID-8821",
-    reference_range: "LDL < 100 mg/dL, HDL > 40 mg/dL",
-    result_value: "قيد الفحص المخبري",
-    status: "collected",
-    is_signed_off: false,
-  },
-  {
-    id: "lab-seed-3",
-    order_ref: "LAB-2026-5503",
-    patient_id: "pat-seed-3",
-    patient_name: "مروان أحمد إبراهيم",
-    doctor_name: "د. كريم عبد العزيز",
-    test_name: "أشعة سينية رقمية على الصدر (Chest X-Ray PA View)",
-    category: "الأشعة والتصوير الطبي",
-    specimen_barcode: "RAD-CXR-1094",
-    reference_range: "رئتان سليمتان بدون ارتشاح رئوي",
-    result_value: "طبيعي - لا توجد التهابات حادة",
-    status: "reported",
-    is_signed_off: true,
-  },
-];
-
-const FALLBACK_BEDS: ClinicBed[] = [
-  {
-    id: "bed-seed-1",
-    bed_code: "BED-ICU-01",
-    ward_name: "العناية المركزة (ICU)",
-    room_number: "غرفة 101",
-    bed_type: "عناية حثيثة متقدمة",
-    daily_rate: 3500,
-    status: "occupied",
-    current_patient_name: "محمود صبري حسن (ملاحظة ما بعد القسطرة)",
-    admission_date: "2026-11-03",
-  },
-  {
-    id: "bed-seed-2",
-    bed_code: "BED-ICU-02",
-    ward_name: "العناية المركزة (ICU)",
-    room_number: "غرفة 102",
-    bed_type: "عناية حثيثة متقدمة",
-    daily_rate: 3500,
-    status: "available",
-    current_patient_name: "",
-    admission_date: "",
-  },
-  {
-    id: "bed-seed-3",
-    bed_code: "BED-SURG-201",
-    ward_name: "جناح الجراحة العامة",
-    room_number: "غرفة 201",
-    bed_type: "سرير استشفاء جراحي",
-    daily_rate: 1400,
-    status: "occupied",
-    current_patient_name: "سعاد فتحي إبراهيم (استئصال مرارة بالمنظار)",
-    admission_date: "2026-11-04",
-  },
-  {
-    id: "bed-seed-4",
-    bed_code: "BED-SURG-202",
-    ward_name: "جناح الجراحة العامة",
-    room_number: "غرفة 202",
-    bed_type: "سرير استشفاء جراحي",
-    daily_rate: 1400,
-    status: "cleaning",
-    current_patient_name: "",
-    admission_date: "",
-  },
-  {
-    id: "bed-seed-5",
-    bed_code: "BED-MED-301",
-    ward_name: "جناح الباطنة والرعاية النهارية",
-    room_number: "غرفة 301",
-    bed_type: "سرير إقامة طبية",
-    daily_rate: 950,
-    status: "available",
-    current_patient_name: "",
-    admission_date: "",
-  },
-];
-
 const moneyEGP = (amount: number) =>
   `${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
 
@@ -660,37 +350,23 @@ export default function ClinicHealthcarePage() {
     queryFn: () => api.get("/clinic/claims"),
   });
 
-  // Effective Datasets (use database results if non-empty, otherwise populate realistic demo records)
-  const patients = patientsData.length > 0 ? patientsData : FALLBACK_PATIENTS;
-  const appointments = appointmentsData.length > 0 ? appointmentsData : FALLBACK_APPOINTMENTS;
-  const encounters = encountersData.length > 0 ? encountersData : FALLBACK_ENCOUNTERS;
-  const prescriptions = prescriptionsData.length > 0 ? prescriptionsData : FALLBACK_PRESCRIPTIONS;
-  const labOrders = labOrdersData.length > 0 ? labOrdersData : FALLBACK_LAB_ORDERS;
-  const beds = bedsData.length > 0 ? bedsData : FALLBACK_BEDS;
+  // Datasets from API queries
+  const patients = patientsData;
+  const appointments = appointmentsData;
+  const encounters = encountersData;
+  const prescriptions = prescriptionsData;
+  const labOrders = labOrdersData;
+  const beds = bedsData;
 
-  const summary: ClinicSummary = summaryData && summaryData.total_registered_patients > 0
-    ? summaryData
-    : {
-        total_registered_patients: patients.length,
-        today_appointments_count: appointments.length,
-        waiting_queue_count: appointments.filter((a) => a.status === "waiting" || a.status === "in_consultation").length,
-        total_beds: beds.length,
-        occupied_beds: beds.filter((b) => b.status === "occupied").length,
-        bed_occupancy_percent: Math.round((beds.filter((b) => b.status === "occupied").length / (beds.length || 1)) * 100),
-        pending_lab_orders_count: labOrders.filter((l) => l.status !== "reported").length,
-      };
-
-  // Background auto-seed if backend database has 0 clinic records
-  useEffect(() => {
-    if (!isSummaryLoading && summaryData && summaryData.total_registered_patients === 0) {
-      api.post("/clinic/seed", {}).then(() => {
-        queryClient.invalidateQueries({ queryKey: ["clinic-summary"] });
-        queryClient.invalidateQueries({ queryKey: ["clinic-appointments"] });
-        queryClient.invalidateQueries({ queryKey: ["clinic-patients"] });
-        queryClient.invalidateQueries({ queryKey: ["clinic-beds"] });
-      }).catch(() => {});
-    }
-  }, [summaryData, isSummaryLoading, queryClient]);
+  const summary: ClinicSummary = summaryData || {
+    total_registered_patients: patients.length,
+    today_appointments_count: appointments.length,
+    waiting_queue_count: appointments.filter((a) => a.status === "waiting" || a.status === "in_consultation").length,
+    total_beds: beds.length,
+    occupied_beds: beds.filter((b) => b.status === "occupied").length,
+    bed_occupancy_percent: Math.round((beds.filter((b) => b.status === "occupied").length / (beds.length || 1)) * 100),
+    pending_lab_orders_count: labOrders.filter((l) => l.status !== "reported").length,
+  };
 
   // Handlers
   const handleUpdateApptStatus = async (apptId: string, newStatus: string) => {
@@ -700,8 +376,9 @@ export default function ClinicHealthcarePage() {
       toast("success", "تم تحديث حالة الموعد الطبي بنجاح");
       queryClient.invalidateQueries({ queryKey: ["clinic-appointments"] });
       queryClient.invalidateQueries({ queryKey: ["clinic-summary"] });
-    } catch {
-      toast("info", "تم تحديث حالة الموعد محلياً في الجلسة");
+      queryClient.invalidateQueries({ queryKey: ["clinic-invoices"] });
+    } catch (err: any) {
+      toast("error", err?.response?.data?.detail || "تعذر تحديث حالة الموعد على الخادم");
     }
   };
 
@@ -710,7 +387,7 @@ export default function ClinicHealthcarePage() {
     sound.click();
     try {
       await api.post("/clinic/appointments", {
-        patient_id: bookingForm.patient_id || "pat-" + Date.now(),
+        patient_id: bookingForm.patient_id,
         patient_name: bookingForm.patient_name,
         doctor_name: bookingForm.doctor_name,
         department: bookingForm.department,
@@ -723,9 +400,8 @@ export default function ClinicHealthcarePage() {
       setIsBookingOpen(false);
       queryClient.invalidateQueries({ queryKey: ["clinic-appointments"] });
       queryClient.invalidateQueries({ queryKey: ["clinic-summary"] });
-    } catch {
-      toast("info", "تعذر حفظ الموعد على الخادم — عُرض محلياً");
-      setIsBookingOpen(false);
+    } catch (err: any) {
+      toast("error", err?.response?.data?.detail || "تعذر حفظ الموعد على الخادم");
     }
   };
 
@@ -752,8 +428,8 @@ export default function ClinicHealthcarePage() {
       setIsPatientModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ["clinic-patients"] });
       queryClient.invalidateQueries({ queryKey: ["clinic-summary"] });
-    } catch {
-      toast("info", `تعذر حفظ ملف المريض على الخادم — عُرض محلياً (${mrn})`);
+    } catch (err: any) {
+      toast("error", err?.response?.data?.detail || err?.message || "تعذر حفظ ملف المريض على الخادم");
       setIsPatientModalOpen(false);
     }
   };
@@ -781,8 +457,8 @@ export default function ClinicHealthcarePage() {
       toast("success", "تم توثيق الكشف السريري والتشخيص بنجاح");
       setIsEncounterModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ["clinic-encounters"] });
-    } catch {
-      toast("info", "تعذر حفظ الكشف السريري على الخادم — عُرض محلياً");
+    } catch (err: any) {
+      toast("error", err?.response?.data?.detail || err?.message || "تعذر حفظ الكشف السريري على الخادم");
       setIsEncounterModalOpen(false);
     }
   };
@@ -805,8 +481,8 @@ export default function ClinicHealthcarePage() {
       toast("success", "تم إصدار الروشتة الطبية وتوجيهها للصيدلية");
       setIsRxModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ["clinic-prescriptions"] });
-    } catch {
-      toast("info", "تعذر إصدار الروشتة على الخادم — عُرضت محلياً");
+    } catch (err: any) {
+      toast("error", err?.response?.data?.detail || err?.message || "تعذر إصدار الروشتة على الخادم");
       setIsRxModalOpen(false);
     }
   };
@@ -827,8 +503,8 @@ export default function ClinicHealthcarePage() {
       toast("success", "تم إرسال طلب الفحص إلى المختبر الطبي");
       setIsLabModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ["clinic-labs"] });
-    } catch {
-      toast("info", "تعذر إرسال طلب الفحص إلى الخادم — عُرض محلياً");
+    } catch (err: any) {
+      toast("error", err?.response?.data?.detail || err?.message || "تعذر إرسال طلب الفحص إلى الخادم");
       setIsLabModalOpen(false);
     }
   };
@@ -839,8 +515,8 @@ export default function ClinicHealthcarePage() {
       await api.post(`/clinic/prescriptions/${rxId}/dispense`, {});
       toast("success", "تم صرف الروشتة الطبية من الصيدلية بنجاح");
       queryClient.invalidateQueries({ queryKey: ["clinic-prescriptions"] });
-    } catch {
-      toast("info", "تعذر اعتماد صرف الروشتة على الخادم — عُرض محلياً");
+    } catch (err: any) {
+      toast("error", err?.response?.data?.detail || err?.message || "تعذر اعتماد صرف الروشتة على الخادم");
     }
   };
 
@@ -858,8 +534,8 @@ export default function ClinicHealthcarePage() {
       setAdmitPatientName("");
       queryClient.invalidateQueries({ queryKey: ["clinic-beds"] });
       queryClient.invalidateQueries({ queryKey: ["clinic-summary"] });
-    } catch {
-      toast("info", "تعذر تسكين المريض على الخادم — عُرض محلياً");
+    } catch (err: any) {
+      toast("error", err?.response?.data?.detail || err?.message || "تعذر تسكين المريض على الخادم");
       setAdmitBedTarget(null);
     }
   };
@@ -868,11 +544,12 @@ export default function ClinicHealthcarePage() {
     sound.click();
     try {
       await api.post(`/clinic/beds/${bedId}/discharge`, {});
-      toast("info", "تم خروج المريض وتحويل السرير للتعقيم والتجهيز");
+      toast("success", "تم خروج المريض بنجاح واحتساب الفاتورة وتحويل السرير للتعقيم");
       queryClient.invalidateQueries({ queryKey: ["clinic-beds"] });
       queryClient.invalidateQueries({ queryKey: ["clinic-summary"] });
-    } catch {
-      toast("info", "تم إخلاء السرير للتعقيم");
+      queryClient.invalidateQueries({ queryKey: ["clinic-invoices"] });
+    } catch (err: any) {
+      toast("error", err?.response?.data?.detail || err?.message || "تعذر إخلاء السرير");
     }
   };
 
@@ -883,8 +560,8 @@ export default function ClinicHealthcarePage() {
       toast("success", "تم اعتماد تعقيم السرير وجاهزيته للاستقبال");
       queryClient.invalidateQueries({ queryKey: ["clinic-beds"] });
       queryClient.invalidateQueries({ queryKey: ["clinic-summary"] });
-    } catch {
-      toast("info", "تعذر اعتماد تعقيم السرير على الخادم — عُرض محلياً");
+    } catch (err: any) {
+      toast("error", err?.response?.data?.detail || err?.message || "تعذر اعتماد تعقيم السرير على الخادم");
     }
   };
 
@@ -895,7 +572,7 @@ export default function ClinicHealthcarePage() {
       toast("success", "تم إصدار فاتورة الكشف بنجاح");
       queryClient.invalidateQueries({ queryKey: ["clinic-invoices"] });
     } catch (e: any) {
-      toast("info", e?.message || "تعذر إصدار الفاتورة");
+      toast("error", e?.response?.data?.detail || e?.message || "تعذر إصدار الفاتورة");
     }
   };
 
@@ -908,7 +585,7 @@ export default function ClinicHealthcarePage() {
       toast("success", "تم تسجيل الدفع بنجاح");
       queryClient.invalidateQueries({ queryKey: ["clinic-invoices"] });
     } catch (e: any) {
-      toast("info", e?.message || "تعذر تسجيل الدفع");
+      toast("error", e?.response?.data?.detail || e?.message || "تعذر تسجيل الدفع");
     }
   };
 
@@ -925,8 +602,8 @@ export default function ClinicHealthcarePage() {
       setLabResultModalTarget(null);
       setLabResultValue("");
       queryClient.invalidateQueries({ queryKey: ["clinic-labs"] });
-    } catch {
-      toast("info", "تعذر اعتماد نتيجة التحليل على الخادم — عُرضت محلياً");
+    } catch (err: any) {
+      toast("error", err?.response?.data?.detail || err?.message || "تعذر اعتماد نتيجة التحليل على الخادم");
       setLabResultModalTarget(null);
     }
   };

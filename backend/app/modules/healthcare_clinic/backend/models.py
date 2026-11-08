@@ -30,7 +30,10 @@ class ClinicPatient(TenantScoped, Base):
     insurance_provider: Mapped[str] = mapped_column(String(128), default="نقدي / غير مؤمن")
     insurance_policy_no: Mapped[str] = mapped_column(String(64), default="N/A")
     copay_percent: Mapped[float] = mapped_column(Float, default=0.0)
+    created_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class ClinicAppointment(TenantScoped, Base):
@@ -46,10 +49,16 @@ class ClinicAppointment(TenantScoped, Base):
     appointment_date: Mapped[str] = mapped_column(String(32))
     time_slot: Mapped[str] = mapped_column(String(32))  # 10:30 AM
     queue_number: Mapped[int] = mapped_column(Integer, default=1)
-    status: Mapped[str] = mapped_column(String(32), default="scheduled")  # scheduled, waiting, in_consultation, completed, cancelled
+    status: Mapped[str] = mapped_column(String(32), default="scheduled")  # scheduled, waiting, in_consultation, completed, cancelled, no_show
     consultation_fee: Mapped[float] = mapped_column(Float, default=250.0)
     chief_complaint: Mapped[str] = mapped_column(String(256), default="")
+    cancellation_reason: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    rescheduled_from: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    reschedule_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class ClinicEncounter(TenantScoped, Base):
@@ -72,7 +81,10 @@ class ClinicEncounter(TenantScoped, Base):
     icd10_code: Mapped[str] = mapped_column(String(32), index=True)  # e.g. E11.9, I10, J06.9
     icd10_description: Mapped[str] = mapped_column(String(256))
     clinical_notes: Mapped[str] = mapped_column(Text)
+    created_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class ClinicPrescription(TenantScoped, Base):
@@ -90,9 +102,15 @@ class ClinicPrescription(TenantScoped, Base):
     dosage: Mapped[str] = mapped_column(String(64))  # e.g. 500mg
     frequency: Mapped[str] = mapped_column(String(64))  # 3 مرات يومياً بعد الأكل
     duration_days: Mapped[int] = mapped_column(Integer, default=7)
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
     instructions: Mapped[str] = mapped_column(String(256), default="")
     status: Mapped[str] = mapped_column(String(32), default="pending")  # pending, dispensed
+    dispensed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    dispensed_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class ClinicLabOrder(TenantScoped, Base):
@@ -109,9 +127,19 @@ class ClinicLabOrder(TenantScoped, Base):
     specimen_barcode: Mapped[str] = mapped_column(String(64), index=True)
     reference_range: Mapped[str] = mapped_column(String(128), default="Normal")
     result_value: Mapped[str] = mapped_column(String(128), default="قيد التحليل")
+    numeric_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    unit: Mapped[str] = mapped_column(String(32), default="")
+    is_critical: Mapped[bool] = mapped_column(Boolean, default=False)
+    test_fee: Mapped[float] = mapped_column(Float, default=150.0)
     status: Mapped[str] = mapped_column(String(32), default="ordered")  # ordered, collected, reported
+    collected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_signed_off: Mapped[bool] = mapped_column(Boolean, default=False)
+    signed_off_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    signed_off_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class ClinicInpatientBed(TenantScoped, Base):
@@ -125,9 +153,13 @@ class ClinicInpatientBed(TenantScoped, Base):
     bed_type: Mapped[str] = mapped_column(String(32))  # عادي، عناية حثيثة، عزل طبي
     daily_rate: Mapped[float] = mapped_column(Float, default=1200.0)
     status: Mapped[str] = mapped_column(String(32), default="available")  # available, occupied, cleaning, maintenance
+    current_patient_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("clinic_patients.id", ondelete="SET NULL"), nullable=True, index=True)
     current_patient_name: Mapped[str] = mapped_column(String(128), default="")
     admission_date: Mapped[str] = mapped_column(String(32), default="")
+    created_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 class ClinicInvoice(TenantScoped, Base):
@@ -148,6 +180,8 @@ class ClinicInvoice(TenantScoped, Base):
     paid_amount: Mapped[float] = mapped_column(Float, default=0.0)
     status: Mapped[str] = mapped_column(String(32), default="pending")  # pending, partial, paid
     payment_method: Mapped[str] = mapped_column(String(32), default="cash")
+    created_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    paid_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
@@ -167,6 +201,7 @@ class ClinicInsuranceClaim(TenantScoped, Base):
     claimed_amount: Mapped[float] = mapped_column(Float, default=0.0)
     approved_amount: Mapped[float] = mapped_column(Float, default=0.0)
     status: Mapped[str] = mapped_column(String(32), default="submitted")  # submitted, approved, rejected, paid
+    created_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[str] = mapped_column(Text, default="")

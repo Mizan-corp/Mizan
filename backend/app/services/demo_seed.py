@@ -88,7 +88,13 @@ SUPPLIER_NAMES = ["شركة الأهرام للتوريدات", "مصنع الد
 BRANCH_NAMES = ["الفرع الرئيسي", "فرع المعادي", "فرع مدينة نصر", "فرع 6 أكتوبر", "فرع مدينة نصر الجديدة"]
 
 # scale → (branches, products, customers, suppliers, sales-14d)
-SCALES = {"small": (1, 24, 6, 4, 45), "medium": (3, 60, 12, 7, 110), "large": (5, 110, 20, 10, 200)}
+SCALES = {
+    "small": (1, 24, 6, 4, 45),
+    "medium": (3, 60, 12, 7, 110),
+    "large": (5, 110, 20, 10, 200),
+    "growing": (3, 60, 12, 7, 110),
+    "enterprise": (5, 110, 20, 10, 200),
+}
 
 PALETTE_HUES = {
     "slate": 240,

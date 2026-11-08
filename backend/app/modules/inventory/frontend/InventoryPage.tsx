@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -14,12 +14,13 @@ import {
   XCircle,
 } from "lucide-react";
 import { useBranch } from "@/components/AppShell";
+import { useAuth } from "@/stores/auth";
 import { Skeleton } from "@/components/kit/skeleton";
 import { Badge } from "@/components/kit/badge";
 import { Button, buttonVariants } from "@/components/kit/button";
 import { Card } from "@/components/kit/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/kit/table";
-import { Empty, ErrorBox, Input, Select } from "@/components/ui";
+import { Empty, ErrorBox, Input, Select, useToast } from "@/components/ui";
 import { api, openPrintDoc } from "@/lib/api";
 import { dateTime, moneyEGP, qty as fq } from "@/lib/format";
 import { sound } from "@/lib/sound";
@@ -268,6 +269,20 @@ export default function InventoryPage() {
  * Itemized Stock Balance & Valuation Ledger
  */
 function DetailedLedgerTab({ wid }: { wid: string }) {
+  const { toast } = useToast();
+  const { user, can } = useAuth();
+  const isManager = Boolean(
+    user?.is_manager ||
+    user?.is_superadmin ||
+    user?.role === "admin" ||
+    user?.role === "manager" ||
+    can("inventory") ||
+    can("admin")
+  );
+
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkReorderVal, setBulkReorderVal] = useState("5");
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "in_stock" | "low_stock" | "out_of_stock">("all");
   const [page, setPage] = useState(1);
@@ -282,6 +297,24 @@ function DetailedLedgerTab({ wid }: { wid: string }) {
         page,
         page_size: pageSize,
       }),
+  });
+
+  const bulkSetReorder = useMutation({
+    mutationFn: () =>
+      api.post<{ ok: boolean; updated_count: number }>("/products/bulk-reorder-level", {
+        product_ids: selectedIds,
+        reorder_level: Number(bulkReorderVal) || 5,
+      }),
+    onSuccess: (data) => {
+      sound.success();
+      toast("success", `تم تحديث حد إعادة الطلب إلى (${bulkReorderVal}) لـ ${data.updated_count} صنف بنجاح`);
+      setSelectedIds([]);
+      productsQuery.refetch();
+    },
+    onError: (err: any) => {
+      sound.error();
+      toast("error", err.message || "فشل تحديث حد إعادة الطلب");
+    },
   });
 
   const products = productsQuery.data?.items ?? [];
@@ -394,6 +427,41 @@ function DetailedLedgerTab({ wid }: { wid: string }) {
         </div>
       </div>
 
+      {/* Manager Bulk Reorder Levels Floating Ribbon */}
+      {selectedIds.length > 0 && isManager && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/40 bg-primary/10 px-4 py-2.5 text-xs shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-primary">تم تحديد {selectedIds.length} صنف</span>
+            <button
+              type="button"
+              onClick={() => setSelectedIds([])}
+              className="text-muted-foreground hover:text-foreground text-[11px] underline"
+            >
+              إلغاء التحديد
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="bulk-reorder-input" className="text-muted-foreground font-medium">حد إعادة الطلب الجديد:</label>
+            <input
+              id="bulk-reorder-input"
+              type="number"
+              min="0"
+              value={bulkReorderVal}
+              onChange={(e) => setBulkReorderVal(e.target.value)}
+              className="num h-8 w-16 rounded-md border border-line bg-background px-2 text-center text-xs font-bold"
+            />
+            <Button
+              size="sm"
+              disabled={bulkSetReorder.isPending}
+              onClick={() => bulkSetReorder.mutate()}
+              className="h-8 gap-1.5 font-bold"
+            >
+              {bulkSetReorder.isPending ? "جارٍ الحفظ…" : "تطبيق حد إعادة الطلب للمحدد"}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Table Container */}
       {productsQuery.isLoading ? (
         <div className="flex flex-col gap-2" aria-busy="true" aria-label="جارٍ التحميل">
@@ -418,6 +486,23 @@ function DetailedLedgerTab({ wid }: { wid: string }) {
             <Table>
               <TableHeader>
                 <TableRow className="border-b border-border/80 bg-muted/40 text-[11px] font-semibold text-muted-foreground">
+                  {isManager && (
+                    <TableHead className="w-10 p-3 text-center">
+                      <input
+                        type="checkbox"
+                        aria-label="تحديد كافة أصناف الصفحة"
+                        checked={filteredRows.length > 0 && filteredRows.every((r) => selectedIds.includes(r.id))}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedIds(Array.from(new Set([...selectedIds, ...filteredRows.map((r) => r.id)])));
+                          } else {
+                            setSelectedIds(selectedIds.filter((id) => !filteredRows.some((r) => r.id === id)));
+                          }
+                        }}
+                        className="size-4 rounded border-border accent-primary cursor-pointer"
+                      />
+                    </TableHead>
+                  )}
                   <TableHead className="p-3 text-start">الصنف / الكود</TableHead>
                   <TableHead className="p-3 text-center">الرصيد المتاح</TableHead>
                   <TableHead className="p-3 text-center">حد إعادة الطلب</TableHead>
@@ -431,8 +516,26 @@ function DetailedLedgerTab({ wid }: { wid: string }) {
                 {filteredRows.map((r) => (
                   <TableRow
                     key={r.id}
-                    className="border-b border-border/40 text-xs transition-colors hover:bg-muted/30 last:border-0"
+                    className={cn(
+                      "border-b border-border/40 text-xs transition-colors hover:bg-muted/30 last:border-0",
+                      r.status === "low_stock" && "bg-amber-500/10 dark:bg-amber-500/15 border-amber-500/30",
+                      r.status === "out_of_stock" && "bg-destructive/5"
+                    )}
                   >
+                    {isManager && (
+                      <TableCell className="w-10 p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          aria-label={`تحديد ${r.name}`}
+                          checked={selectedIds.includes(r.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) setSelectedIds([...selectedIds, r.id]);
+                            else setSelectedIds(selectedIds.filter((id) => id !== r.id));
+                          }}
+                          className="size-4 rounded border-border accent-primary cursor-pointer"
+                        />
+                      </TableCell>
+                    )}
                     {/* Product Name & SKU */}
                     <TableCell className="p-3">
                       <div className="flex flex-col">

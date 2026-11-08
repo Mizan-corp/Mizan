@@ -141,3 +141,72 @@ async def get_valuation(db: AsyncSession, warehouse_id: uuid.UUID):
         .where(StockBalance.warehouse_id == warehouse_id, StockBalance.qty > 0)
     )
     return result.one()
+
+
+async def check_low_stock_and_notify(
+    db: AsyncSession,
+    tenant_id: uuid.UUID | None,
+    product_ids: list[uuid.UUID],
+    warehouse_id: uuid.UUID,
+):
+    """
+    Check stock after sale. If current_qty <= product.reorder_level,
+    creates in-app notification for managers and triggers optional email notification.
+    """
+    from datetime import datetime, UTC, timedelta
+    from app.models.notification import Notification
+
+    cutoff = datetime.now(UTC) - timedelta(hours=4)
+
+    # Fetch products and their balances
+    res = await db.execute(
+        select(Product, StockBalance.qty)
+        .join(StockBalance, Product.id == StockBalance.product_id)
+        .where(
+            Product.id.in_(product_ids),
+            StockBalance.warehouse_id == warehouse_id,
+        )
+    )
+    rows = res.all()
+
+    low_stock_items = []
+    for prod, qty in rows:
+        reorder_threshold = prod.reorder_level if prod.reorder_level is not None else int(prod.reorder_point or 5)
+        if qty <= reorder_threshold:
+            low_stock_items.append((prod, qty, reorder_threshold))
+
+    if not low_stock_items:
+        return
+
+    # Check if a recent low stock notification exists to avoid spamming
+    existing_stmt = select(Notification).where(
+        Notification.type == "low_stock",
+        Notification.created_at >= cutoff,
+    )
+    if tenant_id:
+        existing_stmt = existing_stmt.where(Notification.tenant_id == tenant_id)
+    if (await db.execute(existing_stmt)).scalar_one_or_none():
+        return
+
+    sample_str = "، ".join([f"{p.name} (رصيد: {q})" for p, q, _ in low_stock_items[:3]])
+    notif = Notification(
+        id=uuid.uuid4(),
+        tenant_id=tenant_id,
+        type="low_stock",
+        severity="warning",
+        title="تنبيه: انخفاض المخزون عن حد إعادة الطلب",
+        body=f"وصلت {len(low_stock_items)} منتجات للحد الأدنى لإعادة الطلب: {sample_str}. يُرجى مراجعة المخزون وتوريد كميات جديدة.",
+        link="/inventory",
+        data_json={"count": len(low_stock_items), "items": [str(p.id) for p, _, _ in low_stock_items]},
+        is_read=False,
+    )
+    db.add(notif)
+    await db.commit()
+
+    # Optional email notification (behind feature flag)
+    try:
+        from app.services.email_service import send_low_stock_email_alert
+        await send_low_stock_email_alert(db, tenant_id, low_stock_items)
+    except Exception:
+        pass
+

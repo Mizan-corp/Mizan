@@ -41,14 +41,14 @@ export function MizanDashboardHeroMockup() {
     : { duration: 4.8, repeat: Infinity, ease: "easeInOut" as const };
 
   return (
-    <div className="relative w-full max-w-4xl mx-auto select-none">
+    <div className="relative w-full max-w-4xl mx-auto select-none overflow-x-clip sm:overflow-visible">
       {/* ── FLOATING ELEMENT 1: New Order Received Notification ── */}
       <motion.div
         animate={floatAnim1}
         transition={floatTrans1}
-        className={`absolute -top-7 ${
+        className={`hidden sm:flex absolute -top-7 ${
           isAr ? "-start-4 sm:-start-6" : "-start-4 sm:-start-8"
-        } z-30 rounded-2xl border border-[#E6DCD2]/80 bg-[#FFFFFF] px-4 py-2.5 shadow-xl flex items-center gap-3 backdrop-blur-sm`}
+        } z-30 rounded-2xl border border-[#E6DCD2]/80 bg-[#FFFFFF] px-4 py-2.5 shadow-xl items-center gap-3 backdrop-blur-sm`}
       >
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FAF0E4] text-[#B86B76]">
           <ShoppingCart className="h-5 w-5 text-[#8A293B]" />
@@ -479,9 +479,9 @@ export function MizanDashboardHeroMockup() {
       <motion.div
         animate={floatAnim1}
         transition={floatTrans1}
-        className={`absolute -bottom-5 ${
+        className={`hidden sm:flex absolute -bottom-5 ${
           isAr ? "-end-2 sm:-end-4" : "-end-2 sm:-end-4"
-        } z-30 rounded-full border border-[#E6DCD2]/90 bg-[#FFFFFF] px-3.5 py-1.5 shadow-lg flex items-center gap-2`}
+        } z-30 rounded-full border border-[#E6DCD2]/90 bg-[#FFFFFF] px-3.5 py-1.5 shadow-lg items-center gap-2`}
       >
         <CheckCircle2 className="h-4 w-4 text-[#27835C]" />
         <span className="text-xs font-semibold text-[#262321]">

@@ -162,3 +162,38 @@ async def delete_barcode(
     current_user: User = Depends(require_perm("inventory"))
 ):
     await product_service.delete_barcode(db, barcode_id, current_user)
+
+
+class BulkReorderLevelIn(ProductUpdate.__base__):
+    product_ids: list[uuid.UUID]
+    reorder_level: int = 5
+
+
+@router.post("/products/bulk-reorder-level")
+async def bulk_set_reorder_level(
+    data: BulkReorderLevelIn,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_perm("inventory")),
+):
+    from sqlalchemy import update, func
+    from app.models.product import Product
+
+    stmt = (
+        update(Product)
+        .where(Product.id.in_(data.product_ids))
+    )
+    if current_user.tenant_id:
+        stmt = stmt.where(Product.tenant_id == current_user.tenant_id)
+    stmt = stmt.values(
+        reorder_level=data.reorder_level,
+        reorder_point=data.reorder_level,
+        updated_at=func.now(),
+    )
+    result = await db.execute(stmt)
+    await db.commit()
+    return {
+        "ok": True,
+        "updated_count": result.rowcount,
+        "reorder_level": data.reorder_level,
+    }
+

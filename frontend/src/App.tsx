@@ -18,6 +18,7 @@ const ArchivePage = lazy(() => import("@/features/archive/ArchivePage"));
 const OperationsPage = lazy(() => import("@/features/operations/OperationsPage"));
 const ModulesPage = lazy(() => import("@/features/modules/ModulesPage"));
 const RestaurantTablesPage = lazy(() => import("@modules/restaurant/frontend/RestaurantTablesPage"));
+const KitchenDisplayPage = lazy(() => import("@modules/restaurant/frontend/KitchenDisplayPage"));
 const SchoolStudentsPage = lazy(() => import("@modules/school/frontend/SchoolStudentsPage"));
 const PharmacyPage = lazy(() => import("@modules/pharmacy/frontend/PharmacyPage"));
 const ServicesConsultingPage = lazy(() => import("@modules/services/frontend/ServicesConsultingPage"));
@@ -92,6 +93,24 @@ import SignupPage from "@/features/marketing/SignupPage";
 import OnboardingWizard from "@/features/marketing/OnboardingWizard";
 import { Lock } from "lucide-react";
 import { useAuth } from "@/stores/auth";
+
+function WorkspaceHome() {
+  const token = useAuth((s) => s.token);
+  const user = useAuth((s) => s.user);
+  const tenant = useAuth((s) => s.tenant);
+  if (token && user) {
+    const slug = tenant?.slug;
+    if (slug && slug !== "undefined" && slug !== "null") {
+      return <Navigate to={`/c/${slug}`} replace />;
+    }
+    return <Navigate to="/dashboard" replace />;
+  }
+  return (
+    <Page>
+      <LandingPage />
+    </Page>
+  );
+}
 import { useModulesStore } from "@/stores/modules";
 import { NAV_ITEMS } from "@/lib/nav";
 import { useTenantNav } from "@/lib/tenant";
@@ -172,7 +191,7 @@ function renderErpChildRoutes(includeIndex: boolean = true) {
       <Route path="operations" element={<Guard perm="operations"><OperationsPage /></Guard>} />
       <Route path="purchases" element={<Guard perm="purchases"><PurchasesPage /></Guard>} />
       <Route path="customers" element={<Guard perm="customers"><CustomersPage /></Guard>} />
-      <Route path="suppliers" element={<Guard perm="customers"><SuppliersPage /></Guard>} />
+      <Route path="suppliers" element={<Guard perm="purchases"><SuppliersPage /></Guard>} />
       <Route path="finance" element={<Guard perm="finance"><FinancePage /></Guard>} />
       <Route path="hr" element={<Guard perm="payroll"><HrPage /></Guard>} />
       <Route path="hr/payroll" element={<Guard perm="payroll"><PayrollPage /></Guard>} />
@@ -183,7 +202,7 @@ function renderErpChildRoutes(includeIndex: boolean = true) {
       <Route path="settings" element={<Guard perm="settings"><SettingsPage /></Guard>} />
       <Route path="modules" element={<Guard perm=""><ModulesPage /></Guard>} />
       <Route path="restaurant/tables" element={<Guard perm="" module="restaurant"><RestaurantTablesPage /></Guard>} />
-      <Route path="restaurant/kitchen" element={<Guard perm="" module="restaurant"><RestaurantTablesPage /></Guard>} />
+      <Route path="restaurant/kitchen" element={<Guard perm="" module="restaurant"><KitchenDisplayPage /></Guard>} />
       <Route path="school/students" element={<Guard perm="" module="school"><SchoolStudentsPage /></Guard>} />
       <Route path="pharmacy" element={<Guard perm="" module="pharmacy"><PharmacyPage /></Guard>} />
       <Route path="services" element={<Guard perm="" module="services"><ServicesConsultingPage /></Guard>} />
@@ -304,7 +323,7 @@ export default function App() {
       </Route>
 
       {/* Official Marketing Website Landing Page */}
-      <Route path="/" element={<Page><LandingPage /></Page>} />
+      <Route path="/" element={<WorkspaceHome />} />
 
       {/* Direct top-level routes when authenticated without slug (e.g. desktop offline .exe, direct nav) */}
       <Route
