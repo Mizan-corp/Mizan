@@ -106,6 +106,7 @@ const CATEGORY_LABELS: Record<string, { ar: string; en: string; group: string; c
   pharmacy: { ar: "الصيدلة الدوائية", en: "Pharmacy", group: "E", color: "bg-teal-100 text-teal-800 border-teal-200" },
   finance_insurance: { ar: "المالية والتأمين", en: "Finance & Insurance", group: "F", color: "bg-amber-100 text-amber-800 border-amber-200" },
   human_resources: { ar: "الموارد البشرية", en: "Human Resources", group: "G", color: "bg-rose-100 text-rose-800 border-rose-200" },
+  procurement_maintenance: { ar: "المشتريات والمخازن والصيانة", en: "Procurement & Maintenance", group: "H", color: "bg-orange-100 text-orange-800 border-orange-200" },
   procurement_inventory: { ar: "المشتريات والمخازن والصيانة", en: "Procurement & Maintenance", group: "H", color: "bg-orange-100 text-orange-800 border-orange-200" },
   it_technical: { ar: "تقنية المعلومات والأنظمة", en: "IT & Technical", group: "I", color: "bg-slate-100 text-slate-800 border-slate-200" },
 };
