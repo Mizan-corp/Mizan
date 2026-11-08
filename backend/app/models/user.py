@@ -46,8 +46,8 @@ class User(Base, TenantScoped):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     warehouses: Mapped[list["Warehouse"]] = relationship(secondary=user_warehouses, back_populates="users", lazy="selectin")
-    positions: Mapped[list["UserPosition"]] = relationship("UserPosition", back_populates="user", cascade="all, delete-orphan", lazy="selectin")
-    role_assignments: Mapped[list["UserRoleAssignment"]] = relationship("UserRoleAssignment", back_populates="user", cascade="all, delete-orphan", lazy="selectin")
-    facility_assignments: Mapped[list["UserFacilityAssignment"]] = relationship("UserFacilityAssignment", back_populates="user", cascade="all, delete-orphan", lazy="selectin")
-    permission_overrides: Mapped[list["UserPermissionOverride"]] = relationship("UserPermissionOverride", foreign_keys="UserPermissionOverride.user_id", back_populates="user", cascade="all, delete-orphan", lazy="selectin")
-    patient_assignments: Mapped[list["PatientAccessAssignment"]] = relationship("PatientAccessAssignment", back_populates="user", cascade="all, delete-orphan", lazy="selectin")
+    positions: Mapped[list["UserPosition"]] = relationship("UserPosition", back_populates="user", cascade="all, delete-orphan", lazy="select")
+    role_assignments: Mapped[list["UserRoleAssignment"]] = relationship("UserRoleAssignment", back_populates="user", cascade="all, delete-orphan", lazy="select")
+    facility_assignments: Mapped[list["UserFacilityAssignment"]] = relationship("UserFacilityAssignment", back_populates="user", cascade="all, delete-orphan", lazy="select")
+    permission_overrides: Mapped[list["UserPermissionOverride"]] = relationship("UserPermissionOverride", foreign_keys="UserPermissionOverride.user_id", back_populates="user", cascade="all, delete-orphan", lazy="select")
+    patient_assignments: Mapped[list["PatientAccessAssignment"]] = relationship("PatientAccessAssignment", back_populates="user", cascade="all, delete-orphan", lazy="select")
