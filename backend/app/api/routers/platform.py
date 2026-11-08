@@ -5,6 +5,7 @@ a workspace tenant is created with a tailored demo dataset → they run on
 a trial; the banner routes them to pricing where a subscription request
 is recorded until payment integration lands.
 """
+import logging
 import re
 import unicodedata
 import uuid
@@ -24,6 +25,8 @@ from app.db.base import get_db
 from app.dependencies import get_current_user
 from app.models.tenant import Subscription, Tenant
 from app.models.user import User
+
+logger = logging.getLogger("mizan.platform")
 from app.services.demo_seed import seed_demo
 
 router = APIRouter(prefix="/platform", tags=["platform"])
@@ -411,3 +414,44 @@ async def verify_license(data: VerifyLicenseRequest):
         return {"valid": True, "payload": payload}
     except LicenseVerificationError as err:
         raise HTTPException(status_code=400, detail=str(err))
+
+
+class MigrateSchemaRequest(BaseModel):
+    seed: bool = True
+    tenant_slug: str | None = None
+
+
+@router.post("/migrate-schema")
+async def run_platform_migrations(
+    data: MigrateSchemaRequest = MigrateSchemaRequest(),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Run all pending schema migrations (v0 through v41) and optionally seed domain data.
+    Restricted to admin and superadmin roles.
+    """
+    if current_user.role not in ("admin", "superadmin") and not getattr(current_user, "is_superadmin", False):
+        raise HTTPException(status_code=403, detail="Admin permissions required")
+
+    from app.db.migrations import apply_migrations
+    applied = await apply_migrations(db)
+
+    seeded = False
+    if data.seed:
+        try:
+            from app.modules.healthcare.seeder import seed_healthcare
+            slug = data.tenant_slug
+            if not slug and current_user.tenant_id:
+                res_t = await db.execute(select(Tenant.slug).where(Tenant.id == current_user.tenant_id))
+                slug = res_t.scalar_one_or_none()
+            await seed_healthcare(session=db, tenant_slug=slug or "a7a-clinic")
+            seeded = True
+        except Exception as err:
+            logger.warning("Notice during healthcare seeding: %s", err)
+
+    return {
+        "status": "ok",
+        "applied_migrations": applied,
+        "healthcare_seeded": seeded,
+    }
+

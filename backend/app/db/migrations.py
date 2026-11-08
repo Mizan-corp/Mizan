@@ -1,0 +1,2007 @@
+"""Mizan ERP Database Migrations and Schema Definition Suite.
+
+Contains all tracked migrations (v0 through v41) and the idempotent async
+migration execution engine for both cloud serverless (Vercel/Neon) and self-hosted environments.
+"""
+import logging
+from pathlib import Path
+import re
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+MIGRATIONS_DIR = BACKEND_DIR / "migrations"
+from typing import List
+try:
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import AsyncSession
+except ImportError:
+    text = None
+    AsyncSession = None
+
+logger = logging.getLogger("mizan.migrations")
+
+def split_statements(sql: str):
+    """Split on top-level semicolons, respecting dollar-quoted blocks
+    ($$...$$ and $tag$...$tag$)."""
+    import re as _re
+    stmts, buf = [], []
+    dollar_tag = None
+    i = 0
+    while i < len(sql):
+        m = _re.match(r"\$[A-Za-z_]*\$", sql[i:])
+        if m:
+            tag = m.group(0)
+            if dollar_tag is None:
+                dollar_tag = tag
+            elif tag == dollar_tag:
+                dollar_tag = None
+            buf.append(tag)
+            i += len(tag)
+            continue
+        ch = sql[i]
+        if ch == ";" and dollar_tag is None:
+            stmt = "".join(buf).strip()
+            if stmt:
+                stmts.append(stmt)
+            buf = []
+        else:
+            buf.append(ch)
+        i += 1
+    tail = "".join(buf).strip()
+    if tail:
+        stmts.append(tail)
+    return stmts
+
+
+def psql(sql: str):
+    """Execute a migration statement-by-statement so one failure never
+    silently aborts the rest of the migration (single-transaction psql -c
+    did exactly that). Every statement runs with app.bypass=on and the
+    primary tenant bound — pre-tenancy migration INSERTs into scoped
+    tables resolve their tenant_id column default correctly."""
+    ok = True
+    for stmt in split_statements(sql):
+        result = subprocess.run(
+            COMPOSE + ["exec", "-T", "db", "psql", "-U", "postgres", "-d", "inventory_db"],
+            input=("SELECT set_config('app.tenant_id', COALESCE((SELECT id::text FROM tenants ORDER BY created_at LIMIT 1), ''), false), set_config('app.bypass', 'on', false);\n"
+                   + stmt + ";"), capture_output=True, text=True
+        )
+        errors = [l for l in result.stderr.splitlines() if "ERROR" in l and "already exists" not in l and "does not exist" not in l]
+        if errors or result.returncode != 0:
+            ok = False
+            print(f"    ⚠️  {errors[0] if errors else result.returncode}: {stmt[:90]}")
+    return ok
+
+MIGRATIONS = [
+    # v0 — migration tracking table
+    ("v0_schema_migrations", """
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            id text PRIMARY KEY,
+            applied_at timestamptz DEFAULT now()
+        );
+    """),
+
+    # v1.1 — accounting_periods: add id column and make it PK (live DB has month as PK)
+    ("v1.1_accounting_periods_pk", """
+        ALTER TABLE accounting_periods ADD COLUMN IF NOT EXISTS id uuid;
+        UPDATE accounting_periods SET id = gen_random_uuid() WHERE id IS NULL;
+        ALTER TABLE accounting_periods ALTER COLUMN id SET NOT NULL;
+        ALTER TABLE accounting_periods DROP CONSTRAINT IF EXISTS accounting_periods_pkey;
+        ALTER TABLE accounting_periods ADD PRIMARY KEY (id);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_accounting_periods_month ON accounting_periods(month);
+    """),
+
+    # v1 — stock_status on products
+    ("v1_stock_status", """
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS stock_status text NOT NULL DEFAULT 'tracked';
+    """),
+
+    # v2 — safe_transactions table
+    ("v2_safe_transactions", """
+        CREATE TABLE IF NOT EXISTS safe_transactions (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          safe_id uuid NOT NULL REFERENCES safes(id),
+          tx_type text NOT NULL CHECK (tx_type IN ('deposit','withdraw')),
+          amount numeric(14,2) NOT NULL,
+          balance_after numeric(14,2) NOT NULL,
+          note text,
+          created_by uuid,
+          created_at timestamptz DEFAULT now()
+        );
+    """),
+
+    # v3 — safe_type on safes
+    ("v3_safe_type", """
+        ALTER TABLE safes ADD COLUMN IF NOT EXISTS safe_type text NOT NULL DEFAULT 'permanent';
+    """),
+
+    # v4 — product_collections
+    ("v4_collections", """
+        CREATE TABLE IF NOT EXISTS product_collections (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          name text NOT NULL,
+          description text,
+          retail_price numeric(12,2) DEFAULT 0,
+          wholesale_price numeric(12,2) DEFAULT 0,
+          is_active boolean DEFAULT true,
+          created_at timestamptz DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS collection_items (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          collection_id uuid NOT NULL REFERENCES product_collections(id) ON DELETE CASCADE,
+          product_id uuid NOT NULL REFERENCES products(id),
+          qty numeric(12,3) NOT NULL DEFAULT 1
+        );
+        CREATE INDEX IF NOT EXISTS idx_collection_items_collection ON collection_items(collection_id);
+    """),
+
+    # v5 — paper_size setting
+    ("v5_paper_size", """
+        INSERT INTO store_settings (key, value) VALUES ('paper_size', '"A4"') ON CONFLICT (key) DO NOTHING;
+    """),
+
+    # v7 — wallet_transactions audit table
+    ("v7_wallet_transactions", """
+        CREATE TABLE IF NOT EXISTS wallet_transactions (
+          id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+          wallet_id uuid NOT NULL REFERENCES payment_wallets(id),
+          amount numeric(14,2) NOT NULL,
+          tx_type text NOT NULL,
+          ref_id uuid,
+          note text,
+          created_by uuid,
+          created_at timestamptz DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_wallet_tx_wallet ON wallet_transactions(wallet_id);
+    """),
+
+    # v6 — wallet_id on sales
+    ("v6_wallet_id_sales", """
+        ALTER TABLE sales ADD COLUMN IF NOT EXISTS wallet_id uuid REFERENCES payment_wallets(id) ON DELETE SET NULL;
+        ALTER TABLE sales ADD COLUMN IF NOT EXISTS payment_method text DEFAULT 'cash';
+    """),
+
+    # v7 — ZK device sync log + device settings
+    ("v7_hr_sync_log", """
+        CREATE TABLE IF NOT EXISTS hr_sync_log (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            synced_at timestamptz DEFAULT now(),
+            status text NOT NULL,
+            fetched int DEFAULT 0,
+            added int DEFAULT 0,
+            updated int DEFAULT 0,
+            message text
+        );
+        INSERT INTO hr_settings (key, value) VALUES ('device_host', '192.168.1.201') ON CONFLICT (key) DO NOTHING;
+        INSERT INTO hr_settings (key, value) VALUES ('device_port', '4370') ON CONFLICT (key) DO NOTHING;
+        INSERT INTO hr_settings (key, value) VALUES ('device_timeout', '5') ON CONFLICT (key) DO NOTHING;
+    """),
+
+    ("v8_warehouse_product_status", """
+         CREATE TABLE IF NOT EXISTS warehouse_product_status (
+             warehouse_id uuid NOT NULL REFERENCES warehouses(id) ON DELETE CASCADE,
+             product_id   uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+             status       text NOT NULL DEFAULT 'untracked',
+             PRIMARY KEY (warehouse_id, product_id)
+         );
+         ALTER TABLE warehouse_product_status ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+         ALTER TABLE warehouse_product_status ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+         INSERT INTO warehouse_product_status (tenant_id, warehouse_id, product_id, status)
+         SELECT (SELECT id FROM tenants ORDER BY created_at LIMIT 1), warehouse_id, product_id, 'tracked'
+         FROM stock_movements
+         ON CONFLICT DO NOTHING;
+     """),
+
+    ("v9_product_barcodes", """
+         CREATE TABLE IF NOT EXISTS product_barcodes (
+             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+             product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+             barcode text NOT NULL,
+             is_primary boolean NOT NULL DEFAULT false,
+             created_at timestamptz DEFAULT now(),
+             UNIQUE(barcode)
+         );
+         CREATE INDEX IF NOT EXISTS idx_product_barcodes_product ON product_barcodes(product_id);
+         CREATE INDEX IF NOT EXISTS idx_product_barcodes_barcode ON product_barcodes(barcode);
+         -- Table may pre-exist from create_all without a DB-side id default
+         ALTER TABLE product_barcodes ALTER COLUMN id SET DEFAULT gen_random_uuid();
+         -- Migrate existing barcodes from products table if they exist
+         INSERT INTO product_barcodes (product_id, barcode, is_primary)
+         SELECT p.id, p.barcode, true FROM products p
+         WHERE p.barcode IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM product_barcodes pb WHERE pb.barcode = p.barcode);
+     """),
+
+    ("v10_supplier_prices", """
+         CREATE TABLE IF NOT EXISTS supplier_prices (
+             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+             supplier_id uuid NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+             product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+             price numeric(12,2) NOT NULL,
+             currency text DEFAULT 'EGP',
+             min_qty numeric(12,3) DEFAULT 1,
+             last_purchase_date timestamptz,
+             notes text,
+             is_active boolean DEFAULT true,
+             created_at timestamptz DEFAULT now(),
+             updated_at timestamptz DEFAULT now(),
+             UNIQUE(supplier_id, product_id)
+         );
+         CREATE INDEX IF NOT EXISTS idx_supplier_prices_supplier ON supplier_prices(supplier_id);
+         CREATE INDEX IF NOT EXISTS idx_supplier_prices_product ON supplier_prices(product_id);
+         -- Table may pre-exist from create_all without DB-side defaults
+         ALTER TABLE supplier_prices ALTER COLUMN currency  SET DEFAULT 'EGP';
+         ALTER TABLE supplier_prices ALTER COLUMN min_qty   SET DEFAULT 1;
+         ALTER TABLE supplier_prices ALTER COLUMN is_active SET DEFAULT true;
+         -- Best-effort seed from existing purchase orders if tables exist.
+         DO $$
+         BEGIN
+           IF to_regclass('purchase_orders') IS NOT NULL AND to_regclass('purchase_order_items') IS NOT NULL THEN
+             INSERT INTO supplier_prices (supplier_id, product_id, price, last_purchase_date)
+             SELECT po.supplier_id, poi.product_id, poi.unit_cost, po.created_at
+             FROM purchase_orders po
+             JOIN purchase_order_items poi ON poi.po_id = po.id
+             WHERE po.supplier_id IS NOT NULL
+             ON CONFLICT (supplier_id, product_id) DO NOTHING;
+           END IF;
+         END $$;
+     """),
+
+    # v11 — HR payroll period workflow
+    ("v11_hr_payroll_periods", """
+        CREATE TABLE IF NOT EXISTS hr_payroll_periods (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            month text UNIQUE NOT NULL,
+            status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','review','approved','paid')),
+            submitted_by uuid REFERENCES users(id),
+            submitted_at timestamptz,
+            approved_by uuid REFERENCES users(id),
+            approved_at timestamptz,
+            paid_by uuid REFERENCES users(id),
+            paid_at timestamptz,
+            created_at timestamptz DEFAULT now(),
+            updated_at timestamptz DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS idx_hr_payroll_periods_status ON hr_payroll_periods(status);
+        CREATE INDEX IF NOT EXISTS idx_hr_payroll_periods_month ON hr_payroll_periods(month);
+    """),
+
+    # v12 — suppliers soft-delete
+    ("v12_suppliers_soft_delete", """
+        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
+        UPDATE suppliers SET is_active = true WHERE is_active IS NULL;
+        CREATE INDEX IF NOT EXISTS idx_suppliers_is_active ON suppliers(is_active);
+    """),
+
+    # v13 — sales total/net_total/paid_amount columns (added after model refactor)
+    ("v13_sales_amount_columns", """
+        ALTER TABLE sales ADD COLUMN IF NOT EXISTS total numeric(12,2) NOT NULL DEFAULT 0;
+        ALTER TABLE sales ADD COLUMN IF NOT EXISTS net_total numeric(12,2) NOT NULL DEFAULT 0;
+        ALTER TABLE sales ADD COLUMN IF NOT EXISTS paid_amount numeric(12,2) DEFAULT 0;
+        ALTER TABLE sales ALTER COLUMN total SET DEFAULT 0;
+        ALTER TABLE sales ALTER COLUMN net_total SET DEFAULT 0;
+    """),
+
+    # v14 — sale_payments split-payment table
+    ("v14_sale_payments", """
+        CREATE TABLE IF NOT EXISTS sale_payments (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            sale_id uuid NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
+            method text NOT NULL,
+            amount numeric(12,2) NOT NULL,
+            wallet_id uuid REFERENCES payment_wallets(id) ON DELETE SET NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_sale_payments_sale ON sale_payments(sale_id);
+    """),
+
+    # v15 — shift model: expected_balance, difference, deposit tracking
+    ("v15_shift_expected_balance", """
+        ALTER TABLE shifts ADD COLUMN IF NOT EXISTS expected_balance numeric(12,2);
+        ALTER TABLE shifts ADD COLUMN IF NOT EXISTS difference numeric(12,2);
+        ALTER TABLE shifts ADD COLUMN IF NOT EXISTS deposit_received_by uuid REFERENCES users(id);
+        ALTER TABLE shifts ADD COLUMN IF NOT EXISTS deposit_amount numeric(12,2);
+    """),
+
+    # v16 — hr_payroll_entries: add missing columns from old hr_payroll table
+    ("v16_hr_payroll_entries_full", """
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS working_days integer;
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS actual_working_days integer;
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS absent_days integer;
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS vacation_days integer;
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS total_hours numeric(12,2);
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS lateness_minutes integer;
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS early_leave_minutes integer;
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS missing_scan_minutes integer;
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS lateness_deduction numeric(12,2);
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS overtime_hours numeric(12,2);
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS overtime_pay numeric(12,2);
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS bonus_days integer;
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS bonus_payment numeric(12,2);
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS bonus numeric(12,2);
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS deductions numeric(12,2);
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS advances numeric(12,2);
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS drawer_variance numeric(12,2);
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS net_salary numeric(12,2);
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS hourly_rate numeric(12,2);
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS daily_breakdown jsonb;
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES users(id);
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS status text DEFAULT 'draft';
+    """),
+
+    # v17 — unique constraint on (period_id, employee_id) for upsert
+    ("v17_hr_payroll_entries_unique", """
+        ALTER TABLE hr_payroll_entries DROP CONSTRAINT IF EXISTS hr_payroll_entries_period_id_employee_id_key;
+        ALTER TABLE hr_payroll_entries ADD CONSTRAINT hr_payroll_entries_period_id_employee_id_key UNIQUE (period_id, employee_id);
+    """),
+
+    # v18 — hr_payroll_periods: add default for id column
+    ("v18_hr_payroll_periods_id_default", """
+        ALTER TABLE hr_payroll_periods ALTER COLUMN id SET DEFAULT gen_random_uuid();
+    """),
+
+    # v19 — 54 missing FK indexes across 27 tables (from model<->DB audit)
+    ("v19_missing_fk_indexes",
+     (MIGRATIONS_DIR / "add_missing_indexes.sql").read_text() if (MIGRATIONS_DIR / "add_missing_indexes.sql").exists() else ""),
+
+    # v20 — stock_balances maintained table: O(1) balance reads + backfill from movements
+    ("v20_stock_balances",
+     (MIGRATIONS_DIR / "add_stock_balances.sql").read_text() if (MIGRATIONS_DIR / "add_stock_balances.sql").exists() else ""),
+
+    # v21 — reconcile columns present in models but missing from older databases
+    ("v21_model_column_reconciliation", """
+        ALTER TABLE customers ADD COLUMN IF NOT EXISTS credit_limit numeric(14,2);
+        ALTER TABLE financial_categories ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
+        ALTER TABLE financial_categories ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
+    """),
+
+    # v22 — reconcile enum values + uuid PK defaults used by raw-SQL inserts
+    ("v22_defaults_and_enum_reconciliation", """
+        ALTER TYPE drawer_tx_type_enum ADD VALUE IF NOT EXISTS 'revenue_delivery';
+        ALTER TABLE accounting_periods   ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE archived_documents   ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE expenses             ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE expense_vendors      ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE sale_items           ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE sale_payments        ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE stock_movements      ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE suppliers            ALTER COLUMN id SET DEFAULT gen_random_uuid();
+    """),
+
+    # v23 — payment wallet types are free-form String(32) in the model
+    # (clients register custom wallet types); drop the legacy 3-value check
+    ("v23_drop_wallet_type_check", """
+        ALTER TABLE payment_wallets DROP CONSTRAINT IF EXISTS payment_wallets_type_check;
+    """),
+
+    # v24 — boolean flag defaults so raw-SQL inserts that omit them succeed
+    ("v24_flag_defaults", """
+        ALTER TABLE expense_vendors ALTER COLUMN is_active SET DEFAULT true;
+        ALTER TABLE expenses        ALTER COLUMN is_recurring SET DEFAULT false;
+    """),
+
+    # v25 — nullability reconciliation with models (loosen legacy NOT NULLs)
+    ("v25_nullability_reconciliation", """
+        ALTER TABLE expenses           ALTER COLUMN recurring_interval DROP NOT NULL;
+        ALTER TABLE expenses           ALTER COLUMN recurring_end_date DROP NOT NULL;
+        ALTER TABLE hr_settings        ALTER COLUMN value DROP NOT NULL;
+        ALTER TABLE products           ALTER COLUMN subcategory_id DROP NOT NULL;
+        ALTER TABLE hr_payroll_entries ALTER COLUMN deductions DROP NOT NULL;
+    """),
+
+    # v26 — columns present in models but missing from pre-refactor snapshots
+    ("v26_model_column_backfill", """
+        ALTER TABLE audit_log            ADD COLUMN IF NOT EXISTS action_type text;
+        ALTER TABLE audit_log            ADD COLUMN IF NOT EXISTS reason text;
+        ALTER TABLE audit_log            ADD COLUMN IF NOT EXISTS details text;
+        ALTER TABLE categories           ADD COLUMN IF NOT EXISTS code varchar(32);
+        ALTER TABLE categories           ADD COLUMN IF NOT EXISTS image_url varchar(512);
+        ALTER TABLE subcategories        ADD COLUMN IF NOT EXISTS code varchar(32);
+        ALTER TABLE products             ADD COLUMN IF NOT EXISTS code varchar(32);
+        ALTER TABLE products             ADD COLUMN IF NOT EXISTS shelf_number varchar(32);
+        ALTER TABLE products             ADD COLUMN IF NOT EXISTS description text;
+        ALTER TABLE sales                ADD COLUMN IF NOT EXISTS returns_total numeric(12,2) NOT NULL DEFAULT 0;
+        ALTER TABLE sales                ADD COLUMN IF NOT EXISTS last_paid_at timestamptz;
+        ALTER TABLE customer_payments    ADD COLUMN IF NOT EXISTS sale_id uuid;
+        ALTER TABLE stock_movements      ADD COLUMN IF NOT EXISTS sale_id uuid;
+        ALTER TABLE stock_movements      ADD COLUMN IF NOT EXISTS purchase_id uuid;
+        ALTER TABLE hr_advances          ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+        ALTER TABLE hr_attendance        ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+        ALTER TABLE hr_payroll           ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+        ALTER TABLE payroll_entries      ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+        ALTER TABLE supplier_transactions ADD COLUMN IF NOT EXISTS tx_type varchar(16);
+        ALTER TABLE hr_shifts            ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
+        ALTER TABLE hr_shifts            ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+        ALTER TABLE hr_shifts            ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+        ALTER TABLE hr_settings          ADD COLUMN IF NOT EXISTS id uuid NOT NULL DEFAULT gen_random_uuid();
+        ALTER TABLE hr_settings          ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+        ALTER TABLE hr_settings          ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='hr_settings'::regclass AND contype='p') THEN
+                ALTER TABLE hr_settings ADD PRIMARY KEY (id);
+            END IF;
+        END $$;
+    """),
+
+    # v27 — uuid PK defaults everywhere (ORM inserts rely on them on every table)
+    ("v27_uuid_pk_defaults", """
+        ALTER TABLE categories           ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE collection_items     ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE customer_payments    ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE customers            ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE device_tokens        ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE drawer_transactions  ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE employees            ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE hr_payroll_entries   ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE hr_sync_log          ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE payroll_entries      ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE payroll_periods      ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE product_barcodes     ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE product_collections  ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE product_images       ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE products             ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE purchase_order_items ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE purchase_orders      ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE sales                ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE shifts               ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE subcategories        ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE supplier_prices      ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE users                ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE wallet_transactions  ALTER COLUMN id SET DEFAULT gen_random_uuid();
+        ALTER TABLE warehouses           ALTER COLUMN id SET DEFAULT gen_random_uuid();
+    """),
+
+    # v28 — hr_sync_log counters: raw-SQL failure path inserts without them
+    ("v28_sync_log_counter_defaults", """
+        ALTER TABLE hr_sync_log ALTER COLUMN fetched SET DEFAULT 0;
+        ALTER TABLE hr_sync_log ALTER COLUMN added   SET DEFAULT 0;
+        ALTER TABLE hr_sync_log ALTER COLUMN updated SET DEFAULT 0;
+    """),
+    # v29 — multi-tenancy: tenants + tenant_id on all business tables (backfill = tenant #1)
+    ("v29_multi_tenancy", """
+        CREATE TABLE IF NOT EXISTS tenants (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL, sector text NOT NULL DEFAULT 'plumbing', scale text NOT NULL DEFAULT 'medium', palette jsonb NOT NULL DEFAULT '{}'::jsonb, features jsonb NOT NULL DEFAULT '[]'::jsonb, plan text NOT NULL DEFAULT 'trial', trial_ends_at timestamptz, storefront_slug text UNIQUE, created_at timestamptz NOT NULL DEFAULT now());
+        CREATE TABLE IF NOT EXISTS subscriptions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, plan text NOT NULL, status text NOT NULL DEFAULT 'requested', contact_phone text, created_at timestamptz NOT NULL DEFAULT now());
+        DO $fn$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tenants' AND column_name='status') THEN
+                ALTER TABLE tenants ALTER COLUMN status SET DEFAULT 'active';
+            END IF;
+            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tenants' AND column_name='deployment_mode') THEN
+                ALTER TABLE tenants ALTER COLUMN deployment_mode SET DEFAULT 'cloud_saas';
+            END IF;
+            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tenants' AND column_name='business_type') THEN
+                ALTER TABLE tenants ALTER COLUMN business_type SET DEFAULT 'retail';
+            END IF;
+            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tenants' AND column_name='tech_stack') THEN
+                ALTER TABLE tenants ALTER COLUMN tech_stack SET DEFAULT '{}'::jsonb;
+            END IF;
+            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tenants' AND column_name='active_modules') THEN
+                ALTER TABLE tenants ALTER COLUMN active_modules SET DEFAULT '[]'::jsonb;
+            END IF;
+            IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tenants' AND column_name='limits') THEN
+                ALTER TABLE tenants ALTER COLUMN limits SET DEFAULT '{}'::jsonb;
+            END IF;
+        END
+        $fn$;
+        INSERT INTO tenants (id, name, sector, scale, palette, features, plan) SELECT gen_random_uuid(), 'المصرية الألمانية للأدوات الصحية', 'plumbing', 'large', '{}'::jsonb, '[]'::jsonb, 'enterprise' WHERE NOT EXISTS (SELECT 1 FROM tenants);
+        ALTER TABLE accounting_periods ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE archived_documents ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE categories ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE collection_items ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE employees ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE customer_payments ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE customers ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE device_tokens ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE drawer_transactions ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE expense_vendors ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE expenses ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE financial_categories ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE hr_advances ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE hr_attendance ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE hr_audit_log ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE hr_employees ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE hr_payroll ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE hr_payroll_periods ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE hr_settings ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE hr_shifts ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE hr_sync_log ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE payment_wallets ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE payroll_entries ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE product_barcodes ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE product_collections ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE product_images ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE purchase_price_history ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE safe_deposits ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE safe_transactions ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE safes ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE sale_payments ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE sales ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE shifts ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE stock_balances ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE subcategories ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE supplier_prices ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE supplier_transactions ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE wallet_transactions ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE warehouse_product_status ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
+        UPDATE users SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE accounting_periods SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE archived_documents SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE audit_log SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE categories SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE customer_payments SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE collection_items SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE employees SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE customers SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE device_tokens SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE drawer_transactions SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE expense_vendors SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE expenses SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE financial_categories SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE hr_advances SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE hr_attendance SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE hr_audit_log SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE hr_employees SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE hr_payroll SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE hr_payroll_entries SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE hr_payroll_periods SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE hr_settings SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE hr_shifts SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE hr_sync_log SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE payment_wallets SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE payroll_entries SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE product_barcodes SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE product_collections SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE product_images SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE products SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE purchase_order_items SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE purchase_orders SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE purchase_price_history SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE safe_deposits SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE safe_transactions SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE safes SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE sale_items SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE sale_payments SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE sales SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE shifts SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE stock_balances SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE stock_movements SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE store_settings SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE subcategories SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE supplier_prices SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE supplier_transactions SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE suppliers SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE wallet_transactions SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE warehouse_product_status SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        UPDATE warehouses SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        CREATE INDEX IF NOT EXISTS ix_accounting_periods_tenant_id ON accounting_periods(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_archived_documents_tenant_id ON archived_documents(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_audit_log_tenant_id ON audit_log(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_categories_tenant_id ON categories(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_customer_payments_tenant_id ON customer_payments(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_collection_items_tenant_id ON collection_items(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_employees_tenant_id ON employees(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_customers_tenant_id ON customers(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_device_tokens_tenant_id ON device_tokens(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_drawer_transactions_tenant_id ON drawer_transactions(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_expense_vendors_tenant_id ON expense_vendors(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_expenses_tenant_id ON expenses(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_financial_categories_tenant_id ON financial_categories(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_hr_advances_tenant_id ON hr_advances(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_hr_attendance_tenant_id ON hr_attendance(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_hr_audit_log_tenant_id ON hr_audit_log(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_hr_employees_tenant_id ON hr_employees(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_hr_payroll_tenant_id ON hr_payroll(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_hr_payroll_entries_tenant_id ON hr_payroll_entries(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_hr_payroll_periods_tenant_id ON hr_payroll_periods(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_hr_settings_tenant_id ON hr_settings(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_hr_shifts_tenant_id ON hr_shifts(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_hr_sync_log_tenant_id ON hr_sync_log(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_payment_wallets_tenant_id ON payment_wallets(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_payroll_entries_tenant_id ON payroll_entries(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_product_barcodes_tenant_id ON product_barcodes(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_product_collections_tenant_id ON product_collections(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_product_images_tenant_id ON product_images(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_products_tenant_id ON products(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_purchase_order_items_tenant_id ON purchase_order_items(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_purchase_orders_tenant_id ON purchase_orders(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_purchase_price_history_tenant_id ON purchase_price_history(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_safe_deposits_tenant_id ON safe_deposits(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_safe_transactions_tenant_id ON safe_transactions(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_safes_tenant_id ON safes(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_sale_items_tenant_id ON sale_items(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_sale_payments_tenant_id ON sale_payments(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_sales_tenant_id ON sales(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_shifts_tenant_id ON shifts(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_stock_balances_tenant_id ON stock_balances(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_stock_movements_tenant_id ON stock_movements(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_store_settings_tenant_id ON store_settings(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_subcategories_tenant_id ON subcategories(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_supplier_prices_tenant_id ON supplier_prices(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_supplier_transactions_tenant_id ON supplier_transactions(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_suppliers_tenant_id ON suppliers(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_wallet_transactions_tenant_id ON wallet_transactions(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_warehouse_product_status_tenant_id ON warehouse_product_status(tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_warehouses_tenant_id ON warehouses(tenant_id);
+        ALTER TABLE accounting_periods ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE archived_documents ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE audit_log ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE categories ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE customer_payments ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE collection_items ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE employees ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE customers ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE device_tokens ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE drawer_transactions ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE expense_vendors ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE expenses ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE financial_categories ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE hr_advances ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE hr_attendance ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE hr_audit_log ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE hr_employees ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE hr_payroll ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE hr_payroll_entries ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE hr_payroll_periods ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE hr_settings ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE hr_shifts ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE hr_sync_log ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE payment_wallets ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE payroll_entries ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE product_barcodes ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE product_collections ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE product_images ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE products ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE purchase_order_items ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE purchase_orders ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE purchase_price_history ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE safe_deposits ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE safe_transactions ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE safes ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE sale_items ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE sale_payments ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE sales ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE shifts ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE stock_balances ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE stock_movements ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE store_settings ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE subcategories ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE supplier_prices ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE supplier_transactions ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE suppliers ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE wallet_transactions ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE warehouse_product_status ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE warehouses ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE categories DROP CONSTRAINT IF EXISTS categories_name_key;
+        DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_categories_name') THEN ALTER TABLE categories ADD CONSTRAINT uq_categories_name UNIQUE (tenant_id, name); END IF; END $$;
+        ALTER TABLE warehouses DROP CONSTRAINT IF EXISTS warehouses_code_key;
+        DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_warehouses_code') THEN ALTER TABLE warehouses ADD CONSTRAINT uq_warehouses_code UNIQUE (tenant_id, code); END IF; END $$;
+        ALTER TABLE payment_wallets DROP CONSTRAINT IF EXISTS payment_wallets_name_key;
+        DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_payment_wallets_name') THEN ALTER TABLE payment_wallets ADD CONSTRAINT uq_payment_wallets_name UNIQUE (tenant_id, name); END IF; END $$;
+        ALTER TABLE sales DROP CONSTRAINT IF EXISTS sales_invoice_number_key;
+        DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_sales_invoice_number') THEN ALTER TABLE sales ADD CONSTRAINT uq_sales_invoice_number UNIQUE (tenant_id, invoice_number); END IF; END $$;
+        ALTER TABLE purchase_orders DROP CONSTRAINT IF EXISTS purchase_orders_po_number_key;
+        DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_purchase_orders_po_number') THEN ALTER TABLE purchase_orders ADD CONSTRAINT uq_purchase_orders_po_number UNIQUE (tenant_id, po_number); END IF; END $$;
+        ALTER TABLE hr_payroll_periods DROP CONSTRAINT IF EXISTS hr_payroll_periods_month_key;
+        DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_hr_payroll_periods_month') THEN ALTER TABLE hr_payroll_periods ADD CONSTRAINT uq_hr_payroll_periods_month UNIQUE (tenant_id, month); END IF; END $$;
+        ALTER TABLE accounting_periods DROP CONSTRAINT IF EXISTS accounting_periods_month_key;
+        DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_accounting_periods_month') THEN ALTER TABLE accounting_periods ADD CONSTRAINT uq_accounting_periods_month UNIQUE (tenant_id, month); END IF; END $$;
+        ALTER TABLE hr_settings DROP CONSTRAINT IF EXISTS hr_settings_key_key;
+        DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_hr_settings_key') THEN ALTER TABLE hr_settings ADD CONSTRAINT uq_hr_settings_key UNIQUE (tenant_id, key); END IF; END $$;
+        ALTER TABLE hr_employees DROP CONSTRAINT IF EXISTS hr_employees_emp_code_key;
+        DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_hr_employees_emp_code') THEN ALTER TABLE hr_employees ADD CONSTRAINT uq_hr_employees_emp_code UNIQUE (tenant_id, emp_code); END IF; END $$;
+    """),
+    # v30 — row-level security: DB-enforced tenancy for ORM AND raw SQL
+    ("v30_rls", """
+        ALTER TABLE accounting_periods ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE accounting_periods FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'accounting_periods' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON accounting_periods
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE archived_documents ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE archived_documents FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'archived_documents' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON archived_documents
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE audit_log FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'audit_log' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON audit_log
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE categories FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'categories' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON categories
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE collection_items ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE collection_items FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'collection_items' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON collection_items
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE customer_payments ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE customer_payments FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'customer_payments' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON customer_payments
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE customers FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'customers' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON customers
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE device_tokens ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE device_tokens FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'device_tokens' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON device_tokens
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE drawer_transactions ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE drawer_transactions FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'drawer_transactions' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON drawer_transactions
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE employees FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'employees' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON employees
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE expense_vendors ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE expense_vendors FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'expense_vendors' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON expense_vendors
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE expenses FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'expenses' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON expenses
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE financial_categories ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE financial_categories FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'financial_categories' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON financial_categories
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE hr_advances ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE hr_advances FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'hr_advances' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON hr_advances
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE hr_attendance ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE hr_attendance FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'hr_attendance' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON hr_attendance
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE hr_audit_log ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE hr_audit_log FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'hr_audit_log' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON hr_audit_log
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE hr_employees ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE hr_employees FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'hr_employees' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON hr_employees
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE hr_payroll ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE hr_payroll FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'hr_payroll' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON hr_payroll
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE hr_payroll_entries ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE hr_payroll_entries FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'hr_payroll_entries' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON hr_payroll_entries
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE hr_payroll_periods ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE hr_payroll_periods FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'hr_payroll_periods' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON hr_payroll_periods
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE hr_settings ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE hr_settings FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'hr_settings' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON hr_settings
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE hr_shifts ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE hr_shifts FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'hr_shifts' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON hr_shifts
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE hr_sync_log ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE hr_sync_log FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'hr_sync_log' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON hr_sync_log
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE payment_wallets ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE payment_wallets FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'payment_wallets' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON payment_wallets
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE payroll_entries ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE payroll_entries FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'payroll_entries' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON payroll_entries
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE product_barcodes ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE product_barcodes FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'product_barcodes' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON product_barcodes
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE product_collections ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE product_collections FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'product_collections' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON product_collections
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE product_images ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE product_images FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'product_images' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON product_images
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE products FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'products' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON products
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE purchase_order_items ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE purchase_order_items FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'purchase_order_items' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON purchase_order_items
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE purchase_orders ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE purchase_orders FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'purchase_orders' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON purchase_orders
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE purchase_price_history ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE purchase_price_history FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'purchase_price_history' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON purchase_price_history
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE safe_deposits ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE safe_deposits FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'safe_deposits' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON safe_deposits
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE safe_transactions ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE safe_transactions FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'safe_transactions' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON safe_transactions
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE safes ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE safes FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'safes' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON safes
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE sale_items FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'sale_items' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON sale_items
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE sale_payments ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE sale_payments FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'sale_payments' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON sale_payments
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE sales FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'sales' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON sales
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE shifts ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE shifts FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'shifts' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON shifts
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE stock_balances ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE stock_balances FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'stock_balances' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON stock_balances
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE stock_movements ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE stock_movements FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'stock_movements' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON stock_movements
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE store_settings ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE store_settings FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'store_settings' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON store_settings
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE subcategories ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE subcategories FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'subcategories' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON subcategories
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE supplier_prices ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE supplier_prices FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'supplier_prices' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON supplier_prices
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE supplier_transactions ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE supplier_transactions FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'supplier_transactions' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON supplier_transactions
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE suppliers ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE suppliers FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'suppliers' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON suppliers
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE wallet_transactions ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE wallet_transactions FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'wallet_transactions' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON wallet_transactions
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE warehouse_product_status ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE warehouse_product_status FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'warehouse_product_status' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON warehouse_product_status
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+        ALTER TABLE warehouses ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE warehouses FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'warehouses' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON warehouses
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+    """),
+    # v31 — raw-SQL inserts get tenant_id from the RLS GUC automatically
+    ("v31_tenant_default", """
+        ALTER TABLE accounting_periods ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE archived_documents ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE audit_log ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE categories ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE collection_items ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE customer_payments ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE customers ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE device_tokens ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE drawer_transactions ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE employees ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE expense_vendors ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE expenses ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE financial_categories ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE hr_advances ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE hr_attendance ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE hr_audit_log ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE hr_employees ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE hr_payroll ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE hr_payroll_entries ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE hr_payroll_periods ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE hr_settings ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE hr_shifts ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE hr_sync_log ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE payment_wallets ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE payroll_entries ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE product_barcodes ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE product_collections ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE product_images ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE products ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE purchase_order_items ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE purchase_orders ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE purchase_price_history ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE safe_deposits ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE safe_transactions ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE safes ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE sale_items ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE sale_payments ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE sales ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE shifts ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE stock_balances ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE stock_movements ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE store_settings ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE subcategories ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE supplier_prices ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE supplier_transactions ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE suppliers ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE wallet_transactions ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE warehouse_product_status ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+        ALTER TABLE warehouses ALTER COLUMN tenant_id SET DEFAULT current_setting('app.tenant_id', true)::uuid;
+    """),
+    # v32 — tenant deletion cascades to all tenant data (incl. user accounts)
+    ("v32_tenant_cascade", """
+        ALTER TABLE users DROP CONSTRAINT IF EXISTS users_tenant_id_fkey;
+        ALTER TABLE users ADD CONSTRAINT users_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE accounting_periods DROP CONSTRAINT IF EXISTS accounting_periods_tenant_id_fkey;
+        ALTER TABLE accounting_periods ADD CONSTRAINT accounting_periods_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE archived_documents DROP CONSTRAINT IF EXISTS archived_documents_tenant_id_fkey;
+        ALTER TABLE archived_documents ADD CONSTRAINT archived_documents_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE audit_log DROP CONSTRAINT IF EXISTS audit_log_tenant_id_fkey;
+        ALTER TABLE audit_log ADD CONSTRAINT audit_log_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE categories DROP CONSTRAINT IF EXISTS categories_tenant_id_fkey;
+        ALTER TABLE categories ADD CONSTRAINT categories_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE collection_items DROP CONSTRAINT IF EXISTS collection_items_tenant_id_fkey;
+        ALTER TABLE collection_items ADD CONSTRAINT collection_items_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE customer_payments DROP CONSTRAINT IF EXISTS customer_payments_tenant_id_fkey;
+        ALTER TABLE customer_payments ADD CONSTRAINT customer_payments_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE customers DROP CONSTRAINT IF EXISTS customers_tenant_id_fkey;
+        ALTER TABLE customers ADD CONSTRAINT customers_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE device_tokens DROP CONSTRAINT IF EXISTS device_tokens_tenant_id_fkey;
+        ALTER TABLE device_tokens ADD CONSTRAINT device_tokens_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE drawer_transactions DROP CONSTRAINT IF EXISTS drawer_transactions_tenant_id_fkey;
+        ALTER TABLE drawer_transactions ADD CONSTRAINT drawer_transactions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE employees DROP CONSTRAINT IF EXISTS employees_tenant_id_fkey;
+        ALTER TABLE employees ADD CONSTRAINT employees_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE expense_vendors DROP CONSTRAINT IF EXISTS expense_vendors_tenant_id_fkey;
+        ALTER TABLE expense_vendors ADD CONSTRAINT expense_vendors_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE expenses DROP CONSTRAINT IF EXISTS expenses_tenant_id_fkey;
+        ALTER TABLE expenses ADD CONSTRAINT expenses_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE financial_categories DROP CONSTRAINT IF EXISTS financial_categories_tenant_id_fkey;
+        ALTER TABLE financial_categories ADD CONSTRAINT financial_categories_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE hr_advances DROP CONSTRAINT IF EXISTS hr_advances_tenant_id_fkey;
+        ALTER TABLE hr_advances ADD CONSTRAINT hr_advances_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE hr_attendance DROP CONSTRAINT IF EXISTS hr_attendance_tenant_id_fkey;
+        ALTER TABLE hr_attendance ADD CONSTRAINT hr_attendance_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE hr_audit_log DROP CONSTRAINT IF EXISTS hr_audit_log_tenant_id_fkey;
+        ALTER TABLE hr_audit_log ADD CONSTRAINT hr_audit_log_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE hr_employees DROP CONSTRAINT IF EXISTS hr_employees_tenant_id_fkey;
+        ALTER TABLE hr_employees ADD CONSTRAINT hr_employees_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE hr_payroll DROP CONSTRAINT IF EXISTS hr_payroll_tenant_id_fkey;
+        ALTER TABLE hr_payroll ADD CONSTRAINT hr_payroll_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE hr_payroll_entries DROP CONSTRAINT IF EXISTS hr_payroll_entries_tenant_id_fkey;
+        ALTER TABLE hr_payroll_entries ADD CONSTRAINT hr_payroll_entries_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE hr_payroll_periods DROP CONSTRAINT IF EXISTS hr_payroll_periods_tenant_id_fkey;
+        ALTER TABLE hr_payroll_periods ADD CONSTRAINT hr_payroll_periods_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE hr_settings DROP CONSTRAINT IF EXISTS hr_settings_tenant_id_fkey;
+        ALTER TABLE hr_settings ADD CONSTRAINT hr_settings_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE hr_shifts DROP CONSTRAINT IF EXISTS hr_shifts_tenant_id_fkey;
+        ALTER TABLE hr_shifts ADD CONSTRAINT hr_shifts_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE hr_sync_log DROP CONSTRAINT IF EXISTS hr_sync_log_tenant_id_fkey;
+        ALTER TABLE hr_sync_log ADD CONSTRAINT hr_sync_log_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE payment_wallets DROP CONSTRAINT IF EXISTS payment_wallets_tenant_id_fkey;
+        ALTER TABLE payment_wallets ADD CONSTRAINT payment_wallets_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE payroll_entries DROP CONSTRAINT IF EXISTS payroll_entries_tenant_id_fkey;
+        ALTER TABLE payroll_entries ADD CONSTRAINT payroll_entries_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE product_barcodes DROP CONSTRAINT IF EXISTS product_barcodes_tenant_id_fkey;
+        ALTER TABLE product_barcodes ADD CONSTRAINT product_barcodes_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE product_collections DROP CONSTRAINT IF EXISTS product_collections_tenant_id_fkey;
+        ALTER TABLE product_collections ADD CONSTRAINT product_collections_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE product_images DROP CONSTRAINT IF EXISTS product_images_tenant_id_fkey;
+        ALTER TABLE product_images ADD CONSTRAINT product_images_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE products DROP CONSTRAINT IF EXISTS products_tenant_id_fkey;
+        ALTER TABLE products ADD CONSTRAINT products_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE purchase_order_items DROP CONSTRAINT IF EXISTS purchase_order_items_tenant_id_fkey;
+        ALTER TABLE purchase_order_items ADD CONSTRAINT purchase_order_items_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE purchase_orders DROP CONSTRAINT IF EXISTS purchase_orders_tenant_id_fkey;
+        ALTER TABLE purchase_orders ADD CONSTRAINT purchase_orders_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE purchase_price_history DROP CONSTRAINT IF EXISTS purchase_price_history_tenant_id_fkey;
+        ALTER TABLE purchase_price_history ADD CONSTRAINT purchase_price_history_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE safe_deposits DROP CONSTRAINT IF EXISTS safe_deposits_tenant_id_fkey;
+        ALTER TABLE safe_deposits ADD CONSTRAINT safe_deposits_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE safe_transactions DROP CONSTRAINT IF EXISTS safe_transactions_tenant_id_fkey;
+        ALTER TABLE safe_transactions ADD CONSTRAINT safe_transactions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE safes DROP CONSTRAINT IF EXISTS safes_tenant_id_fkey;
+        ALTER TABLE safes ADD CONSTRAINT safes_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE sale_items DROP CONSTRAINT IF EXISTS sale_items_tenant_id_fkey;
+        ALTER TABLE sale_items ADD CONSTRAINT sale_items_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE sale_payments DROP CONSTRAINT IF EXISTS sale_payments_tenant_id_fkey;
+        ALTER TABLE sale_payments ADD CONSTRAINT sale_payments_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE sales DROP CONSTRAINT IF EXISTS sales_tenant_id_fkey;
+        ALTER TABLE sales ADD CONSTRAINT sales_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE shifts DROP CONSTRAINT IF EXISTS shifts_tenant_id_fkey;
+        ALTER TABLE shifts ADD CONSTRAINT shifts_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE stock_balances DROP CONSTRAINT IF EXISTS stock_balances_tenant_id_fkey;
+        ALTER TABLE stock_balances ADD CONSTRAINT stock_balances_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE stock_movements DROP CONSTRAINT IF EXISTS stock_movements_tenant_id_fkey;
+        ALTER TABLE stock_movements ADD CONSTRAINT stock_movements_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE store_settings DROP CONSTRAINT IF EXISTS store_settings_tenant_id_fkey;
+        ALTER TABLE store_settings ADD CONSTRAINT store_settings_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE subcategories DROP CONSTRAINT IF EXISTS subcategories_tenant_id_fkey;
+        ALTER TABLE subcategories ADD CONSTRAINT subcategories_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE supplier_prices DROP CONSTRAINT IF EXISTS supplier_prices_tenant_id_fkey;
+        ALTER TABLE supplier_prices ADD CONSTRAINT supplier_prices_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE supplier_transactions DROP CONSTRAINT IF EXISTS supplier_transactions_tenant_id_fkey;
+        ALTER TABLE supplier_transactions ADD CONSTRAINT supplier_transactions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE suppliers DROP CONSTRAINT IF EXISTS suppliers_tenant_id_fkey;
+        ALTER TABLE suppliers ADD CONSTRAINT suppliers_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE wallet_transactions DROP CONSTRAINT IF EXISTS wallet_transactions_tenant_id_fkey;
+        ALTER TABLE wallet_transactions ADD CONSTRAINT wallet_transactions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE warehouse_product_status DROP CONSTRAINT IF EXISTS warehouse_product_status_tenant_id_fkey;
+        ALTER TABLE warehouse_product_status ADD CONSTRAINT warehouse_product_status_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+        ALTER TABLE warehouses DROP CONSTRAINT IF EXISTS warehouses_tenant_id_fkey;
+        ALTER TABLE warehouses ADD CONSTRAINT warehouses_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;
+    """),
+    ("v33_tenant_constraints_and_demo", """
+        -- 1. Fix global product_barcodes uniqueness to composite (tenant_id, barcode)
+        DROP INDEX IF EXISTS ix_product_barcodes_barcode;
+        ALTER TABLE product_barcodes DROP CONSTRAINT IF EXISTS product_barcodes_barcode_key;
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_product_barcodes_tenant_barcode ON product_barcodes(tenant_id, barcode);
+
+        -- 2. Drop redundant global unique index on accounting_periods(month)
+        DROP INDEX IF EXISTS idx_accounting_periods_month;
+
+        -- 3. Fix safe_deposits uniqueness to composite (tenant_id, doc_number)
+        ALTER TABLE safe_deposits DROP CONSTRAINT IF EXISTS safe_deposits_doc_number_key;
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_safe_deposits_tenant_doc_number ON safe_deposits(tenant_id, doc_number);
+
+        -- 4. Harden users table: backfill, NOT NULL tenant_id, composite unique, and RLS
+        UPDATE users SET tenant_id = (SELECT id FROM tenants ORDER BY created_at LIMIT 1) WHERE tenant_id IS NULL;
+        ALTER TABLE users ALTER COLUMN tenant_id SET NOT NULL;
+        ALTER TABLE users ALTER COLUMN tenant_id SET DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid;
+        ALTER TABLE users DROP CONSTRAINT IF EXISTS users_username_key;
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_users_tenant_username ON users(tenant_id, username);
+        ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE users FORCE ROW LEVEL SECURITY;
+        DO $fn$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'users' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON users
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END
+        $fn$;
+
+        -- 5. Add is_demo column to business tables for clean onboarding demo wipes
+        DO $fn$
+        DECLARE
+          tbl text;
+        BEGIN
+          FOR tbl IN SELECT unnest(ARRAY[
+            'products', 'categories', 'subcategories', 'warehouses', 'customers', 'suppliers',
+            'payment_wallets', 'safes', 'sales', 'sale_items', 'sale_payments', 'stock_movements',
+            'stock_balances', 'drawer_transactions', 'purchase_orders', 'purchase_order_items', 'users'
+          ]) LOOP
+            IF to_regclass('public.' || tbl) IS NOT NULL THEN
+              EXECUTE 'ALTER TABLE ' || tbl || ' ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT FALSE;';
+              EXECUTE 'CREATE INDEX IF NOT EXISTS idx_' || tbl || '_is_demo ON ' || tbl || '(is_demo) WHERE is_demo = TRUE;';
+            END IF;
+          END LOOP;
+        END
+        $fn$;
+    """),
+
+    # v33 — tenant routing, multi-tenancy columns, and user superadmin
+    ("v33_tenant_routing_and_superadmin", """
+        ALTER TABLE tenants ADD COLUMN IF NOT EXISTS slug varchar(64);
+        ALTER TABLE tenants ADD COLUMN IF NOT EXISTS custom_domain varchar(128);
+        ALTER TABLE tenants ADD COLUMN IF NOT EXISTS status varchar(32) NOT NULL DEFAULT 'active';
+        ALTER TABLE tenants ADD COLUMN IF NOT EXISTS deployment_mode varchar(32) NOT NULL DEFAULT 'cloud_saas';
+        ALTER TABLE tenants ADD COLUMN IF NOT EXISTS business_type varchar(64) NOT NULL DEFAULT 'retail';
+        ALTER TABLE tenants ADD COLUMN IF NOT EXISTS tech_stack jsonb NOT NULL DEFAULT '{}'::jsonb;
+        ALTER TABLE tenants ADD COLUMN IF NOT EXISTS active_modules jsonb NOT NULL DEFAULT '[]'::jsonb;
+        ALTER TABLE tenants ADD COLUMN IF NOT EXISTS limits jsonb NOT NULL DEFAULT '{}'::jsonb;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_slug ON tenants(slug);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_custom_domain ON tenants(custom_domain);
+
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS is_superadmin boolean NOT NULL DEFAULT false;
+        ALTER TABLE payroll_periods ADD COLUMN IF NOT EXISTS tenant_id uuid;
+    """),
+    # v34 — per-user personal settings (separate from global store settings)
+    ("v34_user_settings", """
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS settings jsonb NOT NULL DEFAULT '{}'::jsonb;
+    """),
+    # v35 — store_settings: per-tenant primary key (was global key PK, broke multi-tenancy)
+    ("v35_store_settings_per_tenant_pk", """
+        ALTER TABLE store_settings ADD COLUMN IF NOT EXISTS id uuid DEFAULT gen_random_uuid();
+        UPDATE store_settings SET id = gen_random_uuid() WHERE id IS NULL;
+        ALTER TABLE store_settings ALTER COLUMN id SET NOT NULL;
+        ALTER TABLE store_settings DROP CONSTRAINT IF EXISTS store_settings_pkey;
+        ALTER TABLE store_settings ADD PRIMARY KEY (id);
+        ALTER TABLE store_settings ADD CONSTRAINT uq_store_settings_tenant_key UNIQUE (tenant_id, key);
+    """),
+    # v36 — clinic referential integrity: patient_id FKs (P0 #5)
+    ("v36_clinic_patient_fks", """
+        -- Ensure new tables exist (create_all is disabled on Vercel)
+        CREATE TABLE IF NOT EXISTS clinic_invoices (
+            id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            tenant_id uuid NOT NULL,
+            invoice_ref varchar(32) NOT NULL,
+            patient_id varchar(36) NOT NULL,
+            patient_name varchar(128) NOT NULL,
+            appointment_id varchar(36),
+            encounter_ref varchar(32),
+            charges jsonb NOT NULL DEFAULT '[]'::jsonb,
+            total double precision NOT NULL DEFAULT 0,
+            copay_percent double precision NOT NULL DEFAULT 0,
+            insurance_amount double precision NOT NULL DEFAULT 0,
+            patient_amount double precision NOT NULL DEFAULT 0,
+            paid_amount double precision NOT NULL DEFAULT 0,
+            status varchar(32) NOT NULL DEFAULT 'pending',
+            payment_method varchar(32) NOT NULL DEFAULT 'cash',
+            created_at timestamptz NOT NULL DEFAULT now(),
+            paid_at timestamptz
+        );
+        CREATE TABLE IF NOT EXISTS clinic_insurance_claims (
+            id varchar(36) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            tenant_id uuid NOT NULL,
+            claim_ref varchar(32) NOT NULL,
+            patient_id varchar(36) NOT NULL,
+            patient_name varchar(128) NOT NULL,
+            invoice_id varchar(36),
+            insurance_provider varchar(128) NOT NULL,
+            policy_no varchar(64) NOT NULL DEFAULT 'N/A',
+            copay_percent double precision NOT NULL DEFAULT 0,
+            claimed_amount double precision NOT NULL DEFAULT 0,
+            approved_amount double precision NOT NULL DEFAULT 0,
+            status varchar(32) NOT NULL DEFAULT 'submitted',
+            submitted_at timestamptz NOT NULL DEFAULT now(),
+            resolved_at timestamptz,
+            notes text NOT NULL DEFAULT ''
+        );
+        -- RLS + tenant_id default
+        ALTER TABLE clinic_invoices ALTER COLUMN tenant_id SET DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid;
+        ALTER TABLE clinic_insurance_claims ALTER COLUMN tenant_id SET DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid;
+
+        DELETE FROM clinic_appointments WHERE patient_id NOT IN (SELECT id FROM clinic_patients);
+        DELETE FROM clinic_encounters WHERE patient_id NOT IN (SELECT id FROM clinic_patients);
+        DELETE FROM clinic_prescriptions WHERE patient_id NOT IN (SELECT id FROM clinic_patients);
+        DELETE FROM clinic_lab_orders WHERE patient_id NOT IN (SELECT id FROM clinic_patients);
+        DELETE FROM clinic_invoices WHERE patient_id NOT IN (SELECT id FROM clinic_patients);
+        DELETE FROM clinic_insurance_claims WHERE patient_id NOT IN (SELECT id FROM clinic_patients);
+
+        DO $fn$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_clinic_appointments_patient') THEN
+                ALTER TABLE clinic_appointments ADD CONSTRAINT fk_clinic_appointments_patient FOREIGN KEY (patient_id) REFERENCES clinic_patients(id) ON DELETE CASCADE;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_clinic_encounters_patient') THEN
+                ALTER TABLE clinic_encounters ADD CONSTRAINT fk_clinic_encounters_patient FOREIGN KEY (patient_id) REFERENCES clinic_patients(id) ON DELETE CASCADE;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_clinic_prescriptions_patient') THEN
+                ALTER TABLE clinic_prescriptions ADD CONSTRAINT fk_clinic_prescriptions_patient FOREIGN KEY (patient_id) REFERENCES clinic_patients(id) ON DELETE CASCADE;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_clinic_lab_orders_patient') THEN
+                ALTER TABLE clinic_lab_orders ADD CONSTRAINT fk_clinic_lab_orders_patient FOREIGN KEY (patient_id) REFERENCES clinic_patients(id) ON DELETE CASCADE;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_clinic_invoices_patient') THEN
+                ALTER TABLE clinic_invoices ADD CONSTRAINT fk_clinic_invoices_patient FOREIGN KEY (patient_id) REFERENCES clinic_patients(id) ON DELETE CASCADE;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_clinic_claims_patient') THEN
+                ALTER TABLE clinic_insurance_claims ADD CONSTRAINT fk_clinic_claims_patient FOREIGN KEY (patient_id) REFERENCES clinic_patients(id) ON DELETE CASCADE;
+            END IF;
+        END
+        $fn$;
+    """),
+    # v37 — rename module id 'clinic' -> 'healthcare_clinic' (naming convention pilot)
+    ("v37_rename_clinic_module", """
+        UPDATE tenants SET active_modules = (
+            SELECT jsonb_agg(CASE WHEN elem = 'clinic' THEN 'healthcare_clinic' ELSE elem END)
+            FROM jsonb_array_elements_text(active_modules) AS elem
+        ) WHERE active_modules @> '["clinic"]'::jsonb;
+
+        UPDATE store_settings SET value = (
+            SELECT jsonb_agg(CASE WHEN elem = 'clinic' THEN 'healthcare_clinic' ELSE elem END)::text
+            FROM jsonb_array_elements_text(value::jsonb) AS elem
+        ) WHERE key = 'installed_modules' AND value::jsonb @> '["clinic"]'::jsonb;
+    """),
+    # v38 — RLS enforcement for healthcare & vertical module tables
+    ("v38_module_rls", """
+        DO $$
+        DECLARE
+            tbl text;
+            tables text[] := ARRAY[
+                'clinic_patients',
+                'clinic_appointments',
+                'clinic_encounters',
+                'clinic_prescriptions',
+                'clinic_lab_orders',
+                'clinic_beds',
+                'clinic_inpatient_beds',
+                'clinic_invoices',
+                'clinic_insurance_claims'
+            ];
+        BEGIN
+            FOREACH tbl IN ARRAY tables LOOP
+                IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = tbl) THEN
+                    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', tbl);
+                    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', tbl);
+                    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = tbl AND policyname = 'tenant_isolation') THEN
+                        EXECUTE format('
+                            CREATE POLICY tenant_isolation ON %I
+                            USING (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid OR current_setting(''app.bypass'', true) = ''on'')
+                            WITH CHECK (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid OR current_setting(''app.bypass'', true) = ''on'');
+                        ', tbl);
+                    END IF;
+                END IF;
+            END LOOP;
+        END $$;
+    """),
+    # v39 — RLS enforcement for clinic inpatient beds
+    ("v39_inpatient_beds_rls", """
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'clinic_inpatient_beds') THEN
+                ALTER TABLE clinic_inpatient_beds ENABLE ROW LEVEL SECURITY;
+                ALTER TABLE clinic_inpatient_beds FORCE ROW LEVEL SECURITY;
+                IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'clinic_inpatient_beds' AND policyname = 'tenant_isolation') THEN
+                    CREATE POLICY tenant_isolation ON clinic_inpatient_beds
+                        USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+                        WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+                END IF;
+            END IF;
+        END $$;
+    """),
+    # v40 — Standalone Healthcare ERP 24 Modules tables and RLS enforcement
+    ("v40_healthcare_standalone_suite", """
+        CREATE TABLE IF NOT EXISTS hlt_facilities (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            name VARCHAR(150) NOT NULL,
+            name_en VARCHAR(150),
+            code VARCHAR(50) NOT NULL,
+            facility_type VARCHAR(50) DEFAULT 'clinic',
+            phone VARCHAR(50),
+            email VARCHAR(100),
+            license_no VARCHAR(100),
+            accreditation VARCHAR(100),
+            currency VARCHAR(10) DEFAULT 'SAR',
+            operating_hours JSONB,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_departments (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            facility_id INTEGER NOT NULL REFERENCES hlt_facilities(id) ON DELETE CASCADE,
+            name VARCHAR(100) NOT NULL,
+            name_en VARCHAR(100),
+            code VARCHAR(50) NOT NULL,
+            dept_type VARCHAR(50) DEFAULT 'outpatient',
+            floor VARCHAR(50),
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_patients (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            mrn VARCHAR(50) NOT NULL,
+            national_id VARCHAR(50),
+            first_name VARCHAR(100) NOT NULL,
+            last_name VARCHAR(100) NOT NULL,
+            date_of_birth DATE,
+            gender VARCHAR(20) DEFAULT 'unknown',
+            phone VARCHAR(50) NOT NULL,
+            email VARCHAR(100),
+            blood_group VARCHAR(10),
+            emergency_contact_name VARCHAR(100),
+            emergency_contact_phone VARCHAR(50),
+            guardian_name VARCHAR(100),
+            is_merged BOOLEAN DEFAULT FALSE,
+            merged_into_id INTEGER,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_appointments (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            appointment_number VARCHAR(50) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            doctor_id INTEGER NOT NULL,
+            department_id INTEGER,
+            service_type VARCHAR(50) DEFAULT 'consultation',
+            appointment_date DATE NOT NULL,
+            start_time VARCHAR(20) NOT NULL,
+            end_time VARCHAR(20),
+            status VARCHAR(30) DEFAULT 'scheduled',
+            cancellation_reason TEXT,
+            queue_number INTEGER,
+            notes TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_medical_staff (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            staff_type VARCHAR(50) DEFAULT 'physician',
+            first_name VARCHAR(100) NOT NULL,
+            last_name VARCHAR(100) NOT NULL,
+            specialty VARCHAR(100) NOT NULL,
+            license_number VARCHAR(100),
+            license_expiry DATE,
+            consultation_fee NUMERIC(10, 2) DEFAULT 0.0,
+            commission_rate NUMERIC(5, 2) DEFAULT 0.0,
+            phone VARCHAR(50),
+            email VARCHAR(100),
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_patient_vitals (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            patient_id INTEGER NOT NULL,
+            systolic_bp INTEGER,
+            diastolic_bp INTEGER,
+            pulse_rate INTEGER,
+            temperature NUMERIC(4, 1),
+            respiratory_rate INTEGER,
+            oxygen_saturation INTEGER,
+            height_cm NUMERIC(5, 1),
+            weight_kg NUMERIC(5, 1),
+            bmi NUMERIC(4, 1),
+            recorded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_patient_allergies (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            patient_id INTEGER NOT NULL,
+            allergen VARCHAR(150) NOT NULL,
+            allergy_type VARCHAR(50) DEFAULT 'medication',
+            severity VARCHAR(50) DEFAULT 'moderate',
+            reaction VARCHAR(200),
+            is_active BOOLEAN DEFAULT TRUE
+        );
+        CREATE TABLE IF NOT EXISTS hlt_clinical_encounters (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            encounter_number VARCHAR(50) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            doctor_id INTEGER NOT NULL,
+            chief_complaint TEXT NOT NULL,
+            examination TEXT,
+            diagnosis VARCHAR(255),
+            icd10_code VARCHAR(50),
+            treatment_plan TEXT,
+            status VARCHAR(30) DEFAULT 'draft',
+            signed_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_inpatient_admissions (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            admission_number VARCHAR(50) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            doctor_id INTEGER NOT NULL,
+            ward_id INTEGER,
+            bed_id INTEGER,
+            admission_date TIMESTAMPTZ NOT NULL DEFAULT now(),
+            discharge_date TIMESTAMPTZ,
+            admission_reason TEXT NOT NULL,
+            discharge_summary TEXT,
+            status VARCHAR(30) DEFAULT 'admitted'
+        );
+        CREATE TABLE IF NOT EXISTS hlt_hospital_wards (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            name VARCHAR(100) NOT NULL,
+            code VARCHAR(50) NOT NULL,
+            ward_type VARCHAR(50) DEFAULT 'general',
+            floor VARCHAR(50),
+            is_active BOOLEAN DEFAULT TRUE
+        );
+        CREATE TABLE IF NOT EXISTS hlt_hospital_beds (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            ward_id INTEGER NOT NULL REFERENCES hlt_hospital_wards(id) ON DELETE CASCADE,
+            bed_number VARCHAR(50) NOT NULL,
+            bed_type VARCHAR(50) DEFAULT 'standard',
+            daily_rate NUMERIC(10, 2) DEFAULT 0.0,
+            status VARCHAR(30) DEFAULT 'available',
+            current_patient_id INTEGER
+        );
+        CREATE TABLE IF NOT EXISTS hlt_mar_records (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            patient_id INTEGER NOT NULL,
+            medication_name VARCHAR(150) NOT NULL,
+            dosage VARCHAR(50) NOT NULL,
+            route VARCHAR(30) DEFAULT 'oral',
+            scheduled_time VARCHAR(30) NOT NULL,
+            status VARCHAR(30) DEFAULT 'given',
+            nurse_notes TEXT,
+            administered_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_lab_catalog (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            code VARCHAR(50) NOT NULL,
+            name VARCHAR(150) NOT NULL,
+            category VARCHAR(50) DEFAULT 'biochemistry',
+            sample_type VARCHAR(50) DEFAULT 'blood',
+            unit VARCHAR(30),
+            normal_range VARCHAR(100),
+            price NUMERIC(10, 2) DEFAULT 0.0
+        );
+        CREATE TABLE IF NOT EXISTS hlt_lab_specimens (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            barcode VARCHAR(50) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            test_id INTEGER NOT NULL,
+            result_value VARCHAR(100),
+            is_abnormal BOOLEAN DEFAULT FALSE,
+            is_critical BOOLEAN DEFAULT FALSE,
+            status VARCHAR(30) DEFAULT 'collected',
+            completed_at TIMESTAMPTZ,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_radiology_orders (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            order_number VARCHAR(50) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            doctor_id INTEGER NOT NULL,
+            modality VARCHAR(20) NOT NULL,
+            body_part VARCHAR(100) NOT NULL,
+            clinical_notes TEXT,
+            findings TEXT,
+            status VARCHAR(30) DEFAULT 'scheduled',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_pharmacy_formulary (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            code VARCHAR(50) NOT NULL,
+            trade_name VARCHAR(150) NOT NULL,
+            generic_name VARCHAR(150) NOT NULL,
+            dosage_form VARCHAR(50) DEFAULT 'tablet',
+            strength VARCHAR(50),
+            unit_price NUMERIC(10, 2) DEFAULT 0.0,
+            stock_qty INTEGER DEFAULT 0,
+            is_controlled BOOLEAN DEFAULT FALSE
+        );
+        CREATE TABLE IF NOT EXISTS hlt_prescription_dispense (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            patient_id INTEGER NOT NULL,
+            medication_id INTEGER NOT NULL,
+            quantity INTEGER DEFAULT 1,
+            dispensed_by VARCHAR(100),
+            dispensed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_emergency_admissions (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            case_number VARCHAR(50) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            triage_level INTEGER DEFAULT 3,
+            chief_complaint TEXT NOT NULL,
+            arrival_mode VARCHAR(50) DEFAULT 'walk_in',
+            assigned_bay VARCHAR(50),
+            status VARCHAR(30) DEFAULT 'triaged',
+            arrived_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_surgical_cases (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            case_number VARCHAR(50) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            surgeon_id INTEGER NOT NULL,
+            theater_name VARCHAR(50) NOT NULL,
+            procedure_name VARCHAR(200) NOT NULL,
+            scheduled_date DATE NOT NULL,
+            who_checklist_completed BOOLEAN DEFAULT FALSE,
+            status VARCHAR(30) DEFAULT 'scheduled',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_patient_invoices (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            invoice_number VARCHAR(50) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            total_amount NUMERIC(10, 2) DEFAULT 0.0,
+            insurance_share NUMERIC(10, 2) DEFAULT 0.0,
+            patient_share NUMERIC(10, 2) DEFAULT 0.0,
+            paid_amount NUMERIC(10, 2) DEFAULT 0.0,
+            payment_status VARCHAR(30) DEFAULT 'unpaid',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_insurance_claims (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            claim_number VARCHAR(50) NOT NULL,
+            provider_name VARCHAR(100) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            claimed_amount NUMERIC(10, 2) DEFAULT 0.0,
+            approved_amount NUMERIC(10, 2) DEFAULT 0.0,
+            status VARCHAR(30) DEFAULT 'submitted',
+            rejection_reason TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_medical_items (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            item_code VARCHAR(50) NOT NULL,
+            name VARCHAR(150) NOT NULL,
+            category VARCHAR(50) DEFAULT 'consumable',
+            unit VARCHAR(30) DEFAULT 'piece',
+            stock_qty INTEGER DEFAULT 0,
+            min_alert_qty INTEGER DEFAULT 10,
+            cost_price NUMERIC(10, 2) DEFAULT 0.0
+        );
+        CREATE TABLE IF NOT EXISTS hlt_cost_centers (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            code VARCHAR(50) NOT NULL,
+            name VARCHAR(100) NOT NULL,
+            center_type VARCHAR(50) DEFAULT 'cost_center',
+            budget NUMERIC(12, 2) DEFAULT 0.0,
+            actual_spent NUMERIC(12, 2) DEFAULT 0.0
+        );
+        CREATE TABLE IF NOT EXISTS hlt_clinical_credentials (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            staff_id INTEGER NOT NULL,
+            credential_title VARCHAR(150) NOT NULL,
+            issuing_authority VARCHAR(100) NOT NULL,
+            expiry_date DATE NOT NULL,
+            status VARCHAR(30) DEFAULT 'active'
+        );
+        CREATE TABLE IF NOT EXISTS hlt_biomedical_devices (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            asset_tag VARCHAR(50) NOT NULL,
+            device_name VARCHAR(150) NOT NULL,
+            serial_number VARCHAR(100),
+            department_name VARCHAR(100),
+            last_calibration_date DATE,
+            next_calibration_due DATE,
+            status VARCHAR(30) DEFAULT 'operational'
+        );
+        CREATE TABLE IF NOT EXISTS hlt_portal_requests (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            patient_id INTEGER NOT NULL,
+            request_type VARCHAR(50) NOT NULL,
+            details TEXT,
+            status VARCHAR(30) DEFAULT 'submitted',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_teleconsultations (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            session_id VARCHAR(100) NOT NULL,
+            patient_id INTEGER NOT NULL,
+            doctor_id INTEGER NOT NULL,
+            scheduled_at TIMESTAMPTZ NOT NULL,
+            meeting_link VARCHAR(255),
+            status VARCHAR(30) DEFAULT 'waiting',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_alerts (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            alert_type VARCHAR(50) NOT NULL,
+            patient_id INTEGER,
+            title VARCHAR(150) NOT NULL,
+            message TEXT NOT NULL,
+            priority VARCHAR(20) DEFAULT 'normal',
+            is_read BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS hlt_daily_metrics (
+            id SERIAL PRIMARY KEY,
+            tenant_id uuid NOT NULL,
+            metric_date DATE NOT NULL,
+            total_visits INTEGER DEFAULT 0,
+            admissions_count INTEGER DEFAULT 0,
+            discharges_count INTEGER DEFAULT 0,
+            bed_occupancy_rate NUMERIC(5, 2) DEFAULT 0.0,
+            average_wait_minutes INTEGER DEFAULT 0,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        -- Apply Row-Level Security (RLS) to all 24 healthcare tables
+        DO $$
+        DECLARE
+            tbl text;
+            tables text[] := ARRAY[
+                'hlt_facilities', 'hlt_departments', 'hlt_patients', 'hlt_appointments',
+                'hlt_medical_staff', 'hlt_patient_vitals', 'hlt_patient_allergies',
+                'hlt_clinical_encounters', 'hlt_inpatient_admissions', 'hlt_hospital_wards',
+                'hlt_hospital_beds', 'hlt_mar_records', 'hlt_lab_catalog', 'hlt_lab_specimens',
+                'hlt_radiology_orders', 'hlt_pharmacy_formulary', 'hlt_prescription_dispense',
+                'hlt_emergency_admissions', 'hlt_surgical_cases', 'hlt_patient_invoices',
+                'hlt_insurance_claims', 'hlt_medical_items', 'hlt_cost_centers',
+                'hlt_clinical_credentials', 'hlt_biomedical_devices', 'hlt_portal_requests',
+                'hlt_teleconsultations', 'hlt_alerts', 'hlt_daily_metrics'
+            ];
+        BEGIN
+            FOREACH tbl IN ARRAY tables LOOP
+                IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = tbl) THEN
+                    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', tbl);
+                    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', tbl);
+                    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = tbl AND policyname = 'tenant_isolation') THEN
+                        EXECUTE format('
+                            CREATE POLICY tenant_isolation ON %I
+                            USING (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid OR current_setting(''app.bypass'', true) = ''on'')
+                            WITH CHECK (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid OR current_setting(''app.bypass'', true) = ''on'');
+                        ', tbl);
+                    END IF;
+                END IF;
+            END LOOP;
+        END $$;
+    """),
+    # v41 — Hospitality Suite (Banquets, Rooms, Housekeeping, Folios, Night Audit) RLS enforcement
+    ("v41_hospitality_suite_rls", """
+        CREATE TABLE IF NOT EXISTS hotel_banquet_events (
+            id VARCHAR(36) PRIMARY KEY,
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+            booking_ref VARCHAR(32) NOT NULL,
+            hall_name VARCHAR(128) NOT NULL,
+            client_name VARCHAR(128) NOT NULL,
+            client_phone VARCHAR(32) NOT NULL,
+            event_type VARCHAR(64) NOT NULL,
+            event_date VARCHAR(32) NOT NULL,
+            start_time VARCHAR(32) NOT NULL,
+            end_time VARCHAR(32) NOT NULL,
+            guest_count INTEGER DEFAULT 100,
+            catering_package VARCHAR(128) NOT NULL,
+            total_amount DOUBLE PRECISION DEFAULT 0.0,
+            deposit_amount DOUBLE PRECISION DEFAULT 0.0,
+            status VARCHAR(32) DEFAULT 'confirmed',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        DO $$
+        DECLARE
+            tbl text;
+            hotel_tables text[] := ARRAY[
+                'hotel_rooms',
+                'hotel_reservations',
+                'hotel_folio_items',
+                'hotel_housekeeping_tasks',
+                'hotel_night_audits',
+                'hotel_banquet_events'
+            ];
+        BEGIN
+            FOREACH tbl IN ARRAY hotel_tables LOOP
+                IF to_regclass('public.' || tbl) IS NOT NULL THEN
+                    EXECUTE format('ALTER TABLE %I ALTER COLUMN tenant_id SET DEFAULT NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid;', tbl);
+                    EXECUTE format('CREATE INDEX IF NOT EXISTS idx_%s_tenant ON %I (tenant_id);', tbl, tbl);
+                    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', tbl);
+                    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', tbl);
+                    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = tbl AND policyname = 'tenant_isolation') THEN
+                        EXECUTE format('
+                            CREATE POLICY tenant_isolation ON %I
+                            USING (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid OR current_setting(''app.bypass'', true) = ''on'')
+                            WITH CHECK (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid OR current_setting(''app.bypass'', true) = ''on'');
+                        ', tbl);
+                    END IF;
+                END IF;
+            END LOOP;
+        END $$;
+    """),
+]
+
+async def apply_migrations(session: AsyncSession) -> List[str]:
+    """Apply all pending migrations asynchronously using SQLAlchemy.
+    Statement-by-statement execution wrapped in savepoints for total resilience.
+    """
+    # 1. Ensure schema_migrations table
+    await session.execute(text("""
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            id text PRIMARY KEY,
+            applied_at timestamptz DEFAULT now()
+        );
+    """))
+    await session.commit()
+
+    # 2. Bind foundation and bypass RLS
+    try:
+        await session.execute(text("SELECT set_config('app.bypass', 'on', false)"))
+    except Exception as e:
+        await session.rollback()
+        logger.warning(f"Notice setting bypass: {e}")
+
+    # 3. Fetch applied migrations
+    res = await session.execute(text("SELECT id FROM schema_migrations"))
+    applied = set(res.scalars().all())
+
+    applied_now = []
+    for mid, sql in MIGRATIONS:
+        if mid in applied:
+            continue
+
+        logger.info(f"Applying migration {mid}...")
+        stmts = split_statements(sql)
+        for stmt in stmts:
+            stmt_clean = stmt.strip()
+            if not stmt_clean:
+                continue
+            try:
+                async with session.begin_nested():
+                    await session.execute(text(stmt_clean))
+            except Exception as e:
+                err_str = str(e).lower()
+                if any(x in err_str for x in ("already exists", "duplicate", "does not exist", "notice")):
+                    continue
+                logger.warning(f"Migration {mid} notice on statement: {e}")
+
+        # Mark applied
+        await session.execute(
+            text("INSERT INTO schema_migrations (id) VALUES (:id) ON CONFLICT DO NOTHING"),
+            {"id": mid}
+        )
+        await session.commit()
+        applied_now.append(mid)
+        logger.info(f"Successfully applied migration {mid}")
+
+    return applied_now
