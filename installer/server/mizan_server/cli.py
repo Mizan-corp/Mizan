@@ -72,7 +72,7 @@ def _app_env(cfg: Config) -> None:
 
 def cmd_install(a) -> int:
     emit = _emitter(a.json)
-    key = a.licence or (Path(a.licence_file).read_text().strip() if a.licence_file else "")
+    key = a.licence or (Path(a.licence_file).read_text(encoding="utf-8").strip() if a.licence_file else "")
     password = a.admin_password or os.environ.get("MIZAN_ADMIN_PASSWORD", "")
     try:
         engine.install(

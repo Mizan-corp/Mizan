@@ -30,7 +30,7 @@ def installation_id() -> uuid.UUID:
     path = data_dir() / "installation_id"
     if path.exists():
         try:
-            return uuid.UUID(path.read_text().strip())
+            return uuid.UUID(path.read_text(encoding="utf-8").strip())
         except ValueError:
             pass
     new = uuid.uuid4()

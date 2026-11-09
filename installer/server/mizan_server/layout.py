@@ -68,7 +68,7 @@ def default_install_dir() -> Path:
 
 def version() -> str:
     path = install_root() / "VERSION"
-    return path.read_text().strip() if path.exists() else "0.0.0-dev"
+    return path.read_text(encoding="utf-8").strip() if path.exists() else "0.0.0-dev"
 
 
 @dataclass
@@ -120,7 +120,7 @@ class Config:
         path = self.data / "config.json"
         self.data.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(asdict(self), indent=2))
+        tmp.write_text(json.dumps(asdict(self), indent=2), encoding="utf-8")
         os.replace(tmp, path)
         if not IS_WINDOWS:
             os.chmod(path, 0o600)
@@ -132,7 +132,7 @@ class Config:
         candidates.append((data_dir or default_data_dir()) / "config.json")
         for path in candidates:
             if path.exists():
-                return cls(**json.loads(path.read_text()))
+                return cls(**json.loads(path.read_text(encoding="utf-8")))
         raise FileNotFoundError("Mizan isn't installed here (no config.json). Run `mizan-server install`.")
 
     def app_environment(self) -> dict[str, str]:

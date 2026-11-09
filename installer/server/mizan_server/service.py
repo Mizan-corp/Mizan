@@ -54,7 +54,7 @@ def install(cfg: Config) -> str:
     user = os.geteuid() != 0
     unit_dir = Path.home() / ".config" / "systemd" / "user" if user else Path("/etc/systemd/system")
     unit_dir.mkdir(parents=True, exist_ok=True)
-    (unit_dir / f"{NAME}.service").write_text(_unit(cfg, user))
+    (unit_dir / f"{NAME}.service").write_text(_unit(cfg, user), encoding="utf-8")
     _systemctl("daemon-reload", user=user)
     r = _systemctl("enable", "--now", NAME, user=user)
     if r.returncode != 0:

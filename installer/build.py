@@ -37,7 +37,7 @@ BUILD = HERE / "build"
 PAYLOAD = BUILD / "payload"
 CACHE = BUILD / "cache"
 DIST = BUILD / "dist"
-VERSION = (HERE / "VERSION").read_text().strip()
+VERSION = (HERE / "VERSION").read_text(encoding="utf-8").strip()
 
 PG_VERSION = "16.15.1"
 PG_TARGETS = {"linux": "x86_64-unknown-linux-gnu", "windows": "x86_64-pc-windows-msvc"}
@@ -127,7 +127,7 @@ def build_server(target: str) -> None:
 
 
 def write_version() -> None:
-    (PAYLOAD / "VERSION").write_text(VERSION + "\n")
+    (PAYLOAD / "VERSION").write_text(VERSION + "\n", encoding="utf-8")
 
 
 # ─── Packages ──────────────────────────────────────────────────────────────
@@ -179,7 +179,7 @@ def package_payload_zip(target: str) -> Path:
             if f.is_file():
                 z.write(f, f.relative_to(PAYLOAD).as_posix())
     digest = hashlib.sha256(out.read_bytes()).hexdigest()
-    (DIST / f"{out.name}.json").write_text(json.dumps({"version": VERSION, "platform": target, "sha256": digest}))
+    (DIST / f"{out.name}.json").write_text(json.dumps({"version": VERSION, "platform": target, "sha256": digest}), encoding="utf-8")
     print(f"  {out} ({out.stat().st_size // 1_000_000} MB)")
     return out
 

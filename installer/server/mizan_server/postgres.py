@@ -106,8 +106,8 @@ def initdb(cfg: Config) -> None:
     finally:
         os.unlink(pwfile)
     conf = cfg.pgdata / "postgresql.conf"
-    conf.write_text(conf.read_text() + f"""
-# ── Mizan ──────────────────────────────────────────────
+    conf.write_text(conf.read_text(encoding="utf-8") + f"""
+# --- Mizan ---
 listen_addresses = '127.0.0.1'
 port = {cfg.db_port}
 unix_socket_directories = ''
@@ -117,7 +117,7 @@ log_directory = 'log'
 log_rotation_age = 1d
 log_truncate_on_rotation = on
 log_filename = 'postgresql-%a.log'
-""")
+""", encoding="utf-8")
 
 
 def running(cfg: Config) -> bool:
@@ -139,7 +139,7 @@ def start(cfg: Config) -> None:
                            stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
                            env=_env(cfg), creationflags=0x08000000 if IS_WINDOWS else 0)
     if r.returncode != 0:
-        detail = out_path.read_text(errors="replace").strip() or (log.read_text(errors="replace")[-800:] if log.exists() else "")
+        detail = out_path.read_text(encoding="utf-8", errors="replace").strip() or (log.read_text(encoding="utf-8", errors="replace")[-800:] if log.exists() else "")
         raise PostgresError(f"pg_ctl start failed: {detail[-800:]}")
 
 

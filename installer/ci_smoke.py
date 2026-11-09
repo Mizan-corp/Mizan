@@ -76,7 +76,7 @@ def wait_healthy(base: str, proc: subprocess.Popen, log: Path, timeout: float = 
     deadline = time.time() + timeout
     while time.time() < deadline:
         if proc.poll() is not None:
-            raise SystemExit(f"mizan-server run exited ({proc.returncode}):\n{log.read_text(errors='replace')[-3000:]}")
+            raise SystemExit(f"mizan-server run exited ({proc.returncode}):\n{log.read_text(encoding="utf-8", errors='replace')[-3000:]}")
         try:
             status, body = request(f"{base}/api/health")
             if status == 200 and json.loads(body).get("status") == "ok":
@@ -84,7 +84,7 @@ def wait_healthy(base: str, proc: subprocess.Popen, log: Path, timeout: float = 
         except OSError:
             pass
         time.sleep(1.5)
-    raise SystemExit(f"{base} didn't become healthy:\n{log.read_text(errors='replace')[-3000:]}")
+    raise SystemExit(f"{base} didn't become healthy:\n{log.read_text(encoding="utf-8", errors='replace')[-3000:]}")
 
 
 def check(name: str, cmd: list[str], env: dict, base: str, home: Path, server: Path, lan: bool) -> None:
@@ -114,7 +114,7 @@ def check(name: str, cmd: list[str], env: dict, base: str, home: Path, server: P
             status, _ = request(f"{base}/api/onprem/ca.crt")
             if status != 200:
                 raise SystemExit(f"{name}: certificate download returned {status}")
-            if "zeroconf isn't installed" in log.read_text(errors="replace"):
+            if "zeroconf isn't installed" in log.read_text(encoding="utf-8", errors="replace"):
                 raise SystemExit(f"{name}: the build is missing zeroconf (mizan.local)")
         st = subprocess.run([str(server), "status", "--json"], env=env, text=True, encoding="utf-8", errors="replace", capture_output=True)
         info = json.loads(st.stdout)

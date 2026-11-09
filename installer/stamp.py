@@ -44,5 +44,5 @@ if __name__ == "__main__":
         print(__doc__)
         sys.exit(2)
     source = sys.argv[2]
-    text = source if source.startswith("MZN1.") else Path(source).read_text()
+    text = source if source.startswith("MZN1.") else Path(source).read_text(encoding="utf-8")
     print(stamp(Path(sys.argv[1]), text, Path(sys.argv[3])))
