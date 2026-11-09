@@ -229,6 +229,12 @@ def cmd_verify_licence(a) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    if os.name == "nt" and getattr(sys, "frozen", False):
+        # Don't let programs started from here (PostgreSQL) inherit the packaged
+        # Python's DLL folder: they must load their own DLLs.
+        import ctypes
+
+        ctypes.windll.kernel32.SetDllDirectoryW(None)
     # Windows pipes default to the ANSI code page; progress has Arabic names and ✔.
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):

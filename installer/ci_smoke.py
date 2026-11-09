@@ -92,6 +92,10 @@ def check(name: str, cmd: list[str], env: dict, base: str, home: Path, server: P
     r = subprocess.run(cmd, env=env, text=True, encoding="utf-8", errors="replace", capture_output=True)
     print(r.stdout[-2500:], r.stderr[-2500:], sep="\n")
     if r.returncode != 0:
+        pgbin = server.parent.parent / "pgsql" / "bin"
+        v = subprocess.run([str(pgbin / f"initdb{EXE}"), "--version"], capture_output=True, text=True)
+        print(f"diagnostics: initdb --version → {v.returncode:#x} {v.stdout.strip()} {v.stderr.strip()}")
+        print(f"diagnostics: {len(list(pgbin.glob('*')))} files in {pgbin}: {sorted(f.name for f in pgbin.glob('*.dll'))[:40]}")
         raise SystemExit(f"{name}: install failed ({r.returncode})")
 
     print(f"▸ {name}: run", flush=True)

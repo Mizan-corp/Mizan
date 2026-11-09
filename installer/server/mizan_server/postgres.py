@@ -22,12 +22,25 @@ def _as_user(cfg: Config, cmd: list[str]) -> list[str]:
     return cmd
 
 
+def _env(cfg: Config, extra: dict | None = None) -> dict[str, str]:
+    # PostgreSQL's own folder first, so its programs find its DLLs on Windows.
+    path = os.pathsep.join([str(cfg.pgbin), os.environ.get("PATH", "")])
+    return {**os.environ, "PATH": path, "LC_ALL": "C", **(extra or {})}
+
+
+def _failure(name: str, r: subprocess.CompletedProcess) -> str:
+    out = (r.stderr or r.stdout or "").strip()[-800:]
+    code = r.returncode if r.returncode >= 0 else r.returncode & 0xFFFFFFFF
+    hint = " (a DLL is missing: install the Microsoft Visual C++ Redistributable)" if code == 0xC0000135 else ""
+    return f"{name} failed (exit code {code:#x}){hint}" + (f": {out}" if out else "")
+
+
 def _run(cfg: Config, cmd: list[str], *, env: dict | None = None, check: bool = True) -> subprocess.CompletedProcess:
-    full_env = {**os.environ, "PGPASSWORD": cfg.db_password, "LC_ALL": "C", **(env or {})}
+    full_env = _env(cfg, {"PGPASSWORD": cfg.db_password, **(env or {})})
     r = subprocess.run(_as_user(cfg, cmd), capture_output=True, text=True, encoding="utf-8", errors="replace", env=full_env,
                        creationflags=0x08000000 if IS_WINDOWS else 0)  # CREATE_NO_WINDOW
     if check and r.returncode != 0:
-        raise PostgresError(f"{Path(cmd[0]).name} failed: {(r.stderr or r.stdout).strip()[-800:]}")
+        raise PostgresError(_failure(Path(cmd[0]).name, r))
     return r
 
 
@@ -105,7 +118,7 @@ def start(cfg: Config) -> None:
     with open(out_path, "w") as out:
         r = subprocess.run(_as_user(cfg, [tool(cfg, "pg_ctl"), "start", "-D", str(cfg.pgdata), "-l", str(log), "-w", "-t", "90"]),
                            stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                           env={**os.environ, "LC_ALL": "C"}, creationflags=0x08000000 if IS_WINDOWS else 0)
+                           env=_env(cfg), creationflags=0x08000000 if IS_WINDOWS else 0)
     if r.returncode != 0:
         detail = out_path.read_text(errors="replace").strip() or (log.read_text(errors="replace")[-800:] if log.exists() else "")
         raise PostgresError(f"pg_ctl start failed: {detail[-800:]}")
