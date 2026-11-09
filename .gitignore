@@ -71,3 +71,7 @@ deploy-logs/
 # Agent/editor session state
 .opencode/
 .ruff_cache/
+
+# On-premise installer build output
+installer/build/
+installer/setup/src-tauri/target/

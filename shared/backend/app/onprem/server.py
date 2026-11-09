@@ -49,6 +49,17 @@ async def status():
     }
 
 
+@router.get("/ca.crt")
+async def ca_certificate():
+    """LAN installs: the certificate tills install once to trust this server's HTTPS."""
+    import os
+
+    path = Path(os.environ.get("MIZAN_TLS_DIR", "")) / "mizan-ca.crt"
+    if not os.environ.get("MIZAN_TLS_DIR") or not path.exists():
+        raise HTTPException(status_code=404, detail="No certificate on this install")
+    return FileResponse(path, media_type="application/x-x509-ca-cert", filename="mizan-ca.crt")
+
+
 def _require_admin(user: User = Depends(get_current_user)) -> User:
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="فقط مدير النظام يستطيع تغيير الترخيص")

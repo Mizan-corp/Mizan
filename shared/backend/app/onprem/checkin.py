@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import platform
 import socket
 import urllib.error
@@ -16,7 +17,7 @@ from app.onprem import licence, state
 
 logger = logging.getLogger("mizan.onprem.checkin")
 
-APP_VERSION = "1.0.0"
+APP_VERSION = os.environ.get("MIZAN_VERSION", "0.0.0-dev")
 INTERVAL_SECONDS = 6 * 3600
 
 
