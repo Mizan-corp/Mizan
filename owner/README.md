@@ -36,14 +36,24 @@ Owners choose when they create a workspace (ADR-005):
 | Mode | What it is | In the panel |
 |---|---|---|
 | **على السحابة** (cloud) | In the browser; we host it | "Open workspace" |
-| **جهاز واحد** (single device) | An app on one computer, works offline | "Download": installer + licence key |
-| **شبكة محلية** (LAN) | A server on the shop's network; tills and offices connect to it | "Download": installer + licence key |
+| **جهاز واحد** (single device) | An app on one Windows or Linux computer, works offline | "Download" (تنزيل) |
+| **شبكة محلية** (LAN) | A server on the shop's network; tills and offices connect to it | "Download" (تنزيل) |
 
 Single-device and LAN workspaces are only registered in the cloud (with a licence); the
 installer creates the workspace on site. Paying extends the licence to the end of the paid
 period; installs pick up the new key when they're online, or the owner copies it from
 Download. The workspace page lists the installed devices and when they last checked in.
-Installers are listed from `MIZAN_INSTALLERS` on the owner API (empty until they're built).
+
+**Download** (`DownloadDialog.tsx`, `GET /account/workspaces/{id}/download`) gives:
+- **Mizan Setup** for Windows and Linux, listed from `MIZAN_INSTALLERS` on the owner API
+  (links to the public [mizan-releases](https://github.com/ammar0xff/mizan-releases); see
+  `shared/backend/app/core/releases.py` and `installer/README.md`). Unset, the dialog says
+  the installer is being prepared.
+- **The licence file** "Mizan - <workspace>.mzn" (made in the browser from the key). Saved
+  in Downloads, Mizan Setup finds it by itself.
+- The steps for the mode, and the licence key to copy (for installs that never go online).
+
+Installs check in at `POST /installations/check-in` (this API) and receive the renewed key.
 
 ## Pages
 

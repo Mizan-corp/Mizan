@@ -4,6 +4,10 @@ Everything that installs and runs Mizan on a client's own computer
 ([ADR-005](../docs/decisions/ADR-005-deployment-modes.md)). One licence key decides
 the workspace and the mode; the same installer handles both modes on Windows and Linux.
 
+**Current release: v1.0.0** in [ammar0xff/mizan-releases](https://github.com/ammar0xff/mizan-releases/releases/latest)
+(`MizanSetup-1.0.0-windows.exe`, `MizanSetup-1.0.0-linux`, `mizan-setup-1.0.0-linux-x86_64.run`).
+User-facing guide: the website's docs, [running on site](https://mizan-co.vercel.app/docs/deploy/modes).
+
 | Part | What it is |
 |---|---|
 | `server/mizan_server/` | **mizan-server**: the install engine, the service (PostgreSQL + API + app) and the management command line. Packaged with PyInstaller (`server/mizan-server.spec`). |
@@ -19,7 +23,7 @@ the workspace and the mode; the same installer handles both modes on Windows and
 |---|---|---|
 | Listens on | `http://127.0.0.1:47800` | `https://<every interface>:443` (8443 without admin rights) |
 | Opened from | the "Mizan" desktop shortcut (a Mizan app window) | any browser on the network: `https://mizan.local`, the computer's name or address |
-| Certificate | — | the install's own authority; tills install `mizan-ca.crt` once (`/api/onprem/ca.crt`) |
+| Certificate | — | the install's own authority; tills install `mizan-ca.crt` once from the sign-in page («ثبّت شهادة الأمان», served at `/api/onprem/ca.crt`) |
 
 Both: a private PostgreSQL 16 on `127.0.0.1` with its own cluster, a background service
 (Windows service via WinSW, or systemd), a backup every day (newest 14 kept), and a
@@ -29,7 +33,8 @@ licence check-in when online.
 <program>  C:\Program Files\Mizan · /opt/mizan (root) · ~/.local/opt/mizan
   server/mizan-server[.exe]   pgsql/   web/   VERSION   Mizan.exe | mizan-app (single device)
 <data>     C:\ProgramData\Mizan · /var/lib/mizan (root) · ~/.local/share/mizan
-  config.json   pg/   mizan/ (licence, state)   backups/   tls/   uploads/   logs/
+  config.json (secrets, restricted)   app.json (port, TLS: for the app window)
+  pg/   mizan/ (licence, state)   backups/   tls/   uploads/   logs/
 ```
 
 ## Installing
@@ -88,7 +93,7 @@ gh run download <run id> --dir dist && cd dist && mv */* . && sha256sum MizanSet
 gh release create v1.0.0 MizanSetup-* mizan-setup-* SHA256SUMS.txt --repo ammar0xff/mizan-releases --title "Mizan v1.0.0"
 ```
 
-Then point the owner panel at them: `MIZAN_INSTALLERS` on the owner API (production), e.g.
+Then point the owner panel at them (v1.0.0 is already set): `MIZAN_INSTALLERS` on the owner API (production), e.g.
 `{"windows": {"url": "https://github.com/ammar0xff/mizan-releases/releases/download/v1.0.0/MizanSetup-1.0.0-windows.exe", "version": "1.0.0", "size_mb": 150}, "linux": {…}}`
 (see `shared/backend/app/core/releases.py`), and redeploy it.
 
@@ -108,4 +113,18 @@ PYTHONPATH=installer/server MIZAN_HOME=/tmp/mizan-test python -m mizan_server in
 ```
 
 The Tauri debug build takes the payload from `MIZAN_PAYLOAD_DIR` and extra engine flags
-from `MIZAN_SETUP_EXTRA_ARGS`.
+from `MIZAN_SETUP_EXTRA_ARGS`. Check the Windows side of the Rust code from Linux with
+`rustup target add x86_64-pc-windows-msvc` and `cargo check --target x86_64-pc-windows-msvc`
+(needs `llvm-rc`, from the `llvm` package).
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `initdb.exe failed (exit code 0xc0000135)` on Windows | PostgreSQL restarted without administrator rights and can't read its own files. Setup grants Users read/execute on `pgsql/`; for a custom install folder check its permissions (`icacls <dir>\pgsql`). |
+| `Permission denied` creating the data folder on Windows | Same cause, for the data folder: setup grants the installing account and SYSTEM full control; re-run the install to repair. |
+| Tills show a certificate warning / the offline sale queue doesn't work | Install the certificate on that device (sign-in page → «ثبّت شهادة الأمان»). |
+| `mizan.local` doesn't open | The device or network doesn't resolve mDNS (some Android versions, guest Wi-Fi): use the address shown at the end of setup (`mizan-server status`). |
+| Tills can't reach a Windows server | The firewall rule admits the local subnet only; check the till is on the same network and the port in `mizan-server status`. |
+| The app says it's read-only | The licence expired or was revoked: `mizan-server licence check-in`, or `licence set <key>` with the key from the owner panel. |
+| Logs | `<data>/logs/` (service, `postgres-start.log`, `pg_ctl.out`) and `<data>/pg/log/` (PostgreSQL). |

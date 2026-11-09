@@ -128,3 +128,43 @@ python -m app.onprem.setup --licence "<key>" --admin-password "<8+ chars>" --dem
 MIZAN_MODE=lan MIZAN_WEB_DIR=/tmp/mizan-web MIZAN_CLOUD_URL=http://localhost:8003 \
   uvicorn main:app --host 0.0.0.0 --port 8100     # → http://localhost:8100
 ```
+
+## Phase 2 — what's built
+
+Released as **Mizan Setup v1.0.0** for Windows and Linux
+([mizan-releases](https://github.com/ammar0xff/mizan-releases)); details in
+[`installer/README.md`](../../installer/README.md).
+
+- `installer/server/mizan_server/`: **mizan-server**: the install engine (JSON progress for
+  the wizard; re-running it repairs or updates), the service runner (PostgreSQL, the API and
+  app on one address, daily backups, `mizan.local` over mDNS on a LAN), the CLI, and the
+  service (systemd system/user unit, or a Windows service through WinSW, plus a firewall rule
+  for the local subnet on a LAN).
+- `installer/setup/`: **Mizan Setup** (Tauri 2): the wizard, the single-device app window
+  (`--app`) and headless installs, in one file with the payload appended
+  (`[program][payload.zip][licence stamp][MZNSETUP footer]`).
+- `installer/build.py` (payload: the app's on-site build, PostgreSQL 16.15 from theseus-rs with
+  the Visual C++ runtime on Windows, mizan-server via PyInstaller; then the installers),
+  `installer/stamp.py` (per-client installers), `installer/ci_smoke.py` and
+  `.github/workflows/installers.yml` (built and smoke-tested on ubuntu-22.04 and
+  windows-latest; `v*` tags publish).
+- Owner panel: Download offers the installer and a "Mizan - <workspace>.mzn" licence file.
+  System app: on a LAN, the sign-in page offers the certificate with per-device steps.
+
+Decisions made while building it:
+
+- **Licence finding, not typing.** Setup looks for a stamped licence, then a `.mzn` next to the
+  installer, then one in Downloads (≤ 30 days old), then the clipboard. Stamping per client
+  happens offline or on a build host: Vercel functions can't return a ~150 MB file.
+- **PostgreSQL only.** The bundled database is PostgreSQL 16 (row-level security and JSONB are
+  used throughout); no SQLite variant.
+- **Windows permissions.** Run as an administrator, PostgreSQL restarts itself without the
+  Administrators group, so setup grants Users read/execute on `pgsql/` and the installing
+  account and SYSTEM full control of the data folder. `config.json` (database password,
+  secret key) is limited to SYSTEM, Administrators and the installing account; the app window
+  reads the non-secret `app.json`.
+- **Windows-safe names.** A module folder named `prn` (a reserved device name) broke checkouts
+  on Windows; folders must be valid on Windows (`AGENTS.md`).
+
+Not yet: updates for installed servers (#89), encrypted cloud backup (#90), device limits
+(#92), Windows code signing and a manual Windows GUI pass (#93).

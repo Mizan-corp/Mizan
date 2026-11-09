@@ -141,6 +141,11 @@ flowchart LR
     WF -. "new owner, signed in" .-> OF
     OF -. "open workspace, signed in" .-> SF
     AF -. "impersonate, signed in" .-> SF
+    subgraph onsite["On site: installer/"]
+        ON[Mizan Setup → mizan-server<br/>system-api + app + own PostgreSQL]
+    end
+    SA & SF -. "same code, packaged" .-> ON
+    ON -. "licence check-in" .-> OA
 ```
 
 Customers never download admin code, a pricing-page edit can't break the POS, and every
@@ -152,7 +157,8 @@ in the URL fragment: signing up on the website opens the owner panel, and "Open 
 |---|---|
 | **Backend** | Python 3.12 · FastAPI · SQLAlchemy 2.0 (async) · Pydantic v2 · PostgreSQL 16 (Neon) |
 | **Frontend** | React 19 · TypeScript (strict) · Vite · Tailwind CSS v4 · shadcn/ui on Base UI · TanStack Query · Zustand · Motion · Recharts |
-| **Hosting** | Vercel (8 projects: 4 frontends + 4 APIs) · Neon (one database) · Docker Compose for local and on-premise |
+| **Hosting** | Vercel (8 projects: 4 frontends + 4 APIs) · Neon (one database) · Docker Compose for local development |
+| **On site** | Mizan Setup (Tauri 2 + React) · `mizan-server` (the API packaged with PyInstaller) · PostgreSQL 16 bundled · systemd or a Windows service · releases in [mizan-releases](https://github.com/ammar0xff/mizan-releases) |
 
 ### Four ideas that hold it together
 
@@ -200,6 +206,25 @@ modules, people, suspend, open as owner, delete), billing with manual payment co
 the team's access, live system health, and an activity log of every change. Every number
 comes from the database. See [`admin/README.md`](admin/README.md).
 
+### Where a workspace runs
+
+The owner picks when creating a workspace ([ADR-005](docs/decisions/ADR-005-deployment-modes.md)):
+
+| Mode | What it is | How it's opened |
+|---|---|---|
+| ☁️ **Cloud** | We host it | In the browser, from the owner panel or the workspace's login page |
+| 💻 **Single device** | Mizan on one Windows or Linux computer, fully offline, its own PostgreSQL, daily backups | A "Mizan" app window from the desktop shortcut |
+| 🏪 **LAN** | One computer in the shop is the server; tills, offices and tablets connect over the shop's network, with or without internet | Any browser: `https://mizan.local` (HTTPS with the install's own certificate) |
+| 🗄️ **Your own database** | A cloud workspace whose data lives in the owner's PostgreSQL | *Planned* |
+
+Single-device and LAN workspaces are created **on site** by **Mizan Setup**: one installer
+per OS, guided (with a command-line mode for servers). It is downloaded from the owner panel
+together with the workspace's licence file. The licence is signed (Ed25519), works offline
+and is extended whenever the owner pays; installs renew it when they're online, or the
+owner enters a new key. An expired licence leaves the data readable but read-only. The admin
+panel can extend, revoke or issue offline keys, and sees every installation that checks in.
+See [`installer/README.md`](installer/README.md).
+
 ---
 
 ## Design
@@ -229,7 +254,8 @@ The full canon lives in [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md),
 | 🧱 **Working, being deepened** | Restaurant & kitchen display · pharmacy · clinic (billing, clinical roles, FEFO dispensing, claims) · hotel PMS · school · gym · salon · wholesale |
 | 🪴 **Scaffolded** | Manufacturing, projects, specialised and remaining service modules: models, API and screens exist, with workflows still to be filled in |
 | 🔌 **In progress** | WhatsApp receipts (configured and logged; live sending queued) · Paymob payments (built and tested against signed callbacks; needs the production keys) · subscription expiry (paid periods are tracked; lapsing to read-only isn't automatic yet) |
-| 🚧 **Deployment modes** | Single device and LAN: licences, server mode, and Mizan Setup (guided installer, desktop app and command line for Windows and Linux, [installer/](installer/README.md)) are built. Bring your own database follows ([ADR-005](docs/decisions/ADR-005-deployment-modes.md)) |
+| ✅ **On site** | Single-device and LAN workspaces: licences, Mizan Setup v1.0.0 for Windows and Linux (built and smoke-tested in CI), `mizan.local`, daily backups ([installer/](installer/README.md)) |
+| 🚧 **Deployment modes, next** | Updates for installed servers (#89) · optional encrypted cloud backup (#90) · bring your own database (#91) · device limits (#92) · Windows code signing (#93) |
 | 🗺️ **Planned** | Egyptian Tax Authority e-invoicing · loyalty points · full hospital suite (EMR, inpatient, radiology, theatre) |
 
 Open work (features, tests, chores, manual follow-ups) is tracked in [GitHub issues](https://github.com/ammar0xff/Mizan/issues).
@@ -240,7 +266,7 @@ Independent audits, and what was fixed after them, live in [`docs/audit/`](docs/
 
 ## Run it locally
 
-**Requirements:** Docker, Node 22+ (CI uses 24), Python 3.12+. Everything else goes through one file:
+**Requirements:** Docker, Node 22+ (CI uses 24), Python 3.12+ (and Rust only to build the installers). Everything else goes through one file:
 
 ```bash
 python manage.py setup     # npm deps, .venv, database + 4 APIs, migrations, first admin
@@ -291,7 +317,8 @@ python manage.py check           # lint + tests + builds
 
 Backend tests delete the workspaces they create, so the database is left as they found it.
 CI runs lint, every build, unit tests, an import check of every API and the full
-Docker-based end-to-end suite on every push.
+Docker-based end-to-end suite on every push. A second workflow (`installers.yml`) builds
+Mizan Setup on Linux and Windows and smoke-tests both modes (`installer/ci_smoke.py`).
 
 ---
 
@@ -321,6 +348,9 @@ when its own folder or `shared/` changes**, so a website edit never redeploys th
 - **Production migrations are applied by hand** (Vercel doesn't run them): back up, run the
   pending migration, *then* push the code that needs it. Migrations must stay backward compatible (#64).
 - The four APIs share one database and one `SECRET_KEY`; their settings live in each Vercel project.
+- **Installers ship separately**: a `v*` tag builds them and publishes to the public
+  [mizan-releases](https://github.com/ammar0xff/mizan-releases); the owner panel links there
+  through `MIZAN_INSTALLERS` on `mizan-owner-api`. See [`installer/README.md`](installer/README.md#publishing).
 
 ---
 
@@ -339,21 +369,25 @@ owner/                  the owner panel (Arabic): an owner's workspaces, subscri
 admin/                  the admin panel (English, Mizan team only)
   frontend/src/         overview, workspaces, billing, activity, team, system
   backend/              admin-api: admin_api/ (one router per page)
+installer/              single-device and LAN installs
+  server/               mizan-server: install engine, service (PostgreSQL + API + app), CLI
+  setup/                Mizan Setup (Tauri): the guided installer, desktop app and headless installs
+  build.py · stamp.py   build the installers · stamp a client's licence into one
 shared/                 code every product uses
   frontend/src/         design kit (components/kit), API client, stores, i18n, styles, pricing
   backend/app/          kernel: factory, core (tenancy, auth, plans, printing), models, services,
                         api/routers (ERP endpoint library), modules (48 domain modules),
-                        db (baseline schema, migrations, bootstrap)
+                        onprem (server mode, licence gate, check-in), db (baseline schema, migrations, bootstrap)
 e2e/                    live API end-to-end suite
 docs/                   product, architecture, design, security and requirements docs
-.github/                CI workflow
+.github/workflows/      ci.yml (lint, tests, builds, e2e) · installers.yml (build + smoke-test Mizan Setup)
 docker-compose.yml      local stack: database + the four APIs
-package.json            npm workspaces: shared + the four frontends
+package.json            npm workspaces: shared, the four frontends and installer/setup
 manage.py               the one CLI: setup, stack, db, dev, build, test, lint, vercel
 ```
 
 Frontend import aliases: `@/` is the shared kit, `@app/` is the current app, `@modules/` is the industry screens (system only).
-Each product folder has its own README: [`system/`](system/README.md) · [`website/`](website/README.md) · [`owner/`](owner/README.md) · [`admin/`](admin/README.md) · [`shared/`](shared/README.md).
+Each product folder has its own README: [`system/`](system/README.md) · [`website/`](website/README.md) · [`owner/`](owner/README.md) · [`admin/`](admin/README.md) · [`shared/`](shared/README.md) · [`installer/`](installer/README.md).
 
 ## Documentation
 
@@ -364,6 +398,7 @@ Each product folder has its own README: [`system/`](system/README.md) · [`websi
 | [Security standards](docs/SECURITY_STANDARDS.md) | [Roles & permissions](docs/USER_ROLES_AND_PERMISSIONS.md) |
 | [Design system](docs/DESIGN_SYSTEM.md) | [UI/UX kit](docs/ui-ux-kit/) · [Brand identity](docs/developer/mizan/frontend/08-brand-identity-full.md) |
 | [Engineering standards](docs/ENGINEERING_STANDARDS.md) | [Contributor & agent rules](AGENTS.md) |
+| [Installers](installer/README.md) | [Deployment modes (ADR-005)](docs/decisions/ADR-005-deployment-modes.md) · [Public docs: running on site](https://mizan-co.vercel.app/docs/deploy/modes) |
 
 ---
 

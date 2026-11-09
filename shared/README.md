@@ -12,7 +12,12 @@ and admin apps, and rebuilds all of them.
 - `app/models/`, `app/schemas/`, `app/services/`, `app/db/` (engine, tracked migrations,
   SQL in `db/sql/`).
 - `app/api/routers/`: the ERP endpoint library (mounted by the system API).
-- `app/modules/`: the 48 domain modules: models, routers, manifests, print templates.
+- `app/modules/`: the 48 domain modules: models, routers, manifests, print templates. A module's id comes
+  from its `manifest.json`; its folder name must be valid on Windows (the printing module,
+  id `prn`, lives in `modules/printing/`).
+- `app/onprem/`: server mode for on-site installs (`setup`, `server`, `licence`, `checkin`,
+  `state`). `app/core/licensing.py` signs and verifies licence keys; `app/services/licences.py`
+  creates and extends them; `app/core/releases.py` lists the published installers.
 
 Services depend on it via `pyproject.toml` (`[tool.uv.sources] mizan-shared = { path = "../../shared/backend" }`);
 Docker images install it from the repo root build context.

@@ -50,7 +50,7 @@ Mizan is built as a **Modular Monolith** optimized for developer velocity, trans
 ## 2. Directory Layout
 
 Mizan ships as **four products that are developed and deployed separately**, on top
-of one shared kernel and one PostgreSQL database (see `docs/decisions/ADR-003-separate-apps.md` and `ADR-004-owner-accounts-and-payments.md`).
+of one shared kernel and one PostgreSQL database (see `docs/decisions/ADR-003-separate-apps.md` and `ADR-004-owner-accounts-and-payments.md`). The system API and app also run on the client's own computers (`installer/`, ADR-005).
 
 | Folder | What it is | Frontend | Backend |
 |---|---|---|---|
@@ -59,6 +59,7 @@ of one shared kernel and one PostgreSQL database (see `docs/decisions/ADR-003-se
 | `owner/` | The owner panel: an owner's workspaces, subscriptions, Paymob payments (Arabic) | `owner/frontend` → mizan-co-owner | `owner/backend` → mizan-co-owner-api |
 | `admin/` | The admin panel (English, Mizan team only) | `admin/frontend` → mizan-co-admin | `admin/backend` → mizan-co-admin-api |
 | `shared/` | Code every product uses | `shared/frontend` (design kit) | `shared/backend` (domain kernel) |
+| `installer/` | Single-device and LAN installs (ADR-005) | `installer/setup` (Mizan Setup, Tauri) | `installer/server` (mizan-server, PyInstaller) |
 
 - `shared/backend/` — installable Python package `app` (`mizan-shared`):
   - `app/factory.py`: builds every service (middleware, CORS, CSRF, errors, health).
@@ -70,6 +71,8 @@ of one shared kernel and one PostgreSQL database (see `docs/decisions/ADR-003-se
 - `website/backend/`: `main.py` + `website_api/` (plans, self-serve signup).
 - `owner/backend/`: `main.py` + `owner_api/` (account, workspaces, billing and the Paymob callback).
 - `admin/backend/`: `main.py` + `admin_api/` (one router per page: overview, workspaces, billing, activity, team, system).
+- `shared/backend/app/onprem/`: server mode for on-site installs (one address for app + API, licence gate, cloud check-in, first-install setup).
+- `installer/`: `server/mizan_server/` (install engine, service runner, CLI), `setup/` (the wizard, desktop app, headless installs), `build.py`, `stamp.py`, `ci_smoke.py`.
 - `shared/frontend/src/`: kit components, API client, auth/UI stores, i18n, styles, plans, pricing page, cross-app URLs and session handoff.
 - `system/frontend/src/`: app shell, ERP features, tenant routing, and `modules/` (industry screens).
 - `website/frontend/src/`: marketing pages and the docs portal.
@@ -79,3 +82,39 @@ of one shared kernel and one PostgreSQL database (see `docs/decisions/ADR-003-se
 - `.agents/`: Antigravity engineering rules and procedural skills.
 
 Import aliases (frontends): `@/` is the shared kit, `@app/` is the current app, `@modules/` (system only) is the industry screens.
+
+## 3. Deployment Modes (ADR-005)
+
+A workspace runs in one of these, chosen when it's created:
+
+| Mode | Where the data lives | How it's reached |
+|---|---|---|
+| Cloud | Neon (the platform database) | Vercel: the system app and API |
+| Single device | A private PostgreSQL 16 on the computer | `http://127.0.0.1:47800`, in a Mizan app window |
+| LAN | A private PostgreSQL 16 on the shop's server | `https://mizan.local` (mDNS) or the server's address, HTTPS with the install's own CA |
+| Bring your own database | The owner's PostgreSQL | Planned (#91) |
+
+```
+  Owner panel ──download──▶ Mizan Setup + licence (.mzn)
+                                   │ installs
+                                   ▼
+  ┌──────────── client computer ─────────────────────────────┐
+  │ service: mizan-server run                                 │
+  │   ├─ PostgreSQL 16 (127.0.0.1, own cluster, daily dumps)  │
+  │   └─ uvicorn: system API (/api) + built app, MIZAN_MODE   │
+  │        └─ licence gate: expired/revoked → read-only        │
+  └───────────────┬───────────────────────────────────────────┘
+                  │ check-in when online (optional)
+                  ▼
+        owner-api /installations/check-in → renewed licence key
+```
+
+- **One code base.** The on-site server is the same system API and app, switched by
+  `MIZAN_MODE` and the app's `VITE_DEPLOYMENT=onprem` build; it holds exactly one workspace,
+  created from the licence (same id, name, sector and modules as in the cloud).
+- **Licences** are Ed25519-signed (`MZN1.<payload>.<signature>`, `app.core.licensing`),
+  verified offline against the public key built into the app, and extended by
+  `activate_invoice` when the owner pays.
+- **Platform tables** (`licences`, `installations`) live in the cloud database; nothing
+  from the client's business data is sent to the cloud.
+

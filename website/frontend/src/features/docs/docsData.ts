@@ -578,7 +578,7 @@ export const DOC_SECTIONS: DocSection[] = [
               id: "tech-stack",
               title: "حزمة التقنيات المعتمدة",
               body:
-                "• الباك إند: Python 3.12+ وFastAPI مع SQLAlchemy 2.0 Async.\n• قاعدة البيانات: PostgreSQL 16+ مع RLS ومحرك بحث متقدم.\n• الفرونت إند: React 19، Vite 6، Tailwind CSS، وCairo Font.\n• المكتبات المكتبية: Tauri وCapacitor للأجهزة والتابلت.",
+                "• الباك إند: Python 3.12+ وFastAPI مع SQLAlchemy 2.0 Async.\n• قاعدة البيانات: PostgreSQL 16+ مع RLS ومحرك بحث متقدم.\n• الفرونت إند: React 19، Vite 6، Tailwind CSS، وCairo Font.\n• التشغيل داخل المنشأة: برنامج تثبيت لويندوز ولينكس (Tauri) مع PostgreSQL مدمج.",
             },
           ],
         },
@@ -731,85 +731,113 @@ export const DOC_SECTIONS: DocSection[] = [
     titleEn: "Deployment & Operations",
     items: [
       {
-        slug: "deploy/saas",
-        title: "نشر بيئة السحابة المدارة (SaaS)",
-        titleEn: "SaaS Deployment",
-        description: "تهيئة منصة SaaS متعددة المنشآت مع بوابات الدفع ولوحة التحكم Admoon.",
+        slug: "deploy/modes",
+        title: "طرق تشغيل ميزان",
+        titleEn: "Ways to Run Mizan",
+        description: "على السحابة، على جهاز واحد، أو خادم على شبكة منشأتك: اختر عند إنشاء مساحة العمل.",
         category: "deployment-doc",
+        lastUpdated: "2026-11-09",
         content: {
-          overview:
-            "يوفر ميزان منصة تحكم مركزية (Admoon Control Plane) تتيح لمقدمي الخدمة إدارة المنشآت المشتركة، مراقبة استهلاك الخوادم، وإصدار الفواتير الدورية تلقائياً.",
+          overview: "تختار طريقة التشغيل عند إنشاء مساحة العمل من لوحة المالك. النظام نفسه والشاشات نفسها في كل الطرق؛ الفرق هو مكان البيانات ومن يتصل بها.",
           sections: [
             {
-              id: "control-plane",
-              title: "لوحة تحكم المنصة /admoon",
-              body:
-                "تتضمن لوحة الإدارة العامة شاشات لمراقبة حالة الحاويات، إدارة باقات الأسعار، وتوليد النسخ الاحتياطية المجمعة بنقرة زر.",
+              id: "cloud",
+              title: "على السحابة",
+              body: "تعمل من المتصفح على أي جهاز، ونحن نستضيف البيانات ونأخذ نسخها الاحتياطية. تفتحها من زر «فتح» في لوحة المالك، ويدخل الموظفون من صفحة الدخول الخاصة بمنشأتك.",
+            },
+            {
+              id: "single-device",
+              title: "جهاز واحد",
+              body: "برنامج على كمبيوتر واحد بنظام ويندوز أو لينكس، يعمل بدون إنترنت، وبياناته محفوظة على الجهاز نفسه مع نسخة احتياطية تلقائية كل يوم. لا يتصل به أي جهاز آخر.",
+            },
+            {
+              id: "lan",
+              title: "شبكة محلية",
+              body: "جهاز واحد في المنشأة يعمل كخادم، وتتصل به أجهزة الكاشير والمكاتب والتابلت عبر الشبكة الداخلية من المتصفح، حتى لو انقطع الإنترنت.",
+            },
+            {
+              id: "licence",
+              title: "الترخيص",
+              body: "لكل مساحة عمل على جهاز أو شبكة ترخيص واحد. عند دفع الاشتراك من لوحة المالك يُمدد الترخيص، ويحصل عليه الجهاز تلقائياً عند اتصاله بالإنترنت. إذا كان الجهاز لا يتصل أبداً، انسخ المفتاح الجديد من «تنزيل» في لوحة المالك وأدخله في البرنامج.",
+              callout: { type: "note", text: "إذا انتهى الترخيص تبقى بياناتك كاملة ومتاحة للعرض، لكن لا يمكن تسجيل عمليات جديدة حتى التجديد." },
+            },
+            {
+              id: "byodb",
+              title: "قاعدة بيانات خاصة (قريباً)",
+              body: "مساحة عمل على السحابة تُحفظ بياناتها في خادم PostgreSQL تملكه أنت.",
             },
           ],
         },
       },
       {
-        slug: "deploy/self-hosted",
-        title: "النشر الذاتي عبر Docker Compose",
-        titleEn: "Self-Hosted Deployment",
-        description: "تشغيل المنظومة على خادم خاص أو محلي داخل منشأتك عبر الحاويات.",
+        slug: "deploy/install",
+        title: "تثبيت ميزان على جهاز أو خادم",
+        titleEn: "Installing Mizan",
+        description: "تنزيل برنامج التثبيت وملف الترخيص من لوحة المالك، ثم معالج تثبيت من خطوات قليلة.",
         category: "deployment-doc",
+        lastUpdated: "2026-11-09",
         content: {
-          overview:
-            "يمكن للشركات ذات المتطلبات الأمنية العالية تشغيل المنظومة بالكامل على خوادمها الداخلية (On-Premises) دون اتصال خارجي.",
+          overview: "برنامج تثبيت واحد لويندوز (10 و11، 64-bit) ولينكس يثبّت الوضعين؛ الترخيص هو ما يحدد إن كان جهازاً واحداً أو خادم شبكة. يستغرق التثبيت دقيقتين تقريباً ويحتاج 1 جيجابايت مساحة فارغة على الأقل.",
           sections: [
             {
-              id: "docker-run",
-              title: "أمر التشغيل السريع",
-              body: "قم بتشغيل الحاويات باستخدام ملف docker-compose.yml المعتمد:",
+              id: "download",
+              title: "1. التنزيل",
+              body: "من لوحة المالك افتح مساحة العمل واضغط «تنزيل»: نزّل برنامج التثبيت لنظامك، ثم «ملف الترخيص (.mzn)». اترك الملفين في مجلد التنزيلات.",
+            },
+            {
+              id: "wizard",
+              title: "2. معالج التثبيت",
+              body: "شغّل برنامج التثبيت. يجد ملف الترخيص تلقائياً ويعرض اسم منشأتك ومدة الاشتراك. اختر اسم مستخدم وكلمة مرور المدير (8 أحرف على الأقل)، ويمكنك ملء النظام ببيانات تجريبية لنشاطك. على ويندوز سيطلب النظام موافقة المسؤول.",
+              callout: { type: "tip", text: "لم يجد المعالج الترخيص؟ الصق المفتاح من «تنزيل» في لوحة المالك، أو اختر ملف .mzn يدوياً." },
+            },
+            {
+              id: "linux",
+              title: "على لينكس",
+              body: "اجعل الملف قابلاً للتشغيل ثم شغّله:",
               codeBlock: {
                 language: "bash",
-                filename: "deploy.sh",
-                code: "git clone https://github.com/mizan-erp/mizan.git\ncd mizan\npython manage.py setup\npython manage.py stack update --yes",
+                filename: "terminal",
+                code: "chmod +x MizanSetup-1.0.0-linux\n./MizanSetup-1.0.0-linux",
               },
+            },
+            {
+              id: "after",
+              title: "بعد التثبيت",
+              body: "جهاز واحد: افتح «ميزان» من اختصار سطح المكتب. شبكة محلية: يعرض المعالج عنوان الخادم ورمز QR لأجهزة الكاشير (انظر «تشغيل أجهزة الكاشير على الشبكة»). يعمل ميزان في الخلفية ويبدأ مع تشغيل الجهاز.",
             },
           ],
         },
       },
       {
-        slug: "deploy/environment",
-        title: "متغيرات البيئة (.env)",
-        titleEn: "Environment Configuration",
-        description: "قائمة بكافة متغيرات البيئة الخاصة بقاعدة البيانات، الأمان، والعمال المؤتمتة.",
+        slug: "deploy/lan",
+        title: "تشغيل أجهزة الكاشير على الشبكة",
+        titleEn: "LAN Tills & Devices",
+        description: "توصيل أجهزة الكاشير والمكاتب بخادم ميزان: العنوان، شهادة الأمان، وتثبيت التطبيق.",
         category: "deployment-doc",
+        lastUpdated: "2026-11-09",
         content: {
-          overview:
-            "تتم تهيئة إعدادات الخادم من خلال ملف backend/.env متضمناً مفتاح التشفير السري، رابط اتصال قاعدة البيانات، وفترات عمل مؤقت المهام.",
+          overview: "بعد تثبيت الخادم، أي جهاز على الشبكة نفسها يفتح ميزان من المتصفح، بدون تثبيت برامج إضافية.",
           sections: [
             {
-              id: "env-keys",
-              title: "أهم مفاتيح ملف .env",
-              body: "نموذج تهيئة الإنتاج:",
-              codeBlock: {
-                language: "ini",
-                filename: ".env",
-                code: "DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/inventory_db\nSECRET_KEY=your-super-secret-key-change-in-production\nACCESS_TOKEN_EXPIRE_MINUTES=1440\nCRON_POLL_INTERVAL=60",
-              },
+              id: "address",
+              title: "العنوان",
+              body: "افتح https://mizan.local في المتصفح، أو العنوان الرقمي الذي عرضه معالج التثبيت (مثل https://192.168.1.20). يمكن مسح رمز QR من شاشة نهاية التثبيت بالجوال.",
             },
-          ],
-        },
-      },
-      {
-        slug: "deploy/database",
-        title: "تهيئة قاعدة بيانات PostgreSQL وRLS",
-        titleEn: "Database Configuration",
-        description: "إنشاء الجداول، تفعيل سياسات الأمان RLS، وضبط إعدادات الذاكرة ومجمع الاتصالات.",
-        category: "deployment-doc",
-        content: {
-          overview:
-            "تتطلب المنصة خادم PostgreSQL إصدار 16 أو أحدث مع تفعيل امتدادات UUID وRLS لضمان أفضل أداء مع محرك SQLAlchemy Async.",
-          sections: [
             {
-              id: "tuning",
-              title: "تحسين أداء خادم قواعد البيانات",
-              body:
-                "يوصى بضبط shared_buffers إلى 25% من إجمالي ذاكرة الرام وضبط work_mem بما يناسب استعلامات التقارير المالية الكبرى.",
+              id: "certificate",
+              title: "شهادة الأمان (مرة واحدة لكل جهاز)",
+              body: "يستخدم الخادم اتصالاً آمناً بشهادة خاصة بمنشأتك. في صفحة الدخول اضغط «أول مرة على هذا الجهاز؟ ثبّت شهادة الأمان»، نزّل الشهادة واتبع خطوات نظام جهازك. بعدها يثق المتصفح بالخادم ويعمل البيع حتى أثناء انقطاع الشبكة.",
+              callout: { type: "important", text: "بدون الشهادة سيظهر تحذير أمان في المتصفح، ولن يعمل طابور المبيعات دون اتصال." },
+            },
+            {
+              id: "install-app",
+              title: "تثبيت ميزان كتطبيق",
+              body: "من قائمة المتصفح اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية» ليظهر ميزان كبرنامج مستقل على جهاز الكاشير.",
+            },
+            {
+              id: "server-on",
+              title: "الخادم",
+              body: "اترك جهاز الخادم مُشغّلاً أثناء العمل. لا يلزم الإنترنت للعمل اليومي؛ يلزم فقط لتجديد الترخيص تلقائياً.",
             },
           ],
         },
@@ -818,43 +846,69 @@ export const DOC_SECTIONS: DocSection[] = [
         slug: "deploy/backup-restore",
         title: "النسخ الاحتياطي واستعادة البيانات",
         titleEn: "Backup & Restore",
-        description: "أوامر أخذ لقطات فورية من قاعدة البيانات، جدولة النسخ، واستعادتها بأمان.",
+        description: "نسخة احتياطية تلقائية كل يوم على الجهاز، ونسخ يدوية إلى فلاشة أو مجلد شبكة.",
         category: "deployment-doc",
+        lastUpdated: "2026-11-09",
         content: {
-          overview:
-            "يوفر سكريبت manage.py أوامر مدمجة لأخذ لقطات مضغوطة من قاعدة البيانات وتخزينها في مجلد backups/.",
+          overview: "على السحابة نتولى النسخ الاحتياطي بالكامل. على جهاز واحد أو خادم شبكة، يأخذ ميزان نسخة احتياطية تلقائية كل يوم ويحتفظ بآخر 14 نسخة في مجلد البيانات (على ويندوز: C:\\ProgramData\\Mizan\\backups).",
           sections: [
             {
-              id: "backup-commands",
-              title: "أوامر إدارة النسخ",
-              body: "استخدم الأوامر التالية:",
+              id: "commands",
+              title: "أوامر النسخ والاستعادة",
+              body: "من سطر الأوامر على جهاز ميزان (مجلد البرنامج ← server):",
               codeBlock: {
                 language: "bash",
-                filename: "backup_commands.sh",
-                code: "# أخذ نسخة احتياطية جديدة\npython manage.py db backup\n\n# استعادة نسخة سابقة محددة\npython manage.py db restore backups/backup_20261103_120000.sql",
+                filename: "mizan-server",
+                code: "# نسخة الآن، ونسخة إضافية على فلاشة\nmizan-server backup --to E:\\MizanBackups\n\n# عرض النسخ المتاحة\nmizan-server backups\n\n# الاستعادة (يأخذ نسخة من الوضع الحالي أولاً)\nmizan-server restore <ملف النسخة>",
               },
+            },
+            {
+              id: "advice",
+              title: "نصيحة",
+              body: "انسخ مجلد النسخ الاحتياطية إلى جهاز آخر أو فلاشة بانتظام؛ تعطل القرص الصلب يُفقد النسخ المحفوظة على الجهاز نفسه.",
+              callout: { type: "warning", text: "النسخ الاحتياطي إلى سحابة ميزان (اختياري ومشفّر) قيد التطوير." },
             },
           ],
         },
       },
       {
-        slug: "deploy/monitoring",
-        title: "المراقبة وسجلات التشغيل (Logs)",
-        titleEn: "Monitoring & Logs",
-        description: "متابعة سجلات Uvicorn، تتبع الأخطاء اللحظية، وفحص مؤشر الصحة /health.",
+        slug: "deploy/manage",
+        title: "إدارة الخادم من سطر الأوامر",
+        titleEn: "Server Command Line",
+        description: "تثبيت بدون واجهة، حالة الخدمة، الترخيص، وإزالة البرنامج.",
         category: "deployment-doc",
+        lastUpdated: "2026-11-09",
         content: {
-          overview:
-            "توفر نقطة نهاية GET /health فحصاً ذاتياً لاتصال قاعدة البيانات وصحة عمال الأتمتة مع إمكانية متابعة السجلات الحية.",
+          overview: "برنامج mizan-server يدير ميزان المثبت على الجهاز، ويفيد مسؤولي الأنظمة والخوادم بدون شاشة.",
           sections: [
             {
-              id: "logs-tail",
-              title: "متابعة السجلات الحية",
-              body: "أمر متابعة السجلات:",
+              id: "headless",
+              title: "تثبيت بدون واجهة",
+              body: "على خادم بدون شاشة، يعمل برنامج التثبيت نفسه من سطر الأوامر:",
               codeBlock: {
                 language: "bash",
-                filename: "logs.sh",
-                code: "python manage.py stack logs",
+                filename: "install",
+                code: "MizanSetup install --licence-file \"Mizan - منشأتي.mzn\" --admin-password '••••••••'\n# أو لخوادم لينكس:\nsh mizan-setup-1.0.0-linux-x86_64.run install --licence-file licence.mzn --admin-password '••••••••'",
+              },
+            },
+            {
+              id: "status",
+              title: "الحالة والتحكم",
+              body: "",
+              codeBlock: {
+                language: "bash",
+                filename: "mizan-server",
+                code: "mizan-server status          # الإصدار، العنوان، الترخيص، آخر نسخة احتياطية\nmizan-server restart         # إعادة تشغيل الخدمة\nmizan-server licence show    # حالة الترخيص\nmizan-server licence set MZN1.…   # إدخال مفتاح جديد\nmizan-server licence check-in     # التجديد من الإنترنت الآن",
+              },
+            },
+            {
+              id: "uninstall",
+              title: "الإزالة",
+              body: "تزيل الخدمة والاختصارات وتحتفظ بالبيانات، إلا إذا أضفت --delete-data:",
+              codeBlock: {
+                language: "bash",
+                filename: "mizan-server",
+                code: "mizan-server uninstall --yes",
               },
             },
           ],
@@ -881,7 +935,7 @@ export const DOC_SECTIONS: DocSection[] = [
               id: "faq-q1",
               title: "هل يعمل ميزان عند انقطاع الإنترنت؟",
               body:
-                "نعم، تطبيق الكاشير المكتبي (المبني عبر Tauri) يدعم تسجيل المبيعات وحفظها محلياً في ذاكرة التخزين المؤقت، ثم مزامنتها تلقائياً مع السحابة فور عودة الاتصال.",
+                "نعم. على السحابة، تسجّل نقطة البيع المبيعات أثناء انقطاع الإنترنت وتزامنها فور عودة الاتصال. وإذا كان الإنترنت غير مستقر دائماً، اختر عند إنشاء مساحة العمل «جهاز واحد» أو «شبكة محلية»: يعمل ميزان بالكامل داخل منشأتك بدون إنترنت.",
             },
             {
               id: "faq-q2",

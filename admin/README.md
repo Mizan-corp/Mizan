@@ -29,8 +29,11 @@ including "Open as owner" (signing in to a workspace as its owner).
 ## Behaviour worth knowing
 
 - **Single-device and LAN workspaces** (ADR-005) have a **Licence** tab: its end date,
-  extend it, revoke or restore it, issue an offline key, and the installations that have
-  checked in. "Open as owner" doesn't apply to them (their data lives on site).
+  extend it, revoke or restore it, issue an offline key (for installs that never go online),
+  and the installations that have checked in (computer, OS, version, last seen, last backup).
+  "Open as owner" doesn't apply to them (their data lives on site). Revoking makes the
+  install read-only at its next check-in; a key already handed out keeps working offline
+  until it expires. Licence keys need `LICENSE_SIGNING_KEY` on this API.
 
 - **Suspend** closes a workspace to its own people: they can't sign in or use the API
   until it's reactivated. Platform staff keep access. Nothing is deleted.

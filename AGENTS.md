@@ -24,8 +24,10 @@ Before performing any significant task:
 - Respect the documented system architecture (`docs/SYSTEM_ARCHITECTURE.md`).
 - Preserve separation of concerns and module boundaries.
 - Follow established naming conventions and folder structures:
-  - The repo is split into three products plus a shared kernel: `system/` (the ERP), `website/` (landing, signup, onboarding, docs), `admin/` (Admoon), and `shared/` (backend kernel + frontend kit). Each product has its own `frontend/` and `backend/`, deployed separately. See `docs/decisions/ADR-003-separate-apps.md`.
-  - Domain modules live in `shared/backend/app/modules/<business_activity>/<module_name>/`; their screens live in `system/frontend/src/modules/<business_activity>/<module_name>/`.
+  - The repo is split into four products plus a shared kernel and the installers: `system/` (the ERP), `website/` (landing, signup, onboarding, docs), `owner/` (the owner panel, Arabic), `admin/` (the Mizan team's panel, English), `shared/` (backend kernel + frontend kit) and `installer/` (single-device and LAN installs). Each product has its own `frontend/` and `backend/`, deployed separately. See `docs/decisions/ADR-003-separate-apps.md`, `ADR-004` (owner accounts, Paymob) and `ADR-005` (deployment modes).
+  - Domain modules live in `shared/backend/app/modules/<module_id>/` or, grouped by activity, `shared/backend/app/modules/<business_activity>/<module_id>/`; their screens live in the matching folder under `system/frontend/src/modules/`. The module id comes from `manifest.json`, not the folder name.
+  - Folder and file names must be valid on Windows (the installers are built there): no reserved names such as `con`, `prn`, `aux`, `nul`, `com1`, `lpt1`, no names differing only in case, no `<>:"|?*`.
+  - The same system API and app also run on site (`MIZAN_MODE=desktop|lan`, `VITE_DEPLOYMENT=onprem`): don't assume cloud-only services, and keep server-mode changes in `shared/backend/app/onprem/`.
   - Frontend components and routes are modularized with clear domain boundaries.
 - Avoid unnecessary abstractions and premature microservices.
 - Keep modules maintainable and independently understandable.
