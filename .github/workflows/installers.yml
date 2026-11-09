@@ -1,0 +1,102 @@
+name: Installers
+
+# Builds and smoke-tests the single-device / LAN installers (ADR-005, installer/README.md)
+# on Linux and Windows. Tags (v*) also publish them to a GitHub release.
+
+on:
+  push:
+    tags: ['v*']
+    paths-ignore: ['**.md']
+  pull_request:
+    paths: ['installer/**', 'shared/backend/app/onprem/**', '.github/workflows/installers.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONIOENCODING: utf-8
+
+jobs:
+  build:
+    name: Build · ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 22.04: an older glibc, so the Linux build runs on more distributions.
+          - { os: ubuntu-22.04, platform: linux }
+          - { os: windows-latest, platform: windows }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: installer/setup/src-tauri
+
+      - name: Linux packages for Tauri
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libayatana-appindicator3-dev libssl-dev
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          python -m pip install --upgrade pip
+          pip install ./shared/backend "pyinstaller==6.11.1"
+
+      - name: Cache PostgreSQL and WinSW downloads
+        uses: actions/cache@v4
+        with:
+          path: installer/build/cache
+          key: installer-cache-${{ matrix.platform }}-${{ hashFiles('installer/build.py') }}
+
+      - name: Build
+        run: python installer/build.py
+
+      - name: Smoke test (install, run, sign in · single device and LAN)
+        run: python installer/ci_smoke.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mizan-installers-${{ matrix.platform }}
+          path: |
+            installer/build/dist/MizanSetup-*
+            installer/build/dist/mizan-setup-*.run
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

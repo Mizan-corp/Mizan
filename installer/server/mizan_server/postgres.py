@@ -24,7 +24,7 @@ def _as_user(cfg: Config, cmd: list[str]) -> list[str]:
 
 def _run(cfg: Config, cmd: list[str], *, env: dict | None = None, check: bool = True) -> subprocess.CompletedProcess:
     full_env = {**os.environ, "PGPASSWORD": cfg.db_password, "LC_ALL": "C", **(env or {})}
-    r = subprocess.run(_as_user(cfg, cmd), capture_output=True, text=True, env=full_env,
+    r = subprocess.run(_as_user(cfg, cmd), capture_output=True, text=True, encoding="utf-8", errors="replace", env=full_env,
                        creationflags=0x08000000 if IS_WINDOWS else 0)  # CREATE_NO_WINDOW
     if check and r.returncode != 0:
         raise PostgresError(f"{Path(cmd[0]).name} failed: {(r.stderr or r.stdout).strip()[-800:]}")
@@ -99,7 +99,16 @@ def start(cfg: Config) -> None:
     log.parent.mkdir(parents=True, exist_ok=True)
     if cfg.run_as and not IS_WINDOWS and os.geteuid() == 0:
         subprocess.run(["chown", "-R", f"{cfg.run_as}:{cfg.run_as}", str(log.parent)], check=True)
-    _run(cfg, [tool(cfg, "pg_ctl"), "start", "-D", str(cfg.pgdata), "-l", str(log), "-w", "-t", "90"])
+    # Not a pipe: the server inherits pg_ctl's output handles, and on Windows a
+    # captured pipe would then never close.
+    out_path = cfg.data / "logs" / "pg_ctl.out"
+    with open(out_path, "w") as out:
+        r = subprocess.run(_as_user(cfg, [tool(cfg, "pg_ctl"), "start", "-D", str(cfg.pgdata), "-l", str(log), "-w", "-t", "90"]),
+                           stdout=out, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                           env={**os.environ, "LC_ALL": "C"}, creationflags=0x08000000 if IS_WINDOWS else 0)
+    if r.returncode != 0:
+        detail = out_path.read_text(errors="replace").strip() or (log.read_text(errors="replace")[-800:] if log.exists() else "")
+        raise PostgresError(f"pg_ctl start failed: {detail[-800:]}")
 
 
 def stop(cfg: Config) -> None:

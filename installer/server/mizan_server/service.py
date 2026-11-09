@@ -23,7 +23,7 @@ def _program(cfg: Config) -> Path:
 
 
 def _systemctl(*args: str, user: bool) -> subprocess.CompletedProcess:
-    return subprocess.run(["systemctl", *(["--user"] if user else []), *args], capture_output=True, text=True)
+    return subprocess.run(["systemctl", *(["--user"] if user else []), *args], capture_output=True, text=True, encoding="utf-8", errors="replace")
 
 
 def _unit(cfg: Config, user: bool) -> str:
@@ -84,7 +84,7 @@ def _install_windows(cfg: Config) -> str:
 </service>
 """, encoding="utf-8")
     for args in (["install"], ["start"]):
-        r = subprocess.run([str(winsw), *args], capture_output=True, text=True)
+        r = subprocess.run([str(winsw), *args], capture_output=True, text=True, encoding="utf-8", errors="replace")
         if r.returncode != 0 and "already" not in (r.stdout + r.stderr).lower():
             raise RuntimeError(f"Windows service {args[0]} failed: {(r.stderr or r.stdout).strip()[-400:]}")
     return "windows-service"
@@ -96,7 +96,7 @@ def control(cfg: Config, action: str) -> bool:
         winsw = cfg.install / "server" / "mizan-service.exe"
         if not winsw.exists():
             return False
-        r = subprocess.run([str(winsw), action], capture_output=True, text=True)
+        r = subprocess.run([str(winsw), action], capture_output=True, text=True, encoding="utf-8", errors="replace")
         return r.returncode == 0 and ("Stopped" not in r.stdout if action == "status" else True)
     if not shutil.which("systemctl"):
         return False

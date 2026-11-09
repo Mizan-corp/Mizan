@@ -52,7 +52,7 @@ def peek_licence(key: str) -> dict:
 
 def _internal(args: list[str], env: dict[str, str], step: str) -> dict:
     """Run one of this program's internal commands; it prints one JSON line."""
-    r = subprocess.run([*self_command(), *args], capture_output=True, text=True, env={**os.environ, **env},
+    r = subprocess.run([*self_command(), *args], capture_output=True, text=True, encoding="utf-8", errors="replace", env={**os.environ, **env},
                        creationflags=0x08000000 if IS_WINDOWS else 0)
     lines = [ln for ln in r.stdout.splitlines() if ln.startswith("{")]
     result = json.loads(lines[-1]) if lines else {}

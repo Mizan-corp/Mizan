@@ -229,6 +229,10 @@ def cmd_verify_licence(a) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Windows pipes default to the ANSI code page; progress has Arabic names and ✔.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     p = argparse.ArgumentParser(prog="mizan-server", description="Install and manage Mizan on this computer.")
     p.add_argument("--data-dir", help=argparse.SUPPRESS)
     sub = p.add_subparsers(dest="command", required=True)
