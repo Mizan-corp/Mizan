@@ -69,7 +69,7 @@ def load_all_models() -> None:
     import app.modules.mfg.models
     import app.modules.fod.models
     import app.modules.phm.models
-    import app.modules.prn.models
+    import app.modules.printing.models
     import app.modules.cst.models
     import app.modules.rec.models
     import app.modules.agr.models

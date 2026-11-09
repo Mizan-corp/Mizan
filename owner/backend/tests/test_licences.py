@@ -178,3 +178,17 @@ def test_a_key_for_another_workspace_is_refused(tmp_path, monkeypatch):
 
 
 assert app  # the owner API is importable with the installations router
+
+
+def test_published_installers(monkeypatch):
+    from app.core.releases import published_installers
+
+    monkeypatch.delenv("MIZAN_INSTALLERS", raising=False)
+    assert published_installers("desktop") == []
+    monkeypatch.setenv("MIZAN_INSTALLERS", "not json")
+    assert published_installers("lan") == []
+    monkeypatch.setenv("MIZAN_INSTALLERS", '{"windows": {"url": "https://x/MizanSetup.exe", "version": "1.0.0"},'
+                                           ' "linux": {"url": "https://x/MizanSetup"}, "mac": {"url": "https://x/m"}}')
+    # The same setup installs both modes on both platforms.
+    for mode in ("desktop", "lan"):
+        assert [i["platform"] for i in published_installers(mode)] == ["windows", "linux"]

@@ -38,7 +38,7 @@ const FieldServicePage = lazy(() => import("@modules/field_service/FieldServiceP
 const DiscreteManufacturingPage = lazy(() => import("@modules/mfg/DiscreteManufacturingPage"));
 const FoodProcessingPage = lazy(() => import("@modules/fod/FoodProcessingPage"));
 const PharmaGmpPage = lazy(() => import("@modules/phm/PharmaGmpPage"));
-const PrintingPackagingPage = lazy(() => import("@modules/prn/PrintingPackagingPage"));
+const PrintingPackagingPage = lazy(() => import("@modules/printing/PrintingPackagingPage"));
 const ConstructionPage = lazy(() => import("@modules/cst/ConstructionPage"));
 const RealEstatePage = lazy(() => import("@modules/rec/RealEstatePage"));
 const AgricultureFarmPage = lazy(() => import("@modules/agr/AgricultureFarmPage"));

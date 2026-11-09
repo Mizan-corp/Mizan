@@ -136,7 +136,7 @@ router.include_router(fod_router)
 from app.modules.phm.router import router as phm_router
 router.include_router(phm_router)
 
-from app.modules.prn.router import router as prn_router
+from app.modules.printing.router import router as prn_router
 router.include_router(prn_router)
 
 from app.modules.cst.router import router as cst_router

@@ -1,11 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
-import { Check, Copy, Download as DownloadIcon, MonitorDown, Server } from "lucide-react";
+import { Check, Copy, Download as DownloadIcon, FileKey2, MonitorDown, Server } from "lucide-react";
 import { useState } from "react";
 import { actions, type Workspace } from "@app/lib/data";
 import { date, errorText, MODE } from "@app/lib/format";
 import { Button, ErrorNote, Modal, Skeleton } from "@app/ui";
 
 const PLATFORM = { windows: "Windows", linux: "Linux" } as const;
+
+/** Save the key as "Mizan - <workspace>.mzn": Mizan Setup finds it in Downloads by itself. */
+function saveLicenceFile(name: string, key: string) {
+  const safe = name.replace(/[\\/:*?"<>|]+/g, " ").trim() || "workspace";
+  const blob = new Blob([`# Mizan licence: ${name}\n${key}\n`], { type: "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement("a"), { href: url, download: `Mizan - ${safe}.mzn` });
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 /** What a single-device or LAN workspace needs: the installer and its licence key. */
 export function DownloadDialog({ workspace, open, onClose }: { workspace: Workspace; open: boolean; onClose: () => void }) {
@@ -48,9 +60,12 @@ export function DownloadDialog({ workspace, open, onClose }: { workspace: Worksp
               </div>
             ) : (
               <p className="rounded-lg bg-sand/70 px-3.5 py-3 text-sm leading-relaxed text-ink-2">
-                برنامج التثبيت قيد التجهيز وسيظهر هنا فور توفره. احتفظ بمفتاح الترخيص أدناه: ستحتاجه عند التثبيت.
+                برنامج التثبيت قيد التجهيز وسيظهر هنا فور توفره. احتفظ بملف الترخيص أدناه: ستحتاجه عند التثبيت.
               </p>
             )}
+            <Button variant="secondary" className="mt-2 w-full" onClick={() => saveLicenceFile(workspace.name, q.data.licence_key)}>
+              <FileKey2 /> ملف الترخيص (.mzn)
+            </Button>
           </section>
 
           <section>
@@ -58,13 +73,13 @@ export function DownloadDialog({ workspace, open, onClose }: { workspace: Worksp
             <ol className="grid gap-1.5 text-sm leading-relaxed text-ink-2 [counter-reset:step]">
               {(lan
                 ? [
-                    "ثبّت البرنامج على الجهاز الذي سيعمل كخادم (يبقى مُشغّلًا أثناء العمل).",
-                    "اتبع خطوات معالج التثبيت واختر كلمة مرور المدير.",
+                    "نزّل برنامج التثبيت وملف الترخيص على الجهاز الذي سيعمل كخادم (يبقى مُشغّلًا أثناء العمل).",
+                    "شغّل برنامج التثبيت: يجد ملف الترخيص تلقائيًا. اختر كلمة مرور المدير.",
                     "على أجهزة الكاشير والمكاتب: افتح العنوان الذي يعرضه المعالج في المتصفح (مثل https://mizan.local).",
                   ]
                 : [
-                    "ثبّت البرنامج على الكمبيوتر الذي ستعمل عليه.",
-                    "اتبع خطوات معالج التثبيت واختر كلمة مرور المدير.",
+                    "نزّل برنامج التثبيت وملف الترخيص على الكمبيوتر الذي ستعمل عليه.",
+                    "شغّل برنامج التثبيت: يجد ملف الترخيص تلقائيًا. اختر كلمة مرور المدير.",
                     "افتح ميزان من سطح المكتب. يعمل بدون إنترنت.",
                   ]
               ).map((s, i) => (

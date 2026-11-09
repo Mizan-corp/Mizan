@@ -15,7 +15,7 @@ from app.models.user import User
 async def get_current_tenant_id(user: User = Depends(get_current_user)) -> str:
     return str(user.tenant_id)
 
-from app.modules.prn.models import (
+from app.modules.printing.models import (
     PrnJobDocket,
     PrnImpositionPlan,
     PrnPressMachine,
