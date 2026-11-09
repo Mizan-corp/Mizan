@@ -14,7 +14,8 @@ whether that's a corner shop, a restaurant, a pharmacy, a hotel or a factory.
 &nbsp;![RTL](https://img.shields.io/badge/Arabic-RTL%20first-651E2C)
 &nbsp;![Stack](https://img.shields.io/badge/FastAPI%20·%20React%2019%20·%20PostgreSQL-262321)
 
-[**Open the app →**](https://mizan-co.vercel.app) &nbsp;·&nbsp;
+[**Website**](https://mizan-co.vercel.app) &nbsp;·&nbsp;
+[**Open the app →**](https://mizan-co-app.vercel.app) &nbsp;·&nbsp;
 [API docs](https://mizan-co-api.vercel.app/api/docs) &nbsp;·&nbsp;
 [Documentation](docs/)
 
@@ -102,36 +103,47 @@ that plugs into the shared core.
 | **Sales invoices / month** | 100 | 500 | 5,000 | Unlimited |
 | **Industries** | Core | Core + Phase 1 | Phases 1–3 | All 30 |
 
-Prices come from `backend/app/core/plans.py`, which is the source of truth.
+Prices come from `shared/backend/app/core/plans.py`, which is the source of truth.
 
 ---
 
 ## Under the hood
 
+Mizan is **three products, built and deployed separately**, on one shared kernel and one database:
+
+| | Product | Who uses it | Lives at |
+|---|---|---|---|
+| 🌐 | **Website**: landing, pricing, docs, signup, onboarding | Visitors and new merchants | [mizan-co.vercel.app](https://mizan-co.vercel.app) |
+| 🧾 | **System**: the ERP itself, plus public storefronts | Every workspace, every day | [mizan-co-app.vercel.app](https://mizan-co-app.vercel.app) |
+| 🛡️ | **Admin**: Admoon, the platform control plane | The Mizan team only | [mizan-co-admin.vercel.app](https://mizan-co-admin.vercel.app) |
+
 ```mermaid
-flowchart TB
-    subgraph Clients
-        A[Web app · React 19<br/>Arabic RTL · PWA · offline POS]
-        S[Public storefronts]
+flowchart LR
+    subgraph website["website/"]
+        WF[Website frontend] --> WA[website-api<br/>plans · signup]
     end
-    subgraph API["FastAPI (one modular monolith)"]
-        M[Auth · tenant resolver · RBAC/ABAC · audit]
-        C[Shared core<br/>POS · sales · stock · finance · HR]
-        V[48 pluggable modules<br/>one manifest each]
-        AD[Admoon<br/>platform control plane]
+    subgraph system["system/"]
+        SF[System frontend<br/>PWA · offline POS] --> SA[system-api<br/>the ERP · 48 modules]
     end
-    DB[(PostgreSQL 16<br/>Row-Level Security)]
-    A --> M
-    S --> M
-    M --> C & V & AD
-    C & V & AD --> DB
+    subgraph admin["admin/"]
+        AF[Admin frontend] --> AA[admin-api<br/>Admoon]
+    end
+    K[["shared/<br/>kernel: models · tenancy · auth · modules<br/>kit: components · API client · styles"]]
+    WA & SA & AA --- K
+    K --> DB[(PostgreSQL 16<br/>Row-Level Security)]
+    WF -. "new owner, signed in" .-> SF
+    AF -. "impersonate, signed in" .-> SF
 ```
+
+Customers never download admin code, a pricing-page edit can't break the POS, and every
+API exposes only its own routes. Signing up on the website (or impersonating from Admoon)
+opens the ERP already signed in, through a one-time handoff in the URL fragment.
 
 | Layer | Technology |
 |---|---|
 | **Backend** | Python 3.12 · FastAPI · SQLAlchemy 2.0 (async) · Pydantic v2 · PostgreSQL 16 (Neon) |
 | **Frontend** | React 19 · TypeScript (strict) · Vite · Tailwind CSS v4 · shadcn/ui on Base UI · TanStack Query · Zustand · Motion · Recharts |
-| **Hosting** | Vercel (app + API) · Neon (database) · Docker Compose for local and on-premise |
+| **Hosting** | Vercel (6 projects: 3 frontends + 3 APIs) · Neon (one database) · Docker Compose for local and on-premise |
 
 ### Four ideas that hold it together
 
@@ -141,8 +153,9 @@ filter, automatic stamping on insert, and **PostgreSQL Row-Level Security** as a
 inside the database. If an application bug forgets a filter, the database still says no.
 
 **2. Modules are plug-ins, not forks.**
-Every module is a folder (`modules/<id>/`) with a `manifest.json` (category, dependencies,
-permissions, business types), its own models, API router and screens. The marketplace at
+Every module has a backend folder (`shared/backend/app/modules/<id>/`) with a `manifest.json`
+(category, dependencies, permissions, business types), its own models and API router, and its
+screens in `system/frontend/src/modules/<id>/`. The marketplace at
 `/modules` turns them on and off per workspace, and every route is guarded by `require_module`.
 
 **3. Permissions mirror real jobs.**
@@ -157,7 +170,7 @@ are never hard-deleted, and every destructive action leaves an audit trail.
 
 ### Admoon: the control plane
 
-Admoon (`/admoon`) is where the platform owner runs Mizan itself: creating and provisioning
+Admoon is a separate app on its own domain, where the platform owner runs Mizan itself: creating and provisioning
 workspaces, plans and subscriptions, MRR, resource metrics, backups, provisioning jobs and
 platform audit logs. Access is limited to super-admins.
 
@@ -199,23 +212,26 @@ Independent audits, and what was fixed after them, live in [`docs/audit/`](docs/
 
 ## Run it locally
 
-**Requirements:** Docker, Python 3.12 with [uv](https://docs.astral.sh/uv/), Node 20+.
+**Requirements:** Docker, Node 20+ (CI uses 24), and Python 3.12 with [uv](https://docs.astral.sh/uv/) for running backends outside Docker.
 
 ```bash
-# 1 · database (Postgres on :5433) and backend
+# 1 · database + the three APIs (system :8000 · website :8001 · admin :8002)
 docker compose up -d
 
 # 2 · apply migrations (idempotent, safe to re-run)
 python3 scripts/migrate.py
 
-# 3 · frontend on http://localhost:5173 (calls to /api are proxied)
-cd frontend && npm install && npm run dev
+# 3 · frontends (one npm workspace; /api is proxied to each app's own API)
+npm install
+npm run dev:system     # http://localhost:5173   the ERP
+npm run dev:website    # http://localhost:5174   landing, signup, onboarding
+npm run dev:admin      # http://localhost:5175   Admoon
 ```
 
-Running the backend outside Docker:
+Running an API outside Docker (from its folder, with the shared kernel on the path):
 
 ```bash
-cd backend && .venv/bin/uvicorn main:app --port 8010
+cd system/backend && PYTHONPATH=.:../../shared/backend uvicorn main:app --port 8000
 ```
 
 A fresh database creates a first admin account. Change its password immediately.
@@ -223,35 +239,40 @@ A fresh database creates a first admin account. Change its password immediately.
 ### Tests
 
 ```bash
-cd frontend && npm test && npm run build        # unit tests + strict type-check + build
-cd backend  && .venv/bin/pytest -q              # backend tests (security, accounting, clinic)
+npm test && npm run build                                  # shared + system unit tests, type-check and build all three apps
+cd system/backend && python -m pytest -q                   # backend tests (security, accounting, clinic)
 cd e2e && E2E_API_BASE=http://localhost:8000 \
   E2E_DATABASE_URL=postgresql://postgres:postgres@localhost:5433/inventory_db \
-  .venv/bin/pytest -q                           # live API suite. Both URLs must point at the same server
+  python -m pytest -q                                      # live API suite. Both URLs must point at the same server
 ```
 
-CI runs lint, the frontend build, unit tests and the full Docker-based end-to-end suite on every push.
+CI runs lint, all three builds, unit tests, an import check of every API and the full Docker-based end-to-end suite on every push.
 
 ---
 
 ## Repository map
 
 ```
-backend/
-  app/api/routers/   core API: auth, POS, sales, stock, purchases, finance, HR, billing, admoon …
-  app/core/          config, security, tenancy, plans
-  app/modules/       industry & integration modules (backend side)
-  migrations/        SQL used by tracked migrations
-modules/             module manifests + categories.json (the 30-industry registry)
-frontend/src/
-  features/          app screens, marketing site, onboarding, admoon
-  components/kit/    shadcn/ui components (owned, editable)
-  components/app/    PageHeader, ListState, TableShell, StatCard …
-engines/printing/    receipt & document printing engine
-e2e/                 live API end-to-end suite
-scripts/             migrate.py, seeders, verification scripts
-docs/                product, architecture, design, security and requirements docs
+system/                 the ERP
+  frontend/src/         app shell, ERP screens, tenant routing, modules/ (industry screens)
+  backend/              system-api: main.py + system_api/ (routes, tenant resolution)
+website/                the public website
+  frontend/src/         landing, product, pricing, blog, docs portal, signup, onboarding
+  backend/              website-api: plans and self-serve signup
+admin/                  Admoon, the control plane
+  frontend/src/         tenants, provisioning, billing, backups, monitoring, audit logs
+  backend/              admin-api: admin_api/ (Admoon router) + admoon/ (provisioning, backups)
+shared/                 code all three use
+  frontend/src/         design kit (components/kit), API client, stores, i18n, styles, pricing
+  backend/app/          kernel: factory, core (tenancy, auth, plans), models, services,
+                        api/routers (ERP endpoint library), modules (48 domain modules), db/sql
+engines/printing/       receipt & document printing engine
+e2e/                    live API end-to-end suite
+scripts/                migrate.py, seeders, verification scripts
+docs/                   product, architecture, design, security and requirements docs
 ```
+
+Frontend import aliases: `@/` is the shared kit, `@app/` is the current app, `@modules/` is the industry screens (system only).
 
 ## Documentation
 

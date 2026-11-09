@@ -68,7 +68,7 @@ async def run():
         # 1. WHOLESALE & DISTRIBUTION (/wholesale)
         # ==========================================
         print("Navigating to /wholesale...")
-        await page.goto("http://localhost:5173/Mizan/wholesale", wait_until="networkidle")
+        await page.goto("http://localhost:5173/wholesale", wait_until="networkidle")
         await page.wait_for_timeout(2000)
         await page.screenshot(path=f"{screenshot_dir}/92_wholesale_tiered_pricing.png")
         print("Saved 92_wholesale_tiered_pricing.png")
@@ -95,7 +95,7 @@ async def run():
         # 2. LOGISTICS & FLEET (/logistics)
         # ==========================================
         print("Navigating to /logistics...")
-        await page.goto("http://localhost:5173/Mizan/logistics", wait_until="networkidle")
+        await page.goto("http://localhost:5173/logistics", wait_until="networkidle")
         await page.wait_for_timeout(2000)
         await page.screenshot(path=f"{screenshot_dir}/96_logistics_consignments_waybills.png")
         print("Saved 96_logistics_consignments_waybills.png")
@@ -132,7 +132,7 @@ async def run():
         # 3. 3PL & WMS (/wms)
         # ==========================================
         print("Navigating to /wms...")
-        await page.goto("http://localhost:5173/Mizan/wms", wait_until="networkidle")
+        await page.goto("http://localhost:5173/wms", wait_until="networkidle")
         await page.wait_for_timeout(2000)
         await page.screenshot(path=f"{screenshot_dir}/101_wms_bin_locations_grid.png")
         print("Saved 101_wms_bin_locations_grid.png")
@@ -159,7 +159,7 @@ async def run():
         # 4. ECOMMERCE HUB (/ecommerce)
         # ==========================================
         print("Navigating to /ecommerce...")
-        await page.goto("http://localhost:5173/Mizan/ecommerce", wait_until="networkidle")
+        await page.goto("http://localhost:5173/ecommerce", wait_until="networkidle")
         await page.wait_for_timeout(2000)
         await page.screenshot(path=f"{screenshot_dir}/105_ecommerce_orders_fulfillment.png")
         print("Saved 105_ecommerce_orders_fulfillment.png")

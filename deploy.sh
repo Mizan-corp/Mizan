@@ -69,13 +69,13 @@ git pull origin master 2>&1
 echo "[remote] ── Running Migrations ──"
 
 echo "[remote] Migration 1: fix_nullable_and_fks.sql"
-psql -U postgres -d egco -f backend/migrations/fix_nullable_and_fks.sql 2>&1 || echo "[remote] WARNING: Migration 1 had issues (may already be applied)"
+psql -U postgres -d egco -f shared/backend/app/db/sql/fix_nullable_and_fks.sql 2>&1 || echo "[remote] WARNING: Migration 1 had issues (may already be applied)"
 
 echo "[remote] Migration 2: add_indexes.sql"
-psql -U postgres -d egco -f backend/migrations/add_indexes.sql 2>&1 || echo "[remote] WARNING: Migration 2 had issues (may already be applied)"
+psql -U postgres -d egco -f shared/backend/app/db/sql/add_indexes.sql 2>&1 || echo "[remote] WARNING: Migration 2 had issues (may already be applied)"
 
 echo "[remote] Migration 3: typed_fk_columns.sql"
-psql -U postgres -d egco -f backend/migrations/typed_fk_columns.sql 2>&1 || echo "[remote] WARNING: Migration 3 had issues (may already be applied)"
+psql -U postgres -d egco -f shared/backend/app/db/sql/typed_fk_columns.sql 2>&1 || echo "[remote] WARNING: Migration 3 had issues (may already be applied)"
 
 # ── Close Stale Shifts ──
 echo "[remote] ── Closing Stale Shifts ──"

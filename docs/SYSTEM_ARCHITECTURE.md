@@ -3,7 +3,7 @@
 ## 1. Architectural Style
 Mizan is built as a **Modular Monolith** optimized for developer velocity, transaction integrity, and deployment simplicity:
 - **Shared Enterprise Kernel:** Multi-tenancy resolution, database session lifecycle, audit logging, security context, and notification dispatch.
-- **Pluggable Domain Modules:** Encapsulated in `backend/app/modules/<domain>/` with self-contained API routers, schemas, service logic, and frontend components.
+- **Pluggable Domain Modules:** Encapsulated in `shared/backend/app/modules/<domain>/` (models, routers, services) with screens in `system/frontend/src/modules/<domain>/`.
 
 ```
                     ┌─────────────────────────────────┐
@@ -48,15 +48,31 @@ Mizan is built as a **Modular Monolith** optimized for developer velocity, trans
 ```
 
 ## 2. Directory Layout
-- `backend/app/`: Core backend application.
-  - `core/`: Config, database engine, async session handlers, security helpers.
-  - `models/`: Central enterprise models (User, Tenant, Organization, Membership, AuditLog).
-  - `api/routers/`: Global endpoints (Auth, Tenants, Health, System).
-  - `modules/`: Standalone domain modules (`healthcare/`, `hospitality/`, `pos/`, `wholesale/`, etc.).
-- `frontend/`: Single Page Application (SPA).
-  - `src/components/`: Reusable primitive components (Base UI / Radix primitives + Tailwind).
-  - `src/features/`: Top-level marketing, authentication, and core tenant routes.
-  - `src/lib/`: API client (`api.ts`), navigation routing (`nav.ts`), formatters, and utilities.
-  - `src/stores/`: Zustand state management (Auth, Tenant, UI theme, active modules).
+
+Mizan ships as **three products that are developed and deployed separately**, on top
+of one shared kernel and one PostgreSQL database (see `docs/decisions/ADR-003-separate-apps.md`).
+
+| Folder | What it is | Frontend | Backend |
+|---|---|---|---|
+| `system/` | The ERP tenants use every day | `system/frontend` → mizan-co-app | `system/backend` → mizan-co-api |
+| `website/` | Landing, pricing, docs, signup, onboarding | `website/frontend` → mizan-co | `website/backend` → mizan-co-web-api |
+| `admin/` | Admoon, the platform control plane | `admin/frontend` → mizan-co-admin | `admin/backend` → mizan-co-admin-api |
+| `shared/` | Code all three use | `shared/frontend` (design kit) | `shared/backend` (domain kernel) |
+
+- `shared/backend/` — installable Python package `app` (`mizan-shared`):
+  - `app/factory.py`: builds every service (middleware, CORS, CSRF, errors, health).
+  - `core/`: config, tenancy (ORM filter + RLS GUC), security, RBAC, sectors & plans.
+  - `models/`, `schemas/`, `services/`, `db/` (engine + tracked SQL migrations in `db/sql/`).
+  - `api/routers/`: the ERP endpoint library (mounted by the system service).
+  - `modules/`: domain modules (models, routers, manifests, print templates).
+- `system/backend/`: `main.py` + `system_api/` (route list, tenant resolution, tenant-side platform endpoints).
+- `website/backend/`: `main.py` + `website_api/` (plans, self-serve signup).
+- `admin/backend/`: `main.py` + `admin_api/` (Admoon router & service) + `admoon/` (provisioning, backups, providers).
+- `shared/frontend/src/`: kit components, API client, auth/UI stores, i18n, styles, plans, pricing page, cross-app URLs and session handoff.
+- `system/frontend/src/`: app shell, ERP features, tenant routing, and `modules/` (industry screens).
+- `website/frontend/src/`: marketing pages and the docs portal.
+- `admin/frontend/src/`: Admoon pages.
 - `docs/`: System documentation, architecture decision records, and API specs.
 - `.agents/`: Antigravity engineering rules and procedural skills.
+
+Import aliases (frontends): `@/` is the shared kit, `@app/` is the current app, `@modules/` (system only) is the industry screens.

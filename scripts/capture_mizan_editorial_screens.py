@@ -2,7 +2,7 @@ import os
 import time
 from playwright.sync_api import sync_playwright
 
-BASE_URL = "http://localhost:5173/Mizan"
+BASE_URL = "http://localhost:5174"
 OUT_DIR = "/home/ammar/.gemini/antigravity/brain/6d5afa1e-9da9-4298-949d-64f04df6ec73/audit_screens"
 os.makedirs(OUT_DIR, exist_ok=True)
 

@@ -9,7 +9,7 @@ Mizan serves diverse industries (Healthcare, Retail, Hospitality, Wholesale) tha
 ## Decision
 Adopt a **Modular Monolith** architecture:
 - Shared FastAPI kernel and PostgreSQL database with Row Level Security (RLS).
-- Strong domain modularity under `backend/app/modules/<business_activity>/<module_name>/`.
+- Strong domain modularity under `shared/backend/app/modules/<business_activity>/<module_name>/` (superseded in layout, not in principle, by ADR-003).
 - Each module maintains its own backend routers, schemas, services, and frontend presentation views while sharing the central enterprise data layer.
 
 ## Consequences

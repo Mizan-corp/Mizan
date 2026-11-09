@@ -147,7 +147,7 @@ async def run():
 
         # A. Public / Pricing Page
         print("Navigating to /pricing...")
-        await page.goto("http://localhost:5173/Mizan/pricing", wait_until="networkidle")
+        await page.goto("http://localhost:5174/pricing", wait_until="networkidle")
         await page.wait_for_timeout(1000)
         shot1 = f"{SCREENSHOT_DIR}/189_pricing_page_plans_and_live_quotas.png"
         await page.screenshot(path=shot1, full_page=True)
@@ -190,7 +190,7 @@ async def run():
 
         # C. Admoon Billing Invoices
         print("Navigating to /admoon/billing-invoices...")
-        await page.goto("http://localhost:5173/Mizan/admoon/billing-invoices", wait_until="networkidle")
+        await page.goto("http://localhost:5175/admoon/billing-invoices", wait_until="networkidle")
         await page.wait_for_timeout(1000)
         shot5 = f"{SCREENSHOT_DIR}/193_admoon_billing_invoices_live_mrr_table.png"
         await page.screenshot(path=shot5, full_page=True)
@@ -198,7 +198,7 @@ async def run():
 
         # D. Admoon Subscriptions
         print("Navigating to /admoon/subscriptions...")
-        await page.goto("http://localhost:5173/Mizan/admoon/subscriptions", wait_until="networkidle")
+        await page.goto("http://localhost:5175/admoon/subscriptions", wait_until="networkidle")
         await page.wait_for_timeout(1000)
         shot6 = f"{SCREENSHOT_DIR}/194_admoon_subscriptions_distribution_and_tiers.png"
         await page.screenshot(path=shot6, full_page=True)

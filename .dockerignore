@@ -1,0 +1,21 @@
+# Build context is the repo root (services need shared/). Keep it lean.
+.git
+**/node_modules
+**/dist
+**/.venv
+**/venv
+**/__pycache__
+**/*.py[cod]
+**/.env
+**/.env.*
+!**/.env.example
+**/tests
+**/uploads
+**/backups
+**/updates
+**/.vercel
+docs
+e2e
+scripts
+data
+*.log

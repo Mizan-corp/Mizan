@@ -9,10 +9,10 @@ When tasked with implementing a new module (e.g., `HLT-02`, `HLT-03`, `POS-02`):
 
 1. **Requirements & Domain Inspection:**
    - Read the relevant requirements in `docs/PRODUCT_REQUIREMENTS.md` and module-specific specs.
-   - Inspect existing peer modules in `backend/app/modules/` to reuse common structures.
+   - Inspect existing peer modules in `shared/backend/app/modules/` to reuse common structures.
 
 2. **Scaffold Directory Structure:**
-   - Create `backend/app/modules/<activity>/<module_name>/`:
+   - Create `shared/backend/app/modules/<activity>/<module_name>/` (backend) and `system/frontend/src/modules/<activity>/<module_name>/` (screens):
      - `backend/`: Routers, schemas, services, and models.
      - `frontend/`: Types, mockData, components, and root `index.tsx`.
      - `manifest.json`: Module metadata, permissions, and dependencies.
@@ -27,7 +27,7 @@ When tasked with implementing a new module (e.g., `HLT-02`, `HLT-03`, `POS-02`):
    - Ensure complete states: Loading, Empty, Active, Error.
 
 5. **Integration & Navigation:**
-   - Expose the module in `backend/app/modules/healthcare_clinic/frontend/ClinicHealthcarePage.tsx` (or parent activity page).
+   - Expose the module in `system/frontend/src/modules/healthcare_clinic/ClinicHealthcarePage.tsx` (or parent activity page).
    - Ensure clean routing without layout nesting.
 
 6. **Verification & Testing:**

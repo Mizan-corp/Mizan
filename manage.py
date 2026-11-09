@@ -66,14 +66,14 @@ class Settings:
     backup_dir: Path = field(default_factory=lambda: Path(__file__).parent / "backups")
     backup_retention: int = 10
     db_service: str = "db"
-    backend_service: str = "backend"
+    backend_service: str = "system-api"
     frontend_service: str = "frontend"
     db_name: str = "inventory_db"
     db_user: str = "postgres"
     health_url: str = "http://localhost:8080/api/health"
     init_sql: Path = field(default_factory=lambda: Path(__file__).parent / "data" / "sql" / "init_data.sql")
     migrate_py: Path = field(default_factory=lambda: Path(__file__).parent / "scripts" / "migrate.py")
-    frontend_dir: Path = field(default_factory=lambda: Path(__file__).parent / "frontend")
+    frontend_dir: Path = field(default_factory=lambda: Path(__file__).parent / "system" / "frontend")
     verbose: bool = False
 
 
@@ -451,7 +451,7 @@ def _gradle_build(settings: Settings, task: str) -> None:
     android_dir = settings.frontend_dir / "android"
     if not android_dir.exists():
         log.error("❌ Android project not found at %s", android_dir)
-        log.error("   Run: cd frontend && npx cap add android")
+        log.error("   Run: cd system/frontend && npx cap add android")
         sys.exit(1)
     log.info("🏗️  Running gradle %s...", task)
     gradlew = android_dir / "gradlew"

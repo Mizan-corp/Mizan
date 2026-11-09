@@ -71,7 +71,7 @@ async def run():
         # 1. BANKING & FINANCIAL INSTITUTIONS (/bnk)
         # ==========================================
         print("Navigating to /bnk...")
-        await page.goto("http://localhost:5173/Mizan/bnk", wait_until="networkidle")
+        await page.goto("http://localhost:5173/bnk", wait_until="networkidle")
         await page.wait_for_selector("text=الأنظمة المصرفية والمؤسسات المالية")
         await page.wait_for_timeout(1000)
         await page.screenshot(path=f"{screenshot_dir}/169_bnk_accounts_cif_portfolio.png")
@@ -99,7 +99,7 @@ async def run():
         # 2. INSURANCE & REINSURANCE (/ins)
         # ==========================================
         print("Navigating to /ins...")
-        await page.goto("http://localhost:5173/Mizan/ins", wait_until="networkidle")
+        await page.goto("http://localhost:5173/ins", wait_until="networkidle")
         await page.wait_for_selector("text=إدارة التأمين وإعادة التأمين")
         await page.wait_for_timeout(1000)
         await page.screenshot(path=f"{screenshot_dir}/173_ins_policies_underwriting_gwp.png")
@@ -127,7 +127,7 @@ async def run():
         # 3. GOVERNMENT & NONPROFIT (/gov)
         # ==========================================
         print("Navigating to /gov...")
-        await page.goto("http://localhost:5173/Mizan/gov", wait_until="networkidle")
+        await page.goto("http://localhost:5173/gov", wait_until="networkidle")
         await page.wait_for_selector("text=إدارة المؤسسات الحكومية والمنظمات غير الهادفة للربح")
         await page.wait_for_timeout(1000)
         await page.screenshot(path=f"{screenshot_dir}/177_gov_fund_accounting_unrestricted_grants.png")
@@ -155,7 +155,7 @@ async def run():
         # 4. ENTERTAINMENT & EVENTS (/ent)
         # ==========================================
         print("Navigating to /ent...")
-        await page.goto("http://localhost:5173/Mizan/ent", wait_until="networkidle")
+        await page.goto("http://localhost:5173/ent", wait_until="networkidle")
         await page.wait_for_selector("text=إدارة الترفيه، الفعاليات والملاهي")
         await page.wait_for_timeout(1000)
         await page.screenshot(path=f"{screenshot_dir}/181_ent_event_sessions_venue_capacity.png")
@@ -183,7 +183,7 @@ async def run():
         # 5. OIL & GAS EXTRACTION (/oil)
         # ==========================================
         print("Navigating to /oil...")
-        await page.goto("http://localhost:5173/Mizan/oil", wait_until="networkidle")
+        await page.goto("http://localhost:5173/oil", wait_until="networkidle")
         await page.wait_for_selector("text=إدارة استخراج وإنتاج البترول والغاز")
         await page.wait_for_timeout(1000)
         await page.screenshot(path=f"{screenshot_dir}/185_oil_wellhead_reservoirs_hierarchy.png")

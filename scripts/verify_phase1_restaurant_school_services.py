@@ -63,7 +63,7 @@ async def run():
         # 1. Restaurant Suite (Hall, KDS, Recipe BOM & Food Costing, Waste)
         # ====================================================================
         print(">>> Testing Restaurant Suite...")
-        await page.goto("http://localhost:5173/Mizan/restaurant/tables", wait_until="domcontentloaded")
+        await page.goto("http://localhost:5173/restaurant/tables", wait_until="domcontentloaded")
         await page.wait_for_timeout(2000)
 
         # Navigate to Recipe BOM & Food Costing tab
@@ -100,7 +100,7 @@ async def run():
         # 2. School Suite (Students, Installments, Attendance, Gradebook)
         # ====================================================================
         print(">>> Testing School Suite...")
-        await page.goto("http://localhost:5173/Mizan/school/students", wait_until="domcontentloaded")
+        await page.goto("http://localhost:5173/school/students", wait_until="domcontentloaded")
         await page.wait_for_timeout(3500)
         await page.screenshot(path=f"{screenshot_dir}/86_school_students_installments.png", full_page=True)
         print("  ✓ Captured 86_school_students_installments.png")
@@ -123,7 +123,7 @@ async def run():
         # 3. Consulting / Professional Services Suite
         # ====================================================================
         print(">>> Testing Consulting & Professional Services Suite...")
-        await page.goto("http://localhost:5173/Mizan/services", wait_until="domcontentloaded")
+        await page.goto("http://localhost:5173/services", wait_until="domcontentloaded")
         await page.wait_for_timeout(3500)
         await page.screenshot(path=f"{screenshot_dir}/89_services_engagements_retainers.png", full_page=True)
         print("  ✓ Captured 89_services_engagements_retainers.png")

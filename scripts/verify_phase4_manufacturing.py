@@ -69,7 +69,7 @@ async def run():
         # 1. DISCRETE MANUFACTURING (/mfg)
         # ==========================================
         print("Navigating to /mfg...")
-        await page.goto("http://localhost:5173/Mizan/mfg", wait_until="networkidle")
+        await page.goto("http://localhost:5173/mfg", wait_until="networkidle")
         await page.wait_for_timeout(2000)
         await page.screenshot(path=f"{screenshot_dir}/137_mfg_production_orders_wip.png")
         print("Saved 137_mfg_production_orders_wip.png")
@@ -96,7 +96,7 @@ async def run():
         # 2. FOOD & BEVERAGE PROCESS MANUFACTURING (/fod)
         # ==========================================
         print("Navigating to /fod...")
-        await page.goto("http://localhost:5173/Mizan/fod", wait_until="networkidle")
+        await page.goto("http://localhost:5173/fod", wait_until="networkidle")
         await page.wait_for_timeout(2000)
         await page.screenshot(path=f"{screenshot_dir}/141_fod_batch_orders_fefo.png")
         print("Saved 141_fod_batch_orders_fefo.png")
@@ -123,7 +123,7 @@ async def run():
         # 3. PHARMACEUTICAL & CHEMICAL GMP (/phm)
         # ==========================================
         print("Navigating to /phm...")
-        await page.goto("http://localhost:5173/Mizan/phm", wait_until="networkidle")
+        await page.goto("http://localhost:5173/phm", wait_until="networkidle")
         await page.wait_for_timeout(2000)
         await page.screenshot(path=f"{screenshot_dir}/145_phm_ebr_batch_records.png")
         print("Saved 145_phm_ebr_batch_records.png")
@@ -150,7 +150,7 @@ async def run():
         # 4. PRINTING & PACKAGING ERP (/prn)
         # ==========================================
         print("Navigating to /prn...")
-        await page.goto("http://localhost:5173/Mizan/prn", wait_until="networkidle")
+        await page.goto("http://localhost:5173/prn", wait_until="networkidle")
         await page.wait_for_timeout(2000)
         await page.screenshot(path=f"{screenshot_dir}/149_prn_job_dockets_specifications.png")
         print("Saved 149_prn_job_dockets_specifications.png")

@@ -24,7 +24,8 @@ Before performing any significant task:
 - Respect the documented system architecture (`docs/SYSTEM_ARCHITECTURE.md`).
 - Preserve separation of concerns and module boundaries.
 - Follow established naming conventions and folder structures:
-  - Global standalone modules live in `backend/app/modules/<business_activity>/<module_name>/`.
+  - The repo is split into three products plus a shared kernel: `system/` (the ERP), `website/` (landing, signup, onboarding, docs), `admin/` (Admoon), and `shared/` (backend kernel + frontend kit). Each product has its own `frontend/` and `backend/`, deployed separately. See `docs/decisions/ADR-003-separate-apps.md`.
+  - Domain modules live in `shared/backend/app/modules/<business_activity>/<module_name>/`; their screens live in `system/frontend/src/modules/<business_activity>/<module_name>/`.
   - Frontend components and routes are modularized with clear domain boundaries.
 - Avoid unnecessary abstractions and premature microservices.
 - Keep modules maintainable and independently understandable.
@@ -88,7 +89,7 @@ Whenever modifying shared code, investigate its impact across the entire project
 Examples include:
 - Global navigation (`src/lib/nav.ts`, `AppShell.tsx`, `TenantScopeLayout.tsx`).
 - Authentication and session storage (`stores/auth.ts`, JWT tokens, session cookies).
-- Authorization & RBAC/ABAC matrix (`backend/app/authz/`, role policies).
+- Authorization & RBAC/ABAC matrix (`shared/backend/app/core/authorization.py`, `rbac_catalog.py`, role policies).
 - Tenant context and resolution (`admoon/resolve-slug`).
 - Design tokens and theme palettes (`globals.css`, Tailwind v4 theme variables).
 - Shared components (`@/components/ui/*`, modals, data tables).

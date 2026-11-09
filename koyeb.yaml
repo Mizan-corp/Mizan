@@ -6,7 +6,7 @@
 #   koyeb service create mizan-backend --app mizan --git github.com/ammar0xff/Mizan \
 #     --git-branch master --dockerfile ./backend/Dockerfile --port 8000
 #
-# or via dashboard: Create Web Service -> Git -> repo -> Dockerfile -> backend/Dockerfile, port 8000.
+# or via dashboard: Create Web Service -> Git -> repo -> Dockerfile -> system/backend/Dockerfile (build context: repo root), port 8000.
 #
 # Environment variables are injected from the Koyeb dashboard "Environment" tab
 # (do NOT commit secrets here):
@@ -22,7 +22,7 @@ services:
     git:
       repository: ammar0xff/Mizan
       branch: master
-    dockerfile: backend/Dockerfile
+    dockerfile: system/backend/Dockerfile
     instance_type: nano          # free tier: 0.1 vCPU / 512 MB
     ports:
       - port: 8000

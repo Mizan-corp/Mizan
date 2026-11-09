@@ -17,6 +17,6 @@ Mizan serves specialized verticals through dedicated sector modules while mainta
 ## 3. Technology Stack Summary
 - **Backend:** Python 3.12, FastAPI, SQLAlchemy 2.0 (async), Pydantic v2, PostgreSQL (Neon / Supabase with Row Level Security), Redis / Uvicorn.
 - **Frontend:** React 19, Vite 6, TypeScript 5.8, Tailwind CSS v4, Base UI / Radix primitives, Lucide React, Recharts.
-- **Architecture:** Hybrid modular monolith with pluggable business modules (`backend/app/modules/<sector>/<module>`).
+- **Architecture:** Hybrid modular monolith with pluggable business modules (`shared/backend/app/modules/<sector>/<module>`), deployed as three separate products: system (ERP), website, and admin. See ADR-003.
 - **Security:** RLS multi-tenancy, JWT + httpOnly session cookies, granular RBAC + ABAC permissions, Break-Glass emergency clinical access, immutable audit logging.
 - **Deployment:** Vercel (Production Frontend & Serverless API), Docker / Koyeb for long-running services.

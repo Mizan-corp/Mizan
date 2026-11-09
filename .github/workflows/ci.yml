@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   ci-frontend:
-    name: Frontend CI (Test & Build)
+    name: Frontend CI (system · website · admin)
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -25,18 +25,15 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install dependencies
-        working-directory: frontend
+      - name: Install dependencies (npm workspaces)
         run: npm ci
 
-      - name: Run unit tests
-        working-directory: frontend
+      - name: Run unit tests (shared + system)
         run: npm test
 
-      - name: Build frontend
-        working-directory: frontend
+      - name: Type-check and build all three apps
         run: npm run build
 
   ci-backend:
@@ -49,21 +46,22 @@ jobs:
         with:
           python-version: '3.13'
           cache: pip
-          cache-dependency-path: backend/requirements.txt
+          cache-dependency-path: shared/backend/pyproject.toml
 
-      - name: Install deps
-        working-directory: backend
-        run: pip install -r requirements.txt
+      - name: Install the shared kernel
+        run: pip install ./shared/backend
 
-      - name: Import check
-        working-directory: backend
+      - name: Import check (system · website · admin)
         env:
           DATABASE_URL: postgresql+asyncpg://ci:ci@localhost:5432/ci  # dummy — not connected at import
-        run: SECRET_KEY=ci-secret-key-not-for-production-32ch python -c "import main; print(f'{len(main.app.routes)} routes')"
+          SECRET_KEY: ci-secret-key-not-for-production-32ch
+        run: |
+          for svc in system website admin; do
+            (cd $svc/backend && python -c "import main; print('$svc:', len(main.app.routes), 'routes')")
+          done
 
       - name: Lint
-        working-directory: backend
-        run: pip install ruff && ruff check . --select E9,F63,F7,F82,F821,F601
+        run: pip install ruff && ruff check shared/backend system/backend website/backend admin/backend --select E9,F63,F7,F82,F821,F601
 
   ci-e2e:
     name: E2E (live API)
@@ -74,7 +72,7 @@ jobs:
       - name: Create dummy firebase credentials
         run: echo "{}" > firebase-service-account.json
 
-      - name: Start stack (db + backend)
+      - name: Start stack (db + system/website/admin APIs)
         run: docker compose up -d --build
 
       - uses: actions/setup-python@v5
@@ -89,11 +87,13 @@ jobs:
 
       - name: Wait for health
         run: |
-          for i in $(seq 1 45); do
-            curl -sf http://localhost:8000/health && break
-            sleep 2
+          for port in 8000 8001 8002; do
+            for i in $(seq 1 45); do
+              curl -sf http://localhost:$port/health && break
+              sleep 2
+            done
+            curl -sf http://localhost:$port/health
           done
-          curl -sf http://localhost:8000/health
 
       - name: Apply migrations
         run: |
@@ -108,13 +108,12 @@ jobs:
         run: python -m pytest -q --no-header
 
       - name: Unit smoke test
-        working-directory: backend
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/inventory_db
           SECRET_KEY: ci-secret-key-not-for-production-32ch
         run: |
-          pip install -q -r requirements.txt -r requirements-dev.txt
-          python -m pytest tests/ -q --no-header
+          pip install -q ./shared/backend -r shared/backend/requirements-dev.txt
+          cd system/backend && python -m pytest tests/ -q --no-header
 
       - name: Debug container logs on failure
         if: failure()
@@ -172,7 +171,8 @@ jobs:
         if: env.DOCKER_USERNAME != '' && env.DOCKER_PASSWORD != ''
         uses: docker/build-push-action@v6
         with:
-          context: backend
+          context: .
+          file: system/backend/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -209,31 +209,7 @@ jobs:
       - name: Build & push backend (beta)
         uses: docker/build-push-action@v6
         with:
-          context: backend
+          context: .
+          file: system/backend/Dockerfile
           push: true
           tags: ghcr.io/${{ steps.owner.outputs.owner }}/mizan-backend:beta
-
-  # ─── Vercel Deploy Hooks (Manual dispatch or verified production trigger) ─
-  deploy-vercel:
-    name: Deploy to Vercel (Production)
-    needs: [ci-frontend, ci-backend, ci-e2e, ci-manage]
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Trigger Frontend Deploy Hook
-        if: env.FRONTEND_HOOK != ''
-        env:
-          FRONTEND_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_FRONTEND }}
-        run: |
-          echo "Triggering Vercel deployment for mizan-app (frontend)..."
-          curl -fsSL -X POST "$FRONTEND_HOOK"
-          echo -e "\nFrontend deployment hook triggered successfully."
-
-      - name: Trigger Backend Deploy Hook
-        if: env.BACKEND_HOOK != ''
-        env:
-          BACKEND_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_BACKEND }}
-        run: |
-          echo "Triggering Vercel deployment for mizan-api (backend)..."
-          curl -fsSL -X POST "$BACKEND_HOOK"
-          echo -e "\nBackend deployment hook triggered successfully."

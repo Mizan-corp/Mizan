@@ -3,13 +3,12 @@ __pycache__/
 *.pyc
 *.tsbuildinfo
 *.log
-backend/.env
-backend/.env.*
 *.env
 *.env.*
 
 # Docker volumes / uploads
-backend/uploads/
+**/backend/uploads/
+**/backend/updates/
 
 # DB backups (too large for git — keep separately)
 backups/
@@ -26,8 +25,7 @@ Thumbs.db
 
 # Temp deploy scripts
 _*.py
-!**/backend/__init__.py
-!backend/__init__.py
+!__init__.py
 
 # Tauri update private key (NEVER commit)
 .tauri-update-key
@@ -41,9 +39,13 @@ firebase-service-account.json
 .venv/
 e2e/.venv/
 
-# Frontend
-frontend/node_modules/
-frontend/dist/
+# Frontend (npm workspaces: one node_modules at the root)
+node_modules/
+dist/
+
+# Python packaging artifacts
+build/
+*.egg-info/
 mizan-erp-design.zip
 request.txt
 
@@ -60,6 +62,13 @@ deploy-logs/
 scripts/ref_crops/
 .vercel
 .env*
+!**/frontend/.env.development
+!**/frontend/.env.production
+!**/.env.example
 
 # Antigravity installer artifacts
 *.AppImage
+
+# Agent/editor session state
+.opencode/
+.ruff_cache/

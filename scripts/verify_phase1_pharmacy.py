@@ -59,14 +59,14 @@ async def run():
 
         # 1. Modules Marketplace
         print("Navigating to Modules Catalog...")
-        await page.goto("http://localhost:5173/Mizan/modules")
+        await page.goto("http://localhost:5173/modules")
         await page.wait_for_timeout(2500)
         await page.screenshot(path="/home/ammar/.gemini/antigravity/brain/6d5afa1e-9da9-4298-949d-64f04df6ec73/audit_screens/77_modules_pharmacy_present.png")
         print("Saved 77_modules_pharmacy_present.png")
 
         # 2. Pharmacy Console
         print("Navigating to Pharmacy Console...")
-        await page.goto("http://localhost:5173/Mizan/pharmacy")
+        await page.goto("http://localhost:5173/pharmacy")
         await page.wait_for_timeout(3000)
         await page.screenshot(path="/home/ammar/.gemini/antigravity/brain/6d5afa1e-9da9-4298-949d-64f04df6ec73/audit_screens/78_pharmacy_dashboard_kpis.png")
         print("Saved 78_pharmacy_dashboard_kpis.png")

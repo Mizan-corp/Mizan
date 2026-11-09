@@ -56,7 +56,7 @@ async def run_verification():
         page = await context.new_page()
 
         # Inject session into localStorage
-        await page.goto("http://localhost:5173/Mizan/")
+        await page.goto("http://localhost:5173/")
         await page.evaluate(f"""() => {{
             localStorage.setItem("mizan.session", JSON.stringify({json.dumps(session_payload)}));
             localStorage.setItem("mizan.active_modules", JSON.stringify({json.dumps(tenant_info["active_modules"])}));
@@ -66,7 +66,7 @@ async def run_verification():
 
         # ── Test 1: POS Hardware & Velocity Shortcuts ───────────────────────────
         print("\n--- 1. Testing POS Hardware, Barcode Gun Listener & Thermal Receipts ---")
-        await page.goto("http://localhost:5173/Mizan/c/german-egyptian/pos")
+        await page.goto("http://localhost:5173/c/german-egyptian/pos")
         await page.wait_for_load_state("networkidle")
         await asyncio.sleep(2)
 
@@ -151,7 +151,7 @@ async def run_verification():
 
         # ── Test 3: HR Biometric Attendance & Device Sync ────────────────────────
         print("\n--- 3. Testing HR Biometric Attendance & Device Sync Module ---")
-        await page.goto("http://localhost:5173/Mizan/c/german-egyptian/hr")
+        await page.goto("http://localhost:5173/c/german-egyptian/hr")
         await page.wait_for_load_state("networkidle")
         await asyncio.sleep(1.5)
 

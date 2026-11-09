@@ -64,7 +64,7 @@ async def run():
         page = await context.new_page()
 
         print("Navigating to /phm...")
-        await page.goto("http://localhost:5173/Mizan/phm", wait_until="networkidle")
+        await page.goto("http://localhost:5173/phm", wait_until="networkidle")
         await page.wait_for_selector("text=EBR-2026-", timeout=10000)
         await page.wait_for_timeout(1000)
         await page.screenshot(path=f"{screenshot_dir}/145_phm_ebr_batch_records.png")

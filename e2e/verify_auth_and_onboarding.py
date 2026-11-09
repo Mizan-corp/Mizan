@@ -14,7 +14,7 @@ def test_login_and_onboarding():
 
         # 1. Test Login Page
         print("Navigating to login page...")
-        page.goto("http://localhost:5173/Mizan/login")
+        page.goto("http://localhost:5173/login")
         page.wait_for_selector("input#u", timeout=10000)
         time.sleep(1)
 
@@ -40,7 +40,7 @@ def test_login_and_onboarding():
 
         # 3. Test Signup -> Onboarding
         print("Navigating to signup page...")
-        page.goto("http://localhost:5173/Mizan/signup")
+        page.goto("http://localhost:5174/signup")
         page.wait_for_selector("input#fn", timeout=10000)
         time.sleep(0.5)
 

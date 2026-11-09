@@ -1,0 +1,90 @@
+"""Registers every SQLAlchemy model (core + industry modules) on Base.metadata.
+
+Import this before relying on metadata-wide operations (create_all, mapper
+configuration across modules). Each service calls it once at startup.
+"""
+
+
+def load_all_models() -> None:
+    import app.models.archive
+    import app.models.audit_log
+    import app.models.auth_access
+    import app.models.collection
+    import app.models.customer_payment
+    import app.models.device_token
+    import app.models.notification
+    import app.models.employee
+    import app.models.expense
+    import app.models.financial_category
+    import app.models.hr_advance
+    import app.models.hr_attendance
+    import app.models.hr_audit_log
+    import app.models.hr_payroll_legacy
+    import app.models.hr_settings
+    import app.models.hr_shift
+    import app.models.hr_sync_log
+    import app.models.party
+    import app.models.payment_wallet
+    import app.models.payroll
+    import app.models.payroll_legacy
+    import app.models.period
+    import app.models.product
+    import app.models.purchase
+    import app.models.purchase_price_history
+    import app.models.safe
+    import app.models.sale
+    import app.models.sale_payment
+    import app.models.schema_migration
+    import app.models.settings
+    import app.models.shift
+    import app.models.stock
+    import app.models.stock_balance
+    import app.models.supplier_price
+    import app.models.supplier_transaction
+    import app.models.tenant
+    import app.models.user
+    import app.models.warehouse
+    import app.models.warehouse_product_status
+    import app.modules.kitchen_display.models
+    import app.modules.restaurant.models
+    import app.modules.school.models
+    import app.modules.pharmacy.models
+    import app.modules.services.models
+    import app.modules.wholesale.models
+    import app.modules.logistics.models
+    import app.modules.wms.models
+    import app.modules.ecommerce.models
+    import app.modules.healthcare_clinic.backend.models
+    import app.modules.healthcare.models
+    import app.modules.law.models
+    import app.modules.travel.models
+    import app.modules.hospitality.models
+    import app.modules.gym.models
+    import app.modules.salon.models
+    import app.modules.agency.models
+    import app.modules.field_service.models
+    import app.modules.mfg.models
+    import app.modules.fod.models
+    import app.modules.phm.models
+    import app.modules.prn.models
+    import app.modules.cst.models
+    import app.modules.rec.models
+    import app.modules.agr.models
+    import app.modules.eng.models
+    import app.modules.bnk.models
+    import app.modules.ins.models
+    import app.modules.gov.models
+    import app.modules.ent.models
+    import app.modules.oil.models
+    import app.modules.storefront.models
+    import app.modules.pos_hardware.models
+    import app.modules.automation_worker.models
+    import app.modules.zk_attendance.models
+    import app.modules.core.models
+    import app.modules.inventory.models
+    import app.modules.pos.models
+    import app.modules.sales.models
+    import app.modules.purchases.models
+    import app.modules.finance.models
+    import app.modules.contacts.models
+    import app.modules.hr.models

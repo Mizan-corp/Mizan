@@ -14,7 +14,7 @@ def test_admoon_and_multitenancy():
 
         # 1. Login as Superadmin (ammar)
         print("Logging in as Superadmin (ammar)...")
-        page.goto("http://localhost:5173/Mizan/login")
+        page.goto("http://localhost:5173/login")
         page.wait_for_selector("input#u", timeout=10000)
         page.fill("input#u", "ammar")
         page.fill("input#p", "changeme")
@@ -26,7 +26,7 @@ def test_admoon_and_multitenancy():
 
         # 2. Navigate to /admoon
         print("Navigating to /admoon SaaS Control Plane...")
-        page.goto("http://localhost:5173/Mizan/admoon")
+        page.goto("http://localhost:5175/admoon")
         page.wait_for_selector("text=SaaS Control Plane", timeout=10000)
         time.sleep(1)
 
@@ -91,7 +91,7 @@ def test_admoon_and_multitenancy():
 
         # 7. Test Tenant Slug Resolver /c/monset-gym
         print("Testing tenant slug resolver /c/monset-gym...")
-        page.goto("http://localhost:5173/Mizan/c/monset-gym")
+        page.goto("http://localhost:5173/c/monset-gym")
         time.sleep(2)
 
         page.screenshot(path=f"{SCREENSHOTS_DIR}/52_tenant_slug_resolver_gym.png")

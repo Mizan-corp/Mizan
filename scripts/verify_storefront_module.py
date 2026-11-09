@@ -51,7 +51,7 @@ async def run_verification():
         # Step 1: Public Customer Storefront Catalog
         # ---------------------------------------------------------
         print("\n--> Step 1: Loading Public Customer Storefront...")
-        await page.goto("http://localhost:5173/Mizan/store/german-egyptian", wait_until="networkidle")
+        await page.goto("http://localhost:5173/store/german-egyptian", wait_until="networkidle")
         await page.wait_for_timeout(2000)
 
         # Check for store brand title and catalog
@@ -151,7 +151,7 @@ async def run_verification():
             window.localStorage.setItem('mizan.active_modules', JSON.stringify({json.dumps(tenant_info["active_modules"])}));
         """)
 
-        await admin_page.goto("http://localhost:5173/Mizan/c/german-egyptian/storefront", wait_until="networkidle")
+        await admin_page.goto("http://localhost:5173/c/german-egyptian/storefront", wait_until="networkidle")
         await admin_page.wait_for_timeout(3000)
 
         # Verify Storefront Admin header & KPIs

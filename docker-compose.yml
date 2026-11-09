@@ -27,15 +27,20 @@ services:
         max-size: 10m
         max-file: "3"
 
-  backend:
-    build: ./backend
+  # ─── The ERP (system) ───
+  system-api:
+    build:
+      context: .
+      dockerfile: system/backend/Dockerfile
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/inventory_db
-      SECRET_KEY: 9ctFsYq0nJ2lIDQiat8aBKd9jItGAL0ITFwnPO82m56o4st9Sv6W0QxOtpoBZFru98UsgMvPLvALfwfmLwhsyA
+      # Same key on every service: a token issued by one is valid on the others.
+      SECRET_KEY: ${SECRET_KEY:-local-dev-only-secret-key-change-me-0123456789abcdef}
       FIREBASE_CREDENTIALS: /app/firebase-service-account.json
     volumes:
-      - ./backend:/app
+      - ./system/backend:/app
+      - ./shared/backend/app:/shared/app
       - uploads_data:/app/uploads
       - ./firebase-service-account.json:/app/firebase-service-account.json:ro
     ports:
@@ -45,6 +50,74 @@ services:
         condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  # ─── Website (signup / onboarding) ───
+  website-api:
+    build:
+      context: .
+      dockerfile: website/backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/inventory_db
+      # Same key on every service: a token issued by one is valid on the others.
+      SECRET_KEY: ${SECRET_KEY:-local-dev-only-secret-key-change-me-0123456789abcdef}
+    volumes:
+      - ./website/backend:/app
+      - ./shared/backend/app:/shared/app
+    ports:
+      - "8001:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  # ─── Admin (Admoon control plane) ───
+  admin-api:
+    build:
+      context: .
+      dockerfile: admin/backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/inventory_db
+      # Same key on every service: a token issued by one is valid on the others.
+      SECRET_KEY: ${SECRET_KEY:-local-dev-only-secret-key-change-me-0123456789abcdef}
+    volumes:
+      - ./admin/backend:/app
+      - ./shared/backend/app:/shared/app
+    ports:
+      - "8002:8000"
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 10s

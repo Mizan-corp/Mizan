@@ -23,7 +23,7 @@ services:
     runtime: docker
     repo: https://github.com/ammar0xff/Mizan.git
     branch: master
-    dockerfilePath: backend/Dockerfile
+    dockerfilePath: system/backend/Dockerfile
     autoDeploy: true
     plan: free
     envVars:
