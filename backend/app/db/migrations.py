@@ -52,24 +52,6 @@ def split_statements(sql: str):
     return stmts
 
 
-def psql(sql: str):
-    """Execute a migration statement-by-statement so one failure never
-    silently aborts the rest of the migration (single-transaction psql -c
-    did exactly that). Every statement runs with app.bypass=on and the
-    primary tenant bound — pre-tenancy migration INSERTs into scoped
-    tables resolve their tenant_id column default correctly."""
-    ok = True
-    for stmt in split_statements(sql):
-        result = subprocess.run(
-            COMPOSE + ["exec", "-T", "db", "psql", "-U", "postgres", "-d", "inventory_db"],
-            input=("SELECT set_config('app.tenant_id', COALESCE((SELECT id::text FROM tenants ORDER BY created_at LIMIT 1), ''), false), set_config('app.bypass', 'on', false);\n"
-                   + stmt + ";"), capture_output=True, text=True
-        )
-        errors = [l for l in result.stderr.splitlines() if "ERROR" in l and "already exists" not in l and "does not exist" not in l]
-        if errors or result.returncode != 0:
-            ok = False
-            print(f"    ⚠️  {errors[0] if errors else result.returncode}: {stmt[:90]}")
-    return ok
 
 MIGRATIONS = [
     # v0 — migration tracking table
@@ -2144,6 +2126,7 @@ MIGRATIONS = [
                         ', tbl);
                     END IF;
                 END IF;
+            END LOOP;
         END $$;
     """),
     # v45 — DB-01: Global Row Level Security enforcement across ALL tenant-scoped tables
