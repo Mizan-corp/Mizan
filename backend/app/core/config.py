@@ -17,6 +17,7 @@ class Settings(BaseSettings):
         "https://eg-co.duckdns.org",
         "https://ammar0xff.github.io",
         "https://mizan-app-liart.vercel.app",
+        "https://mizan-app-ammar0xfs-projects.vercel.app",
     ]
     CORS_ORIGIN_REGEX: str = (
         r"^https:\/\/(mizan(-app)?(-[a-z0-9]+)?-ammar0xfs-projects\.vercel\.app|mizan-app-liart\.vercel\.app|ammar0xff\.github\.io)$"
