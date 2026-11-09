@@ -61,7 +61,7 @@ of one shared kernel and one PostgreSQL database (see `docs/decisions/ADR-003-se
 
 - `shared/backend/` — installable Python package `app` (`mizan-shared`):
   - `app/factory.py`: builds every service (middleware, CORS, CSRF, errors, health).
-  - `core/`: config, tenancy (ORM filter + RLS GUC), security, RBAC, sectors & plans.
+  - `core/`: config, tenancy (ORM filter + RLS GUC), security, RBAC, sectors & plans, `printing/` (print engine).
   - `models/`, `schemas/`, `services/`, `db/` (engine + tracked SQL migrations in `db/sql/`).
   - `api/routers/`: the ERP endpoint library (mounted by the system service).
   - `modules/`: domain modules (models, routers, manifests, print templates).

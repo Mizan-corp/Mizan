@@ -264,9 +264,8 @@ admin/                  Admoon, the control plane
   backend/              admin-api: admin_api/ (Admoon router) + admoon/ (provisioning, backups)
 shared/                 code all three use
   frontend/src/         design kit (components/kit), API client, stores, i18n, styles, pricing
-  backend/app/          kernel: factory, core (tenancy, auth, plans), models, services,
+  backend/app/          kernel: factory, core (tenancy, auth, plans, printing), models, services,
                         api/routers (ERP endpoint library), modules (48 domain modules), db/sql
-engines/printing/       receipt & document printing engine
 e2e/                    live API end-to-end suite
 scripts/                migrate.py, seeders, verification scripts
 docs/                   product, architecture, design, security and requirements docs

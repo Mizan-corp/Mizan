@@ -7,7 +7,7 @@ and admin apps, and rebuilds all of them.
 
 - `app/factory.py`: `create_app(title, routers, …)` builds every API with the same
   middleware, CORS, CSRF, error handling and `/health`.
-- `app/core/`: config, tenancy (ORM filter + `before_flush` stamping + RLS GUC), security,
+- `app/core/`: config, tenancy (ORM filter + `before_flush` stamping + RLS GUC), security, the print engine (`printing/`),
   RBAC/ABAC, plans and sectors.
 - `app/models/`, `app/schemas/`, `app/services/`, `app/db/` (engine, tracked migrations,
   SQL in `db/sql/`).

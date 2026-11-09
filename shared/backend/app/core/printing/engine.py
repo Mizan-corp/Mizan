@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Any
 
 ENGINE_DIR = Path(__file__).resolve().parent
-# Templates live inside each module: shared/backend/app/modules/<module_id>/templates/<category>/*.html
-MODULES_DIR = Path(__file__).resolve().parents[2] / "shared" / "backend" / "app" / "modules"
+# Templates live inside each module: app/modules/<module_id>/templates/<category>/*.html
+MODULES_DIR = Path(__file__).resolve().parents[2] / "modules"
 TEMPLATES_DIR = ENGINE_DIR / "templates"
 CONFIG_FILE = ENGINE_DIR / "config.json"
 
