@@ -4,21 +4,22 @@ from __future__ import annotations
 import random
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any, List, Optional
+from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.plans import PLANS_CONFIG, get_plan, get_plan_limits
+from app.core.plans import PLANS_CONFIG, get_plan
 from app.core.tenancy import current_tenant_id
 from app.db.base import get_db
 from app.dependencies import get_current_user
 from app.models.billing import BillingInvoice
-from app.models.tenant import Subscription, Tenant
+from app.models.tenant import Subscription
 from app.models.user import User
 from app.services.plan_gating import get_tenant_limits_and_usage
+from app.services.subscriptions import activate_invoice
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -196,27 +197,9 @@ async def simulate_payment(
     if inv.status == "paid":
         return {"ok": True, "message": "الفاتورة مسددة ومفعلة بالفعل", "plan": inv.plan}
 
-    # Activate Invoice
-    now = datetime.now(UTC)
-    inv.status = "paid"
-    inv.paid_at = now
-    inv.payment_gateway_ref = payload.gateway_transaction_id or f"TXN-SIM-{uuid.uuid4().hex[:10].upper()}"
-
-    # Activate Tenant Plan
-    stmt_t = select(Tenant).where(Tenant.id == inv.tenant_id)
-    tenant = (await db.execute(stmt_t)).scalar_one_or_none()
-    if tenant:
-        tenant.plan = inv.plan
-        tenant.status = "active"
-        tenant.limits = get_plan_limits(inv.plan)
-        # End trial and grant full subscription period
-        tenant.trial_ends_at = None
-
-    # Update subscription record
-    stmt_s = select(Subscription).where(Subscription.tenant_id == inv.tenant_id).order_by(desc(Subscription.created_at))
-    sub = (await db.execute(stmt_s)).scalars().first()
-    if sub:
-        sub.status = "active"
+    tenant = await activate_invoice(
+        db, inv, reference=payload.gateway_transaction_id or f"TXN-SIM-{uuid.uuid4().hex[:10].upper()}"
+    )
 
     await db.commit()
 
@@ -244,20 +227,7 @@ async def payment_gateway_webhook(
         raise HTTPException(status_code=404, detail="Invoice reference not found")
 
     if payload.status == "paid":
-        now = datetime.now(UTC)
-        inv.status = "paid"
-        inv.paid_at = now
-        inv.payment_gateway_ref = payload.transaction_id
-
-        # Upgrade Tenant
-        stmt_t = select(Tenant).where(Tenant.id == inv.tenant_id)
-        tenant = (await db.execute(stmt_t)).scalar_one_or_none()
-        if tenant:
-            tenant.plan = inv.plan
-            tenant.status = "active"
-            tenant.limits = get_plan_limits(inv.plan)
-            tenant.trial_ends_at = None
-
+        await activate_invoice(db, inv, reference=payload.transaction_id)
         await db.commit()
         return {"status": "success", "message": f"Plan {inv.plan} activated for tenant"}
 

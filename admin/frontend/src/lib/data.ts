@@ -1,0 +1,211 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { api } from "@/lib/api";
+
+// ─── Types (mirror admin/backend/admin_api) ─────────────────────────────────
+
+export interface ActivityItem {
+  id: string;
+  action: string;
+  at: string;
+  actor: string | null;
+  tenant_id: string | null;
+  tenant_name: string | null;
+  details: Record<string, unknown>;
+  ip: string | null;
+}
+
+export type AttentionItem =
+  | { kind: "trial_expired" | "trial_ending"; tenant_id: string; tenant_name: string; days: number; at: string }
+  | { kind: "invoice_pending"; tenant_id: string; tenant_name: string | null; ref: string; amount_egp: number; plan: string; at: string }
+  | { kind: "upgrade_request"; tenant_id: string; tenant_name: string | null; request_id: string; plan: string; phone: string | null; at: string };
+
+export interface Revenue {
+  mrr_egp: number;
+  paying: number;
+  complimentary: number;
+}
+
+export interface Overview {
+  counts: { workspaces: number; active: number; on_trial: number; paying: number; suspended: number; users: number };
+  revenue: Revenue;
+  signups: { week: string; count: number }[];
+  signups_last_30_days: number;
+  attention: AttentionItem[];
+  newest: { id: string; name: string; sector: string; plan: string; created_at: string }[];
+  activity: ActivityItem[];
+}
+
+export interface WorkspaceSummary {
+  id: string;
+  name: string;
+  slug: string | null;
+  sector: string;
+  status: "active" | "suspended" | string;
+  plan: string;
+  monthly_price_egp: number;
+  trial_ends_at: string | null;
+  trial_days_left: number | null;
+  created_at: string;
+}
+
+export interface WorkspaceRow extends WorkspaceSummary {
+  users_count: number;
+  sales_count: number;
+  sales_volume_egp: number;
+  last_sale_at: string | null;
+}
+
+export interface Invoice {
+  ref: string;
+  plan: string;
+  cycle: string;
+  amount_egp: number;
+  status: string;
+  method: string;
+  created_at: string;
+  paid_at: string | null;
+  tenant_id?: string;
+  tenant_name?: string | null;
+}
+
+export interface UpgradeRequest {
+  id: string;
+  plan: string;
+  status: string;
+  phone: string | null;
+  created_at: string;
+  tenant_id?: string;
+  tenant_name?: string | null;
+}
+
+export interface WorkspaceDetail {
+  workspace: WorkspaceSummary & { scale: string; active_modules: string[]; limits: Record<string, unknown>; system_path: string | null };
+  owner: { id: string; username: string; full_name: string } | null;
+  stats: { users: number; branches: number; products: number; sales: number; sales_volume_egp: number; last_sale_at: string | null };
+  users: { id: string; username: string; full_name: string; role: string; is_active: boolean; created_at: string }[];
+  branches: { id: string; name: string; is_active: boolean }[];
+  invoices: Invoice[];
+  requests: UpgradeRequest[];
+  activity: ActivityItem[];
+}
+
+export interface Module {
+  id: string;
+  name: string;
+  name_en: string;
+  category: string;
+}
+
+export interface Billing {
+  summary: Revenue & { pending_count: number; pending_egp: number; collected_this_month_egp: number };
+  invoices: Invoice[];
+  requests: UpgradeRequest[];
+}
+
+export interface Person {
+  id: string;
+  username: string;
+  full_name: string;
+  is_active: boolean;
+  workspace: string | null;
+  created_at: string;
+  last_action_at: string | null;
+  is_staff: boolean;
+}
+
+export interface SystemHealth {
+  database: {
+    version: string;
+    size_mb: number;
+    connections: number;
+    max_connections: number;
+    latency_ms: number;
+    tables: number;
+    tenant_tables_without_rls: number;
+  };
+  migrations: { total: number; applied: number; pending: string[] };
+  records: Record<string, number>;
+  service: { environment: string; python: string; uptime_seconds: number; host: string };
+}
+
+// ─── Queries ───────────────────────────────────────────────────────────────
+
+export const useOverview = () => useQuery({ queryKey: ["overview"], queryFn: () => api.get<Overview>("/admoon/overview") });
+
+export const useWorkspaces = (filters: { q?: string; status?: string; sector?: string }) =>
+  useQuery({
+    queryKey: ["workspaces", filters],
+    queryFn: () => api.get<{ items: WorkspaceRow[]; sectors: string[] }>("/admoon/tenants", filters),
+    placeholderData: (prev) => prev,
+  });
+
+export const useWorkspace = (id: string) =>
+  useQuery({ queryKey: ["workspace", id], queryFn: () => api.get<WorkspaceDetail>(`/admoon/tenants/${id}`) });
+
+export const useModules = () =>
+  useQuery({ queryKey: ["modules"], queryFn: () => api.get<{ items: Module[] }>("/admoon/modules"), staleTime: Infinity });
+
+export const useBilling = (status?: string) =>
+  useQuery({ queryKey: ["billing", status], queryFn: () => api.get<Billing>("/admoon/billing", { status }) });
+
+export const useActivity = (filters: { action?: string; tenant_id?: string }) =>
+  useQuery({
+    queryKey: ["activity", filters],
+    queryFn: () => api.get<{ items: ActivityItem[]; next_before: string | null }>("/admoon/activity", { limit: 100, ...filters }),
+  });
+
+export const useTeam = () => useQuery({ queryKey: ["team"], queryFn: () => api.get<{ items: Person[]; me: string }>("/admoon/team") });
+
+export const useSystem = () =>
+  useQuery({ queryKey: ["system"], queryFn: () => api.get<SystemHealth>("/admoon/system"), refetchInterval: 30_000 });
+
+// ─── Mutations ─────────────────────────────────────────────────────────────
+
+/**
+ * A mutation that refreshes every admin query when it succeeds.
+ *
+ * Success messages belong here, not in `mutate(…, { onSuccess })`: refreshed
+ * data often removes the row that started the action, and React Query skips
+ * per-call callbacks once their component has unmounted.
+ */
+export function useAction<TVars, TResult = unknown>(
+  fn: (vars: TVars) => Promise<TResult>,
+  opts: {
+    success?: (vars: TVars, result: TResult) => string;
+    /** Runs before data refreshes, while the calling page is still mounted (e.g. to navigate away). */
+    then?: (vars: TVars, result: TResult) => void;
+  } = {},
+) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (result, vars) => {
+      if (opts.success) toast.success(opts.success(vars, result));
+      opts.then?.(vars, result);
+      return qc.invalidateQueries();
+    },
+  });
+}
+
+export const actions = {
+  setStatus: (v: { id: string; status: "active" | "suspended"; reason?: string }) =>
+    api.post(`/admoon/tenants/${v.id}/status`, { status: v.status, reason: v.reason }),
+  setPlan: (v: { id: string; plan: string; reason?: string }) =>
+    api.post(`/admoon/tenants/${v.id}/plan`, { plan: v.plan, reason: v.reason }),
+  extendTrial: (v: { id: string; days: number }) => api.post(`/admoon/tenants/${v.id}/extend-trial`, { days: v.days }),
+  setModules: (v: { id: string; modules: string[] }) =>
+    api.put(`/admoon/tenants/${v.id}/modules`, { active_modules: v.modules }),
+  update: (v: { id: string; name?: string; slug?: string }) =>
+    api.patch(`/admoon/tenants/${v.id}`, { name: v.name, slug: v.slug }),
+  remove: (v: { id: string; confirm: string }) =>
+    api.del(`/admoon/tenants/${v.id}?confirm=${encodeURIComponent(v.confirm)}`),
+  impersonate: (id: string) =>
+    api.post<{ access_token: string; slug: string | null; as_user: string }>(`/admoon/tenants/${id}/impersonate`),
+  create: (v: Record<string, unknown>) => api.post<{ id: string; slug: string }>("/admoon/tenants", v),
+  markPaid: (v: { ref: string; reference?: string; note?: string }) =>
+    api.post(`/admoon/billing/invoices/${encodeURIComponent(v.ref)}/mark-paid`, { reference: v.reference, note: v.note }),
+  dismissRequest: (id: string) => api.post(`/admoon/billing/requests/${id}/dismiss`),
+  grant: (userId: string) => api.post("/admoon/team", { user_id: userId }),
+  revoke: (userId: string) => api.del(`/admoon/team/${userId}`),
+};

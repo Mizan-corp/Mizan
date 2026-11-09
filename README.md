@@ -16,7 +16,7 @@ whether that's a corner shop, a restaurant, a pharmacy, a hotel or a factory.
 
 [**Website**](https://mizan-co.vercel.app) &nbsp;·&nbsp;
 [**Open the app →**](https://mizan-co-app.vercel.app) &nbsp;·&nbsp;
-[Admoon](https://mizan-co-admin.vercel.app) &nbsp;·&nbsp;
+[Admin](https://mizan-co-admin.vercel.app) &nbsp;·&nbsp;
 [API docs](https://mizan-co-api.vercel.app/api/docs) &nbsp;·&nbsp;
 [Documentation](docs/)
 
@@ -116,7 +116,7 @@ Mizan is **three products, built and deployed separately**, on one shared kernel
 |---|---|---|---|
 | 🌐 | **Website**: landing, pricing, docs, signup, onboarding | Visitors and new merchants | [mizan-co.vercel.app](https://mizan-co.vercel.app) |
 | 🧾 | **System**: the ERP itself, plus public storefronts | Every workspace, every day | [mizan-co-app.vercel.app](https://mizan-co-app.vercel.app) |
-| 🛡️ | **Admin**: Admoon, the platform control plane | The Mizan team only | [mizan-co-admin.vercel.app](https://mizan-co-admin.vercel.app) |
+| 🛡️ | **Admin**: the platform control panel (English) | The Mizan team only | [mizan-co-admin.vercel.app](https://mizan-co-admin.vercel.app) |
 
 ```mermaid
 flowchart LR
@@ -127,7 +127,7 @@ flowchart LR
         SF[System frontend<br/>PWA · offline POS] --> SA[system-api<br/>the ERP · 48 modules]
     end
     subgraph admin["admin/"]
-        AF[Admin frontend] --> AA[admin-api<br/>Admoon]
+        AF[Admin frontend] --> AA[admin-api<br/>control panel]
     end
     K[["shared/<br/>kernel: models · tenancy · auth · modules · print engine<br/>kit: components · API client · styles"]]
     WA & SA & AA --- K
@@ -137,7 +137,7 @@ flowchart LR
 ```
 
 Customers never download admin code, a pricing-page edit can't break the POS, and every
-API exposes only its own routes. Signing up on the website (or impersonating from Admoon)
+API exposes only its own routes. Signing up on the website (or choosing "Open as owner" in the admin panel)
 opens the ERP already signed in, through a one-time handoff in the URL fragment.
 
 | Layer | Technology |
@@ -169,11 +169,13 @@ logged, time-limited **break-glass** override exists for emergencies.
 Amounts are stored as exact decimals, never floats. Postings are atomic. Financial records
 are never hard-deleted, and every destructive action leaves an audit trail.
 
-### Admoon: the control plane
+### The admin panel
 
-Admoon is a separate app on its own domain, where the platform owner runs Mizan itself: creating and provisioning
-workspaces, plans and subscriptions, MRR, resource metrics, backups, provisioning jobs and
-platform audit logs. Access is limited to super-admins.
+A separate English app on its own domain, for the Mizan team only. It opens on **Needs you**
+(ended trials, unpaid invoices, upgrade requests) and covers every workspace (plan, trial,
+modules, people, suspend, open as owner, delete), billing with manual payment confirmation,
+the team's access, live system health, and an activity log of every change. Every number
+comes from the database. See [`admin/README.md`](admin/README.md).
 
 ---
 
@@ -200,7 +202,7 @@ The full canon lives in [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md),
 
 | Status | What |
 |---|---|
-| ✅ **Live** | Multi-tenant SaaS · self-serve signup & onboarding · POS (online + offline) · sales · inventory · purchasing · customers & suppliers · finance & ledger · HR & payroll · reports · notifications · storefront · thermal printing & barcode scanning · ZKTeco sync · Arabic/English · Admoon panel · plan limits |
+| ✅ **Live** | Multi-tenant SaaS · self-serve signup & onboarding · POS (online + offline) · sales · inventory · purchasing · customers & suppliers · finance & ledger · HR & payroll · reports · notifications · storefront · thermal printing & barcode scanning · ZKTeco sync · Arabic/English · admin panel · plan limits · workspace suspension |
 | 🧱 **Working, being deepened** | Restaurant & kitchen display · pharmacy · clinic (billing, clinical roles, FEFO dispensing, claims) · hotel PMS · school · gym · salon · wholesale |
 | 🪴 **Scaffolded** | Manufacturing, projects, specialised and remaining service modules: models, API and screens exist, with workflows still to be filled in |
 | 🔌 **In progress** | WhatsApp receipts (configured and logged; live sending queued) · online payment gateways (Paymob / Fawry webhook exists; production wiring pending) |
@@ -225,13 +227,14 @@ python manage.py doctor    # what's installed, what's running, what to fix
 |---|---|---|
 | System (ERP) | http://localhost:5173 | system-api on :8000 |
 | Website | http://localhost:5174 | website-api on :8001 |
-| Admin (Admoon) | http://localhost:5175 | admin-api on :8002 |
+| Admin panel | http://localhost:5175 | admin-api on :8002 |
 
 **A new database starts empty.** Docker loads a structure-only baseline
 (`shared/backend/app/db/baseline_schema.sql`, no data), the API builds the rest of the schema,
-and `db migrate` creates one workspace (“ميزان”) with one admin: `ammar` / `changeme`, or
-whatever you set in `MIZAN_ADMIN_USERNAME` / `MIZAN_ADMIN_PASSWORD`. The bootstrap does nothing
-once any user exists. Change the password after the first sign-in. To get a sector's demo data,
+and `db migrate` creates one workspace (“ميزان”) with two accounts: `ammar` / `changeme` for the
+app and `platform` / `changeme` for the admin panel (override with `MIZAN_ADMIN_*` and
+`MIZAN_PLATFORM_*` `_USERNAME` / `_PASSWORD`). The bootstrap does nothing once any user exists.
+Change both passwords after the first sign-in. To get a sector's demo data,
 sign up a new workspace through the website.
 
 ### Everything `manage.py` does
@@ -298,9 +301,9 @@ system/                 the ERP
 website/                the public website
   frontend/src/         landing, product, pricing, blog, docs portal, signup, onboarding
   backend/              website-api: plans and self-serve signup
-admin/                  Admoon, the control plane
-  frontend/src/         tenants, provisioning, billing, backups, monitoring, audit logs
-  backend/              admin-api: admin_api/ (Admoon router) + admoon/ (provisioning, backups)
+admin/                  the admin panel (English, Mizan team only)
+  frontend/src/         overview, workspaces, billing, activity, team, system
+  backend/              admin-api: admin_api/ (one router per page)
 shared/                 code all three use
   frontend/src/         design kit (components/kit), API client, stores, i18n, styles, pricing
   backend/app/          kernel: factory, core (tenancy, auth, plans, printing), models, services,

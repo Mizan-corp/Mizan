@@ -1,17 +1,47 @@
-# Mizan Admin (Admoon)
+# Mizan Admin
 
-The platform owner's control plane: tenants, provisioning jobs, plans & subscriptions,
-billing invoices, backups, infrastructure and monitoring, platform users and audit logs.
-Super-admins only.
+The Mizan team's control panel: every workspace on the platform, their plans and
+invoices, and everything the team changes. English, super-admins only.
 
 | | Folder | Local | Production |
 |---|---|---|---|
-| Frontend | `frontend/` | `npm run dev:admin` → http://localhost:5175 | https://mizan-co-admin.vercel.app |
+| Frontend | `frontend/` | `python manage.py dev admin` → http://localhost:5175 | https://mizan-co-admin.vercel.app |
 | API | `backend/` | `docker compose up admin-api` → :8002 | https://mizan-co-admin-api.vercel.app |
 
-- The API mounts `/admoon/*` (all behind `require_superadmin`), `/auth/*` and `/billing/*`.
-- `backend/admoon/` holds provisioning, backup and storage/database provider code;
-  `backend/admin_api/` holds the router and service.
-- Impersonation opens the tenant's workspace in the system app signed in as its admin,
-  without touching the super-admin's own session.
-- Served with `noindex` and `X-Frame-Options: DENY`.
+Sign in with a platform account. On a fresh database `python manage.py db migrate`
+creates `platform` / `changeme` (override with `MIZAN_PLATFORM_USERNAME` /
+`MIZAN_PLATFORM_PASSWORD`). Give teammates access from the Team page.
+
+## Pages
+
+| Page | What it's for |
+|---|---|
+| **Overview** | Counts, revenue from paid invoices, weekly signups, and **Needs you**: ended trials, unpaid invoices, upgrade requests and trials ending within 7 days, each with its action |
+| **Workspaces** | Search and filter every company; last-sale activity per workspace. A workspace page has its summary, plan & billing (change plan, extend trial, invoices), modules, people, activity and settings (rename, URL name, delete) |
+| **Billing** | Invoices (mark paid with a transfer reference) and upgrade requests |
+| **Activity** | The audit log of every change made here, as sentences |
+| **Team** | Who can use this panel; give or remove access |
+| **System** | Live database health, migration status and stored records |
+
+Every number comes from the database. Every change is written to the activity log,
+including "Open as owner" (signing in to a workspace as its owner).
+
+## Behaviour worth knowing
+
+- **Suspend** closes a workspace to its own people: they can't sign in or use the API
+  until it's reactivated. Platform staff keep access. Nothing is deleted.
+- **Mark paid** moves the workspace to the invoiced plan, applies its limits and ends
+  the trial, through `app.services.subscriptions.activate_invoice` (the same code that
+  payment webhooks use).
+- **Monthly revenue** counts each paying workspace's latest paid invoice (yearly ÷ 12).
+  Workspaces on a paid plan without a paid invoice are shown as complimentary.
+- **Delete** requires typing the workspace's URL name and removes all of its data.
+
+## Code
+
+- `backend/admin_api/routers/`: `overview`, `workspaces`, `billing`, `activity`,
+  `team`, `system` (all under `/admoon`, all `require_superadmin`).
+- `backend/admin_api/common.py`: audit logging and lookups.
+- `frontend/src/`: `Shell.tsx` (navigation), `pages/`, `ui.tsx` (buttons, tables,
+  dialogs, states), `lib/data.ts` (typed API + queries), `lib/format.ts` (labels,
+  money, dates), `lib/activity.ts` (log entries as sentences).

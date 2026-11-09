@@ -1,0 +1,435 @@
+"""Workspaces (tenants): find, inspect and manage every company on Mizan."""
+from __future__ import annotations
+
+import json
+import re
+import unicodedata
+import uuid
+from datetime import UTC, datetime, timedelta
+from functools import lru_cache
+from pathlib import Path
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+import app as app_pkg
+from admin_api.common import days_until, get_tenant, iso, record
+from admin_api.routers.activity import recent_activity
+from app.core.modules import SECTOR_TO_PRESET, set_active_modules
+from app.core.plans import PLANS_CONFIG, get_plan_limits
+from app.core.sectors import PALETTE_HUES, SECTOR_PRIMARY_MODULES, SECTORS
+from app.core.security import hash_password
+from app.core.tenancy import bind_tenant
+from app.db.base import get_db
+from app.dependencies import require_superadmin
+from app.models.billing import BillingInvoice
+from app.models.product import Product
+from app.models.sale import Sale
+from app.models.tenant import Subscription, Tenant
+from app.models.user import User
+from app.models.warehouse import Warehouse
+from app.services import auth_service
+from app.services.demo_seed import seed_demo
+from app.services.subscriptions import monthly_price
+
+router = APIRouter(prefix="/admoon", tags=["admin: workspaces"])
+
+TRIAL_DAYS = 14
+MODULES_DIR = Path(app_pkg.__file__).parent / "modules"
+
+
+# ─── Serialization ─────────────────────────────────────────────────────────
+
+
+def _trial_days_left(t: Tenant) -> int | None:
+    if t.plan != "trial" or not t.trial_ends_at:
+        return None
+    return days_until(t.trial_ends_at)
+
+
+def _summary(t: Tenant) -> dict:
+    return {
+        "id": str(t.id),
+        "name": t.name,
+        "slug": t.slug,
+        "sector": t.sector,
+        "status": t.status,
+        "plan": t.plan,
+        "monthly_price_egp": monthly_price(t.plan),
+        "trial_ends_at": iso(t.trial_ends_at),
+        "trial_days_left": _trial_days_left(t),
+        "created_at": iso(t.created_at),
+    }
+
+
+# ─── List ──────────────────────────────────────────────────────────────────
+
+
+@router.get("/tenants")
+async def list_workspaces(
+    q: str | None = None,
+    status: Literal["active", "suspended", "trial", "paying"] | None = None,
+    sector: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_superadmin),
+):
+    stmt = select(Tenant).order_by(Tenant.created_at.desc())
+    if q:
+        like = f"%{q.strip().lower()}%"
+        stmt = stmt.where(func.lower(Tenant.name).like(like) | func.lower(func.coalesce(Tenant.slug, "")).like(like))
+    if status == "trial":
+        stmt = stmt.where(Tenant.plan == "trial", Tenant.status != "suspended")
+    elif status == "paying":
+        stmt = stmt.where(Tenant.plan != "trial", Tenant.status == "active")
+    elif status:
+        stmt = stmt.where(Tenant.status == status)
+    if sector:
+        stmt = stmt.where(Tenant.sector == sector)
+    tenants = (await db.execute(stmt)).scalars().all()
+
+    users = dict((await db.execute(select(User.tenant_id, func.count(User.id)).group_by(User.tenant_id))).all())
+    sales = {
+        tid: (count, float(volume or 0), last)
+        for tid, count, volume, last in (await db.execute(
+            select(Sale.tenant_id, func.count(Sale.id), func.sum(Sale.net_total), func.max(Sale.created_at))
+            .group_by(Sale.tenant_id)
+        )).all()
+    }
+    items = []
+    for t in tenants:
+        count, volume, last = sales.get(t.id, (0, 0.0, None))
+        items.append({
+            **_summary(t),
+            "users_count": users.get(t.id, 0),
+            "sales_count": count,
+            "sales_volume_egp": volume,
+            "last_sale_at": iso(last),
+        })
+    return {"items": items, "sectors": sorted({t.sector for t in tenants} | set(SECTORS[:30]))}
+
+
+# ─── Detail ────────────────────────────────────────────────────────────────
+
+
+@router.get("/tenants/{tenant_id}")
+async def get_workspace(
+    tenant_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_superadmin),
+):
+    t = await get_tenant(db, tenant_id)
+    users = (await db.execute(select(User).where(User.tenant_id == t.id).order_by(User.created_at))).scalars().all()
+    branches = (await db.execute(select(Warehouse).where(Warehouse.tenant_id == t.id).order_by(Warehouse.created_at))).scalars().all()
+    products = await db.scalar(select(func.count(Product.id)).where(Product.tenant_id == t.id)) or 0
+    sales_count, sales_volume, last_sale = (await db.execute(
+        select(func.count(Sale.id), func.coalesce(func.sum(Sale.net_total), 0), func.max(Sale.created_at)).where(Sale.tenant_id == t.id)
+    )).one()
+    invoices = (await db.execute(
+        select(BillingInvoice).where(BillingInvoice.tenant_id == t.id).order_by(BillingInvoice.created_at.desc()).limit(20)
+    )).scalars().all()
+    requests = (await db.execute(
+        select(Subscription).where(Subscription.tenant_id == t.id).order_by(Subscription.created_at.desc()).limit(20)
+    )).scalars().all()
+    owner = next((u for u in users if u.role == "admin"), users[0] if users else None)
+
+    return {
+        "workspace": {
+            **_summary(t),
+            "scale": t.scale,
+            "active_modules": t.active_modules or [],
+            "limits": t.limits or {},
+            "system_path": f"/c/{t.slug}" if t.slug else None,
+        },
+        "owner": {"id": str(owner.id), "username": owner.username, "full_name": owner.full_name} if owner else None,
+        "stats": {
+            "users": len(users),
+            "branches": len(branches),
+            "products": products,
+            "sales": sales_count,
+            "sales_volume_egp": float(sales_volume),
+            "last_sale_at": iso(last_sale),
+        },
+        "users": [
+            {"id": str(u.id), "username": u.username, "full_name": u.full_name, "role": u.role,
+             "is_active": u.is_active, "created_at": iso(u.created_at)}
+            for u in users
+        ],
+        "branches": [{"id": str(w.id), "name": w.name, "is_active": w.is_active} for w in branches],
+        "invoices": [
+            {"ref": i.invoice_ref, "plan": i.plan, "cycle": i.billing_cycle, "amount_egp": i.amount_egp,
+             "status": i.status, "method": i.payment_method, "created_at": iso(i.created_at), "paid_at": iso(i.paid_at)}
+            for i in invoices
+        ],
+        "requests": [
+            {"id": str(r.id), "plan": r.plan, "status": r.status, "phone": r.contact_phone, "created_at": iso(r.created_at)}
+            for r in requests
+        ],
+        "activity": await recent_activity(db, limit=20, tenant_id=t.id),
+    }
+
+
+# ─── Create ────────────────────────────────────────────────────────────────
+
+
+class CreateWorkspace(BaseModel):
+    company_name: str = Field(min_length=2, max_length=128)
+    sector: str = "retail"
+    scale: Literal["small", "medium", "large"] = "small"
+    slug: str | None = Field(default=None, max_length=48, pattern=r"^[a-z0-9-]*$")
+    plan: str = "trial"
+    trial_days: int = Field(default=TRIAL_DAYS, ge=1, le=365)
+    owner_full_name: str = Field(min_length=2, max_length=128)
+    owner_username: str = Field(min_length=3, max_length=64, pattern=r"^[\w.\-]+$")
+    owner_password: str = Field(min_length=8, max_length=128)
+    demo_data: bool = False
+
+
+def _slugify(name: str) -> str:
+    ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii").lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_name).strip("-")[:40]
+    return slug if len(slug) >= 3 else f"workspace-{uuid.uuid4().hex[:6]}"
+
+
+@router.post("/tenants", status_code=201)
+async def create_workspace(
+    data: CreateWorkspace,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_superadmin),
+):
+    if data.sector not in SECTORS:
+        raise HTTPException(status_code=422, detail="Unknown business type")
+    if data.plan not in PLANS_CONFIG:
+        raise HTTPException(status_code=422, detail="Unknown plan")
+
+    slug = (data.slug or "").strip("-") or _slugify(data.company_name)
+    base, n = slug, 1
+    while await db.scalar(select(Tenant.id).where(Tenant.slug == slug)):
+        if data.slug:
+            raise HTTPException(status_code=409, detail="Another workspace already uses this URL name")
+        n += 1
+        slug = f"{base}-{n}"
+
+    modules = SECTOR_PRIMARY_MODULES.get(data.sector, ["pos", "inventory", "finance"])
+    tenant = Tenant(
+        id=uuid.uuid4(), name=data.company_name.strip(), slug=slug, sector=data.sector, business_type=data.sector,
+        scale=data.scale, plan=data.plan, status="active", active_modules=modules,
+        palette={"name": "mizan", "hue": PALETTE_HUES["mizan"]}, limits=get_plan_limits(data.plan),
+        trial_ends_at=datetime.now(UTC) + timedelta(days=data.trial_days) if data.plan == "trial" else None,
+    )
+    db.add(tenant)
+    await db.flush()
+    await bind_tenant(db, tenant.id)
+    owner = User(
+        id=uuid.uuid4(), tenant_id=tenant.id, username=data.owner_username, full_name=data.owner_full_name.strip(),
+        role="admin", is_manager=True, permissions=["*"], password_hash=hash_password(data.owner_password),
+    )
+    db.add(owner)
+    await db.flush()
+    if data.demo_data:
+        await seed_demo(db, tenant.id, owner.id, data.sector, data.scale, modules)
+    await set_active_modules(db, modules, preset_id=SECTOR_TO_PRESET.get(data.sector))
+    await db.commit()
+
+    await record(db, admin, "tenant_created", tenant_id=tenant.id, request=request,
+                 name=tenant.name, slug=slug, plan=data.plan, sector=data.sector)
+    return {"id": str(tenant.id), "slug": slug}
+
+
+# ─── Edit ──────────────────────────────────────────────────────────────────
+
+
+class UpdateWorkspace(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=128)
+    slug: str | None = Field(default=None, min_length=3, max_length=48, pattern=r"^[a-z0-9-]+$")
+
+
+@router.patch("/tenants/{tenant_id}")
+async def update_workspace(
+    tenant_id: uuid.UUID,
+    data: UpdateWorkspace,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_superadmin),
+):
+    t = await get_tenant(db, tenant_id)
+    changes = {}
+    if data.name and data.name.strip() != t.name:
+        changes["name"] = [t.name, data.name.strip()]
+        t.name = data.name.strip()
+    if data.slug and data.slug != t.slug:
+        if await db.scalar(select(Tenant.id).where(Tenant.slug == data.slug, Tenant.id != t.id)):
+            raise HTTPException(status_code=409, detail="Another workspace already uses this URL name")
+        changes["slug"] = [t.slug, data.slug]
+        t.slug = data.slug
+    await db.commit()
+    if changes:
+        await record(db, admin, "tenant_updated", tenant_id=t.id, request=request, changes=changes)
+    return {"ok": True}
+
+
+class SetStatus(BaseModel):
+    status: Literal["active", "suspended"]
+    reason: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/tenants/{tenant_id}/status")
+async def set_status(
+    tenant_id: uuid.UUID,
+    body: SetStatus,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_superadmin),
+):
+    t = await get_tenant(db, tenant_id)
+    old, t.status = t.status, body.status
+    await db.commit()
+    await record(db, admin, "tenant_status_change", tenant_id=t.id, request=request,
+                 old_status=old, new_status=body.status, reason=body.reason)
+    return {"ok": True, "status": body.status}
+
+
+class SetPlan(BaseModel):
+    plan: str
+    trial_days: int | None = Field(default=None, ge=1, le=365)
+    reason: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/tenants/{tenant_id}/plan")
+async def set_plan(
+    tenant_id: uuid.UUID,
+    body: SetPlan,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_superadmin),
+):
+    if body.plan not in PLANS_CONFIG:
+        raise HTTPException(status_code=422, detail="Unknown plan")
+    t = await get_tenant(db, tenant_id)
+    old = t.plan
+    t.plan, t.limits = body.plan, get_plan_limits(body.plan)
+    t.trial_ends_at = (datetime.now(UTC) + timedelta(days=body.trial_days or TRIAL_DAYS)) if body.plan == "trial" else None
+    await db.commit()
+    await record(db, admin, "tenant_plan_updated", tenant_id=t.id, request=request,
+                 old_plan=old, new_plan=body.plan, reason=body.reason)
+    return {"ok": True}
+
+
+class ExtendTrial(BaseModel):
+    days: int = Field(ge=1, le=90)
+
+
+@router.post("/tenants/{tenant_id}/extend-trial")
+async def extend_trial(
+    tenant_id: uuid.UUID,
+    body: ExtendTrial,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_superadmin),
+):
+    t = await get_tenant(db, tenant_id)
+    if t.plan != "trial":
+        raise HTTPException(status_code=409, detail="This workspace isn't on a trial")
+    start = max(t.trial_ends_at or datetime.now(UTC), datetime.now(UTC))
+    t.trial_ends_at = start + timedelta(days=body.days)
+    await db.commit()
+    await record(db, admin, "trial_extended", tenant_id=t.id, request=request, days=body.days, until=iso(t.trial_ends_at))
+    return {"ok": True, "trial_ends_at": iso(t.trial_ends_at)}
+
+
+# ─── Modules ───────────────────────────────────────────────────────────────
+
+
+@lru_cache(maxsize=1)
+def module_catalog() -> list[dict]:
+    """Top-level modules from their manifest.json files (no code is imported)."""
+    items = []
+    for manifest in sorted(MODULES_DIR.glob("*/manifest.json")):
+        m = json.loads(manifest.read_text(encoding="utf-8"))
+        if m.get("category") in ("system", "core"):
+            continue
+        items.append({"id": m["id"], "name": m.get("name", m["id"]), "name_en": m.get("name_en", ""),
+                      "category": m.get("category", "")})
+    return items
+
+
+@router.get("/modules")
+async def list_modules(_: User = Depends(require_superadmin)):
+    return {"items": module_catalog()}
+
+
+class SetModules(BaseModel):
+    active_modules: list[str]
+
+
+@router.put("/tenants/{tenant_id}/modules")
+async def set_modules(
+    tenant_id: uuid.UUID,
+    body: SetModules,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_superadmin),
+):
+    known = {m["id"] for m in module_catalog()}
+    unknown = set(body.active_modules) - known - {"pos", "inventory", "sales", "finance", "hr", "operations", "purchases", "contacts"}
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"Unknown modules: {', '.join(sorted(unknown))}")
+    t = await get_tenant(db, tenant_id)
+    before = set(t.active_modules or [])
+    t.active_modules = list(dict.fromkeys(body.active_modules))
+    await bind_tenant(db, t.id)
+    await set_active_modules(db, t.active_modules)
+    await db.commit()
+    after = set(t.active_modules)
+    await record(db, admin, "tenant_modules_updated", tenant_id=t.id, request=request,
+                 added=sorted(after - before), removed=sorted(before - after))
+    return {"ok": True, "active_modules": t.active_modules}
+
+
+# ─── Open as owner ─────────────────────────────────────────────────────────
+
+
+@router.post("/tenants/{tenant_id}/impersonate")
+async def open_as_owner(
+    tenant_id: uuid.UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_superadmin),
+):
+    t = await get_tenant(db, tenant_id)
+    owner = (await db.execute(
+        select(User).where(User.tenant_id == t.id, User.is_active.is_(True))
+        .order_by((User.role == "admin").desc(), User.created_at).limit(1)
+    )).scalar_one_or_none()
+    if not owner:
+        raise HTTPException(status_code=404, detail="This workspace has no active user to sign in as")
+    token = auth_service.issue_token(owner)["access_token"]
+    await record(db, admin, "tenant_impersonated", tenant_id=t.id, request=request, as_user=owner.username)
+    # No cookie: the token is handed to the system app explicitly and never
+    # replaces the admin's own session in this browser.
+    return {"access_token": token, "slug": t.slug, "as_user": owner.username}
+
+
+# ─── Delete ────────────────────────────────────────────────────────────────
+
+
+@router.delete("/tenants/{tenant_id}")
+async def delete_workspace(
+    tenant_id: uuid.UUID,
+    request: Request,
+    confirm: str = Query(..., description="The workspace's slug, typed to confirm"),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_superadmin),
+):
+    t = await get_tenant(db, tenant_id)
+    if confirm != (t.slug or str(t.id)):
+        raise HTTPException(status_code=400, detail="Type the workspace's URL name exactly to confirm deletion")
+    name, slug = t.name, t.slug
+    await db.delete(t)
+    await db.commit()
+    await record(db, admin, "tenant_deleted", tenant_id=tenant_id, request=request, name=name, slug=slug, workspace_name=name)
+    return {"ok": True}
+

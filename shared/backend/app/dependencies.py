@@ -61,7 +61,22 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     if not tid_str:
         await bind_tenant(db, user.tenant_id)
+    await ensure_workspace_open(db, user)
     return user
+
+
+SUSPENDED_DETAIL = "تم إيقاف مساحة العمل هذه مؤقتًا من إدارة منصة ميزان. تواصل مع الدعم لإعادة تفعيلها."
+
+
+async def ensure_workspace_open(db: AsyncSession, user: User) -> None:
+    """Suspended workspaces are closed to their own people; platform staff keep access."""
+    if user.is_superadmin or user.role == "superadmin" or not user.tenant_id:
+        return
+    from app.models.tenant import Tenant
+
+    workspace_status = await db.scalar(select(Tenant.status).where(Tenant.id == user.tenant_id))
+    if workspace_status == "suspended":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SUSPENDED_DETAIL)
 
 
 async def get_print_user(request: Request, token: str | None = None, db: AsyncSession = Depends(get_db)) -> User:

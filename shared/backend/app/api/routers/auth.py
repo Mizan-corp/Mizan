@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.core.ratelimit import RateLimiter
 from app.core.security import create_access_token
 from app.db.base import get_db
-from app.dependencies import get_current_user
+from app.dependencies import ensure_workspace_open, get_current_user
 from app.models.user import User
 from app.schemas.auth import LoginRequest, TokenResponse
 from app.schemas.user import UserPasswordUpdate
@@ -24,6 +24,7 @@ reauth_limiter = RateLimiter(max_requests=5, window_seconds=60)
 @router.post("/login")
 async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends(get_db), _=Depends(login_limiter)):
     user = await auth_service.authenticate(db, data.username, data.password, tenant_slug=data.tenant_slug)
+    await ensure_workspace_open(db, user)
     token = auth_service.issue_token(user)
     body = TokenResponse(
         access_token=token["access_token"],

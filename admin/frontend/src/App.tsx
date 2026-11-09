@@ -1,72 +1,68 @@
-import { lazy, Suspense, type ReactNode } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import { useAuth, type User } from "@/stores/auth";
+import Shell from "@app/Shell";
+import SignIn from "@app/SignIn";
+import { PageSkeleton } from "@app/ui";
 
-const AdmoonLayout = lazy(() => import("@app/admoon/AdmoonLayout"));
-const AdmoonDashboard = lazy(() => import("@app/admoon/pages/Dashboard"));
-const AdmoonTenants = lazy(() => import("@app/admoon/pages/Tenants"));
-const AdmoonTenantDetails = lazy(() => import("@app/admoon/pages/TenantDetails"));
-const AdmoonTenantWizard = lazy(() => import("@app/admoon/pages/TenantWizard"));
-const AdmoonHostingConfig = lazy(() => import("@app/admoon/pages/HostingConfig"));
-const AdmoonDatabaseConfig = lazy(() => import("@app/admoon/pages/DatabaseConfig"));
-const AdmoonStorageConfig = lazy(() => import("@app/admoon/pages/StorageConfig"));
-const AdmoonInfrastructure = lazy(() => import("@app/admoon/pages/Infrastructure"));
-const AdmoonProvisioningJobs = lazy(() => import("@app/admoon/pages/ProvisioningJobs"));
-const AdmoonModuleCatalog = lazy(() => import("@app/admoon/pages/ModuleCatalog"));
-const AdmoonSubscriptions = lazy(() => import("@app/admoon/pages/Subscriptions"));
-const AdmoonBillingInvoices = lazy(() => import("@app/admoon/pages/BillingInvoices"));
-const AdmoonBackups = lazy(() => import("@app/admoon/pages/Backups"));
-const AdmoonMonitoringHealth = lazy(() => import("@app/admoon/pages/MonitoringHealth"));
-const AdmoonAuditLogs = lazy(() => import("@app/admoon/pages/AuditLogs"));
-const AdmoonPlatformUsers = lazy(() => import("@app/admoon/pages/PlatformUsers"));
-const AdmoonSystemSettings = lazy(() => import("@app/admoon/pages/SystemSettings"));
+const Overview = lazy(() => import("@app/pages/Overview"));
+const Workspaces = lazy(() => import("@app/pages/Workspaces"));
+const WorkspaceDetail = lazy(() => import("@app/pages/WorkspaceDetail"));
+const Billing = lazy(() => import("@app/pages/Billing"));
+const Activity = lazy(() => import("@app/pages/Activity"));
+const Team = lazy(() => import("@app/pages/Team"));
+const System = lazy(() => import("@app/pages/System"));
 
-function Page({ children }: { children: ReactNode }) {
+const isStaff = (u: User | null) => !!u && (u.is_superadmin || u.role === "superadmin");
+
+export default function App() {
+  const token = useAuth((s) => s.token);
+  const user = useAuth((s) => s.user);
+
+  // Re-check the session on load: access may have been removed since sign-in.
+  const me = useQuery({
+    queryKey: ["me", token],
+    queryFn: () => api.get<User>("/auth/me"),
+    enabled: !!token,
+    retry: false,
+    staleTime: Infinity,
+  });
+
+  const [notice, setNotice] = useState<string>();
+  const denied = !!token && !me.isPending && (me.isError || !isStaff(me.data ?? null));
+  useEffect(() => {
+    if (!denied) return;
+    setNotice(me.isError ? "Your session ended. Sign in again." : "This account no longer has access to the admin panel.");
+    useAuth.getState().logout();
+  }, [denied, me.isError]);
+
+  if (denied || !token || !user) return <SignIn key={notice} notice={notice} />;
+  if (me.isPending) return null;
+
   return (
-    <Suspense
-      fallback={
-        <div className="grid place-items-center p-16">
-          <span className="h-6 w-6 animate-spin rounded-full border-2 border-brand border-t-transparent" />
-        </div>
-      }
-    >
-      {children}
+    <Suspense fallback={<PageSkeleton />}>
+      <Routes>
+        <Route element={<Shell />}>
+          <Route index element={<Overview />} />
+          <Route path="workspaces" element={<Workspaces />} />
+          <Route path="workspaces/:id" element={<WorkspaceDetail />} />
+          <Route path="billing" element={<Billing />} />
+          <Route path="activity" element={<Activity />} />
+          <Route path="team" element={<Team />} />
+          <Route path="system" element={<System />} />
+        </Route>
+        {/* Old Admoon addresses */}
+        <Route path="admoon/tenants/:id" element={<LegacyTenant />} />
+        <Route path="admoon/*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </Suspense>
   );
 }
 
-/** Admoon: the platform owner's control plane. AdmoonLayout gates on a super-admin session. */
-export default function App() {
-  return (
-    <Routes>
-      <Route
-        path="/admoon"
-        element={
-          <Page>
-            <AdmoonLayout />
-          </Page>
-        }
-      >
-        <Route index element={<AdmoonDashboard />} />
-        <Route path="tenants" element={<AdmoonTenants />} />
-        <Route path="tenants/:tenantId" element={<AdmoonTenantDetails />} />
-        <Route path="wizard" element={<AdmoonTenantWizard />} />
-        <Route path="hosting" element={<AdmoonHostingConfig />} />
-        <Route path="databases" element={<AdmoonDatabaseConfig />} />
-        <Route path="storage" element={<AdmoonStorageConfig />} />
-        <Route path="infrastructure" element={<AdmoonInfrastructure />} />
-        <Route path="jobs" element={<AdmoonProvisioningJobs />} />
-        <Route path="modules" element={<AdmoonModuleCatalog />} />
-        <Route path="subscriptions" element={<AdmoonSubscriptions />} />
-        <Route path="billing" element={<AdmoonBillingInvoices />} />
-        <Route path="billing-invoices" element={<AdmoonBillingInvoices />} />
-        <Route path="backups" element={<AdmoonBackups />} />
-        <Route path="monitoring" element={<AdmoonMonitoringHealth />} />
-        <Route path="audit-logs" element={<AdmoonAuditLogs />} />
-        <Route path="users" element={<AdmoonPlatformUsers />} />
-        <Route path="settings" element={<AdmoonSystemSettings />} />
-      </Route>
-
-      <Route path="*" element={<Navigate to="/admoon" replace />} />
-    </Routes>
-  );
+function LegacyTenant() {
+  const { id } = useParams();
+  return <Navigate to={`/workspaces/${id}`} replace />;
 }

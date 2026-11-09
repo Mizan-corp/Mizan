@@ -1,9 +1,17 @@
-"""Mizan Admin API: the Admoon platform control plane (super-admins only)."""
-from admin_api.routers import admoon
-from app.api.routers import auth, billing
+"""Mizan Admin API: the platform control plane (super-admins only)."""
+from admin_api.routers import activity, billing, overview, system, team, workspaces
+from app.api.routers import auth
 from app.factory import create_app
 
 app = create_app(
     title="Mizan Admin API",
-    routers=[admoon.router, auth.router, billing.router],
+    routers=[
+        auth.router,
+        overview.router,
+        workspaces.router,
+        billing.router,
+        activity.router,
+        team.router,
+        system.router,
+    ],
 )

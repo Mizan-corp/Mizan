@@ -6,9 +6,12 @@ safe to run against any environment, including production.
 
     python -m app.db.bootstrap
 
-Credentials come from MIZAN_ADMIN_USERNAME / MIZAN_ADMIN_PASSWORD, defaulting
-to ammar / changeme for local development and CI. Change the password after
-the first sign-in.
+Creates two accounts in the default workspace:
+- the workspace admin, from MIZAN_ADMIN_USERNAME / MIZAN_ADMIN_PASSWORD
+  (default ammar / changeme), who signs in to the app;
+- the platform admin, from MIZAN_PLATFORM_USERNAME / MIZAN_PLATFORM_PASSWORD
+  (default platform / changeme), who signs in to the admin panel.
+Change both passwords after the first sign-in.
 """
 import asyncio
 import json
@@ -53,12 +56,23 @@ async def bootstrap() -> str:
             is_manager=True,
             password_hash=hash_password(os.environ.get("MIZAN_ADMIN_PASSWORD", "changeme")),
         ))
+        db.add(User(
+            id=uuid.uuid4(),
+            tenant_id=tenant.id,
+            username=os.environ.get("MIZAN_PLATFORM_USERNAME", "platform"),
+            full_name="Platform admin",
+            role="admin",
+            permissions=["*"],
+            is_superadmin=True,
+            password_hash=hash_password(os.environ.get("MIZAN_PLATFORM_PASSWORD", "changeme")),
+        ))
         existing = set((await db.scalars(select(StoreSetting.key).where(StoreSetting.tenant_id == tenant.id))).all())
         for key, value in (("store_name", tenant.name), ("currency", "EGP")):
             if key not in existing:
                 db.add(StoreSetting(tenant_id=tenant.id, key=key, value=json.dumps(value, ensure_ascii=False)))
         await db.commit()
-        return f"created admin '{username}' in workspace '{tenant.name}'"
+        platform = os.environ.get("MIZAN_PLATFORM_USERNAME", "platform")
+        return f"created app admin '{username}' and admin-panel account '{platform}' in workspace '{tenant.name}'"
 
 
 if __name__ == "__main__":

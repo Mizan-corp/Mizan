@@ -56,7 +56,7 @@ of one shared kernel and one PostgreSQL database (see `docs/decisions/ADR-003-se
 |---|---|---|---|
 | `system/` | The ERP tenants use every day | `system/frontend` → mizan-co-app | `system/backend` → mizan-co-api |
 | `website/` | Landing, pricing, docs, signup, onboarding | `website/frontend` → mizan-co | `website/backend` → mizan-co-web-api |
-| `admin/` | Admoon, the platform control plane | `admin/frontend` → mizan-co-admin | `admin/backend` → mizan-co-admin-api |
+| `admin/` | The admin panel (English, Mizan team only) | `admin/frontend` → mizan-co-admin | `admin/backend` → mizan-co-admin-api |
 | `shared/` | Code all three use | `shared/frontend` (design kit) | `shared/backend` (domain kernel) |
 
 - `shared/backend/` — installable Python package `app` (`mizan-shared`):
@@ -67,11 +67,11 @@ of one shared kernel and one PostgreSQL database (see `docs/decisions/ADR-003-se
   - `modules/`: domain modules (models, routers, manifests, print templates).
 - `system/backend/`: `main.py` + `system_api/` (route list, tenant resolution, tenant-side platform endpoints).
 - `website/backend/`: `main.py` + `website_api/` (plans, self-serve signup).
-- `admin/backend/`: `main.py` + `admin_api/` (Admoon router & service) + `admoon/` (provisioning, backups, providers).
+- `admin/backend/`: `main.py` + `admin_api/` (one router per page: overview, workspaces, billing, activity, team, system).
 - `shared/frontend/src/`: kit components, API client, auth/UI stores, i18n, styles, plans, pricing page, cross-app URLs and session handoff.
 - `system/frontend/src/`: app shell, ERP features, tenant routing, and `modules/` (industry screens).
 - `website/frontend/src/`: marketing pages and the docs portal.
-- `admin/frontend/src/`: Admoon pages.
+- `admin/frontend/src/`: the admin panel pages.
 - `docs/`: System documentation, architecture decision records, and API specs.
 - `.agents/`: Antigravity engineering rules and procedural skills.
 
