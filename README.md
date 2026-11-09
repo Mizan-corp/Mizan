@@ -213,51 +213,54 @@ Independent audits, and what was fixed after them, live in [`docs/audit/`](docs/
 
 ## Run it locally
 
-**Requirements:** Docker, Node 20+ (CI uses 24), Python 3.12.
+**Requirements:** Docker, Node 22+ (CI uses 24), Python 3.12+. Everything else goes through one file:
 
 ```bash
-# 1 · database + the three APIs (system :8000 · website :8001 · admin :8002)
-docker compose up -d
-
-# 2 · migrations + first-run bootstrap (idempotent, safe to re-run)
-python3 scripts/migrate.py
-
-# 3 · frontends (one npm workspace; /api is proxied to each app's own API)
-npm install
-npm run dev:system     # http://localhost:5173   the ERP
-npm run dev:website    # http://localhost:5174   landing, signup, onboarding
-npm run dev:admin      # http://localhost:5175   Admoon
+python manage.py setup     # npm deps, .venv, database + 3 APIs, migrations, first admin
+python manage.py dev       # all three frontends in one terminal (or: dev system | website | admin)
+python manage.py doctor    # what's installed, what's running, what to fix
 ```
+
+| | URL | Talks to |
+|---|---|---|
+| System (ERP) | http://localhost:5173 | system-api on :8000 |
+| Website | http://localhost:5174 | website-api on :8001 |
+| Admin (Admoon) | http://localhost:5175 | admin-api on :8002 |
 
 **A new database starts empty.** Docker loads a structure-only baseline
 (`shared/backend/app/db/baseline_schema.sql`, no data), the API builds the rest of the schema,
-and `migrate.py` creates one workspace (“ميزان”) with one admin: `ammar` / `changeme`,
-or whatever you set in `MIZAN_ADMIN_USERNAME` / `MIZAN_ADMIN_PASSWORD`. The bootstrap does
-nothing once any user exists. Change the password after the first sign-in. To get a
-sector's demo data, sign up a new workspace through the website.
+and `db migrate` creates one workspace (“ميزان”) with one admin: `ammar` / `changeme`, or
+whatever you set in `MIZAN_ADMIN_USERNAME` / `MIZAN_ADMIN_PASSWORD`. The bootstrap does nothing
+once any user exists. Change the password after the first sign-in. To get a sector's demo data,
+sign up a new workspace through the website.
 
-Running an API outside Docker (from its folder, with the shared kernel on the path):
+### Everything `manage.py` does
 
-```bash
-cd system/backend && PYTHONPATH=.:../../shared/backend uvicorn main:app --port 8000
+```
+setup | doctor
+stack   up [--build] | down | restart [svc] | status | logs [svc] | build | update | shell [svc]
+db      migrate | backup | restore <file> | backups | reset | baseline | export | psql
+dev     [system|website|admin|all]          build [system|website|admin|all]
+test    [unit|backend|e2e|all]              lint | check
+vercel  status | domains | redeploy <project>
+cron    [--job NAME]
 ```
 
-`python manage.py --help` lists the operations commands (backups, restore, fresh reset, logs, desktop/Android builds).
+- **`stack update`** backs up, rebuilds, restarts and migrates without losing data. **`db reset`** wipes everything.
+- **`db baseline`** refreshes the baseline schema from your database (structure only, never data).
+- **`db export`** writes master data (no transactions) to `backups/`, which git ignores.
+- **`check`** runs what CI runs except e2e: ruff, TypeScript, unit and backend tests, and all three builds.
+- `--yes` skips confirmations, `--verbose` prints every command. Only the Python standard library is needed.
 
 ### Tests
 
 ```bash
-npm test && npm run build                                  # shared + system unit tests, type-check and build all three apps
-
-pip install ./shared/backend -r shared/backend/requirements-dev.txt
-cd system/backend && python -m pytest -q                   # backend tests (security, accounting, clinic)
-
-pip install -r e2e/requirements.txt
-cd e2e && E2E_API_BASE=http://localhost:8000 \
-  E2E_DATABASE_URL=postgresql://postgres:postgres@localhost:5433/inventory_db \
-  python -m pytest -q                                      # live API suite. Both URLs must point at the same server
+python manage.py test            # frontend unit tests + backend tests
+python manage.py test e2e        # live API suite against the local stack (~3 min)
+python manage.py check           # lint + tests + builds
 ```
 
+Backend tests delete the workspaces they create, so the database is left as they found it.
 CI runs lint, all three builds, unit tests, an import check of every API and the full
 Docker-based end-to-end suite on every push.
 
@@ -281,6 +284,7 @@ when its own folder or `shared/` changes**, so a website edit never redeploys th
   `website/new-hero`, `shared/fix-rounding`); pushing it gives you preview links for the apps you touched.
 - **Commit as `ammar0xff`.** Vercel blocks deploys from commits it can't match to the account.
 - **Changing `shared/` rebuilds all three products**, so check every app that uses what you changed.
+- **`python manage.py vercel status`** shows what's live on each project; `vercel redeploy <project>` redeploys one.
 - The three APIs share one database and one `SECRET_KEY`; their settings live in each Vercel project.
 
 ---
@@ -303,12 +307,11 @@ shared/                 code all three use
                         api/routers (ERP endpoint library), modules (48 domain modules),
                         db (baseline schema, migrations, bootstrap)
 e2e/                    live API end-to-end suite
-scripts/                migrate.py, ZKTeco sync, Windows installer
 docs/                   product, architecture, design, security and requirements docs
 .github/                CI workflow
 docker-compose.yml      local stack: database + the three APIs
 package.json            npm workspaces: shared + the three frontends
-manage.py               operations CLI (backups, restore, reset, builds)
+manage.py               the one CLI: setup, stack, db, dev, build, test, lint, vercel
 ```
 
 Frontend import aliases: `@/` is the shared kit, `@app/` is the current app, `@modules/` is the industry screens (system only).

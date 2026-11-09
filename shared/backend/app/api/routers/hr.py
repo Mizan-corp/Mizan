@@ -580,7 +580,7 @@ async def get_sync_log(db: AsyncSession = Depends(get_db), _=Depends(require_per
 
 @router.post("/attendance/from-device")
 async def attendance_from_device(data: dict, db: AsyncSession = Depends(get_db), _=Depends(require_perm("payroll"))):
-    """Accept a single attendance record from the host-side zk_sync.py script."""
+    """Accept a single attendance record pushed by an on-site ZKTeco sync agent."""
     uid = str(data.get('emp_id', ''))
     from datetime import date as _date
     from datetime import datetime as _dt

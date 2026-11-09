@@ -766,7 +766,7 @@ export const DOC_SECTIONS: DocSection[] = [
               codeBlock: {
                 language: "bash",
                 filename: "deploy.sh",
-                code: "git clone https://github.com/mizan-erp/mizan.git\ncd mizan\npython manage.py setup\npython manage.py deploy --yes",
+                code: "git clone https://github.com/mizan-erp/mizan.git\ncd mizan\npython manage.py setup\npython manage.py stack update --yes",
               },
             },
           ],
@@ -831,7 +831,7 @@ export const DOC_SECTIONS: DocSection[] = [
               codeBlock: {
                 language: "bash",
                 filename: "backup_commands.sh",
-                code: "# أخذ نسخة احتياطية جديدة\npython manage.py backup\n\n# استعادة نسخة سابقة محددة\npython manage.py restore backups/backup_20261103_120000.sql",
+                code: "# أخذ نسخة احتياطية جديدة\npython manage.py db backup\n\n# استعادة نسخة سابقة محددة\npython manage.py db restore backups/backup_20261103_120000.sql",
               },
             },
           ],
@@ -854,7 +854,7 @@ export const DOC_SECTIONS: DocSection[] = [
               codeBlock: {
                 language: "bash",
                 filename: "logs.sh",
-                code: "python manage.py logs",
+                code: "python manage.py stack logs",
               },
             },
           ],

@@ -1,6 +1,6 @@
 -- Mizan baseline schema (structure only, no data): the legacy tables, sequences and
 -- columns that predate the SQLAlchemy models. Loaded into a brand-new database by
--- docker compose; the models (create_all) and scripts/migrate.py build on top of it.
+-- docker compose; the models (create_all) and `manage.py db migrate` build on top of it.
 
 --
 -- PostgreSQL database dump

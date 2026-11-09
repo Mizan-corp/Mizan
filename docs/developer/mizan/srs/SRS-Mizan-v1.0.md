@@ -47,7 +47,7 @@ Mizan is a single platform that serves up to 30 business types through a shared 
 | TenantScoped | Any database table that carries `tenant_id` and is isolated by RLS |
 | RLS | PostgreSQL Row-Level Security — enforces tenant isolation at DB level |
 | ORM filter | SQLAlchemy global query filter that injects `tenant_id == ctx` |
-| Migration | A tracked, idempotent SQL change in `scripts/migrate.py` |
+| Migration | A tracked, idempotent SQL change in `shared/backend/app/db/migrations.py` |
 | `.num` | CSS class applied to every financial figure for tabular lining display |
 | Shift | A cashier work session with opening/closing balance |
 | Demo data | Seeded data with `is_demo = true` — can be wiped via `/platform/wipe-demo` |
@@ -391,7 +391,7 @@ Admoon must support technical management and support for tenants across all four
 | SYS-07 | Performance monitoring | Must | `/health` returns `{"status":"ok","database":"connected"}`; Sentry error tracking |
 | SYS-08 | Automated testing | Must | 107 e2e tests in CI; 9 vitest unit tests; `tsc --noEmit`; build |
 | SYS-09 | Configurable business rules | Should | Module feature flags per tenant stored in DB |
-| SYS-10 | Data migration | Must | All migrations in `scripts/migrate.py`; idempotent; tracked by version |
+| SYS-10 | Data migration | Must | All migrations in `shared/backend/app/db/migrations.py`; idempotent; tracked by version |
 
 ---
 
@@ -742,7 +742,7 @@ For these modules, acceptance requires the stated workflow, tenant-scoped permis
 
 | ID | Requirement | Priority | Acceptance Criteria |
 |---|---|---|---|
-| AUTO-01 | Midnight shift auto-close | Must | `python manage.py cron --run-all`; Z-report generated |
+| AUTO-01 | Midnight shift auto-close | Must | `python manage.py cron`; Z-report generated |
 | AUTO-02 | Subscription enforcement | Must | Feature gating applied after trial expires |
 | AUTO-03 | Daily metrics digest | Must | Platform metrics summary; delivered to super-admin |
 | AUTO-04 | WhatsApp receipt dispatch | Must | Background worker processes queue; retryable |
@@ -805,7 +805,7 @@ Activate these reusable capabilities only for activities that need them. Each re
 
 | ID | Requirement |
 |---|---|
-| MAINT-01 | All migrations tracked in `scripts/migrate.py`; idempotent |
+| MAINT-01 | All migrations tracked in `shared/backend/app/db/migrations.py`; idempotent |
 | MAINT-02 | No business logic in routers; belongs in service layer |
 | MAINT-03 | No new `components/ui.tsx` usages; migrate to `components/kit/` |
 | MAINT-04 | All FK columns have indexes |
@@ -932,7 +932,7 @@ GUC `app.tenant_id` is re-applied on every transaction via `after_begin` listene
 
 ### 9.3 Migrations
 
-- 35 tracked migrations (v0–v32) in `scripts/migrate.py`
+- 35 tracked migrations (v0–v32) in `shared/backend/app/db/migrations.py`
 - All new migrations must be appended to `MIGRATIONS` list
 - Idempotent SQL: `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`
 - Migrations run with `app.bypass = 'on'`
@@ -1021,7 +1021,7 @@ GUC `app.tenant_id` is re-applied on every transaction via `after_begin` listene
 | Backend | Vercel Git integration (master branch) | Root directory: `backend/`; rewrites `/api/* → /*` |
 | Frontend | `npx vercel --prod --yes --token <TOKEN>` | CLI-only; NOT git-linked |
 | Database | Neon managed PostgreSQL | Pooled URL; branch `br-still-sunset-aegj3ngq` |
-| Migrations | `python3 scripts/migrate.py` | Must run before any backend code change reaches production |
+| Migrations | `python3 manage.py db migrate` | Must run before any backend code change reaches production |
 
 ### 11.3 LAN Server Deployment
 
@@ -1052,7 +1052,7 @@ GUC `app.tenant_id` is re-applied on every transaction via `after_begin` listene
 
 ```bash
 docker compose up -d                          # postgres :5433 + backend :8000
-python3 scripts/migrate.py                    # run tracked migrations
+python3 manage.py db migrate                  # run tracked migrations
 cd backend && .venv/bin/uvicorn main:app --port 8010
 cd frontend && npm install && npm run dev     # :5173, /api proxied
 ```
@@ -1109,7 +1109,7 @@ A feature is complete when ALL of the following pass:
 - [ ] Every mutation is wrapped in a single DB transaction
 - [ ] Every list endpoint is paginated (`page`, `size`, `total`, `pages`)
 - [ ] No business logic lives in a router (belongs in a service)
-- [ ] Migration appended to `scripts/migrate.py`, idempotent, numbered `v<N>_<name>`
+- [ ] Migration appended to `shared/backend/app/db/migrations.py`, idempotent, numbered `v<N>_<name>`
 - [ ] `AuditLog` entry exists for every destructive or financial mutation
 - [ ] FK indexes exist on every FK column
 - [ ] Money stored as `Numeric`, never `float`

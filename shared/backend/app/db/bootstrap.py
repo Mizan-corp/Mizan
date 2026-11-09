@@ -1,7 +1,7 @@
-"""First-run bootstrap: create the founding workspace's first admin.
+"""First-run bootstrap: create the first admin on an empty database.
 
-Runs after migrations (scripts/migrate.py calls it inside the system-api
-container). It does nothing unless the database has no users at all, so it is
+Runs after migrations (`python manage.py db migrate` calls it inside the
+system-api container). It does nothing unless the database has no users at all, so it is
 safe to run against any environment, including production.
 
     python -m app.db.bootstrap

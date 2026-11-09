@@ -34,6 +34,6 @@ Mizan enforces a hybrid, multi-layered isolation model to ensure that no tenant 
 ```
 
 ## 3. Migration Rules
-- Database schema changes are tracked in `scripts/migrate.py` under the ordered `MIGRATIONS` tuple.
+- Database schema changes are tracked in `shared/backend/app/db/migrations.py` under the ordered `MIGRATIONS` list and applied with `python manage.py db migrate`.
 - Every migration must be **strictly idempotent** (`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`).
 - Migration runs execute statements sequentially with auto-healing and rollback safety.

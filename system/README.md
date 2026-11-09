@@ -14,5 +14,5 @@ reports, the 48 industry modules, and public storefronts.
   screens). Kit components, the API client and stores come from `shared/frontend` (`@/`).
 - Accepts sessions handed off by the website (new owner after onboarding) and the admin
   panel (impersonation) through `#session=` on first load.
-- Owns schema bootstrap (`create_all`) and the tracked migrations run by `scripts/migrate.py`.
+- Owns schema bootstrap (`create_all`) and the tracked migrations run by `python manage.py db migrate`.
 - Tests: `backend/tests/` (pytest) and the live API suite in `/e2e`.
