@@ -36,6 +36,8 @@ CSRF_EXEMPT_SUFFIXES = (
     "/account/login",
     # Paymob's server calls this; it's authenticated by its HMAC instead.
     "/account/paymob/callback",
+    # On-premise installs; authenticated by their signed licence key.
+    "/installations/check-in",
 )
 
 MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}

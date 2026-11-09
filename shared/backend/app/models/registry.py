@@ -8,10 +8,12 @@ configuration across modules). Each service calls it once at startup.
 def load_all_models() -> None:
     import app.models.archive
     import app.models.audit_log
+    import app.models.billing
     import app.models.auth_access
     import app.models.collection
     import app.models.customer_payment
     import app.models.device_token
+    import app.models.licence
     import app.models.notification
     import app.models.owner
     import app.models.employee

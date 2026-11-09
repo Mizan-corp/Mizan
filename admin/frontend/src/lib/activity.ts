@@ -35,6 +35,14 @@ export function describe(a: ActivityItem): Part[] {
       return [`${planLabel(s("plan"))} paid online via Paymob (${money(Number(d.amount_egp))}, ${s("invoice")}) by `, ws];
     case "invoice_refunded_online":
       return [`Invoice ${s("invoice")} refunded in Paymob for `, ws];
+    case "licence_extended":
+      return [`Extended the licence of `, ws, ` by ${plural(Number(d.days), "day")}`, d.reason ? ` — “${s("reason")}”` : ""];
+    case "licence_revoked":
+      return ["Revoked the licence of ", ws, d.reason ? ` — “${s("reason")}”` : ""];
+    case "licence_restored":
+      return ["Restored the licence of ", ws];
+    case "licence_key_issued":
+      return ["Issued an offline licence key for ", ws];
     case "upgrade_request_dismissed":
       return [`Dismissed an upgrade request to ${planLabel(s("plan"))} from `, ws];
     case "platform_access_granted":
@@ -57,6 +65,8 @@ export const ACTION_FILTERS: { value: string; label: string }[] = [
   { value: "tenant_modules_updated", label: "Modules changed" },
   { value: "invoice_marked_paid", label: "Invoice marked paid" },
   { value: "invoice_paid_online", label: "Paid online" },
+  { value: "licence_extended", label: "Licence extended" },
+  { value: "licence_revoked", label: "Licence revoked" },
   { value: "tenant_deleted", label: "Workspace deleted" },
   { value: "platform_access_granted", label: "Access granted" },
   { value: "platform_access_revoked", label: "Access removed" },

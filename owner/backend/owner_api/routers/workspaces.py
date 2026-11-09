@@ -23,6 +23,11 @@ from app.services.owners import get_current_owner, owned_workspace, workspace_us
 from app.services.plan_gating import get_tenant_limits_and_usage
 from app.services.subscriptions import paid_until
 from app.services.workspaces import create_workspace
+from app.core.licensing import LicenceError
+from app.core.releases import published_installers
+from app.models.licence import Installation, Licence
+from app.services.licences import get_licence, is_on_premise, issue_key
+from app.services.licences import status as licence_status
 from owner_api.common import days_until, invoice_out, iso
 
 router = APIRouter(prefix="/account/workspaces", tags=["workspaces"])
@@ -31,7 +36,27 @@ MAX_WORKSPACES = 10
 MAX_TRIALS = 3
 
 
-def summary(t: Tenant, *, users: int = 0, last_sale: datetime | None = None, until: datetime | None = None) -> dict:
+def licence_out(lic: Licence | None, installs: list[Installation] | None = None) -> dict | None:
+    if lic is None:
+        return None
+    installs = installs or []
+    return {
+        "status": licence_status(lic),
+        "valid_until": iso(lic.valid_until),
+        "installations": len(installs),
+        "last_seen_at": iso(max((i.last_seen_at for i in installs), default=None)),
+    }
+
+
+def summary(
+    t: Tenant,
+    *,
+    users: int = 0,
+    last_sale: datetime | None = None,
+    until: datetime | None = None,
+    lic: Licence | None = None,
+    installs: list[Installation] | None = None,
+) -> dict:
     return {
         "id": str(t.id),
         "name": t.name,
@@ -46,6 +71,8 @@ def summary(t: Tenant, *, users: int = 0, last_sale: datetime | None = None, unt
         "users_count": users,
         "last_sale_at": iso(last_sale),
         "created_at": iso(t.created_at),
+        "deployment_mode": t.deployment_mode,
+        "licence": licence_out(lic, installs),
     }
 
 
@@ -67,7 +94,15 @@ async def list_workspaces(db: AsyncSession = Depends(get_db), owner: OwnerAccoun
         select(BillingInvoice.tenant_id, func.max(BillingInvoice.period_end))
         .where(BillingInvoice.tenant_id.in_(ids), BillingInvoice.status == "paid").group_by(BillingInvoice.tenant_id)
     )).all())
-    return {"items": [summary(t, users=users.get(t.id, 0), last_sale=last_sale.get(t.id), until=until.get(t.id)) for t in tenants]}
+    lics = {lic.tenant_id: lic for lic in (await db.execute(select(Licence).where(Licence.tenant_id.in_(ids)))).scalars()}
+    installs: dict = {}
+    for inst in (await db.execute(select(Installation).where(Installation.tenant_id.in_(ids)))).scalars():
+        installs.setdefault(inst.tenant_id, []).append(inst)
+    return {"items": [
+        summary(t, users=users.get(t.id, 0), last_sale=last_sale.get(t.id), until=until.get(t.id),
+                lic=lics.get(t.id), installs=installs.get(t.id))
+        for t in tenants
+    ]}
 
 
 class NewWorkspace(BaseModel):
@@ -75,6 +110,8 @@ class NewWorkspace(BaseModel):
     sector: str
     scale: Literal["small", "medium", "large"] = "small"
     demo_data: bool = True
+    # cloud_saas: in the browser; desktop: one computer; lan: a server on the local network.
+    mode: Literal["cloud_saas", "desktop", "lan"] = "cloud_saas"
 
 
 @router.post("", status_code=201)
@@ -91,12 +128,15 @@ async def new_workspace(data: NewWorkspace, db: AsyncSession = Depends(get_db), 
             detail=f"لديك {MAX_TRIALS} مساحات عمل في الفترة التجريبية. اشترك في إحداها قبل إنشاء مساحة جديدة.",
         )
     # The owner signs in to the new workspace with the same name and password.
+    # Single-device/LAN: only registered here; the installer creates it on site.
     tenant, _ = await create_workspace(
         db, name=data.name, sector=data.sector, scale=data.scale, demo_data=data.demo_data, owner=owner,
         admin_username=owner.login, admin_full_name=owner.full_name, admin_password_hash=owner.password_hash,
+        deployment_mode=data.mode,
     )
+    lic = await get_licence(db, tenant.id)
     await db.commit()
-    return summary(tenant, users=1)
+    return summary(tenant, users=0 if lic else 1, lic=lic)
 
 
 @router.get("/{tenant_id}")
@@ -107,8 +147,14 @@ async def workspace_detail(tenant_id: uuid.UUID, db: AsyncSession = Depends(get_
         select(BillingInvoice).where(BillingInvoice.tenant_id == t.id).order_by(BillingInvoice.created_at.desc()).limit(50)
     )).scalars().all()
     last_sale = await db.scalar(select(func.max(Sale.created_at)).where(Sale.tenant_id == t.id))
+    lic = await get_licence(db, t.id)
+    installs = (await db.execute(
+        select(Installation).where(Installation.tenant_id == t.id).order_by(Installation.last_seen_at.desc())
+    )).scalars().all()
     return {
-        "workspace": summary(t, users=usage["usage"]["current_users"], last_sale=last_sale, until=await paid_until(db, t.id)),
+        "workspace": summary(t, users=usage["usage"]["current_users"], last_sale=last_sale,
+                             until=await paid_until(db, t.id), lic=lic, installs=list(installs)),
+        "installations": [installation_out(i) for i in installs],
         "quotas": usage["quotas"],
         "is_read_only": usage["is_read_only"],
         "invoices": [invoice_out(i, t) for i in invoices if i.status != "cancelled"],
@@ -121,6 +167,8 @@ async def open_workspace(tenant_id: uuid.UUID, db: AsyncSession = Depends(get_db
     t = await owned_workspace(db, owner, tenant_id)
     if t.status == "suspended":
         raise HTTPException(status_code=403, detail="مساحة العمل هذه موقوفة من إدارة ميزان. تواصل مع الدعم لإعادة تفعيلها.")
+    if is_on_premise(t):
+        raise HTTPException(status_code=409, detail="مساحة العمل هذه تعمل على أجهزتك. نزّل البرنامج من زر «تنزيل».")
     user = await workspace_user(db, owner, t)
     if not user:
         raise HTTPException(status_code=404, detail="لا يوجد حساب مدير نشط في مساحة العمل هذه")
@@ -128,3 +176,37 @@ async def open_workspace(tenant_id: uuid.UUID, db: AsyncSession = Depends(get_db
         user.owner_account_id = owner.id
         await db.commit()
     return {"access_token": auth_service.issue_token(user)["access_token"], "slug": t.slug, "username": user.username}
+
+
+def installation_out(i: Installation) -> dict:
+    return {
+        "id": str(i.id),
+        "mode": i.mode,
+        "hostname": i.hostname,
+        "os": i.os,
+        "app_version": i.app_version,
+        "first_seen_at": iso(i.first_seen_at),
+        "last_seen_at": iso(i.last_seen_at),
+        "last_backup_at": iso(i.last_backup_at),
+    }
+
+
+@router.get("/{tenant_id}/download")
+async def download(tenant_id: uuid.UUID, db: AsyncSession = Depends(get_db), owner: OwnerAccount = Depends(get_current_owner)):
+    """What a single-device/LAN workspace needs to be installed: its licence key
+    (fresh, with the current end date) and the installers published for it."""
+    t = await owned_workspace(db, owner, tenant_id)
+    if not is_on_premise(t):
+        raise HTTPException(status_code=409, detail="مساحة العمل هذه تعمل على السحابة، ولا تحتاج تنزيلًا.")
+    try:
+        key, lic = await issue_key(db, t)
+    except LicenceError as e:
+        raise HTTPException(status_code=503, detail="تعذر إصدار مفتاح الترخيص الآن. حاول لاحقًا.") from e
+    await db.commit()
+    return {
+        "licence_key": key,
+        "valid_until": iso(lic.valid_until),
+        "status": licence_status(lic),
+        "mode": t.deployment_mode,
+        "installers": published_installers(t.deployment_mode),
+    }

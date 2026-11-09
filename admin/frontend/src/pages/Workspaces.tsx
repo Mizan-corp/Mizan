@@ -2,7 +2,7 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search } from "lucide-react";
 import { actions, useAction, useWorkspaces, type WorkspaceRow } from "@app/lib/data";
-import { ago, date, errorText, money, num, PLANS, planLabel, pulse, SECTOR_OPTIONS, sectorLabel, trialText } from "@app/lib/format";
+import { ago, date, errorText, money, num, PLANS, planLabel, pulse, SECTOR_OPTIONS, sectorLabel, trialText, MODES } from "@app/lib/format";
 import {
   Badge,
   Button,
@@ -45,6 +45,7 @@ function NewWorkspace({ open, onClose }: { open: boolean; onClose: () => void })
     owner_username: "",
     owner_password: "",
     demo_data: true,
+    deployment_mode: "cloud_saas",
   };
   const [form, setForm] = useState(empty);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +93,16 @@ function NewWorkspace({ open, onClose }: { open: boolean; onClose: () => void })
               <option value="large">4 or more branches</option>
             </Select>
           </Field>
+          <Field label="How it runs" hint={form.deployment_mode === "cloud_saas" ? undefined : "Registered here with a licence; the owner downloads the installer from their panel."}>
+            <Select value={form.deployment_mode} onChange={(e) => set("deployment_mode", e.target.value)}>
+              {Object.entries(MODES).map(([v, m]) => (
+                <option key={v} value={v}>
+                  {m.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <div />
           <Field label="Plan">
             <Select value={form.plan} onChange={(e) => set("plan", e.target.value)}>
               {Object.entries(PLANS).map(([v, p]) => (
@@ -235,7 +246,10 @@ export default function Workspaces() {
                       <div className="bidi font-semibold text-ink">{w.name}</div>
                       <div className="code text-xs text-mute">{w.slug ?? "—"}</div>
                     </Td>
-                    <Td className="text-ink-2">{sectorLabel(w.sector)}</Td>
+                    <Td className="text-ink-2">
+                      {sectorLabel(w.sector)}
+                      {w.deployment_mode !== "cloud_saas" && <Badge tone="info" className="ml-1.5">{MODES[w.deployment_mode]?.short}</Badge>}
+                    </Td>
                     <Td>
                       <div className="flex flex-wrap gap-1.5">
                         <PlanCell w={w} />

@@ -34,6 +34,10 @@ from app.models.owner import OwnerAccount
 from app.services.owners import normalize_login
 from app.services.workspaces import create_workspace as new_workspace
 from app.services.subscriptions import monthly_price
+from app.core.licensing import LicenceError
+from app.models.licence import Installation
+from app.services.licences import ensure_licence, get_licence, is_on_premise, issue_key
+from app.services.licences import status as licence_status
 
 router = APIRouter(prefix="/admoon", tags=["admin: workspaces"])
 
@@ -62,6 +66,7 @@ def _summary(t: Tenant) -> dict:
         "trial_ends_at": iso(t.trial_ends_at),
         "trial_days_left": _trial_days_left(t),
         "created_at": iso(t.created_at),
+        "deployment_mode": t.deployment_mode,
     }
 
 
@@ -168,7 +173,91 @@ async def get_workspace(
             for r in requests
         ],
         "activity": await recent_activity(db, limit=20, tenant_id=t.id),
+        **await _licence_block(db, t),
     }
+
+
+# ─── Licence & installations (single-device and LAN workspaces) ────────────
+
+
+async def _licence_block(db: AsyncSession, t: Tenant) -> dict:
+    lic = await get_licence(db, t.id)
+    installs = (await db.execute(
+        select(Installation).where(Installation.tenant_id == t.id).order_by(Installation.last_seen_at.desc())
+    )).scalars().all()
+    return {
+        "licence": None if lic is None else {
+            "id": str(lic.id), "mode": lic.mode, "status": licence_status(lic),
+            "valid_until": iso(lic.valid_until), "revoked_at": iso(lic.revoked_at),
+        },
+        "installations": [
+            {"id": str(i.id), "hostname": i.hostname, "os": i.os, "app_version": i.app_version, "last_ip": i.last_ip,
+             "first_seen_at": iso(i.first_seen_at), "last_seen_at": iso(i.last_seen_at), "last_backup_at": iso(i.last_backup_at)}
+            for i in installs
+        ],
+    }
+
+
+async def _on_premise(db: AsyncSession, tenant_id: uuid.UUID) -> Tenant:
+    t = await get_tenant(db, tenant_id)
+    if not is_on_premise(t):
+        raise HTTPException(status_code=409, detail="This workspace runs in the cloud and has no licence")
+    return t
+
+
+class ExtendLicence(BaseModel):
+    days: int = Field(ge=1, le=3660)
+    reason: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/tenants/{tenant_id}/licence/extend")
+async def extend_licence(
+    tenant_id: uuid.UUID, body: ExtendLicence, request: Request,
+    db: AsyncSession = Depends(get_db), admin: User = Depends(require_superadmin),
+):
+    t = await _on_premise(db, tenant_id)
+    lic = await ensure_licence(db, t)
+    before = lic.valid_until
+    lic.valid_until = max(lic.valid_until, datetime.now(UTC)) + timedelta(days=body.days)
+    await db.commit()
+    await record(db, admin, "licence_extended", tenant_id=t.id, request=request, days=body.days,
+                 old_until=iso(before), new_until=iso(lic.valid_until), reason=body.reason)
+    return {"ok": True, "valid_until": iso(lic.valid_until)}
+
+
+class RevokeLicence(BaseModel):
+    revoked: bool
+    reason: str | None = Field(default=None, max_length=500)
+
+
+@router.post("/tenants/{tenant_id}/licence/revoke")
+async def revoke_licence(
+    tenant_id: uuid.UUID, body: RevokeLicence, request: Request,
+    db: AsyncSession = Depends(get_db), admin: User = Depends(require_superadmin),
+):
+    t = await _on_premise(db, tenant_id)
+    lic = await ensure_licence(db, t)
+    lic.revoked_at = datetime.now(UTC) if body.revoked else None
+    await db.commit()
+    await record(db, admin, "licence_revoked" if body.revoked else "licence_restored", tenant_id=t.id,
+                 request=request, reason=body.reason)
+    return {"ok": True, "status": licence_status(lic)}
+
+
+@router.post("/tenants/{tenant_id}/licence/key")
+async def licence_key(
+    tenant_id: uuid.UUID, request: Request,
+    db: AsyncSession = Depends(get_db), admin: User = Depends(require_superadmin),
+):
+    """A key to type into an install that's never online."""
+    t = await _on_premise(db, tenant_id)
+    try:
+        key, lic = await issue_key(db, t)
+    except LicenceError as e:
+        raise HTTPException(status_code=503, detail=f"Can't sign licences here: {e}") from None
+    await db.commit()
+    await record(db, admin, "licence_key_issued", tenant_id=t.id, request=request, valid_until=iso(lic.valid_until))
+    return {"licence_key": key, "valid_until": iso(lic.valid_until)}
 
 
 # ─── Create ────────────────────────────────────────────────────────────────
@@ -185,6 +274,7 @@ class CreateWorkspace(BaseModel):
     owner_username: str = Field(min_length=3, max_length=64, pattern=r"^[\w.\-]+$")
     owner_password: str = Field(min_length=8, max_length=128)
     demo_data: bool = False
+    deployment_mode: Literal["cloud_saas", "desktop", "lan"] = "cloud_saas"
 
 
 @router.post("/tenants", status_code=201)
@@ -210,12 +300,13 @@ async def create_workspace(
     tenant, _ = await new_workspace(
         db, name=data.company_name, sector=data.sector, scale=data.scale, slug=data.slug or None,
         plan=data.plan, trial_days=data.trial_days, demo_data=data.demo_data, owner=account,
+        deployment_mode=data.deployment_mode,
         admin_username=data.owner_username, admin_full_name=data.owner_full_name, admin_password_hash=password_hash,
     )
     await db.commit()
 
     await record(db, admin, "tenant_created", tenant_id=tenant.id, request=request,
-                 name=tenant.name, slug=tenant.slug, plan=data.plan, sector=data.sector)
+                 name=tenant.name, slug=tenant.slug, plan=data.plan, sector=data.sector, mode=data.deployment_mode)
     return {"id": str(tenant.id), "slug": tenant.slug}
 
 

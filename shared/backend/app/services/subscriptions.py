@@ -143,6 +143,12 @@ async def activate_invoice(
         tenant.status = "active"
         tenant.limits = get_plan_limits(invoice.plan)
         tenant.trial_ends_at = None
+        if invoice.period_end:
+            # Single-device and LAN workspaces: the licence runs to the end of the paid period.
+            from app.services.licences import extend_to, is_on_premise
+
+            if is_on_premise(tenant):
+                await extend_to(db, tenant, invoice.period_end)
 
     latest = (
         await db.execute(

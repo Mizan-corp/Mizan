@@ -47,6 +47,7 @@ export interface WorkspaceSummary {
   trial_ends_at: string | null;
   trial_days_left: number | null;
   created_at: string;
+  deployment_mode: "cloud_saas" | "desktop" | "lan";
 }
 
 export interface WorkspaceRow extends WorkspaceSummary {
@@ -88,6 +89,17 @@ export interface WorkspaceDetail {
   invoices: Invoice[];
   requests: UpgradeRequest[];
   activity: ActivityItem[];
+  licence: { id: string; mode: string; status: "active" | "expired" | "revoked"; valid_until: string; revoked_at: string | null } | null;
+  installations: {
+    id: string;
+    hostname: string | null;
+    os: string | null;
+    app_version: string | null;
+    last_ip: string | null;
+    first_seen_at: string | null;
+    last_seen_at: string | null;
+    last_backup_at: string | null;
+  }[];
 }
 
 export interface Module {
@@ -205,6 +217,11 @@ export const actions = {
   create: (v: Record<string, unknown>) => api.post<{ id: string; slug: string }>("/admoon/tenants", v),
   markPaid: (v: { ref: string; reference?: string; note?: string }) =>
     api.post(`/admoon/billing/invoices/${encodeURIComponent(v.ref)}/mark-paid`, { reference: v.reference, note: v.note }),
+  extendLicence: (v: { id: string; days: number; reason?: string }) =>
+    api.post<{ valid_until: string }>(`/admoon/tenants/${v.id}/licence/extend`, { days: v.days, reason: v.reason }),
+  revokeLicence: (v: { id: string; revoked: boolean; reason?: string }) =>
+    api.post(`/admoon/tenants/${v.id}/licence/revoke`, { revoked: v.revoked, reason: v.reason }),
+  licenceKey: (id: string) => api.post<{ licence_key: string; valid_until: string }>(`/admoon/tenants/${id}/licence/key`),
   dismissRequest: (id: string) => api.post(`/admoon/billing/requests/${id}/dismiss`),
   grant: (userId: string) => api.post("/admoon/team", { user_id: userId }),
   revoke: (userId: string) => api.del(`/admoon/team/${userId}`),

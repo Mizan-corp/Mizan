@@ -104,3 +104,16 @@ export const METHOD_LABEL: Record<string, string> = {
   bank: "تحويل بنكي",
   bank_transfer: "تحويل بنكي",
 };
+
+export const MODE: Record<string, { label: string; short: string; desc: string }> = {
+  cloud_saas: { label: "على السحابة", short: "سحابي", desc: "تفتحها من المتصفح على أي جهاز. نحن نستضيفها ونحفظ نسخها الاحتياطية." },
+  desktop: { label: "جهاز واحد", short: "جهاز واحد", desc: "برنامج يُثبَّت على كمبيوتر واحد ويعمل بدون إنترنت. لا يتصل به جهاز آخر." },
+  lan: { label: "شبكة محلية", short: "شبكة محلية", desc: "خادم على جهاز في منشأتك، وتتصل به أجهزة الكاشير والمكاتب عبر شبكتك الداخلية." },
+};
+
+export const LICENCE_STATUS: Record<string, { label: string; tone: Tone }> = {
+  active: { label: "الترخيص ساري", tone: "ok" },
+  expired: { label: "انتهى الترخيص", tone: "bad" },
+  revoked: { label: "الترخيص موقوف", tone: "bad" },
+  none: { label: "بدون ترخيص", tone: "mute" },
+};

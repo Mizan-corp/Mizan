@@ -38,6 +38,19 @@ class Settings(BaseSettings):
     PAYMOB_HMAC_SECRET: str = ""
     # Comma-separated integration ids to offer (card, wallet, …).
     PAYMOB_INTEGRATION_IDS: str = ""
+
+    # Licences for single-device and LAN installs (ADR-005). The private key is set
+    # only on the owner API; installs verify with the public key.
+    LICENSE_SIGNING_KEY: str = ""
+    LICENSE_PUBLIC_KEY: str = ""
+
+    # Server mode: "cloud" (default), or "desktop" / "lan" for on-premise installs.
+    MIZAN_MODE: str = "cloud"
+    # On-premise: the licence key, the built ERP to serve, and where Mizan Cloud is.
+    MIZAN_LICENCE: str = ""
+    MIZAN_WEB_DIR: str = ""
+    MIZAN_DATA_DIR: str = "./mizan-data"
+    MIZAN_CLOUD_URL: str = "https://mizan-co-owner-api.vercel.app/api"
     # ⚠️ CORS_ORIGINS must NOT contain wildcard ("*") when credentials are enabled
 
     @property

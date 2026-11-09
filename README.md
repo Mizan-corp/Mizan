@@ -229,7 +229,8 @@ The full canon lives in [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md),
 | 🧱 **Working, being deepened** | Restaurant & kitchen display · pharmacy · clinic (billing, clinical roles, FEFO dispensing, claims) · hotel PMS · school · gym · salon · wholesale |
 | 🪴 **Scaffolded** | Manufacturing, projects, specialised and remaining service modules: models, API and screens exist, with workflows still to be filled in |
 | 🔌 **In progress** | WhatsApp receipts (configured and logged; live sending queued) · Paymob payments (built and tested against signed callbacks; needs the production keys) · subscription expiry (paid periods are tracked; lapsing to read-only isn't automatic yet) |
-| 🗺️ **Planned** | Egyptian Tax Authority e-invoicing · loyalty points · desktop, LAN and bring-your-own-database deployment modes · full hospital suite (EMR, inpatient, radiology, theatre) |
+| 🚧 **Deployment modes** | Single device and LAN: licences, server mode and first-install setup are built; the graphical installer is next. Bring your own database follows ([ADR-005](docs/decisions/ADR-005-deployment-modes.md)) |
+| 🗺️ **Planned** | Egyptian Tax Authority e-invoicing · loyalty points · full hospital suite (EMR, inpatient, radiology, theatre) |
 
 Open work (features, tests, chores, manual follow-ups) is tracked in [GitHub issues](https://github.com/ammar0xff/Mizan/issues).
 The high-level roadmap lives in [`TASKS.md`](TASKS.md) and [`docs/DEVELOPMENT_ROADMAP.md`](docs/DEVELOPMENT_ROADMAP.md).
@@ -359,7 +360,7 @@ Each product folder has its own README: [`system/`](system/README.md) · [`websi
 | Start here | Then |
 |---|---|
 | [Project overview](docs/PROJECT_OVERVIEW.md) | [Requirements (SRS)](docs/developer/mizan/srs/SRS-Mizan-v1.0.md) · [30-industry specs](docs/srs/00_MASTER_INDEX.md) |
-| [System architecture](docs/SYSTEM_ARCHITECTURE.md) | [Why separate products (ADR-003)](docs/decisions/ADR-003-separate-apps.md) · [Owner accounts & Paymob (ADR-004)](docs/decisions/ADR-004-owner-accounts-and-payments.md) · [ADRs](docs/decisions/) · [Database & tenancy](docs/DATABASE_DESIGN.md) · [API standards](docs/API_STANDARDS.md) |
+| [System architecture](docs/SYSTEM_ARCHITECTURE.md) | [Why separate products (ADR-003)](docs/decisions/ADR-003-separate-apps.md) · [Owner accounts & Paymob (ADR-004)](docs/decisions/ADR-004-owner-accounts-and-payments.md) · [Deployment modes (ADR-005)](docs/decisions/ADR-005-deployment-modes.md) · [ADRs](docs/decisions/) · [Database & tenancy](docs/DATABASE_DESIGN.md) · [API standards](docs/API_STANDARDS.md) |
 | [Security standards](docs/SECURITY_STANDARDS.md) | [Roles & permissions](docs/USER_ROLES_AND_PERMISSIONS.md) |
 | [Design system](docs/DESIGN_SYSTEM.md) | [UI/UX kit](docs/ui-ux-kit/) · [Brand identity](docs/developer/mizan/frontend/08-brand-identity-full.md) |
 | [Engineering standards](docs/ENGINEERING_STANDARDS.md) | [Contributor & agent rules](AGENTS.md) |

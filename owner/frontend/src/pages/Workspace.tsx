@@ -3,10 +3,11 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowUpLeft, Check, ChevronRight, CreditCard, ShieldCheck } from "lucide-react";
 import { actions, type Invoice, type Owner, type Plan, useMe, usePlans, useWorkspace, type Workspace as WorkspaceT } from "@app/lib/data";
 import { useOpenWorkspace } from "@app/lib/open";
-import { date, errorText, money, planLabel, sectorLabel, trialState } from "@app/lib/format";
+import { ago, date, errorText, LICENCE_STATUS, MODE, money, planLabel, sectorLabel, trialState } from "@app/lib/format";
 import { cn } from "@/lib/utils";
-import { Button, ErrorNote, Field, Input, LoadError, Meter, Modal, ModalActions, PageSkeleton, Panel, Money } from "@app/ui";
+import { Badge, Button, ErrorNote, Field, Input, LoadError, Meter, Modal, ModalActions, PageSkeleton, Panel, Money } from "@app/ui";
 import { PlanBadge } from "@app/pages/Workspaces";
+import { DownloadButton } from "@app/DownloadDialog";
 import { InvoiceTable } from "@app/pages/Invoices";
 
 const ORDER = ["trial", "starter", "pro", "enterprise"];
@@ -210,7 +211,8 @@ export default function Workspace() {
 
   if (q.isPending || !me.data) return <PageSkeleton />;
   if (q.isError) return <LoadError error={q.error} retry={() => q.refetch()} />;
-  const { workspace: w, quotas, invoices } = q.data;
+  const { workspace: w, quotas, invoices, installations } = q.data;
+  const onPrem = w.deployment_mode !== "cloud_saas";
 
   return (
     <div className="grid grid-cols-1 gap-8">
@@ -226,9 +228,13 @@ export default function Workspace() {
               <span>{sectorLabel(w.sector)}</span>
             </div>
           </div>
-          <Button variant="primary" busy={opening === w.id} disabled={w.status === "suspended"} onClick={() => open(w)}>
-            افتح النظام <ArrowUpLeft />
-          </Button>
+          {onPrem ? (
+            <DownloadButton workspace={w} />
+          ) : (
+            <Button variant="primary" busy={opening === w.id} disabled={w.status === "suspended"} onClick={() => open(w)}>
+              افتح النظام <ArrowUpLeft />
+            </Button>
+          )}
         </header>
         {w.status === "suspended" && (
           <p className="mt-4 rounded-lg bg-bad-soft px-4 py-3 text-sm text-bad">
@@ -241,6 +247,32 @@ export default function Workspace() {
         <Panel title="الاشتراك الحالي">
           <CurrentPlan w={w} />
         </Panel>
+        {onPrem ? (
+          <Panel title="الترخيص والأجهزة" aside={MODE[w.deployment_mode].label}>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone={LICENCE_STATUS[w.licence?.status ?? "none"].tone}>{LICENCE_STATUS[w.licence?.status ?? "none"].label}</Badge>
+              {w.licence?.valid_until && <span className="text-sm text-ink-2">حتى {date(w.licence.valid_until)}</span>}
+            </div>
+            <p className="mt-2 text-[13px] leading-relaxed text-mute">
+              الدفع يمدّد الترخيص حتى نهاية الفترة المدفوعة. يتجدد على الجهاز تلقائيًا عند اتصاله بالإنترنت.
+            </p>
+            {installations.length ? (
+              <ul className="mt-4 divide-y divide-line-soft border-t border-line-soft">
+                {installations.map((i) => (
+                  <li key={i.id} className="flex items-baseline justify-between gap-3 py-2.5 text-sm">
+                    <span className="min-w-0">
+                      <span className="code text-ink">{i.hostname ?? "جهاز"}</span>
+                      <span className="text-xs text-mute"> · {i.os ?? "—"}{i.app_version && ` · v${i.app_version}`}</span>
+                    </span>
+                    <span className="shrink-0 text-xs text-mute">آخر اتصال {ago(i.last_seen_at)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-4 rounded-lg bg-sand/60 px-3 py-2.5 text-sm text-ink-2">لم يُثبَّت البرنامج على أي جهاز بعد.</p>
+            )}
+          </Panel>
+        ) : (
         <Panel title="الاستخدام">
           <div className="grid gap-4">
             <Meter label="المستخدمون" used={quotas.users.used} max={quotas.users.max} />
@@ -248,6 +280,7 @@ export default function Workspace() {
             <Meter label="فواتير البيع هذا الشهر" used={quotas.monthly_sales.used} max={quotas.monthly_sales.max} />
           </div>
         </Panel>
+        )}
       </div>
 
       <Plans w={w} me={me.data} />

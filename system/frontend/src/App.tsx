@@ -79,6 +79,7 @@ import { Button } from "@/components/kit/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/kit/empty";
 import Shell from "@app/components/AppShell";
 import LoginPage from "@app/features/auth/LoginPage";
+import { IS_ON_PREMISE } from "@app/lib/deployment";
 
 function Page({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<div className="grid place-items-center p-16"><span className="h-6 w-6 animate-spin rounded-full border-2 border-brand border-t-transparent" /></div>}>{children}</Suspense>;
@@ -204,8 +205,9 @@ function renderErpChildRoutes(includeIndex: boolean = true) {
 export default function App() {
   return (
     <Routes>
-      {/* Owners sign in here (it opens the owner panel); employees use /c/<workspace>/login. */}
-      <Route path="/login" element={<LoginPage owner />} />
+      {/* Cloud: owners sign in here (it opens the owner panel); employees use /c/<workspace>/login.
+          On-premise there are no owner accounts: /login is the workspace's own sign-in. */}
+      <Route path="/login" element={<LoginPage owner={!IS_ON_PREMISE} />} />
 
       {/* Public Customer-Facing Storefront Routes */}
       <Route path="/store/:tenantSlug" element={<Page><PublicStorefrontPage /></Page>} />

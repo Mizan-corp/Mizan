@@ -128,6 +128,13 @@ export const REQUEST_STATUS: Record<string, { label: string; tone: Tone }> = {
   dismissed: { label: "Dismissed", tone: "mute" },
 };
 
+export const MODES: Record<string, { label: string; short: string }> = {
+  cloud_saas: { label: "Cloud", short: "Cloud" },
+  desktop: { label: "Single device", short: "Desktop" },
+  lan: { label: "Local network (LAN)", short: "LAN" },
+};
+export const modeLabel = (m: string) => MODES[m]?.label ?? m;
+
 export type Tone = "ok" | "warn" | "bad" | "info" | "mute" | "ox";
 
 export function trialText(daysLeft: number | null | undefined): { text: string; tone: Tone } {

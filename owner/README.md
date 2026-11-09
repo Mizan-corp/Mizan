@@ -29,6 +29,22 @@ subscriptions, payments and invoices. Arabic, right-to-left.
 
 Locally, `ammar` / `changeme` (from the bootstrap) is an owner account too.
 
+## How a workspace runs
+
+Owners choose when they create a workspace (ADR-005):
+
+| Mode | What it is | In the panel |
+|---|---|---|
+| **على السحابة** (cloud) | In the browser; we host it | "Open workspace" |
+| **جهاز واحد** (single device) | An app on one computer, works offline | "Download": installer + licence key |
+| **شبكة محلية** (LAN) | A server on the shop's network; tills and offices connect to it | "Download": installer + licence key |
+
+Single-device and LAN workspaces are only registered in the cloud (with a licence); the
+installer creates the workspace on site. Paying extends the licence to the end of the paid
+period; installs pick up the new key when they're online, or the owner copies it from
+Download. The workspace page lists the installed devices and when they last checked in.
+Installers are listed from `MIZAN_INSTALLERS` on the owner API (empty until they're built).
+
 ## Pages
 
 | Page | What it's for |

@@ -28,6 +28,10 @@ including "Open as owner" (signing in to a workspace as its owner).
 
 ## Behaviour worth knowing
 
+- **Single-device and LAN workspaces** (ADR-005) have a **Licence** tab: its end date,
+  extend it, revoke or restore it, issue an offline key, and the installations that have
+  checked in. "Open as owner" doesn't apply to them (their data lives on site).
+
 - **Suspend** closes a workspace to its own people: they can't sign in or use the API
   until it's reactivated. Platform staff keep access. Nothing is deleted.
 - **Mark paid** moves the workspace to the invoiced plan, applies its limits and ends

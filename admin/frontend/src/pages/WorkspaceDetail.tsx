@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { openWithSession } from "@/lib/handoff";
 import { appUrl } from "@/lib/urls";
 import { actions, type Module, useAction, useModules, useWorkspace, type WorkspaceDetail as Detail } from "@app/lib/data";
-import { ago, categoryLabel, date, dateTime, errorText, moduleLabel, money, num, PLANS, planLabel, plural, pulse, REQUEST_STATUS, sectorLabel, trialText } from "@app/lib/format";
+import { ago, categoryLabel, date, dateTime, errorText, moduleLabel, modeLabel, money, num, PLANS, planLabel, plural, pulse, REQUEST_STATUS, sectorLabel, trialText } from "@app/lib/format";
 import {
   ActivityList,
   Badge,
@@ -29,11 +29,12 @@ import {
   Table,
   Tabs,
   Td,
+  Textarea,
 } from "@app/ui";
 import { InvoiceTable } from "@app/pages/Billing";
 import { PlanCell } from "@app/pages/Workspaces";
 
-type Tab = "summary" | "plan" | "modules" | "people" | "activity" | "settings";
+type Tab = "summary" | "plan" | "licence" | "modules" | "people" | "activity" | "settings";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -412,6 +413,108 @@ function SettingsTab({ d }: { d: Detail }) {
   );
 }
 
+// ─── Licence (single-device and LAN workspaces) ───────────────────────────
+
+const LICENCE_TONE = { active: "ok", expired: "bad", revoked: "bad" } as const;
+
+function LicenceTab({ d }: { d: Detail }) {
+  const lic = d.licence!;
+  const w = d.workspace;
+  const [days, setDays] = useState(30);
+  const [reason, setReason] = useState("");
+  const [revoking, setRevoking] = useState(false);
+  const [key, setKey] = useState<string | null>(null);
+  const extend = useAction(actions.extendLicence, { success: (v) => `Licence extended by ${v.days} days` });
+  const revoke = useAction(actions.revokeLicence, { success: (v) => (v.revoked ? "Licence revoked" : "Licence restored") });
+  const issue = useAction(actions.licenceKey, { then: (_, r) => setKey(r.licence_key) });
+
+  return (
+    <div className="grid gap-6">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Panel title="Licence">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={LICENCE_TONE[lic.status]}>{lic.status === "active" ? "Active" : lic.status === "expired" ? "Expired" : "Revoked"}</Badge>
+            <span className="text-sm text-ink-2">{modeLabel(lic.mode)}</span>
+          </div>
+          <dl className="mt-4 divide-y divide-line-soft">
+            <Row label="Valid until">{dateTime(lic.valid_until)}</Row>
+            {lic.revoked_at && <Row label="Revoked">{dateTime(lic.revoked_at)}</Row>}
+            <Row label="Installs">{num(d.installations.length)}</Row>
+          </dl>
+          <p className="mt-3 text-[13px] text-mute">
+            Paying an invoice moves the end date to the end of the paid period. Installs pick up the new date when they check in.
+          </p>
+        </Panel>
+        <Panel title="Extend">
+          <div className="grid gap-3">
+            <Field label="Days to add" hint="Counted from today if the licence has already ended.">
+              <Input type="number" min={1} max={3660} value={days} onChange={(e) => setDays(Number(e.target.value))} />
+            </Field>
+            <Field label="Reason (optional)">
+              <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. paid by bank transfer" />
+            </Field>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="primary" busy={extend.isPending} disabled={days < 1}
+                onClick={() => extend.mutate({ id: w.id, days, reason: reason.trim() || undefined })}>
+                Extend licence
+              </Button>
+              <Button busy={issue.isPending} onClick={() => issue.mutate(w.id)}>
+                Issue offline key
+              </Button>
+              <Button variant={lic.status === "revoked" ? "primary" : "danger"} onClick={() => setRevoking(true)}>
+                {lic.status === "revoked" ? "Restore licence" : "Revoke licence"}
+              </Button>
+            </div>
+          </div>
+        </Panel>
+      </div>
+
+      <Panel title="Installations" flush>
+        {d.installations.length ? (
+          <Table head={["Computer", "System", "Version", "Last seen", "Last backup", "First seen"]}>
+            {d.installations.map((i) => (
+              <tr key={i.id}>
+                <Td>
+                  <div className="code text-[13px] text-ink">{i.hostname ?? "—"}</div>
+                  <div className="code text-[11px] text-mute">{i.last_ip ?? ""}</div>
+                </Td>
+                <Td className="text-ink-2">{i.os ?? "—"}</Td>
+                <Td className="code text-[13px]">{i.app_version ?? "—"}</Td>
+                <Td className="text-ink-2">{ago(i.last_seen_at)}</Td>
+                <Td className="text-ink-2">{i.last_backup_at ? ago(i.last_backup_at) : "Never"}</Td>
+                <Td className="text-ink-2">{date(i.first_seen_at)}</Td>
+              </tr>
+            ))}
+          </Table>
+        ) : (
+          <Empty title="Not installed yet.">Installs appear here when they first check in with Mizan.</Empty>
+        )}
+      </Panel>
+
+      <Confirm
+        open={revoking}
+        onClose={() => setRevoking(false)}
+        title={lic.status === "revoked" ? `Restore ${w.name}'s licence?` : `Revoke ${w.name}'s licence?`}
+        body={
+          lic.status === "revoked"
+            ? "Installs become writable again when they next check in (or with a new key)."
+            : "Installs become read-only when they next check in. Installs that never go online keep working until their key ends."
+        }
+        confirmLabel={lic.status === "revoked" ? "Restore" : "Revoke licence"}
+        danger={lic.status !== "revoked"}
+        withReason
+        onConfirm={(r) => revoke.mutateAsync({ id: w.id, revoked: lic.status !== "revoked", reason: r || undefined })}
+      />
+      <Modal open={!!key} onClose={() => setKey(null)} title="Offline licence key" description="For an install that never goes online: paste it in the app (licence banner → Enter licence key). Logged in Activity." wide>
+        <Textarea readOnly value={key ?? ""} className="code h-32 text-[11px]" onFocus={(e) => e.currentTarget.select()} />
+        <ModalActions>
+          <Button onClick={() => navigator.clipboard.writeText(key ?? "").then(() => toast.success("Key copied"))}>Copy key</Button>
+        </ModalActions>
+      </Modal>
+    </div>
+  );
+}
+
 // ─── Page ──────────────────────────────────────────────────────────────────
 
 export default function WorkspaceDetail() {
@@ -454,6 +557,7 @@ export default function WorkspaceDetail() {
           <span className="flex flex-wrap items-center gap-2">
             <StatusBadge status={w.status} />
             <PlanCell w={w} />
+            {w.deployment_mode !== "cloud_saas" && <Badge tone="info">{modeLabel(w.deployment_mode)}</Badge>}
             {w.slug && (
               <a href={appUrl("system", `/c/${w.slug}`)} target="_blank" rel="noreferrer" className="code inline-flex items-center gap-1 text-[13px] text-mute hover:text-ox">
                 /c/{w.slug} <ExternalLink className="size-3" />
@@ -466,9 +570,11 @@ export default function WorkspaceDetail() {
             <Button variant={suspended ? "primary" : "secondary"} onClick={() => setStatusOpen(true)}>
               {suspended ? "Reactivate" : "Suspend"}
             </Button>
-            <Button variant="primary" busy={opening} onClick={openAsOwner} disabled={suspended} title={suspended ? "Reactivate it first" : undefined}>
-              <LogIn /> Open as owner
-            </Button>
+            {w.deployment_mode === "cloud_saas" && (
+              <Button variant="primary" busy={opening} onClick={openAsOwner} disabled={suspended} title={suspended ? "Reactivate it first" : undefined}>
+                <LogIn /> Open as owner
+              </Button>
+            )}
           </>
         }
       />
@@ -482,6 +588,7 @@ export default function WorkspaceDetail() {
           { value: "modules", label: "Modules", count: w.active_modules.length },
           { value: "people", label: "People", count: d.users.length },
           { value: "activity", label: "Activity" },
+          ...(d.licence ? [{ value: "licence" as Tab, label: "Licence", count: d.installations.length || undefined }] : []),
           { value: "settings", label: "Settings" },
         ]}
       />
@@ -495,6 +602,7 @@ export default function WorkspaceDetail() {
           <ActivityList items={d.activity} empty="No admin actions on this workspace yet." />
         </Panel>
       )}
+      {tab === "licence" && d.licence && <LicenceTab d={d} />}
       {tab === "settings" && <SettingsTab d={d} />}
 
       <Confirm

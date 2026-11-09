@@ -44,6 +44,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/kit/sheet";
 import { PageTransition } from "@/components/motion";
 import { dateTime } from "@/lib/format";
 import { CommandPalette, TrialBanner, useHotkeySearch } from "@app/components/shell-parts";
+import { OnPremLicenceBanner } from "@app/components/OnPremLicenceBanner";
 import { useUiStore } from "@/stores/ui";
 import { sound } from "@/lib/sound";
 import { Kbd } from "@/components/kit/kbd";
@@ -602,6 +603,7 @@ export default function Shell() {
         <AppTopbar onOpenMenu={() => setMenuOpen(true)} onOpenSearch={() => setSearchOpen(true)} />
         {layoutMode === "topnav" && <AppTopNav />}
         <TrialBanner />
+        <OnPremLicenceBanner />
         <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
         <AppearanceSettingsModal open={appearanceModalOpen} onOpenChange={setAppearanceModalOpen} />
         <main className="flex-1 px-4 py-6 md:px-6 lg:px-8">

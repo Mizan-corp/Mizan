@@ -2325,6 +2325,42 @@ MIGRATIONS = [
             END LOOP;
         END $$;
     """),
+    # v48 — licences and installations for single-device and LAN workspaces (ADR-005).
+    ("v48_licences_and_installations", """
+        CREATE TABLE IF NOT EXISTS licences (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL UNIQUE REFERENCES tenants(id) ON DELETE CASCADE,
+            mode varchar(16) NOT NULL,
+            valid_until timestamptz NOT NULL,
+            revoked_at timestamptz,
+            created_at timestamptz DEFAULT now(),
+            updated_at timestamptz DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS installations (
+            id uuid PRIMARY KEY,
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            licence_id uuid NOT NULL REFERENCES licences(id) ON DELETE CASCADE,
+            mode varchar(16) NOT NULL,
+            hostname varchar(128),
+            os varchar(64),
+            app_version varchar(32),
+            last_ip varchar(45),
+            last_backup_at timestamptz,
+            first_seen_at timestamptz DEFAULT now(),
+            last_seen_at timestamptz DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_installations_tenant_id ON installations (tenant_id);
+        ALTER TABLE licences ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE licences FORCE ROW LEVEL SECURITY;
+        CREATE POLICY tenant_isolation ON licences
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        ALTER TABLE installations ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE installations FORCE ROW LEVEL SECURITY;
+        CREATE POLICY tenant_isolation ON installations
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

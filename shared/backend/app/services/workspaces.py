@@ -45,20 +45,29 @@ async def create_workspace(
     name: str,
     sector: str,
     scale: str,
-    admin_username: str,
-    admin_full_name: str,
-    admin_password_hash: str,
+    admin_username: str | None,
+    admin_full_name: str | None,
+    admin_password_hash: str | None,
     owner: OwnerAccount | None = None,
+    deployment_mode: str = "cloud_saas",
     plan: str = "trial",
     trial_days: int = TRIAL_DAYS,
     slug: str | None = None,
     palette: str = "mizan",
     features: list[str] | None = None,
     demo_data: bool = True,
-) -> tuple[Tenant, User]:
+) -> tuple[Tenant, User | None]:
     """Create a workspace and its first admin. With `owner`, the workspace and
     admin are linked to that owner account. Leaves the session bound to the new
-    workspace; the caller commits."""
+    workspace; the caller commits.
+
+    Single-device and LAN workspaces (`deployment_mode` desktop/lan) are only
+    registered here, with their licence: no users and no data, because the
+    workspace itself is created on the customer's machine by the installer."""
+    from app.services.licences import MODES, ON_PREMISE, ensure_licence
+
+    if deployment_mode not in MODES:
+        raise HTTPException(status_code=422, detail="Unknown deployment mode")
     if sector not in SECTORS:
         raise HTTPException(status_code=422, detail="نشاط غير معروف")
     if plan not in PLANS_CONFIG:
@@ -77,7 +86,7 @@ async def create_workspace(
         features=features,
         active_modules=modules,
         status="active",
-        deployment_mode="cloud_saas",
+        deployment_mode=deployment_mode,
         plan=plan,
         limits=get_plan_limits(plan),
         trial_ends_at=datetime.now(UTC) + timedelta(days=trial_days) if plan == "trial" else None,
@@ -85,6 +94,10 @@ async def create_workspace(
     )
     db.add(tenant)
     await db.flush()
+
+    if deployment_mode in ON_PREMISE:
+        await ensure_licence(db, tenant)
+        return tenant, None
 
     await bind_tenant(db, tenant.id)
     admin = User(

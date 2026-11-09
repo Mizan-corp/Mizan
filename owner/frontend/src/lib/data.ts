@@ -27,6 +27,36 @@ export interface Workspace {
   users_count: number;
   last_sale_at: string | null;
   created_at: string | null;
+  deployment_mode: DeploymentMode;
+  licence: LicenceSummary | null;
+}
+
+export type DeploymentMode = "cloud_saas" | "desktop" | "lan";
+
+export interface LicenceSummary {
+  status: "active" | "expired" | "revoked" | "none";
+  valid_until: string | null;
+  installations: number;
+  last_seen_at: string | null;
+}
+
+export interface Installation {
+  id: string;
+  mode: string;
+  hostname: string | null;
+  os: string | null;
+  app_version: string | null;
+  first_seen_at: string | null;
+  last_seen_at: string | null;
+  last_backup_at: string | null;
+}
+
+export interface Download {
+  licence_key: string;
+  valid_until: string;
+  status: LicenceSummary["status"];
+  mode: DeploymentMode;
+  installers: { platform: "windows" | "linux"; url: string; version: string | null; size_mb: number | null }[];
 }
 
 export interface Quota {
@@ -53,6 +83,7 @@ export interface Invoice {
 export interface WorkspaceDetail {
   workspace: Workspace;
   quotas: { users: Quota; branches: Quota; monthly_sales: Quota };
+  installations: Installation[];
   is_read_only: boolean;
   invoices: Invoice[];
 }
@@ -103,8 +134,9 @@ export const actions = {
   changePassword: (v: { current_password: string; new_password: string }) =>
     api.post<{ ok: boolean; workspace_logins_updated: number }>("/account/password", v),
   tourDone: () => api.post<Owner>("/account/tour-done"),
-  createWorkspace: (v: { name: string; sector: string; scale: string; demo_data: boolean }) =>
+  createWorkspace: (v: { name: string; sector: string; scale: string; demo_data: boolean; mode: DeploymentMode }) =>
     api.post<Workspace>("/account/workspaces", v),
+  download: (id: string) => api.get<Download>(`/account/workspaces/${id}/download`),
   open: (id: string) => api.post<{ access_token: string; slug: string | null; username: string }>(`/account/workspaces/${id}/open`),
   checkout: (v: { id: string; plan: string; cycle: "monthly" | "annual" }) =>
     api.post<{ invoice: Invoice; checkout_url: string }>(`/account/workspaces/${v.id}/checkout`, { plan: v.plan, cycle: v.cycle }),

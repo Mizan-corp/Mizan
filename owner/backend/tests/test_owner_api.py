@@ -55,6 +55,7 @@ def erp_login_client() -> AsyncClient:
 
     erp = FastAPI()
     erp.include_router(owner_login.router)
+    erp.dependency_overrides[owner_login.login_limiter] = lambda: None  # tests sign in many times
     return AsyncClient(transport=ASGITransport(app=erp), base_url="http://test")
 
 
