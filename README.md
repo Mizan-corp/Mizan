@@ -229,7 +229,7 @@ The full canon lives in [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md),
 | 🧱 **Working, being deepened** | Restaurant & kitchen display · pharmacy · clinic (billing, clinical roles, FEFO dispensing, claims) · hotel PMS · school · gym · salon · wholesale |
 | 🪴 **Scaffolded** | Manufacturing, projects, specialised and remaining service modules: models, API and screens exist, with workflows still to be filled in |
 | 🔌 **In progress** | WhatsApp receipts (configured and logged; live sending queued) · Paymob payments (built and tested against signed callbacks; needs the production keys) · subscription expiry (paid periods are tracked; lapsing to read-only isn't automatic yet) |
-| 🚧 **Deployment modes** | Single device and LAN: licences, server mode and first-install setup are built; the graphical installer is next. Bring your own database follows ([ADR-005](docs/decisions/ADR-005-deployment-modes.md)) |
+| 🚧 **Deployment modes** | Single device and LAN: licences, server mode, and Mizan Setup (guided installer, desktop app and command line for Windows and Linux, [installer/](installer/README.md)) are built. Bring your own database follows ([ADR-005](docs/decisions/ADR-005-deployment-modes.md)) |
 | 🗺️ **Planned** | Egyptian Tax Authority e-invoicing · loyalty points · full hospital suite (EMR, inpatient, radiology, theatre) |
 
 Open work (features, tests, chores, manual follow-ups) is tracked in [GitHub issues](https://github.com/ammar0xff/Mizan/issues).

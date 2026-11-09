@@ -64,6 +64,26 @@ def install(cfg: Config) -> str:
     return "systemd-user" if user else "systemd"
 
 
+FIREWALL_RULE = "Mizan (ميزان)"
+
+
+def _netsh(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["netsh", "advfirewall", "firewall", *args], capture_output=True, text=True, encoding="utf-8",
+                          errors="replace", creationflags=0x08000000)
+
+
+def _firewall_allow(cfg: Config) -> None:
+    """Windows Firewall blocks incoming connections: let tills reach a LAN server.
+    Only from the local subnet; any network profile, since Windows often labels a
+    shop's network "Public"."""
+    _netsh("delete", "rule", f"name={FIREWALL_RULE}")
+    for proto, port in (("TCP", str(cfg.http_port)), ("UDP", "5353")):  # the app; mDNS for mizan.local
+        r = _netsh("add", "rule", f"name={FIREWALL_RULE}", "dir=in", "action=allow", f"protocol={proto}",
+                   f"localport={port}", "profile=any", "remoteip=localsubnet", f"program={_program(cfg)}")
+        if r.returncode != 0:
+            raise RuntimeError(f"Windows Firewall rule failed: {(r.stdout or r.stderr).strip()[-300:]}")
+
+
 def _install_windows(cfg: Config) -> str:
     winsw = cfg.install / "server" / "mizan-service.exe"
     if not winsw.exists():
@@ -83,6 +103,8 @@ def _install_windows(cfg: Config) -> str:
   <logpath>{cfg.data / 'logs'}</logpath>
 </service>
 """, encoding="utf-8")
+    if cfg.tls:
+        _firewall_allow(cfg)
     for args in (["install"], ["start"]):
         r = subprocess.run([str(winsw), *args], capture_output=True, text=True, encoding="utf-8", errors="replace")
         if r.returncode != 0 and "already" not in (r.stdout + r.stderr).lower():
@@ -111,6 +133,7 @@ def uninstall(cfg: Config) -> None:
         if winsw.exists():
             subprocess.run([str(winsw), "stop"], capture_output=True)
             subprocess.run([str(winsw), "uninstall"], capture_output=True)
+        _netsh("delete", "rule", f"name={FIREWALL_RULE}")
         return
     if not shutil.which("systemctl"):
         return

@@ -1,0 +1,3 @@
+# Building mizan-server (installer/build.py), on top of ./shared/backend
+pyinstaller==6.11.1
+zeroconf==0.136.2

@@ -46,6 +46,7 @@ hidden = (
     + collect_submodules("asyncpg")
     + collect_submodules("passlib.handlers")
     + collect_submodules("mizan_server")
+    + collect_submodules("zeroconf")
     + ["email_validator", "multipart", "python_multipart"]
 )
 

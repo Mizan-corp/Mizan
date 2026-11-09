@@ -110,6 +110,8 @@ def check(name: str, cmd: list[str], env: dict, base: str, home: Path, server: P
             status, _ = request(f"{base}/api/onprem/ca.crt")
             if status != 200:
                 raise SystemExit(f"{name}: certificate download returned {status}")
+            if "zeroconf isn't installed" in log.read_text(errors="replace"):
+                raise SystemExit(f"{name}: the build is missing zeroconf (mizan.local)")
         st = subprocess.run([str(server), "status", "--json"], env=env, text=True, encoding="utf-8", errors="replace", capture_output=True)
         info = json.loads(st.stdout)
         if info.get("licence", {}).get("status") != "active":

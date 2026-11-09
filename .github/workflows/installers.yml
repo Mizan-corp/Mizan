@@ -59,7 +59,7 @@ jobs:
         run: |
           npm ci
           python -m pip install --upgrade pip
-          pip install ./shared/backend "pyinstaller==6.11.1"
+          pip install ./shared/backend -r installer/server/requirements.txt
 
       - name: Cache PostgreSQL and WinSW downloads
         uses: actions/cache@v4

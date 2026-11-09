@@ -71,12 +71,20 @@ def run(cfg: Config) -> int:
 
     stop = threading.Event()
     threading.Thread(target=_backups_forever, args=(cfg, stop), daemon=True, name="backups").start()
+    advertiser = None
+    if cfg.tls:  # LAN
+        from mizan_server.discovery import Advertiser
+
+        advertiser = Advertiser(cfg.http_port)
+        advertiser.start()
     server = uvicorn.Server(uvicorn.Config(app, host=cfg.http_host, port=cfg.http_port, proxy_headers=False,
                                            log_level="info", access_log=False, **ssl))
     try:
         server.run()
     finally:
         stop.set()
+        if advertiser:
+            advertiser.stop()
         time.sleep(0.2)
         postgres.stop(cfg)
     return 0

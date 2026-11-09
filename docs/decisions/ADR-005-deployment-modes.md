@@ -1,7 +1,7 @@
 # ADR-005: Deployment Modes (Single Device, LAN, Bring Your Own Database)
 
 ## Status
-Accepted (2026-11-09). Phase 1 (foundation) implemented; phases 2–4 tracked in GitHub issues.
+Accepted (2026-11-09). Phases 1 (foundation) and 2 (installers) implemented; phases 3–4 and updates tracked in GitHub issues.
 
 ## Context
 The website promised offline desktop and LAN versions, but every workspace ran in our
@@ -58,19 +58,27 @@ The system API runs in **server mode** when `MIZAN_MODE=desktop|lan`:
 - it enforces the licence on every write (expired → read-only, revoked → read-only).
 
 ### Installers (phase 2)
-- One **Mizan Setup** app per OS (Windows `.exe`, Linux AppImage/`.deb`), a Tauri app with
-  a modern guided interface: welcome slides, licence, install location, admin password,
-  (LAN) network and server address, progress, done.
-- The same setup runs headless for servers: `mizan-setup install --licence <key> …`, and a
-  `mizan` CLI manages the installed server (status, backup, restore, update, licence).
-- Payload: the packaged system API (PyInstaller), a private PostgreSQL 16, the built ERP.
-  Runs as a Windows service / systemd unit.
-- **Per client**: the owner panel's Download stamps the client's licence into the installer
-  (a signed block appended to the binary, read by setup), so setup needs no typing.
-- Single device opens in a Mizan app window bound to `localhost`. LAN serves
-  `https://<server>.local` with a locally-generated certificate (browsers only allow the
-  offline POS queue on HTTPS), advertised over mDNS.
-- Updates use the existing `/updater` endpoints (Tauri updater format).
+- One **Mizan Setup** program per OS (Windows `.exe`, Linux single file), a Tauri app with a
+  guided interface: welcome slides, licence, admin account, options, live progress, done
+  (LAN: addresses, a QR code and the certificate for tills). The licence decides the mode,
+  so the same setup installs single-device and LAN workspaces.
+- The same file runs headless for servers (`MizanSetup install --licence <key> …`) and is the
+  single-device desktop app (`--app`). `mizan-server` manages the installed server: status,
+  start/stop/restart, licence show|set|check-in, backup/backups/restore, uninstall.
+- Payload: the packaged system API (PyInstaller), a private PostgreSQL 16 (127.0.0.1 only,
+  its own cluster), the built ERP. Runs as a Windows service (WinSW) or a systemd unit.
+  Daily backups, the newest 14 kept.
+- **Per client**: setup finds the licence by itself: stamped into the installer
+  (`installer/stamp.py` appends it to the binary), a `.mzn` file next to the installer or in
+  Downloads (the owner panel's Download offers "Mizan - <workspace>.mzn"), or the clipboard.
+  Stamping happens offline or on a build host, not in the owner API: Vercel functions can't
+  return a 140 MB file.
+- Single device listens on `127.0.0.1` and opens in a Mizan app window. LAN serves HTTPS on
+  every interface with a certificate from the install's own authority (`mizan.local`, the
+  computer's name and addresses); tills install `mizan-ca.crt` once from
+  `/api/onprem/ca.crt` (browsers only allow the offline POS queue on HTTPS).
+- Built and smoke-tested on Linux and Windows by `.github/workflows/installers.yml`;
+  `v*` tags publish a release. See `installer/README.md`.
 
 ### Cloud backup (phase 3, optional)
 Encrypted scheduled backups uploaded to Mizan, opt-in per workspace, visible and
