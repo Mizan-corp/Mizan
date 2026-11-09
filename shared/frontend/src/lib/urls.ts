@@ -15,6 +15,11 @@ export const APP_URLS: Record<AppKind, string> = {
   admin: trim((import.meta.env.VITE_ADMIN_URL as string | undefined) ?? "https://mizan-co-admin.vercel.app"),
 };
 
+/** The owner API, for apps other than the owner panel (the website checks the owner's session). */
+export const OWNER_API_URL = trim(
+  (import.meta.env.VITE_OWNER_API_URL as string | undefined) ?? "https://mizan-co-owner-api.vercel.app/api",
+);
+
 /** Absolute URL to a path in another app (or this one). */
 export function appUrl(app: AppKind, path = "/"): string {
   return `${APP_URLS[app]}${path.startsWith("/") ? path : `/${path}`}`;

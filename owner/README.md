@@ -13,12 +13,18 @@ subscriptions, payments and invoices. Arabic, right-to-left.
 - **Owners** sign in on the app's `/login` (https://mizan-co-app.vercel.app/login; the
   website's "Sign in" goes there), which hands them to this panel. The panel has no sign-in
   page: opening it signed out redirects to that `/login`, and `?next=` brings the owner back
-  to the page they wanted. Signing out here goes back there too.
+  to the page they wanted.
+- The website knows when an owner is signed in and then shows "Back to your panel" and
+  "Sign out" instead of "Sign in" and "Get started". It keeps its own copy of the session
+  (the apps are on separate domains): saved at signup, and by the app's `/login`, which
+  passes through the website's `/session` on the way here. Signing out on either side
+  signs out of both: the panel's button goes through the website's `/signout?to=login`,
+  the website's goes through this panel's `/signout`.
 - After signup the website hands the new owner over already signed in, and a short
   interactive tour introduces the panel.
 - **Staff** sign in on their workspace's own page, `/c/<workspace>/login` in the app. Each
   workspace card shows that link. If an employee signs in on `/login` instead, they're sent
-  to their workspace's page.
+  to their workspace's page with their username filled in.
 - "Open workspace" signs the owner in to the app as their admin user in that workspace.
 
 Locally, `ammar` / `changeme` (from the bootstrap) is an owner account too.

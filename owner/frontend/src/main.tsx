@@ -5,11 +5,15 @@ import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "sonner";
 import { takeHandedOffSession } from "@/lib/handoff";
 import { useAuth } from "@/stores/auth";
+import { handleSignOutRoute } from "@app/lib/session";
 import App from "./App";
 import "./owner.css";
 
-// Signed in by the website right after signup: adopt that owner session.
-const handedOff = takeHandedOffSession();
+// The website's sign-out comes through /signout to clear this side too.
+const leaving = handleSignOutRoute();
+
+// Signed in by the website (signup) or the app's /login: adopt that owner session.
+const handedOff = leaving ? null : takeHandedOffSession();
 if (handedOff) {
   useAuth.getState().logout();
   useAuth.getState().setToken(handedOff);
@@ -19,7 +23,7 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 20_000, refetchOnWindowFocus: true } },
 });
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
+if (!leaving) ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter basename={import.meta.env.BASE_URL}>

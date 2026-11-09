@@ -4,6 +4,7 @@ import LandingPage from "@app/features/marketing/LandingPage";
 import SignupPage from "@app/features/marketing/SignupPage";
 import OnboardingWizard from "@app/features/marketing/OnboardingWizard";
 import { MarketingLayout } from "@app/features/marketing/MarketingLayout";
+import { AdoptSession, SignOut } from "@app/features/session/SessionRoutes";
 import PricingPage from "@/features/billing/PricingPage";
 import { appUrl } from "@/lib/urls";
 
@@ -62,6 +63,8 @@ export default function App() {
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/onboarding" element={<OnboardingWizard />} />
       <Route path="/login" element={<ToSystemLogin />} />
+      <Route path="/session" element={<AdoptSession />} />
+      <Route path="/signout" element={<SignOut />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

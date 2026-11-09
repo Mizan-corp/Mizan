@@ -51,7 +51,6 @@ export default function LoginPage(props: LoginPageProps = {}) {
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [workspace, setWorkspace] = useState("");
   const navigate = useNavigate();
   const { locale, dir, toggleLocale } = useTranslation();
   const isAr = locale === "ar";
@@ -91,7 +90,8 @@ export default function LoginPage(props: LoginPageProps = {}) {
     }
     sound.success();
     const next = safeNext(new URLSearchParams(location.search).get("next"));
-    openWithSession("owner", next, r.access_token!);
+    // Through the website, so it knows the owner is signed in, then on to the owner panel.
+    openWithSession("website", `/session?next=${encodeURIComponent(next)}`, r.access_token!);
   }
 
   async function submit(e: React.FormEvent) {
@@ -367,39 +367,6 @@ export default function LoginPage(props: LoginPageProps = {}) {
               </span>
               <p className="text-[#651E2C] font-mono select-all dir-ltr font-semibold">{customSupport}</p>
             </div>
-          )}
-
-          {props.owner && (
-            <details className="rounded-2xl border border-[#DECFC0] bg-[#FAF6F0] p-4 text-xs text-start">
-              <summary className="cursor-pointer font-semibold text-[#262321]">
-                {isAr ? "موظف في منشأة؟" : "Work for a business on Mizan?"}
-              </summary>
-              <p className="mt-2 text-[#77716E]">
-                {isAr
-                  ? "الموظفون يدخلون من صفحة الدخول الخاصة بمساحة العمل. اكتب اسم الرابط الذي أعطاه لك المدير:"
-                  : "Employees sign in on their workspace's page. Type the workspace name your manager gave you:"}
-              </p>
-              <form
-                className="mt-3 flex gap-2"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const slug = workspace.trim().toLowerCase();
-                  if (slug) navigate(`/c/${encodeURIComponent(slug)}/login`);
-                }}
-              >
-                <input
-                  value={workspace}
-                  onChange={(e) => setWorkspace(e.target.value)}
-                  dir="ltr"
-                  placeholder="my-store"
-                  aria-label={isAr ? "اسم رابط مساحة العمل" : "Workspace name"}
-                  className="min-w-0 flex-1 rounded-xl border border-[#DECFC0] bg-white px-3 py-2 font-mono text-sm focus:border-[#651E2C] focus:outline-none"
-                />
-                <button type="submit" className="rounded-xl border border-[#DECFC0] bg-white px-4 text-xs font-semibold text-[#262321] hover:bg-[#EFE4D6]">
-                  {isAr ? "متابعة" : "Continue"}
-                </button>
-              </form>
-            </details>
           )}
 
           {isCustomPortal ? (

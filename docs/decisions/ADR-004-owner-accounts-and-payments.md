@@ -19,7 +19,9 @@ their workspace a paid plan for free, and the payment webhook accepted unsigned 
   address) is the owners' sign-in: it authenticates an owner account (`POST /account/login`
   on the system API), issues a token with `scope: owner` and hands it to the owner panel,
   which has no sign-in page of its own. A workspace's login page (`/c/<workspace>/login`)
-  authenticates an ERP user; employees who try `/login` are sent there. The ERP refuses owner tokens; the owner API
+  authenticates an ERP user; employees who try `/login` are sent there. The website keeps
+  its own copy of the owner session (signup, and `/login` passing through its `/session`)
+  so it can offer "back to your panel" and "sign out"; signing out anywhere clears both. The ERP refuses owner tokens; the owner API
   refuses ERP tokens. "Open workspace" issues an ERP token for the owner's user in that
   workspace and hands it over in the URL fragment, like ADR-003's handoffs.
 - **A fourth product, `owner/`.** Arabic RTL frontend and `owner-api`, on their own domains
