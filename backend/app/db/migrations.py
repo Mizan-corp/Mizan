@@ -2144,6 +2144,38 @@ MIGRATIONS = [
                         ', tbl);
                     END IF;
                 END IF;
+        END $$;
+    """),
+    # v45 — DB-01: Global Row Level Security enforcement across ALL tenant-scoped tables
+    ("v45_global_tenant_rls_enforcement", """
+        DO $$
+        DECLARE
+            rec RECORD;
+        BEGIN
+            FOR rec IN
+                SELECT c.table_name
+                FROM information_schema.columns c
+                JOIN information_schema.tables t 
+                  ON t.table_name = c.table_name 
+                 AND t.table_schema = c.table_schema
+                WHERE c.table_schema = 'public'
+                  AND c.column_name = 'tenant_id'
+                  AND t.table_type = 'BASE TABLE'
+            LOOP
+                EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY;', rec.table_name);
+                EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY;', rec.table_name);
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_policies 
+                    WHERE schemaname = 'public' 
+                      AND tablename = rec.table_name 
+                      AND policyname = 'tenant_isolation'
+                ) THEN
+                    EXECUTE format('
+                        CREATE POLICY tenant_isolation ON %I
+                        USING (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid OR current_setting(''app.bypass'', true) = ''on'')
+                        WITH CHECK (tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid OR current_setting(''app.bypass'', true) = ''on'');
+                    ', rec.table_name);
+                END IF;
             END LOOP;
         END $$;
     """),

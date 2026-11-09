@@ -91,8 +91,10 @@ async def get_print_user(request: Request, token: str | None = None, db: AsyncSe
 
 def require_perm(*perms: str):
     async def checker(current_user: User = Depends(get_current_user)) -> User:
+        if getattr(current_user, "is_superadmin", False) or current_user.role in ("superadmin", "owner", "admin"):
+            return current_user
         user_perms = current_user.permissions or []
-        if any(p in user_perms for p in perms):
+        if "*" in user_perms or any(p in user_perms for p in perms):
             return current_user
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
     return checker
@@ -153,10 +155,9 @@ async def require_superadmin(
     Grants access to users with is_superadmin=True, role='superadmin', or username in DEFAULT_SUPERADMINS.
     Enables postgres RLS bypass so the superadmin can query cross-tenant statistics and manage all clients.
     """
-    is_super = (
+    is_super = bool(
         getattr(current_user, "is_superadmin", False)
         or current_user.role == "superadmin"
-        or current_user.username in ("ammar", "admoon")
     )
     if not is_super:
         raise HTTPException(

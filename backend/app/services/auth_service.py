@@ -8,24 +8,48 @@ from app.models.user import User
 
 async def authenticate(db: AsyncSession, username: str, password: str, tenant_slug: str | None = None) -> User:
     from sqlalchemy import text
+    from app.models.tenant import Tenant
+
     await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
 
-    query = select(User).where(User.username == username, User.is_active)
     if tenant_slug:
-        from app.models.tenant import Tenant
-        tenant = (await db.execute(select(Tenant).where(Tenant.slug == tenant_slug))).scalar_one_or_none()
-        if tenant:
-            query = query.where(User.tenant_id == tenant.id)
+        tenant_res = await db.execute(select(Tenant).where(Tenant.slug == tenant_slug))
+        tenant = tenant_res.scalar_one_or_none()
+        if not tenant:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="اسم المنشأة أو بيانات الاعتماد غير صحيحة",
+            )
+        stmt = select(User).where(User.username == username, User.tenant_id == tenant.id, User.is_active == True)
+        result = await db.execute(stmt)
+        user = result.scalar_one_or_none()
+        if not user or not verify_password(password, user.password_hash):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+        return user
 
-    result = await db.execute(query)
+    # No tenant_slug provided:
+    stmt = select(User).where(User.username == username, User.is_active == True)
+    result = await db.execute(stmt)
     users = result.scalars().all()
-    user = None
-    for u in users:
-        if verify_password(password, u.password_hash):
-            user = u
-            break
 
-    if not user:
+    if not users:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+
+    # If multiple accounts have this username across different tenants:
+    if len(users) > 1:
+        # Check if there is an unambiguous superadmin whose password matches
+        superadmins = [u for u in users if getattr(u, "is_superadmin", False) or u.role == "superadmin"]
+        if len(superadmins) == 1 and verify_password(password, superadmins[0].password_hash):
+            return superadmins[0]
+        # Ambiguous regular tenant users: must require tenant_slug
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="اسم المستخدم مسجل في عدة منشآت. يرجى تحديد معرف المنشأة (tenant_slug) للمتابعة",
+        )
+
+    # Exactly one user found
+    user = users[0]
+    if not verify_password(password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     return user
 

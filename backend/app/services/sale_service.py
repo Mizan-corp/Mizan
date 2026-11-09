@@ -327,8 +327,18 @@ async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
                 remaining = Decimal(str(c.credit_limit)) - Decimal(str(c.balance or 0))
                 raise BusinessError(f"تجاوز حد الائتمان (الحد: {c.credit_limit:.2f}, المتبقي: {remaining:.2f})")
 
+    from app.core.tenancy import current_tenant_id
+    tid = current_tenant_id.get()
+    if not tid and cashier_id:
+        from app.models.user import User
+        cashier_u = await db.get(User, cashier_id)
+        if cashier_u and cashier_u.tenant_id:
+            tid = cashier_u.tenant_id
+            current_tenant_id.set(tid)
+
     sale = Sale(
         invoice_number=await _invoice_number(db),
+        tenant_id=tid,
         customer_id=data.customer_id,
         warehouse_id=data.warehouse_id,
         cashier_id=cashier_id,
@@ -428,6 +438,12 @@ async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
         else:
             sale.paid_amount = Decimal(str(net_total))
         # Legacy single payment — record drawer only for cash
+        pm_val = "credit" if data.is_credit else (data.payment_method or "cash")
+        wallet_id_val = getattr(data, 'wallet_id', None)
+        await db.execute(sqlt(
+            "INSERT INTO sale_payments (sale_id, method, amount, wallet_id) VALUES (:sid, :m, :amt, :wid)"
+        ), {"sid": sale.id, "m": pm_val, "amt": net_total, "wid": wallet_id_val})
+
         if data.shift_id and not data.is_credit and not getattr(data, 'wallet_id', None):
             db.add(DrawerTransaction(
                 shift_id=data.shift_id, type=DrawerTxType.sale,
@@ -489,6 +505,16 @@ async def return_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID) 
         "SELECT method, COALESCE(SUM(amount),0) as amt FROM sale_payments WHERE sale_id = :sid GROUP BY method"
     ), {"sid": sale_id})
     pmt_map = {r.method: Decimal(str(r.amt)) for r in pmt.fetchall()}
+
+    # BIZ-01 Fallback: if sale_payments has no records, fallback to sale attributes
+    if not pmt_map:
+        if sale.is_credit:
+            pmt_map["credit"] = Decimal(str(sale.net_total or total))
+        elif sale.payment_method == "wallet":
+            pmt_map["wallet"] = Decimal(str(sale.net_total or total))
+        else:
+            pmt_map["cash"] = Decimal(str(sale.net_total or total))
+
     cash_part = pmt_map.get("cash", Decimal("0"))
     credit_part = pmt_map.get("credit", Decimal("0"))
     wallet_part = pmt_map.get("wallet", Decimal("0"))
@@ -501,9 +527,15 @@ async def return_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID) 
     remaining -= actual_wallet
     actual_credit = min(credit_part, remaining)
 
-    if sale.shift_id and actual_cash > 0:
+    # Determine target shift: user's current open shift or sale.shift_id
+    active_shift_res = await db.execute(sqlt(
+        "SELECT id FROM shifts WHERE (cashier_id = :uid OR supervisor_id = :uid) AND status = 'open' ORDER BY started_at DESC LIMIT 1"
+    ), {"uid": str(user_id)})
+    target_shift_id = active_shift_res.scalar() or sale.shift_id
+
+    if target_shift_id and actual_cash > 0:
         db.add(DrawerTransaction(
-            shift_id=sale.shift_id,
+            shift_id=target_shift_id,
             type=DrawerTxType.return_,
             amount=Decimal(str(actual_cash)),
             ref_id=sale.id,
@@ -539,7 +571,6 @@ async def return_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID) 
 async def cancel_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID) -> Sale:
     from sqlalchemy import text as sqlt
 
-
     result = await db.execute(select(Sale).where(Sale.id == sale_id).with_for_update())
     sale = result.scalar_one_or_none()
     if not sale:
@@ -549,6 +580,13 @@ async def cancel_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID) 
         raise BusinessError("Only confirmed sales can be cancelled")
     if sale.returns_total and Decimal(str(sale.returns_total)) > 0:
         raise BusinessError("تم إرجاع أجزاء من هذه الفاتورة مسبقاً — لا يمكن إلغاء الفاتورة")
+
+    # BIZ-02: Protect closed shift ledger history against corruption
+    if sale.shift_id:
+        from app.models.shift import Shift
+        shift = await db.get(Shift, sale.shift_id)
+        if shift and shift.status == "closed":
+            raise BusinessError("لا يمكن إلغاء فاتورة تابعة لوردية مغلقة. يرجى استخدام مرتجع المبيعات بدلاً من الإلغاء للحفاظ على السجل المالي للوردية")
 
     sale.status = SaleStatus.cancelled
 
@@ -665,11 +703,20 @@ async def partial_return_sale(db: AsyncSession, sale_id: uuid.UUID, data: dict, 
             movement_type=MovementType.return_in, qty=qty, unit_cost=oi.unit_cost, unit_price=oi.unit_price),
             current_user_id, ref_id=ret.id, ref_type="partial_return", sale_id=ret.id)
 
-    from sqlalchemy import text as sqlt
     pmt = await db.execute(sqlt(
         "SELECT method, COALESCE(SUM(amount),0) as amt FROM sale_payments WHERE sale_id = :sid GROUP BY method"
     ), {"sid": sale_id})
     pmt_map = {r.method: Decimal(str(r.amt)) for r in pmt.fetchall()}
+
+    # BIZ-01 Fallback: if sale_payments has no records, fallback to orig attributes
+    if not pmt_map:
+        if orig.is_credit:
+            pmt_map["credit"] = Decimal(str(orig.net_total or orig.total))
+        elif orig.payment_method == "wallet":
+            pmt_map["wallet"] = Decimal(str(orig.net_total or orig.total))
+        else:
+            pmt_map["cash"] = Decimal(str(orig.net_total or orig.total))
+
     cash_part = pmt_map.get("cash", Decimal("0"))
     credit_part = pmt_map.get("credit", Decimal("0"))
     wallet_part = pmt_map.get("wallet", Decimal("0"))

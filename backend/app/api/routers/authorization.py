@@ -27,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.db.base import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_perm
 from app.models.user import User
 from app.models.auth_access import (
     AccountType, PositionCategory, OrgPosition, SysPermission,
@@ -226,6 +226,13 @@ async def get_effective_user_permissions(
     if not target_user:
         raise HTTPException(status_code=404, detail="المستخدم غير موجود")
 
+    is_super = getattr(current_user, "is_superadmin", False)
+    if not is_super and target_user.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="لا يمكن الاطلاع على صلاحيات مستخدم في منشأة أخرى")
+
+    if not is_super and current_user.id != target_user.id and current_user.role not in ("admin", "manager", "superadmin", "owner") and "users" not in (current_user.permissions or []):
+        raise HTTPException(status_code=403, detail="غير مصرح لك بالاطلاع على صلاحيات مستخدمين آخرين")
+
     profile = await AuthorizationEngine.get_effective_profile(
         db=db,
         user=target_user,
@@ -259,12 +266,16 @@ async def assign_user_position(
     user_id: uuid.UUID,
     data: PositionAssignRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("users", "admin")),
 ):
     """Assign an organizational job title to an employee."""
     target_user = await db.get(User, user_id)
     if not target_user:
         raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+
+    is_super = getattr(current_user, "is_superadmin", False)
+    if not is_super and target_user.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="لا يمكن تعديل صلاحيات مستخدم في منشأة أخرى")
 
     position = await db.get(OrgPosition, data.position_id)
     if not position:
@@ -302,12 +313,16 @@ async def assign_user_role(
     user_id: uuid.UUID,
     data: RoleAssignRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("users", "admin")),
 ):
     """Assign an RBAC role with optional facility and department ABAC boundaries."""
     target_user = await db.get(User, user_id)
     if not target_user:
         raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+
+    is_super = getattr(current_user, "is_superadmin", False)
+    if not is_super and target_user.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="لا يمكن تعديل صلاحيات مستخدم في منشأة أخرى")
 
     role = await db.get(SysRole, data.role_id)
     if not role:
@@ -339,12 +354,16 @@ async def assign_user_facility(
     user_id: uuid.UUID,
     data: FacilityAssignRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("users", "admin")),
 ):
     """Assign a user to a physical facility and department."""
     target_user = await db.get(User, user_id)
     if not target_user:
         raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+
+    is_super = getattr(current_user, "is_superadmin", False)
+    if not is_super and target_user.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="لا يمكن تعديل صلاحيات مستخدم في منشأة أخرى")
 
     assignment = UserFacilityAssignment(
         tenant_id=target_user.tenant_id,
@@ -372,12 +391,16 @@ async def set_permission_override(
     user_id: uuid.UUID,
     data: PermissionOverrideRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("users", "admin")),
 ):
     """Set an explicit permission override (allow or deny) taking precedence over roles."""
     target_user = await db.get(User, user_id)
     if not target_user:
         raise HTTPException(status_code=404, detail="المستخدم غير موجود")
+
+    is_super = getattr(current_user, "is_superadmin", False)
+    if not is_super and target_user.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="لا يمكن تعديل صلاحيات مستخدم في منشأة أخرى")
 
     res_p = await db.execute(select(SysPermission).where(SysPermission.code == data.permission_code))
     perm = res_p.scalar_one_or_none()
@@ -423,12 +446,16 @@ async def set_permission_override(
 async def create_patient_access_assignment(
     data: PatientAssignmentRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("clinical", "emr", "users", "admin")),
 ):
     """Bind a physician or nurse to a specific patient or encounter (ABAC patient boundary)."""
     target_user = await db.get(User, data.user_id)
     if not target_user:
         raise HTTPException(status_code=404, detail="المستخدم الطبي غير موجود")
+
+    is_super = getattr(current_user, "is_superadmin", False)
+    if not is_super and target_user.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=403, detail="لا يمكن إسناد مريض لمستخدم طبي في منشأة أخرى")
 
     assignment = PatientAccessAssignment(
         tenant_id=target_user.tenant_id,
@@ -459,15 +486,34 @@ async def activate_emergency_break_glass(
     current_user: User = Depends(get_current_user),
 ):
     """Emergency 'Break-Glass' protocol granting temporary clinical access with mandatory audit logging."""
+    clinical_roles = {"doctor", "nurse", "physician", "surgeon", "consultant", "clinical", "admin", "manager", "superadmin"}
+    is_clinical_user = (
+        current_user.role in clinical_roles
+        or getattr(current_user, "is_superadmin", False)
+        or any(p in (current_user.permissions or []) for p in ("clinical", "emr", "doctor", "nurse", "medical"))
+    )
+    if not is_clinical_user:
+        raise HTTPException(
+            status_code=403,
+            detail="بروتوكول كسر زجاج الطوارئ مخصص للكوادر الطبية والمصرح لهم سريرياً فقط",
+        )
+
+    if not data.grant_reason or len(data.grant_reason.strip()) < 10:
+        raise HTTPException(
+            status_code=400,
+            detail="يجب تقديم مبرر طبي طارئ كافٍ وموثق (لا يقل عن 10 أحرف) لتفعيل كسر الزجاج",
+        )
+
     now = datetime.utcnow()
-    expires = now + timedelta(hours=data.duration_hours)
+    duration = min(max(data.duration_hours, 1), 4)  # Clamp duration between 1 and 4 hours
+    expires = now + timedelta(hours=duration)
 
     grant = TemporaryAccessGrant(
         tenant_id=current_user.tenant_id,
         user_id=current_user.id,
         target_patient_id=data.target_patient_id,
         target_facility_id=data.target_facility_id,
-        grant_reason=data.grant_reason,
+        grant_reason=data.grant_reason.strip(),
         granted_permissions=["emr.view", "emr.create", "prescriptions.create", "lab.orders.view"],
         authorized_by=current_user.id,
         starts_at=now,
@@ -489,14 +535,15 @@ async def activate_emergency_break_glass(
         ip_address=client_ip,
         details={
             "reason": data.grant_reason,
-            "duration_hours": data.duration_hours,
+            "duration_hours": duration,
             "expires_at": expires.isoformat(),
         },
     )
 
     return {
         "status": "ok",
-        "message": f"تم تفعيل بروتوكول كسر زجاج الطوارئ (Emergency Break-Glass) لمدة {data.duration_hours} ساعات وتوثيقه بالكامل في سجل الامتثال",
+        "message": f"تم تفعيل بروتوكول كسر زجاج الطوارئ (Emergency Break-Glass) لمدة {duration} ساعات وتوثيقه بالكامل في سجل الامتثال",
+        "duration_hours": duration,
         "expires_at": expires.isoformat(),
     }
 
@@ -509,10 +556,12 @@ async def list_access_audit_logs(
     is_clinical: Optional[bool] = None,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("users", "admin", "reports")),
 ):
     """Retrieve HIPAA/GDPR clinical and administrative access audit trail."""
     stmt = select(UserAccessAudit)
+    if not getattr(current_user, "is_superadmin", False):
+        stmt = stmt.where(UserAccessAudit.tenant_id == current_user.tenant_id)
     if is_clinical is not None:
         stmt = stmt.where(UserAccessAudit.is_clinical == is_clinical)
     stmt = stmt.order_by(UserAccessAudit.created_at.desc()).limit(limit)
