@@ -1,5 +1,6 @@
 """Central print system — shared utilities."""
 from fastapi import APIRouter
+from fastapi.responses import Response
 from datetime import datetime
 import html
 
@@ -232,8 +233,7 @@ def _extract_meta(html_response) -> tuple:
     return company, doc_num
 
 
-async def _make_pdf(html_response, title: str, filename: str, db, paper_size_override: str = None) -> "Response":
-    from fastapi.responses import Response
+async def _make_pdf(html_response, title: str, filename: str, db, paper_size_override: str = None) -> Response:
     body = _extract_body(html_response)
     company, doc_num = _extract_meta(html_response)
     ps = await get_paper_size(db, paper_size_override)
