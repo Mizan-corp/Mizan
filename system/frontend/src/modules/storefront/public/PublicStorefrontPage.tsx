@@ -105,7 +105,7 @@ const RAW_API_BASE =
 
 export default function PublicStorefrontPage() {
   const { tenantSlug: urlSlug } = useParams<{ tenantSlug?: string }>();
-  const slug = urlSlug || "german-egyptian";
+  const slug = urlSlug ?? "";
 
   // Data states
   const [tenantName, setTenantName] = useState("");

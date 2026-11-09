@@ -135,7 +135,7 @@ async def generate_test_print(
     """Generate test receipt data with Egyptian tax QR payload."""
     now_iso = datetime.datetime.now().isoformat()
     qr_data = _build_zatca_tlv_mock(
-        seller_name="المصرية الألمانية للأدوات الصحية",
+        seller_name="متجر ميزان",
         tax_number="300987654300003",
         timestamp_str=now_iso,
         total_str="250.00",
@@ -146,7 +146,7 @@ async def generate_test_print(
     return {
         "status": "ready",
         "paper_width": width,
-        "store_name": "المصرية الألمانية للأدوات الصحية",
+        "store_name": "متجر ميزان",
         "tax_number": "300987654300003",
         "invoice_no": "TEST-" + uuid.uuid4().hex[:6].upper(),
         "timestamp": now_iso,

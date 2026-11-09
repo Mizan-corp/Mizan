@@ -92,7 +92,7 @@ echo     (This may take 5-10 minutes on first run)
 echo.
 cd /d "%DIR%"
 
-:: Ensure fresh DB volume so init_data.sql loads correctly
+:: Ensure a fresh DB volume so the baseline schema loads
 docker compose down -v >nul 2>&1
 docker compose up -d --build
 if %errorLevel% neq 0 (

@@ -162,7 +162,7 @@ Multiple physical servers working together as one platform. Distributes workload
 
 ### Access
 - Route: `/admoon`
-- Admin credentials: `ammar` / `changeme` (founding workspace)
+- Admin credentials on a fresh database: `ammar` / `changeme` (created by `scripts/migrate.py`; change immediately)
 - Requires `is_super_admin` flag on user
 
 ### Key endpoints

@@ -323,9 +323,9 @@ export function ThermalReceiptSettingsModal({
               >
                 {/* Header */}
                 <div className="text-center border-b border-dashed border-stone-400 pb-2 mb-2">
-                  <div className="text-sm font-black">المصرية الألمانية للأدوات الصحية</div>
-                  <div className="text-[10px] text-stone-600">فرع العبور — مبيعات التجزئة</div>
-                  <div className="text-[10px] text-stone-600">س.ت: 492019 • ض.م: 300987654300003</div>
+                  <div className="text-sm font-black">متجر ميزان</div>
+                  <div className="text-[10px] text-stone-600">الفرع الرئيسي</div>
+                  <div className="text-[10px] text-stone-600">س.ت: 000000 • ض.م: 000000000000000</div>
                   <div className="mt-1 text-[11px] font-semibold text-stone-700">{headerNote}</div>
                 </div>
 

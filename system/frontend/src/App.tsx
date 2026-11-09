@@ -211,7 +211,7 @@ export default function App() {
 
       {/* Public Customer-Facing Storefront Routes */}
       <Route path="/store/:tenantSlug" element={<Page><PublicStorefrontPage /></Page>} />
-      <Route path="/store" element={<Page><PublicStorefrontPage /></Page>} />
+      <Route path="/store" element={<Navigate to="/" replace />} />
 
       {/* Pattern 1: Canonical Tenant Root at /c/:tenantSlug/* */}
       <Route path="/c/:tenantSlug" element={<Page><TenantScopeLayout /></Page>}>

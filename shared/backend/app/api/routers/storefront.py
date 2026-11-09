@@ -25,7 +25,7 @@ router = APIRouter(prefix="/store", tags=["storefront"])
 page_router = APIRouter(tags=["storefront"])
 
 async def _public_store_ctx(db: AsyncSession) -> None:
-    """Public storefront operates on the founding tenant's shop: ORM reads
+    """Public storefront operates on the default workspace's shop: ORM reads
     (products/categories) are tenant-scoped, so resolve the store's tenant."""
     from sqlalchemy import text as _text
 

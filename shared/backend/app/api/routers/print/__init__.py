@@ -173,7 +173,7 @@ def wrap(body, title="مستند"):
     return f"""<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8">{css()}</head><body><div class="sheet">{body}</div></body></html>"""
 
 
-def wrap_pdf(body, title="مستند", paper_size="A4", company_name="EG-CO", doc_number="", footer_html=""):
+def wrap_pdf(body, title="مستند", paper_size="A4", company_name="Mizan", doc_number="", footer_html=""):
     extra = ""
     if footer_html:
         extra = f"""@page{{@bottom-left{{content:"{footer_html}";font-size:7px;color:#999;font-family:'Segoe UI',Tahoma,sans-serif}}}}"""
@@ -201,7 +201,7 @@ def top_band(store, doc_type_label, doc_number, date_str):
     import html as _html
     logo = store.get('logo_url', '') if store else ''
     logo_html = f'<img class="brand-logo" src="{_html.escape(logo)}" alt=""/>' if logo else '<div class="brand-initials">EG</div>'
-    co_name = _html.escape((store or {}).get('store_name', 'EG-CO'))
+    co_name = _html.escape((store or {}).get('store_name', 'Mizan'))
     co_sub = _html.escape((store or {}).get('address', '') or '')
     return f'''<div class="top-band"><div class="brand">{logo_html}<div class="brand-text"><div class="co-name">{co_name}</div><div class="co-sub">{co_sub}</div></div></div><div class="doc-id"><div class="doc-type">{doc_type_label}</div><div class="doc-num">{doc_number}</div><div class="doc-date">{date_str}</div></div></div><div class="ribbon"></div>'''
 
@@ -218,7 +218,7 @@ def _extract_body(html_response) -> str:
 
 
 def _extract_meta(html_response) -> tuple:
-    company = "EG-CO"
+    company = "Mizan"
     doc_num = ""
     body = html_response.body if hasattr(html_response, 'body') else str(html_response)
     if isinstance(body, bytes):

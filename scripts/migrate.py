@@ -80,7 +80,7 @@ def ensure_foundation():
         END
         $fn$;
         INSERT INTO tenants (id, name, sector, scale, palette, features, plan)
-        SELECT gen_random_uuid(), 'المصرية الألمانية للأدوات الصحية', 'plumbing', 'large', '{}'::jsonb, '[]'::jsonb, 'enterprise'
+        SELECT gen_random_uuid(), 'ميزان', 'retail', 'small', '{}'::jsonb, '[]'::jsonb, 'enterprise'
         WHERE NOT EXISTS (SELECT 1 FROM tenants);
         DO $fn$
         BEGIN
@@ -169,6 +169,19 @@ def run():
     if ok < len(MIGRATIONS):
         print("Some migrations failed — check that the compose stack is running.")
         sys.exit(1)
+    bootstrap()
+
+
+def bootstrap():
+    """Create the first admin on an empty database (no-op once any user exists)."""
+    result = subprocess.run(
+        COMPOSE + ["exec", "-T", "system-api", "python", "-m", "app.db.bootstrap"],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        print(f"❌ Bootstrap failed:\n{result.stderr[-2000:]}")
+        sys.exit(1)
+    print(f"👤 Bootstrap: {result.stdout.strip()}")
 
 if __name__ == "__main__":
     run()

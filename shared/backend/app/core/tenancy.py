@@ -89,7 +89,7 @@ def install_tenancy_events() -> None:
 
 
 async def primary_tenant_id(db) -> uuid.UUID | None:
-    """The platform's first (founding) workspace — legacy users land here."""
+    """The platform's first (default) workspace — legacy users land here."""
     from sqlalchemy import select
 
     from app.models.tenant import Tenant

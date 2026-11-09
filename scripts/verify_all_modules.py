@@ -20,8 +20,8 @@ async def run_verification():
 
     tenant_info = {
         "id": "c935140b-cb68-45ac-a6fe-3e6ccaf09d71",
-        "name": "المصرية الألمانية للأدوات الصحية",
-        "slug": "german-egyptian",
+        "name": "متجر ميزان",
+        "slug": "mizan-store",
         "sector": "plumbing",
         "scale": "medium",
         "palette": {"name": "emerald", "hue": 160},
@@ -60,13 +60,13 @@ async def run_verification():
         await page.evaluate(f"""() => {{
             localStorage.setItem("mizan.session", JSON.stringify({json.dumps(session_payload)}));
             localStorage.setItem("mizan.active_modules", JSON.stringify({json.dumps(tenant_info["active_modules"])}));
-            localStorage.setItem("mizan.tenant_slug", "german-egyptian");
+            localStorage.setItem("mizan.tenant_slug", "mizan-store");
             localStorage.setItem("mizan.locale", "ar");
         }}""")
 
         # ── Test 1: POS Hardware & Velocity Shortcuts ───────────────────────────
         print("\n--- 1. Testing POS Hardware, Barcode Gun Listener & Thermal Receipts ---")
-        await page.goto("http://localhost:5173/c/german-egyptian/pos")
+        await page.goto("http://localhost:5173/c/mizan-store/pos")
         await page.wait_for_load_state("networkidle")
         await asyncio.sleep(2)
 
@@ -151,7 +151,7 @@ async def run_verification():
 
         # ── Test 3: HR Biometric Attendance & Device Sync ────────────────────────
         print("\n--- 3. Testing HR Biometric Attendance & Device Sync Module ---")
-        await page.goto("http://localhost:5173/c/german-egyptian/hr")
+        await page.goto("http://localhost:5173/c/mizan-store/hr")
         await page.wait_for_load_state("networkidle")
         await asyncio.sleep(1.5)
 

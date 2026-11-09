@@ -19,8 +19,8 @@ async def verify_mizan_modularity():
 
     tenant_info = {
         "id": "c935140b-cb68-45ac-a6fe-3e6ccaf09d71",
-        "name": "المصرية الألمانية للأدوات الصحية",
-        "slug": "german-egyptian",
+        "name": "متجر ميزان",
+        "slug": "mizan-store",
         "sector": "plumbing",
         "scale": "medium",
         "palette": {"name": "emerald", "hue": 160},
@@ -62,13 +62,13 @@ async def verify_mizan_modularity():
         await page.evaluate(f"""() => {{
             localStorage.setItem("mizan.session", JSON.stringify({json.dumps(session_payload)}));
             localStorage.setItem("mizan.active_modules", JSON.stringify({json.dumps(tenant_info["active_modules"])}));
-            localStorage.setItem("mizan.tenant_slug", "german-egyptian");
+            localStorage.setItem("mizan.tenant_slug", "mizan-store");
             localStorage.setItem("mizan.locale", "ar");
         }}""")
 
         # 1. Test Mizan App Launcher in TopBar
         print("\n--- 1. Testing Mizan App Launcher ---")
-        await page.goto("http://localhost:5173/c/german-egyptian/")
+        await page.goto("http://localhost:5173/c/mizan-store/")
         await page.wait_for_load_state("networkidle")
         await asyncio.sleep(2)
 
@@ -90,7 +90,7 @@ async def verify_mizan_modularity():
 
         # 3. Test Modules App Store (/modules)
         print("\n--- 3. Testing Full Modular Catalog (47 Modules) ---")
-        await page.goto("http://localhost:5173/c/german-egyptian/modules")
+        await page.goto("http://localhost:5173/c/mizan-store/modules")
         await page.wait_for_load_state("networkidle")
         await asyncio.sleep(2)
         await page.screenshot(path=f"{SCREENSHOTS_DIR}/218_mizan_modular_apps_catalog_47_modules.png")

@@ -117,7 +117,7 @@ MIGRATIONS = [
 
     # v5 — paper_size setting
     ("v5_paper_size", """
-        INSERT INTO store_settings (key, value) VALUES ('paper_size', '"A4"') ON CONFLICT (key) DO NOTHING;
+        INSERT INTO store_settings (key, value) VALUES ('paper_size', '"A4"') ON CONFLICT DO NOTHING;
     """),
 
     # v7 — wallet_transactions audit table
@@ -152,9 +152,9 @@ MIGRATIONS = [
             updated int DEFAULT 0,
             message text
         );
-        INSERT INTO hr_settings (key, value) VALUES ('device_host', '192.168.1.201') ON CONFLICT (key) DO NOTHING;
-        INSERT INTO hr_settings (key, value) VALUES ('device_port', '4370') ON CONFLICT (key) DO NOTHING;
-        INSERT INTO hr_settings (key, value) VALUES ('device_timeout', '5') ON CONFLICT (key) DO NOTHING;
+        INSERT INTO hr_settings (id, key, value) VALUES (gen_random_uuid(), 'device_host', '192.168.1.201') ON CONFLICT DO NOTHING;
+        INSERT INTO hr_settings (id, key, value) VALUES (gen_random_uuid(), 'device_port', '4370') ON CONFLICT DO NOTHING;
+        INSERT INTO hr_settings (id, key, value) VALUES (gen_random_uuid(), 'device_timeout', '5') ON CONFLICT DO NOTHING;
     """),
 
     ("v8_warehouse_product_status", """
@@ -462,7 +462,7 @@ MIGRATIONS = [
             END IF;
         END
         $fn$;
-        INSERT INTO tenants (id, name, sector, scale, palette, features, plan) SELECT gen_random_uuid(), 'المصرية الألمانية للأدوات الصحية', 'plumbing', 'large', '{}'::jsonb, '[]'::jsonb, 'enterprise' WHERE NOT EXISTS (SELECT 1 FROM tenants);
+        INSERT INTO tenants (id, name, sector, scale, palette, features, plan) SELECT gen_random_uuid(), 'ميزان', 'retail', 'small', '{}'::jsonb, '[]'::jsonb, 'enterprise' WHERE NOT EXISTS (SELECT 1 FROM tenants);
         ALTER TABLE accounting_periods ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
         ALTER TABLE archived_documents ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);
         ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES tenants(id);

@@ -27,7 +27,7 @@ async def run():
     tenant_info = {
         "id": "c935140b-cb68-45ac-a6fe-3e6ccaf09d71",
         "name": "مجموعة صيدليات فيندورا التخصصية",
-        "slug": "german-egyptian",
+        "slug": "mizan-store",
         "sector": "pharmacy",
         "scale": "medium",
         "palette": {"name": "teal", "hue": 175},

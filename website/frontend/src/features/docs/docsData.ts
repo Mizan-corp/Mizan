@@ -117,7 +117,7 @@ export const DOC_SECTIONS: DocSection[] = [
         category: "getting-started",
         content: {
           overview:
-            "يتم عزل كل منشأة بمعرّف خاص (Tenant Slug) يحدد مسار العمل مثل: /c/german-egyptian/pos مع ربط الحساب برقم ضريبي ونطاق عمل متخصص.",
+            "يتم عزل كل منشأة بمعرّف خاص (Tenant Slug) يحدد مسار العمل مثل: /c/your-company/pos مع ربط الحساب برقم ضريبي ونطاق عمل متخصص.",
           sections: [
             {
               id: "company-slug",

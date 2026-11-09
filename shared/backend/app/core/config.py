@@ -17,7 +17,6 @@ class Settings(BaseSettings):
         "http://localhost:5175",  # admin (dev)
         "http://localhost:3000",
         "http://localhost",
-        "https://eg-co.duckdns.org",
         "https://mizan-co.vercel.app",
         "https://mizan-co-app.vercel.app",
         "https://mizan-co-admin.vercel.app",

@@ -19,8 +19,8 @@ async def run_verification():
         token = auth_data["access_token"]
     tenant_info = {
         "id": "c935140b-cb68-45ac-a6fe-3e6ccaf09d71",
-        "name": "المصرية الألمانية للأدوات الصحية",
-        "slug": "german-egyptian",
+        "name": "متجر ميزان",
+        "slug": "mizan-store",
         "sector": "plumbing",
         "scale": "medium",
         "palette": {"name": "emerald", "hue": 160},
@@ -51,11 +51,11 @@ async def run_verification():
         # Step 1: Public Customer Storefront Catalog
         # ---------------------------------------------------------
         print("\n--> Step 1: Loading Public Customer Storefront...")
-        await page.goto("http://localhost:5173/store/german-egyptian", wait_until="networkidle")
+        await page.goto("http://localhost:5173/store/mizan-store", wait_until="networkidle")
         await page.wait_for_timeout(2000)
 
         # Check for store brand title and catalog
-        await page.wait_for_selector("text=المصرية الألمانية للأدوات الصحية", timeout=10000)
+        await page.wait_for_selector("text=متجر ميزان", timeout=10000)
         print("✓ Verified Store Brand Header")
 
         # Take Screenshot 196
@@ -151,7 +151,7 @@ async def run_verification():
             window.localStorage.setItem('mizan.active_modules', JSON.stringify({json.dumps(tenant_info["active_modules"])}));
         """)
 
-        await admin_page.goto("http://localhost:5173/c/german-egyptian/storefront", wait_until="networkidle")
+        await admin_page.goto("http://localhost:5173/c/mizan-store/storefront", wait_until="networkidle")
         await admin_page.wait_for_timeout(3000)
 
         # Verify Storefront Admin header & KPIs

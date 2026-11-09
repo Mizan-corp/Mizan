@@ -8,7 +8,7 @@ Usage:
 Commands:
   setup            First-time setup (Docker + init data)
   deploy           Update code + backup + migrate DB (safe)
-  deploy-fresh     ⚠️  WIPE data + load init_data.sql
+  deploy-fresh     ⚠️  WIPE data, start from an empty database
   build            Build Docker images only
   stop             Stop all services
   restart          Restart all services
@@ -17,8 +17,8 @@ Commands:
   restore <file>   Restore database from backup
   restore-append   Append data from SQL file without wiping
   migrate          Apply incremental DB migrations
-  update-init      Snapshot current DB to init_data.sql
-  export-clean     Export clean init_data.sql (master only)
+  update-init      Refresh baseline schema (structure only)
+  export-clean     Export master data to backups/
   logs             Tail live logs from all services
   list-backups     List available backup files
   build-apk        📱 Build Android APK via Capacitor + Gradle
@@ -71,7 +71,7 @@ class Settings:
     db_name: str = "inventory_db"
     db_user: str = "postgres"
     health_url: str = "http://localhost:8080/api/health"
-    init_sql: Path = field(default_factory=lambda: Path(__file__).parent / "data" / "sql" / "init_data.sql")
+    init_sql: Path = field(default_factory=lambda: Path(__file__).parent / "shared" / "backend" / "app" / "db" / "baseline_schema.sql")
     migrate_py: Path = field(default_factory=lambda: Path(__file__).parent / "scripts" / "migrate.py")
     frontend_dir: Path = field(default_factory=lambda: Path(__file__).parent / "system" / "frontend")
     verbose: bool = False
@@ -225,12 +225,9 @@ def cmd_setup(settings: Settings, docker: Docker, opts: argparse.Namespace) -> N
         log.error("❌ docker not found in PATH. Install Docker first.")
         sys.exit(1)
 
-    init_path = settings.init_sql
-    if not init_path.exists():
-        log.warning("⚠️  No init_data.sql found — starting with empty database.")
-
     docker.up("--build")
     docker.wait_for_health()
+    _maybe_run_migrations(settings)  # also creates the first admin on an empty database
 
     log.info("✅ Setup complete!")
     log.info("🌐 http://localhost")
@@ -257,22 +254,23 @@ def cmd_deploy(settings: Settings, docker: Docker, opts: argparse.Namespace) -> 
 
 
 def cmd_deploy_fresh(settings: Settings, docker: Docker, opts: argparse.Namespace) -> None:
-    """Wipe data and reload from init_data.sql. For new machines or resets."""
+    """Wipe all data and start from the empty baseline schema. For new machines or resets."""
     if not opts.yes:
-        _confirm("⚠️  This will WIPE ALL DATA and load init_data.sql from repo")
+        _confirm("⚠️  This will WIPE ALL DATA and start from an empty database")
 
     if not settings.init_sql.exists():
-        log.error("❌ init_data.sql not found in repo root.")
+        log.error("❌ baseline schema not found: %s", settings.init_sql)
         sys.exit(1)
 
     log.info("🗑️  Removing volumes...")
     docker.down("-v")
     log.info("🔨 Building images...")
     docker.build()
-    log.info("▶️  Starting (init_data.sql loads automatically)...")
+    log.info("▶️  Starting (the baseline schema loads automatically)...")
     docker.up()
     docker.wait_for_health()
-    log.info("✅ Fresh deploy complete — data loaded from init_data.sql.")
+    _maybe_run_migrations(settings)
+    log.info("✅ Fresh deploy complete — empty database with the first admin.")
     _show_status(docker)
 
 
@@ -369,17 +367,17 @@ def cmd_migrate(settings: Settings, docker: Docker, opts: argparse.Namespace) ->
 
 
 def cmd_update_init(settings: Settings, docker: Docker, opts: argparse.Namespace) -> None:
-    """Snapshot current DB state into init_data.sql."""
+    """Refresh the baseline schema from the current DB (structure only, never data)."""
     docker.require_db_running()
-    log.info("📸 Snapshotting current DB to init_data.sql...")
-    raw = docker.pg_dump(["--no-owner", "--no-acl"])
+    log.info("📸 Snapshotting current DB structure to %s ...", settings.init_sql.name)
+    raw = docker.pg_dump(["--schema-only", "--no-owner", "--no-acl"])
     settings.init_sql.write_bytes(raw)
     lines = raw.decode("utf-8").count("\n")
-    log.info("✅ init_data.sql updated (%s lines)", f"{lines:,}")
+    log.info("✅ baseline schema updated (%s lines)", f"{lines:,}")
 
 
 def cmd_export_clean(settings: Settings, docker: Docker, opts: argparse.Namespace) -> None:
-    """Export clean init_data.sql — master data only, no transactions."""
+    """Export master data (no transactions) to backups/ — never into the repo."""
     docker.require_db_running()
 
     master_tables = [
@@ -388,7 +386,7 @@ def cmd_export_clean(settings: Settings, docker: Docker, opts: argparse.Namespac
         "store_settings", "hr_employees", "hr_settings", "financial_categories",
     ]
 
-    log.info("📦 Exporting clean init_data.sql...")
+    log.info("📦 Exporting master data...")
 
     schema = docker.pg_dump(["--schema-only", "--no-owner", "--no-acl"]).decode("utf-8")
     parts: list[str] = [schema, "\n"]
@@ -414,8 +412,10 @@ def cmd_export_clean(settings: Settings, docker: Docker, opts: argparse.Namespac
     parts.append("\n-- Reset all products to untracked\nUPDATE products SET stock_status='untracked';\n")
 
     sql = "".join(parts)
-    settings.init_sql.write_text(sql, encoding="utf-8")
-    log.info("✅ Clean init_data.sql exported (%s lines)", f"{sql.count(chr(10)):,}")
+    settings.backup_dir.mkdir(parents=True, exist_ok=True)
+    out = settings.backup_dir / f"master_data_{time.strftime('%Y%m%d_%H%M%S')}.sql"
+    out.write_text(sql, encoding="utf-8")
+    log.info("✅ Master data exported to %s (%s lines)", out, f"{sql.count(chr(10)):,}")
     log.info("   Products: untracked | Transactions: empty")
 
 
@@ -708,7 +708,7 @@ COMMANDS: dict[str, dict] = {
     "setup":         {"fn": cmd_setup,         "help": "First-time setup: check Docker, build, start services"},
     "deploy":        {"fn": cmd_deploy,        "help": "Update code + backup + migrate DB (safe)"},
     "build":         {"fn": cmd_build,         "help": "Build Docker images without deploying"},
-    "deploy-fresh":  {"fn": cmd_deploy_fresh,  "help": "⚠️  WIPE data + load init_data.sql from repo"},
+    "deploy-fresh":  {"fn": cmd_deploy_fresh,  "help": "⚠️  WIPE data, start from an empty database"},
     "stop":          {"fn": cmd_stop,          "help": "Stop all services"},
     "restart":       {"fn": cmd_restart,       "help": "Restart all services"},
     "status":        {"fn": cmd_status,        "help": "Show running status and health"},
@@ -716,8 +716,8 @@ COMMANDS: dict[str, dict] = {
     "restore":       {"fn": cmd_restore,       "help": "Restore database from a backup file (WIPES data)"},
     "restore-append":{"fn": cmd_restore_append,"help": "Append data from SQL file without wiping"},
     "migrate":       {"fn": cmd_migrate,       "help": "Apply incremental DB migrations (safe, idempotent)"},
-    "update-init":   {"fn": cmd_update_init,   "help": "Snapshot current DB to init_data.sql"},
-    "export-clean":  {"fn": cmd_export_clean,  "help": "Export clean init_data.sql — master data only"},
+    "update-init":   {"fn": cmd_update_init,   "help": "Refresh the baseline schema (structure only, never data)"},
+    "export-clean":  {"fn": cmd_export_clean,  "help": "Export master data (no transactions) to backups/"},
     "logs":          {"fn": cmd_logs,          "help": "Tail live logs from all services"},
     "list-backups":  {"fn": cmd_list_backups,  "help": "List available backup files"},
     "build-apk":     {"fn": cmd_build_apk,     "help": "Build Android APK via Capacitor + Gradle"},

@@ -1,0 +1,65 @@
+"""First-run bootstrap: create the founding workspace's first admin.
+
+Runs after migrations (scripts/migrate.py calls it inside the system-api
+container). It does nothing unless the database has no users at all, so it is
+safe to run against any environment, including production.
+
+    python -m app.db.bootstrap
+
+Credentials come from MIZAN_ADMIN_USERNAME / MIZAN_ADMIN_PASSWORD, defaulting
+to ammar / changeme for local development and CI. Change the password after
+the first sign-in.
+"""
+import asyncio
+import json
+import os
+import uuid
+
+from sqlalchemy import func, select, text
+
+from app.core.security import hash_password
+from app.core.tenancy import bind_tenant
+from app.db.base import AsyncSessionLocal
+from app.models.registry import load_all_models
+from app.models.settings import StoreSetting
+from app.models.tenant import Tenant
+from app.models.user import User
+
+DEFAULT_WORKSPACE_NAME = "ميزان"
+
+
+async def bootstrap() -> str:
+    load_all_models()
+    async with AsyncSessionLocal() as db:
+        await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
+        if await db.scalar(select(func.count()).select_from(User)):
+            return "users already exist, nothing to do"
+
+        tenant = await db.scalar(select(Tenant).order_by(Tenant.created_at).limit(1))
+        if tenant is None:
+            tenant = Tenant(id=uuid.uuid4(), name=DEFAULT_WORKSPACE_NAME)
+            db.add(tenant)
+            await db.flush()
+
+        await bind_tenant(db, tenant.id)
+        username = os.environ.get("MIZAN_ADMIN_USERNAME", "ammar")
+        db.add(User(
+            id=uuid.uuid4(),
+            tenant_id=tenant.id,
+            username=username,
+            full_name="مدير النظام",
+            role="admin",
+            permissions=["*"],
+            is_manager=True,
+            password_hash=hash_password(os.environ.get("MIZAN_ADMIN_PASSWORD", "changeme")),
+        ))
+        existing = set((await db.scalars(select(StoreSetting.key).where(StoreSetting.tenant_id == tenant.id))).all())
+        for key, value in (("store_name", tenant.name), ("currency", "EGP")):
+            if key not in existing:
+                db.add(StoreSetting(tenant_id=tenant.id, key=key, value=json.dumps(value, ensure_ascii=False)))
+        await db.commit()
+        return f"created admin '{username}' in workspace '{tenant.name}'"
+
+
+if __name__ == "__main__":
+    print(asyncio.run(bootstrap()))
