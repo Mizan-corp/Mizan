@@ -274,18 +274,36 @@ export default function SuppliersPage() {
                             كشف حساب
                           </Button>
 
-                          <Button
-                            className="h-8 gap-1.5 px-2.5 text-xs font-semibold"
-                            onClick={() => {
-                              sound.click();
-                              setTxFor(s);
-                              setTxAmount("");
-                              setTxType("debit"); // default to paying off supplier (debit)
-                            }}
-                          >
-                            <HandCoins className="size-3.5" />
-                            حركة حساب / سداد
-                          </Button>
+                          {isDue ? (
+                            <Button
+                              size="sm"
+                              className="h-8 gap-1.5 px-2.5 text-xs font-semibold shadow-xs"
+                              onClick={() => {
+                                sound.click();
+                                setTxFor(s);
+                                setTxAmount(bal > 0 ? s.balance : "");
+                                setTxType("debit"); // pay off debt
+                              }}
+                            >
+                              <HandCoins className="size-3.5" />
+                              سداد المستحق
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                sound.click();
+                                setTxFor(s);
+                                setTxAmount("");
+                                setTxType("debit");
+                              }}
+                            >
+                              <HandCoins className="size-3.5" />
+                              حركة حساب
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

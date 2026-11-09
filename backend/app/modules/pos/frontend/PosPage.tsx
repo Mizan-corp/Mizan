@@ -27,7 +27,6 @@ import {
   X,
   Keyboard,
   Building2,
-  Lock,
 } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
 import { api, ApiError, openPrintDoc } from "@/lib/api";
@@ -39,8 +38,6 @@ import { Kbd } from "@/components/kit/kbd";
 import { enqueueSale, listQueue, replayQueue, removeSale, type QueuedSale } from "@/lib/offline";
 import { sound } from "@/lib/sound";
 import { useBranch } from "@/components/AppShell";
-import { useAuth } from "@/stores/auth";
-import { cn } from "@/lib/utils";
 import { useBarcodeScanner } from "./hooks/useBarcodeScanner";
 import { ThermalReceiptSettingsModal } from "./components/ThermalReceiptSettingsModal";
 import { PosKeyboardShortcutsModal } from "./components/PosKeyboardShortcutsModal";
@@ -118,18 +115,7 @@ export default function PosPage() {
   const [confirmClear, setConfirmClear] = useState(false);
   const { toast } = useToast();
 
-  const { user, can } = useAuth();
-  const canSwitchBranch = Boolean(
-    user?.is_manager ||
-    user?.is_superadmin ||
-    user?.role === "admin" ||
-    user?.role === "manager" ||
-    can("admin") ||
-    can("inventory") ||
-    can("operations")
-  );
-
-  const { branchId, setBranchId } = useBranch();
+  const { branchId, branchName } = useBranch();
   const wh = useQuery({ queryKey: ["warehouses"], queryFn: () => api.get<Warehouse[]>("/stock/warehouses") });
   const [warehouseId, setWarehouseId] = useState(() => localStorage.getItem("mizan.branch") ?? branchId ?? "");
 
@@ -140,25 +126,6 @@ export default function PosPage() {
       setWarehouseId(wh.data[0].id);
     }
   }, [branchId, wh.data, warehouseId]);
-
-  function handleBranchChange(newWid: string) {
-    if (!canSwitchBranch) {
-      toast("error", "تغيير الفرع يتطلب صلاحية مدير");
-      return;
-    }
-    if (newWid === warehouseId) return;
-    if (cart.length > 0) {
-      if (!window.confirm("تغيير الفرع سيؤدي إلى تفريغ السلة الحالية لاختلاف المخزون والأسعار بين الفروع. هل تريد المتابعة؟")) {
-        return;
-      }
-      setCart([]);
-    }
-    sound.click();
-    setWarehouseId(newWid);
-    setBranchId(newWid);
-    localStorage.setItem("mizan.branch", newWid);
-    toast("success", `تم التبديل إلى فرع: ${wh.data?.find((w) => w.id === newWid)?.name ?? newWid}`);
-  }
 
   const customers = useQuery({ queryKey: ["pos-customers"], queryFn: () => api.get<Customer[]>("/customers"), enabled: payOpen });
   const wallets = useQuery({ queryKey: ["pos-wallets"], queryFn: () => api.get<Wallet[]>("/wallets"), enabled: payOpen });
@@ -490,37 +457,12 @@ export default function PosPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Branch picker dropdown in POS header */}
-          <div
-            className={cn(
-              "flex items-center gap-1.5 rounded-lg border border-line bg-secondary/50 px-2.5 py-1 text-xs",
-              !canSwitchBranch && "opacity-85"
-            )}
-            title={canSwitchBranch ? "تبديل فرع البيع" : "يتطلب صلاحية مدير لتغيير الفرع"}
-          >
-            <Building2 className="size-3.5 text-primary shrink-0" />
-            <select
-              value={warehouseId}
-              disabled={!canSwitchBranch}
-              onChange={(e) => handleBranchChange(e.target.value)}
-              className={cn(
-                "bg-transparent text-xs font-bold focus:outline-none",
-                canSwitchBranch ? "cursor-pointer" : "cursor-not-allowed"
-              )}
-              aria-label="اختيار فرع البيع"
-            >
-              {wh.data?.map((w) => (
-                <option key={w.id} value={w.id} className="bg-popover text-foreground">
-                  {w.name}
-                </option>
-              ))}
-            </select>
-            {!canSwitchBranch && (
-              <span title="يتطلب صلاحية مدير لتغيير الفرع">
-                <Lock className="size-3 text-muted-foreground" />
-              </span>
-            )}
-          </div>
+          {branchName && (
+            <span className="flex items-center gap-1.5 rounded-lg border border-border/70 bg-secondary/40 px-2.5 py-1 text-xs font-semibold text-foreground">
+              <Building2 className="size-3.5 text-primary shrink-0" />
+              <span>{branchName}</span>
+            </span>
+          )}
 
           {shift.data ? (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
@@ -548,7 +490,7 @@ export default function PosPage() {
       </div>
 
       {/* Main split grid: Catalog & Fast Scanner on Left / Mechanical Receipt on Right */}
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_420px] xl:grid-cols-[1fr_440px]">
+      <div className="pos-layout-grid">
         {/* ── Catalog & Barcode Engine ── */}
         <div className="min-w-0 space-y-3">
           {/* Scanner search control card */}
@@ -575,26 +517,6 @@ export default function PosPage() {
                     </span>
                   </InputGroupAddon>
                 </InputGroup>
-
-                <div
-                  className="flex h-10 items-center gap-1.5 rounded-lg border border-line bg-secondary/30 px-2.5 text-xs"
-                  title={canSwitchBranch ? "تبديل فرع البيع" : "يتطلب صلاحية مدير لتغيير الفرع"}
-                >
-                  <Building2 className="size-3.5 text-muted-foreground shrink-0" />
-                  <select
-                    value={warehouseId}
-                    disabled={!canSwitchBranch}
-                    onChange={(e) => handleBranchChange(e.target.value)}
-                    className={cn(
-                      "bg-transparent text-xs font-medium focus:outline-none",
-                      canSwitchBranch ? "cursor-pointer" : "cursor-not-allowed"
-                    )}
-                    aria-label="فرع البيع"
-                  >
-                    {wh.data?.map((w) => <option key={w.id} value={w.id} className="bg-popover text-foreground">{w.name}</option>)}
-                  </select>
-                  {!canSwitchBranch && <Lock className="size-3 text-muted-foreground" />}
-                </div>
               </form>
 
               {/* Wholesale / Retail toggle segmented */}

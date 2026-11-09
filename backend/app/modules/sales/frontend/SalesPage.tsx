@@ -148,16 +148,17 @@ export default function SalesPage() {
         title="المبيعات"
         description="كل الفواتير وعروض الأسعار والمرتجعات"
         actions={
-          <>
-            <Button variant="outline" onClick={() => downloadExport("/export/sales", undefined, "sales.xlsx")}>
-              <Download data-icon="inline-start" />
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => downloadExport("/export/sales", undefined, "sales.xlsx")} className="gap-1.5 text-xs">
+              <Download className="size-3.5" />
               تصدير
             </Button>
-            <Button nativeButton={false} render={<Link to="/pos" />}>
-              <ShoppingCart data-icon="inline-start" />
-              فاتورة جديدة
+            <Button nativeButton={false} render={<Link to="/pos" />} size="sm" className="font-bold text-xs gap-1.5 shadow-xs">
+              <ShoppingCart className="size-3.5" />
+              <span>فاتورة جديدة</span>
+              <kbd className="ms-1 rounded bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-mono">F2</kbd>
             </Button>
-          </>
+          </div>
         }
       />
 
@@ -198,13 +199,13 @@ export default function SalesPage() {
         <TableShell>
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>الفاتورة</TableHead>
+              <TableRow className="border-b border-border/80 bg-muted/40 text-[11px] font-semibold text-muted-foreground">
+                <TableHead className="w-[180px] whitespace-nowrap">الفاتورة والتاريخ</TableHead>
                 <TableHead>العميل</TableHead>
-                <TableHead className="hidden lg:table-cell">الدفع</TableHead>
+                <TableHead className="hidden lg:table-cell">طريقة الدفع</TableHead>
                 <TableHead>الإجمالي</TableHead>
                 <TableHead className="hidden sm:table-cell">الحالة</TableHead>
-                <TableHead className="w-12">
+                <TableHead className="w-12 text-center">
                   <span className="sr-only">إجراءات</span>
                 </TableHead>
               </TableRow>
@@ -212,10 +213,10 @@ export default function SalesPage() {
             <TableBody>
               {rows.map((inv) => (
                 <TableRow key={inv.id} className="cursor-pointer" onClick={() => setDetailId(inv.id)}>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="num font-medium">{inv.invoice_number}</span>
-                      <span className="num text-xs text-muted-foreground">{formatDateTime(inv.created_at)}</span>
+                  <TableCell className="w-[180px] whitespace-nowrap">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="num font-bold font-mono text-foreground">{inv.invoice_number}</span>
+                      <span className="num text-xs text-muted-foreground whitespace-nowrap font-mono">{formatDateTime(inv.created_at)}</span>
                     </div>
                   </TableCell>
                   <TableCell className="w-full max-w-0 truncate">{inv.customer_name ?? "عميل نقدي"}</TableCell>

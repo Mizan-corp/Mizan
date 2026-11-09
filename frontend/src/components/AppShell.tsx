@@ -9,8 +9,6 @@ import {
   Search,
   Settings,
   ShieldCheck,
-  ShoppingCart,
-  UserRound,
   Blocks,
   Palette,
   ChevronDown,
@@ -416,175 +414,132 @@ function AppTopbar({ onOpenMenu, onOpenSearch }: { onOpenMenu: () => void; onOpe
   }, [navigate, tenantTo]);
 
   return (
-    <header className="no-print sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border/80 bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:px-6 dark:border-white/10">
-      <Button variant="ghost" size="icon" className="lg:hidden" onClick={onOpenMenu} aria-label="فتح القائمة">
-        <Menu className="size-4" />
-      </Button>
+    <header className="no-print sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/70 bg-card/90 px-4 backdrop-blur md:px-6">
+      {/* Zone 1: Mobile toggle + App Launcher + Branch Selector */}
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" className="lg:hidden" onClick={onOpenMenu} aria-label="فتح القائمة">
+          <Menu className="size-4" />
+        </Button>
 
-      {/* Mizan-style App Launcher */}
-      <MizanAppLauncher />
+        <MizanAppLauncher />
 
-      {/* Branch selector with tactile badge */}
-      <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="h-8 gap-2 px-2.5 font-medium" />}>
-          <Building2 className="size-3.5 text-primary" data-icon="inline-start" />
-          <span className="max-w-32 truncate text-xs">{branchName}</span>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>الفروع والمخازن</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={branchId ?? ""}
-              onValueChange={(v) => {
-                sound.click();
-                localStorage.setItem("mizan.branch", String(v));
-                setBranchId(String(v));
-              }}
-            >
-              {warehouses.map((b: Warehouse) => (
-                <DropdownMenuRadioItem key={b.id} value={b.id}>
-                  {b.name}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="h-8 gap-1.5 px-2.5 font-medium border-border/80 hover:bg-muted/50" />}>
+            <Building2 className="size-3.5 text-primary" data-icon="inline-start" />
+            <span className="max-w-32 truncate text-xs font-semibold">{branchName}</span>
+            <ChevronDown className="size-3 opacity-50" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>الفروع والمخازن</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={branchId ?? ""}
+                onValueChange={(v) => {
+                  sound.click();
+                  localStorage.setItem("mizan.branch", String(v));
+                  setBranchId(String(v));
+                }}
+              >
+                {warehouses.map((b: Warehouse) => (
+                  <DropdownMenuRadioItem key={b.id} value={b.id}>
+                    {b.name}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-      {/* Active Shift Indicator */}
-      <Link to={tenantTo("/shifts")} className="hidden sm:block">
-        {shift.data ? (
-          <Badge variant="success" className="h-6 gap-1.5 px-2 text-[11px] font-semibold">
-            <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" aria-hidden />
-            وردية نشطة · <span className="num">{dateTime(shift.data.started_at)}</span>
-          </Badge>
-        ) : (
-          <Badge variant="secondary" className="h-6 gap-1.5 px-2 text-[11px]">
-            <Clock className="size-3 text-muted-foreground" aria-hidden />
-            بدون وردية
-          </Badge>
-        )}
-      </Link>
-
-      <div className="ms-auto flex items-center gap-1.5">
-        {/* Quick F2 POS Jump */}
-        <Link
-          to={tenantTo("/pos")}
-          onClick={() => sound.click()}
-          className="hidden md:inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition hover:bg-primary/20"
-        >
-          <ShoppingCart className="size-3.5" />
-          <span>نقطة البيع</span>
-          <Kbd className="border-primary/20 bg-primary/15 text-primary">F2</Kbd>
+        {/* Active Shift Indicator */}
+        <Link to={tenantTo("/shifts")} className="hidden sm:block">
+          {shift.data ? (
+            <Badge variant="success" className="h-7 gap-1.5 px-2.5 text-[11px] font-semibold">
+              <span className="size-1.5 animate-pulse rounded-full bg-emerald-500" aria-hidden />
+              وردية نشطة · <span className="num">{dateTime(shift.data.started_at)}</span>
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="h-7 gap-1.5 px-2.5 text-[11px] text-muted-foreground hover:text-foreground">
+              <Clock className="size-3" aria-hidden />
+              بدون وردية
+            </Badge>
+          )}
         </Link>
+      </div>
 
-        {/* Search Command Palette Trigger */}
+      {/* Zone 2: Centered Global Command Search */}
+      <div className="flex-1 max-w-md mx-4 hidden md:block">
         <button
           onClick={onOpenSearch}
-          className="hidden h-8 items-center gap-2 rounded-md border border-input bg-card px-2.5 text-xs text-muted-foreground transition hover:border-foreground/30 hover:bg-accent md:flex md:w-56"
+          className="flex h-9 w-full items-center gap-2 rounded-lg border border-border/80 bg-background/60 px-3 text-xs text-muted-foreground transition hover:border-border hover:bg-background hover:text-foreground shadow-2xs"
           aria-label="بحث شامل (Ctrl+K)"
         >
-          <Search className="size-3.5" aria-hidden />
+          <Search className="size-3.5 text-muted-foreground/70" aria-hidden />
           <span className="flex-1 text-start">ابحث أو أمر…</span>
-          <Kbd>⌘K</Kbd>
+          <Kbd className="text-[10px] bg-muted/60 text-muted-foreground border-border/60">⌘K</Kbd>
         </button>
+      </div>
+
+      {/* Zone 3: Mobile search + Notifications + Unified User Profile Menu */}
+      <div className="flex items-center gap-2">
         <Button variant="ghost" size="icon" className="h-8 w-8 md:hidden" onClick={onOpenSearch} aria-label="بحث شامل">
           <Search className="size-4" />
         </Button>
 
-        {/* View Density Switcher */}
-        <button
-          onClick={toggleDensity}
-          title={density === "compact" ? "التحويل للوضع المريح" : "التحويل لوضع الكثافة العالية"}
-          className="flex h-8 items-center gap-1 rounded-md border border-border/80 px-2 text-xs font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
-        >
-          <span className="font-mono text-[10px] uppercase font-bold tracking-wider">
-            {density === "compact" ? "كثيف" : "مريح"}
-          </span>
-        </button>
-
-        {/* Audio Feedback Toggle */}
-        <button
-          onClick={toggleSound}
-          title={soundMuted ? "تفعيل الأصوات التفاعلية" : "كتم الأصوات"}
-          className={`flex h-8 w-8 items-center justify-center rounded-md border border-border/80 transition hover:bg-accent ${
-            soundMuted ? "text-muted-foreground" : "text-primary"
-          }`}
-        >
-          <span className="sr-only">الأصوات</span>
-          {soundMuted ? (
-            <VolumeX className="size-4 opacity-70" />
-          ) : (
-            <Volume2 className="size-4" />
-          )}
-        </button>
-
         {/* Live In-App Notification Center */}
         <NotificationCenter />
 
-        {/* Appearance & Themes Modal Switcher */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 gap-1.5 px-2.5 text-xs font-semibold"
-          aria-label="تخصيص المظهر والتخطيط"
-          onClick={() => {
-            sound.click();
-            setAppearanceModalOpen(true);
-          }}
-        >
-          <Palette className="size-3.5 text-primary" />
-          <span className="hidden sm:inline">المظهر</span>
-        </Button>
-
-        {/* Background Automation & Cron Worker Trigger */}
-        <button
-          onClick={() => {
-            sound.click();
-            setAutomationOpen(true);
-          }}
-          title="محرك الأتمتة وجدولة المهام (Cron Worker)"
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-border/80 text-muted-foreground transition hover:bg-accent hover:text-foreground"
-        >
-          <Cpu className="size-4 text-indigo-400" />
-        </button>
-
-        {/* Internationalization (i18n) Locale Switcher */}
-        <button
-          onClick={() => {
-            sound.click();
-            toggleLocale();
-          }}
-          title={locale === "ar" ? "التبديل إلى الإنجليزية (Switch to English)" : "التبديل إلى العربية (Switch to Arabic)"}
-          className="flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-2 text-xs font-semibold text-muted-foreground transition hover:bg-accent hover:text-foreground"
-        >
-          <Globe className="size-3.5 text-primary" />
-          <span className="font-mono text-[11px] font-bold uppercase">
-            {locale === "ar" ? "EN" : "عربي"}
-          </span>
-        </button>
-
-        {/* User Menu */}
+        {/* Unified User Preferences & Profile Menu */}
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" className="h-8 gap-2 px-1.5" />} aria-label="قائمة المستخدم">
-            <Avatar className="size-7">
-              <AvatarFallback className="text-xs font-semibold">{(user?.full_name ?? "؟").split(" ")[0].slice(0, 2)}</AvatarFallback>
+          <DropdownMenuTrigger render={<Button variant="ghost" className="h-9 gap-2 px-2 hover:bg-muted/50 rounded-lg" />} aria-label="قائمة المستخدم">
+            <Avatar className="size-7 ring-1 ring-border">
+              <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">{(user?.full_name ?? "؟").split(" ")[0].slice(0, 2)}</AvatarFallback>
             </Avatar>
             <span className="hidden flex-col items-start leading-tight md:flex">
-              <span className="text-xs font-medium">{user?.full_name}</span>
-              <span className="text-[10px] text-muted-foreground">{tenant?.plan === "trial" ? "تجربة مجانية" : tenant?.name ?? user?.role}</span>
+              <span className="text-xs font-semibold text-foreground">{user?.full_name}</span>
+              <span className="text-[10px] text-muted-foreground">{tenant?.name ?? user?.role}</span>
             </span>
+            <ChevronDown className="size-3 text-muted-foreground/60 hidden md:block" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="w-64 p-1.5 shadow-lg">
             <DropdownMenuGroup>
+              <DropdownMenuLabel className="text-xs font-semibold px-2 py-1.5">
+                <p className="font-bold text-foreground">{user?.full_name}</p>
+                <p className="text-[10px] text-muted-foreground font-normal">{user?.username} · {user?.role}</p>
+              </DropdownMenuLabel>
+              <div className="h-px bg-border/60 my-1" />
+
               <DropdownMenuItem onClick={() => navigate(tenantTo("/settings"))}>
-                <UserRound className="size-4" />
-                الإعدادات
+                <Settings className="size-4" />
+                <span>إعدادات النظام العامة</span>
               </DropdownMenuItem>
+
               <DropdownMenuItem onClick={() => setAppearanceModalOpen(true)}>
                 <Palette className="size-4" />
-                المظهر والتخطيط
+                <span>تخصيص المظهر والثيمات</span>
               </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={toggleDensity}>
+                <Clock className="size-4 opacity-70" />
+                <span>كثافة الواجهة ({density === "compact" ? "كثيف ✓" : "مريح ✓"})</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={toggleSound}>
+                {soundMuted ? <VolumeX className="size-4 text-muted-foreground" /> : <Volume2 className="size-4 text-primary" />}
+                <span>المؤثرات الصوتية ({soundMuted ? "مكتومة" : "مفعلة"})</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => { sound.click(); toggleLocale(); }}>
+                <Globe className="size-4" />
+                <span>اللغة ({locale === "ar" ? "العربية" : "English"})</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => { sound.click(); setAutomationOpen(true); }}>
+                <Cpu className="size-4 text-indigo-500" />
+                <span>جدولة الأتمتة (Cron Worker)</span>
+              </DropdownMenuItem>
+
+              <div className="h-px bg-border/60 my-1" />
+
               <DropdownMenuItem
                 variant="destructive"
                 onClick={() => {
@@ -594,7 +549,7 @@ function AppTopbar({ onOpenMenu, onOpenSearch }: { onOpenMenu: () => void; onOpe
                 }}
               >
                 <LogOut className="size-4" />
-                تسجيل الخروج
+                <span>تسجيل الخروج</span>
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>

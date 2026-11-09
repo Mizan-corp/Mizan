@@ -285,17 +285,34 @@ export default function CustomersPage() {
                             كشف حساب
                           </Button>
 
-                          <Button
-                            className="h-8 gap-1.5 px-2.5 text-xs font-semibold"
-                            onClick={() => {
-                              sound.click();
-                              setPayFor(c);
-                              setPayAmount("");
-                            }}
-                          >
-                            <HandCoins className="size-3.5" />
-                            تحصيل دفعة
-                          </Button>
+                          {isDue ? (
+                            <Button
+                              size="sm"
+                              className="h-8 gap-1.5 px-2.5 text-xs font-semibold shadow-xs"
+                              onClick={() => {
+                                sound.click();
+                                setPayFor(c);
+                                setPayAmount(bal > 0 ? c.balance : "");
+                              }}
+                            >
+                              <HandCoins className="size-3.5" />
+                              تحصيل دفعة
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                sound.click();
+                                setPayFor(c);
+                                setPayAmount("");
+                              }}
+                            >
+                              <HandCoins className="size-3.5" />
+                              دفعة مقدمة
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

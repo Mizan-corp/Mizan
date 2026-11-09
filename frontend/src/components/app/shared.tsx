@@ -50,31 +50,40 @@ export function StatCard({
   hint,
   icon: Icon,
   tone = 'default',
+  className,
 }: {
   label: string
   value: React.ReactNode
   hint?: React.ReactNode
   icon?: LucideIcon
   tone?: 'default' | 'success' | 'warning' | 'destructive'
+  className?: string
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+    <div className={cn(
+      "flex flex-col justify-between rounded-xl border border-border bg-card p-4 shadow-xs transition-shadow hover:shadow-sm",
+      tone === 'warning' && 'border-amber-500/30 bg-amber-500/[0.03]',
+      tone === 'destructive' && 'border-destructive/30 bg-destructive/[0.03]',
+      tone === 'success' && 'border-emerald-500/30 bg-emerald-500/[0.03]',
+      className
+    )}>
+      <div className="flex items-center justify-between text-muted-foreground">
+        <span className="text-xs font-medium">{label}</span>
         {Icon && (
-          <Icon
-            className={cn(
-              'size-3.5 shrink-0',
-              tone === 'success' && 'text-success',
-              tone === 'warning' && 'text-warning',
-              tone === 'destructive' && 'text-destructive',
-            )}
-            aria-hidden
-          />
+          <div className={cn(
+            "flex size-7 items-center justify-center rounded-lg bg-muted text-muted-foreground",
+            tone === 'success' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+            tone === 'warning' && 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+            tone === 'destructive' && 'bg-destructive/15 text-destructive'
+          )}>
+            <Icon className="size-3.5" aria-hidden />
+          </div>
         )}
-        <span>{label}</span>
-      </p>
-      <p className="text-2xl font-semibold tracking-tight">{value}</p>
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      </div>
+      <div className="mt-2">
+        <div className="text-2xl font-bold tracking-tight text-foreground">{value}</div>
+        {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+      </div>
     </div>
   )
 }
@@ -307,8 +316,12 @@ export function StatusBadge({ status }: { status: string }) {
   )
 }
 
-export function TableShell({ children }: { children: React.ReactNode }) {
-  return <div className="overflow-x-auto">{children}</div>
+export function TableShell({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn("overflow-x-auto rounded-xl border border-border bg-card shadow-xs", className)}>
+      {children}
+    </div>
+  )
 }
 
 /* ── KPI tile — colored icon square, value, real delta, optional sparkline ── */

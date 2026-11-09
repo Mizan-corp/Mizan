@@ -14,7 +14,6 @@ import {
   ArrowUpRight,
   CalendarRange,
   Clock,
-  Package,
   Receipt,
   ShoppingCart,
   TrendingUp,
@@ -180,8 +179,8 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* ── Precision Masthead & Fast Terminal Navigation ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
+      {/* ── Precision Masthead ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 pb-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="flex size-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden />
@@ -198,23 +197,13 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2">
           <Button
             nativeButton={false}
-            render={<Link to="/inventory" />}
-            variant="outline"
-            size="sm"
-            className="tactile-btn text-xs"
-          >
-            <Package data-icon="inline-start" className="size-3.5" />
-            المخزون
-          </Button>
-
-          <Button
-            nativeButton={false}
             render={<Link to="/pos" />}
             size="sm"
-            className="tactile-btn font-bold text-xs shadow-sm"
+            className="font-bold text-xs shadow-xs gap-1.5"
           >
             <ShoppingCart data-icon="inline-start" className="size-3.5" />
-            فاتورة بيع جديدة
+            <span>نقطة البيع</span>
+            <kbd className="ms-1 rounded bg-primary-foreground/20 px-1.5 py-0.5 text-[10px] font-mono">F2</kbd>
           </Button>
         </div>
       </div>
@@ -256,7 +245,7 @@ export default function DashboardPage() {
 
           <div className="shrink-0 flex items-center gap-2 w-full md:w-auto">
             <Link to={tenantTo(sectorPrimaryRoute)} className="w-full md:w-auto">
-              <Button size="sm" className="w-full md:w-auto font-bold gap-2 shadow-sm text-xs h-9 px-4">
+              <Button size="sm" className="w-full md:w-auto font-bold gap-2 shadow-xs text-xs h-9 px-4">
                 <span>فتح شاشة {sectorBadge || "المنظومة التخصصية"}</span>
                 <ArrowLeft className="size-3.5" />
               </Button>
@@ -265,18 +254,33 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Hero Trading Band — The Dominant Sales Velocity & Trend ── */}
-      <div className="precision-surface grid grid-cols-1 gap-6 rounded-2xl p-5 lg:grid-cols-[1.2fr_1fr_auto]">
-        {/* Dominant Headline Number */}
-        <div className="flex flex-col justify-between gap-3">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
-                إجمالي إيراد اليوم
-              </span>
+      {/* ── Bento Grid Row 1: 4 KPI Cards ── */}
+      <section aria-label="المؤشرات الرئيسية" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* KPI 1: Today's Revenue */}
+        <div className="precision-surface flex flex-col justify-between rounded-xl p-4 gap-3">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">إجمالي إيراد اليوم</span>
+            <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Receipt className="size-3.5" />
+            </div>
+          </div>
+          <div>
+            {daily.isLoading ? (
+              <Skeleton className="h-8 w-32" />
+            ) : daily.isError ? (
+              <span className="text-xs text-destructive">تعذر التحميل</span>
+            ) : (
+              <div className="flex items-baseline gap-1.5">
+                <span className="num font-mono text-3xl font-black tracking-tight text-foreground">
+                  {formatNumber(dayTotal)}
+                </span>
+                <span className="font-mono text-xs font-bold text-muted-foreground">ج.م</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50 text-[11px] text-muted-foreground font-mono">
               {dayDelta !== null && (
                 <span
-                  className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${
+                  className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-bold ${
                     dayDelta >= 0
                       ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                       : "bg-destructive/10 text-destructive"
@@ -286,175 +290,122 @@ export default function DashboardPage() {
                   {Math.abs(dayDelta).toFixed(1)}% عن أمس
                 </span>
               )}
+              <span>· <strong className="num text-foreground">{dayCount}</strong> فواتير</span>
+              <span className="text-border">·</span>
+              <span>متوسط: <strong className="num text-foreground"><Money value={dayAvg} /></strong></span>
             </div>
+          </div>
+        </div>
 
-            {daily.isLoading ? (
-              <Skeleton className="h-14 w-60" />
-            ) : daily.isError ? (
-              <div className="flex items-center gap-2 text-xs text-destructive">
-                <span>تعذر استرجاع مبيعات اليوم</span>
-                <Button variant="outline" size="sm" onClick={() => daily.refetch()}>
-                  إعادة المحاولة
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-baseline gap-2">
-                <span className="num font-mono text-5xl sm:text-6xl font-black tracking-tight text-foreground">
-                  {formatNumber(dayTotal)}
+        {/* KPI 2: Monthly Sales */}
+        <div className="precision-surface flex flex-col justify-between rounded-xl p-4 gap-3">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">مبيعات الشهر الحالي</span>
+            <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <CalendarRange className="size-3.5" />
+            </div>
+          </div>
+          <div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="num font-mono text-3xl font-black tracking-tight text-foreground">
+                {monthly.isError ? "—" : <Money value={Number(monthly.data?.total_sales ?? 0)} />}
+              </span>
+            </div>
+            <div className="mt-2 pt-2 border-t border-border/50 text-[11px] text-muted-foreground font-mono">
+              <Num value={monthly.data?.invoice_count ?? 0} /> عملية بيع مسجلة هذا الشهر
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 3: Low-Stock Urgent Alert */}
+        <div className={`precision-surface flex flex-col justify-between rounded-xl p-4 gap-3 ${lowCount > 0 ? "border-amber-500/40 bg-amber-500/[0.03]" : ""}`}>
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">الأصناف تحت حد الطلب</span>
+            <div className={`flex size-7 items-center justify-center rounded-lg ${lowCount > 0 ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" : "bg-muted text-muted-foreground"}`}>
+              <AlertTriangle className="size-3.5" />
+            </div>
+          </div>
+          <div>
+            <div className="flex items-baseline gap-1.5">
+              <span className={`num font-mono text-3xl font-black tracking-tight ${lowCount > 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>
+                <Num value={lowCount} />
+              </span>
+              <span className="text-xs font-bold text-muted-foreground">صنف بحاجة لتوريد</span>
+            </div>
+            <div className="mt-2 pt-2 border-t border-border/50 text-[11px]">
+              <Link to="/inventory" className="text-primary hover:underline font-medium inline-flex items-center gap-1">
+                {lowCount > 0 ? "عرض قائمة النواقص العاجلة ←" : "المخزون متزن بالكامل ✓"}
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 4: Shift Status */}
+        <div className="precision-surface flex flex-col justify-between rounded-xl p-4 gap-3">
+          <div className="flex items-center justify-between text-muted-foreground">
+            <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">حالة الوردية</span>
+            <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Clock className="size-3.5" />
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              {shift.data ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                  الوردية نشطة
                 </span>
-                <span className="font-mono text-base font-bold text-muted-foreground">ج.م</span>
-              </div>
-            )}
-          </div>
-
-          {/* Micro stats ribbon under hero */}
-          <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-muted-foreground pt-2 border-t border-border/40">
-            <span className="flex items-center gap-1">
-              <Receipt className="size-3.5 text-foreground" />
-              <strong className="num text-foreground">{dayCount}</strong> فواتير
-            </span>
-            <span className="text-border">·</span>
-            <span>
-              متوسط الفاتورة: <strong className="num text-foreground"><Money value={dayAvg} /></strong>
-            </span>
-            <span className="text-border">·</span>
-            <span>
-              أمس: <span className="num"><Money value={yesterday} /></span>
-            </span>
-          </div>
-        </div>
-
-        {/* 14-Day Velocity Sparkline Chart */}
-        <div className="flex flex-col justify-between gap-2 rounded-xl border border-line bg-secondary/20 p-3.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className="flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground uppercase">
-              <TrendingUp className="size-3.5 text-primary" />
-              منحنى المبيعات (١٤ يوماً)
-            </span>
-            <span className="num font-mono text-xs font-bold text-foreground">
-              <Money value={trendTotal} />
-            </span>
-          </div>
-
-          <Sparkline data={trend} className="h-14 w-full" />
-
-          <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground">
-            <span>قبل ١٤ يوماً</span>
-            <span>اليوم</span>
-          </div>
-        </div>
-
-        {/* Register / Shift Status Widget */}
-        <div className="flex flex-col justify-between gap-3 rounded-xl border border-line bg-secondary/30 p-3.5 min-w-[200px]">
-          <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground uppercase">
-              <Clock className="size-3" /> الوردية
-            </span>
-            {shift.data ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                <span className="size-1.5 rounded-full bg-emerald-500" />
-                نشطة
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/15 px-2.5 py-0.5 text-xs font-bold text-destructive">
+                  الوردية مغلقة
+                </span>
+              )}
+            </div>
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50 text-[11px]">
+              <span className="text-muted-foreground truncate font-mono">
+                {shift.data ? formatDateTime(shift.data.started_at) : "لا توجد وردية مفتوحة"}
               </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-bold text-destructive">
-                مغلقة
-              </span>
-            )}
-          </div>
-
-          <div className="space-y-1">
-            {shift.data ? (
-              <>
-                <p className="text-xs text-muted-foreground">وقت البدء:</p>
-                <p className="num font-mono text-xs font-bold text-foreground">
-                  {formatDateTime(shift.data.started_at)}
-                </p>
-              </>
-            ) : (
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                لا توجد وردية مفتوحة على هذا الفرع حالياً.
-              </p>
-            )}
-          </div>
-
-          <Button
-            nativeButton={false}
-            render={<Link to="/shifts" />}
-            variant="outline"
-            size="sm"
-            className="tactile-btn text-xs w-full justify-center"
-          >
-            {shift.data ? "إدارة الوردية" : "فتح وردية الآن"}
-          </Button>
-        </div>
-      </div>
-
-      {/* ── Financial Precision Ticker Row ── */}
-      <section aria-label="مؤشرات الأداء" className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {/* Metric 1: Monthly Total */}
-        <div className="precision-surface flex flex-col justify-between rounded-xl p-3.5 space-y-2">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[10px] font-mono uppercase tracking-wider">مبيعات الشهر الحالي</span>
-            <CalendarRange className="size-3.5" />
-          </div>
-          <div>
-            <p className="num font-mono text-2xl font-bold tracking-tight text-foreground">
-              {monthly.isError ? "—" : <Money value={Number(monthly.data?.total_sales ?? 0)} />}
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">
-              <Num value={monthly.data?.invoice_count ?? 0} /> عملية بيع مسجلة
-            </p>
-          </div>
-        </div>
-
-        {/* Metric 2: Low Stock Alert */}
-        <div className={`precision-surface flex flex-col justify-between rounded-xl p-3.5 space-y-2 ${lowCount > 0 ? "border-amber-500/40 bg-amber-500/5" : ""}`}>
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[10px] font-mono uppercase tracking-wider">منتجات تحت حد الطلب</span>
-            <AlertTriangle className={`size-3.5 ${lowCount > 0 ? "text-amber-500" : ""}`} />
-          </div>
-          <div>
-            <p className={`num font-mono text-2xl font-bold tracking-tight ${lowCount > 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>
-              <Num value={lowCount} /> صنف
-            </p>
-            <Link to="/inventory" className="text-[11px] text-primary hover:underline mt-0.5 inline-block">
-              {lowCount > 0 ? "عرض قائمة النواقص العاجلة ←" : "المخزون مكتمل بالكامل ✓"}
-            </Link>
-          </div>
-        </div>
-
-        {/* Metric 3: Yesterday Revenue */}
-        <div className="precision-surface flex flex-col justify-between rounded-xl p-3.5 space-y-2">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[10px] font-mono uppercase tracking-wider">مبيعات يوم أمس</span>
-            <Receipt className="size-3.5" />
-          </div>
-          <div>
-            <p className="num font-mono text-2xl font-bold tracking-tight text-foreground">
-              <Money value={yesterday} />
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">
-              خط الأساس للمقارنة اليومية
-            </p>
-          </div>
-        </div>
-
-        {/* Metric 4: Rolling 14-Day Daily Average */}
-        <div className="precision-surface flex flex-col justify-between rounded-xl p-3.5 space-y-2">
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[10px] font-mono uppercase tracking-wider">متوسط اليوم (١٤ يومًا)</span>
-            <TrendingUp className="size-3.5" />
-          </div>
-          <div>
-            <p className="num font-mono text-2xl font-bold tracking-tight text-foreground">
-              <Money value={trendTotal / 14} />
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">
-              معدل الإيراد المستقر
-            </p>
+              <Link to="/shifts" className="text-primary hover:underline font-bold shrink-0">
+                {shift.data ? "إدارة الوردية ←" : "فتح وردية ←"}
+              </Link>
+            </div>
           </div>
         </div>
       </section>
+
+      {/* ── Bento Grid Row 2: Sales Velocity Sparkline ── */}
+      <div className="precision-surface flex flex-col justify-between gap-3 rounded-2xl p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="size-4 text-primary" />
+              <h2 className="text-xs font-bold text-foreground">منحنى المبيعات والنشاط (١٤ يوماً)</h2>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              تطور الإيراد اليومي خلال الأسبوعين الماضيين لتحديد نمط المبيعات وسرعة حركة الأصناف.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground font-mono">
+              إجمالي الـ ١٤ يوماً: <strong className="num text-foreground"><Money value={trendTotal} /></strong>
+            </span>
+            <span className="text-border">·</span>
+            <span className="text-xs text-muted-foreground font-mono">
+              متوسط اليوم: <strong className="num text-foreground"><Money value={trendTotal / 14} /></strong>
+            </span>
+          </div>
+        </div>
+
+        <div className="pt-2">
+          <Sparkline data={trend} className="h-20 w-full" />
+        </div>
+
+        <div className="flex items-center justify-between text-[11px] font-mono text-muted-foreground border-t border-border/40 pt-2">
+          <span>قبل ١٤ يوماً</span>
+          <span>قبل ٧ أيام</span>
+          <span>اليوم</span>
+        </div>
+      </div>
 
       {/* ── Two-Column Operational Split Surface: Recent Ledger & Low Stock Requisition ── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.5fr_1fr]">
@@ -498,7 +449,7 @@ export default function DashboardPage() {
                       <TableHead>العميل</TableHead>
                       <TableHead className="text-end">الإجمالي</TableHead>
                       <TableHead>الحالة</TableHead>
-                      <TableHead className="hidden sm:table-cell">التوقيت</TableHead>
+                      <TableHead className="hidden sm:table-cell w-[170px] whitespace-nowrap">التوقيت</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -516,7 +467,7 @@ export default function DashboardPage() {
                         <TableCell>
                           <StatusBadge status={inv.status} />
                         </TableCell>
-                        <TableCell className="num font-mono hidden text-[11px] text-muted-foreground sm:table-cell">
+                        <TableCell className="num font-mono hidden text-[11px] text-muted-foreground sm:table-cell whitespace-nowrap w-[170px]">
                           {formatDateTime(inv.created_at)}
                         </TableCell>
                       </TableRow>

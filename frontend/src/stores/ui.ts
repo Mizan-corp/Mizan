@@ -133,9 +133,9 @@ function getInitialLayout(): LayoutMode {
 }
 
 function getInitialPalette(): ThemePalette {
-  if (typeof window === "undefined") return "mizan";
+  if (typeof window === "undefined") return "slate";
   const saved = (localStorage.getItem(PALETTE_KEY) ?? localStorage.getItem("vendora.palette")) as ThemePalette;
-  return ["mizan", "slate", "cobalt", "emerald", "amber", "monokai"].includes(saved) ? saved : "mizan";
+  return ["mizan", "slate", "cobalt", "emerald", "amber", "monokai"].includes(saved) ? saved : "slate";
 }
 
 function getInitialThemeMode(): ThemeMode {
