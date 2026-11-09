@@ -133,6 +133,26 @@ async def log_validation_error(request: Request, exc: RequestValidationError):
     return JSONResponse(status_code=422, content={"detail": safe_errors})
 
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback, re
+    tb = traceback.format_exc()
+    logger.error("Unhandled error on %s %s: %s\n%s", request.method, request.url.path, exc, tb)
+    origin = request.headers.get("origin")
+    headers = {}
+    if origin:
+        if origin in settings.CORS_ORIGINS or re.match(settings.CORS_ORIGIN_REGEX, origin):
+            headers["Access-Control-Allow-Origin"] = origin
+            headers["Access-Control-Allow-Credentials"] = "true"
+            headers["Access-Control-Allow-Methods"] = "*"
+            headers["Access-Control-Allow-Headers"] = "*"
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error: {str(exc)}", "error_type": exc.__class__.__name__},
+        headers=headers,
+    )
+
+
 # Add CSRF protection middleware (inner)
 add_csrf_middleware(app)
 

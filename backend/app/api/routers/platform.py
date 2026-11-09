@@ -205,71 +205,79 @@ async def signup(data: SignupRequest, request: Request, db: AsyncSession = Depen
         raise HTTPException(status_code=422, detail="نشاط غير معروف")
     data.scale = norm_scale
 
-    existing = await db.execute(select(User.id).where(User.username == data.owner_username))
-    if existing.scalar():
-        raise HTTPException(status_code=409, detail="اسم المستخدم محجوز — اختر اسمًا آخر")
+    try:
+        existing = await db.execute(select(User.id).where(User.username == data.owner_username))
+        if existing.scalar():
+            raise HTTPException(status_code=409, detail="اسم المستخدم محجوز — اختر اسمًا آخر")
 
-    # Generate a unique URL slug for the tenant
-    normalized = unicodedata.normalize("NFKD", data.company_name).encode("ascii", "ignore").decode("ascii").lower()
-    cleaned = re.sub(r"[^a-z0-9]+", "-", normalized).strip("-")
-    candidate = cleaned[:32] if cleaned and len(cleaned) >= 3 else f"tenant-{uuid.uuid4().hex[:6]}"
+        # Generate a unique URL slug for the tenant
+        normalized = unicodedata.normalize("NFKD", data.company_name).encode("ascii", "ignore").decode("ascii").lower()
+        cleaned = re.sub(r"[^a-z0-9]+", "-", normalized).strip("-")
+        candidate = cleaned[:32] if cleaned and len(cleaned) >= 3 else f"tenant-{uuid.uuid4().hex[:6]}"
 
-    base_candidate = candidate
-    suffix_counter = 1
-    while True:
-        exists = (await db.execute(select(Tenant.id).where(Tenant.slug == candidate))).scalar_one_or_none()
-        if not exists:
-            break
-        candidate = f"{base_candidate}-{suffix_counter}"
-        suffix_counter += 1
+        base_candidate = candidate
+        suffix_counter = 1
+        while True:
+            exists = (await db.execute(select(Tenant.id).where(Tenant.slug == candidate))).scalar_one_or_none()
+            if not exists:
+                break
+            candidate = f"{base_candidate}-{suffix_counter}"
+            suffix_counter += 1
 
-    tenant_slug = candidate
-    hue = PALETTE_HUES.get(data.palette, 250)
+        tenant_slug = candidate
+        hue = PALETTE_HUES.get(data.palette, 250)
 
-    # Calculate initial active modules: sector defaults merged with requested features
-    base_mods = SECTOR_PRIMARY_MODULES.get(data.sector, ["pos", "inventory", "finance"])
-    requested_features = data.features or []
-    all_active = list(dict.fromkeys(base_mods + requested_features))
-    primary_route = SECTOR_PRIMARY_ROUTES.get(data.sector, "/pos")
-    preset_id = SECTOR_TO_PRESET.get(data.sector)
+        # Calculate initial active modules: sector defaults merged with requested features
+        base_mods = SECTOR_PRIMARY_MODULES.get(data.sector, ["pos", "inventory", "finance"])
+        requested_features = data.features or []
+        all_active = list(dict.fromkeys(base_mods + requested_features))
+        primary_route = SECTOR_PRIMARY_ROUTES.get(data.sector, "/pos")
+        preset_id = SECTOR_TO_PRESET.get(data.sector)
 
-    tenant = Tenant(
-        id=uuid.uuid4(),
-        name=data.company_name.strip(),
-        slug=tenant_slug,
-        sector=data.sector,
-        scale=data.scale,
-        palette={"name": data.palette, "hue": hue},
-        features=requested_features,
-        active_modules=all_active,
-        status="active",
-        deployment_mode="cloud_saas",
-        business_type=data.sector,
-        plan="trial",
-        trial_ends_at=datetime.now(UTC) + timedelta(days=TRIAL_DAYS),
-    )
-    db.add(tenant)
-    await db.flush()
+        tenant = Tenant(
+            id=uuid.uuid4(),
+            name=data.company_name.strip(),
+            slug=tenant_slug,
+            sector=data.sector,
+            scale=data.scale,
+            palette={"name": data.palette, "hue": hue},
+            features=requested_features,
+            active_modules=all_active,
+            status="active",
+            deployment_mode="cloud_saas",
+            business_type=data.sector,
+            plan="trial",
+            trial_ends_at=datetime.now(UTC) + timedelta(days=TRIAL_DAYS),
+        )
+        db.add(tenant)
+        await db.flush()
 
-    await bind_tenant(db, tenant.id)  # seed inside the tenant's context (ctx + RLS GUC)
-    owner = User(
-        id=uuid.uuid4(),
-        username=data.owner_username,
-        full_name=data.owner_full_name.strip(),
-        role="admin",
-        permissions=["*"],
-        password_hash=hash_password(data.owner_password),
-        tenant_id=tenant.id,
-    )
-    db.add(owner)
-    await db.flush()
+        await bind_tenant(db, tenant.id)  # seed inside the tenant's context (ctx + RLS GUC)
+        owner = User(
+            id=uuid.uuid4(),
+            username=data.owner_username,
+            full_name=data.owner_full_name.strip(),
+            role="admin",
+            permissions=["*"],
+            password_hash=hash_password(data.owner_password),
+            tenant_id=tenant.id,
+        )
+        db.add(owner)
+        await db.flush()
 
-    await seed_demo(db, tenant.id, owner.id, data.sector, data.scale, all_active)
+        await seed_demo(db, tenant.id, owner.id, data.sector, data.scale, all_active)
 
-    # Persist the sector's active modules and preset so guards + Modules page resolve
-    await set_active_modules(db, all_active, preset_id=preset_id)
+        # Persist the sector's active modules and preset so guards + Modules page resolve
+        await set_active_modules(db, all_active, preset_id=preset_id)
 
-    await db.commit()
+        await db.commit()
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.exception("Workspace creation failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"فشل إنشاء مساحة العمل: {str(e)}")
 
     # issue a token exactly like /auth/login does
     from app.services import auth_service
