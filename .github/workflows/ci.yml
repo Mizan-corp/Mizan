@@ -234,6 +234,6 @@ jobs:
         env:
           BACKEND_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_BACKEND }}
         run: |
-          echo "Triggering Vercel deployment for vendora-backend (backend)..."
+          echo "Triggering Vercel deployment for mizan-api (backend)..."
           curl -fsSL -X POST "$BACKEND_HOOK"
           echo -e "\nBackend deployment hook triggered successfully."

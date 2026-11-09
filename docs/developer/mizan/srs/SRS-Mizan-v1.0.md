@@ -861,7 +861,7 @@ These apply across all business activities and deployment modes. Jurisdiction-sp
 
 ### 8.1 User Interface
 
-- **Web app:** Single Page Application at `mizan-app-liart.vercel.app`
+- **Web app:** Single Page Application at `mizan-co.vercel.app`
 - **Framework:** React 19 + Vite + Tailwind v4 + shadcn/ui v4
 - **Direction:** RTL; `dir="rtl"` on document
 - **Typography:** IBM Plex Sans Arabic (Arabic), Manrope (English/UI)
@@ -871,7 +871,7 @@ These apply across all business activities and deployment modes. Jurisdiction-sp
 
 ### 8.2 API Interface
 
-- **Base URL:** `https://vendora-backend-six.vercel.app/api`
+- **Base URL:** `https://mizan-co-api.vercel.app/api`
 - **Protocol:** HTTPS only; REST JSON
 - **Auth:** JWT in httpOnly cookie; `X-CSRF-Token` header required (except `/auth/login`, `/platform/signup`, `/health`)
 - **Bearer fallback:** `Authorization: Bearer <token>` for programmatic access
@@ -1080,7 +1080,7 @@ E2E_API_BASE=… E2E_DATABASE_URL=… .venv/bin/pytest -q   # 107 tests — must
 ### 12.1 Constraints
 
 - Frontend deploy is intentionally CLI-only (Vercel project `mizan-app` not git-linked)
-- Backend deploy is intentionally git-only (Vercel project `vendora-backend`)
+- Backend deploy is intentionally git-only (Vercel project `mizan-api`)
 - `CORS_ORIGINS` must be updated in Vercel env when adding new frontend origins
 - Migrations must be idempotent; no breaking migrations without coordinated deploy
 - `/shifts/current` returns 200 + null when no shift is open (not 404)

@@ -14,8 +14,8 @@ whether that's a corner shop, a restaurant, a pharmacy, a hotel or a factory.
 &nbsp;![RTL](https://img.shields.io/badge/Arabic-RTL%20first-651E2C)
 &nbsp;![Stack](https://img.shields.io/badge/FastAPI%20·%20React%2019%20·%20PostgreSQL-262321)
 
-[**Open the app →**](https://mizan-app-liart.vercel.app) &nbsp;·&nbsp;
-[API docs](https://vendora-backend-six.vercel.app/api/docs) &nbsp;·&nbsp;
+[**Open the app →**](https://mizan-co.vercel.app) &nbsp;·&nbsp;
+[API docs](https://mizan-co-api.vercel.app/api/docs) &nbsp;·&nbsp;
 [Documentation](docs/)
 
 </div>

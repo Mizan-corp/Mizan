@@ -83,7 +83,7 @@ GPT model: gpt-6
 ### 9. CI/CD and Deployment Safety
 - No direct push to `master` without passing CI
 - Frontend deploy: **CLI-only** (`npx vercel --prod --yes --token <TOKEN>`) — intentionally NOT git-linked
-- Backend deploy: **git-only** (push to `master` on Vercel project `vendora-backend`)
+- Backend deploy: **git-only** (push to `master` on Vercel project `mizan-api`)
 - `CORS_ORIGINS` is a **Vercel env var** on the backend — overrides `config.py`. New frontend origins go there + redeploy
 - Migrations run before backend starts (not in application code)
 
