@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { type Invoice, useInvoices } from "@app/lib/data";
 import { date, INVOICE_STATUS, METHOD_LABEL, money, planLabel } from "@app/lib/format";
-import { Badge, Empty, LoadError, PageHeader, PageSkeleton, Panel } from "@app/ui";
+import { Badge, Empty, LoadError, PageHeader, PageSkeleton, Panel, Money } from "@app/ui";
 
 export function InvoiceTable({ invoices, showWorkspace }: { invoices: Invoice[]; showWorkspace?: boolean }) {
   if (!invoices.length) return <Empty title="لا توجد فواتير بعد.">تظهر الفاتورة هنا عند الاشتراك أو التجديد.</Empty>;
@@ -40,7 +40,7 @@ export function InvoiceTable({ invoices, showWorkspace }: { invoices: Invoice[];
                 <td className="px-5 py-3.5 text-ink-2">
                   {date(i.period_start)} ← {date(i.period_end)}
                 </td>
-                <td className="data px-5 py-3.5 font-semibold text-ink">{money(i.amount_egp)}</td>
+                <td className="px-5 py-3.5 font-semibold text-ink"><Money value={i.amount_egp} /></td>
                 <td className="px-5 py-3.5">
                   <Badge tone={s.tone}>{s.label}</Badge>
                   <div className="mt-0.5 text-xs text-mute">{i.paid_at ? date(i.paid_at) : METHOD_LABEL[i.method] ?? i.method}</div>

@@ -5,7 +5,7 @@ import { actions, type Invoice, type Owner, type Plan, useMe, usePlans, useWorks
 import { useOpenWorkspace } from "@app/lib/open";
 import { date, errorText, money, planLabel, sectorLabel, trialState } from "@app/lib/format";
 import { cn } from "@/lib/utils";
-import { Button, ErrorNote, Field, Input, LoadError, Meter, Modal, ModalActions, PageSkeleton, Panel } from "@app/ui";
+import { Button, ErrorNote, Field, Input, LoadError, Meter, Modal, ModalActions, PageSkeleton, Panel, Money } from "@app/ui";
 import { PlanBadge } from "@app/pages/Workspaces";
 import { InvoiceTable } from "@app/pages/Invoices";
 
@@ -33,7 +33,7 @@ function CurrentPlan({ w }: { w: WorkspaceT }) {
     <>
       <div className="title text-2xl text-ink">باقة {planLabel(w.plan)}</div>
       <p className="mt-1 text-sm text-mute">
-        <span className="data">{money(w.monthly_price_egp)}</span> شهريًا
+        <Money value={w.monthly_price_egp} /> شهريًا
         {w.paid_until && ` · مدفوعة حتى ${date(w.paid_until)}`}
       </p>
     </>
@@ -85,7 +85,7 @@ function PayDialog({
     >
       <div className="flex items-baseline justify-between rounded-lg bg-sand/60 px-4 py-3">
         <span className="text-sm text-ink-2">{cycle === "annual" ? "اشتراك سنوي" : "اشتراك شهري"}</span>
-        <span className="data text-xl font-bold text-ink">{money(amount)}</span>
+        <Money value={amount} className="text-xl font-bold text-ink" />
       </div>
       <div className="mt-4 grid gap-4">
         <Field label="رقم الموبايل" hint="لإيصال الدفع، ولمحافظ الموبايل.">
@@ -127,7 +127,7 @@ function Plans({ w, me }: { w: WorkspaceT; me: Owner }) {
     <section ref={ref} id="plans" className="scroll-mt-24">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="title text-[22px] text-ink">{w.plan === "trial" ? "اختر باقتك" : "غيّر باقتك أو جدّدها"}</h2>
+          <h2 className="title text-xl text-ink">{w.plan === "trial" ? "اختر باقتك" : "غيّر باقتك أو جدّدها"}</h2>
           <p className="mt-1 text-sm text-mute">الأسعار بالجنيه المصري. السنوي يوفّر شهرين تقريبًا.</p>
         </div>
         <div className="inline-flex rounded-lg border border-line bg-card p-1" role="radiogroup" aria-label="مدة الاشتراك">
@@ -161,7 +161,7 @@ function Plans({ w, me }: { w: WorkspaceT; me: Owner }) {
           return (
             <article
               key={p.id}
-              className={cn("flex flex-col rounded-xl border bg-card p-5", highlight ? "border-wine ring-1 ring-wine" : "border-line")}
+              className={cn("flex flex-col rounded-2xl border bg-card p-5 shadow-xs", highlight ? "border-wine ring-1 ring-wine" : "border-line")}
             >
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-lg font-bold text-ink">{planLabel(p.id)}</h3>
@@ -172,7 +172,7 @@ function Plans({ w, me }: { w: WorkspaceT; me: Owner }) {
                 )}
               </div>
               <div className="mt-3 flex items-baseline gap-1">
-                <span className="data text-3xl font-bold text-ink">{money(price)}</span>
+                <Money value={price} className="text-3xl font-bold text-ink" />
                 <span className="text-sm text-mute">/ {cycle === "annual" ? "سنة" : "شهر"}</span>
               </div>
               <ul className="mt-4 grid gap-2 text-sm text-ink-2">
@@ -220,7 +220,7 @@ export default function Workspace() {
         </Link>
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="title text-[28px] leading-tight text-ink">{w.name}</h1>
+            <h1 className="title text-2xl leading-tight text-ink">{w.name}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-mute">
               <PlanBadge w={w} />
               <span>{sectorLabel(w.sector)}</span>

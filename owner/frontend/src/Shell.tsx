@@ -1,93 +1,141 @@
-import { type ReactNode } from "react";
-import { NavLink, Outlet } from "react-router-dom";
-import { Building2, LogOut, ReceiptText, UserRound } from "lucide-react";
+import { useState, type ComponentType } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Building2, LogOut, Menu, ReceiptText, UserRound } from "lucide-react";
+import { MizanLogo } from "@/components/MizanLogo";
+import { Avatar, AvatarFallback } from "@/components/kit/avatar";
+import { Button } from "@/components/kit/button";
+import { Sheet, SheetContent, SheetTitle } from "@/components/kit/sheet";
 import { cn } from "@/lib/utils";
 import { appUrl } from "@/lib/urls";
 import { useMe } from "@app/lib/data";
 import { signOut } from "@app/lib/session";
 
-export function Mark({ className = "size-8" }: { className?: string }) {
-  // The Mizan scale reduced to a beam and two pans.
+const NAV: { to: string; label: string; icon: ComponentType<{ className?: string }>; end?: boolean; tour?: string }[] = [
+  { to: "/", label: "مساحات العمل", icon: Building2, end: true },
+  { to: "/invoices", label: "الفواتير", icon: ReceiptText, tour: "nav-invoices" },
+  { to: "/account", label: "حسابي", icon: UserRound },
+];
+
+/** The side rail, built like the app's (AppSidebar). */
+function Sidebar({ onNavigate, tour }: { onNavigate?: () => void; tour?: boolean }) {
+  const me = useMe();
   return (
-    <svg viewBox="0 0 32 32" className={className} aria-hidden>
-      <rect width="32" height="32" rx="8" fill="#651E2C" />
-      <path d="M16 7v18M8 11h16M8 11l-3 7h6zM24 11l-3 7h6zM11 25h10" stroke="#F5EBDD" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <div className="flex h-full flex-col border-e border-sidebar-border bg-sidebar text-sidebar-foreground">
+      <NavLink to="/" onClick={onNavigate} className="flex h-16 items-center gap-3 border-b border-sidebar-border px-5 transition hover:bg-sidebar-accent/50">
+        <span className="flex size-9 items-center justify-center rounded-lg border border-sidebar-border/30 bg-sidebar-primary/20 p-1">
+          {/* The drawer copy can't use <MizanLogo>: its SVG gradient ids would resolve to the hidden rail. */}
+          {tour ? <MizanLogo size="sm" variant="icon" theme="dark" /> : <img src="/icon.svg" alt="" className="size-6" />}
+        </span>
+        <div className="flex min-w-0 flex-col leading-tight">
+          <span className="truncate font-bold">ميزان</span>
+          <span className="truncate text-xs text-sidebar-foreground/60">لوحة المالك</span>
+        </div>
+      </NavLink>
+
+      <nav aria-label="القائمة الرئيسية" className="flex-1 overflow-y-auto px-3 py-4">
+        <p className="px-3 pb-1 text-[11px] font-medium text-sidebar-foreground/50">حسابك على ميزان</p>
+        <div className="flex flex-col gap-0.5">
+          {NAV.map(({ to, label, icon: Icon, end, tour: t }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              onClick={onNavigate}
+              data-tour={tour ? t : undefined}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-2 focus-visible:outline-sidebar-ring",
+                  isActive && "bg-sidebar-accent font-medium text-sidebar-accent-foreground",
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <Icon className={cn("size-4 shrink-0", isActive && "text-sidebar-primary")} aria-hidden />
+                  <span className="truncate">{label}</span>
+                </>
+              )}
+            </NavLink>
+          ))}
+        </div>
+      </nav>
+
+      <div className="shrink-0 border-t border-sidebar-border p-3">
+        <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
+          <div className="min-w-0 flex-1 leading-tight">
+            <div className="truncate text-xs font-semibold">{me.data?.full_name}</div>
+            <div className="code truncate text-[10px] text-sidebar-foreground/55">{me.data?.login}</div>
+          </div>
+          <button
+            onClick={signOut}
+            className="rounded-md p-1.5 text-sidebar-foreground/70 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            title="تسجيل الخروج"
+            aria-label="تسجيل الخروج"
+          >
+            <LogOut className="size-4 rtl:-scale-x-100" />
+          </button>
+        </div>
+        <p className="mt-1 px-2 text-[10px] text-sidebar-foreground/50">المدفوعات تتم بأمان عبر Paymob</p>
+      </div>
+    </div>
   );
 }
 
-function NavItem({ to, icon, children, end, tour }: { to: string; icon: ReactNode; children: ReactNode; end?: boolean; tour?: string }) {
-  return (
-    <NavLink
-      to={to}
-      end={end}
-      data-tour={tour}
-      className={({ isActive }) =>
-        cn(
-          "flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-semibold whitespace-nowrap transition-colors [&_svg]:size-4",
-          isActive ? "bg-wine-soft text-wine" : "text-ink-2 hover:bg-sand hover:text-ink",
-        )
-      }
-    >
-      {icon}
-      {children}
-    </NavLink>
-  );
-}
+const TITLES: Record<string, string> = { "/": "مساحات العمل", "/invoices": "الفواتير", "/account": "حسابي" };
 
 export default function Shell() {
   const me = useMe();
+  const { pathname } = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const section = TITLES[pathname] ?? (pathname.startsWith("/workspaces") ? "مساحة العمل" : pathname.startsWith("/payment") ? "الدفع" : "");
 
   return (
-    <div className="min-h-svh">
-      <header className="sticky top-0 z-30 border-b border-line bg-paper/90 backdrop-blur">
-        <div className="mx-auto flex max-w-[1120px] flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3 sm:px-8">
-          <a href="/" className="flex items-center gap-2.5">
-            <Mark />
-            <div className="leading-tight">
-              <div className="title text-lg text-ink">ميزان</div>
-              <div className="text-[11px] font-semibold text-mute">حساب المالك</div>
-            </div>
-          </a>
-          <nav aria-label="الرئيسية" className="order-3 -mx-1 flex w-full gap-1 overflow-x-auto px-1 sm:order-none sm:w-auto">
-            <NavItem to="/" end icon={<Building2 />}>
-              مساحات العمل
-            </NavItem>
-            <NavItem to="/invoices" icon={<ReceiptText />} tour="nav-invoices">
-              الفواتير
-            </NavItem>
-            <NavItem to="/account" icon={<UserRound />}>
-              حسابي
-            </NavItem>
-          </nav>
-          <div className="ms-auto flex items-center gap-2">
-            <div className="hidden text-end leading-tight sm:block">
-              <div className="text-[13px] font-semibold text-ink">{me.data?.full_name}</div>
-              <div className="code text-[11px] text-mute">{me.data?.login}</div>
-            </div>
-            <button
-              onClick={signOut}
-              className="rounded-lg p-2 text-mute hover:bg-sand hover:text-ink"
-              title="تسجيل الخروج"
-              aria-label="تسجيل الخروج"
-            >
-              <LogOut className="size-4 rtl:-scale-x-100" />
-            </button>
+    <div className="flex min-h-svh bg-background text-foreground">
+      <aside className="sticky top-0 hidden h-svh w-64 shrink-0 lg:block">
+        <Sidebar tour />
+      </aside>
+
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+        <SheetContent side="right" className="w-72 p-0" showCloseButton={false}>
+          <SheetTitle className="sr-only">القائمة الرئيسية</SheetTitle>
+          <Sidebar onNavigate={() => setMenuOpen(false)} />
+        </SheetContent>
+      </Sheet>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/70 bg-card/90 px-4 backdrop-blur md:px-6">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMenuOpen(true)} aria-label="فتح القائمة">
+              <Menu className="size-4" />
+            </Button>
+            {/* An <img>, not <MizanLogo>: its SVG gradient ids would point into the hidden side rail. */}
+            <img src="/icon.svg" alt="ميزان" className="size-8 lg:hidden" />
+            <span className="text-sm font-semibold text-foreground">{section}</span>
           </div>
-        </div>
-      </header>
+          <div className="flex items-center gap-2">
+            <a href={appUrl("website", "/")} className="hidden rounded-lg px-2 py-1 text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground sm:block">
+              موقع ميزان
+            </a>
+            <div className="flex h-9 items-center gap-2 rounded-lg px-2">
+              <Avatar className="size-7 ring-1 ring-border">
+                <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+                  {(me.data?.full_name ?? "؟").split(" ")[0].slice(0, 2)}
+                </AvatarFallback>
+              </Avatar>
+              <span className="hidden flex-col items-start leading-tight md:flex">
+                <span className="text-xs font-semibold text-foreground">{me.data?.full_name}</span>
+                <span className="text-[10px] text-muted-foreground">مالك</span>
+              </span>
+            </div>
+          </div>
+        </header>
 
-      <main className="mx-auto max-w-[1120px] px-5 py-8 sm:px-8">
-        <Outlet />
-      </main>
-
-      <footer className="mx-auto max-w-[1120px] px-5 pb-10 text-[13px] text-mute sm:px-8">
-        <a href={appUrl("website", "/")} className="hover:text-ink">
-          mizan-co.vercel.app
-        </a>
-        <span className="mx-2">·</span>
-        المدفوعات تتم بأمان عبر Paymob
-      </footer>
+        <main className="flex-1 px-4 py-6 md:px-6 lg:px-8">
+          <div className="mx-auto max-w-[1180px]">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

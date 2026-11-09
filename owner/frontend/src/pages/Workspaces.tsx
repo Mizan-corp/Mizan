@@ -18,7 +18,7 @@ export function PlanBadge({ w }: { w: Pick<Workspace, "plan" | "trial_days_left"
 function WorkspaceCard({ w, first, onOpen, opening }: { w: Workspace; first: boolean; onOpen: () => void; opening: boolean }) {
   const trialEnded = w.plan === "trial" && (w.trial_days_left ?? 0) < 0;
   return (
-    <article className="flex min-w-0 flex-col rounded-xl border border-line bg-card" data-tour={first ? "workspace" : undefined}>
+    <article className="flex min-w-0 flex-col rounded-2xl border border-line bg-card shadow-xs" data-tour={first ? "workspace" : undefined}>
       <div className="flex items-start justify-between gap-3 p-5 pb-4">
         <div className="min-w-0">
           <h2 className="truncate text-lg font-bold text-ink">{w.name}</h2>

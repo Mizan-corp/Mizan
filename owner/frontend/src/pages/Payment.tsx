@@ -4,8 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
 import { actions } from "@app/lib/data";
 import { useOpenWorkspace } from "@app/lib/open";
-import { date, money, planLabel } from "@app/lib/format";
-import { Button, LoadError, PageSkeleton } from "@app/ui";
+import { date, planLabel } from "@app/lib/format";
+import { Button, LoadError, PageSkeleton, Money } from "@app/ui";
 
 const WAIT_MS = 90_000;
 
@@ -65,7 +65,7 @@ export default function Payment() {
   }
 
   return (
-    <div className="mx-auto max-w-lg rounded-xl border border-line bg-card px-6 py-10 text-center">
+    <div className="mx-auto max-w-lg rounded-2xl border border-line bg-card shadow-xs px-6 py-10 text-center">
       <div className="flex justify-center">{icon}</div>
       <h1 className="title mt-4 text-2xl text-ink">{title}</h1>
       <p className="mt-2 leading-7 text-ink-2">{body}</p>
@@ -73,7 +73,7 @@ export default function Payment() {
         <dt className="text-start text-mute">الفاتورة</dt>
         <dd className="code text-end whitespace-nowrap text-ink">{inv.ref}</dd>
         <dt className="text-start text-mute">المبلغ</dt>
-        <dd className="data text-end text-ink">{money(inv.amount_egp)}</dd>
+        <dd className="text-end text-ink"><Money value={inv.amount_egp} /></dd>
       </dl>
       <div className="mt-8 flex flex-wrap justify-center gap-2">
         {inv.status === "paid" ? (

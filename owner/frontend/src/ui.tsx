@@ -2,7 +2,7 @@ import { cloneElement, type ComponentProps, type ReactElement, type ReactNode, u
 import { AlertTriangle, Loader2, X } from "lucide-react";
 import { Dialog as DialogRoot, DialogContent, DialogDescription, DialogTitle } from "@/components/kit/dialog";
 import { cn } from "@/lib/utils";
-import { errorText, type Tone } from "@app/lib/format";
+import { errorText, num, type Tone } from "@app/lib/format";
 
 // ─── Buttons ───────────────────────────────────────────────────────────────
 
@@ -66,7 +66,7 @@ export function PageHeader({ title, description, actions }: { title: ReactNode; 
   return (
     <header className="mb-7 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="title text-[28px] leading-tight text-ink">{title}</h1>
+        <h1 className="title text-2xl leading-tight text-ink">{title}</h1>
         {description && <p className="mt-1.5 text-[15px] text-mute">{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
@@ -83,7 +83,7 @@ export function Panel({
   ...rest
 }: { title?: ReactNode; aside?: ReactNode; children: ReactNode; className?: string; flush?: boolean } & Omit<ComponentProps<"section">, "title">) {
   return (
-    <section className={cn("rounded-xl border border-line bg-card", className)} {...rest}>
+    <section className={cn("rounded-2xl border border-line bg-card shadow-xs", className)} {...rest}>
       {(title || aside) && (
         <div className="flex items-center justify-between gap-3 border-b border-line-soft px-5 py-3.5">
           <h2 className="text-[15px] font-bold text-ink">{title}</h2>
@@ -96,7 +96,7 @@ export function Panel({
 }
 
 export function Meter({ label, used, max }: { label: string; used: number; max: number }) {
-  const unlimited = !max || max >= 9999;
+  const unlimited = !max || max >= 999;
   const pct = unlimited ? 0 : Math.min(100, Math.round((used / max) * 100));
   return (
     <div>
@@ -110,6 +110,16 @@ export function Meter({ label, used, max }: { label: string; used: number; max: 
         <div className={cn("h-full rounded-full", pct >= 90 ? "bg-bad" : pct >= 70 ? "bg-warn" : "bg-wine")} style={{ width: `${unlimited ? 4 : Math.max(pct, 2)}%` }} />
       </div>
     </div>
+  );
+}
+
+/** An amount the way the app shows it: mono figure, currency in the Arabic face. */
+export function Money({ value, className }: { value: number | null | undefined; className?: string }) {
+  return (
+    <span className={cn("inline-flex items-baseline gap-1 whitespace-nowrap", className)}>
+      <span className="data">{num(Math.round(value ?? 0))}</span>
+      <span className="text-[0.7em] font-medium opacity-70">ج.م</span>
+    </span>
   );
 }
 
