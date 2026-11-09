@@ -1,0 +1,83 @@
+@import "tailwindcss";
+@import "@fontsource/ibm-plex-sans-arabic/400.css";
+@import "@fontsource/ibm-plex-sans-arabic/500.css";
+@import "@fontsource/ibm-plex-sans-arabic/600.css";
+@import "@fontsource/ibm-plex-sans-arabic/700.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+
+/* Mizan's palette (data-theme="mizan" in the app), bundled so setup works offline. */
+@theme {
+  --color-paper: #faf6f0;
+  --color-card: #ffffff;
+  --color-sand: #efe4d6;
+  --color-line: #e6dcd2;
+  --color-ink: #262321;
+  --color-ink-2: #4d4744;
+  --color-mute: #77716e;
+  --color-wine: #651e2c;
+  --color-wine-hover: #521723;
+  --color-merlot: #35151d;
+  --color-merlot-2: #48151f;
+  --color-rose: #d4626e;
+  --color-ok: #27835c;
+  --color-bad: #c14e50;
+  --color-warn: #c58a35;
+  --font-sans: "IBM Plex Sans Arabic", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.code {
+  font-family: var(--font-mono);
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* The merlot side panel's concentric arcs, as on the app's login page. */
+.arcs {
+  background-image:
+    radial-gradient(circle at 120% 110%, transparent 0 34%, rgba(255, 255, 255, 0.04) 34.2% 34.6%, transparent 34.8%),
+    radial-gradient(circle at 120% 110%, transparent 0 48%, rgba(255, 255, 255, 0.04) 48.2% 48.6%, transparent 48.8%),
+    radial-gradient(circle at 120% 110%, transparent 0 62%, rgba(255, 255, 255, 0.035) 62.2% 62.6%, transparent 62.8%);
+}
+
+/* Movement only: content stays visible even if the animation doesn't run. */
+@keyframes slide-in {
+  from {
+    transform: translateX(-14px);
+  }
+  to {
+    transform: none;
+  }
+}
+.slide-in {
+  animation: slide-in 0.32s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slide-in {
+    animation: none;
+  }
+}

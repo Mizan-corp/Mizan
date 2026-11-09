@@ -6,7 +6,8 @@
     "system/frontend",
     "website/frontend",
     "owner/frontend",
-    "admin/frontend"
+    "admin/frontend",
+    "installer/setup"
   ],
   "scripts": {
     "dev:system": "npm run dev -w system/frontend",

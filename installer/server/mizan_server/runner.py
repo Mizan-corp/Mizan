@@ -67,7 +67,6 @@ def run(cfg: Config) -> int:
 
     load_app_environment(cfg)
     import uvicorn
-
     from main import app  # the system API, wrapped for server mode (MIZAN_MODE)
 
     stop = threading.Event()

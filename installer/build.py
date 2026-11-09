@@ -11,6 +11,9 @@ Output (installer/build/, git-ignored):
     payload/VERSION
     dist/mizan-setup-<version>-linux-x86_64.run     Linux: self-extracting, command line
     dist/payload-<version>-<platform>.zip           what Mizan Setup (Tauri) embeds
+    dist/MizanSetup-<version>-<platform>[.exe]      Mizan Setup with the payload appended (one file)
+
+Per-client installers: python installer/stamp.py <setup> <licence key or .mzn> <output>
 """
 from __future__ import annotations
 
@@ -163,16 +166,45 @@ def package_payload_zip(target: str) -> Path:
     return out
 
 
+FOOTER_MAGIC = b"MZNSETUP"
+
+
+def package_setup(target: str) -> Path:
+    """Mizan Setup (Tauri, release) + payload.zip + footer: see installer/setup/src-tauri/src/embedded.rs."""
+    step("Mizan Setup (Tauri)")
+    setup = HERE / "setup"
+    npm = "npm.cmd" if os.name == "nt" else "npm"
+    run([npm, "run", "build"], cwd=setup)
+    cargo = shutil.which("cargo") or str(Path.home() / ".cargo" / "bin" / "cargo")
+    run([cargo, "build", "--release"], cwd=setup / "src-tauri")
+    exe = setup / "src-tauri" / "target" / "release" / ("mizan-setup.exe" if target == "windows" else "mizan-setup")
+    payload = DIST / f"payload-{VERSION}-{target}.zip"
+    if not payload.exists():
+        package_payload_zip(target)
+    out = DIST / (f"MizanSetup-{VERSION}-{target}" + (".exe" if target == "windows" else ""))
+    program = exe.read_bytes()
+    with open(out, "wb") as f:
+        f.write(program)
+        offset = f.tell()
+        with open(payload, "rb") as z:
+            shutil.copyfileobj(z, f)
+        length = f.tell() - offset
+        f.write(FOOTER_MAGIC + offset.to_bytes(8, "little") + length.to_bytes(8, "little") + (0).to_bytes(8, "little"))
+    out.chmod(0o755)
+    print(f"  {out} ({out.stat().st_size // 1_000_000} MB)")
+    return out
+
+
 def main() -> int:
     host = "windows" if os.name == "nt" else "linux"
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--platform", choices=list(PG_TARGETS), default=host)
-    p.add_argument("--only", help="comma-separated: web,pgsql,server,run,zip")
+    p.add_argument("--only", help="comma-separated: web,pgsql,server,run,zip,setup")
     a = p.parse_args()
     if a.platform != host and "server" in (a.only or "server"):
         print("mizan-server must be built on its own platform (PyInstaller doesn't cross-compile).", file=sys.stderr)
         return 2
-    parts = (a.only or "web,pgsql,server,run,zip").split(",")
+    parts = (a.only or "web,pgsql,server,run,zip,setup").split(",")
     PAYLOAD.mkdir(parents=True, exist_ok=True)
     write_version()
     if "web" in parts:
@@ -185,6 +217,8 @@ def main() -> int:
         package_linux_run()
     if "zip" in parts:
         package_payload_zip(a.platform)
+    if "setup" in parts:
+        package_setup(a.platform)
     print(f"\n✔ Built for {a.platform} on {_platform.system()}")
     return 0
 

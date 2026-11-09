@@ -231,12 +231,26 @@ def install(
     return summary
 
 
+def _remove_shortcuts() -> None:
+    """The desktop and menu shortcuts Mizan Setup created for a single-device install."""
+    if IS_WINDOWS:
+        public = Path(os.environ.get("PUBLIC", r"C:\Users\Public"))
+        programs = Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+        paths = [public / "Desktop" / "Mizan.lnk", programs / "Mizan.lnk"]
+    else:
+        data = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+        paths = [data / "applications" / "mizan.desktop", Path.home() / "Desktop" / "mizan.desktop"]
+    for path in paths:
+        path.unlink(missing_ok=True)
+
+
 def uninstall(*, delete_data: bool, emit: Emit, data_dir: Path | None = None) -> None:
     cfg = Config.load(data_dir)
     emit("remove-service", "running")
     service.uninstall(cfg)
     postgres.stop(cfg)
     emit("remove-service", "done")
+    _remove_shortcuts()
     if delete_data:
         emit("data", "running")
         shutil.rmtree(cfg.data, ignore_errors=True)

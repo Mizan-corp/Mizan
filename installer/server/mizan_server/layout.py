@@ -52,7 +52,7 @@ def default_data_dir() -> Path:
     if os.environ.get("MIZAN_HOME"):
         return Path(os.environ["MIZAN_HOME"]).expanduser()
     if IS_WINDOWS:
-        return Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "Mizan"
+        return Path(os.environ.get("PROGRAMDATA", r"C:\ProgramData")) / "Mizan"
     if is_admin():
         return Path("/var/lib/mizan")
     return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "mizan"
@@ -60,7 +60,7 @@ def default_data_dir() -> Path:
 
 def default_install_dir() -> Path:
     if IS_WINDOWS:
-        return Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Mizan"
+        return Path(os.environ.get("PROGRAMFILES", r"C:\Program Files")) / "Mizan"
     if is_admin():
         return Path("/opt/mizan")
     return Path.home() / ".local" / "opt" / "mizan"
@@ -127,7 +127,7 @@ class Config:
         return path
 
     @classmethod
-    def load(cls, data_dir: Path | None = None) -> "Config":
+    def load(cls, data_dir: Path | None = None) -> Config:
         candidates = [Path(os.environ["MIZAN_CONFIG"])] if os.environ.get("MIZAN_CONFIG") else []
         candidates.append((data_dir or default_data_dir()) / "config.json")
         for path in candidates:

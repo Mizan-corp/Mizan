@@ -75,3 +75,5 @@ deploy-logs/
 # On-premise installer build output
 installer/build/
 installer/setup/src-tauri/target/
+installer/setup/src-tauri/gen/
+installer/setup/dist/
