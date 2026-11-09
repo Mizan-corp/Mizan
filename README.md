@@ -303,7 +303,7 @@ shared/                 code all three use
                         api/routers (ERP endpoint library), modules (48 domain modules),
                         db (baseline schema, migrations, bootstrap)
 e2e/                    live API end-to-end suite
-scripts/                migrate.py, demo seeders, verification scripts
+scripts/                migrate.py, ZKTeco sync, Windows installer
 docs/                   product, architecture, design, security and requirements docs
 .github/                CI workflow
 docker-compose.yml      local stack: database + the three APIs
