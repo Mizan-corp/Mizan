@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from "react";
+import { MizanLogo } from "@/components/MizanLogo";
 import { api } from "@/lib/api";
 import { useAuth, type User } from "@/stores/auth";
 import { errorText } from "@app/lib/format";
@@ -34,9 +35,15 @@ export default function SignIn({ notice }: { notice?: string }) {
 
   return (
     <div className="grid min-h-svh place-items-center bg-rail px-4">
-      <form onSubmit={submit} className="w-full max-w-sm rounded-xl bg-white p-7 shadow-2xl">
+      <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-line bg-card p-7 shadow-xl">
         <div className="mb-6">
-          <div className="text-[11px] font-bold tracking-[0.1em] text-ox uppercase">Mizan Admin</div>
+          <div className="mb-5 flex items-center gap-2.5">
+            <MizanLogo size="md" variant="icon" />
+            <div className="leading-tight">
+              <div className="font-bold text-ink">Mizan</div>
+              <div className="text-xs text-mute">Admin panel</div>
+            </div>
+          </div>
           <h1 className="mt-1 text-xl font-bold tracking-[-0.02em] text-ink">Sign in to manage the platform</h1>
           <p className="mt-1 text-[13px] text-mute">For the Mizan team. Business owners sign in to their owner account instead.</p>
         </div>

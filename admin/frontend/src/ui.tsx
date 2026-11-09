@@ -12,7 +12,7 @@ import { ago, dateTime, errorText, type Tone } from "@app/lib/format";
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 const BUTTON: Record<ButtonVariant, string> = {
   primary: "bg-ox text-white hover:bg-ox-hover shadow-sm",
-  secondary: "bg-white text-ink border border-line hover:border-ink-2/40 hover:bg-paper",
+  secondary: "bg-card text-ink border border-line hover:border-ink-2/40 hover:bg-paper",
   ghost: "text-ink-2 hover:bg-line-soft hover:text-ink",
   danger: "bg-bad text-white hover:bg-bad/90",
 };
@@ -123,7 +123,7 @@ export function Panel({
   flush?: boolean;
 }) {
   return (
-    <section className={cn("rounded-lg border border-line bg-white", className)}>
+    <section className={cn("rounded-2xl border border-line bg-card shadow-xs", className)}>
       {(title || aside) && (
         <div className="flex items-center justify-between gap-3 border-b border-line-soft px-4 py-3">
           <h2 className="text-sm font-bold text-ink">{title}</h2>
@@ -138,7 +138,7 @@ export function Panel({
 /** A row of figures separated by rules; the ledger line at the top of a page. */
 export function Figures({ items }: { items: { label: string; value: ReactNode; hint?: ReactNode }[] }) {
   return (
-    <dl className="grid grid-cols-2 overflow-hidden rounded-lg border border-line bg-white sm:grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
+    <dl className="grid grid-cols-2 overflow-hidden rounded-2xl border border-line bg-card shadow-xs sm:grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
       {items.map((it) => (
         <div key={it.label} className="border-line-soft border-b px-4 py-3.5 sm:border-r sm:border-b-0 sm:last:border-r-0">
           <dt className="text-xs font-semibold text-mute">{it.label}</dt>
@@ -192,7 +192,7 @@ export function Segmented<T extends string>({
   items: { value: T; label: string; count?: number }[];
 }) {
   return (
-    <div className="inline-flex rounded-md border border-line bg-white p-0.5">
+    <div className="inline-flex rounded-md border border-line bg-card p-0.5">
       {items.map((it) => (
         <button
           key={it.value}
@@ -238,7 +238,7 @@ export const Td = ({ className, ...props }: ComponentProps<"td">) => (
 
 // ─── Forms ─────────────────────────────────────────────────────────────────
 
-const FIELD = "h-9 w-full rounded-md border border-line bg-white px-3 text-sm text-ink placeholder:text-mute/70 focus:border-ox focus:outline-none focus:ring-2 focus:ring-ox/15";
+const FIELD = "h-9 w-full rounded-md border border-line bg-card px-3 text-sm text-ink placeholder:text-mute/70 focus:border-ox focus:outline-none focus:ring-2 focus:ring-ox/15";
 
 export function Field({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactElement<{ id?: string; "aria-describedby"?: string }> }) {
   const id = useId();
@@ -284,7 +284,7 @@ export function Modal({
 }) {
   return (
     <DialogRoot open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent showCloseButton={false} className={cn("gap-0 rounded-lg bg-white p-0 font-[family-name:var(--font-admin)]", wide ? "sm:max-w-xl" : "sm:max-w-md")}>
+      <DialogContent showCloseButton={false} className={cn("gap-0 rounded-2xl bg-card p-0 font-[family-name:var(--font-admin)]", wide ? "sm:max-w-xl" : "sm:max-w-md")}>
         <div className="flex items-start justify-between gap-4 border-b border-line-soft px-5 py-4">
           <div>
             <DialogTitle className="text-base font-bold text-ink">{title}</DialogTitle>
@@ -383,7 +383,7 @@ export function ErrorNote({ children }: { children: ReactNode }) {
 
 export function LoadError({ error, retry }: { error: unknown; retry: () => void }) {
   return (
-    <div className="rounded-lg border border-line bg-white px-6 py-10 text-center">
+    <div className="rounded-2xl border border-line bg-card px-6 py-10 text-center shadow-xs">
       <p className="text-sm font-semibold text-ink">This page couldn't load.</p>
       <p className="mt-1 text-[13px] text-mute">{errorText(error)}</p>
       <Button className="mt-4" onClick={retry}>

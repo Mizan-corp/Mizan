@@ -1,117 +1,173 @@
-import { type ReactNode } from "react";
-import { NavLink, Outlet } from "react-router-dom";
-import { Activity, Building2, CreditCard, Gauge, LogOut, ServerCog, Users } from "lucide-react";
+import { useState, type ComponentType } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Activity, Building2, CreditCard, Gauge, LogOut, Menu, ServerCog, Users } from "lucide-react";
+import { MizanLogo } from "@/components/MizanLogo";
+import { Avatar, AvatarFallback } from "@/components/kit/avatar";
+import { Button } from "@/components/kit/button";
+import { Sheet, SheetContent, SheetTitle } from "@/components/kit/sheet";
 import { useAuth } from "@/stores/auth";
 import { cn } from "@/lib/utils";
 import { appUrl } from "@/lib/urls";
 import { useBilling, useOverview } from "@app/lib/data";
 
-function Mark() {
-  // The Mizan scale reduced to a beam and two pans.
-  return (
-    <svg viewBox="0 0 32 32" className="size-7" aria-hidden>
-      <rect width="32" height="32" rx="7" fill="#651E2C" />
-      <path d="M16 7v18M8 11h16M8 11l-3 7h6zM24 11l-3 7h6zM11 25h10" stroke="#F5EBDD" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
+type Item = { to: string; label: string; icon: ComponentType<{ className?: string }>; end?: boolean; count?: number };
 
-function NavItem({ to, icon, children, count, end }: { to: string; icon: ReactNode; children: ReactNode; count?: number; end?: boolean }) {
-  return (
-    <NavLink
-      to={to}
-      end={end}
-      className={({ isActive }) =>
-        cn(
-          "group flex h-9 shrink-0 items-center gap-2 rounded-md px-2.5 text-sm font-semibold whitespace-nowrap transition-colors lg:gap-2.5 [&_svg]:size-4",
-          isActive ? "bg-white/10 text-white" : "text-rail-text/80 hover:bg-rail-hover hover:text-white",
-        )
-      }
-    >
-      {icon}
-      <span className="lg:flex-1">{children}</span>
-      {!!count && <span className="data rounded bg-ox px-1.5 text-[11px] font-medium text-white">{count}</span>}
-    </NavLink>
-  );
-}
-
-export default function Shell() {
+/** The side rail, built like the app's (AppSidebar). */
+function Sidebar({ onNavigate, primary }: { onNavigate?: () => void; primary?: boolean }) {
   const user = useAuth((s) => s.user);
   const logout = useAuth((s) => s.logout);
   const overview = useOverview();
   const billing = useBilling();
-  const needs = overview.data?.attention.length;
-  const pending = billing.data?.summary.pending_count;
+
+  const groups: { label: string; items: Item[] }[] = [
+    {
+      label: "Customers",
+      items: [
+        { to: "/", label: "Overview", icon: Gauge, end: true, count: overview.data?.attention.length },
+        { to: "/workspaces", label: "Workspaces", icon: Building2 },
+        { to: "/billing", label: "Billing", icon: CreditCard, count: billing.data?.summary.pending_count },
+        { to: "/activity", label: "Activity", icon: Activity },
+      ],
+    },
+    {
+      label: "Platform",
+      items: [
+        { to: "/team", label: "Team", icon: Users },
+        { to: "/system", label: "System", icon: ServerCog },
+      ],
+    },
+  ];
 
   return (
-    <div className="min-h-svh lg:grid lg:grid-cols-[228px_1fr]">
-      <div className="sticky top-0 z-30 bg-rail lg:static">
-      <aside className="flex items-center gap-2 px-3 py-2 text-rail-text lg:sticky lg:top-0 lg:h-svh lg:flex-col lg:items-stretch lg:gap-0 lg:py-4">
-        <div className="flex items-center gap-2.5 px-1.5 lg:mb-6">
-          <Mark />
-          <div className="hidden leading-tight sm:block">
-            <div className="text-[15px] font-extrabold tracking-[-0.01em] text-white">Mizan</div>
-            <div className="text-[11px] font-semibold tracking-[0.08em] text-rail-mute uppercase">Admin</div>
-          </div>
+    <div className="flex h-full flex-col border-e border-sidebar-border bg-sidebar text-sidebar-foreground">
+      <NavLink to="/" onClick={onNavigate} className="flex h-16 items-center gap-3 border-b border-sidebar-border px-5 transition hover:bg-sidebar-accent/50">
+        <span className="flex size-9 items-center justify-center rounded-lg border border-sidebar-border/30 bg-sidebar-primary/20 p-1">
+          {/* The drawer copy can't use <MizanLogo>: its SVG gradient ids would resolve to the hidden rail. */}
+          {primary ? <MizanLogo size="sm" variant="icon" theme="dark" /> : <img src="/icon.svg" alt="" className="size-6" />}
+        </span>
+        <div className="flex min-w-0 flex-col leading-tight">
+          <span className="truncate font-bold">Mizan</span>
+          <span className="truncate text-xs text-sidebar-foreground/60">Admin panel</span>
         </div>
+      </NavLink>
 
-        <div className="no-scrollbar flex flex-1 gap-0.5 overflow-x-auto lg:block lg:flex-none lg:overflow-visible">
-        <nav aria-label="Main" className="flex gap-0.5 lg:grid">
-          <NavItem to="/" end icon={<Gauge />} count={needs}>
-            Overview
-          </NavItem>
-          <NavItem to="/workspaces" icon={<Building2 />}>
-            Workspaces
-          </NavItem>
-          <NavItem to="/billing" icon={<CreditCard />} count={pending}>
-            Billing
-          </NavItem>
-          <NavItem to="/activity" icon={<Activity />}>
-            Activity
-          </NavItem>
-        </nav>
-
-        <div className="mt-6 mb-1.5 hidden px-2.5 text-[11px] font-semibold tracking-[0.08em] text-rail-mute uppercase lg:block">Platform</div>
-        <nav aria-label="Platform" className="flex gap-0.5 lg:grid">
-          <NavItem to="/team" icon={<Users />}>
-            Team
-          </NavItem>
-          <NavItem to="/system" icon={<ServerCog />}>
-            System
-          </NavItem>
-        </nav>
-        </div>
-
-        <div className="lg:mt-auto lg:border-t lg:border-white/10 lg:pt-3">
-          <div className="flex items-center gap-2.5 px-1.5">
-            <div className="hidden size-8 place-items-center lg:grid rounded-full bg-white/10 text-xs font-bold text-white">
-              {(user?.full_name || user?.username || "?").slice(0, 1).toUpperCase()}
+      <nav aria-label="Main" className="flex-1 overflow-y-auto px-3 py-4">
+        <div className="flex flex-col gap-4">
+          {groups.map((g) => (
+            <div key={g.label}>
+              <p className="px-3 pb-1 text-[11px] font-medium text-sidebar-foreground/50">{g.label}</p>
+              <div className="flex flex-col gap-0.5">
+                {g.items.map(({ to, label, icon: Icon, end, count }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    end={end}
+                    onClick={onNavigate}
+                    className={({ isActive }) =>
+                      cn(
+                        "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-2 focus-visible:outline-sidebar-ring",
+                        isActive && "bg-sidebar-accent font-medium text-sidebar-accent-foreground",
+                      )
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <Icon className={cn("size-4 shrink-0", isActive && "text-sidebar-primary")} aria-hidden />
+                        <span className="flex-1 truncate">{label}</span>
+                        {!!count && (
+                          <span className="data rounded-full bg-sidebar-primary px-1.5 text-[10px] font-semibold text-sidebar-primary-foreground">
+                            {count}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
             </div>
-            <div className="hidden min-w-0 flex-1 leading-tight lg:block">
-              <div className="bidi truncate text-[13px] font-semibold text-white">{user?.full_name}</div>
-              <div className="truncate text-[11px] text-rail-mute">@{user?.username}</div>
-            </div>
-            <button
-              onClick={logout}
-              className="rounded p-1.5 text-rail-mute hover:bg-rail-hover hover:text-white"
-              title="Sign out"
-              aria-label="Sign out"
-            >
-              <LogOut className="size-4" />
-            </button>
-          </div>
-          <a href={appUrl("system", "/")} className="mt-2 hidden px-1.5 text-[11px] text-rail-mute hover:text-white lg:block">
-            Go to the Mizan app ↗
-          </a>
+          ))}
         </div>
-      </aside>
+      </nav>
+
+      <div className="shrink-0 border-t border-sidebar-border p-3">
+        <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
+          <div className="bidi min-w-0 flex-1 leading-tight">
+            <div className="truncate text-xs font-semibold">{user?.full_name}</div>
+            <div className="code truncate text-[10px] text-sidebar-foreground/55">@{user?.username}</div>
+          </div>
+          <button
+            onClick={logout}
+            className="rounded-md p-1.5 text-sidebar-foreground/70 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            title="Sign out"
+            aria-label="Sign out"
+          >
+            <LogOut className="size-4" />
+          </button>
+        </div>
+        <a href={appUrl("system", "/")} className="mt-1 block px-2 text-[10px] text-sidebar-foreground/50 hover:text-sidebar-foreground">
+          Go to the Mizan app ↗
+        </a>
       </div>
+    </div>
+  );
+}
 
-      <main className="min-w-0 px-5 py-7 sm:px-8 lg:px-10">
-        <div className="mx-auto max-w-[1180px]">
-          <Outlet />
-        </div>
-      </main>
+const TITLES: [RegExp, string][] = [
+  [/^\/$/, "Overview"],
+  [/^\/workspaces/, "Workspaces"],
+  [/^\/billing/, "Billing"],
+  [/^\/activity/, "Activity"],
+  [/^\/team/, "Team"],
+  [/^\/system/, "System"],
+];
+
+export default function Shell() {
+  const user = useAuth((s) => s.user);
+  const { pathname } = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const section = TITLES.find(([re]) => re.test(pathname))?.[1] ?? "";
+
+  return (
+    <div className="flex min-h-svh bg-background text-foreground">
+      <aside className="sticky top-0 hidden h-svh w-64 shrink-0 lg:block">
+        <Sidebar primary />
+      </aside>
+
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+        <SheetContent side="left" className="w-72 p-0" showCloseButton={false}>
+          <SheetTitle className="sr-only">Main menu</SheetTitle>
+          <Sidebar onNavigate={() => setMenuOpen(false)} />
+        </SheetContent>
+      </Sheet>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border/70 bg-card/90 px-4 backdrop-blur md:px-6">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu">
+              <Menu className="size-4" />
+            </Button>
+            <img src="/icon.svg" alt="Mizan" className="size-8 lg:hidden" />
+            <span className="text-sm font-semibold text-foreground">{section}</span>
+          </div>
+          <div className="flex h-9 items-center gap-2 rounded-lg px-2">
+            <Avatar className="size-7 ring-1 ring-border">
+              <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
+                {(user?.full_name || user?.username || "?").slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <span className="hidden flex-col items-start leading-tight md:flex">
+              <span className="bidi text-xs font-semibold text-foreground">{user?.full_name}</span>
+              <span className="text-[10px] text-muted-foreground">Mizan team</span>
+            </span>
+          </div>
+        </header>
+
+        <main className="flex-1 px-4 py-6 md:px-6 lg:px-8">
+          <div className="mx-auto max-w-[1180px]">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

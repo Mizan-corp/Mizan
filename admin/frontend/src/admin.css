@@ -1,46 +1,50 @@
-/* Admin theme: the shared Mizan tokens plus the control-room palette below. */
+/*
+ * Admin theme: the app's own design tokens (shared styles, data-theme="mizan"),
+ * so the admin panel looks like the rest of Mizan. The names below are aliases
+ * the admin components use; every colour resolves to a shared token.
+ */
 @import "../../../shared/frontend/src/styles.css";
 @source "./";
 
 @theme {
-  --color-rail: #2a1117;
-  --color-rail-hover: #3b1a22;
-  --color-rail-text: #e9dcd6;
-  --color-rail-mute: #a8928c;
-  --color-ox: #651e2c;
-  --color-ox-hover: #7b2637;
-  --color-ox-soft: #f6e9eb;
-  --color-paper: #f6f3ee;
-  --color-ink: #1f1b19;
-  --color-ink-2: #4a4441;
-  --color-mute: #857d78;
-  --color-line: #e6dfd7;
-  --color-line-soft: #efe9e2;
-  --color-ok: #2f7d57;
-  --color-ok-soft: #e7f2ec;
-  --color-warn: #a86b12;
-  --color-warn-soft: #fbf1df;
-  --color-bad: #b4443f;
-  --color-bad-soft: #f8e6e5;
-  --color-info: #3d6a94;
-  --color-info-soft: #e8eff6;
-  --font-admin: "Manrope", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
-  --font-data: "IBM Plex Mono", ui-monospace, monospace;
+  --color-rail: var(--sidebar);
+  --color-rail-hover: var(--sidebar-accent);
+  --color-rail-text: var(--sidebar-foreground);
+  --color-rail-mute: color-mix(in oklab, var(--sidebar-foreground) 55%, transparent);
+  --color-ox: var(--primary);
+  --color-ox-hover: color-mix(in oklab, var(--primary) 80%, transparent);
+  --color-ox-soft: color-mix(in oklab, var(--primary) 10%, transparent);
+  --color-paper: var(--background);
+  --color-ink: var(--foreground);
+  --color-ink-2: color-mix(in oklab, var(--foreground) 82%, var(--muted-foreground));
+  --color-mute: var(--muted-foreground);
+  --color-line: var(--border);
+  --color-line-soft: color-mix(in oklab, var(--border) 65%, transparent);
+  --color-ok: var(--success);
+  --color-ok-soft: color-mix(in oklab, var(--success) 12%, transparent);
+  --color-warn: var(--warning);
+  --color-warn-soft: color-mix(in oklab, var(--warning) 14%, transparent);
+  --color-bad: var(--destructive);
+  --color-bad-soft: color-mix(in oklab, var(--destructive) 12%, transparent);
+  --color-info: #557da1;
+  --color-info-soft: color-mix(in oklab, #557da1 12%, transparent);
+  --font-admin: var(--font-sans);
+  --font-data: "IBM Plex Mono", "IBM Plex Sans Arabic", ui-monospace, monospace;
 }
 
 html,
 body {
-  background: var(--color-paper);
+  background: var(--background);
 }
 
 body {
   font-family: var(--font-admin);
   color: var(--color-ink);
-  font-feature-settings: "ss01" 1;
 }
 
-/* Figures: amounts and counts line up in columns. */
+/* Figures: the app shows amounts and counts in the mono face, aligned. */
 .data {
+  font-family: var(--font-data);
   font-variant-numeric: tabular-nums lining-nums;
   font-feature-settings: "tnum" 1, "lnum" 1;
 }

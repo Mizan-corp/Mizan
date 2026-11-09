@@ -259,7 +259,7 @@ function ModulesTab({ d }: { d: Detail }) {
         <div className="sticky bottom-4 flex items-center justify-between gap-4 rounded-lg border border-line bg-ink px-4 py-3 text-sm text-white shadow-lg">
           <span>Unsaved changes to modules</span>
           <div className="flex gap-2">
-            <Button size="sm" variant="ghost" className="text-white hover:bg-white/10 hover:text-white" onClick={() => setSelected(new Set(initial))}>
+            <Button size="sm" variant="ghost" className="text-white hover:bg-card/10 hover:text-white" onClick={() => setSelected(new Set(initial))}>
               Discard
             </Button>
             <Button
@@ -363,7 +363,7 @@ function SettingsTab({ d }: { d: Detail }) {
         </form>
       </Panel>
 
-      <section className="rounded-lg border border-bad/30 bg-white">
+      <section className="rounded-lg border border-bad/30 bg-card">
         <div className="border-b border-bad/20 px-4 py-3">
           <h2 className="text-sm font-bold text-bad">Delete workspace</h2>
         </div>
