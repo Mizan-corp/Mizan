@@ -202,12 +202,10 @@ function renderErpChildRoutes(includeIndex: boolean = true) {
 }
 
 export default function App() {
-  const token = useAuth((s) => s.token);
-  const user = useAuth((s) => s.user);
-
   return (
     <Routes>
-      <Route path="/login" element={token && user ? <Navigate to="/" replace /> : <LoginPage />} />
+      {/* Owners sign in here (it opens the owner panel); employees use /c/<workspace>/login. */}
+      <Route path="/login" element={<LoginPage owner />} />
 
       {/* Public Customer-Facing Storefront Routes */}
       <Route path="/store/:tenantSlug" element={<Page><PublicStorefrontPage /></Page>} />

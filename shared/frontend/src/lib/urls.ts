@@ -11,7 +11,7 @@ const trim = (u: string) => u.replace(/\/+$/, "");
 export const APP_URLS: Record<AppKind, string> = {
   website: trim((import.meta.env.VITE_WEBSITE_URL as string | undefined) ?? "https://mizan-co.vercel.app"),
   system: trim((import.meta.env.VITE_SYSTEM_URL as string | undefined) ?? "https://mizan-co-app.vercel.app"),
-  owner: trim((import.meta.env.VITE_OWNER_URL as string | undefined) ?? "https://mizan-co-account.vercel.app"),
+  owner: trim((import.meta.env.VITE_OWNER_URL as string | undefined) ?? "https://mizan-co-owner.vercel.app"),
   admin: trim((import.meta.env.VITE_ADMIN_URL as string | undefined) ?? "https://mizan-co-admin.vercel.app"),
 };
 

@@ -1,4 +1,4 @@
-"""Owner sign-in and profile."""
+"""The owner's profile. Owners sign in on the app's /login (app.api.routers.owner_login)."""
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -8,17 +8,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.ratelimit import RateLimiter
 from app.core.security import hash_password, verify_password
 from app.db.base import get_db
 from app.models.owner import OwnerAccount
 from app.models.user import User
-from app.services.owners import authenticate_owner, bypass_rls, get_current_owner, issue_owner_token
+from app.services.owners import bypass_rls, get_current_owner
 
 router = APIRouter(prefix="/account", tags=["account"])
-
-login_limiter = RateLimiter(max_requests=10, window_seconds=60)
-
 
 def profile(o: OwnerAccount) -> dict:
     return {
@@ -30,19 +26,6 @@ def profile(o: OwnerAccount) -> dict:
         "tour_done": bool((o.settings or {}).get("tour_done_at")),
         "created_at": o.created_at.isoformat() if o.created_at else None,
     }
-
-
-class LoginRequest(BaseModel):
-    login: str = Field(min_length=1, max_length=64)
-    password: str = Field(min_length=1, max_length=128)
-
-
-@router.post("/login")
-async def login(data: LoginRequest, db: AsyncSession = Depends(get_db), _=Depends(login_limiter)):
-    owner = await authenticate_owner(db, data.login, data.password)
-    await db.commit()
-    # Bearer only: the panel keeps the token itself; no cookie session.
-    return {"access_token": issue_owner_token(owner), "owner": profile(owner)}
 
 
 @router.get("/me")

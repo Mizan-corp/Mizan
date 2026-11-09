@@ -47,6 +47,17 @@ def client() -> AsyncClient:
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
+def erp_login_client() -> AsyncClient:
+    """Owners sign in on the app's /login; that endpoint lives in the shared kernel."""
+    from fastapi import FastAPI
+
+    from app.api.routers import owner_login
+
+    erp = FastAPI()
+    erp.include_router(owner_login.router)
+    return AsyncClient(transport=ASGITransport(app=erp), base_url="http://test")
+
+
 async def make_owner(password: str = "secret123") -> tuple[OwnerAccount, Tenant, User]:
     """An owner with one trial workspace and its admin user."""
     async with AsyncSessionLocal() as db:
@@ -93,8 +104,9 @@ def txn(ref: str, cents: int, txn_id: int, **kw) -> dict:
 
 
 async def login(c: AsyncClient, owner: OwnerAccount, password: str = "secret123") -> dict:
-    r = await c.post("/account/login", json={"login": owner.login.upper(), "password": password})
-    assert r.status_code == 200, r.text
+    async with erp_login_client() as erp:
+        r = await erp.post("/account/login", json={"login": owner.login.upper(), "password": password})
+    assert r.status_code == 200 and "access_token" in r.json(), r.text
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
 
@@ -110,13 +122,32 @@ def test_hmac_matches_paymob_field_order(monkeypatch):
 
 async def test_sign_in_and_token_scopes():
     owner, tenant, user = await make_owner()
+    async with erp_login_client() as erp:
+        assert (await erp.post("/account/login", json={"login": owner.login, "password": "nope"})).status_code == 401
     async with client() as c:
-        assert (await c.post("/account/login", json={"login": owner.login, "password": "nope"})).status_code == 401
+        assert (await c.post("/account/login", json={"login": owner.login, "password": "secret123"})).status_code in (404, 405)
         h = await login(c, owner)
         assert (await c.get("/account/me", headers=h)).json()["login"] == owner.login
         # An ERP token isn't an owner session.
         erp = create_access_token({"sub": str(user.id), "tid": str(tenant.id)})
         assert (await c.get("/account/me", headers={"Authorization": f"Bearer {erp}"})).status_code == 401
+
+
+async def test_employees_are_sent_to_their_workspace_login():
+    _, tenant, _ = await make_owner()
+    async with AsyncSessionLocal() as db:
+        from sqlalchemy import text
+
+        await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
+        name = f"cashier-{uuid.uuid4().hex[:8]}"
+        db.add(User(id=uuid.uuid4(), tenant_id=tenant.id, username=name, full_name="Cashier", role="cashier",
+                    password_hash=hash_password("cashier123")))
+        await db.commit()
+    async with erp_login_client() as erp:
+        r = await erp.post("/account/login", json={"login": name, "password": "cashier123"})
+        assert r.json() == {"employee_workspace": tenant.slug}
+        # A wrong password reveals nothing.
+        assert (await erp.post("/account/login", json={"login": name, "password": "nope"})).status_code == 401
 
 
 async def test_owner_token_is_refused_by_the_erp():

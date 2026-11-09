@@ -56,7 +56,7 @@ of one shared kernel and one PostgreSQL database (see `docs/decisions/ADR-003-se
 |---|---|---|---|
 | `system/` | The ERP tenants use every day | `system/frontend` → mizan-co-app | `system/backend` → mizan-co-api |
 | `website/` | Landing, pricing, docs, signup, onboarding | `website/frontend` → mizan-co | `website/backend` → mizan-co-web-api |
-| `owner/` | The owner panel: an owner's workspaces, subscriptions, Paymob payments (Arabic) | `owner/frontend` → mizan-co-account | `owner/backend` → mizan-co-account-api |
+| `owner/` | The owner panel: an owner's workspaces, subscriptions, Paymob payments (Arabic) | `owner/frontend` → mizan-co-owner | `owner/backend` → mizan-co-owner-api |
 | `admin/` | The admin panel (English, Mizan team only) | `admin/frontend` → mizan-co-admin | `admin/backend` → mizan-co-admin-api |
 | `shared/` | Code every product uses | `shared/frontend` (design kit) | `shared/backend` (domain kernel) |
 

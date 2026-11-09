@@ -15,13 +15,15 @@ their workspace a paid plan for free, and the payment webhook accepted unsigned 
   ERP user the owner signs in as there. Migration `v47_owner_accounts` backfills one owner
   account per existing workspace from its first admin, reusing that admin's username and
   password. Signup, the admin panel's "New workspace" and the bootstrap create one too.
-- **Where you sign in decides who you are.** The platform sign-in (website → owner panel)
-  authenticates an owner account and issues a token with `scope: owner`. A workspace's
-  login page authenticates an ERP user. The ERP refuses owner tokens; the owner API
+- **Where you sign in decides who you are.** The app's `/login` (no workspace in the
+  address) is the owners' sign-in: it authenticates an owner account (`POST /account/login`
+  on the system API), issues a token with `scope: owner` and hands it to the owner panel,
+  which has no sign-in page of its own. A workspace's login page (`/c/<workspace>/login`)
+  authenticates an ERP user; employees who try `/login` are sent there. The ERP refuses owner tokens; the owner API
   refuses ERP tokens. "Open workspace" issues an ERP token for the owner's user in that
   workspace and hands it over in the URL fragment, like ADR-003's handoffs.
-- **A fourth product, `owner/`.** Arabic RTL frontend and `owner-api`, on their own domain
-  (`mizan-co-account`). After signup the website hands the new owner to the panel, where a
+- **A fourth product, `owner/`.** Arabic RTL frontend and `owner-api`, on their own domains
+  (`mizan-co-owner`, `mizan-co-owner-api`). After signup the website hands the new owner to the panel, where a
   short interactive tour introduces it.
 - **Paying happens only in the owner panel, through Paymob.** Checkout creates an invoice
   and a Paymob intention (`POST /v1/intention/`), then sends the owner to Unified

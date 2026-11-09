@@ -15,6 +15,7 @@ import { sound } from "@/lib/sound";
 import { MizanLogo } from "@/components/MizanLogo";
 import { useTranslation } from "@/i18n";
 import { appUrl } from "@/lib/urls";
+import { openWithSession } from "@/lib/handoff";
 
 const auth = () => useAuth.getState();
 
@@ -30,22 +31,34 @@ export interface LoginPageProps {
   tenant?: TenantInfo | null;
   tenantSlug?: string;
   onSuccess?: () => void;
+  /**
+   * The app's /login, without a workspace: business owners sign in here and
+   * land in the owner panel. Employees use their workspace's page instead.
+   */
+  owner?: boolean;
+}
+
+/** Only same-site paths may be passed back to the owner panel. */
+function safeNext(raw: string | null): string {
+  return raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : "/";
 }
 
 export default function LoginPage(props: LoginPageProps = {}) {
-  const [username, setUsername] = useState("");
+  const location = useLocation();
+  const handed = (location.state ?? {}) as { notice?: string; username?: string };
+  const [username, setUsername] = useState(handed.username ?? "");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [workspace, setWorkspace] = useState("");
   const navigate = useNavigate();
-  const location = useLocation();
   const { locale, dir, toggleLocale } = useTranslation();
   const isAr = locale === "ar";
 
   const authTenant = useAuth((s) => s.tenant);
-  const currentTenant = props.tenant || authTenant;
-  const rawSlug = props.tenantSlug || currentTenant?.slug;
+  const currentTenant = props.owner ? null : props.tenant || authTenant;
+  const rawSlug = props.owner ? undefined : props.tenantSlug || currentTenant?.slug;
   const targetSlug = rawSlug && rawSlug !== "undefined" && rawSlug !== "null" ? rawSlug : undefined;
 
   const loginCfg = currentTenant?.login_config;
@@ -59,12 +72,38 @@ export default function LoginPage(props: LoginPageProps = {}) {
   const showPoweredBy = loginCfg?.show_powered_by !== false;
   const isCustomPortal = Boolean(targetSlug || currentTenant);
 
+  async function submitOwner() {
+    const r = await api.post<{ access_token?: string; employee_workspace?: string }>("/account/login", {
+      login: username.trim(),
+      password,
+    });
+    if (r.employee_workspace) {
+      // An employee account: its sign-in page is the workspace's own.
+      navigate(`/c/${r.employee_workspace}/login`, {
+        state: {
+          username: username.trim(),
+          notice: isAr
+            ? "هذا حساب موظف. سجّل الدخول من صفحة مساحة العمل الخاصة بك (هذه الصفحة)، واحفظ رابطها."
+            : "This is an employee account. Sign in on your workspace's page (this one), and bookmark it.",
+        },
+      });
+      return;
+    }
+    sound.success();
+    const next = safeNext(new URLSearchParams(location.search).get("next"));
+    openWithSession("owner", next, r.access_token!);
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
       sound.click();
+      if (props.owner) {
+        await submitOwner();
+        return;
+      }
       const r = await api.post<LoginResponse>("/auth/login", {
         username,
         password,
@@ -230,12 +269,21 @@ export default function LoginPage(props: LoginPageProps = {}) {
                 : (isAr ? "تسجيل الدخول" : "Sign In to Mizan")}
             </h1>
             <p className="text-xs sm:text-sm text-[#77716E]">
-              {isAr
-                ? "أدخل بيانات حسابك للوصول إلى لوحة التحكم ومساحة العمل الخاصة بك."
-                : "Enter your credentials to access your enterprise dashboard."}
+              {props.owner
+                ? isAr
+                  ? "لأصحاب المنشآت: مساحات عملك واشتراكاتك وفواتيرك في مكان واحد."
+                  : "For business owners: your workspaces, subscriptions and invoices in one place."
+                : isAr
+                  ? "أدخل بيانات حسابك للوصول إلى لوحة التحكم ومساحة العمل الخاصة بك."
+                  : "Enter your credentials to access your enterprise dashboard."}
             </p>
           </div>
 
+          {handed.notice && !error && (
+            <p role="status" className="rounded-2xl border border-[#E7D6C1] bg-[#FAF6F0] px-4 py-3 text-xs leading-relaxed text-[#262321]">
+              {handed.notice}
+            </p>
+          )}
           {error && <ErrorBox message={error} />}
 
           <form onSubmit={submit} className="space-y-5">
@@ -319,6 +367,39 @@ export default function LoginPage(props: LoginPageProps = {}) {
               </span>
               <p className="text-[#651E2C] font-mono select-all dir-ltr font-semibold">{customSupport}</p>
             </div>
+          )}
+
+          {props.owner && (
+            <details className="rounded-2xl border border-[#DECFC0] bg-[#FAF6F0] p-4 text-xs text-start">
+              <summary className="cursor-pointer font-semibold text-[#262321]">
+                {isAr ? "موظف في منشأة؟" : "Work for a business on Mizan?"}
+              </summary>
+              <p className="mt-2 text-[#77716E]">
+                {isAr
+                  ? "الموظفون يدخلون من صفحة الدخول الخاصة بمساحة العمل. اكتب اسم الرابط الذي أعطاه لك المدير:"
+                  : "Employees sign in on their workspace's page. Type the workspace name your manager gave you:"}
+              </p>
+              <form
+                className="mt-3 flex gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const slug = workspace.trim().toLowerCase();
+                  if (slug) navigate(`/c/${encodeURIComponent(slug)}/login`);
+                }}
+              >
+                <input
+                  value={workspace}
+                  onChange={(e) => setWorkspace(e.target.value)}
+                  dir="ltr"
+                  placeholder="my-store"
+                  aria-label={isAr ? "اسم رابط مساحة العمل" : "Workspace name"}
+                  className="min-w-0 flex-1 rounded-xl border border-[#DECFC0] bg-white px-3 py-2 font-mono text-sm focus:border-[#651E2C] focus:outline-none"
+                />
+                <button type="submit" className="rounded-xl border border-[#DECFC0] bg-white px-4 text-xs font-semibold text-[#262321] hover:bg-[#EFE4D6]">
+                  {isAr ? "متابعة" : "Continue"}
+                </button>
+              </form>
+            </details>
           )}
 
           {isCustomPortal ? (

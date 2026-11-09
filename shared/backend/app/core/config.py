@@ -21,7 +21,7 @@ class Settings(BaseSettings):
         "https://mizan-co.vercel.app",
         "https://mizan-co-app.vercel.app",
         "https://mizan-co-admin.vercel.app",
-        "https://mizan-co-account.vercel.app",
+        "https://mizan-co-owner.vercel.app",
     ]
     # Vercel deployment URLs of this team's Mizan projects (previews, per-commit URLs).
     CORS_ORIGIN_REGEX: str = r"^https:\/\/mizan(-[a-z0-9]+)*-ammar0xfs-projects\.vercel\.app$"

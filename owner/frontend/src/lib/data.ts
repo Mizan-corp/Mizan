@@ -99,7 +99,6 @@ export function useAction<TVars, TResult = unknown>(fn: (vars: TVars) => Promise
 }
 
 export const actions = {
-  login: (v: { login: string; password: string }) => api.post<{ access_token: string; owner: Owner }>("/account/login", v),
   updateMe: (v: { full_name?: string; email?: string; phone?: string }) => api.patch<Owner>("/account/me", v),
   changePassword: (v: { current_password: string; new_password: string }) =>
     api.post<{ ok: boolean; workspace_logins_updated: number }>("/account/password", v),

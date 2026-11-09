@@ -16,7 +16,7 @@ whether that's a corner shop, a restaurant, a pharmacy, a hotel or a factory.
 
 [**Website**](https://mizan-co.vercel.app) &nbsp;·&nbsp;
 [**Open the app →**](https://mizan-co-app.vercel.app) &nbsp;·&nbsp;
-[Owner account](https://mizan-co-account.vercel.app) &nbsp;·&nbsp;
+[Owner account](https://mizan-co-owner.vercel.app) &nbsp;·&nbsp;
 [Admin](https://mizan-co-admin.vercel.app) &nbsp;·&nbsp;
 [API docs](https://mizan-co-api.vercel.app/api/docs) &nbsp;·&nbsp;
 [Documentation](docs/)
@@ -117,7 +117,7 @@ Mizan is **four products, built and deployed separately**, on one shared kernel 
 |---|---|---|---|
 | 🌐 | **Website**: landing, pricing, docs, signup, onboarding | Visitors and new merchants | [mizan-co.vercel.app](https://mizan-co.vercel.app) |
 | 🧾 | **System**: the ERP itself, plus public storefronts | Every workspace, every day | [mizan-co-app.vercel.app](https://mizan-co-app.vercel.app) |
-| 🔑 | **Owner panel**: an owner's workspaces, subscriptions and Paymob payments (Arabic) | Business owners | [mizan-co-account.vercel.app](https://mizan-co-account.vercel.app) |
+| 🔑 | **Owner panel**: an owner's workspaces, subscriptions and Paymob payments (Arabic) | Business owners | [mizan-co-owner.vercel.app](https://mizan-co-owner.vercel.app) |
 | 🛡️ | **Admin**: the platform control panel (English) | The Mizan team only | [mizan-co-admin.vercel.app](https://mizan-co-admin.vercel.app) |
 
 ```mermaid
@@ -181,7 +181,7 @@ are never hard-deleted, and every destructive action leaves an audit trail.
 
 | Where | Who | Opens |
 |---|---|---|
-| The Mizan website → **Sign in** | Business owners | The **owner panel**: every workspace they own, trials, subscriptions, invoices |
+| The app's [`/login`](https://mizan-co-app.vercel.app/login) (the website's **Sign in**) | Business owners | The **owner panel**: every workspace they own, trials, subscriptions, invoices |
 | A workspace's login page (`/c/<workspace>/login`) | Staff, and owners working in one workspace | The **ERP** for that workspace |
 
 An **owner account** (`owner_accounts`) owns any number of workspaces. In each one the owner
@@ -304,8 +304,8 @@ when its own folder or `shared/` changes**, so a website edit never redeploys th
 | `mizan-website-api` | `website/backend` | mizan-co-web-api.vercel.app |
 | `mizan-system` | `system/frontend` | mizan-co-app.vercel.app |
 | `mizan-system-api` | `system/backend` | mizan-co-api.vercel.app |
-| `mizan-owner` | `owner/frontend` | mizan-co-account.vercel.app |
-| `mizan-owner-api` | `owner/backend` | mizan-co-account-api.vercel.app |
+| `mizan-owner` | `owner/frontend` | mizan-co-owner.vercel.app |
+| `mizan-owner-api` | `owner/backend` | mizan-co-owner-api.vercel.app |
 | `mizan-admin` | `admin/frontend` | mizan-co-admin.vercel.app |
 | `mizan-admin-api` | `admin/backend` | mizan-co-admin-api.vercel.app |
 

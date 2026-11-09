@@ -90,7 +90,7 @@ APPS: dict[str, App] = {
         App("admin", "admin panel (Mizan team)", 5175, "admin-api", 8002,
             "mizan-admin", "mizan-admin-api", "mizan-co-admin.vercel.app", "mizan-co-admin-api.vercel.app"),
         App("owner", "owner panel (workspaces, subscriptions)", 5176, "owner-api", 8003,
-            "mizan-owner", "mizan-owner-api", "mizan-co-account.vercel.app", "mizan-co-account-api.vercel.app"),
+            "mizan-owner", "mizan-owner-api", "mizan-co-owner.vercel.app", "mizan-co-owner-api.vercel.app"),
     )
 }
 SYSTEM = APPS["system"]

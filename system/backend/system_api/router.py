@@ -10,6 +10,7 @@ from app.api.routers import (
     hr,
     notifications,
     operations,
+    owner_login,
     parties,
     periods,
     print_router,
@@ -40,6 +41,7 @@ from system_api.routers import tenants as tenants_router
 router = APIRouter()
 
 router.include_router(auth.router)
+router.include_router(owner_login.router)  # /login without a workspace: owners
 router.include_router(users.router)
 router.include_router(products.router)
 router.include_router(stock.router)

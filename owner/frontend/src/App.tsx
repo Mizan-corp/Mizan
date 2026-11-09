@@ -1,10 +1,10 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
 import { useMe } from "@app/lib/data";
 import Shell from "@app/Shell";
-import SignIn from "@app/SignIn";
+import { goToSignIn } from "@app/lib/session";
 import { PageSkeleton } from "@app/ui";
 
 const Workspaces = lazy(() => import("@app/pages/Workspaces"));
@@ -16,17 +16,16 @@ const Payment = lazy(() => import("@app/pages/Payment"));
 export default function App() {
   const token = useAuth((s) => s.token);
   const me = useMe(!!token);
-  const [notice, setNotice] = useState<string>();
   const expired = !!token && me.isError && me.error instanceof ApiError && me.error.status === 401;
+  const signedOut = !token || expired;
 
   useEffect(() => {
-    if (!expired) return;
-    setNotice("انتهت جلستك. سجّل الدخول مرة أخرى.");
+    if (!signedOut) return;
     useAuth.getState().logout();
-  }, [expired]);
+    goToSignIn();
+  }, [signedOut]);
 
-  if (!token || expired) return <SignIn key={notice} notice={notice} />;
-  if (me.isPending) return null;
+  if (signedOut || me.isPending) return null;
 
   return (
     <Suspense fallback={<PageSkeleton />}>

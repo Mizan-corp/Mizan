@@ -1,11 +1,10 @@
 import { type ReactNode } from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
 import { Building2, LogOut, ReceiptText, UserRound } from "lucide-react";
-import { useAuth } from "@/stores/auth";
 import { cn } from "@/lib/utils";
 import { appUrl } from "@/lib/urls";
 import { useMe } from "@app/lib/data";
+import { signOut } from "@app/lib/session";
 
 export function Mark({ className = "size-8" }: { className?: string }) {
   // The Mizan scale reduced to a beam and two pans.
@@ -38,11 +37,6 @@ function NavItem({ to, icon, children, end, tour }: { to: string; icon: ReactNod
 
 export default function Shell() {
   const me = useMe();
-  const qc = useQueryClient();
-  const signOut = () => {
-    useAuth.getState().logout();
-    qc.clear();
-  };
 
   return (
     <div className="min-h-svh">

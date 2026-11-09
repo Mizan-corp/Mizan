@@ -2,6 +2,7 @@ import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useSta
 import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { actions, type Workspace } from "@app/lib/data";
+import { appUrl } from "@/lib/urls";
 import { staffLoginUrl } from "@app/lib/open";
 import { Button } from "@app/ui";
 
@@ -60,7 +61,9 @@ function steps(w: Workspace): Step[] {
       title: "كل شيء جاهز",
       body: (
         <>
-          من الآن، عندما تسجّل الدخول من موقع ميزان ستصل إلى هنا مباشرة. يمكنك إعادة هذه الجولة من صفحة <b>حسابي</b>.
+          من الآن، سجّل الدخول من{" "}
+          <span className="code text-[12px] text-ink">{appUrl("system", "/login").replace(/^https?:\/\//, "")}</span> لتصل إلى هنا
+          مباشرة. يمكنك إعادة هذه الجولة من صفحة <b>حسابي</b>.
         </>
       ),
     },

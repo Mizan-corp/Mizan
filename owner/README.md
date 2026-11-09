@@ -5,15 +5,20 @@ subscriptions, payments and invoices. Arabic, right-to-left.
 
 | | Folder | Local | Production |
 |---|---|---|---|
-| Frontend | `frontend/` | `python manage.py dev owner` → http://localhost:5176 | https://mizan-co-account.vercel.app |
-| API | `backend/` | `docker compose up owner-api` → :8003 | https://mizan-co-account-api.vercel.app |
+| Frontend | `frontend/` | `python manage.py dev owner` → http://localhost:5176 | https://mizan-co-owner.vercel.app |
+| API | `backend/` | `docker compose up owner-api` → :8003 | https://mizan-co-owner-api.vercel.app |
 
 ## Who signs in where
 
-- **Owners** sign in here (the website's "Sign in" goes here). After signup the website hands
-  the new owner over already signed in, and a short interactive tour introduces the panel.
+- **Owners** sign in on the app's `/login` (https://mizan-co-app.vercel.app/login; the
+  website's "Sign in" goes there), which hands them to this panel. The panel has no sign-in
+  page: opening it signed out redirects to that `/login`, and `?next=` brings the owner back
+  to the page they wanted. Signing out here goes back there too.
+- After signup the website hands the new owner over already signed in, and a short
+  interactive tour introduces the panel.
 - **Staff** sign in on their workspace's own page, `/c/<workspace>/login` in the app. Each
-  workspace card shows that link.
+  workspace card shows that link. If an employee signs in on `/login` instead, they're sent
+  to their workspace's page.
 - "Open workspace" signs the owner in to the app as their admin user in that workspace.
 
 Locally, `ammar` / `changeme` (from the bootstrap) is an owner account too.
@@ -54,8 +59,10 @@ answers 503 and the panel says online payment isn't available.
 
 ## Code
 
-- `backend/owner_api/routers/`: `account` (sign-in, profile, password, tour), `workspaces`
+- `backend/owner_api/routers/`: `account` (profile, password, tour), `workspaces`
   (list, create, details, open), `billing` (plans, checkout, invoices, Paymob callback).
+- Owner sign-in: `app.api.routers.owner_login` (`POST /account/login`), served by the
+  system API for the app's `/login`.
 - Shared services: `app.services.owners` (owner auth and lookups), `app.services.paymob`
   (intention + HMAC), `app.services.subscriptions` (invoices, activation),
   `app.services.workspaces` (creating a workspace).
