@@ -73,9 +73,24 @@ python installer/stamp.py installer/build/dist/MizanSetup-1.0.0-windows.exe "Miz
 ```
 
 PyInstaller doesn't cross-compile: Windows builds come from
-`.github/workflows/installers.yml` (every `v*` tag publishes a release; it can also be
-run by hand). Publish the files somewhere clients can download them and set
-`MIZAN_INSTALLERS` on the owner API (see `shared/backend/app/core/releases.py`).
+`.github/workflows/installers.yml` (run on `v*` tags, pull requests touching the
+installer, or by hand).
+
+### Publishing
+
+Clients download from the public
+[ammar0xff/mizan-releases](https://github.com/ammar0xff/mizan-releases) (this repository
+is private). A `v*` tag publishes there when the `RELEASES_TOKEN` secret is set (a
+fine-grained token with Contents read/write on mizan-releases). By hand:
+
+```bash
+gh run download <run id> --dir dist && cd dist && mv */* . && sha256sum MizanSetup-* mizan-setup-* > SHA256SUMS.txt
+gh release create v1.0.0 MizanSetup-* mizan-setup-* SHA256SUMS.txt --repo ammar0xff/mizan-releases --title "Mizan v1.0.0"
+```
+
+Then point the owner panel at them: `MIZAN_INSTALLERS` on the owner API (production), e.g.
+`{"windows": {"url": "https://github.com/ammar0xff/mizan-releases/releases/download/v1.0.0/MizanSetup-1.0.0-windows.exe", "version": "1.0.0", "size_mb": 150}, "linux": {…}}`
+(see `shared/backend/app/core/releases.py`), and redeploy it.
 
 The setup binary's layout: `[program][payload.zip][licence stamp][footer]`, footer =
 `MZNSETUP` + payload offset + payload length + stamp length (u64 LE each). See
