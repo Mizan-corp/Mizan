@@ -71,6 +71,19 @@ def version() -> str:
     return path.read_text(encoding="utf-8").strip() if path.exists() else "0.0.0-dev"
 
 
+def _restrict_windows(path: Path) -> None:
+    """config.json holds the database password and secret key: only SYSTEM (the
+    service), Administrators and the installing account may read it (ProgramData
+    is readable by every user by default)."""
+    import subprocess
+
+    who = subprocess.run(["whoami"], capture_output=True, text=True, encoding="utf-8", errors="replace",
+                         creationflags=0x08000000).stdout.strip()
+    grants = ["*S-1-5-18:F", "*S-1-5-32-544:F"] + ([f"{who}:F"] if who else [])
+    subprocess.run(["icacls", str(path), "/inheritance:r", "/grant:r", *grants, "/Q"], capture_output=True,
+                   creationflags=0x08000000)
+
+
 @dataclass
 class Config:
     mode: str  # desktop | lan
@@ -122,8 +135,13 @@ class Config:
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(asdict(self), indent=2), encoding="utf-8")
         os.replace(tmp, path)
-        if not IS_WINDOWS:
+        if IS_WINDOWS:
+            _restrict_windows(path)
+        else:
             os.chmod(path, 0o600)
+        # What the Mizan app window needs, without secrets: readable by everyone.
+        public = {"mode": self.mode, "http_port": self.http_port, "tls": self.tls, "data_dir": self.data_dir}
+        (self.data / "app.json").write_text(json.dumps(public), encoding="utf-8")
         return path
 
     @classmethod

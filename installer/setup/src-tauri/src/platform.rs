@@ -116,23 +116,29 @@ pub fn create_shortcuts(app: &Path) {
     }
 }
 
-/// An installed Mizan's configuration (config.json), wherever it was installed.
+/// An installed Mizan's public settings (app.json: mode, port, TLS), wherever it was
+/// installed. config.json (which holds secrets and may be unreadable) is the fallback.
 pub fn installed_config() -> Option<Value> {
     let mut candidates: Vec<PathBuf> = Vec::new();
     if let Ok(p) = std::env::var("MIZAN_CONFIG") {
         candidates.push(PathBuf::from(p));
     }
+    let mut dirs_: Vec<PathBuf> = Vec::new();
     if let Ok(home) = std::env::var("MIZAN_HOME") {
-        candidates.push(PathBuf::from(home).join("config.json"));
+        dirs_.push(PathBuf::from(home));
     }
     if cfg!(windows) {
         let pd = std::env::var("ProgramData").unwrap_or_else(|_| r"C:\ProgramData".into());
-        candidates.push(PathBuf::from(pd).join("Mizan").join("config.json"));
+        dirs_.push(PathBuf::from(pd).join("Mizan"));
     } else {
         if let Some(d) = dirs::data_dir() {
-            candidates.push(d.join("mizan").join("config.json"));
+            dirs_.push(d.join("mizan"));
         }
-        candidates.push(PathBuf::from("/var/lib/mizan/config.json"));
+        dirs_.push(PathBuf::from("/var/lib/mizan"));
+    }
+    for d in dirs_ {
+        candidates.push(d.join("app.json"));
+        candidates.push(d.join("config.json"));
     }
     candidates.into_iter().find_map(|p| fs::read(&p).ok()).and_then(|raw| serde_json::from_slice(&raw).ok())
 }

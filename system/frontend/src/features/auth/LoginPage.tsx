@@ -16,6 +16,8 @@ import { MizanLogo } from "@/components/MizanLogo";
 import { useTranslation } from "@/i18n";
 import { appUrl } from "@/lib/urls";
 import { openWithSession } from "@/lib/handoff";
+import { IS_ON_PREMISE } from "@app/lib/deployment";
+import { LanCertificateHelp } from "@app/components/LanCertificateHelp";
 
 const auth = () => useAuth.getState();
 
@@ -369,6 +371,8 @@ export default function LoginPage(props: LoginPageProps = {}) {
             </div>
           )}
 
+          <LanCertificateHelp />
+
           {isCustomPortal ? (
             showPoweredBy && (
               <div className="pt-4 border-t border-[#E6DCD2] flex items-center justify-center gap-2 text-xs text-[#77716E]/70 font-mono">
@@ -376,7 +380,7 @@ export default function LoginPage(props: LoginPageProps = {}) {
                 <span>{isAr ? "مشغّل بواسطة منصة ميزان ERP" : "Powered by Mizan ERP Engine"}</span>
               </div>
             )
-          ) : (
+          ) : IS_ON_PREMISE ? null : (
             <div className="pt-4 border-t border-[#E6DCD2] text-center text-xs text-[#77716E]">
               <span>{isAr ? "ليس لديك حساب بعد؟" : "Don't have an account yet?"} </span>
               <a href={appUrl("website", "/signup")} className="font-semibold text-[#651E2C] hover:underline">

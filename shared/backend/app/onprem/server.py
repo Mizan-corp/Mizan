@@ -46,16 +46,23 @@ async def status():
         "installation_id": str(state.installation_id()),
         "last_check_in_at": st.get("last_check_in_at"),
         "app_version": checkin.APP_VERSION,
+        "ca_certificate": _ca_path() is not None,
     }
+
+
+def _ca_path() -> Path | None:
+    import os
+
+    tls_dir = os.environ.get("MIZAN_TLS_DIR")
+    path = Path(tls_dir) / "mizan-ca.crt" if tls_dir else None
+    return path if path and path.exists() else None
 
 
 @router.get("/ca.crt")
 async def ca_certificate():
     """LAN installs: the certificate tills install once to trust this server's HTTPS."""
-    import os
-
-    path = Path(os.environ.get("MIZAN_TLS_DIR", "")) / "mizan-ca.crt"
-    if not os.environ.get("MIZAN_TLS_DIR") or not path.exists():
+    path = _ca_path()
+    if path is None:
         raise HTTPException(status_code=404, detail="No certificate on this install")
     return FileResponse(path, media_type="application/x-x509-ca-cert", filename="mizan-ca.crt")
 
