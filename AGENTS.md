@@ -94,7 +94,7 @@ Examples include:
 - Design tokens and theme palettes (`globals.css`, Tailwind v4 theme variables).
 - Shared components (`@/components/ui/*`, modals, data tables).
 - API clients and request wrappers (`src/lib/api.ts`).
-- Database models and Alembic/migration scripts (`scripts/migrate.py`, base models).
+- Database models and migrations (`shared/backend/app/db/migrations.py`, `scripts/migrate.py`, base models).
 - Notification systems and toast providers (`sonner`, alerts).
 - Global layouts and headers.
 
