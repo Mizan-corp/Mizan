@@ -8,7 +8,8 @@ safe to run against any environment, including production.
 
 Creates two accounts in the default workspace:
 - the workspace admin, from MIZAN_ADMIN_USERNAME / MIZAN_ADMIN_PASSWORD
-  (default ammar / changeme), who signs in to the app;
+  (default ammar / changeme), who signs in to the app, plus the matching
+  owner account for the owner panel (same name and password);
 - the platform admin, from MIZAN_PLATFORM_USERNAME / MIZAN_PLATFORM_PASSWORD
   (default platform / changeme), who signs in to the admin panel.
 Change both passwords after the first sign-in.
@@ -24,6 +25,7 @@ from app.core.security import hash_password
 from app.core.tenancy import bind_tenant
 from app.db.base import AsyncSessionLocal
 from app.models.registry import load_all_models
+from app.models.owner import OwnerAccount
 from app.models.settings import StoreSetting
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -46,6 +48,11 @@ async def bootstrap() -> str:
 
         await bind_tenant(db, tenant.id)
         username = os.environ.get("MIZAN_ADMIN_USERNAME", "ammar")
+        password_hash = hash_password(os.environ.get("MIZAN_ADMIN_PASSWORD", "changeme"))
+        owner = OwnerAccount(id=uuid.uuid4(), login=username.lower(), full_name="مدير النظام", password_hash=password_hash)
+        db.add(owner)
+        await db.flush()
+        tenant.owner_account_id = owner.id
         db.add(User(
             id=uuid.uuid4(),
             tenant_id=tenant.id,
@@ -54,7 +61,8 @@ async def bootstrap() -> str:
             role="admin",
             permissions=["*"],
             is_manager=True,
-            password_hash=hash_password(os.environ.get("MIZAN_ADMIN_PASSWORD", "changeme")),
+            password_hash=password_hash,
+            owner_account_id=owner.id,
         ))
         db.add(User(
             id=uuid.uuid4(),

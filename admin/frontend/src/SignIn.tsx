@@ -38,7 +38,7 @@ export default function SignIn({ notice }: { notice?: string }) {
         <div className="mb-6">
           <div className="text-[11px] font-bold tracking-[0.1em] text-ox uppercase">Mizan Admin</div>
           <h1 className="mt-1 text-xl font-bold tracking-[-0.02em] text-ink">Sign in to manage the platform</h1>
-          <p className="mt-1 text-[13px] text-mute">For the Mizan team. Workspace owners sign in to the app instead.</p>
+          <p className="mt-1 text-[13px] text-mute">For the Mizan team. Business owners sign in to their owner account instead.</p>
         </div>
         <div className="grid gap-4">
           <Field label="Username">

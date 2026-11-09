@@ -55,7 +55,6 @@ import {
   SECTOR_OPTIONS,
   getSectorModules,
   getSectorDefaultFeatures,
-  SECTOR_PRIMARY_ROUTES,
 } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 import { MizanLogo } from "@/components/MizanLogo";
@@ -223,7 +222,7 @@ export default function OnboardingWizard() {
     setBusy(true);
     setError(null);
     try {
-      const r = await api.post<{ access_token: string; user: never; tenant: TenantInfo; primary_route?: string }>("/platform/signup", {
+      const r = await api.post<{ access_token: string; owner_token: string; tenant: TenantInfo }>("/platform/signup", {
         company_name: company,
         sector,
         scale,
@@ -238,11 +237,9 @@ export default function OnboardingWizard() {
       sessionStorage.removeItem("mizan.owner");
       sessionStorage.removeItem("vendora.owner");
 
-      // The workspace lives in the system app: open it already signed in.
-      const targetSlug = r.tenant?.slug;
-      const primaryRoute = r.primary_route || r.tenant?.primary_route || SECTOR_PRIMARY_ROUTES[sector] || "/dashboard";
-      const hasSlug = targetSlug && targetSlug !== "undefined" && targetSlug !== "null";
-      openWithSession("system", hasSlug ? `/c/${targetSlug}${primaryRoute}` : primaryRoute, r.access_token);
+      // The new owner lands in the owner panel, signed in, where a short tour
+      // shows their workspace, how to open it, the trial and subscriptions.
+      openWithSession("owner", "/", r.owner_token);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setError("اسم المستخدم محجوز — ارجع للخطوة السابقة واختر اسمًا آخر.");

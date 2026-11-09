@@ -5,11 +5,13 @@
     "shared/frontend",
     "system/frontend",
     "website/frontend",
+    "owner/frontend",
     "admin/frontend"
   ],
   "scripts": {
     "dev:system": "npm run dev -w system/frontend",
     "dev:website": "npm run dev -w website/frontend",
+    "dev:owner": "npm run dev -w owner/frontend",
     "dev:admin": "npm run dev -w admin/frontend",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present"

@@ -34,3 +34,5 @@ APIs do not set tenant session cookies.
 - One database means no data sync between services; schema changes are still made
   once, in `shared/backend`, and affect all three.
 - Changing `shared/` rebuilds all products.
+
+A fourth product, `owner/` (the owner panel), was added later on the same pattern; see ADR-004.

@@ -15,15 +15,29 @@ class Settings(BaseSettings):
         "http://localhost:5173",  # system (dev)
         "http://localhost:5174",  # website (dev)
         "http://localhost:5175",  # admin (dev)
+        "http://localhost:5176",  # owner panel (dev)
         "http://localhost:3000",
         "http://localhost",
         "https://mizan-co.vercel.app",
         "https://mizan-co-app.vercel.app",
         "https://mizan-co-admin.vercel.app",
+        "https://mizan-co-account.vercel.app",
     ]
     # Vercel deployment URLs of this team's Mizan projects (previews, per-commit URLs).
     CORS_ORIGIN_REGEX: str = r"^https:\/\/mizan(-[a-z0-9]+)*-ammar0xfs-projects\.vercel\.app$"
     IS_PRODUCTION: bool = False
+
+    # Owner panel: public addresses used in payment redirects and callbacks.
+    OWNER_APP_URL: str = "http://localhost:5176"
+    OWNER_API_URL: str = "http://localhost:8003"
+
+    # Paymob (Accept). Online payment is off until the keys are set.
+    PAYMOB_BASE_URL: str = "https://accept.paymob.com"
+    PAYMOB_SECRET_KEY: str = ""
+    PAYMOB_PUBLIC_KEY: str = ""
+    PAYMOB_HMAC_SECRET: str = ""
+    # Comma-separated integration ids to offer (card, wallet, …).
+    PAYMOB_INTEGRATION_IDS: str = ""
     # ⚠️ CORS_ORIGINS must NOT contain wildcard ("*") when credentials are enabled
 
     @property

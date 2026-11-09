@@ -134,6 +134,46 @@ services:
         max-size: 10m
         max-file: "3"
 
+  owner-api:
+    build:
+      context: .
+      dockerfile: owner/backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/inventory_db
+      # Same key on every service: a token issued by one is valid on the others.
+      SECRET_KEY: ${SECRET_KEY:-local-dev-only-secret-key-change-me-0123456789abcdef}
+      OWNER_APP_URL: ${OWNER_APP_URL:-http://localhost:5176}
+      OWNER_API_URL: ${OWNER_API_URL:-http://localhost:8003}
+      PAYMOB_BASE_URL: ${PAYMOB_BASE_URL:-https://accept.paymob.com}
+      PAYMOB_SECRET_KEY: ${PAYMOB_SECRET_KEY:-}
+      PAYMOB_PUBLIC_KEY: ${PAYMOB_PUBLIC_KEY:-}
+      PAYMOB_HMAC_SECRET: ${PAYMOB_HMAC_SECRET:-}
+      PAYMOB_INTEGRATION_IDS: ${PAYMOB_INTEGRATION_IDS:-}
+    volumes:
+      - ./owner/backend:/app
+      - ./shared/backend/app:/shared/app
+    ports:
+      - "8003:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
 volumes:
   pgdata:
   uploads_data:

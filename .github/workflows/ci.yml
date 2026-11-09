@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   ci-frontend:
-    name: Frontend CI (system · website · admin)
+    name: Frontend CI (system · website · owner · admin)
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -33,7 +33,7 @@ jobs:
       - name: Run unit tests (shared + system)
         run: npm test
 
-      - name: Type-check and build all three apps
+      - name: Type-check and build every app
         run: npm run build
 
   ci-backend:
@@ -51,17 +51,17 @@ jobs:
       - name: Install the shared kernel
         run: pip install ./shared/backend
 
-      - name: Import check (system · website · admin)
+      - name: Import check (system · website · owner · admin)
         env:
           DATABASE_URL: postgresql+asyncpg://ci:ci@localhost:5432/ci  # dummy — not connected at import
           SECRET_KEY: ci-secret-key-not-for-production-32ch
         run: |
-          for svc in system website admin; do
+          for svc in system website owner admin; do
             (cd $svc/backend && python -c "import main; print('$svc:', len(main.app.routes), 'routes')")
           done
 
       - name: Lint
-        run: pip install ruff && ruff check shared/backend system/backend website/backend admin/backend --select E9,F63,F7,F82,F821,F601
+        run: pip install ruff && ruff check shared/backend system/backend website/backend owner/backend admin/backend --select E9,F63,F7,F82,F821,F601
 
   ci-e2e:
     name: E2E (live API)
@@ -72,7 +72,7 @@ jobs:
       - name: Create dummy firebase credentials
         run: echo "{}" > firebase-service-account.json
 
-      - name: Start stack (db + system/website/admin APIs)
+      - name: Start stack (db + system/website/owner/admin APIs)
         run: docker compose up -d --build
 
       - uses: actions/setup-python@v5
@@ -87,7 +87,7 @@ jobs:
 
       - name: Wait for health
         run: |
-          for port in 8000 8001 8002; do
+          for port in 8000 8001 8002 8003; do
             for i in $(seq 1 45); do
               curl -sf http://localhost:$port/health && break
               sleep 2
@@ -113,7 +113,8 @@ jobs:
           SECRET_KEY: ci-secret-key-not-for-production-32ch
         run: |
           pip install -q ./shared/backend -r shared/backend/requirements-dev.txt
-          cd system/backend && python -m pytest tests/ -q --no-header
+          (cd system/backend && python -m pytest tests/ -q --no-header)
+          (cd owner/backend && python -m pytest tests/ -q --no-header)
 
       - name: Debug container logs on failure
         if: failure()

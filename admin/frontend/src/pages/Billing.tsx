@@ -25,6 +25,7 @@ import {
 } from "@app/ui";
 
 const METHOD: Record<string, string> = {
+  paymob: "Paymob (online)",
   card: "Card",
   instapay: "InstaPay",
   vodafone_cash: "Vodafone Cash",
@@ -39,6 +40,7 @@ export function InvoiceStatus({ status }: { status: string }) {
     pending: ["warn", "Unpaid"],
     failed: ["bad", "Failed"],
     refunded: ["mute", "Refunded"],
+    cancelled: ["mute", "Abandoned checkout"],
   };
   const [tone, label] = map[status] ?? ["mute", status];
   return <Badge tone={tone}>{label}</Badge>;

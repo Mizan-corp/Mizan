@@ -1,6 +1,6 @@
 # Mizan Shared
 
-Code used by all three products. Changing anything here affects the system, website
+Code used by every product. Changing anything here affects the system, website, owner
 and admin apps, and rebuilds all of them.
 
 ## `backend/`: the domain kernel (`mizan-shared`, Python package `app`)

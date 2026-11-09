@@ -31,6 +31,10 @@ export function describe(a: ActivityItem): Part[] {
       return ["Deleted ", { workspace: s("name") || "a workspace", id: null }];
     case "invoice_marked_paid":
       return [`Marked invoice ${s("invoice")} paid (${money(Number(d.amount_egp))}) for `, ws];
+    case "invoice_paid_online":
+      return [`${planLabel(s("plan"))} paid online via Paymob (${money(Number(d.amount_egp))}, ${s("invoice")}) by `, ws];
+    case "invoice_refunded_online":
+      return [`Invoice ${s("invoice")} refunded in Paymob for `, ws];
     case "upgrade_request_dismissed":
       return [`Dismissed an upgrade request to ${planLabel(s("plan"))} from `, ws];
     case "platform_access_granted":
@@ -52,6 +56,7 @@ export const ACTION_FILTERS: { value: string; label: string }[] = [
   { value: "tenant_status_change", label: "Suspended or reactivated" },
   { value: "tenant_modules_updated", label: "Modules changed" },
   { value: "invoice_marked_paid", label: "Invoice marked paid" },
+  { value: "invoice_paid_online", label: "Paid online" },
   { value: "tenant_deleted", label: "Workspace deleted" },
   { value: "platform_access_granted", label: "Access granted" },
   { value: "platform_access_revoked", label: "Access removed" },

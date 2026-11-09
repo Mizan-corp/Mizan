@@ -13,6 +13,7 @@ def load_all_models() -> None:
     import app.models.customer_payment
     import app.models.device_token
     import app.models.notification
+    import app.models.owner
     import app.models.employee
     import app.models.expense
     import app.models.financial_category

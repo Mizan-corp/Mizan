@@ -2263,6 +2263,68 @@ MIGRATIONS = [
     ("v46_products_reorder_level", """
         ALTER TABLE products ADD COLUMN IF NOT EXISTS reorder_level INTEGER NOT NULL DEFAULT 5;
     """),
+    # v47 — owner accounts (one owner, many workspaces) and gateway payment log.
+    # Backfills one owner account per existing workspace from its first admin,
+    # reusing that admin's username and password.
+    ("v47_owner_accounts", """
+        CREATE TABLE IF NOT EXISTS owner_accounts (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            login varchar(64) NOT NULL UNIQUE,
+            full_name varchar(128) NOT NULL,
+            email varchar(254),
+            phone varchar(32),
+            password_hash varchar(256) NOT NULL,
+            is_active boolean NOT NULL DEFAULT true,
+            settings jsonb NOT NULL DEFAULT '{}'::jsonb,
+            last_login_at timestamptz,
+            created_at timestamptz DEFAULT now()
+        );
+        ALTER TABLE tenants ADD COLUMN IF NOT EXISTS owner_account_id uuid REFERENCES owner_accounts(id) ON DELETE SET NULL;
+        CREATE INDEX IF NOT EXISTS ix_tenants_owner_account_id ON tenants (owner_account_id);
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS owner_account_id uuid REFERENCES owner_accounts(id) ON DELETE SET NULL;
+        CREATE TABLE IF NOT EXISTS payment_transactions (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            provider varchar(32) NOT NULL,
+            event_key varchar(128) NOT NULL UNIQUE,
+            provider_txn_id varchar(64) NOT NULL,
+            invoice_id uuid REFERENCES tenant_billing_invoices(id) ON DELETE SET NULL,
+            state varchar(16) NOT NULL,
+            amount_cents integer NOT NULL DEFAULT 0,
+            currency varchar(8) NOT NULL DEFAULT 'EGP',
+            raw jsonb NOT NULL DEFAULT '{}'::jsonb,
+            created_at timestamptz DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_payment_transactions_provider_txn_id ON payment_transactions (provider_txn_id);
+        CREATE INDEX IF NOT EXISTS ix_payment_transactions_invoice_id ON payment_transactions (invoice_id);
+        DO $$
+        DECLARE
+            r RECORD;
+            new_id uuid;
+            candidate text;
+            n int;
+        BEGIN
+            PERFORM set_config('app.bypass', 'on', true);
+            FOR r IN
+                SELECT DISTINCT ON (u.tenant_id) u.id AS user_id, u.tenant_id, u.username, u.full_name, u.password_hash
+                FROM users u JOIN tenants t ON t.id = u.tenant_id
+                WHERE t.owner_account_id IS NULL AND u.is_active AND u.role = 'admin'
+                  AND NOT COALESCE(u.is_superadmin, false)
+                ORDER BY u.tenant_id, u.created_at
+            LOOP
+                candidate := lower(r.username);
+                n := 1;
+                WHILE EXISTS (SELECT 1 FROM owner_accounts WHERE login = candidate) LOOP
+                    n := n + 1;
+                    candidate := lower(r.username) || '-' || n;
+                END LOOP;
+                new_id := gen_random_uuid();
+                INSERT INTO owner_accounts (id, login, full_name, password_hash)
+                VALUES (new_id, candidate, r.full_name, r.password_hash);
+                UPDATE tenants SET owner_account_id = new_id WHERE id = r.tenant_id;
+                UPDATE users SET owner_account_id = new_id WHERE id = r.user_id;
+            END LOOP;
+        END $$;
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

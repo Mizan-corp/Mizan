@@ -7,8 +7,8 @@ manage.py — one command line for the whole Mizan monorepo.
 
     python manage.py stack  up | down | restart | status | logs [svc] | build | update | shell <svc>
     python manage.py db     migrate | backup | restore <file> | backups | reset | baseline | export | psql
-    python manage.py dev    [system|website|admin|all]       run frontends (default: all)
-    python manage.py build  [system|website|admin|all]       type-check and build frontends
+    python manage.py dev    [system|website|owner|admin|all]       run frontends (default: all)
+    python manage.py build  [system|website|owner|admin|all]       type-check and build frontends
     python manage.py test   [unit|backend|e2e|all]           run test suites (default: unit + backend)
     python manage.py lint                                   ruff + TypeScript
     python manage.py check                                  lint + unit/backend tests + builds
@@ -52,7 +52,7 @@ VERCEL_TEAM = os.environ.get("VERCEL_TEAM", "ammar0xfs-projects")
 BACKUP_RETENTION = 10
 
 
-# ─── The three products ─────────────────────────────────────────────────────
+# ─── The products ──────────────────────────────────────────────────────────
 
 
 @dataclass(frozen=True)
@@ -87,8 +87,10 @@ APPS: dict[str, App] = {
             "mizan-system", "mizan-system-api", "mizan-co-app.vercel.app", "mizan-co-api.vercel.app"),
         App("website", "landing, signup, onboarding", 5174, "website-api", 8001,
             "mizan-website", "mizan-website-api", "mizan-co.vercel.app", "mizan-co-web-api.vercel.app"),
-        App("admin", "Admoon control plane", 5175, "admin-api", 8002,
+        App("admin", "admin panel (Mizan team)", 5175, "admin-api", 8002,
             "mizan-admin", "mizan-admin-api", "mizan-co-admin.vercel.app", "mizan-co-admin-api.vercel.app"),
+        App("owner", "owner panel (workspaces, subscriptions)", 5176, "owner-api", 8003,
+            "mizan-owner", "mizan-owner-api", "mizan-co-account.vercel.app", "mizan-co-account-api.vercel.app"),
     )
 }
 SYSTEM = APPS["system"]
@@ -302,7 +304,7 @@ def cmd_setup(opts: argparse.Namespace) -> None:
         step(f"Python environment ({VENV.name}/) for tests and lint")
         _create_venv()
 
-    step("Database + system, website and admin APIs")
+    step("Database + system, website, owner and admin APIs")
     compose("up", "-d", "--build")
     wait_for_apis()
     migrate()
@@ -590,8 +592,9 @@ def _test_unit() -> None:
 
 def _test_backend() -> None:
     require_db()
-    step("Backend tests (system/backend/tests)")
-    run([python_bin(), "-m", "pytest", "-q", "--no-header"], cwd=ROOT / "system" / "backend", env=_backend_env())
+    for app in ("system", "owner"):
+        step(f"Backend tests ({app}/backend/tests)")
+        run([python_bin(), "-m", "pytest", "-q", "--no-header"], cwd=ROOT / app / "backend", env=_backend_env())
 
 
 def _test_e2e() -> None:
@@ -617,7 +620,7 @@ def _lint() -> None:
     ruff = [python_bin(), "-m", "ruff"] if VENV.exists() else ["ruff"]
     if not VENV.exists():
         need("ruff", "Run `python manage.py setup` or `pip install ruff`.")
-    run([*ruff, "check", "shared/backend", "system/backend", "website/backend", "admin/backend",
+    run([*ruff, "check", "shared/backend", "system/backend", "website/backend", "owner/backend", "admin/backend",
          "--select", "E9,F63,F7,F82,F821,F601"])
     ok("ruff")
     _need_node_modules()
@@ -777,14 +780,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = add("stack", cmd_stack, "Database + the three APIs: up, down, restart, status, logs, build, update, shell")
     p.add_argument("action", choices=["up", "down", "restart", "status", "logs", "build", "update", "shell"])
-    p.add_argument("service", nargs="?", help="e.g. system-api, website-api, admin-api, db")
+    p.add_argument("service", nargs="?", help="e.g. system-api, website-api, owner-api, admin-api, db")
     p.add_argument("--build", action="store_true", help="With `up`: rebuild images first")
 
     p = add("db", cmd_db, "Database: migrate, backup, restore, backups, reset, baseline, export, psql")
     p.add_argument("action", choices=["migrate", "backup", "restore", "backups", "reset", "baseline", "export", "psql"])
     p.add_argument("file", nargs="?", help="With `restore`: a file in backups/ or a path")
 
-    p = add("dev", cmd_dev, "Run frontend dev servers (default: all three)")
+    p = add("dev", cmd_dev, "Run frontend dev servers (default: all)")
     p.add_argument("app", nargs="?", default="all", choices=APP_CHOICES)
     p = add("build", cmd_build, "Type-check and build frontends (default: all three)")
     p.add_argument("app", nargs="?", default="all", choices=APP_CHOICES)

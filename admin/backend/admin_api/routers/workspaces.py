@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import json
-import re
-import unicodedata
 import uuid
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
@@ -18,9 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import app as app_pkg
 from admin_api.common import days_until, get_tenant, iso, record
 from admin_api.routers.activity import recent_activity
-from app.core.modules import SECTOR_TO_PRESET, set_active_modules
+from app.core.modules import set_active_modules
 from app.core.plans import PLANS_CONFIG, get_plan_limits
-from app.core.sectors import PALETTE_HUES, SECTOR_PRIMARY_MODULES, SECTORS
+from app.core.sectors import SECTORS
 from app.core.security import hash_password
 from app.core.tenancy import bind_tenant
 from app.db.base import get_db
@@ -32,7 +30,9 @@ from app.models.tenant import Subscription, Tenant
 from app.models.user import User
 from app.models.warehouse import Warehouse
 from app.services import auth_service
-from app.services.demo_seed import seed_demo
+from app.models.owner import OwnerAccount
+from app.services.owners import normalize_login
+from app.services.workspaces import create_workspace as new_workspace
 from app.services.subscriptions import monthly_price
 
 router = APIRouter(prefix="/admoon", tags=["admin: workspaces"])
@@ -187,12 +187,6 @@ class CreateWorkspace(BaseModel):
     demo_data: bool = False
 
 
-def _slugify(name: str) -> str:
-    ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii").lower()
-    slug = re.sub(r"[^a-z0-9]+", "-", ascii_name).strip("-")[:40]
-    return slug if len(slug) >= 3 else f"workspace-{uuid.uuid4().hex[:6]}"
-
-
 @router.post("/tenants", status_code=201)
 async def create_workspace(
     data: CreateWorkspace,
@@ -204,39 +198,25 @@ async def create_workspace(
         raise HTTPException(status_code=422, detail="Unknown business type")
     if data.plan not in PLANS_CONFIG:
         raise HTTPException(status_code=422, detail="Unknown plan")
-
-    slug = (data.slug or "").strip("-") or _slugify(data.company_name)
-    base, n = slug, 1
-    while await db.scalar(select(Tenant.id).where(Tenant.slug == slug)):
-        if data.slug:
-            raise HTTPException(status_code=409, detail="Another workspace already uses this URL name")
-        n += 1
-        slug = f"{base}-{n}"
-
-    modules = SECTOR_PRIMARY_MODULES.get(data.sector, ["pos", "inventory", "finance"])
-    tenant = Tenant(
-        id=uuid.uuid4(), name=data.company_name.strip(), slug=slug, sector=data.sector, business_type=data.sector,
-        scale=data.scale, plan=data.plan, status="active", active_modules=modules,
-        palette={"name": "mizan", "hue": PALETTE_HUES["mizan"]}, limits=get_plan_limits(data.plan),
-        trial_ends_at=datetime.now(UTC) + timedelta(days=data.trial_days) if data.plan == "trial" else None,
+    if await db.scalar(select(OwnerAccount.id).where(OwnerAccount.login == normalize_login(data.owner_username))):
+        raise HTTPException(status_code=409, detail="An owner account already uses this username")
+    password_hash = hash_password(data.owner_password)
+    account = OwnerAccount(
+        id=uuid.uuid4(), login=normalize_login(data.owner_username),
+        full_name=data.owner_full_name.strip(), password_hash=password_hash,
     )
-    db.add(tenant)
+    db.add(account)
     await db.flush()
-    await bind_tenant(db, tenant.id)
-    owner = User(
-        id=uuid.uuid4(), tenant_id=tenant.id, username=data.owner_username, full_name=data.owner_full_name.strip(),
-        role="admin", is_manager=True, permissions=["*"], password_hash=hash_password(data.owner_password),
+    tenant, _ = await new_workspace(
+        db, name=data.company_name, sector=data.sector, scale=data.scale, slug=data.slug or None,
+        plan=data.plan, trial_days=data.trial_days, demo_data=data.demo_data, owner=account,
+        admin_username=data.owner_username, admin_full_name=data.owner_full_name, admin_password_hash=password_hash,
     )
-    db.add(owner)
-    await db.flush()
-    if data.demo_data:
-        await seed_demo(db, tenant.id, owner.id, data.sector, data.scale, modules)
-    await set_active_modules(db, modules, preset_id=SECTOR_TO_PRESET.get(data.sector))
     await db.commit()
 
     await record(db, admin, "tenant_created", tenant_id=tenant.id, request=request,
-                 name=tenant.name, slug=slug, plan=data.plan, sector=data.sector)
-    return {"id": str(tenant.id), "slug": slug}
+                 name=tenant.name, slug=tenant.slug, plan=data.plan, sector=data.sector)
+    return {"id": str(tenant.id), "slug": tenant.slug}
 
 
 # ─── Edit ──────────────────────────────────────────────────────────────────

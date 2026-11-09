@@ -16,6 +16,7 @@ whether that's a corner shop, a restaurant, a pharmacy, a hotel or a factory.
 
 [**Website**](https://mizan-co.vercel.app) &nbsp;·&nbsp;
 [**Open the app →**](https://mizan-co-app.vercel.app) &nbsp;·&nbsp;
+[Owner account](https://mizan-co-account.vercel.app) &nbsp;·&nbsp;
 [Admin](https://mizan-co-admin.vercel.app) &nbsp;·&nbsp;
 [API docs](https://mizan-co-api.vercel.app/api/docs) &nbsp;·&nbsp;
 [Documentation](docs/)
@@ -110,12 +111,13 @@ Prices come from `shared/backend/app/core/plans.py`, which is the source of trut
 
 ## Under the hood
 
-Mizan is **three products, built and deployed separately**, on one shared kernel and one database:
+Mizan is **four products, built and deployed separately**, on one shared kernel and one database:
 
 | | Product | Who uses it | Lives at |
 |---|---|---|---|
 | 🌐 | **Website**: landing, pricing, docs, signup, onboarding | Visitors and new merchants | [mizan-co.vercel.app](https://mizan-co.vercel.app) |
 | 🧾 | **System**: the ERP itself, plus public storefronts | Every workspace, every day | [mizan-co-app.vercel.app](https://mizan-co-app.vercel.app) |
+| 🔑 | **Owner panel**: an owner's workspaces, subscriptions and Paymob payments (Arabic) | Business owners | [mizan-co-account.vercel.app](https://mizan-co-account.vercel.app) |
 | 🛡️ | **Admin**: the platform control panel (English) | The Mizan team only | [mizan-co-admin.vercel.app](https://mizan-co-admin.vercel.app) |
 
 ```mermaid
@@ -126,25 +128,31 @@ flowchart LR
     subgraph system["system/"]
         SF[System frontend<br/>PWA · offline POS] --> SA[system-api<br/>the ERP · 48 modules]
     end
+    subgraph owner["owner/"]
+        OF[Owner panel] --> OA[owner-api<br/>workspaces · billing]
+    end
     subgraph admin["admin/"]
         AF[Admin frontend] --> AA[admin-api<br/>control panel]
     end
     K[["shared/<br/>kernel: models · tenancy · auth · modules · print engine<br/>kit: components · API client · styles"]]
-    WA & SA & AA --- K
+    WA & SA & OA & AA --- K
     K --> DB[(PostgreSQL 16<br/>Row-Level Security)]
-    WF -. "new owner, signed in" .-> SF
+    OA <-. "checkout · signed callback" .-> PM[Paymob]
+    WF -. "new owner, signed in" .-> OF
+    OF -. "open workspace, signed in" .-> SF
     AF -. "impersonate, signed in" .-> SF
 ```
 
 Customers never download admin code, a pricing-page edit can't break the POS, and every
-API exposes only its own routes. Signing up on the website (or choosing "Open as owner" in the admin panel)
-opens the ERP already signed in, through a one-time handoff in the URL fragment.
+API exposes only its own routes. Apps hand a session to each other through a one-time handoff
+in the URL fragment: signing up on the website opens the owner panel, and "Open workspace" there
+(or "Open as owner" in the admin panel) opens the ERP already signed in.
 
 | Layer | Technology |
 |---|---|
 | **Backend** | Python 3.12 · FastAPI · SQLAlchemy 2.0 (async) · Pydantic v2 · PostgreSQL 16 (Neon) |
 | **Frontend** | React 19 · TypeScript (strict) · Vite · Tailwind CSS v4 · shadcn/ui on Base UI · TanStack Query · Zustand · Motion · Recharts |
-| **Hosting** | Vercel (6 projects: 3 frontends + 3 APIs) · Neon (one database) · Docker Compose for local and on-premise |
+| **Hosting** | Vercel (8 projects: 4 frontends + 4 APIs) · Neon (one database) · Docker Compose for local and on-premise |
 
 ### Four ideas that hold it together
 
@@ -168,6 +176,21 @@ logged, time-limited **break-glass** override exists for emergencies.
 **4. Money is treated like money.**
 Amounts are stored as exact decimals, never floats. Postings are atomic. Financial records
 are never hard-deleted, and every destructive action leaves an audit trail.
+
+### Owners and staff sign in in different places
+
+| Where | Who | Opens |
+|---|---|---|
+| The Mizan website → **Sign in** | Business owners | The **owner panel**: every workspace they own, trials, subscriptions, invoices |
+| A workspace's login page (`/c/<workspace>/login`) | Staff, and owners working in one workspace | The **ERP** for that workspace |
+
+An **owner account** (`owner_accounts`) owns any number of workspaces. In each one the owner
+also has an ordinary admin user with the same username and password; "Open workspace" signs
+in as that user. New owners land in the panel after signup, where a short interactive tour
+shows their workspace, how to open it, the trial, subscriptions and invoices. Subscribing
+happens only here: the owner picks a plan, pays through **Paymob**, and Paymob's HMAC-signed
+callback activates it. Nothing inside a workspace can change its plan. See
+[`owner/README.md`](owner/README.md).
 
 ### The admin panel
 
@@ -202,10 +225,10 @@ The full canon lives in [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md),
 
 | Status | What |
 |---|---|
-| ✅ **Live** | Multi-tenant SaaS · self-serve signup & onboarding · POS (online + offline) · sales · inventory · purchasing · customers & suppliers · finance & ledger · HR & payroll · reports · notifications · storefront · thermal printing & barcode scanning · ZKTeco sync · Arabic/English · admin panel · plan limits · workspace suspension |
+| ✅ **Live** | Multi-tenant SaaS · self-serve signup & onboarding · owner panel with multiple workspaces per owner · POS (online + offline) · sales · inventory · purchasing · customers & suppliers · finance & ledger · HR & payroll · reports · notifications · storefront · thermal printing & barcode scanning · ZKTeco sync · Arabic/English · admin panel · plan limits · workspace suspension |
 | 🧱 **Working, being deepened** | Restaurant & kitchen display · pharmacy · clinic (billing, clinical roles, FEFO dispensing, claims) · hotel PMS · school · gym · salon · wholesale |
 | 🪴 **Scaffolded** | Manufacturing, projects, specialised and remaining service modules: models, API and screens exist, with workflows still to be filled in |
-| 🔌 **In progress** | WhatsApp receipts (configured and logged; live sending queued) · online payment gateways (Paymob / Fawry webhook exists; production wiring pending) |
+| 🔌 **In progress** | WhatsApp receipts (configured and logged; live sending queued) · Paymob payments (built and tested against signed callbacks; needs the production keys) · subscription expiry (paid periods are tracked; lapsing to read-only isn't automatic yet) |
 | 🗺️ **Planned** | Egyptian Tax Authority e-invoicing · loyalty points · desktop, LAN and bring-your-own-database deployment modes · full hospital suite (EMR, inpatient, radiology, theatre) |
 
 The roadmap lives in [`TASKS.md`](TASKS.md) and [`docs/DEVELOPMENT_ROADMAP.md`](docs/DEVELOPMENT_ROADMAP.md).
@@ -218,8 +241,8 @@ Independent audits, and what was fixed after them, live in [`docs/audit/`](docs/
 **Requirements:** Docker, Node 22+ (CI uses 24), Python 3.12+. Everything else goes through one file:
 
 ```bash
-python manage.py setup     # npm deps, .venv, database + 3 APIs, migrations, first admin
-python manage.py dev       # all three frontends in one terminal (or: dev system | website | admin)
+python manage.py setup     # npm deps, .venv, database + 4 APIs, migrations, first admin
+python manage.py dev       # every frontend in one terminal (or: dev system | website | owner | admin)
 python manage.py doctor    # what's installed, what's running, what to fix
 ```
 
@@ -227,12 +250,13 @@ python manage.py doctor    # what's installed, what's running, what to fix
 |---|---|---|
 | System (ERP) | http://localhost:5173 | system-api on :8000 |
 | Website | http://localhost:5174 | website-api on :8001 |
+| Owner panel | http://localhost:5176 | owner-api on :8003 |
 | Admin panel | http://localhost:5175 | admin-api on :8002 |
 
 **A new database starts empty.** Docker loads a structure-only baseline
 (`shared/backend/app/db/baseline_schema.sql`, no data), the API builds the rest of the schema,
 and `db migrate` creates one workspace (“ميزان”) with two accounts: `ammar` / `changeme` for the
-app and `platform` / `changeme` for the admin panel (override with `MIZAN_ADMIN_*` and
+app and the owner panel, and `platform` / `changeme` for the admin panel (override with `MIZAN_ADMIN_*` and
 `MIZAN_PLATFORM_*` `_USERNAME` / `_PASSWORD`). The bootstrap does nothing once any user exists.
 Change both passwords after the first sign-in. To get a sector's demo data,
 sign up a new workspace through the website.
@@ -243,7 +267,7 @@ sign up a new workspace through the website.
 setup | doctor
 stack   up [--build] | down | restart [svc] | status | logs [svc] | build | update | shell [svc]
 db      migrate | backup | restore <file> | backups | reset | baseline | export | psql
-dev     [system|website|admin|all]          build [system|website|admin|all]
+dev     [system|website|owner|admin|all]    build [system|website|owner|admin|all]
 test    [unit|backend|e2e|all]              lint | check
 vercel  status | domains | redeploy <project>
 cron    [--job NAME]
@@ -252,7 +276,7 @@ cron    [--job NAME]
 - **`stack update`** backs up, rebuilds, restarts and migrates without losing data. **`db reset`** wipes everything.
 - **`db baseline`** refreshes the baseline schema from your database (structure only, never data).
 - **`db export`** writes master data (no transactions) to `backups/`, which git ignores.
-- **`check`** runs what CI runs except e2e: ruff, TypeScript, unit and backend tests, and all three builds.
+- **`check`** runs what CI runs except e2e: ruff, TypeScript, unit and backend tests, and every build.
 - `--yes` skips confirmations, `--verbose` prints every command. Only the Python standard library is needed.
 
 ### Tests
@@ -264,7 +288,7 @@ python manage.py check           # lint + tests + builds
 ```
 
 Backend tests delete the workspaces they create, so the database is left as they found it.
-CI runs lint, all three builds, unit tests, an import check of every API and the full
+CI runs lint, every build, unit tests, an import check of every API and the full
 Docker-based end-to-end suite on every push.
 
 ---
@@ -280,15 +304,17 @@ when its own folder or `shared/` changes**, so a website edit never redeploys th
 | `mizan-website-api` | `website/backend` | mizan-co-web-api.vercel.app |
 | `mizan-system` | `system/frontend` | mizan-co-app.vercel.app |
 | `mizan-system-api` | `system/backend` | mizan-co-api.vercel.app |
+| `mizan-owner` | `owner/frontend` | mizan-co-account.vercel.app |
+| `mizan-owner-api` | `owner/backend` | mizan-co-account-api.vercel.app |
 | `mizan-admin` | `admin/frontend` | mizan-co-admin.vercel.app |
 | `mizan-admin-api` | `admin/backend` | mizan-co-admin-api.vercel.app |
 
 - **`master` is production.** Work on a branch named after the product (`system/pos-discounts`,
   `website/new-hero`, `shared/fix-rounding`); pushing it gives you preview links for the apps you touched.
 - **Commit as `ammar0xff`.** Vercel blocks deploys from commits it can't match to the account.
-- **Changing `shared/` rebuilds all three products**, so check every app that uses what you changed.
+- **Changing `shared/` rebuilds every product**, so check every app that uses what you changed.
 - **`python manage.py vercel status`** shows what's live on each project; `vercel redeploy <project>` redeploys one.
-- The three APIs share one database and one `SECRET_KEY`; their settings live in each Vercel project.
+- The four APIs share one database and one `SECRET_KEY`; their settings live in each Vercel project.
 
 ---
 
@@ -301,10 +327,13 @@ system/                 the ERP
 website/                the public website
   frontend/src/         landing, product, pricing, blog, docs portal, signup, onboarding
   backend/              website-api: plans and self-serve signup
+owner/                  the owner panel (Arabic): an owner's workspaces, subscriptions, Paymob
+  frontend/src/         workspaces, workspace (plans, pay), invoices, account, payment return, tour
+  backend/              owner-api: owner_api/ (account, workspaces, billing + Paymob callback)
 admin/                  the admin panel (English, Mizan team only)
   frontend/src/         overview, workspaces, billing, activity, team, system
   backend/              admin-api: admin_api/ (one router per page)
-shared/                 code all three use
+shared/                 code every product uses
   frontend/src/         design kit (components/kit), API client, stores, i18n, styles, pricing
   backend/app/          kernel: factory, core (tenancy, auth, plans, printing), models, services,
                         api/routers (ERP endpoint library), modules (48 domain modules),
@@ -312,20 +341,20 @@ shared/                 code all three use
 e2e/                    live API end-to-end suite
 docs/                   product, architecture, design, security and requirements docs
 .github/                CI workflow
-docker-compose.yml      local stack: database + the three APIs
-package.json            npm workspaces: shared + the three frontends
+docker-compose.yml      local stack: database + the four APIs
+package.json            npm workspaces: shared + the four frontends
 manage.py               the one CLI: setup, stack, db, dev, build, test, lint, vercel
 ```
 
 Frontend import aliases: `@/` is the shared kit, `@app/` is the current app, `@modules/` is the industry screens (system only).
-Each product folder has its own README: [`system/`](system/README.md) · [`website/`](website/README.md) · [`admin/`](admin/README.md) · [`shared/`](shared/README.md).
+Each product folder has its own README: [`system/`](system/README.md) · [`website/`](website/README.md) · [`owner/`](owner/README.md) · [`admin/`](admin/README.md) · [`shared/`](shared/README.md).
 
 ## Documentation
 
 | Start here | Then |
 |---|---|
 | [Project overview](docs/PROJECT_OVERVIEW.md) | [Requirements (SRS)](docs/developer/mizan/srs/SRS-Mizan-v1.0.md) · [30-industry specs](docs/srs/00_MASTER_INDEX.md) |
-| [System architecture](docs/SYSTEM_ARCHITECTURE.md) | [Why three products (ADR-003)](docs/decisions/ADR-003-separate-apps.md) · [ADRs](docs/decisions/) · [Database & tenancy](docs/DATABASE_DESIGN.md) · [API standards](docs/API_STANDARDS.md) |
+| [System architecture](docs/SYSTEM_ARCHITECTURE.md) | [Why separate products (ADR-003)](docs/decisions/ADR-003-separate-apps.md) · [Owner accounts & Paymob (ADR-004)](docs/decisions/ADR-004-owner-accounts-and-payments.md) · [ADRs](docs/decisions/) · [Database & tenancy](docs/DATABASE_DESIGN.md) · [API standards](docs/API_STANDARDS.md) |
 | [Security standards](docs/SECURITY_STANDARDS.md) | [Roles & permissions](docs/USER_ROLES_AND_PERMISSIONS.md) |
 | [Design system](docs/DESIGN_SYSTEM.md) | [UI/UX kit](docs/ui-ux-kit/) · [Brand identity](docs/developer/mizan/frontend/08-brand-identity-full.md) |
 | [Engineering standards](docs/ENGINEERING_STANDARDS.md) | [Contributor & agent rules](AGENTS.md) |

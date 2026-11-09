@@ -2,53 +2,19 @@ import { useState, useEffect, type ComponentProps, type ComponentType, type Reac
 import { Link, useNavigate } from "react-router-dom";
 import {
   Check,
-  Zap,
-  CreditCard,
-  RefreshCw,
-  Copy,
-  CheckCircle2,
   Sparkles,
   ChevronDown,
 } from "lucide-react";
-import { api, ApiError } from "@/lib/api";
-import { useToast } from "@/components/ui";
+import { api } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
 import { PLANS, Plan } from "@/lib/plans";
 import { APP_KIND, appUrl } from "@/lib/urls";
 import { Button } from "@/components/kit/button";
 import { Badge } from "@/components/kit/badge";
-import { Input } from "@/components/kit/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/kit/dialog";
 import { toast as sonnerToast } from "sonner";
 import { useTranslation } from "@/i18n";
 import { motion, AnimatePresence } from "motion/react";
 import { MizanMagnetic } from "@/components/motion/MizanMagnetic";
-
-interface CheckoutResult {
-  invoice_ref: string;
-  plan: string;
-  plan_name: string;
-  amount_egp: number;
-  billing_cycle: string;
-  payment_method: string;
-  payment_meta: {
-    type: string;
-    fawry_ref?: string;
-    ipa_address?: string;
-    reference_note?: string;
-    checkout_url?: string;
-    instructions?: string;
-    expiry_hours?: number;
-  };
-  status: string;
-  message: string;
-}
 
 interface SubscriptionInfo {
   plan: string;
@@ -81,28 +47,17 @@ function SiteLink({ to, ...rest }: { to: string } & Omit<ComponentProps<"a">, "h
  * visitors; the system app renders it inside the app shell for upgrades.
  */
 export default function PricingPage({ layout: Layout = PlainLayout }: { layout?: ComponentType<{ children: ReactNode }> }) {
-  const { user, tenant, setTenant } = useAuth();
-  const { toast } = useToast();
+  const { user, tenant } = useAuth();
   const navigate = useNavigate();
   const { locale } = useTranslation();
   const isAr = locale === "ar";
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
   const [currency, setCurrency] = useState<"USD" | "EGP">("USD");
-  const [phone, setPhone] = useState("");
 
   // Live Subscription Status (if logged in)
   const [subInfo, setSubInfo] = useState<SubscriptionInfo | null>(null);
 
-  // Checkout Modal State
-  const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<string>("card");
-  const [checkoutResult, setCheckoutResult] = useState<CheckoutResult | null>(null);
-  const [checkingOut, setCheckingOut] = useState(false);
-  const [simulating, setSimulating] = useState(false);
-  const [paymentActivated, setPaymentActivated] = useState(false);
-  const [copiedCode, setCopiedCode] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   // Load tenant subscription info if logged in
@@ -131,75 +86,9 @@ export default function PricingPage({ layout: Layout = PlainLayout }: { layout?:
       );
       return;
     }
-    setSelectedPlan(p);
-    setCheckoutResult(null);
-    setPaymentActivated(false);
-    setCheckoutModalOpen(true);
-  }
-
-  async function handleCreateCheckout() {
-    if (!selectedPlan) return;
-    setCheckingOut(true);
-    try {
-      const res = await api.post<CheckoutResult>("/billing/checkout", {
-        plan: selectedPlan.id,
-        billing_cycle: billingCycle,
-        payment_method: paymentMethod,
-        contact_phone: phone || undefined,
-      });
-      setCheckoutResult(res);
-      sonnerToast.success(res.message || (isAr ? "تم إنشاء طلب السداد وإصدار الفاتورة" : "Checkout invoice generated"));
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : (isAr ? "تعذر إنشاء جلسة الدفع" : "Failed to create payment session");
-      toast("error", msg);
-      sonnerToast.error(msg);
-    } finally {
-      setCheckingOut(false);
-    }
-  }
-
-  async function handleSimulatePayment() {
-    if (!checkoutResult) return;
-    setSimulating(true);
-    try {
-      const res = await api.post<{ ok: boolean; message: string; limits?: any }>(
-        "/billing/simulate-payment",
-        {
-          invoice_ref: checkoutResult.invoice_ref,
-        }
-      );
-      setPaymentActivated(true);
-      sonnerToast.success(res.message || (isAr ? "تم تأكيد السداد وتفعيل الباقة بنجاح!" : "Payment confirmed and plan activated!"));
-
-      if (tenant) {
-        setTenant({
-          ...tenant,
-          plan: checkoutResult.plan,
-          trial_ends_at: null,
-          limits: res.limits || tenant.limits,
-        });
-      }
-
-      try {
-        const updated = await api.get<SubscriptionInfo>("/billing/subscription");
-        setSubInfo(updated);
-      } catch {
-        /* ignore */
-      }
-    } catch (err) {
-      const msg = err instanceof ApiError ? err.message : (isAr ? "فشلت محاكاة السداد" : "Payment simulation failed");
-      toast("error", msg);
-      sonnerToast.error(msg);
-    } finally {
-      setSimulating(false);
-    }
-  }
-
-  function copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text);
-    setCopiedCode(true);
-    sonnerToast.success(isAr ? "تم نسخ الكود للحافظة" : "Copied code to clipboard");
-    setTimeout(() => setCopiedCode(false), 2000);
+    // Subscribing and paying happen in the owner panel (Paymob), never inside a workspace.
+    const target = tenant?.id ? `/workspaces/${tenant.id}?plan=${p.id}&cycle=${billingCycle}` : "/";
+    window.location.assign(appUrl("owner", target));
   }
 
   const isCurrentPlan = (planId: string) => tenant?.plan === planId;
@@ -683,188 +572,6 @@ export default function PricingPage({ layout: Layout = PlainLayout }: { layout?:
       </div>
 
       {/* Checkout and Payment Simulation Modal */}
-      <Dialog open={checkoutModalOpen} onOpenChange={setCheckoutModalOpen}>
-        <DialogContent className="max-w-lg rounded-2xl bg-white p-6 border border-[#E7D6C1] text-[#262321] font-body">
-          <DialogHeader className="border-b border-[#E7D6C1] pb-4">
-            <DialogTitle className="font-display text-xl text-[#262321] font-normal">
-              {isAr ? "إتمام الاشتراك وتأكيد السداد" : "Complete Subscription & Checkout"}
-            </DialogTitle>
-          </DialogHeader>
-
-          {selectedPlan && (
-            <div className="space-y-5 py-3">
-              {/* Plan Summary Card */}
-              <div className="rounded-xl border border-[#E7D6C1] bg-[#FAF6F0] p-4 flex items-center justify-between">
-                <div>
-                  <h4 className="font-bold text-sm text-[#262321]">
-                    {selectedPlan.name}
-                  </h4>
-                  <p className="text-xs text-[#77716E]">
-                    {billingCycle === "annual"
-                      ? isAr
-                        ? "دورة فوترة سنوية (خصم 20%)"
-                        : "Annual billing cycle (20% off)"
-                      : isAr
-                      ? "دورة فوترة شهرية"
-                      : "Monthly billing cycle"}
-                  </p>
-                </div>
-                <div className="text-end font-mono">
-                  <span className="text-lg font-bold text-[#651E2C]">
-                    {(billingCycle === "annual"
-                      ? selectedPlan.price_annual_egp
-                      : selectedPlan.price_egp
-                    ).toLocaleString()}{" "}
-                    {isAr ? "ج.م" : "EGP"}
-                  </span>
-                </div>
-              </div>
-
-              {!checkoutResult ? (
-                <>
-                  {/* Payment Gateway Options */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-[#262321]">
-                      {isAr ? "اختر وسيلة الدفع المناسبة:" : "Select payment method:"}
-                    </label>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      {[
-                        { id: "card", label: isAr ? "بطاقة بنكية (Visa/MC)" : "Bank Card (Visa/MC)", icon: CreditCard },
-                        { id: "fawry", label: isAr ? "كود فوري (Fawry Pay)" : "Fawry Pay Code", icon: Zap },
-                        { id: "instapay", label: isAr ? "تحويل إنستاباي (InstaPay)" : "InstaPay Transfer", icon: RefreshCw },
-                        { id: "vodafone_cash", label: isAr ? "محفظة فودافون كاش" : "Vodafone Cash Wallet", icon: Sparkles },
-                      ].map((m) => {
-                        const Icon = m.icon;
-                        return (
-                          <button
-                            key={m.id}
-                            type="button"
-                            onClick={() => setPaymentMethod(m.id)}
-                            className={`flex items-center gap-2 rounded-xl border p-3 text-start transition-all ${
-                              paymentMethod === m.id
-                                ? "border-[#651E2C] bg-[#651E2C]/5 text-[#651E2C] font-bold"
-                                : "border-[#E7D6C1] hover:bg-[#FAF6F0] text-[#77716E]"
-                            }`}
-                          >
-                            <Icon className="size-4 shrink-0" />
-                            <span>{m.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Contact Phone */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-[#77716E]">
-                      {isAr ? "رقم الهاتف لتأكيد السداد (اختياري):" : "Contact phone for receipt (optional):"}
-                    </label>
-                    <Input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="01012345678"
-                      className="border-[#E7D6C1] text-xs font-mono"
-                    />
-                  </div>
-
-                  <Button
-                    onClick={handleCreateCheckout}
-                    disabled={checkingOut}
-                    className="w-full bg-[#651E2C] text-white hover:bg-[#521723] rounded-xl py-3 text-xs font-bold"
-                  >
-                    {checkingOut
-                      ? isAr
-                        ? "جاري تجهيز الفاتورة..."
-                        : "Preparing invoice..."
-                      : isAr
-                      ? "إصدار الفاتورة وتوليد كود السداد"
-                      : "Generate Invoice & Payment Code"}
-                  </Button>
-                </>
-              ) : (
-                /* Invoice and Simulation UI */
-                <div className="space-y-4">
-                  <div className="rounded-xl border border-emerald-300 bg-emerald-50/50 p-4 text-xs space-y-2 text-emerald-950">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold flex items-center gap-1 text-emerald-700">
-                        <CheckCircle2 className="size-4" />
-                        {isAr ? "تم إصدار الفاتورة بنجاح" : "Invoice Issued Successfully"}
-                      </span>
-                      <span className="font-mono text-[11px] text-emerald-800">
-                        #{checkoutResult.invoice_ref}
-                      </span>
-                    </div>
-
-                    {checkoutResult.payment_meta.fawry_ref && (
-                      <div className="mt-2 rounded-lg bg-white p-3 border border-emerald-200 flex items-center justify-between">
-                        <div>
-                          <span className="text-[11px] text-[#77716E] block">
-                            {isAr ? "كود سداد فوري الموحد:" : "Fawry Reference Code:"}
-                          </span>
-                          <span className="font-mono text-base font-black text-[#651E2C]">
-                            {checkoutResult.payment_meta.fawry_ref}
-                          </span>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => copyToClipboard(checkoutResult.payment_meta.fawry_ref!)}
-                          className="text-[11px] border-[#E7D6C1]"
-                        >
-                          {copiedCode ? <Check className="size-3 text-emerald-600" /> : <Copy className="size-3" />}
-                        </Button>
-                      </div>
-                    )}
-
-                    {checkoutResult.payment_meta.instructions && (
-                      <p className="text-[11px] text-emerald-900 leading-relaxed">
-                        {checkoutResult.payment_meta.instructions}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Dev / Test Payment Simulator Button */}
-                  <div className="pt-2">
-                    <Button
-                      onClick={handleSimulatePayment}
-                      disabled={simulating || paymentActivated}
-                      className="w-full bg-[#27835C] text-white hover:bg-[#1E6B4A] rounded-xl py-3 text-xs font-bold"
-                    >
-                      {paymentActivated
-                        ? isAr
-                          ? "تم تفعيل الباقة بنجاح!"
-                          : "Plan Activated Successfully!"
-                        : simulating
-                        ? isAr
-                          ? "جاري تأكيد السداد الآلي..."
-                          : "Simulating confirmation..."
-                        : isAr
-                        ? "محاكاة الدفع الفوري (Webhook Live Trigger)"
-                        : "Simulate Instant Payment (Webhook Live Trigger)"}
-                    </Button>
-                    <p className="mt-1.5 text-center text-[10px] text-[#77716E]">
-                      {isAr
-                        ? "زر المحاكاة متاح للتجربة والتفعيل التلقائي دون خصم فعلي"
-                        : "Simulator triggers platform webhook to activate quotas instantly"}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <DialogFooter className="border-t border-[#E7D6C1] pt-3">
-            <Button
-              variant="outline"
-              onClick={() => setCheckoutModalOpen(false)}
-              className="border-[#E7D6C1] text-xs"
-            >
-              {isAr ? "إغلاق" : "Close"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </Layout>
   );
 }

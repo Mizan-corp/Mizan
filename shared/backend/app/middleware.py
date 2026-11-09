@@ -33,6 +33,9 @@ CSRF_EXEMPT_SUFFIXES = (
     "/auth/reauthenticate",
     "/auth/print-token",
     "/platform/signup",
+    "/account/login",
+    # Paymob's server calls this; it's authenticated by its HMAC instead.
+    "/account/paymob/callback",
 )
 
 MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
@@ -54,7 +57,7 @@ def _is_https(request: Request) -> bool:
 
 def _is_exempt(path: str) -> bool:
     rel = _script_rel_path(path)
-    if rel.startswith("/storefront/") or rel.startswith("/store/") or rel.startswith("/billing/webhook"):
+    if rel.startswith("/storefront/") or rel.startswith("/store/"):
         return True
     return rel in CSRF_EXEMPT_SUFFIXES
 

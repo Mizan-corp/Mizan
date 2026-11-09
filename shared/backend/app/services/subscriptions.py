@@ -6,7 +6,7 @@ owner panel, so a paid invoice activates a plan the same way everywhere.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,6 +60,59 @@ async def revenue_breakdown(db: AsyncSession) -> dict:
             continue
         mrr += inv.amount_egp / 12 if inv.billing_cycle == "annual" else inv.amount_egp
     return {"mrr_egp": round(mrr, 2), "paying": len(paying) - complimentary, "complimentary": complimentary}
+
+
+def invoice_amount(plan: str, cycle: str) -> float:
+    cfg = get_plan(plan)
+    return float(cfg["price_annual_egp"] if cycle == "annual" else cfg["price_monthly_egp"])
+
+
+async def paid_until(db: AsyncSession, tenant_id: uuid.UUID) -> datetime | None:
+    """End of the latest paid period, if any."""
+    return await db.scalar(
+        select(BillingInvoice.period_end)
+        .where(BillingInvoice.tenant_id == tenant_id, BillingInvoice.status == "paid")
+        .order_by(BillingInvoice.period_end.desc().nulls_last())
+        .limit(1)
+    )
+
+
+async def new_invoice(
+    db: AsyncSession,
+    tenant: Tenant,
+    *,
+    plan: str,
+    cycle: str,
+    method: str,
+) -> BillingInvoice:
+    """A pending invoice for a paid plan. Renewing the current plan early starts
+    the new period where the paid one ends. The caller commits."""
+    if plan not in PAID_PLANS:
+        raise ValueError(f"not a paid plan: {plan}")
+    if cycle not in ("monthly", "annual"):
+        raise ValueError(f"unknown billing cycle: {cycle}")
+    now = datetime.now(UTC)
+    start = now
+    if tenant.plan == plan:
+        current_end = await paid_until(db, tenant.id)
+        if current_end and current_end > now:
+            start = current_end
+    invoice = BillingInvoice(
+        id=uuid.uuid4(),
+        tenant_id=tenant.id,
+        # Unguessable: it's the gateway's merchant order id and appears in URLs.
+        invoice_ref=f"INV-{now:%Y%m}-{uuid.uuid4().hex[:10].upper()}",
+        plan=plan,
+        billing_cycle=cycle,
+        amount_egp=invoice_amount(plan, cycle),
+        payment_method=method,
+        status="pending",
+        period_start=start,
+        period_end=start + timedelta(days=365 if cycle == "annual" else 30),
+    )
+    db.add(invoice)
+    await db.flush()
+    return invoice
 
 
 async def activate_invoice(

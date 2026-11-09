@@ -26,23 +26,27 @@ async def get_current_user(
     token: str | None = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    # 1: Try httpOnly cookie first
-    cookie_token = request.cookies.get("access_token")
+    # An explicit Bearer token wins over the cookie: a session handed over from
+    # the owner or admin panel must not be overridden by an older sign-in's
+    # cookie in the same browser.
     payload = None
-    if cookie_token:
-        try:
-            payload = decode_token(cookie_token)
-        except HTTPException:
-            payload = None
-
-    # 2: Fallback to Bearer header (migration compat)
-    if not payload and token:
+    if token:
         try:
             payload = decode_token(token)
         except HTTPException:
             payload = None
 
+    cookie_token = request.cookies.get("access_token")
+    if not payload and cookie_token:
+        try:
+            payload = decode_token(cookie_token)
+        except HTTPException:
+            payload = None
+
     if not payload:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    if payload.get("scope") == "owner":
+        # Owner-panel sessions don't open the ERP; the panel hands over an ERP token.
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
     user_id = _decode_user_id(payload)

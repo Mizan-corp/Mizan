@@ -34,9 +34,9 @@ function Page({ children }: { children: ReactNode }) {
   );
 }
 
-/** Sign-in lives in the system app. */
+/** Signing in on the platform opens the owner panel; staff use their workspace's login page. */
 function ToSystemLogin() {
-  window.location.replace(appUrl("system", "/login"));
+  window.location.replace(appUrl("owner", "/"));
   return null;
 }
 

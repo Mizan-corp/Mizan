@@ -244,7 +244,7 @@ export default function SignupPage() {
 
           <div className="pt-4 border-t border-[#E6DCD2] text-center text-xs text-[#77716E]">
             <span>{isAr ? "لديك حساب بالفعل؟" : "Already have an account?"} </span>
-            <a href={appUrl("system", "/login")} className="font-semibold text-[#651E2C] hover:underline">
+            <a href={appUrl("owner", "/")} className="font-semibold text-[#651E2C] hover:underline">
               {isAr ? "تسجيل الدخول" : "Sign In"}
             </a>
           </div>

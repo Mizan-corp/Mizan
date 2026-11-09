@@ -48,7 +48,8 @@ async def overview(db: AsyncSession = Depends(get_db), _: User = Depends(require
     attention += [{"kind": "trial_expired", "tenant_id": str(t.id), "tenant_name": t.name,
                    "days": -days_until(t.trial_ends_at), "at": iso(t.trial_ends_at)} for t in expired]
 
-    pending = (await db.execute(select(BillingInvoice).where(BillingInvoice.status == "pending")
+    # Open Paymob checkouts settle themselves; only manual invoices need a person.
+    pending = (await db.execute(select(BillingInvoice).where(BillingInvoice.status == "pending", BillingInvoice.payment_method != "paymob")
                                 .order_by(BillingInvoice.created_at))).scalars().all()
     requests = (await db.execute(select(Subscription).where(Subscription.status == "requested")
                                  .order_by(Subscription.created_at))).scalars().all()

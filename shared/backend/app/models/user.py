@@ -41,6 +41,8 @@ class User(Base, TenantScoped):
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     permissions: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     settings: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
+    # Set on the ERP user an owner account signs in as from the owner panel.
+    owner_account_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("owner_accounts.id", ondelete="SET NULL"), nullable=True)
     default_warehouse_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
