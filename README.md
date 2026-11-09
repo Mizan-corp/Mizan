@@ -231,7 +231,8 @@ The full canon lives in [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md),
 | 🔌 **In progress** | WhatsApp receipts (configured and logged; live sending queued) · Paymob payments (built and tested against signed callbacks; needs the production keys) · subscription expiry (paid periods are tracked; lapsing to read-only isn't automatic yet) |
 | 🗺️ **Planned** | Egyptian Tax Authority e-invoicing · loyalty points · desktop, LAN and bring-your-own-database deployment modes · full hospital suite (EMR, inpatient, radiology, theatre) |
 
-The roadmap lives in [`TASKS.md`](TASKS.md) and [`docs/DEVELOPMENT_ROADMAP.md`](docs/DEVELOPMENT_ROADMAP.md).
+Open work (features, tests, chores, manual follow-ups) is tracked in [GitHub issues](https://github.com/ammar0xff/Mizan/issues).
+The high-level roadmap lives in [`TASKS.md`](TASKS.md) and [`docs/DEVELOPMENT_ROADMAP.md`](docs/DEVELOPMENT_ROADMAP.md).
 Independent audits, and what was fixed after them, live in [`docs/audit/`](docs/audit/).
 
 ---
@@ -314,6 +315,10 @@ when its own folder or `shared/` changes**, so a website edit never redeploys th
 - **Commit as `ammar0xff`.** Vercel blocks deploys from commits it can't match to the account.
 - **Changing `shared/` rebuilds every product**, so check every app that uses what you changed.
 - **`python manage.py vercel status`** shows what's live on each project; `vercel redeploy <project>` redeploys one.
+- **Vercel's free plan allows 100 deployments a day** across all projects, previews and redeploys included.
+  Batch changes into fewer pushes; don't redeploy projects whose code didn't change (#63).
+- **Production migrations are applied by hand** (Vercel doesn't run them): back up, run the
+  pending migration, *then* push the code that needs it. Migrations must stay backward compatible (#64).
 - The four APIs share one database and one `SECRET_KEY`; their settings live in each Vercel project.
 
 ---
