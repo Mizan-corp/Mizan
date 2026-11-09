@@ -94,7 +94,25 @@ def build_pgsql(target: str) -> None:
                 link = Path(m.linkname).parts
                 m.linkname = str(Path(*link[1:])) if len(link) > 1 else m.linkname
             tar.extract(m, out, filter="tar")
+    if target == "windows":
+        bundle_vc_runtime(out / "bin")
     print(f"  {sum(f.stat().st_size for f in out.rglob('*') if f.is_file()) // 1_000_000} MB")
+
+
+VC_RUNTIME = ("vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll")
+
+
+def bundle_vc_runtime(bin_dir: Path) -> None:
+    """PostgreSQL's Windows build needs the Visual C++ runtime, which a clean
+    Windows may lack: ship it next to the programs (app-local deployment)."""
+    system32 = Path(os.environ.get("SYSTEMROOT", r"C:\Windows")) / "System32"
+    for dll in VC_RUNTIME:
+        if (bin_dir / dll).exists():
+            continue
+        if not (system32 / dll).exists():
+            raise SystemExit(f"{dll} isn't in {system32}: build the Windows payload on Windows")
+        shutil.copy2(system32 / dll, bin_dir / dll)
+    print(f"  + Visual C++ runtime ({', '.join(VC_RUNTIME)})")
 
 
 def build_server(target: str) -> None:
