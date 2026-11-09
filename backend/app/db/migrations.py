@@ -2162,6 +2162,10 @@ MIGRATIONS = [
             END LOOP;
         END $$;
     """),
+    # v46 — products reorder_level column
+    ("v46_products_reorder_level", """
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS reorder_level INTEGER NOT NULL DEFAULT 5;
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:
