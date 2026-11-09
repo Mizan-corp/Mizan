@@ -15,12 +15,11 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://localhost",
         "https://eg-co.duckdns.org",
-        "https://ammar0xff.github.io",
         "https://mizan-co.vercel.app",
         "https://mizan-app-ammar0xfs-projects.vercel.app",
     ]
     CORS_ORIGIN_REGEX: str = (
-        r"^https:\/\/(mizan(-app)?(-[a-z0-9]+)?-ammar0xfs-projects\.vercel\.app|mizan-co\.vercel\.app|ammar0xff\.github\.io)$"
+        r"^https:\/\/(mizan(-app)?(-[a-z0-9]+)?-ammar0xfs-projects\.vercel\.app|mizan-co\.vercel\.app)$"
     )
     IS_PRODUCTION: bool = False
     # ⚠️ CORS_ORIGINS must NOT contain wildcard ("*") when credentials are enabled
