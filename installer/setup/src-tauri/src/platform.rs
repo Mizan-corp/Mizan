@@ -5,6 +5,7 @@ use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+#[cfg(not(windows))]
 const ICON_PNG: &[u8] = include_bytes!("../icons/128x128.png");
 
 #[cfg(windows)]
