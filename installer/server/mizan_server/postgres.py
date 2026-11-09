@@ -72,23 +72,27 @@ def is_initialised(cfg: Config) -> bool:
     return (cfg.pgdata / "PG_VERSION").exists()
 
 
-def _grant_windows_access(path: Path) -> None:
-    """Windows, run as an administrator: what we create is owned by the
-    Administrators group, which PostgreSQL drops from its (restricted) token. Give
-    this account and SYSTEM (the service) explicit full control of the data."""
-    who = subprocess.run(["whoami"], capture_output=True, text=True, encoding="utf-8", errors="replace",
-                         creationflags=0x08000000).stdout.strip()
-    grants = ["*S-1-5-18:(OI)(CI)F"] + ([f"{who}:(OI)(CI)F"] if who else [])
+def _icacls(path: Path, *grants: str) -> None:
     r = subprocess.run(["icacls", str(path), "/grant", *grants, "/T", "/C", "/Q"], capture_output=True, text=True,
                        encoding="utf-8", errors="replace", creationflags=0x08000000)
     if r.returncode != 0:
         raise PostgresError(f"Couldn't set permissions on {path}: {(r.stdout or r.stderr).strip()[-400:]}")
 
 
+def grant_windows_access(cfg: Config) -> None:
+    """Windows: run as an administrator, PostgreSQL restarts itself without the
+    Administrators group. It must still be able to read its programs (otherwise
+    Windows reports a missing DLL) and write its data, whatever the folders'
+    permissions: Users may read and run pgsql/; this account and SYSTEM (the
+    service) get full control of the data."""
+    who = subprocess.run(["whoami"], capture_output=True, text=True, encoding="utf-8", errors="replace",
+                         creationflags=0x08000000).stdout.strip()
+    _icacls(cfg.install / "pgsql", "*S-1-5-32-545:(OI)(CI)RX")
+    _icacls(cfg.data, "*S-1-5-18:(OI)(CI)F", *([f"{who}:(OI)(CI)F"] if who else []))
+
+
 def initdb(cfg: Config) -> None:
     cfg.pgdata.mkdir(parents=True, exist_ok=True)
-    if IS_WINDOWS:
-        _grant_windows_access(cfg.data)
     if cfg.run_as and not IS_WINDOWS and os.geteuid() == 0:
         subprocess.run(["chown", "-R", f"{cfg.run_as}:{cfg.run_as}", str(cfg.data)], check=True)
     with tempfile.NamedTemporaryFile("w", delete=False, suffix=".pw", dir=cfg.data) as f:

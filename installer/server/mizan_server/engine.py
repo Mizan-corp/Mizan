@@ -156,6 +156,8 @@ def install(
     # ── database ────────────────────────────────────────────────────────────
     emit("database", "running")
     try:
+        if IS_WINDOWS:
+            postgres.grant_windows_access(cfg)
         if not postgres.is_initialised(cfg):
             postgres.initdb(cfg)
         postgres.start(cfg)
