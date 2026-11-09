@@ -62,10 +62,10 @@ interface LowStockRow {
 function buildTrend(sales: SaleRow[]): { day: string; sales: number }[] {
   const byDay = new Map<string, number>();
   for (const s of sales) {
+    if (s.status === "cancelled" || s.status === "quotation") continue;
     const key = (s.created_at ?? "").slice(0, 10);
-    if (byDay.has(key) && s.status !== "cancelled" && s.status !== "quotation") {
-      byDay.set(key, (byDay.get(key) ?? 0) + Number(s.total));
-    }
+    if (!key) continue;
+    byDay.set(key, (byDay.get(key) ?? 0) + Number(s.total || 0));
   }
   const days: { day: string; sales: number }[] = [];
   const today = new Date();
@@ -158,7 +158,10 @@ export default function DashboardPage() {
     queryFn: () => api.get<SaleRow[]>("/sales", { page: 1, page_size: 14 }),
   });
 
-  const trend = buildTrend(recent.data ?? []);
+  const salesList: SaleRow[] = Array.isArray(recent.data)
+    ? recent.data
+    : ((recent.data as any)?.items ?? []);
+  const trend = buildTrend(salesList);
   const trendTotal = trend.reduce((s, d) => s + d.sales, 0);
 
   const dayTotal = Number(daily.data?.total_sales ?? 0);
@@ -499,7 +502,7 @@ export default function DashboardPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(recent.data ?? []).slice(0, 7).map((inv) => (
+                    {salesList.slice(0, 7).map((inv) => (
                       <TableRow key={inv.id} className="text-xs hover:bg-secondary/30 transition-colors">
                         <TableCell className="num font-mono font-bold text-foreground">
                           {inv.invoice_number}

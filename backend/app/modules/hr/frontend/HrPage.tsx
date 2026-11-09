@@ -57,22 +57,27 @@ function EmployeesTab() {
     onSuccess: () => { setCreating(false); setForm({ name: "", emp_code: "", position: "", monthly_salary: "" }); qc.invalidateQueries({ queryKey: ["hr-employees"] }); },
   });
 
+  const empList: Employee[] = Array.isArray(list.data) ? list.data : ((list.data as any)?.items ?? []);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex justify-end">
         <Button onClick={() => setCreating(true)}><UserPlus size={16} /> موظف جديد</Button>
       </div>
-      {list.isLoading ? <div className="flex flex-col gap-2" aria-busy="true" aria-label="جارٍ التحميل">
-            <Skeleton className="h-10 w-full" />
-            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-          </div>
-      : list.isError ? <ErrorBox message={(list.error as Error).message} onRetry={() => list.refetch()} />
-      : !list.data?.length ? <Empty text="لا يوجد موظفون" />
-      : (
-        <div className="overflow-x-auto">
+      {list.isLoading ? (
+        <div className="flex flex-col gap-2" aria-busy="true" aria-label="جارٍ التحميل">
+          <Skeleton className="h-10 w-full" />
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+        </div>
+      ) : list.isError ? (
+        <ErrorBox message={(list.error as Error).message} onRetry={() => list.refetch()} />
+      ) : !empList.length ? (
+        <Empty text="لا يوجد موظفون" />
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-line bg-card">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-line text-xs text-muted">
+              <tr className="border-b border-line text-xs text-muted bg-secondary/20">
                 <th className="p-3 text-start">الكود</th>
                 <th className="p-3 text-start">الاسم</th>
                 <th className="p-3 text-start">الوظيفة</th>
@@ -81,8 +86,8 @@ function EmployeesTab() {
               </tr>
             </thead>
             <tbody>
-              {list.data.map((e) => (
-                <tr key={e.id} className="border-b border-line/60 last:border-0">
+              {empList.map((e) => (
+                <tr key={e.id} className="border-b border-line/60 last:border-0 hover:bg-secondary/10 transition-colors">
                   <td className="num p-3 text-muted" dir="ltr">{e.emp_code ?? "—"}</td>
                   <td className="p-3 font-bold">{e.name}</td>
                   <td className="p-3">{e.position ?? "—"}</td>
@@ -153,7 +158,10 @@ function AttendanceTab() {
       }),
     onSuccess: () => { setAdding(false); qc.invalidateQueries({ queryKey: ["hr-attendance"] }); },
   });
-  const nameOf = (id: string) => employees.data?.find((e) => e.id === id)?.name ?? "—";
+
+  const empList: Employee[] = Array.isArray(employees.data) ? employees.data : ((employees.data as any)?.items ?? []);
+  const attList: Attendance[] = Array.isArray(att.data) ? att.data : ((att.data as any)?.items ?? []);
+  const nameOf = (id: string) => empList.find((e) => e.id === id)?.name ?? "—";
 
   return (
     <div className="flex flex-col gap-6">
@@ -161,17 +169,20 @@ function AttendanceTab() {
         <input type="month" className="num rounded-lg border border-line bg-surface px-3 py-2 text-sm" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="الشهر" />
         <Button onClick={() => setAdding(true)}><Plus size={16} /> تسجيل حضور</Button>
       </div>
-      {att.isLoading ? <div className="flex flex-col gap-2" aria-busy="true" aria-label="جارٍ التحميل">
-            <Skeleton className="h-10 w-full" />
-            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-          </div>
-      : att.isError ? <ErrorBox message={(att.error as Error).message} onRetry={() => att.refetch()} />
-      : !att.data?.length ? <Empty text="لا توجد سجلات حضور هذا الشهر" />
-      : (
-        <div className="overflow-x-auto">
+      {att.isLoading ? (
+        <div className="flex flex-col gap-2" aria-busy="true" aria-label="جارٍ التحميل">
+          <Skeleton className="h-10 w-full" />
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+        </div>
+      ) : att.isError ? (
+        <ErrorBox message={(att.error as Error).message} onRetry={() => att.refetch()} />
+      ) : !attList.length ? (
+        <Empty text="لا توجد سجلات حضور هذا الشهر" />
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-line bg-card">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-line text-xs text-muted">
+              <tr className="border-b border-line text-xs text-muted bg-secondary/20">
                 <th className="p-3 text-start">الموظف</th>
                 <th className="p-3 text-start">اليوم</th>
                 <th className="p-3 text-start">الحضور</th>
@@ -180,8 +191,8 @@ function AttendanceTab() {
               </tr>
             </thead>
             <tbody>
-              {att.data.slice(0, 100).map((a) => (
-                <tr key={a.id} className="border-b border-line/60 last:border-0">
+              {attList.slice(0, 100).map((a) => (
+                <tr key={a.id} className="border-b border-line/60 last:border-0 hover:bg-secondary/10 transition-colors">
                   <td className="p-3 font-bold">{nameOf(a.employee_id)}</td>
                   <td className="p-3 text-muted">{fmtDate(a.work_date)}</td>
                   <td className="num p-3" dir="ltr">{a.check_in?.slice(11, 16) ?? "—"}</td>
@@ -241,23 +252,30 @@ function AdvancesTab() {
       }),
     onSuccess: () => { setCreating(false); setForm({ employee_id: "", amount: "", note: "" }); qc.invalidateQueries({ queryKey: ["hr-advances"] }); },
   });
-  const nameOf = (id: string) => employees.data?.find((e) => e.id === id)?.name ?? "—";
+
+  const empList: Employee[] = Array.isArray(employees.data) ? employees.data : ((employees.data as any)?.items ?? []);
+  const advList: Advance[] = Array.isArray(list.data) ? list.data : ((list.data as any)?.items ?? []);
+  const nameOf = (id: string) => empList.find((e) => e.id === id)?.name ?? "—";
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex justify-end">
         <Button onClick={() => setCreating(true)}><Plus size={16} /> سلفة جديدة</Button>
       </div>
-      {list.isLoading ? <div className="flex flex-col gap-2" aria-busy="true" aria-label="جارٍ التحميل">
-            <Skeleton className="h-10 w-full" />
-            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-          </div>
-      : !list.data?.length ? <Empty text="لا توجد سلف" />
-      : (
-        <div className="overflow-x-auto">
+      {list.isLoading ? (
+        <div className="flex flex-col gap-2" aria-busy="true" aria-label="جارٍ التحميل">
+          <Skeleton className="h-10 w-full" />
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+        </div>
+      ) : list.isError ? (
+        <ErrorBox message={(list.error as Error).message} onRetry={() => list.refetch()} />
+      ) : !advList.length ? (
+        <Empty text="لا توجد سلف" />
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-line bg-card">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-line text-xs text-muted">
+              <tr className="border-b border-line text-xs text-muted bg-secondary/20">
                 <th className="p-3 text-start">الموظف</th>
                 <th className="p-3 text-start">المبلغ</th>
                 <th className="p-3 text-start">التاريخ</th>
@@ -265,8 +283,8 @@ function AdvancesTab() {
               </tr>
             </thead>
             <tbody>
-              {list.data.slice(0, 60).map((a) => (
-                <tr key={a.id} className="border-b border-line/60 last:border-0">
+              {advList.slice(0, 60).map((a) => (
+                <tr key={a.id} className="border-b border-line/60 last:border-0 hover:bg-secondary/10 transition-colors">
                   <td className="p-3 font-bold">{nameOf(a.employee_id)}</td>
                   <td className="num p-3 font-bold text-warning">{money(a.amount)}</td>
                   <td className="p-3 text-xs text-muted">{fmtDate(a.date)}</td>
@@ -287,7 +305,7 @@ function AdvancesTab() {
         >
           <Select autoFocus value={form.employee_id} onChange={(e) => setForm({ ...form, employee_id: e.target.value })}>
             <option value="">— اختر الموظف —</option>
-            {employees.data?.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+            {empList.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
           </Select>
           <div>
             <label className="mb-1 block text-sm font-medium">المبلغ</label>

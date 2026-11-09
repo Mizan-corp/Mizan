@@ -27,7 +27,10 @@ export default function PurchasesPage() {
 
   const list = useQuery({
     queryKey: ["purchases", page],
-    queryFn: () => api.get<PO[]>("/purchases", { page, page_size: 25 }),
+    queryFn: async () => {
+      const res = await api.get<{ items: PO[]; total: number; pages: number } | PO[]>("/purchases", { page, page_size: 25 });
+      return Array.isArray(res) ? res : res.items ?? [];
+    },
   });
   const suppliers = useQuery({
     queryKey: ["suppliers-list"],
