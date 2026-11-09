@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="frontend/public/icon.svg" width="88" alt="Mizan" />
+<img src="system/frontend/public/icon.svg" width="88" alt="Mizan" />
 
 # ميزان · Mizan
 
@@ -16,6 +16,7 @@ whether that's a corner shop, a restaurant, a pharmacy, a hotel or a factory.
 
 [**Website**](https://mizan-co.vercel.app) &nbsp;·&nbsp;
 [**Open the app →**](https://mizan-co-app.vercel.app) &nbsp;·&nbsp;
+[Admoon](https://mizan-co-admin.vercel.app) &nbsp;·&nbsp;
 [API docs](https://mizan-co-api.vercel.app/api/docs) &nbsp;·&nbsp;
 [Documentation](docs/)
 
@@ -128,7 +129,7 @@ flowchart LR
     subgraph admin["admin/"]
         AF[Admin frontend] --> AA[admin-api<br/>Admoon]
     end
-    K[["shared/<br/>kernel: models · tenancy · auth · modules<br/>kit: components · API client · styles"]]
+    K[["shared/<br/>kernel: models · tenancy · auth · modules · print engine<br/>kit: components · API client · styles"]]
     WA & SA & AA --- K
     K --> DB[(PostgreSQL 16<br/>Row-Level Security)]
     WF -. "new owner, signed in" .-> SF
@@ -212,13 +213,13 @@ Independent audits, and what was fixed after them, live in [`docs/audit/`](docs/
 
 ## Run it locally
 
-**Requirements:** Docker, Node 20+ (CI uses 24), and Python 3.12 with [uv](https://docs.astral.sh/uv/) for running backends outside Docker.
+**Requirements:** Docker, Node 20+ (CI uses 24), Python 3.12.
 
 ```bash
 # 1 · database + the three APIs (system :8000 · website :8001 · admin :8002)
 docker compose up -d
 
-# 2 · apply migrations (idempotent, safe to re-run)
+# 2 · migrations + first-run bootstrap (idempotent, safe to re-run)
 python3 scripts/migrate.py
 
 # 3 · frontends (one npm workspace; /api is proxied to each app's own API)
@@ -228,25 +229,59 @@ npm run dev:website    # http://localhost:5174   landing, signup, onboarding
 npm run dev:admin      # http://localhost:5175   Admoon
 ```
 
+**A new database starts empty.** Docker loads a structure-only baseline
+(`shared/backend/app/db/baseline_schema.sql`, no data), the API builds the rest of the schema,
+and `migrate.py` creates one workspace (“ميزان”) with one admin: `ammar` / `changeme`,
+or whatever you set in `MIZAN_ADMIN_USERNAME` / `MIZAN_ADMIN_PASSWORD`. The bootstrap does
+nothing once any user exists. Change the password after the first sign-in. To get a
+sector's demo data, sign up a new workspace through the website.
+
 Running an API outside Docker (from its folder, with the shared kernel on the path):
 
 ```bash
 cd system/backend && PYTHONPATH=.:../../shared/backend uvicorn main:app --port 8000
 ```
 
-A fresh database creates a first admin account. Change its password immediately.
+`python manage.py --help` lists the operations commands (backups, restore, fresh reset, logs, desktop/Android builds).
 
 ### Tests
 
 ```bash
 npm test && npm run build                                  # shared + system unit tests, type-check and build all three apps
+
+pip install ./shared/backend -r shared/backend/requirements-dev.txt
 cd system/backend && python -m pytest -q                   # backend tests (security, accounting, clinic)
+
+pip install -r e2e/requirements.txt
 cd e2e && E2E_API_BASE=http://localhost:8000 \
   E2E_DATABASE_URL=postgresql://postgres:postgres@localhost:5433/inventory_db \
   python -m pytest -q                                      # live API suite. Both URLs must point at the same server
 ```
 
-CI runs lint, all three builds, unit tests, an import check of every API and the full Docker-based end-to-end suite on every push.
+CI runs lint, all three builds, unit tests, an import check of every API and the full
+Docker-based end-to-end suite on every push.
+
+---
+
+## Shipping changes
+
+Every product deploys on its own. Each Vercel project watches `master` and **rebuilds only
+when its own folder or `shared/` changes**, so a website edit never redeploys the ERP.
+
+| Vercel project | Folder | Domain |
+|---|---|---|
+| `mizan-website` | `website/frontend` | mizan-co.vercel.app |
+| `mizan-website-api` | `website/backend` | mizan-co-web-api.vercel.app |
+| `mizan-system` | `system/frontend` | mizan-co-app.vercel.app |
+| `mizan-system-api` | `system/backend` | mizan-co-api.vercel.app |
+| `mizan-admin` | `admin/frontend` | mizan-co-admin.vercel.app |
+| `mizan-admin-api` | `admin/backend` | mizan-co-admin-api.vercel.app |
+
+- **`master` is production.** Work on a branch named after the product (`system/pos-discounts`,
+  `website/new-hero`, `shared/fix-rounding`); pushing it gives you preview links for the apps you touched.
+- **Commit as `ammar0xff`.** Vercel blocks deploys from commits it can't match to the account.
+- **Changing `shared/` rebuilds all three products**, so check every app that uses what you changed.
+- The three APIs share one database and one `SECRET_KEY`; their settings live in each Vercel project.
 
 ---
 
@@ -265,20 +300,26 @@ admin/                  Admoon, the control plane
 shared/                 code all three use
   frontend/src/         design kit (components/kit), API client, stores, i18n, styles, pricing
   backend/app/          kernel: factory, core (tenancy, auth, plans, printing), models, services,
-                        api/routers (ERP endpoint library), modules (48 domain modules), db/sql
+                        api/routers (ERP endpoint library), modules (48 domain modules),
+                        db (baseline schema, migrations, bootstrap)
 e2e/                    live API end-to-end suite
-scripts/                migrate.py, seeders, verification scripts
+scripts/                migrate.py, demo seeders, verification scripts
 docs/                   product, architecture, design, security and requirements docs
+.github/                CI workflow
+docker-compose.yml      local stack: database + the three APIs
+package.json            npm workspaces: shared + the three frontends
+manage.py               operations CLI (backups, restore, reset, builds)
 ```
 
 Frontend import aliases: `@/` is the shared kit, `@app/` is the current app, `@modules/` is the industry screens (system only).
+Each product folder has its own README: [`system/`](system/README.md) · [`website/`](website/README.md) · [`admin/`](admin/README.md) · [`shared/`](shared/README.md).
 
 ## Documentation
 
 | Start here | Then |
 |---|---|
 | [Project overview](docs/PROJECT_OVERVIEW.md) | [Requirements (SRS)](docs/developer/mizan/srs/SRS-Mizan-v1.0.md) · [30-industry specs](docs/srs/00_MASTER_INDEX.md) |
-| [System architecture](docs/SYSTEM_ARCHITECTURE.md) | [ADRs](docs/decisions/) · [Database & tenancy](docs/DATABASE_DESIGN.md) · [API standards](docs/API_STANDARDS.md) |
+| [System architecture](docs/SYSTEM_ARCHITECTURE.md) | [Why three products (ADR-003)](docs/decisions/ADR-003-separate-apps.md) · [ADRs](docs/decisions/) · [Database & tenancy](docs/DATABASE_DESIGN.md) · [API standards](docs/API_STANDARDS.md) |
 | [Security standards](docs/SECURITY_STANDARDS.md) | [Roles & permissions](docs/USER_ROLES_AND_PERMISSIONS.md) |
 | [Design system](docs/DESIGN_SYSTEM.md) | [UI/UX kit](docs/ui-ux-kit/) · [Brand identity](docs/developer/mizan/frontend/08-brand-identity-full.md) |
 | [Engineering standards](docs/ENGINEERING_STANDARDS.md) | [Contributor & agent rules](AGENTS.md) |
