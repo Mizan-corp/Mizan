@@ -4,7 +4,7 @@ import uuid
 
 from helpers import uid, to_uuid
 
-from conftest import customer, supplier, wh, product, subcategory  # noqa: F401
+from conftest import customer, supplier, wh, product, subcategory, db  # noqa: F401
 
 
 # ---------------- customers ----------------
@@ -33,7 +33,7 @@ def test_customer_crud(admin_api, reg):
     assert r.status_code in (200, 204), r.text[:200]
 
 
-def test_customer_balance_and_payment(admin_api, reg, customer):
+def test_customer_balance_and_payment(admin_api, reg, customer, db):
     r = admin_api.put(f"/customers/{customer['id']}/balance",
                       json={"balance": "250", "note": "e2e-set"})
     admin_api.ok(r, 200)
@@ -42,6 +42,9 @@ def test_customer_balance_and_payment(admin_api, reg, customer):
                        json={"amount": "100", "note": "e2e-pay"})
     pay = admin_api.ok(p, 200, 201)
     reg.add("payment", pay.get("id", to_uuid(pay)) if pay else uuid.uuid4())
+    # The audit trail points at the payment it records.
+    logged = db.one("SELECT count(*) FROM audit_log WHERE entity_type = 'customer_payment' AND entity_id = %s", (pay["id"],))
+    assert logged[0] == 1
 
     acct = admin_api.ok(admin_api.get(f"/customers/{customer['id']}/account"))
     assert acct["customer_id"] == customer["id"] or "balance" in acct

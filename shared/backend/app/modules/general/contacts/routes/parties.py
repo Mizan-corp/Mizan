@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,7 +12,7 @@ from app.modules.general.contacts.models.party import Customer
 from app.modules.general.sales.models.sale import Sale, SaleStatus
 from app.platform.auth.models.user import User
 from app.modules.general.contacts.schemas import CustomerCreate, CustomerPaymentCreate, CustomerUpdate, SetBalanceRequest
-from app.platform.audit.service import log as audit_log
+from app.modules.general.contacts import service as contacts_service
 
 router = APIRouter(tags=["parties"])
 
@@ -208,52 +208,7 @@ async def delete_customer(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _=
 @router.post("/customers/{cid}/payments")
 async def add_payment(cid: uuid.UUID, data: CustomerPaymentCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("customers"))):
     """Record a payment received from customer.  If sale_id is provided, the payment is attributed to that invoice."""
-    if data.amount <= 0:
-        raise HTTPException(400, "المبلغ يجب أن يكون أكبر من 0")
-    c = (await db.execute(select(Customer).where(Customer.id == cid).with_for_update())).scalar_one_or_none()
-    if not c:
-        raise NotFoundError()
-    sale_id: uuid.UUID | None = None
-    if data.sale_id:
-        sale_id = data.sale_id  # already uuid.UUID from Pydantic validation
-        # Verify the sale exists and belongs to this customer
-        s = (await db.execute(select(Sale).where(Sale.id == sale_id))).scalar_one_or_none()
-        if not s:
-            raise HTTPException(404, "الفاتورة غير موجودة")
-        if str(s.customer_id) != str(cid):
-            raise HTTPException(400, "الفاتورة لا تخص هذا العميل")
-    p = CustomerPayment(customer_id=cid, sale_id=sale_id, amount=data.amount, note=data.note, created_by=current_user.id)
-    db.add(p)
-    c.balance = (c.balance or 0) - data.amount
-    if sale_id:
-        from sqlalchemy import text as sqlt
-        await db.execute(sqlt(
-            "UPDATE sales SET paid_amount = COALESCE(paid_amount,0) + :amt, last_paid_at = NOW() WHERE id = :sid"
-        ), {"amt": float(data.amount), "sid": sale_id})
-    await audit_log(db, "customer_payment", "create", current_user.id, current_user.full_name, p.id, {"customer_id": str(cid), "amount": float(data.amount), "sale_id": str(sale_id) if sale_id else None}, f"دفعة من {c.name}")
-
-    # Also record in the cash drawer if the user has an open shift
-    # Use the sale's warehouse to pick the correct shift when sale_id is provided
-    from app.modules.general.pos.models import DrawerTransaction, DrawerTxType, Shift, ShiftStatus
-    shift_query = select(Shift).where(
-        Shift.cashier_id == current_user.id,
-        Shift.status == ShiftStatus.open,
-    )
-    if sale_id:
-        # Prefer the shift that belongs to the same warehouse as the invoice
-        sale_wh = (await db.execute(
-            select(Sale.warehouse_id).where(Sale.id == sale_id)
-        )).scalar_one_or_none()
-        if sale_wh:
-            shift_query = shift_query.where(Shift.warehouse_id == sale_wh)
-    shift_query = shift_query.limit(1)
-    shift = (await db.execute(shift_query)).scalar_one_or_none()
-    if shift:
-        dt = DrawerTransaction(shift_id=shift.id, type=DrawerTxType.deposit, amount=data.amount,
-                               note=f"دفعة من {c.name}" + (f" — {data.note}" if data.note else ""),
-                               created_by=current_user.id)
-        db.add(dt)
-
+    p = await contacts_service.receive_payment(db, cid, data.amount, current_user, sale_id=data.sale_id, note=data.note)
     await db.commit()
     await db.refresh(p)
     return {"id": str(p.id), "amount": float(p.amount), "note": p.note, "sale_id": str(p.sale_id) if p.sale_id else None, "created_at": p.created_at.isoformat()}
