@@ -24,5 +24,11 @@
     "fsm:manage",
     "fsm:dispatcher",
     "fsm:technician"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

@@ -48,5 +48,15 @@
       "default": true,
       "description": "إظهار لوحة أرقام 44px سريعة لتسجيل المبالغ المستلمة وحساب الباقي."
     }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard",
+    "retail",
+    "restaurant",
+    "pharmacy",
+    "salon"
   ]
 }

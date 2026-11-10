@@ -18,5 +18,11 @@
     "daily_drilling_reports_ddr",
     "tank_farm_telemetry",
     "jv_cash_calls_psc"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

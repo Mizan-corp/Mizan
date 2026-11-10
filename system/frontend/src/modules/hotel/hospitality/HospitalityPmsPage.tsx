@@ -20,11 +20,11 @@ import { api } from "@/lib/api";
 import { sound } from "@/lib/sound";
 
 // Integrated Specialized Hospitality Sub-Modules
-import HotelPmsView from "@modules/hotel/hotel_pms/index";
-import HousekeepingView from "@modules/hotel/housekeeping/index";
-import BillingFolioView from "@modules/hotel/billing_folio/index";
-import NightAuditView from "@modules/hotel/night_audit/index";
-import BanquetEventsView from "@modules/hotel/banquet_events/index";
+import HotelPmsView from "@modules/hotel/hotel_pms/HotelPmsPage";
+import HousekeepingView from "@modules/hotel/housekeeping/HousekeepingPage";
+import BillingFolioView from "@modules/hotel/billing_folio/BillingFolioPage";
+import NightAuditView from "@modules/hotel/night_audit/NightAuditPage";
+import BanquetEventsView from "@modules/hotel/banquet_events/BanquetEventsPage";
 
 interface HospitalitySummary {
   total_rooms: number;

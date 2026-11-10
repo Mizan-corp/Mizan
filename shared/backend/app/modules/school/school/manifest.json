@@ -57,5 +57,11 @@
       "default": true,
       "description": "إرسال إشعار فوري برقم الإيصال والمبلغ المسدد والمتبقي إلى هاتف ولي الأمر."
     }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

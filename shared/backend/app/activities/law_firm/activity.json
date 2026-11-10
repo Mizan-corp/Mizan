@@ -10,5 +10,11 @@
     "finance",
     "hr"
   ],
-  "home": "/law"
+  "home": "/law",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

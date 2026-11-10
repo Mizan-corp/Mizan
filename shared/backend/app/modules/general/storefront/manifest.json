@@ -88,5 +88,11 @@
       "default": true,
       "description": "السماح بالطلب من داخل المطعم/الكافيه مع تحديد رقم الطاولة عبر باركود QR."
     }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

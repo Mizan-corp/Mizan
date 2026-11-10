@@ -10,5 +10,11 @@
     "finance",
     "operations"
   ],
-  "home": "/gov"
+  "home": "/gov",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

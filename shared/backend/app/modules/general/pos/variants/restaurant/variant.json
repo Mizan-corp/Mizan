@@ -1,0 +1,18 @@
+{
+  "id": "restaurant",
+  "module": "pos",
+  "status": "planned",
+  "description": "Tables and kitchen: an order goes to the kitchen when confirmed.",
+  "screens": {
+    "checkout": "floor_plan"
+  },
+  "fields": {},
+  "uses": [
+    "restaurant"
+  ],
+  "terms": {},
+  "settings": {},
+  "permissions": [],
+  "templates": {},
+  "widgets": []
+}

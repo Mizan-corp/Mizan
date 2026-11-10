@@ -1,0 +1,3 @@
+// عمليات البترول والغاز واستخراج الطاقة (Oil & Gas ERP): API calls for this module. Screens still call @/lib/api directly; calls move here
+// as screens are reworked.
+export {};

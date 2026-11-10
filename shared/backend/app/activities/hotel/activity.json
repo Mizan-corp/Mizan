@@ -10,5 +10,11 @@
     "restaurant",
     "finance"
   ],
-  "home": "/hospitality"
+  "home": "/hospitality",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

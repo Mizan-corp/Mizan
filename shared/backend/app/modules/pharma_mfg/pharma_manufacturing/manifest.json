@@ -28,5 +28,10 @@
       "icon": "ShieldCheck",
       "permission": "phm.view"
     }
+  ],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

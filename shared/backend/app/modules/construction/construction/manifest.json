@@ -14,5 +14,11 @@
     "purchases",
     "finance",
     "hr"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

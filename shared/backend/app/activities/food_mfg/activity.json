@@ -11,5 +11,11 @@
     "operations",
     "finance"
   ],
-  "home": "/fod"
+  "home": "/fod",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

@@ -12,5 +12,13 @@
     "finance",
     "hr"
   ],
-  "home": "/pos"
+  "home": "/pos",
+  "variants": {
+    "pos": "retail"
+  },
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

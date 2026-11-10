@@ -11,5 +11,11 @@
     "operations",
     "finance"
   ],
-  "home": "/field-service"
+  "home": "/field-service",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

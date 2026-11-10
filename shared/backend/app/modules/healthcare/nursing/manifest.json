@@ -32,5 +32,11 @@
       "default": true,
       "description": "تفعيل تنبيهات النظام الطبية التلقائية"
     }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

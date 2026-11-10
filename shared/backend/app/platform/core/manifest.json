@@ -24,5 +24,8 @@
       "default": "EGP",
       "description": "رمز العملة المستخدمة في كافة المعاملات المالية"
     }
-  ]
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": []
 }

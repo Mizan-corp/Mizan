@@ -27,5 +27,11 @@
       "default": true,
       "description": "تمكين الكاشير أو مسؤول المبيعات من تطبيق خصم مباشر على الفاتورة"
     }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

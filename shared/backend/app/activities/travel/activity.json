@@ -10,5 +10,11 @@
     "sales",
     "finance"
   ],
-  "home": "/travel"
+  "home": "/travel",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

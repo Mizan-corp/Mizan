@@ -1,0 +1,16 @@
+{
+  "id": "salon",
+  "module": "pos",
+  "status": "planned",
+  "description": "Services with staff and commissions at checkout.",
+  "screens": {},
+  "fields": {},
+  "uses": [
+    "salon"
+  ],
+  "terms": {},
+  "settings": {},
+  "permissions": [],
+  "templates": {},
+  "widgets": []
+}

@@ -20,5 +20,11 @@
       "default": 8,
       "description": "عدد ساعات الدوام القياسي لاحتساب ساعات الإضافي والغياب"
     }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

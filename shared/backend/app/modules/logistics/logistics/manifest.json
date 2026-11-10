@@ -41,5 +41,11 @@
       "default": true,
       "description": "منع تحويل حالة الشحنة إلى (تم التسليم) دون توقيع العميل وصورة إثبات الاستلام."
     }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

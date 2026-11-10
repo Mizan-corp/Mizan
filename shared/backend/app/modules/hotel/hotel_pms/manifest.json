@@ -22,5 +22,11 @@
     "hotel:view",
     "hotel:manage",
     "hotel:frontdesk"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

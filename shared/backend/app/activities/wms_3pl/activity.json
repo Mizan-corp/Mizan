@@ -10,5 +10,11 @@
     "inventory",
     "finance"
   ],
-  "home": "/wms"
+  "home": "/wms",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

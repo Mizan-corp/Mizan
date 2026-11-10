@@ -1,0 +1,16 @@
+{
+  "id": "retail",
+  "module": "pos",
+  "status": "planned",
+  "description": "Fast-scan checkout: barcode first, F-keys.",
+  "screens": {
+    "checkout": "retail_checkout"
+  },
+  "fields": {},
+  "uses": [],
+  "terms": {},
+  "settings": {},
+  "permissions": [],
+  "templates": {},
+  "widgets": []
+}

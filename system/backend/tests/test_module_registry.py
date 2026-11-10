@@ -195,3 +195,26 @@ def test_frontend_mirrors_the_backend_layout():
     for root, kind in (("platform", "platform"), ("integrations", "integration")):
         for module_dir in (frontend / root).iterdir():
             assert index.get(module_dir.name, {}).get("kind") == kind, module_dir
+
+
+def test_every_module_has_the_adr_layout():
+    # python manage.py module scaffold creates what's missing; new modules: module new.
+    from app.framework import scaffold
+
+    gaps = {str(d.relative_to(APP)): [p.name for p in scaffold.missing(d, m)] for d, m in scaffold.manifests()}
+    assert not {k: v for k, v in gaps.items() if v}
+
+
+def test_activities_have_the_adr_fields_and_valid_variants():
+    from app.catalog import activities
+    from app.framework.loader import manifest_index
+
+    index = manifest_index()
+    general = set(activities()["general"]["modules"])
+    for aid, activity in activities().items():
+        for key in ("family", "modules", "variants", "optional", "terms", "positions", "roles", "settings", "home"):
+            assert key in activity, f"{aid}: '{key}'"
+        assert (APP / "activities" / aid / "seed.py").exists(), aid
+        for module_id, variant in activity["variants"].items():
+            assert module_id in set(activity["modules"]) | general, f"{aid}: {module_id} isn't one of its modules"
+            assert variant in index[module_id].get("variants", ["standard"]), f"{aid}: {module_id} has no '{variant}' variant"

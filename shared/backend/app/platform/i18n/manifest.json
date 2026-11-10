@@ -13,5 +13,8 @@
   "dependencies": [
     "core"
   ],
-  "is_core": true
+  "is_core": true,
+  "permissions": [],
+  "screens": [],
+  "widgets": []
 }

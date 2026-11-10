@@ -16,5 +16,11 @@
     "turnstile_barcode_scanning",
     "rfid_arcade_game_cards",
     "concessions_kds_sync"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

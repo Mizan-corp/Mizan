@@ -16,5 +16,11 @@
     "pos",
     "hr"
   ],
-  "home": "/"
+  "home": "/",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

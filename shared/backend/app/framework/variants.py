@@ -1,0 +1,1 @@
+"""Variant resolution. Which variant of a module a workspace runs (from its activity) and what it changes: screens, fields, rules, terms, settings, permissions, templates, widgets. Planned for ADR-006 phase 4."""

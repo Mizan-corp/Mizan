@@ -11,5 +11,11 @@
     "sales",
     "finance"
   ],
-  "home": "/ecommerce"
+  "home": "/ecommerce",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

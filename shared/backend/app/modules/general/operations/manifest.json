@@ -11,5 +11,11 @@
     "core",
     "inventory"
   ],
-  "is_core": true
+  "is_core": true,
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ]
 }

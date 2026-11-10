@@ -27,5 +27,11 @@
     "clinic:dispense",
     "clinic:lab",
     "clinic:billing"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

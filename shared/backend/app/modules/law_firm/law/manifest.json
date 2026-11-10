@@ -22,5 +22,11 @@
     "law:manage",
     "law:partner",
     "law:associate"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

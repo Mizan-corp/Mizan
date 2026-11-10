@@ -10,5 +10,11 @@
     "finance",
     "operations"
   ],
-  "home": "/agency"
+  "home": "/agency",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

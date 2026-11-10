@@ -10,5 +10,11 @@
     "finance",
     "operations"
   ],
-  "home": "/rec"
+  "home": "/rec",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

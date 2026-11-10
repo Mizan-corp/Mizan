@@ -56,5 +56,11 @@
       "default": true,
       "description": "عرض اسم موظف الصالة لتسهيل تسليم الوجبة فور جهوزيتها."
     }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

@@ -11,5 +11,13 @@
     "inventory",
     "finance"
   ],
-  "home": "/restaurant/tables"
+  "home": "/restaurant/tables",
+  "variants": {
+    "pos": "restaurant"
+  },
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

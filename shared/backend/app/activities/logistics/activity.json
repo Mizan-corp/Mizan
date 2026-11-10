@@ -10,5 +10,11 @@
     "finance",
     "operations"
   ],
-  "home": "/logistics"
+  "home": "/logistics",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

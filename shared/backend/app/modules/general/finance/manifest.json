@@ -19,5 +19,11 @@
       "default": true,
       "description": "منع تسجيل أي حركة صرف إذا كان رصيد الخزينة المحددة غير كافٍ"
     }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

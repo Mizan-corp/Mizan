@@ -42,5 +42,11 @@
       "default": 45,
       "description": "عدد الأيام المسموح بها لتأخر السداد قبل تجميد التعامل البيعي تلقائياً."
     }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

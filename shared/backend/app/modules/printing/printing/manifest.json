@@ -28,5 +28,10 @@
       "icon": "Printer",
       "permission": "prn.view"
     }
+  ],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

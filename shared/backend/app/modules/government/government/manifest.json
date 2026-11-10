@@ -16,5 +16,11 @@
     "donor_grant_lifecycle",
     "beneficiary_aid_distribution",
     "public_tenders_procurement"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

@@ -81,6 +81,11 @@ def manifest_problems(data: dict[str, Any]) -> list[str]:
         problems.append(f"kind must be one of {MODULE_KINDS}")
     if "category" in data:
         problems.append("'category' is replaced by 'activity' (the family comes from it)")
+    for key in ("permissions", "screens", "widgets", "variants"):
+        if not isinstance(data.get(key, []), list):
+            problems.append(f"'{key}' must be a list")
+    if data.get("kind", "business") == "business" and "standard" not in data.get("variants", ["standard"]):
+        problems.append("'variants' must include 'standard'")
     deps = data.get("dependencies", [])
     if not isinstance(deps, list) or not all(isinstance(d, str) for d in deps):
         problems.append("'dependencies' must be a list of module ids")

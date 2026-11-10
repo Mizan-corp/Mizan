@@ -24,5 +24,11 @@
     "salon:manage",
     "salon:stylist",
     "salon:cashier"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

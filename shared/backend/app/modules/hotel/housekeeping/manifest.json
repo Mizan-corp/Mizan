@@ -22,5 +22,11 @@
     "hotel:view",
     "hotel:manage",
     "hotel:housekeeper"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

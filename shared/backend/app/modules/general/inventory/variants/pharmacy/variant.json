@@ -1,0 +1,21 @@
+{
+  "id": "pharmacy",
+  "module": "inventory",
+  "status": "planned",
+  "description": "Batches and expiry dates, first-expiry-first-out.",
+  "screens": {},
+  "fields": {
+    "stock": [
+      "batch",
+      "expiry"
+    ]
+  },
+  "uses": [],
+  "terms": {},
+  "settings": {
+    "fefo": true
+  },
+  "permissions": [],
+  "templates": {},
+  "widgets": []
+}

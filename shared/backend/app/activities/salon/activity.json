@@ -10,5 +10,13 @@
     "pos",
     "finance"
   ],
-  "home": "/salon"
+  "home": "/salon",
+  "variants": {
+    "pos": "salon"
+  },
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

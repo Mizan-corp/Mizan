@@ -16,5 +16,11 @@
     "loan_underwriting_ecl",
     "aml_transaction_monitoring",
     "treasury_forex_trading"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

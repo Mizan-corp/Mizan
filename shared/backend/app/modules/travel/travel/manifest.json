@@ -22,5 +22,11 @@
     "travel:manage",
     "travel:ticketing",
     "travel:coordinator"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

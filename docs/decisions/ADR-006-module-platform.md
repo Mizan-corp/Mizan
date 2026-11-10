@@ -416,10 +416,22 @@ Choices made while implementing phase 1 (#99), for review:
   `platform/<id>/`, `integrations/<id>/`, `framework/loader.py`, `activities/<id>/activity.json`;
   the frontend mirrors it (`src/modules/<activity>/<module>/`, `src/platform/`,
   `src/integrations/`). `modules/healthcare/` also keeps shared healthcare code (`models.py`,
-  `seeder.py`) until phase 8. **Not yet**: each module's internal files (`schemas.py`,
-  `service.py`, `hooks.py`, `migrations/`, `seed.py`, `tests/`, `variants/`); they are split when
-  a module's code is reworked (general in phase 2, the rest in phase 8). Per-activity `seed.py`
-  follows when demo data moves out of `services/demo_seed.py`.
+  `seeder.py`) until phase 8. The healthcare modules' `backend/` subfolders were flattened.
+- **Full layout scaffolded** (`app/framework/scaffold.py`, `python manage.py module
+  new|scaffold|check`, enforced by tests): every module has `schemas.py`, `service.py`,
+  `hooks.py`, `seed.py`, `migrations/`, `templates/`, `tests/`, `variants/standard/`, and on the
+  frontend `index.ts` (a `ModuleDefinition`, collected by `src/framework/registry.ts`), `api.ts`,
+  `screens/`, `components/`, `variants/`. Files with nothing in them yet say where the code still
+  is: logic still in `router.py` moves to `service.py` when a module is reworked (general in
+  phase 2, the rest in phase 8); demo data moves from `services/demo_seed.py` to each `seed.py`.
+- **Variants from this ADR's examples** are recorded as `planned`: POS `retail`, `restaurant`,
+  `pharmacy`, `salon`; inventory `pharmacy`. Activities name the variant each module runs in
+  (`variants`), plus `optional`, `terms`, `positions`, `roles`, `settings` (empty unless the ADR
+  gave them: pharmacy's terms and FEFO setting).
+- **Framework and platform placeholders**: `framework/{manifest,variants,hooks,screens,settings,
+  migrations,scopes,isolation,licences}.py`; `platform/{auth,tenancy,permissions,printing,
+  notifications,audit,files}` describe engines that move there in phase 2; `storage_quota` and
+  `custom_fields` are still to build; `integrations/{paymob,eta_einvoice}`.
 
 ## Decision log (review of 2026-11-10)
 Answers as given by the owner; *italics* = how this ADR applies them.

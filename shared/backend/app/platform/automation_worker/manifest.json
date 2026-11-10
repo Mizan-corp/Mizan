@@ -36,5 +36,8 @@
       "default": true,
       "description": "إنشاء إشعار يومي بملخص الإيرادات والنواقص"
     }
-  ]
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": []
 }

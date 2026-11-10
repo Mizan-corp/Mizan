@@ -44,5 +44,12 @@
       ],
       "description": "طريقة حساب تكلفة البضاعة المباعة (متوسط التكلفة المرجح أو الوارد أولاً صادر أولاً)."
     }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard",
+    "pharmacy"
   ]
 }

@@ -19,5 +19,11 @@
       "default": 10000,
       "description": "الحد الأقصى للمديونية المسموح بها للعميل قبل تنبيه الكاشير"
     }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

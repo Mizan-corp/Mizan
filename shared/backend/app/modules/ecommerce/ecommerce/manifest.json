@@ -41,5 +41,11 @@
       "default": true,
       "description": "تفعيل التنبيهات الآلية عبر الواتساب أو البريد الإلكتروني مع كوبون خصم لاستعادة العملاء."
     }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

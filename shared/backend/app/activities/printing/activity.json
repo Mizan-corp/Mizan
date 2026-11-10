@@ -11,5 +11,11 @@
     "operations",
     "finance"
   ],
-  "home": "/prn"
+  "home": "/prn",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

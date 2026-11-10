@@ -11,5 +11,11 @@
     "operations",
     "finance"
   ],
-  "home": "/phm"
+  "home": "/phm",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

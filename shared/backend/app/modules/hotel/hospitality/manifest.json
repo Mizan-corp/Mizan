@@ -24,5 +24,11 @@
     "hotel:manage",
     "hotel:frontdesk",
     "hotel:housekeeper"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

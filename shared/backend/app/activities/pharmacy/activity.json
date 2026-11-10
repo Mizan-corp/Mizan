@@ -11,5 +11,19 @@
     "pos",
     "finance"
   ],
-  "home": "/pharmacy"
+  "home": "/pharmacy",
+  "variants": {
+    "pos": "pharmacy",
+    "inventory": "pharmacy"
+  },
+  "optional": [],
+  "terms": {
+    "customer": "مريض",
+    "item": "دواء"
+  },
+  "positions": [],
+  "roles": {},
+  "settings": {
+    "inventory.fefo": true
+  }
 }

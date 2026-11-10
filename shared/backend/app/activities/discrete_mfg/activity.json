@@ -11,5 +11,11 @@
     "operations",
     "finance"
   ],
-  "home": "/mfg"
+  "home": "/mfg",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

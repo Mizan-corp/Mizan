@@ -9,5 +9,11 @@
     "insurance",
     "finance"
   ],
-  "home": "/ins"
+  "home": "/ins",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

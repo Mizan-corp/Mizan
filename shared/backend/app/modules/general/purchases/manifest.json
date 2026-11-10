@@ -20,5 +20,11 @@
       "default": true,
       "description": "تحديث سعر تكلفة الصنف في بطاقة المنتج فور تسجيل فاتورة شراء جديدة"
     }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

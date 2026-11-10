@@ -56,5 +56,8 @@
       "default": true,
       "description": "إرسال تأكيد طلب WhatsApp عند استلام طلب من المتجر الإلكتروني."
     }
-  ]
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": []
 }

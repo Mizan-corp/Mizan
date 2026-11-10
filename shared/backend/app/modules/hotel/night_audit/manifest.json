@@ -23,5 +23,11 @@
     "hotel:view",
     "hotel:manage",
     "hotel:nightaudit"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

@@ -10,5 +10,11 @@
     "operations",
     "finance"
   ],
-  "home": "/oil"
+  "home": "/oil",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

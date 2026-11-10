@@ -9,5 +9,11 @@
     "banking",
     "finance"
   ],
-  "home": "/bnk"
+  "home": "/bnk",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

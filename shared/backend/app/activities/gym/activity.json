@@ -10,5 +10,11 @@
     "pos",
     "finance"
   ],
-  "home": "/gym"
+  "home": "/gym",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

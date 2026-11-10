@@ -11,5 +11,11 @@
     "sales",
     "finance"
   ],
-  "home": "/wholesale"
+  "home": "/wholesale",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

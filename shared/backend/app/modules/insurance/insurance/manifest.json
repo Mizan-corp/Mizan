@@ -16,5 +16,11 @@
     "ifrs17_reserves_ibnr",
     "reinsurance_treaties",
     "fraud_detection_scoring"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

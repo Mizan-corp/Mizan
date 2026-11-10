@@ -11,5 +11,11 @@
     "operations",
     "finance"
   ],
-  "home": "/agr"
+  "home": "/agr",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

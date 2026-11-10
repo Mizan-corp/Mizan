@@ -23,5 +23,11 @@
     "gym:manage",
     "gym:trainer",
     "gym:frontdesk"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

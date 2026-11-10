@@ -47,5 +47,11 @@
       "default": true,
       "description": "منع صرف الأدوية المراقبة وجدول المخدرات بدون بطاقة الرقم القومي ورقم ترخيص الطبيب"
     }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

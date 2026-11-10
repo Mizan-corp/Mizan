@@ -23,5 +23,11 @@
     "agency:manage",
     "agency:pm",
     "agency:creative"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

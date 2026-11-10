@@ -11,5 +11,11 @@
     "operations",
     "finance"
   ],
-  "home": "/cst"
+  "home": "/cst",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

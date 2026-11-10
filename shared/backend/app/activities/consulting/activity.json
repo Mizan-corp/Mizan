@@ -10,5 +10,11 @@
     "finance",
     "hr"
   ],
-  "home": "/services"
+  "home": "/services",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

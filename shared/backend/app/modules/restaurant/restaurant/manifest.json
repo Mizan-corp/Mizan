@@ -57,5 +57,11 @@
       "default": "الصالة الرئيسية, صالة العائلات, التراس الخارجي",
       "description": "تصنيفات مناطق الجلوس داخل المنشأة."
     }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

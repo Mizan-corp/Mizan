@@ -11,5 +11,11 @@
     "finance"
   ],
   "home": "/pos",
-  "legacy_of": "retail"
+  "legacy_of": "retail",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

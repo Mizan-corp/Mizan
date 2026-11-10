@@ -1,0 +1,35 @@
+{
+  "id": "pharmacy",
+  "module": "pos",
+  "status": "planned",
+  "description": "Drug counter: search by scientific name, batch by expiry (FEFO), prescription required for flagged drugs.",
+  "screens": {
+    "checkout": "drug_counter"
+  },
+  "fields": {
+    "sale_line": [
+      "batch",
+      "expiry",
+      "prescription_number"
+    ]
+  },
+  "uses": [
+    "pharmacy"
+  ],
+  "terms": {
+    "item": "دواء",
+    "customer": "مريض"
+  },
+  "settings": {
+    "sell_unit": "strip_or_box"
+  },
+  "permissions": [
+    "pos.dispense_controlled"
+  ],
+  "templates": {
+    "receipt": "shows batch and expiry"
+  },
+  "widgets": [
+    "expiring_this_month"
+  ]
+}

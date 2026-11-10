@@ -42,5 +42,11 @@
       "default": 15.0,
       "description": "التعرفة اليومية لاحتساب رسوم إشغال المواقع التخزينية للباليت الواحد."
     }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }

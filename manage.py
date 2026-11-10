@@ -752,6 +752,36 @@ asyncio.run(go())
     compose("exec", "-T", SYSTEM.api_service, "python", "-c", script)
 
 
+# ─── module ─────────────────────────────────────────────────────────────────
+
+
+def cmd_module(opts: argparse.Namespace) -> None:
+    """The ADR-006 module layout: create a module, fill in missing pieces, or check."""
+    sys.path.insert(0, str(ROOT / "shared" / "backend"))
+    from app.framework import scaffold
+
+    if opts.action == "new":
+        if not (opts.activity and opts.id and opts.name):
+            die('Usage: manage.py module new <activity> <module_id> "<name>" [--kind business|platform|integration]')
+        try:
+            folder = scaffold.new_module(opts.activity, opts.id, opts.name, opts.name_en or "", opts.kind)
+        except ValueError as err:
+            die(str(err))
+        ok(f"Created {folder.relative_to(ROOT)} and its screens folder")
+        return
+    if opts.action == "scaffold":
+        created = scaffold.scaffold_all()
+        ok(f"{len(created)} missing pieces created" if created else "Every module already has the full layout")
+        return
+    gaps = [(d, scaffold.missing(d, m)) for d, m in scaffold.manifests()]
+    gaps = [(d, g) for d, g in gaps if g]
+    for d, g in gaps:
+        info(f"{d.relative_to(ROOT)}: missing {', '.join(str(p.relative_to(ROOT)) for p in g[:4])}{' …' if len(g) > 4 else ''}")
+    if gaps:
+        die(f"{len(gaps)} modules are missing parts of the layout (python manage.py module scaffold)")
+    ok("Every module has the ADR-006 layout")
+
+
 # ─── CLI ────────────────────────────────────────────────────────────────────
 
 APP_CHOICES = [*APPS, "all"]
@@ -800,6 +830,14 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("vercel", cmd_vercel, "Vercel: status, domains, redeploy <project>")
     p.add_argument("action", choices=["status", "domains", "redeploy"])
     p.add_argument("project", nargs="?", help="With `redeploy`: e.g. mizan-system-api")
+
+    p = add("module", cmd_module, "Modules (ADR-006 layout): new, scaffold (fill missing pieces), check")
+    p.add_argument("action", choices=["new", "scaffold", "check"])
+    p.add_argument("activity", nargs="?", help="With `new`: the home activity, e.g. pharmacy")
+    p.add_argument("id", nargs="?", help="With `new`: the module id, e.g. drug_interactions")
+    p.add_argument("name", nargs="?", help="With `new`: the Arabic name")
+    p.add_argument("--name-en", dest="name_en", help="With `new`: the English name")
+    p.add_argument("--kind", default="business", choices=["business", "platform", "integration"])
 
     p = add("cron", cmd_cron, "Run background automation jobs in the system API")
     p.add_argument("--job", help="One job, e.g. auto_close_shifts (default: all)")

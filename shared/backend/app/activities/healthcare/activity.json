@@ -12,5 +12,11 @@
     "inventory",
     "hr"
   ],
-  "home": "/clinic"
+  "home": "/clinic",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
 }

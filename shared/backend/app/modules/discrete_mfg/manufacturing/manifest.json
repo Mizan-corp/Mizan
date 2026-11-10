@@ -27,5 +27,10 @@
       "icon": "Factory",
       "permission": "mfg.view"
     }
+  ],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
   ]
 }
