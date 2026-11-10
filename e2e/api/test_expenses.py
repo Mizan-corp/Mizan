@@ -89,3 +89,24 @@ def test_expense_wallet_payment(owner_api, reg, wallet):
     lst = owner_api.ok(owner_api.get("/wallets"))
     row = next(w for w in lst if w["id"] == wallet["id"])
     assert float(row["balance"]) == before
+    # ...and the expense is not left approved-but-unpaid.
+    lst = owner_api.ok(owner_api.get("/expenses"))
+    exp = next(x for x in (lst if isinstance(lst, list) else lst.get("data", [])) if x["id"] == e["id"])
+    assert exp["status"] == "draft", exp["status"]
+
+def test_approved_expense_is_paid_once(owner_api, reg, safe):
+    v = owner_api.ok(owner_api.post("/expense-vendors", json={"name": "E2E-VEND-" + uid("v")}), 200, 201)
+    reg.add("expense_vendor", v["id"])
+    e = owner_api.ok(owner_api.post("/expenses", json={
+        "vendor_id": v["id"], "amount": "30", "payment_method": "safe", "safe_id": safe["id"],
+        "description": "e2e once"}), 200, 201)
+    reg.add("expense", e["id"])
+
+    def _bal():
+        return float(next(s for s in owner_api.ok(owner_api.get("/safes")) if s["id"] == safe["id"])["balance"])
+
+    before = _bal()
+    owner_api.ok(owner_api.post(f"/expenses/{e['id']}/approve", json={"approved": True}))
+    again = owner_api.post(f"/expenses/{e['id']}/approve", json={"approved": True})
+    assert again.status_code == 409, again.text[:200]
+    assert _bal() == before - 30

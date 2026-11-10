@@ -3,7 +3,7 @@ revenue-delivery, manager-close, summary; safes CRUD + deposit/withdraw/
 transfer + history."""
 from helpers import uid
 
-from conftest import (admin_api, owner_api, product, wh, safe,
+from conftest import (admin_api, owner_api, product, wh, safe, wallet, db,
                       reg)  # noqa: F401
 from conftest import open_shift
 
@@ -119,3 +119,22 @@ def test_safe_deposit_withdraw(owner_api, reg, safe):
     r = owner_api.post(f"/safes/{safe['id']}/withdraw",
                        json={"amount": "999999", "note": "e2e-over"})
     assert r.status_code in (400, 409), r.text[:200]
+
+def test_wallet_to_safe_transfer_moves_money(owner_api, db, wallet, safe):
+    # The empty-wallet case above is refused before any money moves; this one moves money.
+    db.exec(f"UPDATE payment_wallets SET balance = 50 WHERE id = '{wallet['id']}'")
+
+    def _safe_bal():
+        return float(next(s for s in owner_api.ok(owner_api.get("/safes")) if s["id"] == safe["id"])["balance"])
+
+    before = _safe_bal()
+    r = owner_api.post("/safes/transfer", json={"from_wallet_id": wallet["id"], "to_safe_id": safe["id"],
+                                                "amount": "20.25", "note": "e2e"})
+    assert r.status_code == 200, r.text[:300]
+    assert _safe_bal() == before + 20.25
+    assert float(db.one(f"SELECT balance FROM payment_wallets WHERE id = '{wallet['id']}'")[0]) == 29.75
+
+
+def test_deposit_to_unknown_safe_is_not_found(owner_api):
+    r = owner_api.post("/safes/00000000-0000-0000-0000-000000000000/deposit", json={"amount": "10"})
+    assert r.status_code == 404, r.text[:300]

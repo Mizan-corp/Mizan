@@ -1,5 +1,4 @@
 import uuid
-from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text as sqlt
@@ -10,7 +9,7 @@ from app.db.base import get_db
 from app.dependencies import get_current_user, require_open_period, require_perm, verify_warehouse_access
 from app.platform.auth.models.user import User
 from app.modules.general.finance.schemas.expense import ExpenseApprove, ExpenseCreate, ExpenseUpdate, ExpenseVendorCreate, ExpenseVendorUpdate
-from app.modules.general.finance.services.wallets import record_wallet_tx
+from app.modules.general.finance.services import expenses as expenses_service
 
 router = APIRouter(tags=["expenses"])
 
@@ -177,38 +176,9 @@ async def update_expense(eid: uuid.UUID, data: ExpenseUpdate, db: AsyncSession =
 @router.post("/expenses/{eid}/approve")
 async def approve_expense(eid: uuid.UUID, data: ExpenseApprove, db: AsyncSession = Depends(get_db),
                           current_user=Depends(require_perm("finance"))):
-    status = "approved" if data.approved else "rejected"
-    r = await db.execute(sqlt("""
-        UPDATE expenses SET status = :st, approved_by = :by, approved_at = now(), notes = COALESCE(:notes, notes)
-        WHERE id = :id RETURNING *
-    """), {"st": status, "by": current_user.id, "notes": data.notes, "id": eid})
+    row = await expenses_service.decide(db, eid, data.approved, data.notes, current_user)
     await db.commit()
-    row = r.mappings().first()
-    if not row:
-        raise NotFoundError()
-
-    # Money leaves the designated wallet/safe only once the expense is approved.
-    if row["status"] == "approved":
-        amt = _to_decimal(row["amount"])
-        if row["payment_method"] == "wallet" and row["wallet_id"]:
-            await record_wallet_tx(db, row["wallet_id"], -amt, "expense", eid,
-                                   row["description"] or "مصروف", current_user.id)
-        elif row["payment_method"] == "safe" and row["safe_id"]:
-            await db.execute(sqlt("UPDATE safes SET balance = balance - :amt WHERE id = :sid"),
-                             {"amt": amt, "sid": row["safe_id"]})
-            new_balance = (await db.execute(sqlt("SELECT balance FROM safes WHERE id=:id"),
-                                            {"id": row["safe_id"]})).scalar()
-            await db.execute(sqlt("""
-                INSERT INTO safe_transactions (safe_id, tx_type, amount, balance_after, note, created_by)
-                VALUES (:sid, 'withdraw', :amt, :bal, :note, :by)
-            """), {"sid": row["safe_id"], "amt": amt, "bal": new_balance,
-                   "note": row["description"] or "مصروف", "by": current_user.id})
-        await db.commit()
-    return dict(row)
-
-
-def _to_decimal(v) -> Decimal:
-    return Decimal(str(v))
+    return row
 
 
 @router.delete("/expenses/{eid}", status_code=204)
