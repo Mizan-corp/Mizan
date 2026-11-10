@@ -6,7 +6,9 @@ import {
   ArrowRight,
   ArrowLeft,
   Building2,
+  MessageCircle,
 } from "lucide-react";
+import { BUSINESS, PHONE_HREF, whatsappHref } from "@app/features/legal/business";
 import { Button } from "@/components/kit/button";
 import { MarketingLayout } from "./MarketingLayout";
 import { useTranslation } from "@/i18n";
@@ -39,37 +41,6 @@ export default function AboutPage() {
       titleEn: "Our Values",
       descAr: "الشفافية الهندسية، أمان البيانات الصارم، التطور المستمر، والتفاني في خدمة نجاح كل عميل.",
       descEn: "Architectural transparency, rigorous data isolation, continuous evolution, and uncompromising merchant focus.",
-    },
-  ];
-
-  const teamMembers = [
-    {
-      nameAr: "د. طارق المنشاوي",
-      nameEn: "Dr. Tarek El-Menshawy",
-      roleAr: "المؤسس والمدير التنفيذي",
-      roleEn: "Founder & CEO",
-      img: assetUrl("assets/marketing/avatar-1.jpg"),
-    },
-    {
-      nameAr: "م. كريم الباز",
-      nameEn: "Eng. Karim El-Baz",
-      roleAr: "رئيس قطاع التكنولوجيا",
-      roleEn: "Chief Technology Officer",
-      img: assetUrl("assets/marketing/avatar-2.jpg"),
-    },
-    {
-      nameAr: "سارة عبد الرحمن",
-      nameEn: "Sarah Abdelrahman",
-      roleAr: "رئيسة تصميم وتجربة المنتج",
-      roleEn: "Head of Product Design",
-      img: assetUrl("assets/marketing/avatar-3.jpg"),
-    },
-    {
-      nameAr: "أحمد الشناوي",
-      nameEn: "Ahmed El-Shennawy",
-      roleAr: "مدير العمليات والتوسع",
-      roleEn: "Head of Operations",
-      img: assetUrl("assets/marketing/avatar-4.jpg"),
     },
   ];
 
@@ -140,7 +111,7 @@ export default function AboutPage() {
                     size="lg"
                     className="rounded-xl border-[#E7D6C1] bg-white px-7 py-3.5 text-xs font-bold text-[#262321] hover:bg-[#FAF6F0] shadow-xs"
                   >
-                    <span>{isAr ? "تواصل مع فريقنا" : "Contact Our Team"}</span>
+                    <span>{isAr ? "تواصل معنا" : "Contact Us"}</span>
                   </Button>
                 </MizanMagnetic>
               </div>
@@ -174,44 +145,28 @@ export default function AboutPage() {
             })}
           </div>
 
-          {/* 3. Team Section: "فريق العمل" with 4 Circular Avatars matching Screen 7 */}
-          <div className="space-y-12 text-center pt-8 border-t border-[#E7D6C1]">
-            <div className="space-y-3">
-              <h2 className="font-display text-3xl sm:text-4xl font-normal text-[#262321]">
-                {isAr ? "فريق العمل" : "Our Leadership Team"}
-              </h2>
-              <p className="mx-auto max-w-xl text-xs sm:text-sm text-[#77716E]">
-                {isAr
-                  ? "نخبة من خبراء الهندسة المعمارية للنظم السحابية وتجربة المستخدم وحوكمة الأعمال"
-                  : "Seasoned architects and engineers committed to operational balance and elegance"}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-              {teamMembers.map((member, idx) => (
-                <motion.div
-                  key={idx}
-                  whileHover={{ y: -4 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex flex-col items-center text-center space-y-3 group cursor-default"
-                >
-                  <div className="size-24 rounded-full overflow-hidden border-2 border-[#E7D6C1] shadow-md group-hover:border-[#651E2C] group-hover:scale-105 transition-all p-1 bg-white">
-                    <img
-                      src={member.img}
-                      alt={isAr ? member.nameAr : member.nameEn}
-                      className="w-full h-full object-cover rounded-full"
-                    />
-                  </div>
-                  <div>
-                    <h3 className="font-display text-lg font-bold text-[#262321]">
-                      {isAr ? member.nameAr : member.nameEn}
-                    </h3>
-                    <p className="text-xs text-[#77716E] mt-0.5">
-                      {isAr ? member.roleAr : member.roleEn}
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
+          {/* 3. Who's behind Mizan */}
+          <div className="mx-auto max-w-3xl space-y-4 border-t border-[#E7D6C1] pt-12 text-center">
+            <h2 className="font-display text-3xl font-normal text-[#262321] sm:text-4xl">
+              {isAr ? "من وراء ميزان" : "Who's behind Mizan"}
+            </h2>
+            <p className="text-sm leading-relaxed text-[#4D4744] sm:text-base">
+              {isAr
+                ? `ميزان مشروع مصري يطوّره ويديره ${BUSINESS.seller.ar} من ${BUSINESS.city.ar}. نبنيه مع أصحاب المحلات والصيدليات والمطاعم الذين يستخدمونه كل يوم، ونرد بأنفسنا على كل رسالة.`
+                : `Mizan is an Egyptian product built and run by ${BUSINESS.seller.en} in ${BUSINESS.city.en}. We build it with the shop, pharmacy and restaurant owners who use it every day, and we answer every message ourselves.`}
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2 text-sm">
+              <a
+                href={whatsappHref()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-full bg-[#651E2C] px-5 py-2.5 font-semibold text-[#FAF6F0] hover:bg-[#521723]"
+              >
+                <MessageCircle className="size-4" /> {isAr ? "راسلنا على واتساب" : "Message us on WhatsApp"}
+              </a>
+              <a href={PHONE_HREF} dir="ltr" className="font-mono font-semibold text-[#651E2C] hover:underline">
+                {BUSINESS.phoneDisplay}
+              </a>
             </div>
           </div>
 

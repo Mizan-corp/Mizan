@@ -5,6 +5,7 @@ import { actions, type Invoice, type Owner, type Plan, useMe, usePlans, useWorks
 import { useOpenWorkspace } from "@app/lib/open";
 import { ago, date, errorText, LICENCE_STATUS, MODE, money, planLabel, sectorLabel, trialState } from "@app/lib/format";
 import { cn } from "@/lib/utils";
+import { appUrl } from "@/lib/urls";
 import { Badge, Button, ErrorNote, Field, Input, LoadError, Meter, Modal, ModalActions, PageSkeleton, Panel, Money } from "@app/ui";
 import { PlanBadge } from "@app/pages/Workspaces";
 import { DownloadButton } from "@app/DownloadDialog";
@@ -96,6 +97,17 @@ function PayDialog({
           <Input value={email} onChange={(e) => setEmail(e.target.value)} type="email" dir="ltr" className="text-start" placeholder="name@example.com" />
         </Field>
       </div>
+      <p className="mt-4 text-[12px] leading-relaxed text-mute">
+        بالدفع توافق على{" "}
+        <a href={appUrl("website", "/terms")} target="_blank" rel="noopener noreferrer" className="font-semibold text-wine hover:underline">
+          شروط الاستخدام
+        </a>{" "}
+        و
+        <a href={appUrl("website", "/refund-policy")} target="_blank" rel="noopener noreferrer" className="font-semibold text-wine hover:underline">
+          سياسة الاسترداد
+        </a>
+        . لا يتجدد الاشتراك تلقائيًا، ويمكن استرداد أول دفعة خلال 14 يومًا.
+      </p>
       {error && <ErrorNote>{error}</ErrorNote>}
       <ModalActions>
         <Button variant="primary" busy={busy} onClick={pay} disabled={phone.trim().length < 6}>

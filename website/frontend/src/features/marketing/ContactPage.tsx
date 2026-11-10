@@ -4,7 +4,7 @@ import {
   Send,
   CheckCircle2,
   Headphones,
-  Mail,
+  MessageCircle,
   Phone,
   Clock,
   ShieldCheck,
@@ -17,6 +17,8 @@ import { sound } from "@/lib/sound";
 import { useTranslation } from "@/i18n";
 import { assetUrl } from "@/lib/utils";
 import { MizanMagnetic } from "@/components/motion/MizanMagnetic";
+import { Link } from "react-router-dom";
+import { BUSINESS, PHONE_HREF, whatsappHref } from "@app/features/legal/business";
 
 export default function ContactPage() {
   const { locale } = useTranslation();
@@ -28,34 +30,38 @@ export default function ContactPage() {
   const [phone, setPhone] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [industry, setIndustry] = useState("retail");
+  const [industryLabel, setIndustryLabel] = useState("");
   const [message, setMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
+  const INQUIRY_LABEL = {
+    demo: isAr ? "عرض توضيحي" : "Demo",
+    enterprise: isAr ? "باقة المؤسسات" : "Enterprise plan",
+    migration: isAr ? "نقل البيانات" : "Data migration",
+    support: isAr ? "دعم فني" : "Support",
+  } as const;
+
+  /** No mailbox behind this form: it opens WhatsApp with the message written out. */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim() || !email.trim() || !phone.trim()) {
-      toast.error(
-        isAr
-          ? "يرجى ملء الحقول الإلزامية (الاسم، البريد الإلكتروني، ورقم الهاتف)"
-          : "Please fill in required fields (Name, Email, and Phone)"
-      );
+    if (!fullName.trim() || !phone.trim()) {
+      toast.error(isAr ? "اكتب اسمك ورقم هاتفك" : "Please enter your name and phone number");
       return;
     }
-
-    setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsSuccess(true);
-      try {
-        sound.success();
-      } catch {}
-      toast.success(
-        isAr
-          ? "تم استلام طلبكم بنجاح! سيتواصل معكم مهندس حلول ميزان قريباً."
-          : "Request received successfully! A Mizan solutions engineer will reach out shortly."
-      );
-    }, 800);
+    const lines = [
+      isAr ? `طلب: ${INQUIRY_LABEL[inquiryType]}` : `Request: ${INQUIRY_LABEL[inquiryType]}`,
+      `${isAr ? "الاسم" : "Name"}: ${fullName.trim()}`,
+      `${isAr ? "الهاتف" : "Phone"}: ${phone.trim()}`,
+      email.trim() && `${isAr ? "البريد" : "Email"}: ${email.trim()}`,
+      companyName.trim() && `${isAr ? "المنشأة" : "Business"}: ${companyName.trim()}`,
+      industryLabel && `${isAr ? "النشاط" : "Industry"}: ${industryLabel}`,
+      message.trim() && `\n${message.trim()}`,
+    ].filter(Boolean);
+    window.open(whatsappHref(lines.join("\n")), "_blank", "noopener,noreferrer");
+    setIsSuccess(true);
+    try {
+      sound.success();
+    } catch {}
   };
 
   return (
@@ -104,10 +110,10 @@ export default function ContactPage() {
                   <div className="absolute inset-0 bg-gradient-to-t from-[#35151D]/80 via-transparent to-transparent" />
                   <div className="absolute bottom-4 start-4 text-white">
                     <span className="text-[10px] uppercase font-bold tracking-widest text-[#B86B76]">
-                      {isAr ? "المقر الرئيسي" : "Headquarters"}
+                      {isAr ? "نعمل من" : "Based in"}
                     </span>
                     <h3 className="font-display text-lg font-normal">
-                      {isAr ? "القرية الذكية، القاهرة" : "Smart Village, Cairo"}
+                      {BUSINESS.city[isAr ? "ar" : "en"]}
                     </h3>
                   </div>
                 </div>
@@ -115,14 +121,14 @@ export default function ContactPage() {
                 <div className="space-y-4 pt-2 text-xs">
                   <div className="flex items-start gap-3">
                     <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#FAF6F0] text-[#651E2C] border border-[#E7D6C1]">
-                      <Mail className="size-4" />
+                      <MessageCircle className="size-4" />
                     </div>
                     <div>
                       <span className="text-[#77716E] block font-medium">
-                        {isAr ? "الاستفسارات التجارية والهندسية:" : "Commercial & Architecture Inquiries:"}
+                        {isAr ? "واتساب (الأسرع):" : "WhatsApp (fastest):"}
                       </span>
-                      <a href="mailto:solutions@mizan.app" className="font-mono font-bold text-[#651E2C] hover:underline">
-                        solutions@mizan.app
+                      <a href={whatsappHref()} target="_blank" rel="noopener noreferrer" dir="ltr" className="font-mono font-bold text-[#651E2C] hover:underline">
+                        {BUSINESS.phoneDisplay}
                       </a>
                     </div>
                   </div>
@@ -133,9 +139,11 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <span className="text-[#77716E] block font-medium">
-                        {isAr ? "الخط الساخن المباشر:" : "Direct Advisory Hotline:"}
+                        {isAr ? "اتصال هاتفي:" : "Phone:"}
                       </span>
-                      <span className="font-mono font-bold text-[#262321]">+20 (2) 3536-8000</span>
+                      <a href={PHONE_HREF} dir="ltr" className="font-mono font-bold text-[#262321] hover:underline">
+                        {BUSINESS.phoneDisplay}
+                      </a>
                     </div>
                   </div>
 
@@ -145,10 +153,10 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <span className="text-[#77716E] block font-medium">
-                        {isAr ? "ضمان سرعة الاستجابة:" : "Response SLA Guarantee:"}
+                        {isAr ? "مواعيد الرد:" : "When we reply:"}
                       </span>
                       <span className="text-[#262321] font-semibold">
-                        {isAr ? "أقل من ساعتين خلال أيام العمل الرسمية" : "Under 2 hours during official business days"}
+                        {isAr ? "خلال أيام وساعات العمل" : "During business days and hours"}
                       </span>
                     </div>
                   </div>
@@ -159,10 +167,12 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <span className="text-[#77716E] block font-medium">
-                        {isAr ? "سرية البيانات والمواثيق:" : "Data Privacy & Governance:"}
+                        {isAr ? "الشروط والخصوصية:" : "Terms & privacy:"}
                       </span>
-                      <span className="text-[#262321]">
-                        {isAr ? "اتفاقية عدم إفصاح رسمية (NDA) معتمدة لكل استشارة" : "Formal enterprise NDA signed before technical audit"}
+                      <span className="flex flex-wrap gap-x-3 text-[#262321]">
+                        <Link to="/terms" className="hover:text-[#651E2C] hover:underline">{isAr ? "شروط الاستخدام" : "Terms"}</Link>
+                        <Link to="/privacy" className="hover:text-[#651E2C] hover:underline">{isAr ? "الخصوصية" : "Privacy"}</Link>
+                        <Link to="/refund-policy" className="hover:text-[#651E2C] hover:underline">{isAr ? "الاسترداد" : "Refunds"}</Link>
                       </span>
                     </div>
                   </div>
@@ -185,12 +195,15 @@ export default function ContactPage() {
                         <CheckCircle2 className="size-8" />
                       </div>
                       <h3 className="font-display text-2xl font-normal text-[#262321]">
-                        {isAr ? "تم استلام استشارتكم بنجاح" : "Your Consultation Has Been Booked"}
+                        {isAr ? "أكمل الإرسال في واتساب" : "Finish sending in WhatsApp"}
                       </h3>
                       <p className="mx-auto max-w-md text-xs sm:text-sm text-[#77716E] leading-relaxed">
                         {isAr
-                          ? "شكراً لتواصلك مع ميزان. سيقوم مهندس الحلول المعماري بالتواصل معكم عبر الهاتف أو البريد الإلكتروني لتنسيق جلسة العرض التوضيحي."
-                          : "Thank you for reaching out to Mizan. A solutions architect will contact you directly to arrange the live system walkthrough."}
+                          ? "فتحنا واتساب برسالتك جاهزة؛ اضغط إرسال هناك. لم يُفتح؟ راسلنا مباشرة على "
+                          : "We opened WhatsApp with your message ready; press send there. Didn't open? Message us at "}
+                        <a href={whatsappHref()} target="_blank" rel="noopener noreferrer" dir="ltr" className="font-semibold text-[#651E2C] hover:underline">
+                          {BUSINESS.phoneDisplay}
+                        </a>
                       </p>
                       <Button
                         variant="outline"
@@ -201,7 +214,7 @@ export default function ContactPage() {
                         }}
                         className="border-[#E7D6C1] text-xs mt-2"
                       >
-                        {isAr ? "إرسال طلب استشارة آخر" : "Submit Another Inquiry"}
+                        {isAr ? "رسالة أخرى" : "Another message"}
                       </Button>
                     </motion.div>
                   ) : (
@@ -265,11 +278,10 @@ export default function ContactPage() {
 
                         <div className="space-y-1.5">
                           <label className="text-xs font-bold text-[#262321]">
-                            {isAr ? "البريد الإلكتروني للعمل *" : "Work Email *"}
+                            {isAr ? "البريد الإلكتروني (اختياري)" : "Email (optional)"}
                           </label>
                           <Input
                             type="email"
-                            required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="name@company.com"
@@ -315,7 +327,10 @@ export default function ContactPage() {
                         </label>
                         <select
                           value={industry}
-                          onChange={(e) => setIndustry(e.target.value)}
+                          onChange={(e) => {
+                            setIndustry(e.target.value);
+                            setIndustryLabel(e.target.selectedOptions[0]?.text ?? "");
+                          }}
                           className="w-full rounded-xl border border-[#E7D6C1] bg-[#FAF6F0] px-3.5 py-2.5 text-xs text-[#262321] focus:border-[#651E2C] focus:outline-hidden"
                         >
                           <option value="retail">{isAr ? "التجزئة والمتاجر والمعارض (Retail & Trade)" : "Retail & Commercial Showrooms"}</option>
@@ -348,19 +363,10 @@ export default function ContactPage() {
                       <MizanMagnetic className="w-full">
                         <Button
                           type="submit"
-                          disabled={isSubmitting}
                           className="w-full bg-[#651E2C] text-white hover:bg-[#521723] rounded-xl py-3 text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2"
                         >
                           <Send className="size-3.5" />
-                          <span>
-                            {isSubmitting
-                              ? isAr
-                                ? "جاري إرسال الطلب..."
-                                : "Transmitting..."
-                              : isAr
-                              ? "تأكيد طلب العرض التوضيحي المباشر"
-                              : "Confirm Architecture Walkthrough Request"}
-                          </span>
+                          <span>{isAr ? "إرسال عبر واتساب" : "Send via WhatsApp"}</span>
                         </Button>
                       </MizanMagnetic>
                     </motion.form>

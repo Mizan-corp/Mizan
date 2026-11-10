@@ -17,6 +17,7 @@ const ContactPage = lazy(() => import("@app/features/marketing/ContactPage"));
 const BlogPage = lazy(() => import("@app/features/marketing/BlogPage"));
 const BlogPostPage = lazy(() => import("@app/features/marketing/BlogPostPage"));
 const DashboardShowcasePage = lazy(() => import("@app/features/marketing/DashboardShowcasePage"));
+const LegalPage = lazy(() => import("@app/features/legal/LegalPage"));
 const DocsLayout = lazy(() => import("@app/features/docs/DocsLayout").then((m) => ({ default: m.DocsLayout })));
 const DocsHomePage = lazy(() => import("@app/features/docs/DocsHomePage"));
 const DocsArticlePage = lazy(() => import("@app/features/docs/DocsArticlePage"));
@@ -56,6 +57,9 @@ export default function App() {
       <Route path="/blog" element={<Page><BlogPage /></Page>} />
       <Route path="/blog/:slug" element={<Page><BlogPostPage /></Page>} />
       <Route path="/demo" element={<Page><DashboardShowcasePage /></Page>} />
+      <Route path="/terms" element={<Page><LegalPage slug="terms" /></Page>} />
+      <Route path="/privacy" element={<Page><LegalPage slug="privacy" /></Page>} />
+      <Route path="/refund-policy" element={<Page><LegalPage slug="refund-policy" /></Page>} />
 
       <Route path="/docs" element={<Page><DocsLayout><DocsHomePage /></DocsLayout></Page>} />
       <Route path="/docs/*" element={<Page><DocsLayout><DocsArticlePage /></DocsLayout></Page>} />

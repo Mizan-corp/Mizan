@@ -240,6 +240,17 @@ export default function SignupPage() {
                 </>
               )}
             </button>
+            <p className="text-center text-[11px] leading-relaxed text-[#77716E]">
+              {isAr ? "بإنشاء الحساب فإنك توافق على " : "By creating an account you agree to the "}
+              <Link to="/terms" target="_blank" className="font-semibold text-[#651E2C] hover:underline">
+                {isAr ? "شروط الاستخدام" : "Terms of Service"}
+              </Link>
+              {isAr ? " و" : " and "}
+              <Link to="/privacy" target="_blank" className="font-semibold text-[#651E2C] hover:underline">
+                {isAr ? "سياسة الخصوصية" : "Privacy Policy"}
+              </Link>
+              .
+            </p>
           </form>
 
           <div className="pt-4 border-t border-[#E6DCD2] text-center text-xs text-[#77716E]">

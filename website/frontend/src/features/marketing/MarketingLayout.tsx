@@ -12,6 +12,7 @@ import {
   Lock,
   ChevronDown,
 } from "lucide-react";
+import { BUSINESS } from "@app/features/legal/business";
 import { useTranslation } from "@/i18n";
 import { MizanLogo } from "@/components/MizanLogo";
 import { SmoothScroll } from "@/components/SmoothScroll";
@@ -396,13 +397,9 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
 
               {/* Security & Reliability Badges */}
               <div className="flex flex-wrap items-center gap-3 pt-2 text-xs text-[#E7D6C1]/90">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#48151F] border border-white/10 font-mono">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#27835C]" />
-                  {isAr ? "حالة النظام: مستقرة 99.9%" : "System Status: 99.9%"}
-                </span>
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#48151F] border border-white/10">
                   <ShieldCheck className="h-3.5 w-3.5 text-[#27835C]" />
-                  {isAr ? "معتمد ضريبياً ETA" : "ETA Tax Compliant"}
+                  {isAr ? "مدفوعات آمنة عبر Paymob" : "Payments secured by Paymob"}
                 </span>
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#48151F] border border-white/10">
                   <Lock className="h-3.5 w-3.5 text-[#B86B76]" />
@@ -532,9 +529,9 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
           {/* Bottom Bar — Hairline top border in Merlot tone */}
           <div className="mt-12 flex flex-col items-center justify-between border-t border-white/10 pt-6 text-xs text-[#E7D6C1]/70 sm:flex-row gap-3">
             <div>
-              © {new Date().getFullYear()} {isAr ? "ميزان ERP. جميع الحقوق محفوظة." : "Mizan ERP. All rights reserved."}
+              © {new Date().getFullYear()} {isAr ? `ميزان ERP · ${BUSINESS.seller.ar}، ${BUSINESS.city.ar}. جميع الحقوق محفوظة.` : `Mizan ERP · ${BUSINESS.seller.en}, ${BUSINESS.city.en}. All rights reserved.`}
             </div>
-            <div className="flex items-center gap-5">
+            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
               <Link to="/about" className="hover:text-[#FAF6F0] transition-colors">
                 {isAr ? "عن المنصة" : "About"}
               </Link>
@@ -544,8 +541,14 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
               <Link to="/contact" className="hover:text-[#FAF6F0] transition-colors">
                 {isAr ? "اتصل بنا" : "Contact"}
               </Link>
-              <Link to="/docs" className="hover:text-[#FAF6F0] transition-colors">
+              <Link to="/terms" className="hover:text-[#FAF6F0] transition-colors">
+                {isAr ? "شروط الاستخدام" : "Terms"}
+              </Link>
+              <Link to="/privacy" className="hover:text-[#FAF6F0] transition-colors">
                 {isAr ? "سياسة الخصوصية" : "Privacy Policy"}
+              </Link>
+              <Link to="/refund-policy" className="hover:text-[#FAF6F0] transition-colors">
+                {isAr ? "الاسترداد والإلغاء" : "Refunds"}
               </Link>
             </div>
           </div>
