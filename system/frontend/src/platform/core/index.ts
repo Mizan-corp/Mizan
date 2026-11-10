@@ -1,11 +1,12 @@
 import type { ModuleDefinition } from "@app/framework/types";
 
-// Base & Core System: the routes, screens, widgets and navigation entries this module provides (ADR-006).
-// Screens are still registered in App.tsx and lib/nav.ts until the framework renders them.
+// Base & Core System: what this module provides to the app (docs/MODULE_STANDARD.md). Screens are
+// still registered in App.tsx and lib/nav.ts until the framework renders them (ADR-006 phase 5).
 const definition: ModuleDefinition = {
   id: "core",
   activity: "general",
   kind: "platform",
+  status: "active",
   screens: {},
   widgets: {},
   nav: [],

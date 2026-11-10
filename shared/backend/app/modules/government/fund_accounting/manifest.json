@@ -1,0 +1,25 @@
+{
+  "id": "fund_accounting",
+  "name": "محاسبة الصناديق",
+  "name_en": "Fund accounting and restricted funds",
+  "activity": "government",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "GOV-01",
+    "GOV-11"
+  ],
+  "settings_schema": []
+}

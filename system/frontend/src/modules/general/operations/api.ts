@@ -1,3 +1,2 @@
-// Stock Operations: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Stock Operations: this module's API calls (paths under /modules/operations), used by its screens.
 export {};

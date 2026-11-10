@@ -1,0 +1,24 @@
+{
+  "id": "public_expenditure",
+  "name": "تتبع الإنفاق العام",
+  "name_en": "Public expenditure tracking",
+  "activity": "government",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "GOV-09"
+  ],
+  "settings_schema": []
+}

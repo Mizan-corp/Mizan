@@ -1,3 +1,2 @@
-// Patient Registration & Master Patient Index: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Patient Registration & Master Patient Index: this module's API calls (paths under /modules/patient_identity), used by its screens.
 export {};

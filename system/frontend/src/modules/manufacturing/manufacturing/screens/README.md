@@ -1,3 +1,3 @@
 # Screens
 
-Full screens of `manufacturing`. A variant can replace or add screens.
+Full pages of `manufacturing`, one file each (`<Name>Page.tsx`). A variant can replace or add screens.

@@ -1,3 +1,2 @@
-// Professional Services: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Professional Services: this module's API calls (paths under /modules/services), used by its screens.
 export {};

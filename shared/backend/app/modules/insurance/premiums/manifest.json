@@ -1,0 +1,25 @@
+{
+  "id": "premiums",
+  "name": "الأقساط التأمينية",
+  "name_en": "Premium rating, billing and collection",
+  "activity": "insurance",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "INS-04",
+    "INS-05"
+  ],
+  "settings_schema": []
+}

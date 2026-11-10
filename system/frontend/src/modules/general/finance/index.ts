@@ -1,11 +1,12 @@
 import type { ModuleDefinition } from "@app/framework/types";
 
-// Accounting & Finance: the routes, screens, widgets and navigation entries this module provides (ADR-006).
-// Screens are still registered in App.tsx and lib/nav.ts until the framework renders them.
+// Accounting & Finance: what this module provides to the app (docs/MODULE_STANDARD.md). Screens are
+// still registered in App.tsx and lib/nav.ts until the framework renders them (ADR-006 phase 5).
 const definition: ModuleDefinition = {
   id: "finance",
   activity: "general",
   kind: "business",
+  status: "active",
   screens: {},
   widgets: {},
   nav: [],

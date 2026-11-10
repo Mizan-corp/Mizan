@@ -1,3 +1,3 @@
 # Screens
 
-Full screens of `pharma_manufacturing`. A variant can replace or add screens.
+Full pages of `pharma_manufacturing`, one file each (`<Name>Page.tsx`). A variant can replace or add screens.

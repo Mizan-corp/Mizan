@@ -1,11 +1,12 @@
 import type { ModuleDefinition } from "@app/framework/types";
 
-// Commercial Agriculture & Farm Management ERP: the routes, screens, widgets and navigation entries this module provides (ADR-006).
-// Screens are still registered in App.tsx and lib/nav.ts until the framework renders them.
+// Commercial Agriculture & Farm Management ERP: what this module provides to the app (docs/MODULE_STANDARD.md). Screens are
+// still registered in App.tsx and lib/nav.ts until the framework renders them (ADR-006 phase 5).
 const definition: ModuleDefinition = {
   id: "agriculture",
   activity: "agriculture",
   kind: "business",
+  status: "active",
   screens: {},
   widgets: {},
   nav: [],

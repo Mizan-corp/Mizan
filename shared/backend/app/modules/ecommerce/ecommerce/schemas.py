@@ -1,1 +1,2 @@
-"""Omnichannel E-commerce & Fulfillment: request and response schemas. None yet."""
+"""Omnichannel E-commerce & Fulfillment: request and response schemas (Pydantic). Routes accept and return these, never
+models. None yet."""

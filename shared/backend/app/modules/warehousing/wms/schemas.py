@@ -1,1 +1,2 @@
-"""3PL & Warehouse Management System: request and response schemas. None yet."""
+"""3PL & Warehouse Management System: request and response schemas (Pydantic). Routes accept and return these, never
+models. None yet."""

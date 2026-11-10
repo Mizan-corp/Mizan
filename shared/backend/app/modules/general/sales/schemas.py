@@ -1,1 +1,2 @@
-"""Sales & Invoicing: request and response schemas. None yet."""
+"""Sales & Invoicing: request and response schemas (Pydantic). Routes accept and return these, never
+models. None yet."""

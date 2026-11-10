@@ -1,0 +1,25 @@
+{
+  "id": "bank_accounts",
+  "name": "الحسابات المصرفية",
+  "name_en": "Customer and account master, balances",
+  "activity": "banking",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "BNK-01",
+    "BNK-03"
+  ],
+  "settings_schema": []
+}

@@ -1,3 +1,2 @@
-// Longitudinal Electronic Medical Records (EMR): API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Longitudinal Electronic Medical Records (EMR): this module's API calls (paths under /modules/emr), used by its screens.
 export {};

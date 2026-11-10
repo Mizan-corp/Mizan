@@ -7,7 +7,10 @@ const found = import.meta.glob<{ default: ModuleDefinition }>(
   { eager: true },
 );
 
-export const moduleDefinitions: ModuleDefinition[] = Object.values(found).map((m) => m.default);
+/** Built modules only; planned ones are laid out but not offered. */
+export const moduleDefinitions: ModuleDefinition[] = Object.values(found)
+  .map((m) => m.default)
+  .filter((m) => m.status === "active");
 
 export function moduleDefinition(id: string): ModuleDefinition | undefined {
   return moduleDefinitions.find((m) => m.id === id);

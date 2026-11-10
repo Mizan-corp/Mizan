@@ -1,3 +1,2 @@
-// Insurance & Claims Management: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Insurance & Claims Management: this module's API calls (paths under /modules/health_insurance), used by its screens.
 export {};

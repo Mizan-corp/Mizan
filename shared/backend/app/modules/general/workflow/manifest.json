@@ -1,0 +1,25 @@
+{
+  "id": "workflow",
+  "name": "محرك سير العمل والموافقات",
+  "name_en": "Workflow engine",
+  "activity": "general",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "XMOD-01",
+    "CORE-05"
+  ],
+  "settings_schema": []
+}

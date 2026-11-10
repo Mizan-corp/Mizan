@@ -1,1 +1,6 @@
-"""Radiology & Imaging Management (RIS/PACS): business logic, called by the router. None yet (logic may still be in router.py)."""
+"""Radiology & Imaging Management (RIS/PACS): business logic.
+
+Functions take the database session and plain values, do one business operation in one
+transaction, and raise HTTPException with an Arabic message for the user. Routers and other
+modules call these; they never reach into another module's tables. None yet.
+"""

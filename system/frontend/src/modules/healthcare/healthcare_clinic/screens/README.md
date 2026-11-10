@@ -1,3 +1,3 @@
 # Screens
 
-Full screens of `healthcare_clinic`. A variant can replace or add screens.
+Full pages of `healthcare_clinic`, one file each (`<Name>Page.tsx`). A variant can replace or add screens.

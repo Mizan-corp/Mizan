@@ -1,3 +1,2 @@
-// Radiology & Imaging Management (RIS/PACS): API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Radiology & Imaging Management (RIS/PACS): this module's API calls (paths under /modules/radiology), used by its screens.
 export {};

@@ -1,3 +1,3 @@
 # Screens
 
-Full screens of `law`. A variant can replace or add screens.
+Full pages of `law`, one file each (`<Name>Page.tsx`). A variant can replace or add screens.

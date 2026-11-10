@@ -1,3 +1,4 @@
 # Stock Operations
 
-`operations`, home activity `general`. See `manifest.json` and ADR-006.
+`operations`: a business module of the `general` activity (active). Its contract is
+`manifest.json`; the layout and rules are in docs/MODULE_STANDARD.md.

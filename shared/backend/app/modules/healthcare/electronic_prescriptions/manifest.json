@@ -1,0 +1,24 @@
+{
+  "id": "electronic_prescriptions",
+  "name": "الروشتات الإلكترونية",
+  "name_en": "Electronic prescriptions",
+  "activity": "healthcare",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "HLT-03"
+  ],
+  "settings_schema": []
+}

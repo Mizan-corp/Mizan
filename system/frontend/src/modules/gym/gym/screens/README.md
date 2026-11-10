@@ -1,3 +1,3 @@
 # Screens
 
-Full screens of `gym`. A variant can replace or add screens.
+Full pages of `gym`, one file each (`<Name>Page.tsx`). A variant can replace or add screens.

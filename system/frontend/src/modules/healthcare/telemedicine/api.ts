@@ -1,3 +1,2 @@
-// Telemedicine & Virtual Consultations: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Telemedicine & Virtual Consultations: this module's API calls (paths under /modules/telemedicine), used by its screens.
 export {};

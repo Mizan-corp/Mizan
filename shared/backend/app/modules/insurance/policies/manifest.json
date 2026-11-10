@@ -1,0 +1,26 @@
+{
+  "id": "policies",
+  "name": "الوثائق والاكتتاب",
+  "name_en": "Policies, underwriting, renewals",
+  "activity": "insurance",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "INS-02",
+    "INS-03",
+    "INS-06"
+  ],
+  "settings_schema": []
+}

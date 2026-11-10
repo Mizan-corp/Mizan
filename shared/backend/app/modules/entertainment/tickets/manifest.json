@@ -1,0 +1,28 @@
+{
+  "id": "tickets",
+  "name": "التذاكر والدخول",
+  "name_en": "Tickets, capacity, scanning, pricing, refunds",
+  "activity": "entertainment",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "ENT-02",
+    "ENT-03",
+    "ENT-04",
+    "ENT-08",
+    "ENT-09"
+  ],
+  "settings_schema": []
+}

@@ -1,0 +1,24 @@
+{
+  "id": "regulatory_reporting",
+  "name": "التقارير الرقابية",
+  "name_en": "Regulatory reporting",
+  "activity": "banking",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "BNK-10"
+  ],
+  "settings_schema": []
+}

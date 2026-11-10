@@ -1,0 +1,24 @@
+{
+  "id": "custody_transfer",
+  "name": "مخزون الهيدروكربونات ونقل العهدة",
+  "name_en": "Hydrocarbon inventory and custody transfer",
+  "activity": "petroleum",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "OIL-10"
+  ],
+  "settings_schema": []
+}

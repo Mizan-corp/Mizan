@@ -1,3 +1,2 @@
-// Omnichannel E-commerce & Fulfillment: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Omnichannel E-commerce & Fulfillment: this module's API calls (paths under /modules/ecommerce), used by its screens.
 export {};

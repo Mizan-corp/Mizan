@@ -1,2 +1,5 @@
-"""Night Audit & Hospitality Metrics: extension points other modules and variants can hook into, e.g. before_confirm,
-after_confirm (ADR-006 phase 4). None yet."""
+"""Night Audit & Hospitality Metrics: extension points.
+
+Named moments (before_confirm, after_confirm, …) where variants and other modules add rules
+without editing this module (ADR-006 phase 4). None yet.
+"""

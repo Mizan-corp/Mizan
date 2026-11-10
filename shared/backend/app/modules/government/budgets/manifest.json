@@ -1,0 +1,26 @@
+{
+  "id": "budgets",
+  "name": "الموازنات والرقابة عليها",
+  "name_en": "Budgets, controls and multi-year planning",
+  "activity": "government",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "GOV-02",
+    "GOV-03",
+    "GOV-05"
+  ],
+  "settings_schema": []
+}

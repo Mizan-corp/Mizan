@@ -1,3 +1,2 @@
-// Banquets, Events & Conference Halls: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Banquets, Events & Conference Halls: this module's API calls (paths under /modules/banquet_events), used by its screens.
 export {};

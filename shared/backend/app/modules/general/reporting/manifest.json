@@ -1,0 +1,25 @@
+{
+  "id": "reporting",
+  "name": "محرك التقارير",
+  "name_en": "Reporting engine",
+  "activity": "general",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "XMOD-04",
+    "CORE-10"
+  ],
+  "settings_schema": []
+}

@@ -1,3 +1,2 @@
-// Background Automation & Cron Worker: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Background Automation & Cron Worker: this module's API calls (paths under /modules/automation_worker), used by its screens.
 export {};

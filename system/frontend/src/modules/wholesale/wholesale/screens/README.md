@@ -1,3 +1,3 @@
 # Screens
 
-Full screens of `wholesale`. A variant can replace or add screens.
+Full pages of `wholesale`, one file each (`<Name>Page.tsx`). A variant can replace or add screens.

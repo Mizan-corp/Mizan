@@ -1,0 +1,25 @@
+{
+  "id": "hydrocarbon_production",
+  "name": "الإنتاج وتوزيع التكاليف",
+  "name_en": "Production volumes and cost allocation",
+  "activity": "petroleum",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "OIL-03",
+    "OIL-11"
+  ],
+  "settings_schema": []
+}

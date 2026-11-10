@@ -1,0 +1,26 @@
+{
+  "id": "customization",
+  "name": "تخصيص المنشأة",
+  "name_en": "Tenant customization",
+  "activity": "general",
+  "kind": "platform",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "srs": [
+    "CUS-01",
+    "CUS-02",
+    "CUS-03",
+    "CUS-04",
+    "CUS-05",
+    "CUS-06"
+  ],
+  "settings_schema": []
+}

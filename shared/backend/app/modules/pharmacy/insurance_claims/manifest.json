@@ -1,0 +1,24 @@
+{
+  "id": "insurance_claims",
+  "name": "مطالبات التأمين",
+  "name_en": "Insurance claims",
+  "activity": "pharmacy",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "PHA-06"
+  ],
+  "settings_schema": []
+}

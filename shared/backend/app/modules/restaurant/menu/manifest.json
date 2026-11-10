@@ -1,0 +1,24 @@
+{
+  "id": "menu",
+  "name": "قائمة الطعام والإضافات",
+  "name_en": "Menu and modifiers",
+  "activity": "restaurant",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "RES-01"
+  ],
+  "settings_schema": []
+}

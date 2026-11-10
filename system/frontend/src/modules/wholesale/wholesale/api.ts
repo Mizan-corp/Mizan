@@ -1,3 +1,2 @@
-// Wholesale & Bulk Distribution: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Wholesale & Bulk Distribution: this module's API calls (paths under /modules/wholesale), used by its screens.
 export {};

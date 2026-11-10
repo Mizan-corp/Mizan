@@ -1,0 +1,24 @@
+{
+  "id": "gaming_assets",
+  "name": "معدات الألعاب",
+  "name_en": "Gaming equipment and assets",
+  "activity": "entertainment",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "ENT-11"
+  ],
+  "settings_schema": []
+}

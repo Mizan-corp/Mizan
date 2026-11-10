@@ -1,0 +1,25 @@
+{
+  "id": "risk_management",
+  "name": "إدارة المخاطر والصلاحيات",
+  "name_en": "Risk, exposure and authorization",
+  "activity": "banking",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "BNK-11",
+    "BNK-12"
+  ],
+  "settings_schema": []
+}

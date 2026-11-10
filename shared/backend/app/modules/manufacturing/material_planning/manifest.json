@@ -1,0 +1,22 @@
+{
+  "id": "material_planning",
+  "name": "تخطيط الاحتياجات (MRP)",
+  "name_en": "Material requirements planning (MRP)",
+  "activity": "manufacturing",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [],
+  "settings_schema": []
+}

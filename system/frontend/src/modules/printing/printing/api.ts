@@ -1,3 +1,2 @@
-// Printing & Packaging ERP: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Printing & Packaging ERP: this module's API calls (paths under /modules/printing), used by its screens.
 export {};

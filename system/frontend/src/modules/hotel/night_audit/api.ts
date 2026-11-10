@@ -1,3 +1,2 @@
-// Night Audit & Hospitality Metrics: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Night Audit & Hospitality Metrics: this module's API calls (paths under /modules/night_audit), used by its screens.
 export {};

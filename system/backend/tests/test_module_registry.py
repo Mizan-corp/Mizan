@@ -187,23 +187,21 @@ def test_legacy_ids_point_to_current_modules():
 
 def test_frontend_mirrors_the_backend_layout():
     # system/frontend/src/modules/<home_activity>/<module_id>/, src/platform/<id>/, src/integrations/<id>/
-    from app.framework.loader import manifest_index
+    from app.framework import scaffold
 
-    index = manifest_index()
     frontend = REPO / "system" / "frontend" / "src"
-    by_activity = {}  # activity -> the backend folder names of its modules
-    for m in index.values():
-        by_activity.setdefault(m["activity"], set()).add(Path(m["_dir"]).name)
+    by_activity: dict[str, set[str]] = {}
+    for folder, m in scaffold.manifests():
+        if m.get("kind", "business") == "business":
+            by_activity.setdefault(m["activity"], set()).add(folder.name)
     for activity_dir in (frontend / "modules").iterdir():
         assert (APP / "activities" / activity_dir.name).is_dir(), f"src/modules/{activity_dir.name} is not an activity"
-        by_activity.setdefault(activity_dir.name, set())
-        planned = {p.name for p in (MODULES / activity_dir.name).iterdir() if p.is_dir() and not (p / "manifest.json").exists()}
         for module_dir in (p for p in activity_dir.iterdir() if p.is_dir()):
-            assert module_dir.name in by_activity[activity_dir.name] | planned, f"{module_dir.relative_to(frontend)}"
+            assert module_dir.name in by_activity.get(activity_dir.name, set()), f"{module_dir.relative_to(frontend)}"
+    kinds = {folder.name: m.get("kind") for folder, m in scaffold.manifests()}
     for root, kind in (("platform", "platform"), ("integrations", "integration")):
         for module_dir in (frontend / root).iterdir():
-            assert index.get(module_dir.name, {}).get("kind") == kind, module_dir
-
+            assert kinds.get(module_dir.name) == kind, module_dir
 
 def test_every_module_has_the_adr_layout():
     # python manage.py module scaffold creates what's missing; new modules: module new.
@@ -228,17 +226,29 @@ def test_activities_have_the_adr_fields_and_valid_variants():
             assert variant in index[module_id].get("variants", ["standard"]), f"{aid}: {module_id} has no '{variant}' variant"
 
 
-def test_planned_modules_are_readme_only_and_mirrored():
-    # SRS modules not built yet: a folder with only README.md, backend and frontend (ADR-006).
+def test_planned_modules_have_the_standard_structure_but_are_not_offered():
+    # SRS modules not built yet: the full standard structure, status "planned" (ADR-006).
+    from app.framework import scaffold
     from app.framework.loader import manifest_index
 
-    ids = set(manifest_index())
-    frontend = REPO / "system" / "frontend" / "src" / "modules"
-    planned = [p for p in MODULES.glob("*/*") if p.is_dir() and not (p / "manifest.json").exists() and p.name != "__pycache__"]
+    all_ids = [m["id"] for _, m in scaffold.manifests()]
+    assert len(all_ids) == len(set(all_ids)), "module ids (built and planned) must be unique"
+    planned = [(d, m) for d, m in scaffold.manifests() if m.get("status") == "planned"]
     assert planned
-    for folder in planned:
-        files = {f.name for f in folder.iterdir() if f.name != "__pycache__"}
-        assert files == {"README.md"}, f"{folder.relative_to(APP)}: {files}"
-        assert folder.name not in ids, f"{folder.name} is also a module id"
-        assert "(planned)" in (folder / "README.md").read_text(encoding="utf-8")
-        assert (frontend / folder.parent.name / folder.name / "README.md").exists(), folder
+    for folder, m in planned:
+        assert m["id"] not in manifest_index(), f"{m['id']} is planned but offered"
+        assert m["id"] not in registry.get_routers(), f"{m['id']} is planned but mounted"
+        assert "(planned)" in (folder / "README.md").read_text(encoding="utf-8"), folder
+        index_ts = scaffold.frontend_dir(folder) / "index.ts"
+        assert 'status: "planned"' in index_ts.read_text(encoding="utf-8"), index_ts
+
+
+def test_the_written_standard_covers_the_template():
+    # docs/MODULE_STANDARD.md and app/framework/module_template/ describe the same files.
+    from app.framework import scaffold
+
+    doc = (REPO / "docs" / "MODULE_STANDARD.md").read_text(encoding="utf-8")
+    for side in ("backend", "frontend"):
+        for rel in (scaffold.TEMPLATE / side).rglob("*.tmpl"):
+            name = rel.relative_to(scaffold.TEMPLATE / side).with_suffix("").as_posix().replace("{{variant}}", "<variant>")
+            assert f"`{name}`" in doc, f"{side}/{name} is not described in docs/MODULE_STANDARD.md"

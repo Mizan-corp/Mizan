@@ -1,0 +1,25 @@
+{
+  "id": "health_safety_environment",
+  "name": "السلامة والصحة والبيئة",
+  "name_en": "HSE, incidents and permit-to-work",
+  "activity": "petroleum",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "OIL-06",
+    "OIL-07"
+  ],
+  "settings_schema": []
+}

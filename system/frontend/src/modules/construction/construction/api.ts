@@ -1,3 +1,2 @@
-// Construction & Contracting ERP: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Construction & Contracting ERP: this module's API calls (paths under /modules/construction), used by its screens.
 export {};

@@ -1,0 +1,22 @@
+{
+  "id": "webhooks",
+  "name": "محرك التكامل والويب هوك",
+  "name_en": "Integration engine and webhooks",
+  "activity": "general",
+  "kind": "integration",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "srs": [
+    "XMOD-05",
+    "SYS-02"
+  ],
+  "settings_schema": []
+}

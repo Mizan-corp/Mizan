@@ -1,0 +1,25 @@
+{
+  "id": "loans",
+  "name": "القروض والفوائد",
+  "name_en": "Loans, interest and fees",
+  "activity": "banking",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "BNK-06",
+    "BNK-07"
+  ],
+  "settings_schema": []
+}

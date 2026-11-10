@@ -1,3 +1,3 @@
 # Screens
 
-Full screens of `oil_gas`. A variant can replace or add screens.
+Full pages of `oil_gas`, one file each (`<Name>Page.tsx`). A variant can replace or add screens.

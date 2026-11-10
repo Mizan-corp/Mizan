@@ -79,6 +79,10 @@ def manifest_problems(data: dict[str, Any]) -> list[str]:
         problems.append(f"unknown activity '{data['activity']}'")
     if data.get("kind", "business") not in MODULE_KINDS:
         problems.append(f"kind must be one of {MODULE_KINDS}")
+    if data.get("status", "active") not in ("active", "planned"):
+        problems.append("status must be 'active' or 'planned'")
+    if not isinstance(data.get("srs", []), list):
+        problems.append("'srs' must be a list of SRS requirement ids")
     if "category" in data:
         problems.append("'category' is replaced by 'activity' (the family comes from it)")
     for key in ("permissions", "screens", "widgets", "variants"):
@@ -124,6 +128,8 @@ def manifest_index() -> dict[str, dict[str, Any]]:
             data = json.loads(f.read_text(encoding="utf-8"))
         except ValueError:
             continue  # reported by the registry (registry.errors)
+        if data.get("status") == "planned":
+            continue  # laid out, not built: not part of the catalogue
         data["_dir"] = str(f.parent)
         index.setdefault(data.get("id", f.parent.name), data)
     return index
@@ -151,6 +157,8 @@ class ModuleRegistry:
             if problems:
                 self.errors.append(f"{manifest_file}: " + "; ".join(problems))
                 return
+            if data.get("status") == "planned":
+                return  # described and laid out, not built: never mounted or offered
             fields_raw = data.get("settings_schema", [])
             settings_schema = [
                 SettingField(

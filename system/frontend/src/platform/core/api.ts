@@ -1,3 +1,2 @@
-// Base & Core System: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Base & Core System: this module's API calls (paths under /modules/core), used by its screens.
 export {};

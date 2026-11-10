@@ -1,3 +1,2 @@
-// Hotel Property Management System: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Hotel Property Management System: this module's API calls (paths under /modules/hotel_pms), used by its screens.
 export {};

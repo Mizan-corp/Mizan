@@ -1,1 +1,2 @@
-"""Base & Core System: request and response schemas. None yet."""
+"""Base & Core System: request and response schemas (Pydantic). Routes accept and return these, never
+models. None yet."""

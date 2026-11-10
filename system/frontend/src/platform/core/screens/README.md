@@ -1,3 +1,3 @@
 # Screens
 
-Full screens of `core`. A variant can replace or add screens.
+Full pages of `core`, one file each (`<Name>Page.tsx`). A variant can replace or add screens.

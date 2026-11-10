@@ -1,3 +1,2 @@
-// Logistics & Fleet Transportation: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Logistics & Fleet Transportation: this module's API calls (paths under /modules/logistics), used by its screens.
 export {};

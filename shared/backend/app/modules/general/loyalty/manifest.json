@@ -1,0 +1,27 @@
+{
+  "id": "loyalty",
+  "name": "برنامج الولاء والمكافآت",
+  "name_en": "Loyalty rewards",
+  "activity": "general",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "LOY-01",
+    "LOY-02",
+    "LOY-03",
+    "LOY-04"
+  ],
+  "settings_schema": []
+}

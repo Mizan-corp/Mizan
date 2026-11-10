@@ -1,3 +1,2 @@
-// Tenant Storefront & Omnichannel Ordering: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Tenant Storefront & Omnichannel Ordering: this module's API calls (paths under /modules/storefront), used by its screens.
 export {};

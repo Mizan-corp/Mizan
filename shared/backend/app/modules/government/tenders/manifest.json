@@ -1,0 +1,24 @@
+{
+  "id": "tenders",
+  "name": "المناقصات والمشتريات الحكومية",
+  "name_en": "Procurement compliance and tendering",
+  "activity": "government",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "GOV-06"
+  ],
+  "settings_schema": []
+}

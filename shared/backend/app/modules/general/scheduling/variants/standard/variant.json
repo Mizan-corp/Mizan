@@ -1,0 +1,14 @@
+{
+  "id": "standard",
+  "module": "scheduling",
+  "status": "active",
+  "description": "The module as it is, for every activity.",
+  "screens": {},
+  "fields": {},
+  "uses": [],
+  "terms": {},
+  "settings": {},
+  "permissions": [],
+  "templates": {},
+  "widgets": []
+}

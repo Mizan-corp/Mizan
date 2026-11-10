@@ -1,3 +1,2 @@
-// Field Service & Maintenance Management: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Field Service & Maintenance Management: this module's API calls (paths under /modules/field_service), used by its screens.
 export {};

@@ -1,18 +1,10 @@
-"""The ADR-006 layout of a module, and the tool that creates it (`python manage.py module …`).
+"""The standard module structure (docs/MODULE_STANDARD.md) and the tool that applies it.
 
-Backend, ``app/modules/<home_activity>/<module_id>/`` (platform and integration modules in
-``app/platform/<id>/`` and ``app/integrations/<id>/``)::
-
-    manifest.json  models.py  schemas.py  service.py  router.py  hooks.py  seed.py  README.md
-    migrations/  templates/  tests/  variants/<variant>/{variant.json, hooks.py}
-
-Frontend, ``system/frontend/src/modules/<home_activity>/<module_id>/`` (``src/platform/``,
-``src/integrations/``)::
-
-    index.ts  api.ts  screens/  components/  variants/
-
-Only missing pieces are created; existing files are never changed. Standard library only, so it
-runs without the API's settings.
+The structure itself is the template in ``app/framework/module_template/``: ``backend/`` becomes
+``app/modules/<activity>/<id>/`` (``app/platform/<id>/``, ``app/integrations/<id>/`` by kind),
+``frontend/`` the matching folder under ``system/frontend/src/``. Used by
+``python manage.py module new|scaffold|check``. Only missing files are created; existing files
+are never changed. Standard library only, so it runs without the API's settings.
 """
 from __future__ import annotations
 
@@ -23,135 +15,110 @@ from pathlib import Path
 APP_DIR = Path(__file__).resolve().parents[1]
 REPO = APP_DIR.parents[2]
 FRONTEND = REPO / "system" / "frontend" / "src"
+TEMPLATE = Path(__file__).resolve().parent / "module_template"
 MODULE_ID = re.compile(r"^[a-z][a-z0-9_]*$")
 KIND_ROOT = {"platform": "platform", "integration": "integrations"}
-
-BACKEND_FILES = {
-    "models.py": '"""{name}: database models. None yet."""\n',
-    "schemas.py": '"""{name}: request and response schemas. None yet."""\n',
-    "service.py": '"""{name}: business logic, called by the router. None yet (logic may still be in router.py)."""\n',
-    "router.py": '"""{name}: API routes. None yet."""\n',
-    "hooks.py": (
-        '"""{name}: extension points other modules and variants can hook into, e.g. before_confirm,\n'
-        'after_confirm (ADR-006 phase 4). None yet."""\n'
-    ),
-    "seed.py": (
-        '"""{name}: demo data for this module. Still in app/services/demo_seed.py; it moves here\n'
-        'activity by activity (ADR-006)."""\n'
-    ),
-    "README.md": "# {name}\n\n`{id}`, home activity `{activity}`. See `manifest.json` and ADR-006.\n",
-    "migrations/README.md": (
-        "# Migrations\n\nThis module's own database migrations (ADR-006). Until the per-module runner exists,\n"
-        "migrations live in `app/db/migrations.py`.\n"
-    ),
-    "templates/README.md": "# Templates\n\nPrint templates: `templates/<category>/<name>.html` (see `core/printing`).\n",
-    "tests/README.md": "# Tests\n\nThis module's tests. Until module tests are collected, tests live in `system/backend/tests/`.\n",
-}
-
-FRONTEND_FILES = {
-    "index.ts": (
-        'import type {{ ModuleDefinition }} from "@app/framework/types";\n\n'
-        "// {name}: the routes, screens, widgets and navigation entries this module provides (ADR-006).\n"
-        "// Screens are still registered in App.tsx and lib/nav.ts until the framework renders them.\n"
-        "const definition: ModuleDefinition = {{\n"
-        '  id: "{id}",\n  activity: "{activity}",\n  kind: "{kind}",\n'
-        "  screens: {{}},\n  widgets: {{}},\n  nav: [],\n}};\n\nexport default definition;\n"
-    ),
-    "api.ts": (
-        "// {name}: API calls for this module. Screens still call @/lib/api directly; calls move here\n"
-        "// as screens are reworked.\nexport {{}};\n"
-    ),
-    "screens/README.md": "# Screens\n\nFull screens of `{id}`. A variant can replace or add screens.\n",
-    "components/README.md": "# Components\n\nParts used by this module's screens.\n",
-    "variants/README.md": (
-        "# Variants\n\n`variants/<activity_id>/`: screens and components that replace or add to this module's\n"
-        "for one activity (ADR-006). The backend side is in the module's `variants/` folder.\n"
-    ),
-}
+STATUSES = ("active", "planned")
+VARIANT_DIR = "{{variant}}"
 
 
-def variant_json(module_id: str, variant: str, **extra) -> dict:
-    """What a variant can change (ADR-006 D1). `standard` fits every activity."""
-    return {
-        "id": variant,
-        "module": module_id,
-        "status": extra.pop("status", "planned" if variant != "standard" else "active"),
-        "description": extra.pop("description", "The module as it is, for every activity." if variant == "standard" else ""),
-        "screens": {},
-        "fields": {},
-        "uses": [],
-        "terms": {},
-        "settings": {},
-        "permissions": [],
-        "templates": {},
-        "widgets": [],
-        **extra,
+def _templates(side: str) -> list[Path]:
+    """Template files of one side (backend/frontend), relative to it, without .tmpl."""
+    root = TEMPLATE / side
+    return sorted(p.relative_to(root) for p in root.rglob("*.tmpl"))
+
+
+def _target(rel: Path) -> Path:
+    return rel.with_suffix("") if rel.suffix == ".tmpl" else rel
+
+
+def _values(manifest: dict, variant: str | None = None) -> dict[str, str]:
+    values = {
+        "id": manifest["id"],
+        "name": manifest.get("name") or manifest["id"],
+        "name_en": manifest.get("name_en") or manifest.get("name") or manifest["id"],
+        "activity": manifest.get("activity", "general"),
+        "kind": manifest.get("kind", "business"),
+        "status": manifest.get("status", "active"),
     }
+    if variant:
+        values["variant"] = variant
+        values["variant_status"] = "active" if variant == "standard" else "planned"
+        values["variant_description"] = "The module as it is, for every activity." if variant == "standard" else ""
+    return values
+
+
+def render(template: Path, values: dict[str, str]) -> str:
+    text = template.read_text(encoding="utf-8")
+    for key, value in values.items():
+        text = text.replace("{{" + key + "}}", value)
+    return text
 
 
 def manifests() -> list[tuple[Path, dict]]:
-    """Every module folder with its manifest."""
+    """Every module folder (built or planned) with its manifest."""
     found = []
-    roots = [(APP_DIR / "modules", 2), (APP_DIR / "platform", 1), (APP_DIR / "integrations", 1)]
-    for root, depth in roots:
-        if not root.exists():
-            continue
-        pattern = "*/*/manifest.json" if depth == 2 else "*/manifest.json"
-        for f in sorted(root.glob(pattern)):
-            if not any(part.startswith(("_", ".")) for part in f.relative_to(root).parts):
-                found.append((f.parent, json.loads(f.read_text(encoding="utf-8"))))
+    for root, pattern in ((APP_DIR / "modules", "*/*/manifest.json"), (APP_DIR / "platform", "*/manifest.json"),
+                          (APP_DIR / "integrations", "*/manifest.json")):
+        if root.exists():
+            for f in sorted(root.glob(pattern)):
+                if not any(part.startswith(("_", ".")) for part in f.relative_to(root).parts):
+                    found.append((f.parent, json.loads(f.read_text(encoding="utf-8"))))
     return found
 
 
 def frontend_dir(module_dir: Path) -> Path:
-    rel = module_dir.relative_to(APP_DIR)
-    return FRONTEND.joinpath(*rel.parts)
+    return FRONTEND.joinpath(*module_dir.resolve().relative_to(APP_DIR).parts)
 
 
-def missing(module_dir: Path, manifest: dict) -> list[Path]:
-    """The ADR-006 pieces this module doesn't have yet (backend and frontend)."""
-    out = [module_dir / f for f in BACKEND_FILES if not (module_dir / f).exists()]
-    if manifest.get("kind", "business") == "business":
-        for variant in manifest.get("variants", ["standard"]):
-            for f in ("variant.json", "hooks.py"):
-                if not (module_dir / "variants" / variant / f).exists():
-                    out.append(module_dir / "variants" / variant / f)
-    fe = frontend_dir(module_dir)
+def _plan(module_dir: Path, manifest: dict) -> list[tuple[Path, Path, dict[str, str]]]:
+    """(target file, template, values) for every file the standard asks for."""
     business = manifest.get("kind", "business") == "business"
-    out += [fe / f for f in FRONTEND_FILES if not (fe / f).exists() and (business or not f.startswith("variants/"))]
+    out = []
+    for rel in _templates("backend"):
+        if rel.name == "manifest.json.tmpl":
+            continue  # the manifest is written by new_module, never regenerated
+        if rel.parts[0] == "variants":
+            if not business:
+                continue
+            for variant in manifest.get("variants", ["standard"]):
+                target = module_dir / _target(Path(*[variant if p == VARIANT_DIR else p for p in rel.parts]))
+                out.append((target, TEMPLATE / "backend" / rel, _values(manifest, variant)))
+            continue
+        out.append((module_dir / _target(rel), TEMPLATE / "backend" / rel, _values(manifest)))
+    fe = frontend_dir(module_dir)
+    for rel in _templates("frontend"):
+        if rel.parts[0] == "variants" and not business:
+            continue
+        out.append((fe / _target(rel), TEMPLATE / "frontend" / rel, _values(manifest)))
     return out
 
 
-def _fill(template: str, module_dir: Path, manifest: dict) -> str:
-    return template.format(
-        name=manifest.get("name_en") or manifest.get("name") or manifest["id"],
-        id=manifest["id"],
-        activity=manifest.get("activity", "general"),
-        kind=manifest.get("kind", "business"),
-    )
+def missing(module_dir: Path, manifest: dict) -> list[Path]:
+    """The standard files this module doesn't have yet (backend and frontend)."""
+    return [target for target, _, _ in _plan(module_dir, manifest) if not target.exists()]
 
 
 def scaffold(module_dir: Path, manifest: dict) -> list[Path]:
     """Create whatever is missing; return what was created."""
     created = []
-    for path in missing(module_dir, manifest):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        rel = path.name
-        if path.parent.parent.name == "variants":
-            variant = path.parent.name
-            if rel == "variant.json":
-                content = json.dumps(variant_json(manifest["id"], variant), ensure_ascii=False, indent=2) + "\n"
-            else:
-                content = f'"""{manifest["id"]}, {variant} variant: rules for this activity (ADR-006 phase 4). None yet."""\n'
-        elif path.is_relative_to(FRONTEND):
-            key = str(path.relative_to(frontend_dir(module_dir)))
-            content = _fill(FRONTEND_FILES[key], module_dir, manifest)
-        else:
-            key = str(path.relative_to(module_dir))
-            content = _fill(BACKEND_FILES[key], module_dir, manifest)
-        path.write_text(content, encoding="utf-8")
-        created.append(path)
+    for target, template, values in _plan(module_dir, manifest):
+        if target.exists():
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(render(template, values), encoding="utf-8")
+        created.append(target)
     return created
+
+
+def regenerate(module_dir: Path, manifest: dict, files: set[Path]) -> list[Path]:
+    """Rewrite the given standard files from the template (used to refresh placeholders)."""
+    done = []
+    for target, template, values in _plan(module_dir, manifest):
+        if target in files:
+            target.write_text(render(template, values), encoding="utf-8")
+            done.append(target)
+    return done
 
 
 def scaffold_all() -> list[Path]:
@@ -161,27 +128,43 @@ def scaffold_all() -> list[Path]:
     return created
 
 
-def new_module(activity: str, module_id: str, name: str, name_en: str = "", kind: str = "business") -> Path:
-    """A new module with its manifest and the full layout (ADR-006 `module new`)."""
+def new_module(activity: str, module_id: str, name: str, name_en: str = "", kind: str = "business",
+               status: str = "active") -> Path:
+    """A new module (or a planned one) with the full standard structure."""
     if not MODULE_ID.match(module_id):
         raise ValueError(f"module id '{module_id}' must be lowercase letters, digits and underscores")
-    if any(m.get("id") == module_id for _, m in manifests()):
-        raise ValueError(f"module id '{module_id}' is already used")
+    if status not in STATUSES:
+        raise ValueError(f"status must be one of {STATUSES}")
+    existing = {m["id"]: d for d, m in manifests()}
+    if module_id in existing:
+        planned = json.loads((existing[module_id] / "manifest.json").read_text(encoding="utf-8")).get("status") == "planned"
+        if not (planned and status == "active"):
+            raise ValueError(f"module id '{module_id}' is already used")
+        # Building a planned module: it becomes active; its files are already in place.
+        manifest_file = existing[module_id] / "manifest.json"
+        data = json.loads(manifest_file.read_text(encoding="utf-8"))
+        data["status"] = "active"
+        manifest_file.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        _activate_frontend(existing[module_id])
+        scaffold(existing[module_id], data)
+        return existing[module_id]
     if not (APP_DIR / "activities" / activity / "activity.json").exists():
         raise ValueError(f"unknown activity '{activity}'")
-    if kind in KIND_ROOT:
-        module_dir = APP_DIR / KIND_ROOT[kind] / module_id
-    else:
-        module_dir = APP_DIR / "modules" / activity / module_id
-    manifest = {
-        "id": module_id, "name": name, "name_en": name_en or name, "activity": activity, "kind": kind,
-        "version": "0.1.0", "icon": "Blocks", "description": "", "dependencies": ["core"],
-        "permissions": [], "screens": [], "widgets": [], "variants": ["standard"],
-    }
+    module_dir = APP_DIR / KIND_ROOT[kind] / module_id if kind in KIND_ROOT else APP_DIR / "modules" / activity / module_id
     if module_dir.exists() and {f.name for f in module_dir.iterdir()} - {"README.md"}:
         raise ValueError(f"{module_dir} already exists")
-    # A planned module (a folder with only its README) becomes a real one; its README is kept.
     module_dir.mkdir(parents=True, exist_ok=True)
+    manifest = json.loads(render(TEMPLATE / "backend" / "manifest.json.tmpl", {
+        "id": module_id, "name": name, "name_en": name_en or name, "activity": activity, "kind": kind, "status": status,
+    }))
+    if kind != "business":
+        manifest.pop("variants")
     (module_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     scaffold(module_dir, manifest)
     return module_dir
+
+
+def _activate_frontend(module_dir: Path) -> None:
+    index = frontend_dir(module_dir) / "index.ts"
+    if index.exists():
+        index.write_text(index.read_text(encoding="utf-8").replace('status: "planned"', 'status: "active"'), encoding="utf-8")

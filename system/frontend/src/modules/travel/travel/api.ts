@@ -1,3 +1,2 @@
-// Travel & Tourism Agency Management: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Travel & Tourism Agency Management: this module's API calls (paths under /modules/travel), used by its screens.
 export {};

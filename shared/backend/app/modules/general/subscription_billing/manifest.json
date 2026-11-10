@@ -1,0 +1,25 @@
+{
+  "id": "subscription_billing",
+  "name": "الفوترة الدورية والاشتراكات",
+  "name_en": "Subscription billing",
+  "activity": "general",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "XMOD-06",
+    "GYM-02"
+  ],
+  "settings_schema": []
+}

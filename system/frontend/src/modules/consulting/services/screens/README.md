@@ -1,3 +1,3 @@
 # Screens
 
-Full screens of `services`. A variant can replace or add screens.
+Full pages of `services`, one file each (`<Name>Page.tsx`). A variant can replace or add screens.

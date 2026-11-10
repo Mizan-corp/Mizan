@@ -1,3 +1,2 @@
-// Accounting & Healthcare Financial Management: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Accounting & Healthcare Financial Management: this module's API calls (paths under /modules/medical_accounting), used by its screens.
 export {};

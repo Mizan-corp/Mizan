@@ -1,3 +1,2 @@
-// Point of Sale (POS): API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Point of Sale (POS): this module's API calls (paths under /modules/pos), used by its screens.
 export {};

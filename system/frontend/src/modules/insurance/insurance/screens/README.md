@@ -1,3 +1,3 @@
 # Screens
 
-Full screens of `insurance`. A variant can replace or add screens.
+Full pages of `insurance`, one file each (`<Name>Page.tsx`). A variant can replace or add screens.

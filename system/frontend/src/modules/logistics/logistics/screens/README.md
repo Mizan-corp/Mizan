@@ -1,3 +1,3 @@
 # Screens
 
-Full screens of `logistics`. A variant can replace or add screens.
+Full pages of `logistics`, one file each (`<Name>Page.tsx`). A variant can replace or add screens.

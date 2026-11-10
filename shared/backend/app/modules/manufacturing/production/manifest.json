@@ -1,0 +1,22 @@
+{
+  "id": "production",
+  "name": "الإنتاج وأوامر التشغيل",
+  "name_en": "Production and work orders",
+  "activity": "manufacturing",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [],
+  "settings_schema": []
+}

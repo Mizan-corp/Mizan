@@ -1,3 +1,3 @@
 # Screens
 
-Full screens of `purchases`. A variant can replace or add screens.
+Full pages of `purchases`, one file each (`<Name>Page.tsx`). A variant can replace or add screens.

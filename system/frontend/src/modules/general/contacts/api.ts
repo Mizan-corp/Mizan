@@ -1,3 +1,2 @@
-// Contacts & Partners: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Contacts & Partners: this module's API calls (paths under /modules/contacts), used by its screens.
 export {};

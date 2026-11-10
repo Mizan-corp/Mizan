@@ -1,3 +1,2 @@
-// Consultation & Clinical Workflow: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Consultation & Clinical Workflow: this module's API calls (paths under /modules/consultation), used by its screens.
 export {};

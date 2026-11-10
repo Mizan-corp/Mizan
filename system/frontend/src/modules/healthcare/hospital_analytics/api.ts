@@ -1,3 +1,2 @@
-// Clinical Analytics & Business Intelligence: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Clinical Analytics & Business Intelligence: this module's API calls (paths under /modules/hospital_analytics), used by its screens.
 export {};

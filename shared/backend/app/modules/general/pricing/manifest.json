@@ -1,0 +1,26 @@
+{
+  "id": "pricing",
+  "name": "محرك التسعير",
+  "name_en": "Pricing engine",
+  "activity": "general",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "XMOD-08",
+    "CRM-04",
+    "CRM-05"
+  ],
+  "settings_schema": []
+}

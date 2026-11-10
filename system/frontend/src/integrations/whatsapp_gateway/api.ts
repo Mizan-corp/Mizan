@@ -1,3 +1,2 @@
-// WhatsApp Business & Digital Receipt Dispatch: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// WhatsApp Business & Digital Receipt Dispatch: this module's API calls (paths under /modules/whatsapp_gateway), used by its screens.
 export {};

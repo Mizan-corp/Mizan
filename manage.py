@@ -762,9 +762,10 @@ def cmd_module(opts: argparse.Namespace) -> None:
 
     if opts.action == "new":
         if not (opts.activity and opts.id and opts.name):
-            die('Usage: manage.py module new <activity> <module_id> "<name>" [--kind business|platform|integration]')
+            die('Usage: manage.py module new <activity> <module_id> "<name>" [--name-en ...] [--kind ...] [--planned]')
         try:
-            folder = scaffold.new_module(opts.activity, opts.id, opts.name, opts.name_en or "", opts.kind)
+            folder = scaffold.new_module(opts.activity, opts.id, opts.name, opts.name_en or "", opts.kind,
+                                         "planned" if opts.planned else "active")
         except ValueError as err:
             die(str(err))
         ok(f"Created {folder.relative_to(ROOT)} and its screens folder")
@@ -778,8 +779,8 @@ def cmd_module(opts: argparse.Namespace) -> None:
     for d, g in gaps:
         info(f"{d.relative_to(ROOT)}: missing {', '.join(str(p.relative_to(ROOT)) for p in g[:4])}{' …' if len(g) > 4 else ''}")
     if gaps:
-        die(f"{len(gaps)} modules are missing parts of the layout (python manage.py module scaffold)")
-    ok("Every module has the ADR-006 layout")
+        die(f"{len(gaps)} modules are missing parts of the standard structure (python manage.py module scaffold)")
+    ok("Every module has the standard structure (docs/MODULE_STANDARD.md)")
 
 
 # ─── CLI ────────────────────────────────────────────────────────────────────
@@ -831,13 +832,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("action", choices=["status", "domains", "redeploy"])
     p.add_argument("project", nargs="?", help="With `redeploy`: e.g. mizan-system-api")
 
-    p = add("module", cmd_module, "Modules (ADR-006 layout): new, scaffold (fill missing pieces), check")
+    p = add("module", cmd_module, "Modules (docs/MODULE_STANDARD.md): new, scaffold (fill missing files), check")
     p.add_argument("action", choices=["new", "scaffold", "check"])
     p.add_argument("activity", nargs="?", help="With `new`: the home activity, e.g. pharmacy")
     p.add_argument("id", nargs="?", help="With `new`: the module id, e.g. drug_interactions")
     p.add_argument("name", nargs="?", help="With `new`: the Arabic name")
     p.add_argument("--name-en", dest="name_en", help="With `new`: the English name")
     p.add_argument("--kind", default="business", choices=["business", "platform", "integration"])
+    p.add_argument("--planned", action="store_true", help="With `new`: lay out a module that is not built yet")
 
     p = add("cron", cmd_cron, "Run background automation jobs in the system API")
     p.add_argument("--job", help="One job, e.g. auto_close_shifts (default: all)")

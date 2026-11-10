@@ -1,0 +1,22 @@
+{
+  "id": "bill_of_materials",
+  "name": "قوائم المواد (BOM)",
+  "name_en": "Bill of materials",
+  "activity": "manufacturing",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [],
+  "settings_schema": []
+}

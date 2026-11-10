@@ -1,3 +1,2 @@
-// Healthcare Notifications & Alerts: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Healthcare Notifications & Alerts: this module's API calls (paths under /modules/patient_notifications), used by its screens.
 export {};

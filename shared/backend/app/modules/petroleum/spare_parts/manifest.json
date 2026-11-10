@@ -1,0 +1,24 @@
+{
+  "id": "spare_parts",
+  "name": "المعدات وقطع الغيار",
+  "name_en": "Equipment and spare parts",
+  "activity": "petroleum",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "OIL-09"
+  ],
+  "settings_schema": []
+}

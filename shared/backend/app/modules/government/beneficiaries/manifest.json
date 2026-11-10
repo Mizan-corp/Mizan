@@ -1,0 +1,24 @@
+{
+  "id": "beneficiaries",
+  "name": "المستفيدون والمواطنون",
+  "name_en": "Beneficiaries and citizens",
+  "activity": "government",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "GOV-08"
+  ],
+  "settings_schema": []
+}

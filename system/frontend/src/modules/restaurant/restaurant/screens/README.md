@@ -1,3 +1,3 @@
 # Screens
 
-Full screens of `restaurant`. A variant can replace or add screens.
+Full pages of `restaurant`, one file each (`<Name>Page.tsx`). A variant can replace or add screens.

@@ -1,3 +1,2 @@
-// Purchases & Procurement: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Purchases & Procurement: this module's API calls (paths under /modules/purchases), used by its screens.
 export {};

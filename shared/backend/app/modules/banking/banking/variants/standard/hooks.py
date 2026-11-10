@@ -1,1 +1,2 @@
-"""banking, standard variant: rules for this activity (ADR-006 phase 4). None yet."""
+"""banking, standard variant: rules this activity adds through the module's hooks (ADR-006
+phase 4). None yet."""

@@ -1,3 +1,3 @@
 # Screens
 
-Full screens of `kitchen_display`. A variant can replace or add screens.
+Full pages of `kitchen_display`, one file each (`<Name>Page.tsx`). A variant can replace or add screens.

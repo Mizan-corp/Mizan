@@ -1,3 +1,2 @@
-// Energy & Power Generation Plant ERP: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Energy & Power Generation Plant ERP: this module's API calls (paths under /modules/energy), used by its screens.
 export {};

@@ -1,0 +1,21 @@
+{
+  "id": "fawry",
+  "name": "مدفوعات فوري",
+  "name_en": "Fawry payments",
+  "activity": "general",
+  "kind": "integration",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "srs": [
+    "PLAT-07"
+  ],
+  "settings_schema": []
+}

@@ -1,1 +1,2 @@
-"""إدارة التأمين وإعادة التأمين (Insurance ERP): request and response schemas. None yet."""
+"""إدارة التأمين وإعادة التأمين (Insurance ERP): request and response schemas (Pydantic). Routes accept and return these, never
+models. None yet."""

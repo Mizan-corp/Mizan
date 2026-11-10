@@ -1,0 +1,28 @@
+{
+  "id": "marketplace",
+  "name": "سوق الوحدات",
+  "name_en": "Module marketplace and self-configuration",
+  "activity": "general",
+  "kind": "platform",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "srs": [
+    "MOD-01",
+    "MOD-02",
+    "MOD-03",
+    "MOD-04",
+    "MOD-05",
+    "MOD-06",
+    "MOD-07",
+    "MOD-08"
+  ],
+  "settings_schema": []
+}

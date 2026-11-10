@@ -1,3 +1,2 @@
-// Hotel Housekeeping & Cleaning Operations: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Hotel Housekeeping & Cleaning Operations: this module's API calls (paths under /modules/housekeeping), used by its screens.
 export {};

@@ -1,3 +1,2 @@
-// Discrete Manufacturing & Assembly: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Discrete Manufacturing & Assembly: this module's API calls (paths under /modules/manufacturing), used by its screens.
 export {};

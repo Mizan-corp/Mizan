@@ -1,3 +1,2 @@
-// Billing, Invoicing & Patient Accounts: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Billing, Invoicing & Patient Accounts: this module's API calls (paths under /modules/medical_billing), used by its screens.
 export {};

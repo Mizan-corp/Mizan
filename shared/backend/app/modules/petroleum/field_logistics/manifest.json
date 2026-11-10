@@ -1,0 +1,24 @@
+{
+  "id": "field_logistics",
+  "name": "مشتريات ولوجستيات الحقول",
+  "name_en": "Field procurement and logistics",
+  "activity": "petroleum",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "OIL-13"
+  ],
+  "settings_schema": []
+}

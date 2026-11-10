@@ -412,9 +412,9 @@ Choices made while implementing phase 1 (#99), for review:
   `law_firm`→`legal`, `field_service`→`maintenance`, `oil_gas`→`petroleum`,
   `real_estate`→`property` (migration v52 rewrites stored sectors; `legacy_activities` keeps the
   old ids accepted).
-- **Planned modules from the SRS**: every module the SRS names that isn't built has a folder
-  under its activity with only a `README.md` (`(planned)`, the SRS requirements it covers, where
-  related code lives today), mirrored on the frontend: e.g. `restaurant/menu`,
+- **Planned modules from the SRS**: every module the SRS names that isn't built has the full
+  standard structure with `"status": "planned"` (not mounted or offered), a `README.md` with the
+  SRS requirements it covers and where related code lives today, and `srs` ids in its manifest: e.g. `restaurant/menu`,
   `pharmacy/drug_interactions`, `school/timetable`, the banking, insurance, government,
   entertainment and petroleum modules (grouped from the SRS requirement lists), the shared
   `general/*` engines (XMOD), `platform/marketplace`, `platform/customization`,
@@ -431,6 +431,8 @@ Choices made while implementing phase 1 (#99), for review:
   the frontend mirrors it (`src/modules/<activity>/<module>/`, `src/platform/`,
   `src/integrations/`). `modules/healthcare/` also keeps shared healthcare code (`models.py`,
   `seeder.py`) until phase 8. The healthcare modules' `backend/` subfolders were flattened.
+- **The module standard** is written in `docs/MODULE_STANDARD.md` and defined once as files in
+  `app/framework/module_template/`, which the scaffold generates from.
 - **Full layout scaffolded** (`app/framework/scaffold.py`, `python manage.py module
   new|scaffold|check`, enforced by tests): every module has `schemas.py`, `service.py`,
   `hooks.py`, `seed.py`, `migrations/`, `templates/`, `tests/`, `variants/standard/`, and on the

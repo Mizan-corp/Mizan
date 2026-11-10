@@ -1,0 +1,24 @@
+{
+  "id": "scheduling",
+  "name": "محرك الجدولة والحجوزات",
+  "name_en": "Scheduling engine",
+  "activity": "general",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "XMOD-07"
+  ],
+  "settings_schema": []
+}

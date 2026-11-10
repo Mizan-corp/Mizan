@@ -1,0 +1,24 @@
+{
+  "id": "check_in",
+  "name": "تسجيل دخول الأعضاء",
+  "name_en": "Member check-in",
+  "activity": "gym",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "GYM-04"
+  ],
+  "settings_schema": []
+}

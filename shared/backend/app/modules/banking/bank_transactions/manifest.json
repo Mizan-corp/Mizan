@@ -1,0 +1,25 @@
+{
+  "id": "bank_transactions",
+  "name": "محرك المعاملات المصرفية",
+  "name_en": "Transaction engine and immutable logs",
+  "activity": "banking",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "BNK-02",
+    "BNK-13"
+  ],
+  "settings_schema": []
+}

@@ -1,0 +1,25 @@
+{
+  "id": "wells",
+  "name": "الحقول والآبار",
+  "name_en": "Fields, sites, wells and assets",
+  "activity": "petroleum",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "OIL-01",
+    "OIL-02"
+  ],
+  "settings_schema": []
+}

@@ -1,3 +1,2 @@
-// Commercial Agriculture & Farm Management ERP: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Commercial Agriculture & Farm Management ERP: this module's API calls (paths under /modules/agriculture), used by its screens.
 export {};

@@ -1,0 +1,24 @@
+{
+  "id": "exams",
+  "name": "الامتحانات والدرجات",
+  "name_en": "Examinations and grading",
+  "activity": "school",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "EDU-03"
+  ],
+  "settings_schema": []
+}

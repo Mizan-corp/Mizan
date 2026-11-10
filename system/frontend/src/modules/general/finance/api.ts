@@ -1,3 +1,2 @@
-// Accounting & Finance: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Accounting & Finance: this module's API calls (paths under /modules/finance), used by its screens.
 export {};

@@ -1,3 +1,2 @@
-// Food & Beverage Process Manufacturing: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Food & Beverage Process Manufacturing: this module's API calls (paths under /modules/food_manufacturing), used by its screens.
 export {};

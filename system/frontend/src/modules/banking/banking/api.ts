@@ -1,3 +1,2 @@
-// الأنظمة المصرفية والتمويل (Banking & Financial Institutions): API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// الأنظمة المصرفية والتمويل (Banking & Financial Institutions): this module's API calls (paths under /modules/banking), used by its screens.
 export {};

@@ -1,3 +1,4 @@
 # Tests
 
-This module's tests. Until module tests are collected, tests live in `system/backend/tests/`.
+This module's tests. Until module tests are collected here, they live in `system/backend/tests/`
+(backend) and `e2e/` (end to end).

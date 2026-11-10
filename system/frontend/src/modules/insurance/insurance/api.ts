@@ -1,3 +1,2 @@
-// إدارة التأمين وإعادة التأمين (Insurance ERP): API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// إدارة التأمين وإعادة التأمين (Insurance ERP): this module's API calls (paths under /modules/insurance), used by its screens.
 export {};

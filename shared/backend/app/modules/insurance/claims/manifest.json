@@ -1,0 +1,26 @@
+{
+  "id": "claims",
+  "name": "المطالبات والاحتياطيات",
+  "name_en": "Claims processing and reserves",
+  "activity": "insurance",
+  "kind": "business",
+  "status": "planned",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [
+    "INS-07",
+    "INS-08",
+    "INS-09"
+  ],
+  "settings_schema": []
+}

@@ -1,3 +1,2 @@
-// القطاع الحكومي والمنظمات غير الهادفة للربح (Government & NGOs): API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// القطاع الحكومي والمنظمات غير الهادفة للربح (Government & NGOs): this module's API calls (paths under /modules/government), used by its screens.
 export {};

@@ -1,3 +1,3 @@
 # Screens
 
-Full screens of `construction`. A variant can replace or add screens.
+Full pages of `construction`, one file each (`<Name>Page.tsx`). A variant can replace or add screens.

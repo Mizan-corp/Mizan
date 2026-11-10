@@ -1,3 +1,2 @@
-// Appointment & Scheduling Management: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Appointment & Scheduling Management: this module's API calls (paths under /modules/appointments), used by its screens.
 export {};

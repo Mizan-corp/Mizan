@@ -1,3 +1,2 @@
-// 3PL & Warehouse Management System: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// 3PL & Warehouse Management System: this module's API calls (paths under /modules/wms), used by its screens.
 export {};

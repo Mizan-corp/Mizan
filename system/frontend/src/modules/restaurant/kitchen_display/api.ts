@@ -1,3 +1,2 @@
-// Kitchen Display System: API calls for this module. Screens still call @/lib/api directly; calls move here
-// as screens are reworked.
+// Kitchen Display System: this module's API calls (paths under /modules/kitchen_display), used by its screens.
 export {};
