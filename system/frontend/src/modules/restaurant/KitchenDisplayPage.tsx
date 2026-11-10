@@ -52,15 +52,7 @@ export default function KitchenDisplayPage() {
   // Fetch live kitchen tickets with auto-polling every 10 seconds
   const { data: tickets = [], isLoading, refetch } = useQuery<KDSTicket[]>({
     queryKey: ["kds_live_tickets"],
-    queryFn: async () => {
-      try {
-        const res = await api.get<KDSTicket[]>("/kitchen-orders");
-        return res || [];
-      } catch {
-        const fallback = await api.get<KDSTicket[]>("/modules/restaurant/kitchen-orders");
-        return fallback || [];
-      }
-    },
+    queryFn: async () => (await api.get<KDSTicket[]>("/modules/restaurant/kitchen-orders")) || [],
     refetchInterval: 10000,
   });
 
@@ -77,13 +69,8 @@ export default function KitchenDisplayPage() {
 
   // Mutation to bump / update ticket status
   const bumpTicketMutation = useMutation({
-    mutationFn: async ({ id, newStatus }: { id: string; newStatus: "cooking" | "ready" | "served" }) => {
-      try {
-        return await api.post(`/kitchen-orders/${id}/status`, { status: newStatus });
-      } catch {
-        return await api.post(`/modules/restaurant/kitchen-orders/${id}/status`, { status: newStatus });
-      }
-    },
+    mutationFn: async ({ id, newStatus }: { id: string; newStatus: "cooking" | "ready" | "served" }) =>
+      api.post(`/modules/restaurant/kitchen-orders/${id}/status`, { status: newStatus }),
     onSuccess: (_, { newStatus }) => {
       if (soundEnabled) {
         sound.success();
