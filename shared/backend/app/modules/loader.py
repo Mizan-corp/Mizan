@@ -171,6 +171,10 @@ class ModuleRegistry:
             parent_pkg = None if entry.parent == self.modules_dir else entry.parent.name
             self._load_module_from_dir(entry, parent_pkg=parent_pkg)
 
+        for manifest in self._manifests.values():
+            for dep in manifest.dependencies:
+                if dep not in self._manifests:
+                    self.errors.append(f"module '{manifest.id}' depends on unknown module '{dep}'")
         self._discovered = True
         return self._manifests
 
