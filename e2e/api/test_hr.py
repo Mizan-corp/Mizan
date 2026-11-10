@@ -5,7 +5,7 @@ from datetime import datetime
 
 from helpers import uid
 
-from conftest import (admin_api, owner_api, reg)  # noqa: F401
+from conftest import (admin_api, owner_api, reg, db)  # noqa: F401
 
 
 def _now_month() -> str:
@@ -144,3 +144,26 @@ def test_payroll_reports(owner_api, reg):
     e = _employee(owner_api, reg)
     r = owner_api.get(f"/hr/payroll/report/employee/{e['id']}", params={"month": _now_month()})
     assert r.status_code == 200
+
+def test_salary_change_is_audited_and_unknown_employee_is_404(owner_api, reg, db):
+    e = _employee(owner_api, reg)
+    owner_api.ok(owner_api.put(f"/hr/employees/{e['id']}", json={"monthly_salary": "7777"}))
+    assert db.one("SELECT count(*) FROM hr_audit_log WHERE entity_id = %s AND reason = 'تعديل الراتب'", (e["id"],))[0] == 1
+
+    ghost = "00000000-0000-0000-0000-000000000000"
+    assert owner_api.put(f"/hr/employees/{ghost}", json={"position": "x"}).status_code == 404
+    r = owner_api.post("/hr/attendance", json={"employee_id": ghost, "work_date": datetime.now().strftime("%Y-%m-%d")})
+    assert r.status_code == 404, r.text[:200]
+
+
+def test_device_push_adds_then_updates(owner_api, reg, db):
+    e = _employee(owner_api, reg)
+    code = "E2E" + uid("z")[-6:]
+    db.exec(f"UPDATE hr_employees SET emp_code = '{code}' WHERE id = '{e['id']}'")
+    day = datetime.now().strftime("%Y-%m-%d")
+    first = owner_api.ok(owner_api.post("/hr/attendance/from-device", json={"emp_id": code, "check_in": f"{day}T08:00:00"}))
+    second = owner_api.ok(owner_api.post("/hr/attendance/from-device", json={
+        "emp_id": code, "check_in": f"{day}T08:00:00", "check_out": f"{day}T16:00:00"}))
+    assert (first["action"], second["action"]) == ("added", "updated")
+    unknown = owner_api.ok(owner_api.post("/hr/attendance/from-device", json={"emp_id": "nobody-e2e", "check_in": f"{day}T08:00:00"}))
+    assert unknown["action"] == "skipped"

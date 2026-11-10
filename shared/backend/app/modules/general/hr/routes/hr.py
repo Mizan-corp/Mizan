@@ -24,6 +24,7 @@ from app.modules.general.hr.schemas import (
     PayrollUpdate,
     ShiftCreate,
 )
+from app.modules.general.hr.services import employees as employees_service
 from app.modules.general.hr.services import attendance as hr_attendance_service
 from app.modules.general.hr.services import payroll as payroll_service
 
@@ -101,30 +102,9 @@ async def create_employee(data: EmployeeCreate, db: AsyncSession = Depends(get_d
 
 
 @router.put("/employees/{emp_id}")
-async def update_employee(emp_id: uuid.UUID, data: EmployeeUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("payroll"))):
-    vals = data.model_dump(exclude_unset=True)
-    if not vals:
+async def update_employee(emp_id: uuid.UUID, data: EmployeeUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("payroll"))):
+    if not await employees_service.update_employee(db, emp_id, data.model_dump(exclude_unset=True), current_user):
         return {"detail": "no changes"}
-    # col_map: schema field → actual DB column name (must match hr_employees columns)
-    col_map = {
-        "name": "name",
-        "user_id": "user_id",
-        "position": "position",
-        "monthly_salary": "monthly_salary",
-        "shift_schedule": "shift_schedule",
-        "hire_date": "hire_date",
-        "is_active": "is_active",
-    }
-    set_parts = []
-    params: dict = {"id": emp_id}
-    for field, col in col_map.items():
-        if field in vals:
-            param_key = f"p_{field}"   # avoid collisions with reserved words
-            set_parts.append(f"{col} = :{param_key}")
-            params[param_key] = vals[field]
-    if not set_parts:
-        return {"detail": "no changes"}
-    await db.execute(text(f"UPDATE hr_employees SET {', '.join(set_parts)} WHERE id=:id"), params)
     await db.commit()
     return {"detail": "updated"}
 
@@ -157,32 +137,8 @@ async def list_attendance(employee_id: str | None = None, month: str | None = No
 
 @router.post("/attendance")
 async def add_attendance(data: AttendanceCreate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("payroll"))):
-    from datetime import datetime as _dt
-
-    def _combine(value, work_date):
-        if value is None:
-            return None
-        if isinstance(value, _dt):
-            return value.replace(tzinfo=None)
-        s = str(value).strip()
-        for fmt in ("%H:%M:%S", "%H:%M"):
-            try:
-                return _dt.combine(work_date, _dt.strptime(s, fmt).time())
-            except ValueError:
-                continue
-        return None
-
-    check_in = _combine(data.check_in, data.work_date)
-    check_out = _combine(data.check_out, data.work_date)
-    await db.execute(text("""
-        INSERT INTO hr_attendance (employee_id, work_date, check_in, check_out, status, notes)
-        VALUES (:eid, :dt, :ci, :co, :st, :notes)
-        ON CONFLICT (employee_id, work_date) DO UPDATE
-        SET check_in=EXCLUDED.check_in, check_out=EXCLUDED.check_out,
-            status=EXCLUDED.status, notes=EXCLUDED.notes
-    """), {'eid': data.employee_id, 'dt': data.work_date,
-           'ci': check_in, 'co': check_out,
-           'st': data.status, 'notes': data.notes or ''})
+    await employees_service.save_attendance(db, data.employee_id, data.work_date, data.check_in, data.check_out,
+                                            data.status, data.notes)
     await db.commit()
     return {"detail": "saved"}
 
@@ -595,30 +551,12 @@ async def attendance_from_device(data: dict, db: AsyncSession = Depends(get_db),
     check_in = _dt.fromisoformat(check_in_raw).replace(tzinfo=None) if check_in_raw else None
     check_out = _dt.fromisoformat(check_out_raw).replace(tzinfo=None) if check_out_raw else None
 
-    emp = (await db.execute(text(
-        "SELECT id FROM hr_employees WHERE emp_code=:uid"
-    ), {"uid": uid})).fetchone()
-    if not emp:
+    emp_id = await employees_service.employee_by_code(db, uid)
+    if not emp_id:
         return {"action": "skipped", "reason": f"unknown uid {uid}"}
-
-    existing = (await db.execute(text(
-        "SELECT id, edited FROM hr_attendance WHERE employee_id=:e AND work_date=:d"
-    ), {"e": emp[0], "d": work_date})).fetchone()
-
-    if existing:
-        if existing[1]:  # manually edited — preserve
-            return {"action": "skipped", "reason": "manually edited"}
-        await db.execute(text(
-            "UPDATE hr_attendance SET check_in=:ci, check_out=:co WHERE id=:id"
-        ), {"ci": check_in, "co": check_out, "id": existing[0]})
-        await db.commit()
-        return {"action": "updated"}
-    else:
-        await db.execute(text(
-            "INSERT INTO hr_attendance (employee_id, work_date, check_in, check_out, status) VALUES (:e,:d,:ci,:co,'present')"
-        ), {"e": emp[0], "d": work_date, "ci": check_in, "co": check_out})
-        await db.commit()
-        return {"action": "added"}
+    action = await employees_service.record_device_punch(db, emp_id, work_date, check_in, check_out)
+    await db.commit()
+    return {"action": action, "reason": "manually edited"} if action == "skipped" else {"action": action}
 
 
 _zk_executor = ThreadPoolExecutor(max_workers=1)
@@ -665,34 +603,16 @@ async def sync_device(db: AsyncSession = Depends(get_db), current_user: User = D
             dt = dt.replace(tzinfo=UTC)
         groups[(str(p.user_id), dt.date())].append(dt)
 
-    emp_rows = (await db.execute(text("SELECT id, emp_code FROM hr_employees WHERE emp_code IS NOT NULL"))).fetchall()
-    code_map = {r[1]: r[0] for r in emp_rows}
-
+    code_map = await employees_service.employee_codes(db)
     added = updated = 0
     for (uid, work_date), times in groups.items():
         emp_id = code_map.get(uid)
         if not emp_id:
             continue
         times.sort()
-        check_in = times[0]
-        check_out = times[-1] if len(times) > 1 else None
-
-        existing = (await db.execute(text(
-            "SELECT id, edited FROM hr_attendance WHERE employee_id=:e AND work_date=:d"
-        ), {"e": emp_id, "d": work_date})).fetchone()
-
-        if existing:
-            if existing[1]:
-                continue
-            await db.execute(text(
-                "UPDATE hr_attendance SET check_in=:ci, check_out=:co WHERE id=:id"
-            ), {"ci": check_in, "co": check_out, "id": existing[0]})
-            updated += 1
-        else:
-            await db.execute(text(
-                "INSERT INTO hr_attendance (employee_id, work_date, check_in, check_out, status) VALUES (:e,:d,:ci,:co,'present')"
-            ), {"e": emp_id, "d": work_date, "ci": check_in, "co": check_out})
-            added += 1
+        action = await employees_service.record_device_punch(db, emp_id, work_date, times[0], times[-1] if len(times) > 1 else None)
+        added += action == "added"
+        updated += action == "updated"
 
     await db.execute(text(
         "INSERT INTO hr_sync_log (status, fetched, added, updated) VALUES ('success',:f,:a,:u)"
