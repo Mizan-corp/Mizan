@@ -12,20 +12,17 @@ from app.services.payroll_engine import calculate_payroll as calc_engine
 
 
 async def get_or_create_period(db: AsyncSession, month: str) -> str:
-    """Get period_id for month, creating if needed. Returns period_id."""
-    period_row = await db.execute(
-        text("SELECT id FROM hr_payroll_periods WHERE month=:m"), {"m": month}
-    )
-    if not period_row:
+    """The workspace's payroll period for `month` (created as a draft if missing)."""
+    find = text("SELECT id FROM hr_payroll_periods WHERE month=:m")
+    period_id = (await db.execute(find, {"m": month})).scalar_one_or_none()
+    if period_id is None:
+        # tenant_id comes from the session (app.tenant_id); (tenant_id, month) is unique.
         await db.execute(
-            text("INSERT INTO hr_payroll_periods (month, status) VALUES (:m, 'draft')"),
+            text("INSERT INTO hr_payroll_periods (month, status) VALUES (:m, 'draft') ON CONFLICT DO NOTHING"),
             {"m": month},
         )
-        await db.commit()
-        period_row = await db.execute(
-            text("SELECT id FROM hr_payroll_periods WHERE month=:m"), {"m": month}
-        )
-    return period_row.fetchone()[0]
+        period_id = (await db.execute(find, {"m": month})).scalar_one()
+    return period_id
 
 
 async def get_period_status(db: AsyncSession, month: str) -> str | None:
@@ -251,19 +248,19 @@ async def approve_payroll_period(db: AsyncSession, month: str, current_user_id: 
     total = float(total.scalar() or 0)
 
     # Ensure expense category exists
-    cat_id = await db.execute(
+    cat_id = (await db.execute(
         text("SELECT id FROM financial_categories WHERE name='رواتب' AND type='expense'")
-    ).scalar_one_or_none()
+    )).scalar_one_or_none()
     if not cat_id:
-        cat_id = await db.execute(
+        cat_id = (await db.execute(
             text("INSERT INTO financial_categories (name, type, color) VALUES ('رواتب','expense','#dc2626') RETURNING id")
-        ).scalar_one()
+        )).scalar_one()
 
     # Record monthly payroll as approved expense
     marker = f"HR payroll month {month}"
-    exists = await db.execute(
+    exists = (await db.execute(
         text("SELECT 1 FROM expenses WHERE notes=:n LIMIT 1"), {"n": marker}
-    ).scalar_one_or_none()
+    )).scalar_one_or_none()
     if not exists and total > 0:
         await db.execute(
             text("""
@@ -308,13 +305,13 @@ async def update_payroll_entry(
     notes: str,
 ) -> float:
     """Update manual adjustments on a payroll entry."""
-    row = await db.execute(
+    row = (await db.execute(
         text("""
             SELECT base_salary, lateness_deduction, overtime_pay, bonus_payment, advances
             FROM hr_payroll_entries WHERE id=:id
         """),
         {"id": payroll_id},
-    ).mappings().fetchone()
+    )).mappings().fetchone()
     if not row:
         raise BusinessError("سجل الراتب غير موجود")
 

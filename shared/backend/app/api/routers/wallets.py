@@ -1,8 +1,9 @@
 """Payment wallets — محافظ إلكترونية."""
 import uuid
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
@@ -18,20 +19,39 @@ async def list_wallets(db: AsyncSession = Depends(get_db), _=Depends(get_current
     return [dict(r._mapping) for r in rows.fetchall()]
 
 
+DUPLICATE_NAME = "توجد محفظة بنفس الاسم. اختر اسمًا آخر."
+
+
 @router.post("", status_code=201)
-async def create_wallet(data: WalletCreate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("finance"))):
-    r = await db.execute(text(
-        "INSERT INTO payment_wallets (name, type, phone) VALUES (:name, :type, :phone) RETURNING *"
-    ), {"name": data.name, "type": data.type, "phone": data.phone})
+async def create_wallet(data: WalletCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("finance"))):
+    params = {"name": data.name.strip(), "type": data.type, "phone": data.phone, "tid": user.tenant_id}
+    # Deleting a wallet only deactivates it: adding the same name again brings it back.
+    revived = await db.execute(text(
+        "UPDATE payment_wallets SET is_active=true, type=:type, phone=:phone "
+        "WHERE tenant_id=:tid AND name=:name AND is_active=false RETURNING *"
+    ), params)
+    row = revived.fetchone()
+    if row is None:
+        try:
+            row = (await db.execute(text(
+                "INSERT INTO payment_wallets (tenant_id, name, type, phone) VALUES (:tid, :name, :type, :phone) RETURNING *"
+            ), params)).fetchone()
+        except IntegrityError:
+            await db.rollback()
+            raise HTTPException(status_code=409, detail=DUPLICATE_NAME) from None
     await db.commit()
-    return dict(r.fetchone()._mapping)
+    return dict(row._mapping)
 
 
 @router.put("/{wid}")
 async def update_wallet(wid: uuid.UUID, data: WalletUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("finance"))):
-    await db.execute(text(
-        "UPDATE payment_wallets SET name=:name, phone=:phone WHERE id=:id"
-    ), {"name": data.name, "phone": data.phone, "id": wid})
+    try:
+        await db.execute(text(
+            "UPDATE payment_wallets SET name=:name, phone=:phone WHERE id=:id"
+        ), {"name": data.name, "phone": data.phone, "id": wid})
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail=DUPLICATE_NAME) from None
     await db.commit()
     return {"ok": True}
 

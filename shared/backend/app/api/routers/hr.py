@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import BusinessError, NotFoundError
+from app.core.exceptions import NotFoundError
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
 from app.models.user import User
@@ -235,7 +235,7 @@ async def calculate_payroll(
 async def get_payroll_period(month: str, db: AsyncSession = Depends(get_db), _=Depends(require_perm("payroll"))):
     row = (await db.execute(text("SELECT * FROM hr_payroll_periods WHERE month=:m"), {"m": month})).mappings().fetchone()
     if not row:
-        await db.execute(text("INSERT INTO hr_payroll_periods (month, status) VALUES (:m, 'draft')"), {"m": month})
+        await db.execute(text("INSERT INTO hr_payroll_periods (month, status) VALUES (:m, 'draft') ON CONFLICT DO NOTHING"), {"m": month})
         await db.commit()
         row = (await db.execute(text("SELECT * FROM hr_payroll_periods WHERE month=:m"), {"m": month})).mappings().fetchone()
     return dict(row)
