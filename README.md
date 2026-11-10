@@ -379,8 +379,9 @@ installer/              single-device and LAN installs
   build.py · stamp.py   build the installers · stamp a client's licence into one
 shared/                 code every product uses
   frontend/src/         design kit (components/kit), API client, stores, i18n, styles, pricing
-  backend/app/          kernel: factory, core (tenancy, auth, plans, printing), models, services,
-                        api/routers (ERP endpoint library), modules (48 domain modules),
+  backend/app/          kernel: factory, core (tenancy, auth, plans, printing), models, framework
+                        (module loader + template), platform (engines), modules/<activity>/<module>
+                        (core ERP in general/, built and planned), activities, catalog, integrations,
                         onprem (server mode, licence gate, check-in), db (baseline schema, migrations, bootstrap)
 e2e/                    live API end-to-end suite
 docs/                   product, architecture, design, security and requirements docs

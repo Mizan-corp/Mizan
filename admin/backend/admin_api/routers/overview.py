@@ -12,7 +12,7 @@ from app.dependencies import require_superadmin
 from app.models.billing import BillingInvoice
 from app.models.tenant import Subscription, Tenant
 from app.models.user import User
-from app.services.subscriptions import PAID_PLANS, revenue_breakdown
+from app.platform.billing.services.subscriptions import PAID_PLANS, revenue_breakdown
 
 router = APIRouter(prefix="/admoon/overview", tags=["admin: overview"])
 

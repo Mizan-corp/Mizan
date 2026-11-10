@@ -1,5 +1,3 @@
 # printing
 
-Print engine and paper profiles. Today: app/core/printing/.
-
-Moves here in ADR-006 phase 2 (engines that exist) or is built in the phase named.
+Document PDFs (/print/…): `router.py` re-exports `routes/` (sales, purchases, shifts, inventory, dispatch, archive). The template engine and paper profiles are still in `app/core/printing/`.

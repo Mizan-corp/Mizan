@@ -6,7 +6,7 @@ const definition: ModuleDefinition = {
   id: "reporting",
   activity: "general",
   kind: "business",
-  status: "planned",
+  status: "active",
   screens: {},
   widgets: {},
   nav: [],

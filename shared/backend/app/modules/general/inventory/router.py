@@ -1,9 +1,9 @@
-"""Inventory & Warehouse Management Router."""
+"""Inventory: API routes. Each area is in routes/; URLs are unchanged from before ADR-006."""
 from fastapi import APIRouter
-from app.api.routers.products import router as products_router
-from app.api.routers.stock import router as stock_router
 
-router = APIRouter(prefix="/modules/inventory", tags=["inventory"])
+from app.modules.general.inventory.routes import collections, products, stock
 
-router.include_router(products_router, prefix="/products")
-router.include_router(stock_router, prefix="/stock")
+router = APIRouter()
+router.include_router(products.router)
+router.include_router(stock.router)
+router.include_router(collections.router)

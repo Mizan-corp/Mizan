@@ -19,8 +19,8 @@ from app.core.ratelimit import RateLimiter
 from app.db.base import get_db
 from app.models.licence import Installation, Licence
 from app.models.tenant import Tenant
-from app.services.licences import issue_key, status
-from app.services.owners import bypass_rls
+from app.platform.licensing.services.licences import issue_key, status
+from app.platform.auth.services.owners import bypass_rls
 
 router = APIRouter(prefix="/installations", tags=["installations"])
 

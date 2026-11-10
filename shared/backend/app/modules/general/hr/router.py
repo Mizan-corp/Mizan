@@ -1,9 +1,7 @@
-"""Human Resources & Payroll Module Router."""
+"""HR and payroll: API routes. Each area is in routes/; URLs are unchanged from before ADR-006."""
 from fastapi import APIRouter
-from app.api.routers.hr import router as hr_router
-from app.api.routers.payroll import router as payroll_router
 
-router = APIRouter(prefix="/modules/hr", tags=["hr"])
+from app.modules.general.hr.routes import hr
 
-router.include_router(hr_router)
-router.include_router(payroll_router, prefix="/payroll")
+router = APIRouter()
+router.include_router(hr.router)

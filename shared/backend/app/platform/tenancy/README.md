@@ -1,5 +1,3 @@
 # tenancy
 
-Workspace isolation (RLS, tenant binding). Today: app/core/tenancy.py.
-
-Moves here in ADR-006 phase 2 (engines that exist) or is built in the phase named.
+Workspaces: `service.py` creates them (signup, owner and admin panels, on-site setup). Isolation (RLS, tenant binding) is still in `app/core/tenancy.py`.

@@ -1,7 +1,8 @@
-"""Sales & Invoicing Module Router."""
+"""Sales: API routes. Each area is in routes/; URLs are unchanged from before ADR-006."""
 from fastapi import APIRouter
-from app.api.routers.sales import router as sales_router
 
-router = APIRouter(prefix="/modules/sales", tags=["sales"])
+from app.modules.general.sales.routes import invoices, sales
 
-router.include_router(sales_router)
+router = APIRouter()
+router.include_router(sales.router)
+router.include_router(invoices.router)

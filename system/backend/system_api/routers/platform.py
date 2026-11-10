@@ -142,7 +142,7 @@ class VerifyLicenseRequest(BaseModel):
 @router.post("/verify-license")
 async def verify_license(data: VerifyLicenseRequest):
     """Verifies a digital offline/standalone license key."""
-    from app.services.licensing_service import LicensingService, LicenseVerificationError
+    from app.platform.licensing.services.licensing import LicensingService, LicenseVerificationError
 
     try:
         payload = LicensingService.verify_license(data.license_key, data.hardware_fingerprint)

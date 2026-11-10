@@ -1,13 +1,12 @@
-"""Finance & Accounting Module Router."""
+"""Finance: API routes. Each area is in routes/; URLs are unchanged from before ADR-006."""
 from fastapi import APIRouter
-from app.api.routers.finance import router as finance_router
-from app.api.routers.safes import router as safes_router
-from app.api.routers.expenses import router as expenses_router
-from app.api.routers.wallets import router as wallets_router
 
-router = APIRouter(prefix="/modules/finance", tags=["finance"])
+from app.modules.general.finance.routes import expenses, finance, ledger, periods, safes, wallets
 
-router.include_router(finance_router)
-router.include_router(safes_router, prefix="/safes")
-router.include_router(expenses_router, prefix="/expenses")
-router.include_router(wallets_router, prefix="/wallets")
+router = APIRouter()
+router.include_router(ledger.router)
+router.include_router(finance.router)
+router.include_router(safes.router)
+router.include_router(wallets.router)
+router.include_router(expenses.router)
+router.include_router(periods.router)

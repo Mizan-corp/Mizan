@@ -449,6 +449,17 @@ Choices made while implementing phase 1 (#99), for review:
   notifications,audit,files}` describe engines that move there in phase 2; `storage_quota` and
   `custom_fields` are still to build; `integrations/{paymob,eta_einvoice}`.
 
+- **Phase 2 started (core ERP into modules)**: `app/api/routers/*` and `app/services/*` moved into
+  `modules/general/<module>/` (`routes/<area>.py` combined by `router.py`; `service.py` or
+  `services/<area>.py`), the platform engines into `platform/<engine>/` (auth, permissions,
+  notifications, printing, settings, billing, updates, archive, audit, licensing, tenancy), Paymob
+  into `integrations/paymob/`; `app/api/` is gone. The module centre is the `marketplace` platform
+  module and the fixed reports the `reporting` module (both now active). URLs unchanged; removed:
+  the unused duplicate mounts under `/modules/<core module>/…` and `/modules/core/…`, and the
+  retired `/payroll` router that was still reachable through them (its tables were dropped).
+  Still to do in phase 2: logic inside routes moves to services; `core/` (security, tenancy,
+  authorization, printing engine) moves into the platform engines.
+
 ## Decision log (review of 2026-11-10)
 Answers as given by the owner; *italics* = how this ADR applies them.
 

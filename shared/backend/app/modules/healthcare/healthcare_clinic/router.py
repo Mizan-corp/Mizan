@@ -19,7 +19,7 @@ from app.models.product import Category, Product
 from app.models.sale import Sale, SaleItem, SaleMode, SaleStatus
 from app.models.user import User
 from app.models.warehouse import Warehouse
-from app.services.audit_service import log as audit_log
+from app.platform.audit.service import log as audit_log
 from app.modules.healthcare.healthcare_clinic.models import (
     ClinicAppointment,
     ClinicEncounter,

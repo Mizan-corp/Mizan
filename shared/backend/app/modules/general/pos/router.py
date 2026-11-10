@@ -1,7 +1,7 @@
-"""Point of Sale (POS) Module Router."""
+"""Point of sale: API routes. Each area is in routes/; URLs are unchanged from before ADR-006."""
 from fastapi import APIRouter
-from app.api.routers.shifts import router as shifts_router
 
-router = APIRouter(prefix="/modules/pos", tags=["pos"])
+from app.modules.general.pos.routes import shifts
 
-router.include_router(shifts_router, prefix="/shifts")
+router = APIRouter()
+router.include_router(shifts.router)

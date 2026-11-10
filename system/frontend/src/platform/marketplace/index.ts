@@ -6,7 +6,7 @@ const definition: ModuleDefinition = {
   id: "marketplace",
   activity: "general",
   kind: "platform",
-  status: "planned",
+  status: "active",
   screens: {},
   widgets: {},
   nav: [],

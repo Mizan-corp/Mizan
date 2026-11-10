@@ -1,10 +1,9 @@
-"""Reporting engine: API routes. Routes parse the request, check permissions and call service.py."""
-from fastapi import APIRouter, Depends
+"""Reports: API routes. Each area is in routes/; URLs are unchanged from before ADR-006."""
+from fastapi import APIRouter
 
-from app.core.modules import require_module
+from app.modules.general.reporting.routes import admin_overview, export, reports
 
-router = APIRouter(
-    prefix="/modules/reporting",
-    tags=["Reporting engine"],
-    dependencies=[Depends(require_module("reporting"))],
-)
+router = APIRouter()
+router.include_router(reports.router)
+router.include_router(admin_overview.router)
+router.include_router(export.router)

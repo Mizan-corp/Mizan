@@ -47,6 +47,17 @@ in `shared/backend/app/framework/module_template/`, and applied by
 | `variants/<variant>/variant.json` | How the module works for one activity: screens, fields, uses, terms, settings, permissions, templates, widgets. | `standard` fits every activity; others are named after the activity (`pharmacy`). Business modules only. |
 | `variants/<variant>/hooks.py` | Rules that variant adds through the module's hooks. | Phase 4. |
 
+### Larger modules
+
+A module with several areas splits them, and keeps the same entry points:
+
+- `routes/<area>.py`, each with its own `APIRouter`; `router.py` combines them
+  (e.g. `general/finance`: ledger, finance, safes, wallets, expenses, periods).
+- `services/<area>.py` instead of a single `service.py`.
+
+The general modules (the core ERP, always available) keep their historical URLs (`/sales`,
+`/stock`, `/hr`…) and are not guarded by `require_module`.
+
 ## Frontend files
 
 | File | What goes in it |

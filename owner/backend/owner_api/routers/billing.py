@@ -16,9 +16,9 @@ from app.db.base import get_db
 from app.models.billing import BillingInvoice
 from app.models.owner import OwnerAccount, PaymentTransaction
 from app.models.tenant import PlatformAuditLog, Tenant
-from app.services import paymob
-from app.services.owners import _bearer, bypass_rls, get_current_owner, owned_workspace
-from app.services.subscriptions import PAID_PLANS, activate_invoice, new_invoice
+from app.integrations.paymob import service as paymob
+from app.platform.auth.services.owners import _bearer, bypass_rls, get_current_owner, owned_workspace
+from app.platform.billing.services.subscriptions import PAID_PLANS, activate_invoice, new_invoice
 from owner_api.common import invoice_out
 
 logger = logging.getLogger("mizan.owner.billing")

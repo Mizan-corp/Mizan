@@ -14,7 +14,7 @@ from app.dependencies import require_superadmin
 from app.models.billing import BillingInvoice
 from app.models.tenant import Subscription
 from app.models.user import User
-from app.services.subscriptions import activate_invoice, plan_name, revenue_breakdown
+from app.platform.billing.services.subscriptions import activate_invoice, plan_name, revenue_breakdown
 
 router = APIRouter(prefix="/admoon/billing", tags=["admin: billing"])
 

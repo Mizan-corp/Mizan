@@ -1,7 +1,7 @@
-"""Contacts & Partners Module Router."""
+"""Contacts: API routes. Each area is in routes/; URLs are unchanged from before ADR-006."""
 from fastapi import APIRouter
-from app.api.routers.parties import router as parties_router
 
-router = APIRouter(prefix="/modules/contacts", tags=["contacts"])
+from app.modules.general.contacts.routes import parties
 
-router.include_router(parties_router)
+router = APIRouter()
+router.include_router(parties.router)

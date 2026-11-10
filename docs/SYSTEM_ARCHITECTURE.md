@@ -64,9 +64,14 @@ of one shared kernel and one PostgreSQL database (see `docs/decisions/ADR-003-se
 - `shared/backend/` — installable Python package `app` (`mizan-shared`):
   - `app/factory.py`: builds every service (middleware, CORS, CSRF, errors, health).
   - `core/`: config, tenancy (ORM filter + RLS GUC), security, RBAC, sectors & plans, `printing/` (print engine).
-  - `models/`, `schemas/`, `services/`, `db/` (engine + tracked SQL migrations in `db/sql/`).
-  - `api/routers/`: the ERP endpoint library (mounted by the system service).
-  - `modules/`: domain modules (models, routers, manifests, print templates).
+  - `models/`, `schemas/`, `db/` (engine + tracked SQL migrations in `db/sql/`).
+  - `framework/`: the module runtime (the loader, the module template and scaffold).
+  - `platform/`: the engines every workspace has (auth, permissions, notifications, printing,
+    settings, billing, …) and the platform's modules (module centre, scheduler, i18n).
+  - `modules/<activity>/<module>/`: every module, including the core ERP (`modules/general/*`:
+    sales, pos, inventory, purchases, finance, hr, contacts, operations, reporting), built or
+    planned, in the standard structure (docs/MODULE_STANDARD.md).
+  - `activities/`, `catalog/`: activities and families as data; `integrations/`: connectors.
 - `system/backend/`: `main.py` + `system_api/` (route list, tenant resolution, tenant-side platform endpoints).
 - `website/backend/`: `main.py` + `website_api/` (plans, self-serve signup).
 - `owner/backend/`: `main.py` + `owner_api/` (account, workspaces, billing and the Paymob callback).

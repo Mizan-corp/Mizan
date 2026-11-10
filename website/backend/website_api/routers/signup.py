@@ -19,8 +19,8 @@ from app.core.security import hash_password
 from app.db.base import get_db
 from app.models.owner import OwnerAccount
 from app.models.user import User
-from app.services.owners import issue_owner_token, normalize_login
-from app.services.workspaces import create_workspace
+from app.platform.auth.services.owners import issue_owner_token, normalize_login
+from app.platform.tenancy.service import create_workspace
 
 logger = logging.getLogger("mizan.website.signup")
 
@@ -95,9 +95,9 @@ async def signup(data: SignupRequest, request: Request, db: AsyncSession = Depen
         raise HTTPException(status_code=500, detail=f"فشل إنشاء مساحة العمل: {str(e)}")
 
     # issue a token exactly like /auth/login does
-    from app.services import auth_service
+    from app.platform.auth.services import auth as auth_service
     token = auth_service.issue_token(owner)
-    from app.api.routers.auth import TokenResponse
+    from app.platform.auth.routes.auth import TokenResponse
     body = TokenResponse(
         access_token=token["access_token"], token_type="bearer",
         user_id=token["user_id"], username=token["username"],

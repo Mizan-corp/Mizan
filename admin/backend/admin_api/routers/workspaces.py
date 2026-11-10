@@ -27,15 +27,15 @@ from app.models.sale import Sale
 from app.models.tenant import Subscription, Tenant
 from app.models.user import User
 from app.models.warehouse import Warehouse
-from app.services import auth_service
+from app.platform.auth.services import auth as auth_service
 from app.models.owner import OwnerAccount
-from app.services.owners import normalize_login
-from app.services.workspaces import create_workspace as new_workspace
-from app.services.subscriptions import monthly_price
+from app.platform.auth.services.owners import normalize_login
+from app.platform.tenancy.service import create_workspace as new_workspace
+from app.platform.billing.services.subscriptions import monthly_price
 from app.core.licensing import LicenceError
 from app.models.licence import Installation
-from app.services.licences import ensure_licence, get_licence, is_on_premise, issue_key
-from app.services.licences import status as licence_status
+from app.platform.licensing.services.licences import ensure_licence, get_licence, is_on_premise, issue_key
+from app.platform.licensing.services.licences import status as licence_status
 
 router = APIRouter(prefix="/admoon", tags=["admin: workspaces"])
 

@@ -4,7 +4,7 @@
   "name_en": "Module marketplace and self-configuration",
   "activity": "general",
   "kind": "platform",
-  "status": "planned",
+  "status": "active",
   "version": "0.1.0",
   "icon": "Blocks",
   "description": "",
@@ -24,5 +24,6 @@
     "MOD-07",
     "MOD-08"
   ],
-  "settings_schema": []
+  "settings_schema": [],
+  "is_core": true
 }

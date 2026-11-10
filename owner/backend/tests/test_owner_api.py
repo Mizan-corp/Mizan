@@ -13,7 +13,7 @@ from app.db.base import AsyncSessionLocal
 from app.models.owner import OwnerAccount
 from app.models.tenant import Tenant
 from app.models.user import User
-from app.services import paymob
+from app.integrations.paymob import service as paymob
 from main import app
 
 pytestmark = pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
@@ -55,7 +55,7 @@ def erp_login_client() -> AsyncClient:
     """Owners sign in on the app's /login; that endpoint lives in the shared kernel."""
     from fastapi import FastAPI
 
-    from app.api.routers import owner_login
+    from app.platform.auth.routes import owner_login as owner_login
 
     erp = FastAPI()
     erp.include_router(owner_login.router)
@@ -264,7 +264,7 @@ async def test_password_change_updates_workspace_logins():
         r = await c.post("/account/password", headers=h, json={"current_password": "secret123", "new_password": "newpass123"})
         assert r.json()["workspace_logins_updated"] == 1
         await login(c, owner, "newpass123")
-    from app.services.auth_service import authenticate
+    from app.platform.auth.services.auth import authenticate
 
     async with AsyncSessionLocal() as db:
         assert (await authenticate(db, user.username, "newpass123", tenant_slug=tenant.slug)).id == user.id

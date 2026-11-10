@@ -1,6 +1,6 @@
 """Mizan Admin API: the platform control plane (super-admins only)."""
 from admin_api.routers import activity, billing, overview, system, team, workspaces
-from app.api.routers import auth
+from app.platform.auth.routes import auth as auth
 from app.factory import create_app
 
 app = create_app(

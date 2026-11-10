@@ -61,7 +61,7 @@ async def _drop(tid: uuid.UUID) -> None:
 
 
 async def test_shift_list_query_count_is_constant():
-    from app.api.routers.shifts import list_shifts
+    from app.modules.general.pos.routes.shifts import list_shifts
 
     async with AsyncSessionLocal() as s:
         tid, user = await _workspace(s)

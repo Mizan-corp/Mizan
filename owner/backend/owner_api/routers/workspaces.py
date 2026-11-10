@@ -19,16 +19,16 @@ from app.models.owner import OwnerAccount
 from app.models.sale import Sale
 from app.models.tenant import Tenant
 from app.models.user import User
-from app.services import auth_service
-from app.services.owners import get_current_owner, owned_workspace, workspace_user
-from app.services.plan_gating import get_tenant_limits_and_usage
-from app.services.subscriptions import paid_until
-from app.services.workspaces import create_workspace
+from app.platform.auth.services import auth as auth_service
+from app.platform.auth.services.owners import get_current_owner, owned_workspace, workspace_user
+from app.platform.billing.services.plan_gating import get_tenant_limits_and_usage
+from app.platform.billing.services.subscriptions import paid_until
+from app.platform.tenancy.service import create_workspace
 from app.core.licensing import LicenceError
 from app.core.releases import published_installers
 from app.models.licence import Installation, Licence
-from app.services.licences import get_licence, is_on_premise, issue_key
-from app.services.licences import status as licence_status
+from app.platform.licensing.services.licences import get_licence, is_on_premise, issue_key
+from app.platform.licensing.services.licences import status as licence_status
 from owner_api.common import days_until, invoice_out, iso
 
 router = APIRouter(prefix="/account/workspaces", tags=["workspaces"])

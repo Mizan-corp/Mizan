@@ -1,5 +1,3 @@
 # permissions
 
-The one permission engine (ADR-006 phase 3). Today: app/dependencies.py (require_perm), app/core/authorization.py.
-
-Moves here in ADR-006 phase 2 (engines that exist) or is built in the phase named.
+The permission and role engine (/authz): `router.py`. `require_perm` is still in `app/dependencies.py` and the role catalogue in `app/core/authorization.py`; one permission system comes in ADR-006 phase 3.

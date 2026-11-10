@@ -1,4 +1,4 @@
-"""The owner's profile. Owners sign in on the app's /login (app.api.routers.owner_login)."""
+"""The owner's profile. Owners sign in on the app's /login (app.platform.auth.routes.owner_login)."""
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -12,7 +12,7 @@ from app.core.security import hash_password, verify_password
 from app.db.base import get_db
 from app.models.owner import OwnerAccount
 from app.models.user import User
-from app.services.owners import bypass_rls, get_current_owner
+from app.platform.auth.services.owners import bypass_rls, get_current_owner
 
 router = APIRouter(prefix="/account", tags=["account"])
 

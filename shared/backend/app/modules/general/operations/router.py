@@ -1,10 +1,7 @@
-"""Stock Operations: API routes. Routes parse the request, check permissions and call service.py."""
-from fastapi import APIRouter, Depends
+"""Stock operations: API routes. Each area is in routes/; URLs are unchanged from before ADR-006."""
+from fastapi import APIRouter
 
-from app.core.modules import require_module
+from app.modules.general.operations.routes import operations
 
-router = APIRouter(
-    prefix="/modules/operations",
-    tags=["Stock Operations"],
-    dependencies=[Depends(require_module("operations"))],
-)
+router = APIRouter()
+router.include_router(operations.router)

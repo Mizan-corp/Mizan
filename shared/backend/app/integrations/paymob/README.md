@@ -1,3 +1,3 @@
 # paymob
 
-Paymob payments. Today: app/services/paymob.py (and owner/paymob for the card page).
+Paymob payments: `service.py` (accept flow, wallets, cards). The card page lives in `owner/paymob/`.

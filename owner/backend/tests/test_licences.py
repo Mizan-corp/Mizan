@@ -14,7 +14,7 @@ from app.db.base import AsyncSessionLocal
 from app.models.billing import BillingInvoice
 from app.models.licence import Licence
 from app.models.tenant import Tenant
-from app.services.subscriptions import activate_invoice, new_invoice
+from app.platform.billing.services.subscriptions import activate_invoice, new_invoice
 from main import app
 from tests.test_owner_api import client, login, make_owner  # noqa: F401  (fixtures/helpers)
 

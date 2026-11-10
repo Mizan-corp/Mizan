@@ -104,12 +104,16 @@ def manifest_files() -> list[Path]:
             return []
         return sorted(d for d in root.iterdir() if d.is_dir() and not d.name.startswith(("_", ".")))
 
-    files = []
-    for activity in dirs(MODULES_DIR):
-        files += [m / "manifest.json" for m in dirs(activity) if (m / "manifest.json").exists()]
-    for root in (PLATFORM_DIR, INTEGRATIONS_DIR):
-        files += [m / "manifest.json" for m in dirs(root) if (m / "manifest.json").exists()]
-    return files
+    def manifests_in(root: Path) -> list[Path]:
+        return [m / "manifest.json" for m in dirs(root) if (m / "manifest.json").exists()]
+
+    # Mount order: the platform's modules, the general modules (the core ERP), every other
+    # activity's modules, then integrations.
+    activities = sorted(dirs(MODULES_DIR), key=lambda a: (a.name != "general", a.name))
+    files = manifests_in(PLATFORM_DIR)
+    for activity in activities:
+        files += manifests_in(activity)
+    return files + manifests_in(INTEGRATIONS_DIR)
 
 
 def module_dirs() -> dict[str, Path]:

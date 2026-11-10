@@ -4,7 +4,7 @@
   "name_en": "Reporting engine",
   "activity": "general",
   "kind": "business",
-  "status": "planned",
+  "status": "active",
   "version": "0.1.0",
   "icon": "Blocks",
   "description": "",
@@ -21,5 +21,6 @@
     "XMOD-04",
     "CORE-10"
   ],
-  "settings_schema": []
+  "settings_schema": [],
+  "is_core": true
 }
