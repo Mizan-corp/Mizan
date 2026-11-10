@@ -19,6 +19,7 @@ from main import app
 pytestmark = pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
 
 HMAC_SECRET = "test-hmac-secret"
+REAL_CREATE_CHECKOUT = paymob.create_checkout  # the autouse fixture replaces it
 
 
 @pytest.fixture(autouse=True)
@@ -37,7 +38,10 @@ def paymob_keys(monkeypatch):
     monkeypatch.setattr(settings, "PAYMOB_HMAC_SECRET", HMAC_SECRET)
     monkeypatch.setattr(settings, "PAYMOB_INTEGRATION_IDS", "111")
 
-    async def fake_checkout(invoice, tenant, owner):
+    monkeypatch.setattr(settings, "PAYMOB_FLOW", "intention")
+    monkeypatch.setattr(settings, "PAYMOB_TEST_OWNERS", "")
+
+    async def fake_checkout(invoice, tenant, owner, **kw):
         return {"checkout_url": f"https://paymob.test/checkout/{invoice.invoice_ref}", "intention_id": "pi_x", "order_id": 42}
 
     monkeypatch.setattr(paymob, "create_checkout", fake_checkout)
@@ -248,3 +252,105 @@ async def test_password_change_updates_workspace_logins():
 
     async with AsyncSessionLocal() as db:
         assert (await authenticate(db, user.username, "newpass123", tenant_slug=tenant.slug)).id == user.id
+
+
+async def test_only_test_owners_can_pay_while_set(monkeypatch):
+    owner, tenant, _ = await make_owner()
+    other, other_tenant, _ = await make_owner()
+    monkeypatch.setattr(settings, "PAYMOB_TEST_OWNERS", f" {owner.login.upper()} , someone.else")
+    async with client() as c:
+        h = await login(c, owner)
+        plans = (await c.get("/account/plans", headers=h)).json()
+        assert plans["online_payment"] is True and plans["test_mode"] is True
+        r = await c.post(f"/account/workspaces/{tenant.id}/checkout", headers=h, json={"plan": "pro"})
+        assert r.status_code == 200, r.text
+
+        h2 = await login(c, other)
+        assert (await c.get("/account/plans", headers=h2)).json()["online_payment"] is False
+        assert (await c.get("/account/plans")).json()["online_payment"] is False  # signed out
+        r = await c.post(f"/account/workspaces/{other_tenant.id}/checkout", headers=h2, json={"plan": "pro"})
+        assert r.status_code == 503
+
+
+async def test_accept_flow_asks_for_a_method_and_a_wallet_number(monkeypatch):
+    monkeypatch.setattr(settings, "PAYMOB_FLOW", "accept")
+    monkeypatch.setattr(settings, "PAYMOB_API_KEY", "api-key")
+    monkeypatch.setattr(settings, "PAYMOB_CARD_INTEGRATION_ID", "6052809")
+    monkeypatch.setattr(settings, "PAYMOB_WALLET_INTEGRATION_ID", "6052808")
+    monkeypatch.setattr(settings, "PAYMOB_IFRAME_ID", "")  # no card page yet: wallet only
+    seen = {}
+
+    async def fake_checkout(invoice, tenant, owner, **kw):
+        seen.update(kw)
+        return {"checkout_url": "https://paymob.test/wallet", "intention_id": None, "order_id": 7}
+
+    monkeypatch.setattr(paymob, "create_checkout", fake_checkout)
+    owner, tenant, _ = await make_owner()
+    async with client() as c:
+        h = await login(c, owner)
+        assert (await c.get("/account/plans", headers=h)).json()["payment_methods"] == ["wallet"]
+        url = f"/account/workspaces/{tenant.id}/checkout"
+        assert (await c.post(url, headers=h, json={"plan": "pro"})).status_code == 422
+        assert (await c.post(url, headers=h, json={"plan": "pro", "method": "card"})).status_code == 422
+        assert (await c.post(url, headers=h, json={"plan": "pro", "method": "wallet", "wallet_number": "0123"})).status_code == 422
+        r = await c.post(url, headers=h, json={"plan": "pro", "method": "wallet", "wallet_number": "+20 101 010 1010"})
+        assert r.status_code == 200, r.text
+        assert seen == {"method": "wallet", "wallet_number": "+20 101 010 1010"}
+
+        monkeypatch.setattr(settings, "PAYMOB_IFRAME_ID", "901")
+        assert (await c.get("/account/plans", headers=h)).json()["payment_methods"] == ["card", "wallet"]
+
+
+def test_wallet_numbers():
+    ok = {"01010101010": "01010101010", "+20 101 010 1010": "01010101010", "0020 1010101010": "01010101010",
+          "01510101010": "01510101010"}
+    for given, expected in ok.items():
+        assert paymob.normalize_wallet(given) == expected
+    for bad in ("", "0101010101", "02123456789", "01310101010", "abc"):
+        assert paymob.normalize_wallet(bad) is None
+
+
+async def test_accept_checkout_calls(monkeypatch):
+    """The accept flow's calls to Paymob, with Paymob mocked."""
+    import types
+
+    monkeypatch.setattr(settings, "PAYMOB_FLOW", "accept")
+    monkeypatch.setattr(settings, "PAYMOB_API_KEY", "api-key")
+    monkeypatch.setattr(settings, "PAYMOB_CARD_INTEGRATION_ID", "6052809")
+    monkeypatch.setattr(settings, "PAYMOB_WALLET_INTEGRATION_ID", "6052808")
+    monkeypatch.setattr(settings, "PAYMOB_IFRAME_ID", "901")
+    calls = []
+
+    def fake_post(url, body, headers):
+        path = url.split("accept.paymob.com", 1)[1]
+        calls.append((path, body))
+        return {
+            "/api/auth/tokens": {"token": "auth"},
+            "/api/ecommerce/orders": {"id": 555},
+            "/api/acceptance/payment_keys": {"token": "PK"},
+            "/api/acceptance/payments/pay": {"redirect_url": "https://accept.paymob.com/wallet?token=W"},
+        }[path]
+
+    monkeypatch.setattr(paymob, "_post_json", fake_post)
+    invoice = types.SimpleNamespace(amount_egp=850.0, invoice_ref="INV-1", plan="pro", billing_cycle="monthly")
+    tenant = types.SimpleNamespace(name="صيدلية الأمل")
+    owner = types.SimpleNamespace(full_name="Nour Hassan", email=None, login="nour", phone=None)
+
+    card = await REAL_CREATE_CHECKOUT(invoice, tenant, owner, method="card")
+    assert card["checkout_url"] == "https://accept.paymob.com/api/acceptance/iframes/901?payment_token=PK"
+    assert card["order_id"] == 555
+    order = dict(calls)["/api/ecommerce/orders"]
+    assert order["merchant_order_id"] == "INV-1" and order["amount_cents"] == 85000
+    key = dict(calls)["/api/acceptance/payment_keys"]
+    assert key["integration_id"] == 6052809 and key["extra"]["description"] == "باقة الاحترافية · شهري · صيدلية الأمل"
+
+    calls.clear()
+    wallet = await REAL_CREATE_CHECKOUT(invoice, tenant, owner, method="wallet", wallet_number="01010101010")
+    assert wallet["checkout_url"].endswith("token=W")
+    paths = [c[0] for c in calls]
+    assert paths[-1] == "/api/acceptance/payments/pay"
+    assert dict(calls)["/api/acceptance/payment_keys"]["integration_id"] == 6052808
+    assert dict(calls)["/api/acceptance/payments/pay"]["source"] == {"identifier": "01010101010", "subtype": "WALLET"}
+
+    with pytest.raises(paymob.PaymobError):
+        await REAL_CREATE_CHECKOUT(invoice, tenant, owner, method="wallet", wallet_number="123")

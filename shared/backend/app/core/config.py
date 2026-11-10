@@ -38,6 +38,17 @@ class Settings(BaseSettings):
     PAYMOB_HMAC_SECRET: str = ""
     # Comma-separated integration ids to offer (card, wallet, …).
     PAYMOB_INTEGRATION_IDS: str = ""
+    # "intention" (Unified Checkout, the default) or "accept" (the Accept API: orders and
+    # payment keys, a card page (our iframe, owner/paymob/) and wallet payments). The
+    # accept flow uses the dashboard's API key and one integration per method.
+    PAYMOB_FLOW: str = "intention"
+    PAYMOB_API_KEY: str = ""
+    PAYMOB_CARD_INTEGRATION_ID: str = ""
+    PAYMOB_WALLET_INTEGRATION_ID: str = ""
+    PAYMOB_IFRAME_ID: str = ""
+    # While set (comma-separated owner logins), only these owners may pay online: for
+    # running production against Paymob's test mode without letting anyone else in.
+    PAYMOB_TEST_OWNERS: str = ""
 
     # Licences for single-device and LAN installs (ADR-005). The private key is set
     # only on the owner API; installs verify with the public key.

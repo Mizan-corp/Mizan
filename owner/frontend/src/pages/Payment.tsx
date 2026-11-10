@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Clock, XCircle } from "lucide-react";
 import { actions } from "@app/lib/data";
@@ -91,4 +91,16 @@ export default function Payment() {
       </div>
     </div>
   );
+}
+
+/**
+ * The Accept flow returns here (the integration's response URL) with the invoice in
+ * the query string (merchant_order_id): forward to its payment page.
+ */
+export function PaymentReturn() {
+  const q = new URLSearchParams(window.location.search);
+  const ref = q.get("merchant_order_id") || q.get("order_ref") || "";
+  if (!ref) return <Navigate to="/invoices" replace />;
+  const success = q.get("success");
+  return <Navigate to={`/payment/${encodeURIComponent(ref)}${success ? `?success=${success}` : ""}`} replace />;
 }

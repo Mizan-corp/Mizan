@@ -17,7 +17,7 @@ from app.models.billing import BillingInvoice
 from app.models.owner import OwnerAccount, PaymentTransaction
 from app.models.tenant import PlatformAuditLog, Tenant
 from app.services import paymob
-from app.services.owners import bypass_rls, get_current_owner, owned_workspace
+from app.services.owners import _bearer, bypass_rls, get_current_owner, owned_workspace
 from app.services.subscriptions import PAID_PLANS, activate_invoice, new_invoice
 from owner_api.common import invoice_out
 
@@ -26,19 +26,34 @@ logger = logging.getLogger("mizan.owner.billing")
 router = APIRouter(prefix="/account", tags=["billing"])
 
 
+async def optional_owner(token: str | None = Depends(_bearer), db: AsyncSession = Depends(get_db)) -> OwnerAccount | None:
+    if not token:
+        return None
+    try:
+        return await get_current_owner(token, db)
+    except HTTPException:
+        return None
+
+
 @router.get("/plans")
-async def plans():
+async def plans(owner: OwnerAccount | None = Depends(optional_owner)):
     keys = ("id", "name", "name_en", "price_monthly_egp", "price_annual_egp", "max_users", "max_branches",
             "max_monthly_sales", "popular", "features")
+    open_to_owner = paymob.can_pay(owner)
     return {
         "plans": [{k: p.get(k) for k in keys} for pid, p in PLANS_CONFIG.items() if pid in PAID_PLANS],
-        "online_payment": paymob.is_configured(),
+        "online_payment": open_to_owner,
+        # card | wallet (choose in the panel), or "any" (Paymob's page offers every method)
+        "payment_methods": paymob.methods() if open_to_owner else [],
+        "test_mode": bool(paymob.test_owners()) and open_to_owner,
     }
 
 
 class CheckoutRequest(BaseModel):
     plan: str
     cycle: Literal["monthly", "annual"] = "monthly"
+    method: Literal["card", "wallet"] | None = None
+    wallet_number: str | None = None
 
 
 @router.post("/workspaces/{tenant_id}/checkout")
@@ -51,8 +66,14 @@ async def checkout(
     """Create an invoice and a Paymob checkout for it; the panel sends the owner there."""
     if data.plan not in PAID_PLANS:
         raise HTTPException(status_code=422, detail="باقة غير معروفة")
-    if not paymob.is_configured():
+    if not paymob.can_pay(owner):
         raise HTTPException(status_code=503, detail="الدفع الإلكتروني غير متاح الآن. تواصل معنا لإتمام الاشتراك.")
+    available = paymob.methods()
+    if available != ["any"]:
+        if data.method not in available:
+            raise HTTPException(status_code=422, detail="اختر طريقة الدفع: بطاقة أو محفظة إلكترونية.")
+        if data.method == "wallet" and not paymob.normalize_wallet(data.wallet_number or ""):
+            raise HTTPException(status_code=422, detail="اكتب رقم المحفظة الإلكترونية (11 رقمًا يبدأ بـ 01).")
     t = await owned_workspace(db, owner, tenant_id)
     if t.status == "suspended":
         raise HTTPException(status_code=403, detail="مساحة العمل هذه موقوفة. تواصل مع الدعم أولًا.")
@@ -65,7 +86,7 @@ async def checkout(
     )
     invoice = await new_invoice(db, t, plan=data.plan, cycle=data.cycle, method="paymob")
     try:
-        session = await paymob.create_checkout(invoice, t, owner)
+        session = await paymob.create_checkout(invoice, t, owner, method=data.method, wallet_number=data.wallet_number)
     except paymob.PaymobError as e:
         await db.rollback()
         logger.warning("Checkout failed for %s: %s", t.id, e)

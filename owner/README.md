@@ -67,27 +67,42 @@ Installs check in at `POST /installations/check-in` (this API) and receive the r
 
 ## Paymob
 
-Set these on the `mizan-owner-api` Vercel project (Paymob dashboard → Settings → API keys):
+Two flows, chosen with `PAYMOB_FLOW` on the `mizan-owner-api` Vercel project:
 
-| Variable | Value |
-|---|---|
-| `PAYMOB_SECRET_KEY` | Secret key (`egy_sk_…`) |
-| `PAYMOB_PUBLIC_KEY` | Public key (`egy_pk_…`) |
-| `PAYMOB_HMAC_SECRET` | HMAC secret |
-| `PAYMOB_INTEGRATION_IDS` | Comma-separated integration ids to offer (card, wallet, …) |
-| `PAYMOB_BASE_URL` | Optional; defaults to `https://accept.paymob.com` |
-| `OWNER_API_URL` / `OWNER_APP_URL` | Public URLs used for the callback and the return page (already set) |
+- **`intention`** (default): an Intention API payment, paid on Paymob's Unified Checkout,
+  which offers every integration in `PAYMOB_INTEGRATION_IDS` on one page.
+- **`accept`**: the Accept API (an order and a payment key). The owner picks **card** or
+  **wallet** in the pay dialog: a card opens **Mizan's own card page** (a Paymob-hosted
+  iframe, [`paymob/`](paymob/README.md)), a wallet goes to Paymob's wallet page for the
+  number entered. Card is offered only once `PAYMOB_IFRAME_ID` is set.
 
-In the Paymob dashboard, the integrations' **transaction processed callback** can stay empty:
-each checkout passes `notification_url` = `OWNER_API_URL/account/paymob/callback` and
-`redirection_url` = `OWNER_APP_URL/payment/<invoice>`.
+| Variable | Flow | Value |
+|---|---|---|
+| `PAYMOB_HMAC_SECRET` | both | HMAC secret (Settings → API keys) |
+| `PAYMOB_SECRET_KEY`, `PAYMOB_PUBLIC_KEY` | intention | `egy_sk_…`, `egy_pk_…` (test or live) |
+| `PAYMOB_INTEGRATION_IDS` | intention | Comma-separated integration ids |
+| `PAYMOB_FLOW` | — | `intention` or `accept` |
+| `PAYMOB_API_KEY` | accept | The dashboard's API key (same for test and live) |
+| `PAYMOB_CARD_INTEGRATION_ID`, `PAYMOB_WALLET_INTEGRATION_ID` | accept | One integration per method |
+| `PAYMOB_IFRAME_ID` | accept | Mizan's card page, from `python owner/paymob/upload.py` |
+| `PAYMOB_TEST_OWNERS` | both | While set (comma-separated logins), only these owners may pay: for running production against Paymob's test mode. The panel shows a test-mode note to them |
+| `PAYMOB_BASE_URL` | both | Optional; defaults to `https://accept.paymob.com` |
+| `OWNER_API_URL` / `OWNER_APP_URL` | both | Public URLs for the callback and the return page (already set) |
+
+Callbacks: the intention flow passes `notification_url` = `OWNER_API_URL/account/paymob/callback`
+and `redirection_url` = `OWNER_APP_URL/payment/<invoice>` with each payment. The accept flow
+uses the integrations' settings instead: **processed callback** =
+`https://mizan-co-owner-api.vercel.app/api/account/paymob/callback`, **response callback** =
+`https://mizan-co-owner.vercel.app/payment` (the panel forwards to the invoice from
+`merchant_order_id`).
 
 How a payment goes: the owner picks a plan → `POST /account/workspaces/{id}/checkout`
-creates a pending invoice and a Paymob intention → Unified Checkout → Paymob POSTs the
-transaction with `?hmac=` → the callback verifies the HMAC, stores the transaction once,
-checks the amount and calls `activate_invoice` → the return page sees the invoice paid.
-Starting a new checkout abandons the previous unpaid one. Without the keys, checkout
-answers 503 and the panel says online payment isn't available.
+creates a pending invoice and the Paymob payment → the owner pays on Paymob's page (or
+ours) → Paymob POSTs the transaction with `?hmac=` → the callback verifies the HMAC, stores
+the transaction once, checks the amount and calls `activate_invoice` → the return page sees
+the invoice paid. Starting a new checkout abandons the previous unpaid one. Without the
+keys, or for owners outside `PAYMOB_TEST_OWNERS`, checkout answers 503 and the panel says
+online payment isn't available.
 
 ## Code
 

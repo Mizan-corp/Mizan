@@ -1,7 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { ArrowUpLeft, Check, ChevronRight, CreditCard, ShieldCheck } from "lucide-react";
-import { actions, type Invoice, type Owner, type Plan, useMe, usePlans, useWorkspace, type Workspace as WorkspaceT } from "@app/lib/data";
+import { ArrowUpLeft, Check, ChevronRight, CreditCard, FlaskConical, ShieldCheck, Smartphone } from "lucide-react";
+import {
+  actions,
+  type Invoice,
+  type Owner,
+  type PaymentMethod,
+  type Plan,
+  useMe,
+  usePlans,
+  useWorkspace,
+  type Workspace as WorkspaceT,
+} from "@app/lib/data";
 import { useOpenWorkspace } from "@app/lib/open";
 import { ago, date, errorText, LICENCE_STATUS, MODE, money, planLabel, sectorLabel, trialState } from "@app/lib/format";
 import { cn } from "@/lib/utils";
@@ -49,6 +59,8 @@ function PayDialog({
   cycle,
   workspace,
   me,
+  methods,
+  testMode,
 }: {
   open: boolean;
   onClose: () => void;
@@ -56,12 +68,19 @@ function PayDialog({
   cycle: "monthly" | "annual";
   workspace: WorkspaceT;
   me: Owner;
+  methods: PaymentMethod[];
+  testMode: boolean;
 }) {
   const [phone, setPhone] = useState(me.phone ?? "");
   const [email, setEmail] = useState(me.email ?? "");
+  const choices = methods.filter((m): m is "card" | "wallet" => m === "card" || m === "wallet");
+  const [method, setMethod] = useState<"card" | "wallet" | undefined>(choices[0]);
+  const [wallet, setWallet] = useState(me.phone ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const amount = cycle === "annual" ? plan.price_annual_egp : plan.price_monthly_egp;
+  const walletOk = /^(?:\+?20|0020)?0?1[0125]\d{8}$/.test(wallet.replace(/[\s-]/g, ""));
+  const ready = phone.trim().length >= 6 && (method !== "wallet" || walletOk);
 
   async function pay() {
     setBusy(true);
@@ -70,7 +89,13 @@ function PayDialog({
       if (phone.trim() !== (me.phone ?? "") || email.trim() !== (me.email ?? "")) {
         await actions.updateMe({ phone: phone.trim(), email: email.trim() });
       }
-      const r = await actions.checkout({ id: workspace.id, plan: plan.id, cycle });
+      const r = await actions.checkout({
+        id: workspace.id,
+        plan: plan.id,
+        cycle,
+        method,
+        wallet_number: method === "wallet" ? wallet.trim() : undefined,
+      });
       window.location.assign(r.checkout_url);
     } catch (e) {
       setError(errorText(e));
@@ -83,14 +108,78 @@ function PayDialog({
       open={open}
       onClose={onClose}
       title={`باقة ${planLabel(plan.id)} · ${workspace.name}`}
-      description="ستنتقل إلى صفحة الدفع الآمنة من Paymob. يتفعّل الاشتراك فور نجاح الدفع."
+      description={
+        method === "wallet"
+          ? "ستنتقل إلى صفحة Paymob لتأكيد الدفع من محفظتك. يتفعّل الاشتراك فور نجاح الدفع."
+          : "ستنتقل إلى صفحة الدفع الآمنة من Paymob. يتفعّل الاشتراك فور نجاح الدفع."
+      }
     >
+      {testMode && (
+        <div className="mb-3 flex items-start gap-2 rounded-lg bg-warn/12 px-3.5 py-2.5 text-[13px] text-ink-2">
+          <FlaskConical className="mt-0.5 size-4 shrink-0 text-warn" />
+          <span>وضع التجربة: الدفع عبر Paymob التجريبي، ولا يُخصم أي مال حقيقي.</span>
+        </div>
+      )}
       <div className="flex items-baseline justify-between rounded-lg bg-sand/60 px-4 py-3">
         <span className="text-sm text-ink-2">{cycle === "annual" ? "اشتراك سنوي" : "اشتراك شهري"}</span>
         <Money value={amount} className="text-xl font-bold text-ink" />
       </div>
+      {choices.length > 0 && (
+        <fieldset className="mt-4">
+          <legend className="mb-2 text-sm font-semibold text-ink">طريقة الدفع</legend>
+          <div className="grid grid-cols-2 gap-2" role="radiogroup">
+            {(["card", "wallet"] as const).map((m) => {
+              const available = choices.includes(m);
+              const selected = method === m;
+              const Icon = m === "card" ? CreditCard : Smartphone;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  disabled={!available}
+                  onClick={() => setMethod(m)}
+                  className={cn(
+                    "flex items-start gap-2.5 rounded-lg border p-3 text-start transition-colors focus-visible:outline-2 focus-visible:outline-wine disabled:cursor-not-allowed disabled:opacity-55",
+                    selected ? "border-wine bg-wine-soft" : "border-line bg-card hover:border-ink-2/30",
+                  )}
+                >
+                  <Icon className={cn("mt-0.5 size-5 shrink-0", selected ? "text-wine" : "text-mute")} />
+                  <span>
+                    <span className="block text-sm font-semibold text-ink">{m === "card" ? "بطاقة بنكية" : "محفظة إلكترونية"}</span>
+                    <span className="block text-[12px] leading-snug text-mute">
+                      {!available
+                        ? "قريبًا"
+                        : m === "card"
+                          ? "فيزا، ماستركارد، ميزة"
+                          : "فودافون كاش، أورنچ، اتصالات، وي"}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+      )}
       <div className="mt-4 grid gap-4">
-        <Field label="رقم الموبايل" hint="لإيصال الدفع، ولمحافظ الموبايل.">
+        {method === "wallet" && (
+          <Field
+            label="رقم المحفظة"
+            hint={walletOk || !wallet ? "الرقم المسجل عليه المحفظة. ستؤكد الدفع برمز من محفظتك." : "11 رقمًا يبدأ بـ 010 أو 011 أو 012 أو 015."}
+          >
+            <Input
+              value={wallet}
+              onChange={(e) => setWallet(e.target.value)}
+              inputMode="tel"
+              dir="ltr"
+              className="text-start"
+              placeholder="01xxxxxxxxx"
+              aria-invalid={!!wallet && !walletOk}
+            />
+          </Field>
+        )}
+        <Field label="رقم الموبايل" hint="لإيصال الدفع.">
           <Input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" dir="ltr" className="text-start" placeholder="01xxxxxxxxx" required />
         </Field>
         <Field label="البريد الإلكتروني" hint="يصلك عليه إيصال الدفع.">
@@ -110,8 +199,8 @@ function PayDialog({
       </p>
       {error && <ErrorNote>{error}</ErrorNote>}
       <ModalActions>
-        <Button variant="primary" busy={busy} onClick={pay} disabled={phone.trim().length < 6}>
-          <CreditCard /> ادفع {money(amount)}
+        <Button variant="primary" busy={busy} onClick={pay} disabled={!ready}>
+          {method === "wallet" ? <Smartphone /> : <CreditCard />} ادفع {money(amount)}
         </Button>
         <Button variant="ghost" onClick={onClose}>
           إلغاء
@@ -210,7 +299,18 @@ function Plans({ w, me }: { w: WorkspaceT; me: Owner }) {
       <p className="mt-3 flex items-center gap-1.5 text-[13px] text-mute">
         <ShieldCheck className="size-4" /> الدفع ببطاقات فيزا وماستركارد وميزة والمحافظ عبر Paymob. لا نحتفظ ببيانات بطاقتك.
       </p>
-      {paying && <PayDialog open onClose={() => setPaying(null)} plan={paying} cycle={cycle} workspace={w} me={me} />}
+      {paying && (
+        <PayDialog
+          open
+          onClose={() => setPaying(null)}
+          plan={paying}
+          cycle={cycle}
+          workspace={w}
+          me={me}
+          methods={q.data.payment_methods ?? []}
+          testMode={!!q.data.test_mode}
+        />
+      )}
     </section>
   );
 }

@@ -112,10 +112,21 @@ export const useWorkspaces = () =>
 export const useWorkspace = (id: string) =>
   useQuery({ queryKey: ["workspace", id], queryFn: () => api.get<WorkspaceDetail>(`/account/workspaces/${id}`) });
 
+/** card / wallet: chosen in the panel; "any": Paymob's page offers every method. */
+export type PaymentMethod = "card" | "wallet" | "any";
+
+export interface PlansResponse {
+  plans: Plan[];
+  online_payment: boolean;
+  payment_methods: PaymentMethod[];
+  /** Production running against Paymob's test mode (only listed owners can pay). */
+  test_mode: boolean;
+}
+
 export const usePlans = () =>
   useQuery({
     queryKey: ["plans"],
-    queryFn: () => api.get<{ plans: Plan[]; online_payment: boolean }>("/account/plans"),
+    queryFn: () => api.get<PlansResponse>("/account/plans"),
     staleTime: Infinity,
   });
 
@@ -138,7 +149,12 @@ export const actions = {
     api.post<Workspace>("/account/workspaces", v),
   download: (id: string) => api.get<Download>(`/account/workspaces/${id}/download`),
   open: (id: string) => api.post<{ access_token: string; slug: string | null; username: string }>(`/account/workspaces/${id}/open`),
-  checkout: (v: { id: string; plan: string; cycle: "monthly" | "annual" }) =>
-    api.post<{ invoice: Invoice; checkout_url: string }>(`/account/workspaces/${v.id}/checkout`, { plan: v.plan, cycle: v.cycle }),
+  checkout: (v: { id: string; plan: string; cycle: "monthly" | "annual"; method?: "card" | "wallet"; wallet_number?: string }) =>
+    api.post<{ invoice: Invoice; checkout_url: string }>(`/account/workspaces/${v.id}/checkout`, {
+      plan: v.plan,
+      cycle: v.cycle,
+      method: v.method,
+      wallet_number: v.wallet_number,
+    }),
   invoice: (ref: string) => api.get<Invoice>(`/account/invoices/${encodeURIComponent(ref)}`),
 };

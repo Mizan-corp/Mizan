@@ -12,6 +12,7 @@ const Workspace = lazy(() => import("@app/pages/Workspace"));
 const Invoices = lazy(() => import("@app/pages/Invoices"));
 const Account = lazy(() => import("@app/pages/Account"));
 const Payment = lazy(() => import("@app/pages/Payment"));
+const PaymentReturn = lazy(() => import("@app/pages/Payment").then((m) => ({ default: m.PaymentReturn })));
 
 export default function App() {
   const token = useAuth((s) => s.token);
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="workspaces/:id" element={<Workspace />} />
           <Route path="invoices" element={<Invoices />} />
           <Route path="account" element={<Account />} />
+          <Route path="payment" element={<PaymentReturn />} />
           <Route path="payment/:ref" element={<Payment />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
