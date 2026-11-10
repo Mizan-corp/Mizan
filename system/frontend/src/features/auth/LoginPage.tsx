@@ -74,10 +74,15 @@ export default function LoginPage(props: LoginPageProps = {}) {
   const isCustomPortal = Boolean(targetSlug || currentTenant);
 
   async function submitOwner() {
-    const r = await api.post<{ access_token?: string; employee_workspace?: string }>("/account/login", {
+    const r = await api.post<{ access_token?: string; employee_workspace?: string; admin_panel?: boolean }>("/account/login", {
       login: username.trim(),
       password,
     });
+    if (r.admin_panel) {
+      // Platform staff: their sign-in is the admin panel's.
+      window.location.assign(appUrl("admin", "/"));
+      return;
+    }
     if (r.employee_workspace) {
       // An employee account: its sign-in page is the workspace's own.
       navigate(`/c/${r.employee_workspace}/login`, {

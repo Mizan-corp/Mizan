@@ -36,6 +36,9 @@ async def owner_login(data: OwnerLogin, db: AsyncSession = Depends(get_db), _=De
             user = await auth_service.authenticate(db, data.login.strip(), data.password)
         except HTTPException:
             raise owner_error from None
+        if user.is_superadmin:
+            # Platform staff sign in on the admin panel (#78).
+            return {"admin_panel": True}
         slug = await db.scalar(select(Tenant.slug).where(Tenant.id == user.tenant_id))
         if not slug:
             raise owner_error from None

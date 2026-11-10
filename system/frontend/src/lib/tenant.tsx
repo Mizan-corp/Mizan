@@ -1,5 +1,15 @@
 import { useLocation, Link, type LinkProps } from "react-router-dom";
-import { useAuth } from "@/stores/auth";
+import { lastWorkspaceSlug, useAuth } from "@/stores/auth";
+import { IS_ON_PREMISE } from "@app/lib/deployment";
+
+/**
+ * Where a signed-out user signs in. On the cloud, /login is the owners' page, so employees go
+ * back to the last workspace used on this device (#78). On site, /login is the workspace's own.
+ */
+export function signInPath(): string {
+  const slug = IS_ON_PREMISE ? null : lastWorkspaceSlug();
+  return slug ? `/c/${slug}/login` : "/login";
+}
 
 export const RESERVED_ROOT_PATHS = new Set([
   "admoon",
@@ -152,6 +162,7 @@ export function useTenantNav() {
     const clean = path === "/" ? "" : path.startsWith("/") ? path : `/${path}`;
 
     if (!tenantRoot) {
+      if (clean === "/login") return signInPath();
       return clean || "/";
     }
 

@@ -62,6 +62,17 @@ const KEY = "mizan.session";
 const LEGACY_KEY = "vendora.session";
 const TENANT_KEY = "mizan.tenant";
 const LEGACY_TENANT_KEY = "vendora.tenant";
+// Kept after sign-out, so a signed-out employee is sent back to their workspace's sign-in page
+// rather than the owners' /login (#78).
+const LAST_WORKSPACE_KEY = "mizan.last_workspace";
+
+export function lastWorkspaceSlug(): string | null {
+  try {
+    return localStorage.getItem(LAST_WORKSPACE_KEY);
+  } catch {
+    return null;
+  }
+}
 
 function persist(token: string | null, user: User | null, tenant: TenantInfo | null) {
   if (token) {
@@ -97,6 +108,9 @@ export const useAuth = create<AuthState>((set, get) => ({
     applyBrandHue(tenant?.palette?.hue);
     if (tenant) {
       localStorage.setItem(TENANT_KEY, JSON.stringify(tenant));
+      if (tenant.slug && tenant.slug !== "undefined" && tenant.slug !== "null") {
+        localStorage.setItem(LAST_WORKSPACE_KEY, tenant.slug);
+      }
     } else {
       localStorage.removeItem(TENANT_KEY);
       localStorage.removeItem(LEGACY_TENANT_KEY);

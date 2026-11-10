@@ -155,6 +155,22 @@ async def test_employees_are_sent_to_their_workspace_login():
         assert (await erp.post("/account/login", json={"login": name, "password": "nope"})).status_code == 401
 
 
+async def test_platform_staff_are_sent_to_the_admin_panel():
+    _, tenant, _ = await make_owner()
+    async with AsyncSessionLocal() as db:
+        from sqlalchemy import text
+
+        await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
+        name = f"staff-{uuid.uuid4().hex[:8]}"
+        db.add(User(id=uuid.uuid4(), tenant_id=tenant.id, username=name, full_name="Staff", role="admin",
+                    is_superadmin=True, password_hash=hash_password("staff12345")))
+        await db.commit()
+    async with erp_login_client() as erp:
+        r = await erp.post("/account/login", json={"login": name, "password": "staff12345"})
+        assert r.json() == {"admin_panel": True}
+        assert "access_token" not in r.json()
+
+
 async def test_owner_token_is_refused_by_the_erp():
     from app.dependencies import get_current_user
     from fastapi import HTTPException

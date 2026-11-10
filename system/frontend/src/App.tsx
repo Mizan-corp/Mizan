@@ -70,11 +70,11 @@ function WorkspaceHome() {
     }
     return <Navigate to="/dashboard" replace />;
   }
-  return <Navigate to="/login" replace />;
+  return <Navigate to={signInPath()} replace />;
 }
 import { useModulesStore } from "@app/stores/modules";
 import { NAV_ITEMS } from "@app/lib/nav";
-import { useTenantNav } from "@app/lib/tenant";
+import { signInPath, useTenantNav } from "@app/lib/tenant";
 import { Button } from "@/components/kit/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/kit/empty";
 import Shell from "@app/components/AppShell";
