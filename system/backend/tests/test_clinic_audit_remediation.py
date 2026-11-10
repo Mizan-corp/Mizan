@@ -27,7 +27,7 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.warehouse import Warehouse
 from app.models.sale import Sale
-from app.modules.healthcare.healthcare_clinic.backend.models import (
+from app.modules.healthcare.healthcare_clinic.models import (
     ClinicAppointment,
     ClinicEncounter,
     ClinicInpatientBed,

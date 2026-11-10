@@ -182,20 +182,9 @@ class ModuleRegistry:
             self._manifests[manifest.id] = manifest
             logger.info("Discovered module: %s v%s (path: %s)", manifest.id, manifest.version, entry)
 
-            # Dynamically load router.py if present (supports backend/ and flat layouts, top-level and nested)
+            # The module's router.py, if it has one (modules/<activity>/<module>/router.py).
             pkg_prefix = "app." + ".".join(entry.relative_to(APP_DIR).parts)
-            router_backend = entry / "backend" / "router.py"
-            router_flat = entry / "router.py"
-            if router_backend.exists():
-                try:
-                    mod = importlib.import_module(f"{pkg_prefix}.backend.router")
-                    if hasattr(mod, "router") and isinstance(mod.router, APIRouter):
-                        self._routers[manifest.id] = mod.router
-                        logger.info("Mounted router for module: %s (%s.backend.router)", manifest.id, pkg_prefix)
-                except Exception as err:
-                    logger.error("Failed to load router for module %s: %s", manifest.id, err)
-                    self.errors.append(f"{entry}: router failed to load: {err!r}")
-            elif router_flat.exists():
+            if (entry / "router.py").exists():
                 try:
                     mod = importlib.import_module(f"{pkg_prefix}.router")
                     if hasattr(mod, "router") and isinstance(mod.router, APIRouter):

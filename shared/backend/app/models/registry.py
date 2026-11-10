@@ -57,7 +57,7 @@ def load_all_models() -> None:
     import app.modules.logistics.logistics.models
     import app.modules.wms_3pl.wms.models
     import app.modules.ecommerce.ecommerce.models
-    import app.modules.healthcare.healthcare_clinic.backend.models
+    import app.modules.healthcare.healthcare_clinic.models
     import app.modules.healthcare.models
     import app.modules.law_firm.law.models
     import app.modules.travel.travel.models
