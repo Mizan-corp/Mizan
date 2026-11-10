@@ -5,7 +5,6 @@ migration execution engine for both cloud serverless (Vercel/Neon) and self-host
 """
 import logging
 from pathlib import Path
-import re
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "sql"
 from typing import List
@@ -2380,6 +2379,104 @@ MIGRATIONS = [
         ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES ON TABLES TO mizan_app;
         ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO mizan_app;
         ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO mizan_app;
+    """),
+    # Codes a workspace types or numbers itself (and the modules' demo seeds) were unique
+    # across all workspaces: the second pharmacy to write prescription RX-0001, or the
+    # second workspace to seed a module's demo data, got a 500.
+    ("v49_tenant_scoped_unique_codes", """
+        DO $$ BEGIN
+        IF to_regclass('public.school_students') IS NOT NULL THEN
+            DROP INDEX IF EXISTS ix_school_students_code;
+            CREATE INDEX IF NOT EXISTS ix_school_students_code ON school_students (code);
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_school_students_code') THEN
+                ALTER TABLE school_students ADD CONSTRAINT uq_school_students_code UNIQUE (tenant_id, code);
+            END IF;
+        END IF;
+        IF to_regclass('public.pharmacy_prescriptions') IS NOT NULL THEN
+            DROP INDEX IF EXISTS ix_pharmacy_prescriptions_rx_number;
+            CREATE INDEX IF NOT EXISTS ix_pharmacy_prescriptions_rx_number ON pharmacy_prescriptions (rx_number);
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_pharmacy_prescriptions_rx_number') THEN
+                ALTER TABLE pharmacy_prescriptions ADD CONSTRAINT uq_pharmacy_prescriptions_rx_number UNIQUE (tenant_id, rx_number);
+            END IF;
+        END IF;
+        IF to_regclass('public.logistics_vehicles') IS NOT NULL THEN
+            DROP INDEX IF EXISTS ix_logistics_vehicles_plate_number;
+            CREATE INDEX IF NOT EXISTS ix_logistics_vehicles_plate_number ON logistics_vehicles (plate_number);
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_logistics_vehicles_plate_number') THEN
+                ALTER TABLE logistics_vehicles ADD CONSTRAINT uq_logistics_vehicles_plate_number UNIQUE (tenant_id, plate_number);
+            END IF;
+        END IF;
+        IF to_regclass('public.logistics_route_trips') IS NOT NULL THEN
+            DROP INDEX IF EXISTS ix_logistics_route_trips_trip_code;
+            CREATE INDEX IF NOT EXISTS ix_logistics_route_trips_trip_code ON logistics_route_trips (trip_code);
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_logistics_route_trips_trip_code') THEN
+                ALTER TABLE logistics_route_trips ADD CONSTRAINT uq_logistics_route_trips_trip_code UNIQUE (tenant_id, trip_code);
+            END IF;
+        END IF;
+        IF to_regclass('public.ecom_order_fulfillments') IS NOT NULL THEN
+            DROP INDEX IF EXISTS ix_ecom_order_fulfillments_order_number;
+            CREATE INDEX IF NOT EXISTS ix_ecom_order_fulfillments_order_number ON ecom_order_fulfillments (order_number);
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_ecom_order_fulfillments_order_number') THEN
+                ALTER TABLE ecom_order_fulfillments ADD CONSTRAINT uq_ecom_order_fulfillments_order_number UNIQUE (tenant_id, order_number);
+            END IF;
+        END IF;
+        IF to_regclass('public.wms_bin_locations') IS NOT NULL THEN
+            DROP INDEX IF EXISTS ix_wms_bin_locations_bin_code;
+            CREATE INDEX IF NOT EXISTS ix_wms_bin_locations_bin_code ON wms_bin_locations (bin_code);
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_wms_bin_locations_bin_code') THEN
+                ALTER TABLE wms_bin_locations ADD CONSTRAINT uq_wms_bin_locations_bin_code UNIQUE (tenant_id, bin_code);
+            END IF;
+        END IF;
+        IF to_regclass('public.wms_client_accounts') IS NOT NULL THEN
+            DROP INDEX IF EXISTS ix_wms_client_accounts_client_code;
+            CREATE INDEX IF NOT EXISTS ix_wms_client_accounts_client_code ON wms_client_accounts (client_code);
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_wms_client_accounts_client_code') THEN
+                ALTER TABLE wms_client_accounts ADD CONSTRAINT uq_wms_client_accounts_client_code UNIQUE (tenant_id, client_code);
+            END IF;
+        END IF;
+        IF to_regclass('public.wms_cross_dock_orders') IS NOT NULL THEN
+            DROP INDEX IF EXISTS ix_wms_cross_dock_orders_cross_dock_code;
+            CREATE INDEX IF NOT EXISTS ix_wms_cross_dock_orders_cross_dock_code ON wms_cross_dock_orders (cross_dock_code);
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_wms_cross_dock_orders_cross_dock_code') THEN
+                ALTER TABLE wms_cross_dock_orders ADD CONSTRAINT uq_wms_cross_dock_orders_cross_dock_code UNIQUE (tenant_id, cross_dock_code);
+            END IF;
+        END IF;
+        IF to_regclass('public.wms_picking_waves') IS NOT NULL THEN
+            DROP INDEX IF EXISTS ix_wms_picking_waves_wave_number;
+            CREATE INDEX IF NOT EXISTS ix_wms_picking_waves_wave_number ON wms_picking_waves (wave_number);
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_wms_picking_waves_wave_number') THEN
+                ALTER TABLE wms_picking_waves ADD CONSTRAINT uq_wms_picking_waves_wave_number UNIQUE (tenant_id, wave_number);
+            END IF;
+        END IF;
+        IF to_regclass('public.ecom_return_requests') IS NOT NULL THEN
+            DROP INDEX IF EXISTS ix_ecom_return_requests_rma_number;
+            CREATE INDEX IF NOT EXISTS ix_ecom_return_requests_rma_number ON ecom_return_requests (rma_number);
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_ecom_return_requests_rma_number') THEN
+                ALTER TABLE ecom_return_requests ADD CONSTRAINT uq_ecom_return_requests_rma_number UNIQUE (tenant_id, rma_number);
+            END IF;
+        END IF;
+        IF to_regclass('public.wms_billing_invoices') IS NOT NULL THEN
+            DROP INDEX IF EXISTS ix_wms_billing_invoices_invoice_number;
+            CREATE INDEX IF NOT EXISTS ix_wms_billing_invoices_invoice_number ON wms_billing_invoices (invoice_number);
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_wms_billing_invoices_invoice_number') THEN
+                ALTER TABLE wms_billing_invoices ADD CONSTRAINT uq_wms_billing_invoices_invoice_number UNIQUE (tenant_id, invoice_number);
+            END IF;
+        END IF;
+        IF to_regclass('public.logistics_consignments') IS NOT NULL THEN
+            DROP INDEX IF EXISTS ix_logistics_consignments_tracking_number;
+            CREATE INDEX IF NOT EXISTS ix_logistics_consignments_tracking_number ON logistics_consignments (tracking_number);
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_logistics_consignments_tracking_number') THEN
+                ALTER TABLE logistics_consignments ADD CONSTRAINT uq_logistics_consignments_tracking_number UNIQUE (tenant_id, tracking_number);
+            END IF;
+        END IF;
+        IF to_regclass('public.ecom_cod_reconciliations') IS NOT NULL THEN
+            DROP INDEX IF EXISTS ix_ecom_cod_reconciliations_remittance_batch;
+            CREATE INDEX IF NOT EXISTS ix_ecom_cod_reconciliations_remittance_batch ON ecom_cod_reconciliations (remittance_batch);
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_ecom_cod_reconciliations_remittance_batch') THEN
+                ALTER TABLE ecom_cod_reconciliations ADD CONSTRAINT uq_ecom_cod_reconciliations_remittance_batch UNIQUE (tenant_id, remittance_batch);
+            END IF;
+        END IF;
+        END $$;
     """),
 ]
 

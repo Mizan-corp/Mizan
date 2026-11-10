@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, func
+from sqlalchemy import DateTime, Float, func, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.tenancy import TenantScoped
@@ -14,9 +14,10 @@ from app.db.base import Base
 class WmsClientAccount(TenantScoped, Base):
     """3PL Client Tenancy & Dedicated Fee Contracts (WMS-01, WMS-02, WMS-08)."""
     __tablename__ = "wms_client_accounts"
+    __table_args__ = (UniqueConstraint("tenant_id", "client_code", name="uq_wms_client_accounts_client_code"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    client_code: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    client_code: Mapped[str] = mapped_column(String(32), index=True)
     company_name: Mapped[str] = mapped_column(String(128), index=True)
     contact_person: Mapped[str] = mapped_column(String(64))
     phone: Mapped[str] = mapped_column(String(32))
@@ -33,9 +34,10 @@ class WmsClientAccount(TenantScoped, Base):
 class WmsBinLocation(TenantScoped, Base):
     """Multi-Zone Bin Locations (Zone-Aisle-Rack-Shelf-Bin) & Slotting (WMS-03, WMS-05)."""
     __tablename__ = "wms_bin_locations"
+    __table_args__ = (UniqueConstraint("tenant_id", "bin_code", name="uq_wms_bin_locations_bin_code"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    bin_code: Mapped[str] = mapped_column(String(64), unique=True, index=True)  # ZN-A-01-2-B
+    bin_code: Mapped[str] = mapped_column(String(64), index=True)  # ZN-A-01-2-B
     zone: Mapped[str] = mapped_column(String(128), default="Zone A - الجاف والغذائي")
     aisle: Mapped[str] = mapped_column(String(16))
     rack: Mapped[str] = mapped_column(String(16))
@@ -54,9 +56,10 @@ class WmsBinLocation(TenantScoped, Base):
 class WmsPickingWave(TenantScoped, Base):
     """Wave, Batch & Zone Picking Order Batches (WMS-04)."""
     __tablename__ = "wms_picking_waves"
+    __table_args__ = (UniqueConstraint("tenant_id", "wave_number", name="uq_wms_picking_waves_wave_number"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    wave_number: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    wave_number: Mapped[str] = mapped_column(String(64), index=True)
     client_code: Mapped[str] = mapped_column(String(32), index=True)
     zone: Mapped[str] = mapped_column(String(32), default="Zone A")
     picker_name: Mapped[str] = mapped_column(String(64))
@@ -88,9 +91,10 @@ class WmsInboundReceipt(TenantScoped, Base):
 class WmsCrossDockOrder(TenantScoped, Base):
     """Cross-Docking Direct Transit Routing (WMS-06)."""
     __tablename__ = "wms_cross_dock_orders"
+    __table_args__ = (UniqueConstraint("tenant_id", "cross_dock_code", name="uq_wms_cross_dock_orders_cross_dock_code"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    cross_dock_code: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    cross_dock_code: Mapped[str] = mapped_column(String(64), index=True)
     client_code: Mapped[str] = mapped_column(String(32))
     inbound_asn_ref: Mapped[str] = mapped_column(String(64))
     outbound_so_ref: Mapped[str] = mapped_column(String(64))
@@ -104,9 +108,10 @@ class WmsCrossDockOrder(TenantScoped, Base):
 class WmsBillingInvoice(TenantScoped, Base):
     """3PL Itemized Monthly Client Invoicing Engine (WMS-08)."""
     __tablename__ = "wms_billing_invoices"
+    __table_args__ = (UniqueConstraint("tenant_id", "invoice_number", name="uq_wms_billing_invoices_invoice_number"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    invoice_number: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    invoice_number: Mapped[str] = mapped_column(String(64), index=True)
     client_code: Mapped[str] = mapped_column(String(32), index=True)
     billing_month: Mapped[str] = mapped_column(String(32))
     storage_charges: Mapped[float] = mapped_column(Float, default=0.0)

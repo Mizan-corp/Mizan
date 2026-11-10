@@ -2,12 +2,11 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
@@ -234,7 +233,11 @@ async def create_school_student(
         status="active",
     )
     db.add(student)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail=f"يوجد طالب بالكود {data.code}. اختر كودًا آخر.") from None
     await db.refresh(student)
     return student
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Float, func, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.tenancy import TenantScoped
@@ -14,9 +14,10 @@ from app.db.base import Base
 class LogisticsConsignment(TenantScoped, Base):
     """Consignment & Shipment Lifecycle with BoL & e-POD (LOG-01, 02, 03, 07, 08, 09)."""
     __tablename__ = "logistics_consignments"
+    __table_args__ = (UniqueConstraint("tenant_id", "tracking_number", name="uq_logistics_consignments_tracking_number"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    tracking_number: Mapped[str] = mapped_column(String(64), unique=True, index=True)  # AWB-2026-XXXX
+    tracking_number: Mapped[str] = mapped_column(String(64), index=True)  # AWB-2026-XXXX
     waybill_type: Mapped[str] = mapped_column(String(32), default="domestic_waybill")  # domestic_waybill, cmr_international, sea_bol
     sender_name: Mapped[str] = mapped_column(String(128))
     sender_city: Mapped[str] = mapped_column(String(64), default="القاهرة")
@@ -46,9 +47,10 @@ class LogisticsConsignment(TenantScoped, Base):
 class LogisticsVehicle(TenantScoped, Base):
     """Fleet & Vehicle Registry with Maintenance Thresholds (LOG-05)."""
     __tablename__ = "logistics_vehicles"
+    __table_args__ = (UniqueConstraint("tenant_id", "plate_number", name="uq_logistics_vehicles_plate_number"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    plate_number: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    plate_number: Mapped[str] = mapped_column(String(32), index=True)
     vehicle_type: Mapped[str] = mapped_column(String(64))  # شاحنة مبردة 10 طن، تريلا ستارة 40 قدم، بيك أب جامبو
     make_model: Mapped[str] = mapped_column(String(64), default="مرسيدس أكتروس 2024")
     payload_capacity_kg: Mapped[float] = mapped_column(Float, default=10000.0)
@@ -81,9 +83,10 @@ class LogisticsDriver(TenantScoped, Base):
 class LogisticsRouteTrip(TenantScoped, Base):
     """Multi-Stop Route Dispatch & Waypoint Manifests (LOG-04)."""
     __tablename__ = "logistics_route_trips"
+    __table_args__ = (UniqueConstraint("tenant_id", "trip_code", name="uq_logistics_route_trips_trip_code"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    trip_code: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    trip_code: Mapped[str] = mapped_column(String(64), index=True)
     origin_hub: Mapped[str] = mapped_column(String(64), default="المستودع الرئيسي - القاهرة")
     destination_hub: Mapped[str] = mapped_column(String(64), default="فرع التوزيع - الإسكندرية")
     assigned_vehicle_plate: Mapped[str] = mapped_column(String(32))

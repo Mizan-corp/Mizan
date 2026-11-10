@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Float, func, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.tenancy import TenantScoped
@@ -31,9 +31,10 @@ class EcomChannelStore(TenantScoped, Base):
 class EcomOrderFulfillment(TenantScoped, Base):
     """Consolidated Online Orders & Pick-Pack-Ship Workflow (ECS-04, ECS-05, ECS-06, ECS-10)."""
     __tablename__ = "ecom_order_fulfillments"
+    __table_args__ = (UniqueConstraint("tenant_id", "order_number", name="uq_ecom_order_fulfillments_order_number"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    order_number: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    order_number: Mapped[str] = mapped_column(String(64), index=True)
     channel_platform: Mapped[str] = mapped_column(String(32), default="Shopify")
     customer_name: Mapped[str] = mapped_column(String(128), index=True)
     customer_phone: Mapped[str] = mapped_column(String(32))
@@ -53,9 +54,10 @@ class EcomOrderFulfillment(TenantScoped, Base):
 class EcomReturnRequest(TenantScoped, Base):
     """Return Merchandise Authorization (RMA) & Inspection (ECS-07)."""
     __tablename__ = "ecom_return_requests"
+    __table_args__ = (UniqueConstraint("tenant_id", "rma_number", name="uq_ecom_return_requests_rma_number"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    rma_number: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    rma_number: Mapped[str] = mapped_column(String(64), index=True)
     order_number: Mapped[str] = mapped_column(String(64), index=True)
     customer_name: Mapped[str] = mapped_column(String(128))
     return_reason: Mapped[str] = mapped_column(String(128))
@@ -69,9 +71,10 @@ class EcomReturnRequest(TenantScoped, Base):
 class EcomCodReconciliation(TenantScoped, Base):
     """Cash on Delivery (COD) Remittance & Courier Reconciliation (ECS-08)."""
     __tablename__ = "ecom_cod_reconciliations"
+    __table_args__ = (UniqueConstraint("tenant_id", "remittance_batch", name="uq_ecom_cod_reconciliations_remittance_batch"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    remittance_batch: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    remittance_batch: Mapped[str] = mapped_column(String(64), index=True)
     courier_name: Mapped[str] = mapped_column(String(64), default="بوسطة للشحن السريع")
     orders_count: Mapped[int] = mapped_column(Integer, default=1)
     total_collected_cash: Mapped[float] = mapped_column(Float)

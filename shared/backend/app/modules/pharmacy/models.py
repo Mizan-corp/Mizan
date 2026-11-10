@@ -49,9 +49,10 @@ class PharmacyBatch(TenantScoped, Base):
 
 class PharmacyPrescription(TenantScoped, Base):
     __tablename__ = "pharmacy_prescriptions"
+    __table_args__ = (UniqueConstraint("tenant_id", "rx_number", name="uq_pharmacy_prescriptions_rx_number"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    rx_number: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    rx_number: Mapped[str] = mapped_column(String(32), index=True)
     patient_name: Mapped[str] = mapped_column(String(128))
     patient_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     doctor_name: Mapped[str] = mapped_column(String(128))

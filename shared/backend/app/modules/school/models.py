@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, func, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.tenancy import TenantScoped
@@ -13,9 +13,10 @@ from app.db.base import Base
 
 class SchoolStudent(TenantScoped, Base):
     __tablename__ = "school_students"
+    __table_args__ = (UniqueConstraint("tenant_id", "code", name="uq_school_students_code"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    code: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    code: Mapped[str] = mapped_column(String(32), index=True)
     name: Mapped[str] = mapped_column(String(128))
     grade: Mapped[str] = mapped_column(String(64))
     parent_phone: Mapped[str] = mapped_column(String(32))
