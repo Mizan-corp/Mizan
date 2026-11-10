@@ -27,6 +27,16 @@ describe("auth store", () => {
     expect(useAuth.getState().can("finance")).toBe(false);
   });
 
+  it("can() accepts alternatives: 'a|b' means either", () => {
+    useAuth.getState().login("tok-1", {
+      id: "u2", username: "buyer", full_name: "مسؤول مشتريات", role: "accountant",
+      permissions: ["purchases"], is_manager: false, default_warehouse_id: null,
+    });
+    expect(useAuth.getState().can("inventory|purchases")).toBe(true);
+    expect(useAuth.getState().can("inventory|customers")).toBe(false);
+    expect(useAuth.getState().can("customers")).toBe(false);
+  });
+
   it("logout clears session and storage", () => {
     useAuth.getState().login("tok-1", {
       id: "u1", username: "ammar", full_name: "عمار", role: "admin",

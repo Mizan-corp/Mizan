@@ -55,7 +55,7 @@ import {
 export type NavItem = {
   to: string;
   label: string;
-  perm: string; // "" = always visible; checked against the user's real permissions
+  perm: string; // "" = always visible; checked against the user's real permissions ("a|b" = either)
   module?: string; // "" or omitted = always active; otherwise checked against active_modules
   icon: LucideIcon;
   group: "main" | "stock" | "money" | "admin";
@@ -125,7 +125,7 @@ export const NAV_ITEMS: NavItem[] = [
 
   // Finance & AR/AP
   { to: "/customers", label: "العملاء (AR)", perm: "customers", module: "finance", icon: Contact, group: "money" },
-  { to: "/suppliers", label: "الموردون (AP)", perm: "customers", module: "finance", icon: Truck, group: "money" },
+  { to: "/suppliers", label: "الموردون (AP)", perm: "inventory|purchases", module: "finance", icon: Truck, group: "money" },
   { to: "/finance", label: "المالية والخزائن", perm: "finance", module: "finance", icon: Wallet, group: "money" },
   { to: "/reports", label: "التقارير", perm: "reports", module: "core", icon: BarChart3, group: "money" },
 
@@ -199,7 +199,7 @@ export function getSectorNavigation(
           { to: "/clinic?tab=billing", label: "فواتير الكشوفات والتأمين", perm: "", module: "", icon: Receipt, group: "money" },
           { to: "/clinic?tab=claims", label: "مطالبات شركات التأمين", perm: "", module: "", icon: ShieldCheck, group: "money" },
           { to: "/customers", label: "حسابات المرضى والتعاقدات", perm: "customers", module: "finance", icon: Contact, group: "money" },
-          { to: "/suppliers", label: "شركات الأدوية والموردين", perm: "customers", module: "finance", icon: Truck, group: "money" },
+          { to: "/suppliers", label: "شركات الأدوية والموردين", perm: "inventory|purchases", module: "finance", icon: Truck, group: "money" },
           { to: "/finance", label: "الخزائن والإيرادات الطبية", perm: "finance", module: "finance", icon: Wallet, group: "money" },
           { to: "/reports", label: "التقارير الطبية والمالية", perm: "reports", module: "core", icon: BarChart3, group: "money" },
         ],
@@ -245,7 +245,7 @@ export function getSectorNavigation(
         label: "المالية وحسابات العملاء",
         items: [
           { to: "/customers", label: "حسابات عملاء الشركات والولاء", perm: "customers", module: "finance", icon: Contact, group: "money" },
-          { to: "/suppliers", label: "موردو اللحوم والأغذية", perm: "customers", module: "finance", icon: Truck, group: "money" },
+          { to: "/suppliers", label: "موردو اللحوم والأغذية", perm: "inventory|purchases", module: "finance", icon: Truck, group: "money" },
           { to: "/finance", label: "الخزينة والمالية اليومية", perm: "finance", module: "finance", icon: Wallet, group: "money" },
           { to: "/reports", label: "تقارير المبيعات وهدر المطبخ", perm: "reports", module: "core", icon: BarChart3, group: "money" },
         ],
@@ -280,7 +280,7 @@ export function getSectorNavigation(
         items: [
           { to: "/products", label: "الأدوية والمستحضرات", perm: "inventory", module: "inventory", icon: Package, group: "stock" },
           { to: "/inventory", label: "مخزون الأدوية وتواريخ الصلاحية", perm: "inventory", module: "inventory", icon: Boxes, group: "stock" },
-          { to: "/suppliers", label: "شركات ومستودعات الأدوية", perm: "customers", module: "finance", icon: Truck, group: "stock" },
+          { to: "/suppliers", label: "شركات ومستودعات الأدوية", perm: "inventory|purchases", module: "finance", icon: Truck, group: "stock" },
           { to: "/purchases", label: "طلبيات وتوريد الأدوية", perm: "purchases", module: "inventory", icon: Truck, group: "stock" },
         ],
       },
@@ -476,7 +476,7 @@ export function getSectorNavigation(
         id: "wholesale_finance",
         label: "الائتمان وأوراق القبض",
         items: [
-          { to: "/suppliers", label: "حسابات الموردين والمصانع", perm: "customers", module: "finance", icon: Truck, group: "money" },
+          { to: "/suppliers", label: "حسابات الموردين والمصانع", perm: "inventory|purchases", module: "finance", icon: Truck, group: "money" },
           { to: "/finance", label: "الخزائن ومتابعة الشيكات والذمم", perm: "finance", module: "finance", icon: Wallet, group: "money" },
           { to: "/reports", label: "تقارير أعمار الديون والمبيعات", perm: "reports", module: "core", icon: BarChart3, group: "money" },
         ],
@@ -518,7 +518,7 @@ export function getSectorNavigation(
         label: "المالية وتكاليف المشاريع",
         items: [
           { to: "/customers", label: "الملاك وجهات الإسناد", perm: "customers", module: "finance", icon: Contact, group: "money" },
-          { to: "/suppliers", label: "موردو المواد ومقاولو الباطن", perm: "customers", module: "finance", icon: Truck, group: "money" },
+          { to: "/suppliers", label: "موردو المواد ومقاولو الباطن", perm: "inventory|purchases", module: "finance", icon: Truck, group: "money" },
           { to: "/finance", label: "العهد الموقعية والخزينة", perm: "finance", module: "finance", icon: Wallet, group: "money" },
           { to: "/reports", label: "تقارير ربحية المشاريع والتدفقات", perm: "reports", module: "core", icon: BarChart3, group: "money" },
         ],
@@ -552,7 +552,7 @@ export function getSectorNavigation(
         label: "المالية وحسابات الملاك",
         items: [
           { to: "/finance", label: "الخزينة وحافظة شيكات الإيجار", perm: "finance", module: "finance", icon: Wallet, group: "money" },
-          { to: "/suppliers", label: "شركات صيانة المصاعد والمرافق", perm: "customers", module: "finance", icon: Truck, group: "money" },
+          { to: "/suppliers", label: "شركات صيانة المصاعد والمرافق", perm: "inventory|purchases", module: "finance", icon: Truck, group: "money" },
           { to: "/reports", label: "كشوف حسابات الملاك وصافي الإيراد", perm: "reports", module: "core", icon: BarChart3, group: "money" },
         ],
       },
@@ -659,7 +659,7 @@ export function getSectorNavigation(
         id: "travel_finance",
         label: "المالية وشركات الطيران",
         items: [
-          { to: "/suppliers", label: "خطوط الطيران والفنادق الشريكة", perm: "customers", module: "finance", icon: Truck, group: "money" },
+          { to: "/suppliers", label: "خطوط الطيران والفنادق الشريكة", perm: "inventory|purchases", module: "finance", icon: Truck, group: "money" },
           { to: "/finance", label: "الخزينة وحسابات وكلاء السفر", perm: "finance", module: "finance", icon: Wallet, group: "money" },
           { to: "/reports", label: "تقارير أرباح الأفواج والرحلات", perm: "reports", module: "core", icon: BarChart3, group: "money" },
         ],

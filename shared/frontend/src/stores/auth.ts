@@ -122,12 +122,13 @@ export const useAuth = create<AuthState>((set, get) => ({
     localStorage.removeItem(LEGACY_TENANT_KEY);
     set({ token: null, user: null, tenant: null });
   },
+  /** Permissions decide, never role names. "a|b" means either one. */
   can: (perm) => {
     const u = get().user;
     if (!u) return false;
     if (u.is_superadmin) return true;
     if (!perm) return true;
     const perms = Array.isArray(u.permissions) ? u.permissions : [];
-    return perms.includes("*") || perms.includes(perm);
+    return perms.includes("*") || perm.split("|").some((p) => perms.includes(p));
   },
 }));
