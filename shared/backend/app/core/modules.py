@@ -6,9 +6,7 @@ activation.
 """
 from __future__ import annotations
 
-import json
-from dataclasses import asdict, dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 from fastapi import Depends, HTTPException
 from sqlalchemy import select
@@ -16,21 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.models.settings import StoreSetting
-
-
-@dataclass
-class ModuleManifest:
-    id: str
-    name: str
-    name_en: str
-    category: str
-    version: str
-    icon: str
-    description: str
-    dependencies: list[str] = field(default_factory=list)
-    is_core: bool = False
-    is_installed: bool = False
-    badge: str | None = None
+from app.modules.loader import manifest_index
 
 
 @dataclass
@@ -43,379 +27,6 @@ class BusinessPreset:
     description: str
     modules: list[str]
 
-
-# Built-in Catalog of Business Modules
-MODULE_CATALOG: dict[str, ModuleManifest] = {
-    "core": ModuleManifest(
-        id="core",
-        name="النواة الأساسية",
-        name_en="Core System",
-        category="core",
-        version="3.0.0",
-        icon="Layers",
-        description="المحرك المالي الموحد، إدارة المستخدمين، الصلاحيات، الخزائن، وسجل التدقيق الرقابي.",
-        dependencies=[],
-        is_core=True,
-    ),
-    "inventory": ModuleManifest(
-        id="inventory",
-        name="إدارة المخزون والتوريد",
-        name_en="Inventory & Supply",
-        category="retail",
-        version="3.0.0",
-        icon="Boxes",
-        description="تتبع الأرصدة اللحظية، إدارة الفروع والمستودعات، تسويات الجرد، وأوامر الشراء والتوريد.",
-        dependencies=["core"],
-    ),
-    "pos": ModuleManifest(
-        id="pos",
-        name="نقطة البيع السريعة والكاشير",
-        name_en="Point of Sale",
-        category="retail",
-        version="3.0.0",
-        icon="ShoppingCart",
-        description="إصدار الفواتير الفوري، دعم قارئ الباركود، الشاشات اللمسية، إدارة أدراج الكاشير والورديات.",
-        dependencies=["core", "inventory"],
-    ),
-    "finance": ModuleManifest(
-        id="finance",
-        name="المالية والحسابات والذمم (AR/AP)",
-        name_en="Finance & Ledgers",
-        category="finance",
-        version="3.0.0",
-        icon="Wallet",
-        description="كشوف حسابات العملاء والموردين، إدارة الخزائن والمحافظ الإلكترونية، القيود والمصروفات.",
-        dependencies=["core"],
-    ),
-    "hr": ModuleManifest(
-        id="hr",
-        name="الموارد البشرية والرواتب",
-        name_en="Human Resources & Payroll",
-        category="hr",
-        version="3.0.0",
-        icon="UserCog",
-        description="سجلات الموظفين، ساعات العمل والحضور، مسيرات الرواتب الشهرية، والسلف والخصومات.",
-        dependencies=["core"],
-    ),
-    "restaurant": ModuleManifest(
-        id="restaurant",
-        name="إدارة المطاعم والكافيهات",
-        name_en="Restaurant & Hospitality",
-        category="hospitality",
-        version="1.0.0",
-        icon="UtensilsCrossed",
-        badge="جديد",
-        description="مخطط صالة الطعام وحجز الطاولات، شاشات المطبخ اللحظية (KDS)، ووصفات المأكولات وخصم المكونات (BOM).",
-        dependencies=["core", "pos", "inventory"],
-    ),
-    "school": ModuleManifest(
-        id="school",
-        name="المدارس والأكاديميات التعليمية",
-        name_en="School & Education",
-        category="education",
-        version="1.0.0",
-        icon="GraduationCap",
-        badge="جديد",
-        description="شؤون الطلاب، إدارة المراحل والفصول، تحصيل الأقساط والمصروفات المجدولة، ودفاتر الحضور الأكاديمي.",
-        dependencies=["core", "finance"],
-    ),
-    "healthcare_clinic": ModuleManifest(
-        id="healthcare_clinic",
-        name="العيادات والمراكز الطبية والمستشفيات",
-        name_en="Healthcare & Clinic/Hospital ERP",
-        category="healthcare",
-        version="1.0.0",
-        icon="Stethoscope",
-        badge="Phase 3",
-        description="السجلات الطبية الإلكترونية (EMR)، حجز المواعيد والكشوفات، الروشتات الرقمية (e-Rx)، الفحوصات والتحاليل، وغرف وأسِرّة التنويم.",
-        dependencies=["core", "inventory", "finance"],
-    ),
-    "services": ModuleManifest(
-        id="services",
-        name="الشركات والمكاتب الخدمية",
-        name_en="Professional Services",
-        category="services",
-        version="1.0.0",
-        icon="Briefcase",
-        description="عروض الأسعار، عقود المشاريع، المطالبات والفوترة الزمنية، ومتابعة تسليمات العملاء.",
-        dependencies=["core", "finance"],
-    ),
-    "pharmacy": ModuleManifest(
-        id="pharmacy",
-        name="الصيدليات وصرف الأدوية",
-        name_en="Pharmacy & Dispensing",
-        category="healthcare",
-        version="1.0.0",
-        icon="Pill",
-        badge="جديد",
-        description="دليل الأدوية والبدائل التكافؤية (INN)، صرف الروشتات والتأمين الطبي، تتبع الصلاحيات (FEFO)، ودفتر الأدوية المراقبة.",
-        dependencies=["core", "inventory", "pos", "finance"],
-    ),
-    "wholesale": ModuleManifest(
-        id="wholesale",
-        name="تجارة الجملة والتوزيع والتوريدات",
-        name_en="Wholesale & Bulk Distribution",
-        category="distribution_logistics",
-        version="1.0.0",
-        icon="Boxes",
-        badge="Phase 2",
-        description="سلالم التسعير الكمي المتدرج، قوائم أسعار العملاء، سقوف المديونية، تكلفة الاستيراد المفرغة، والشحن المباشر ومكافآت التوزيع.",
-        dependencies=["core", "inventory", "finance"],
-    ),
-    "logistics": ModuleManifest(
-        id="logistics",
-        name="الشحن والخدمات اللوجستية والأسطول",
-        name_en="Logistics & Fleet Transportation",
-        category="distribution_logistics",
-        version="1.0.0",
-        icon="Truck",
-        badge="Phase 2",
-        description="تتبع دورة حياة الشحنات وبوالص الشحن (AWB/BoL)، تخطيط المسارات، إدارة أساطيل المركبات، إثبات التسليم الرقمي e-POD، وتكاليف الوقود.",
-        dependencies=["core", "finance"],
-    ),
-    "wms": ModuleManifest(
-        id="wms",
-        name="المستودعات والخدمات اللوجستية للغير (3PL WMS)",
-        name_en="3PL & Warehouse Management",
-        category="distribution_logistics",
-        version="1.0.0",
-        icon="Warehouse",
-        badge="Phase 2",
-        description="مستودعات العملاء المتعددين وعزل ملكية المخزون، المواقع التخزينية المرمزة، موجات الجمع والانتقاء، والعبور المباشر والفوترة الشهرية.",
-        dependencies=["core", "inventory", "finance"],
-    ),
-    "ecommerce": ModuleManifest(
-        id="ecommerce",
-        name="التجارة الإلكترونية والربط متعدد القنوات",
-        name_en="Omnichannel E-commerce & Fulfillment",
-        category="distribution_logistics",
-        version="1.0.0",
-        icon="Globe",
-        badge="Phase 2",
-        description="ربط المتاجر والمنصات الرقمية، مخزون الأمان العازل، دورة التجهيز Pick-Pack-Ship وبوالص الشحن، تسوية بوابات الدفع وCOD والمرتجعات.",
-        dependencies=["core", "inventory", "finance"],
-    ),
-    "law": ModuleManifest(
-        id="law",
-        name="مكاتب المحاماة والاستشارات القانونية",
-        name_en="Law Firm & Legal Practice Management",
-        category="professional_services",
-        version="1.0.0",
-        icon="Scale",
-        badge="Phase 3",
-        description="إدارة القضايا والملفات القضائية، الأجندة وجلسات المحاكم، فحص تعارض المصالح، الساعات المهنية المحتسبة، وحسابات أمانات العملاء المفرزة.",
-        dependencies=["core", "finance"],
-    ),
-    "travel": ModuleManifest(
-        id="travel",
-        name="شركات السياحة ووكالات السفر والحجوزات",
-        name_en="Travel & Tourism Agency Management",
-        category="tourism_hospitality",
-        version="1.0.0",
-        icon="Plane",
-        badge="Phase 3",
-        description="بناء وتصميم البرامج السياحية (Itinerary Builder)، حجوزات الطيران والفنادق، منافست الركاب، محرك العمولات والهوامش، وخزينة الجوازات والتأشيرات.",
-        dependencies=["core", "finance"],
-    ),
-    "hospitality": ModuleManifest(
-        id="hospitality",
-        name="الفنادق والمنتجعات ونظام الضيافة (PMS)",
-        name_en="Hotel Property Management System (PMS)",
-        category="tourism_hospitality",
-        version="1.0.0",
-        icon="Building",
-        badge="Phase 3",
-        description="إدارة الغرف الفندقية، الحجوزات والتسكين (Check-in/Check-out)، فواتير النزلاء (Folio)، مهام التدبير المنزلي، والتدقيق الليلي (Night Audit).",
-        dependencies=["core", "finance"],
-    ),
-    "gym": ModuleManifest(
-        id="gym",
-        name="الأندية الصحية والجيم والأنشطة الرياضية",
-        name_en="Gym & Fitness Sports Club Management",
-        category="sports_wellness",
-        version="1.0.0",
-        icon="Dumbbell",
-        badge="Phase 3",
-        description="عضويات الجيم واشتراكات اللياقة، بوابات العبور الإلكترونية (Turnstiles)، باقات التدريب الخاص (PT)، جداول الحصص الجماعية، وقياسات InBody.",
-        dependencies=["core", "finance"],
-    ),
-    "salon": ModuleManifest(
-        id="salon",
-        name="صالونات التجميل والسبا والعناية الشخصية",
-        name_en="Salon, Spa & Personal Care Management",
-        category="sports_wellness",
-        version="1.0.0",
-        icon="Scissors",
-        badge="Phase 3",
-        description="دليل الخدمات وفترات التنفيذ (Duration Matrix)، أجندة مصففي الشعر والغرف، تتبع تركيبات الصبغة، محرك عمولات المصففين، واستهلاك المواد الخام.",
-        dependencies=["core", "finance"],
-    ),
-    "agency": ModuleManifest(
-        id="agency",
-        name="وكالات الدعاية والإعلام والترجمة المعتمدة",
-        name_en="Creative, Media & Translation Agency",
-        category="professional_services",
-        version="1.0.0",
-        icon="Palette",
-        badge="Phase 3",
-        description="إدارة المشاريع الإبداعية ومراحل التسليم، سعة وإشغال فريق العمل (Capacity Board)، تتبع استهلاك ساعات العقود (Retainers)، والترجمة المعتمدة.",
-        dependencies=["core", "finance"],
-    ),
-    "field_service": ModuleManifest(
-        id="field_service",
-        name="الصيانة الميدانية والتشغيل والخدمات الفنية (FSM)",
-        name_en="Field Service & Maintenance Management",
-        category="services",
-        version="1.0.0",
-        icon="Wrench",
-        badge="Phase 3",
-        description="أوامر العمل الميدانية وبلاغات الأعطال، تتبع الفنيين ومواقع العمل (GPS Dispatch)، مخزون سيارات الصيانة (Van Inventory)، واتفاقيات مستوى الخدمة (SLA).",
-        dependencies=["core", "finance", "inventory"],
-    ),
-    "mfg": ModuleManifest(
-        id="mfg",
-        name="التصنيع الميكانيكي وخطوط التجميع (Discrete MFG)",
-        name_en="Discrete Manufacturing & Assembly",
-        category="manufacturing",
-        version="1.0.0",
-        icon="Factory",
-        badge="Phase 4",
-        description="شجرة المنتج متعددة المستويات (BOM)، مراكز العمل ومسارات التشغيل، تخطيط الاحتياجات (MRP)، أوامر الإنتاج والرقابة على الصالة، وحساب كفاءة المعدات OEE.",
-        dependencies=["core", "inventory", "purchases"],
-    ),
-    "fod": ModuleManifest(
-        id="fod",
-        name="الصناعات الغذائية والمشروبات (HACCP/FEFO)",
-        name_en="Food & Beverage Process Manufacturing",
-        category="manufacturing",
-        version="1.0.0",
-        icon="Utensils",
-        badge="Phase 4",
-        description="وصفات الخلط والإنتاج المستمر، تتبع التشغيلات العكسي والتصاعدي، نقاط التحكم الحرجة (HACCP)، إدارة تواريخ الصلاحية (FEFO)، والاستدعاء التجريبي Mock Recall.",
-        dependencies=["core", "inventory", "purchases"],
-    ),
-    "phm": ModuleManifest(
-        id="phm",
-        name="التصنيع الدوائي والكيميائي (cGMP / 21 CFR Part 11)",
-        name_en="Pharmaceutical & Chemical GMP Manufacturing",
-        category="manufacturing",
-        version="1.0.0",
-        icon="ShieldCheck",
-        badge="Phase 4",
-        description="سجلات التشغيل الإلكترونية (EBR)، الإفراج الدوائي QP Batch Release، إدارة الحيود والإجراءات التصحيحية (CAPA)، التوقيع الرقمي 21 CFR Part 11، ودراسات الثباتية.",
-        dependencies=["core", "inventory", "purchases", "pharmacy"],
-    ),
-    "prn": ModuleManifest(
-        id="prn",
-        name="الطباعة والتغليف والكرتون (Job Dockets/MHR)",
-        name_en="Printing & Packaging ERP",
-        category="manufacturing",
-        version="1.0.0",
-        icon="Printer",
-        badge="Phase 4",
-        description="تذاكر الشغل والطباعة Job Dockets، تخطيط المونتاج Imposition، جدولة ماكينات الطباعة وتغيير الأحبار، تكلفة ساعات التشغيل الميكانيكية MHR، ومخزون الورق بالجراماج GSM.",
-        dependencies=["core", "inventory", "purchases", "mfg"],
-    ),
-    "cst": ModuleManifest(
-        id="cst",
-        name="المقاولات العامة والإنشاءات الهندسية (Construction & Contracting)",
-        name_en="Construction & Contracting ERP",
-        category="infrastructure_projects",
-        version="1.0.0",
-        icon="HardHat",
-        badge="Phase 5",
-        description="هيكل تجزئة العمل WBS، جداول الكميات BOQ، مستخلصات التنفيذ IPC والاستقطاعات وحسن التنفيذ، أوامر التغيير والمطالبات، والمعدات الثقيلة.",
-        dependencies=["core", "inventory", "purchases", "finance", "hr"],
-    ),
-    "rec": ModuleManifest(
-        id="rec",
-        name="التطوير العقاري وإدارة الممتلكات (Real Estate & Property Management)",
-        name_en="Real Estate & Property Management ERP",
-        category="infrastructure_projects",
-        version="1.0.0",
-        icon="Building2",
-        badge="Phase 5",
-        description="محفظة العقارات والوحدات، مصفوفة الشواغر والإشغال، عقود الإيجار، حافظة شيكات PDC، رسوم الصيانة CAM، وعوائد التشغيل الصافية NOI.",
-        dependencies=["core", "finance"],
-    ),
-    "agr": ModuleManifest(
-        id="agr",
-        name="الزراعة التجارية وإدارة المزارع والمحاصيل (Agriculture & Livestock)",
-        name_en="Commercial Agriculture & Farm Management ERP",
-        category="infrastructure_projects",
-        version="1.0.0",
-        icon="Tractor",
-        badge="Phase 5",
-        description="هيكل الأراضي والبيفوتات الزراعية، تخطيط المواسم، برامج التسميد والمكافحة وفترات الأمان PHI، دورات الري، وتتبع الحصاد والتصدير GlobalG.A.P.",
-        dependencies=["core", "inventory", "purchases", "finance"],
-    ),
-    "eng": ModuleManifest(
-        id="eng",
-        name="محطات الطاقة وتوليد الكهرباء (Power Plant & Grid ERP)",
-        name_en="Energy & Power Generation Plant ERP",
-        category="infrastructure_projects",
-        version="1.0.0",
-        icon="Zap",
-        badge="Phase 5",
-        description="شجرة الأصول القياسية ISO 14224/KKS، بيانات SCADA والحساسات اللحظية MW، الصيانة التنبؤية، تسوية عقود PPA، وتصاريح العمل PTW/LOTO.",
-        dependencies=["core", "inventory", "purchases", "finance", "hr"],
-    ),
-    "bnk": ModuleManifest(
-        id="bnk",
-        name="الأنظمة المصرفية والمؤسسات المالية (Banking ERP)",
-        name_en="Banking & Financial Institutions ERP",
-        category="specialized",
-        version="1.0.0",
-        icon="Landmark",
-        badge="Phase 6",
-        description="ملف العميل الموحد CIF، دفتر الأستاذ البنكي اللحظي، الإقراض والتقييم الائتماني I-Score، مراقبة غسيل الأموال AML، ومعايير IFRS 9.",
-        dependencies=["core", "finance"],
-    ),
-    "ins": ModuleManifest(
-        id="ins",
-        name="التأمين وإعادة التأمين وإدارة المطالبات (Insurance ERP)",
-        name_en="Insurance & Claims ERP",
-        category="specialized",
-        version="1.0.0",
-        icon="Shield",
-        badge="Phase 6",
-        description="إصدار وثائق التأمين، احتساب الأقساط الاكتوارية، مطالبات الحوادث والمعاينة الفنية، مخصصات IFRS 17، واتفاقيات إعادة التأمين.",
-        dependencies=["core", "finance"],
-    ),
-    "gov": ModuleManifest(
-        id="gov",
-        name="القطاع الحكومي والمنظمات غير الهادفة للربح (Government & NGOs)",
-        name_en="Government & Nonprofit ERP",
-        category="specialized",
-        version="1.0.0",
-        icon="Building",
-        badge="Phase 6",
-        description="محاسبة الصناديق المقيدة وغير المقيدة، الارتباط المالي وحجز الموازنات Encumbrance، دورة حياة المنح، وسجل المستفيدين وتوزيع المساعدات.",
-        dependencies=["core", "finance"],
-    ),
-    "ent": ModuleManifest(
-        id="ent",
-        name="الترفيه والفعاليات والألعاب والملاهي (Entertainment & Events)",
-        name_en="Entertainment, Events & Gaming ERP",
-        category="specialized",
-        version="1.0.0",
-        icon="Ticket",
-        badge="Phase 6",
-        description="كتالوج الفعاليات والعروض، حجز المقاعد المدرجة، بوابات الدخول السريعة Turnstiles، بطاقات ألعاب الملاهي RFID، وبوفيهات الأغذية السريعة.",
-        dependencies=["core", "pos", "finance"],
-    ),
-    "oil": ModuleManifest(
-        id="oil",
-        name="عمليات البترول والغاز واستخراج الطاقة (Oil & Gas ERP)",
-        name_en="Oil & Gas Extraction ERP",
-        category="specialized",
-        version="1.0.0",
-        icon="Flame",
-        badge="Phase 6",
-        description="شجرة الآبار والمكامن البحرية والبرية، تخصيص الإنتاج الهيدروكربوني اليومي، تقرير الحفر اليومي DDR، صهاريج الخام، ومحاسبة الشركاء JV Cash Calls.",
-        dependencies=["core", "finance", "cst", "eng"],
-    ),
-}
 
 # Pre-packaged Business Vertical Bundles
 BUSINESS_PRESETS: dict[str, BusinessPreset] = {
@@ -710,30 +321,16 @@ SECTOR_TO_PRESET: dict[str, str] = {
 
 
 async def get_active_modules(db: AsyncSession) -> list[str]:
-    """Retrieve the active module list for the current tenant from settings."""
-    result = await db.execute(select(StoreSetting).where(StoreSetting.key == "installed_modules"))
-    row = result.scalar_one_or_none()
-    if row and row.value:
-        try:
-            mods = json.loads(row.value)
-            if isinstance(mods, list):
-                # Ensure 'core' is always present
-                return list(set(["core"] + mods))
-        except Exception:
-            pass
-    # Fallback for tenants created before installed_modules was persisted:
-    # use the tenant's active_modules column.
-    try:
-        from app.core.tenancy import current_tenant_id
-        from app.models.tenant import Tenant
+    """The current workspace's active modules: tenants.active_modules, the only source
+    (ADR-006 phase 1; the installed_modules setting was folded into it by migration v50)."""
+    from app.core.tenancy import current_tenant_id
+    from app.models.tenant import Tenant
 
-        tid = current_tenant_id.get()
-        if tid is not None:
-            t = (await db.execute(select(Tenant).where(Tenant.id == tid))).scalar_one_or_none()
-            if t and getattr(t, "active_modules", None):
-                return list(set(["core"] + list(t.active_modules)))
-    except Exception:
-        pass
+    tid = current_tenant_id.get()
+    if tid is not None:
+        mods = await db.scalar(select(Tenant.active_modules).where(Tenant.id == tid))
+        if mods:
+            return list(dict.fromkeys(["core", *mods]))
     return list(DEFAULT_MODULES)
 
 
@@ -759,26 +356,24 @@ async def get_active_preset(db: AsyncSession) -> str:
 
 
 async def set_active_modules(db: AsyncSession, modules: list[str], preset_id: str | None = None) -> None:
-    """Save active modules and optional preset for the current tenant."""
-    # Ensure core is always active
-    clean_mods = list(set(["core"] + modules))
+    """Save the current workspace's active modules (with their dependencies) and preset."""
+    from app.core.tenancy import current_tenant_id
+    from app.models.tenant import Tenant
 
-    # Validate dependencies
-    for mod_id in clean_mods:
-        manifest = MODULE_CATALOG.get(mod_id)
-        if manifest:
-            for dep in manifest.dependencies:
-                if dep not in clean_mods:
-                    clean_mods.append(dep)
+    tid = current_tenant_id.get()
+    if tid is None:
+        raise HTTPException(status_code=400, detail="لا توجد منشأة محددة")
 
-    # Upsert installed_modules
-    val_json = json.dumps(clean_mods)
-    res = await db.execute(select(StoreSetting).where(StoreSetting.key == "installed_modules"))
-    row = res.scalar_one_or_none()
-    if row:
-        row.value = val_json
-    else:
-        db.add(StoreSetting(key="installed_modules", value=val_json))
+    clean_mods = list(dict.fromkeys(["core", *modules]))
+    for mod_id in list(clean_mods):
+        for dep in manifest_index().get(mod_id, {}).get("dependencies", []):
+            if dep not in clean_mods:
+                clean_mods.append(dep)
+
+    tenant = await db.get(Tenant, tid)
+    if tenant is None:
+        raise HTTPException(status_code=404, detail="المنشأة غير موجودة")
+    tenant.active_modules = clean_mods
 
     if preset_id:
         res_p = await db.execute(select(StoreSetting).where(StoreSetting.key == "active_business_preset"))
@@ -801,13 +396,13 @@ def require_module(module_id: str):
     from app.dependencies import get_current_user
 
     # Depends on the user so the workspace is bound before its modules are read; without it the
-    # guard read installed_modules with no workspace (another workspace's row, or several).
+    # guard read the modules with no workspace bound (another workspace's, or several).
     async def _checker(db: AsyncSession = Depends(get_db), _user=Depends(get_current_user)):
         active = await get_active_modules(db)
         target_alias = MODULE_ALIASES.get(module_id, module_id)
         if module_id not in active and target_alias not in active:
-            manifest = MODULE_CATALOG.get(module_id) or MODULE_CATALOG.get(target_alias)
-            name = manifest.name if manifest else module_id
+            index = manifest_index()
+            name = (index.get(module_id) or index.get(target_alias) or {}).get("name", module_id)
             raise HTTPException(
                 status_code=403,
                 detail=f"وحدة «{name}» غير مفعلة في اشتراك المنشأة الحالي. يمكنك تفعيلها من متجر الإضافات.",

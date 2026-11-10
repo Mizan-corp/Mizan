@@ -1,11 +1,8 @@
 """Workspaces (tenants): find, inspect and manage every company on Mizan."""
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import UTC, datetime, timedelta
-from functools import lru_cache
-from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -13,10 +10,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import app as app_pkg
 from admin_api.common import days_until, get_tenant, iso, record
 from admin_api.routers.activity import recent_activity
 from app.core.modules import set_active_modules
+from app.modules.loader import manifest_index
 from app.core.plans import PLANS_CONFIG, get_plan_limits
 from app.core.sectors import SECTORS
 from app.core.security import hash_password
@@ -42,7 +39,6 @@ from app.services.licences import status as licence_status
 router = APIRouter(prefix="/admoon", tags=["admin: workspaces"])
 
 TRIAL_DAYS = 14
-MODULES_DIR = Path(app_pkg.__file__).parent / "modules"
 
 
 # ─── Serialization ─────────────────────────────────────────────────────────
@@ -414,17 +410,13 @@ async def extend_trial(
 # ─── Modules ───────────────────────────────────────────────────────────────
 
 
-@lru_cache(maxsize=1)
 def module_catalog() -> list[dict]:
-    """Top-level modules from their manifest.json files (no code is imported)."""
-    items = []
-    for manifest in sorted(MODULES_DIR.glob("*/manifest.json")):
-        m = json.loads(manifest.read_text(encoding="utf-8"))
-        if m.get("category") in ("system", "core"):
-            continue
-        items.append({"id": m["id"], "name": m.get("name", m["id"]), "name_en": m.get("name_en", ""),
-                      "category": m.get("category", "")})
-    return items
+    """Every module from its manifest.json (no module code is imported)."""
+    return [
+        {"id": mid, "name": m.get("name", mid), "name_en": m.get("name_en", ""), "category": m.get("category", "")}
+        for mid, m in sorted(manifest_index().items())
+        if m.get("category") not in ("system", "core")
+    ]
 
 
 @router.get("/modules")

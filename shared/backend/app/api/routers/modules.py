@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.modules import (
     BUSINESS_PRESETS,
-    MODULE_CATALOG,
     get_active_modules,
     get_active_preset,
     set_active_modules,
@@ -35,8 +34,8 @@ class UpdateModuleSettingsRequest(BaseModel):
 
 
 def _catalog() -> dict:
-    """Built-in catalogue plus the modules discovered from their manifests."""
-    return {**MODULE_CATALOG, **{m.id: m for m in registry.get_all_manifests()}}
+    """Every module, from its manifest (the registry is the only catalogue)."""
+    return {m.id: m for m in registry.get_all_manifests()}
 
 
 @router.get("")

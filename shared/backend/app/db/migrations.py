@@ -2478,6 +2478,20 @@ MIGRATIONS = [
         END IF;
         END $$;
     """),
+    # A workspace's active modules lived in two places: the installed_modules setting (read
+    # first by the ERP) and tenants.active_modules (written by the admin panel, read by
+    # licences). The column is now the only one (ADR-006 phase 1); the setting wins, since
+    # it is what the ERP has been enforcing.
+    ("v50_active_modules_single_source", """
+        UPDATE tenants t SET active_modules = m.mods
+        FROM (
+            SELECT tenant_id,
+                   CASE WHEN value ~ '^\\s*\\[.*\\]\\s*$' THEN value::jsonb END AS mods
+            FROM store_settings WHERE key = 'installed_modules'
+        ) m
+        WHERE m.tenant_id = t.id AND m.mods IS NOT NULL;
+        DELETE FROM store_settings WHERE key = 'installed_modules';
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

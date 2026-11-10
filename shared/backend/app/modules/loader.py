@@ -10,6 +10,7 @@ import importlib
 import json
 import logging
 from dataclasses import asdict, dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +51,35 @@ class ModuleManifest:
     badge: str | None = None
     nav_items: list[dict[str, Any]] = field(default_factory=list)
     settings_schema: list[SettingField] = field(default_factory=list)
+
+
+def manifest_files(modules_dir: Path = MODULES_DIR) -> list[Path]:
+    """Every module's manifest.json: top-level modules and those grouped in an activity folder."""
+    files = []
+    for entry in sorted(modules_dir.iterdir()):
+        if not entry.is_dir() or entry.name.startswith(("_", ".")):
+            continue
+        if (entry / "manifest.json").exists():
+            files.append(entry / "manifest.json")
+        for sub in sorted(entry.iterdir()):
+            if sub.is_dir() and not sub.name.startswith(("_", ".")) and (sub / "manifest.json").exists():
+                files.append(sub / "manifest.json")
+    return files
+
+
+@lru_cache(maxsize=1)
+def manifest_index() -> dict[str, dict[str, Any]]:
+    """Module id → raw manifest, read from the files only (no module code is imported).
+    For callers that need the catalogue without loading every module (admin API, dependency
+    resolution); the registry reads the same files."""
+    index: dict[str, dict[str, Any]] = {}
+    for f in manifest_files():
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except ValueError:
+            continue  # reported by the registry (registry.errors)
+        index.setdefault(data.get("id", f.parent.name), data)
+    return index
 
 
 class ModuleRegistry:
@@ -132,24 +162,14 @@ class ModuleRegistry:
             self.errors.append(f"{manifest_file}: invalid manifest: {err!r}")
 
     def discover_modules(self) -> dict[str, ModuleManifest]:
-        """Scan directory for modules with manifest.json and load them (both flat and nested business activity folders)."""
+        """Load every module that has a manifest.json (top-level or in an activity folder)."""
         if self._discovered:
             return self._manifests
 
-        for entry in self.modules_dir.iterdir():
-            if not entry.is_dir() or entry.name.startswith(("_", ".")):
-                continue
-
-            manifest_file = entry / "manifest.json"
-            if manifest_file.exists():
-                self._load_module_from_dir(entry)
-
-            # Potential business activity category folder (e.g. healthcare, hospitality)
-            for sub_entry in entry.iterdir():
-                if not sub_entry.is_dir() or sub_entry.name.startswith(("_", ".")):
-                    continue
-                if (sub_entry / "manifest.json").exists():
-                    self._load_module_from_dir(sub_entry, parent_pkg=entry.name)
+        for manifest_file in manifest_files(self.modules_dir):
+            entry = manifest_file.parent
+            parent_pkg = None if entry.parent == self.modules_dir else entry.parent.name
+            self._load_module_from_dir(entry, parent_pkg=parent_pkg)
 
         self._discovered = True
         return self._manifests
