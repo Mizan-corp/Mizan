@@ -37,6 +37,11 @@ class UpdateModuleSettingsRequest(BaseModel):
     settings: dict[str, Any]
 
 
+def _catalog() -> dict:
+    """Built-in catalogue plus the modules discovered from their manifests."""
+    return {**MODULE_CATALOG, **{m.id: m for m in registry.get_all_manifests()}}
+
+
 @router.get("")
 async def list_modules(
     db: AsyncSession = Depends(get_db),
@@ -46,9 +51,7 @@ async def list_modules(
     active_mods = await get_active_modules(db)
     active_preset = await get_active_preset(db)
 
-    # Combine built-in catalog with auto-discovered modules from loader
-    discovered = {m.id: m for m in registry.get_all_manifests()}
-    combined = {**MODULE_CATALOG, **discovered}
+    combined = _catalog()
 
     catalog_list = []
     for m in combined.values():
@@ -115,7 +118,9 @@ async def toggle_module(
     _=Depends(require_perm("settings")),
 ):
     """Enable or disable a specific module."""
-    if module_id not in MODULE_CATALOG:
+    # The same catalogue the module centre lists: discovered modules can be enabled too.
+    catalog = _catalog()
+    if module_id not in catalog:
         raise HTTPException(status_code=404, detail="الوحدة المطلوبة غير موجودة في الدليل")
 
     if module_id == "core" and not data.enabled:
@@ -126,14 +131,14 @@ async def toggle_module(
     if data.enabled:
         active.add(module_id)
         # Add dependencies
-        manifest = MODULE_CATALOG[module_id]
+        manifest = catalog[module_id]
         for dep in manifest.dependencies:
             active.add(dep)
     else:
         # Check if other active modules depend on this one
         dependent = [
             m.name
-            for m in MODULE_CATALOG.values()
+            for m in catalog.values()
             if m.id in active and module_id in m.dependencies and m.id != module_id
         ]
         if dependent:

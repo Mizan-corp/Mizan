@@ -22,7 +22,6 @@ from app.api.routers import (
     settings,
     shifts,
     stock,
-    storefront,
     suppliers,
     users,
     wallets,
@@ -54,8 +53,6 @@ router.include_router(archive.router)
 router.include_router(settings.router)
 router.include_router(operations.router)
 router.include_router(ledger_router.router)
-router.include_router(storefront.router)
-router.include_router(storefront.page_router)
 router.include_router(hr.router)
 router.include_router(finance.router)
 router.include_router(suppliers.router)

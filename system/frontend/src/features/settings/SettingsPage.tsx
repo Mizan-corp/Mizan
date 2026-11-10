@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
 import { Button, Card, ErrorBox, Input, Select, Spinner } from "@/components/ui";
 import { useAuth } from "@/stores/auth";
+import { useModulesStore } from "@app/stores/modules";
 
 interface Settings {
   store_name?: string;
@@ -51,6 +52,7 @@ const COLOR_PRESETS = [
 export default function SettingsPage() {
   const qc = useQueryClient();
   const tenant = useAuth((s) => s.tenant);
+  const hasStorefront = useModulesStore((s) => s.hasModule("storefront"));
   const q = useQuery({ queryKey: ["settings"], queryFn: () => api.get<Settings>("/settings") });
   const uq = useQuery({ queryKey: ["user-settings"], queryFn: () => api.get<{ settings: UserSettings }>("/users/me/settings") });
 
@@ -752,23 +754,25 @@ export default function SettingsPage() {
             </div>
           </Card>
 
-          <Card className="p-6 bg-[#FFFFFF] border border-[#DECFC0] rounded-2xl flex items-center justify-between">
-            <div>
-              <p className="font-semibold text-sm text-[#262321]">المتجر الإلكتروني العام</p>
-              <p className="text-xs text-[#77716E]">
-                واجهة العملاء العامة تعمل تلقائياً من هذه البيانات
-              </p>
-            </div>
-            <a
-              href="/api/storefront"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#FAF6F0] border border-[#DECFC0] text-xs font-semibold text-[#651E2C] hover:bg-[#FFFFFF] transition-colors"
-            >
-              <span>فتح المتجر الإلكتروني</span>
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          </Card>
+          {hasStorefront && tenant?.slug && (
+            <Card className="p-6 bg-[#FFFFFF] border border-[#DECFC0] rounded-2xl flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-sm text-[#262321]">المتجر الإلكتروني العام</p>
+                <p className="text-xs text-[#77716E]">
+                  واجهة العملاء العامة تعمل تلقائياً من هذه البيانات
+                </p>
+              </div>
+              <a
+                href={`/store/${tenant.slug}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#FAF6F0] border border-[#DECFC0] text-xs font-semibold text-[#651E2C] hover:bg-[#FFFFFF] transition-colors"
+              >
+                <span>فتح المتجر الإلكتروني</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </Card>
+          )}
         </div>
       )}
 

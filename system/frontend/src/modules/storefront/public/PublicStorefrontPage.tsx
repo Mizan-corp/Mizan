@@ -28,6 +28,7 @@ import {
   Sparkles,
   ShoppingBag,
 } from "lucide-react";
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/kit/empty";
 import { formatCurrency } from "@/lib/format";
 import { Button } from "@/components/kit/button";
 import { Input } from "@/components/kit/input";
@@ -113,6 +114,8 @@ export default function PublicStorefrontPage() {
   const [categories, setCategories] = useState<PublicCategory[]>([]);
   const [products, setProducts] = useState<PublicProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  // The address doesn't lead to an open shop (no such workspace, shop not enabled, or closed).
+  const [unavailable, setUnavailable] = useState<string | null>(null);
 
   // Filters
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -144,9 +147,16 @@ export default function PublicStorefrontPage() {
   useEffect(() => {
     async function initStore() {
       setLoading(true);
+      setUnavailable(null);
       try {
+        const cfgResp = await fetch(`${RAW_API_BASE}/storefront/${slug}/config`);
+        if (cfgResp.status === 404) {
+          const body = await cfgResp.json().catch(() => null);
+          setUnavailable(typeof body?.detail === "string" ? body.detail : "المتجر غير موجود");
+          return;
+        }
         const [cfgRes, catRes, prodRes] = await Promise.all([
-          fetch(`${RAW_API_BASE}/storefront/${slug}/config`).then((r) => r.json()),
+          cfgResp.json(),
           fetch(`${RAW_API_BASE}/storefront/${slug}/categories`).then((r) => r.json()),
           fetch(`${RAW_API_BASE}/storefront/${slug}/products?page_size=60`).then((r) => r.json()),
         ]);
@@ -321,6 +331,22 @@ export default function PublicStorefrontPage() {
   }, [products, search, selectedCategory]);
 
   const totalCartCount = cart.reduce((acc, i) => acc + i.quantity, 0);
+
+  if (unavailable) {
+    return (
+      <div className="grid min-h-svh place-items-center bg-background p-6" dir="rtl">
+        <Empty className="max-w-md border border-dashed">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Store />
+            </EmptyMedia>
+            <EmptyTitle>{unavailable}</EmptyTitle>
+            <EmptyDescription>تأكد من رابط المتجر، أو تواصل مع صاحب النشاط.</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-svh bg-background text-foreground flex flex-col selection:bg-primary/20" dir="rtl">

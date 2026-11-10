@@ -18,7 +18,7 @@ from sqlalchemy.orm import selectinload
 from app.core.pagination import Page
 from app.core.tenancy import bind_tenant, current_tenant_id
 from app.db.base import get_db
-from app.dependencies import get_current_user
+from app.dependencies import require_perm
 from app.models.product import Category, Product, Subcategory
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -30,6 +30,8 @@ from app.modules.storefront.models import (
 )
 
 router = APIRouter(tags=["storefront"])
+
+_STORE_NOT_FOUND = "المتجر غير موجود — تحقق من صحة الرابط أو اسم المنشأة"
 
 
 # -------------------------------------------------------------------------
@@ -48,9 +50,28 @@ async def _resolve_tenant_by_slug(db: AsyncSession, slug_or_id: str) -> Tenant:
             pass
 
     if not tenant:
-        raise HTTPException(
-            status_code=404, detail="المتجر غير موجود — تحقق من صحة الرابط أو اسم المنشأة"
-        )
+        raise HTTPException(status_code=404, detail=_STORE_NOT_FOUND)
+    return tenant
+
+
+async def _open_store(db: AsyncSession, slug: str, *, allow_closed: bool = False) -> Tenant:
+    """The workspace behind a public shop address, bound for tenant-scoped reads.
+
+    A workspace's catalogue is public only while it uses the storefront module and hasn't
+    closed its shop (#95); otherwise the shop doesn't exist, whatever the address.
+    """
+    from app.core.modules import get_active_modules
+
+    tenant = await _resolve_tenant_by_slug(db, slug)
+    await bind_tenant(db, tenant.id)
+    if "storefront" not in await get_active_modules(db):
+        raise HTTPException(status_code=404, detail=_STORE_NOT_FOUND)
+    if not allow_closed:
+        cfg = (
+            await db.execute(select(StorefrontConfig).where(StorefrontConfig.tenant_id == tenant.id))
+        ).scalar_one_or_none()
+        if cfg is not None and not cfg.is_active:
+            raise HTTPException(status_code=404, detail="المتجر مغلق حالياً")
     return tenant
 
 
@@ -126,6 +147,7 @@ class UpdateConfigIn(BaseModel):
     allow_dine_in: bool = True
     social_instagram: str | None = None
     social_facebook: str | None = None
+    is_active: bool | None = None  # open/close the shop; left out = unchanged
 
 
 class CreateCouponIn(BaseModel):
@@ -143,7 +165,7 @@ class CreateCouponIn(BaseModel):
 @router.get("/storefront/{tenant_slug}/config")
 async def get_public_store_config(tenant_slug: str, db: AsyncSession = Depends(get_db)):
     """Fetch store identity, theme, contact, and delivery settings."""
-    tenant = await _resolve_tenant_by_slug(db, tenant_slug)
+    tenant = await _open_store(db, tenant_slug)
     cfg = await _get_or_create_config(db, tenant)
 
     # Categories count
@@ -187,8 +209,7 @@ async def get_public_store_config(tenant_slug: str, db: AsyncSession = Depends(g
 @router.get("/storefront/{tenant_slug}/categories")
 async def get_public_store_categories(tenant_slug: str, db: AsyncSession = Depends(get_db)):
     """List public categories for the tenant."""
-    tenant = await _resolve_tenant_by_slug(db, tenant_slug)
-    await bind_tenant(db, tenant.id)
+    await _open_store(db, tenant_slug)
 
     cats = (await db.execute(select(Category).order_by(Category.name))).scalars().all()
     result = []
@@ -222,8 +243,7 @@ async def get_public_store_products(
     db: AsyncSession = Depends(get_db),
 ):
     """Browse public catalog for tenant."""
-    tenant = await _resolve_tenant_by_slug(db, tenant_slug)
-    await bind_tenant(db, tenant.id)
+    await _open_store(db, tenant_slug)
 
     stmt = select(Product).where(Product.is_active == True)
     count_stmt = select(func.count(Product.id)).where(Product.is_active == True)
@@ -284,7 +304,7 @@ async def validate_store_coupon(
     db: AsyncSession = Depends(get_db),
 ):
     """Validate coupon code and return discount amount."""
-    tenant = await _resolve_tenant_by_slug(db, tenant_slug)
+    tenant = await _open_store(db, tenant_slug)
 
     stmt = select(StorefrontCoupon).where(
         StorefrontCoupon.tenant_id == tenant.id,
@@ -329,7 +349,7 @@ async def storefront_checkout(
     db: AsyncSession = Depends(get_db),
 ):
     """Customer checkout: create StorefrontOrder and StorefrontOrderItems."""
-    tenant = await _resolve_tenant_by_slug(db, tenant_slug)
+    tenant = await _open_store(db, tenant_slug, allow_closed=True)
     cfg = await _get_or_create_config(db, tenant)
 
     if not cfg.is_active:
@@ -485,7 +505,8 @@ async def get_public_order_tracking(
     tenant_slug: str, order_number: str, db: AsyncSession = Depends(get_db)
 ):
     """Public customer order status tracker."""
-    tenant = await _resolve_tenant_by_slug(db, tenant_slug)
+    # A customer can still follow an order after the shop closes.
+    tenant = await _open_store(db, tenant_slug, allow_closed=True)
 
     stmt = select(StorefrontOrder).where(
         StorefrontOrder.tenant_id == tenant.id,
@@ -530,7 +551,7 @@ async def get_public_order_tracking(
 @router.get("/modules/storefront/dashboard")
 async def get_storefront_admin_dashboard(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("sales")),
 ):
     """Back-office statistics for web orders."""
     tid = current_tenant_id.get() or current_user.tenant_id
@@ -560,7 +581,7 @@ async def get_storefront_admin_dashboard(
 @router.get("/modules/storefront/config")
 async def get_storefront_admin_config(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("sales")),
 ):
     """Get current tenant store configuration."""
     tid = current_tenant_id.get() or current_user.tenant_id
@@ -597,7 +618,7 @@ async def get_storefront_admin_config(
 async def update_storefront_admin_config(
     payload: UpdateConfigIn,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("settings")),
 ):
     """Update tenant storefront settings."""
     tid = current_tenant_id.get() or current_user.tenant_id
@@ -622,6 +643,8 @@ async def update_storefront_admin_config(
     cfg.allow_dine_in = payload.allow_dine_in
     cfg.social_instagram = payload.social_instagram
     cfg.social_facebook = payload.social_facebook
+    if payload.is_active is not None:
+        cfg.is_active = payload.is_active
 
     await db.commit()
     return {"ok": True, "message": "تم حفظ وتحديث إعدادات المتجر الإلكتروني بنجاح"}
@@ -634,7 +657,7 @@ async def get_storefront_admin_orders(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("sales")),
 ):
     """List online storefront orders with status filtering."""
     tid = current_tenant_id.get() or current_user.tenant_id
@@ -697,7 +720,7 @@ async def update_storefront_order_status(
     order_id: uuid.UUID,
     payload: UpdateStatusIn,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("sales")),
 ):
     """Change storefront order status."""
     tid = current_tenant_id.get() or current_user.tenant_id
@@ -717,7 +740,7 @@ async def update_storefront_order_status(
 @router.get("/modules/storefront/coupons")
 async def list_storefront_coupons(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("sales")),
 ):
     """List discount coupons for tenant."""
     tid = current_tenant_id.get() or current_user.tenant_id
@@ -747,7 +770,7 @@ async def list_storefront_coupons(
 async def create_storefront_coupon(
     payload: CreateCouponIn,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("settings")),
 ):
     """Create a discount coupon."""
     tid = current_tenant_id.get() or current_user.tenant_id
@@ -781,7 +804,7 @@ async def create_storefront_coupon(
 async def delete_storefront_coupon(
     coupon_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("settings")),
 ):
     """Deactivate or remove a coupon."""
     tid = current_tenant_id.get() or current_user.tenant_id

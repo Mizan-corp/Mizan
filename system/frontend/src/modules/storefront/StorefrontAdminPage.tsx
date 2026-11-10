@@ -113,6 +113,8 @@ interface CouponItem {
 
 export default function StorefrontAdminPage() {
   const { tenant } = useAuth();
+  // Changing the shop and its coupons is a settings matter; sales staff handle orders.
+  const canManage = useAuth((s) => s.can("settings"));
   const [activeTab, setActiveTab] = useState<"orders" | "customizer" | "coupons">("orders");
 
   // Dashboard Stats
@@ -281,7 +283,8 @@ export default function StorefrontAdminPage() {
     }
   }
 
-  const liveStoreUrl = tenantSlug ? `/store/${tenantSlug}` : "/storefront";
+  const shopSlug = tenantSlug || tenant?.slug;
+  const liveStoreUrl = shopSlug ? `/store/${shopSlug}` : "/storefront";
 
   return (
     <div className="space-y-6">
@@ -769,7 +772,10 @@ export default function StorefrontAdminPage() {
           </div>
 
           <div className="flex justify-end">
-            <Button type="submit" disabled={savingConfig} className="font-bold text-xs gap-1.5 px-6">
+            {!canManage && (
+              <p className="me-auto self-center text-xs text-muted-foreground">تعديل إعدادات المتجر يتطلب صلاحية الإعدادات.</p>
+            )}
+            <Button type="submit" disabled={savingConfig || !canManage} className="font-bold text-xs gap-1.5 px-6">
               {savingConfig ? <RefreshCw className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
               <span>حفظ وتطبيق إعدادات المتجر</span>
             </Button>
@@ -787,14 +793,16 @@ export default function StorefrontAdminPage() {
                 إنشاء أكواد خصم ترويجية بنسبة مئوية أو قيمة ثابتة للعملاء عند الشراء من المتجر.
               </p>
             </div>
-            <Button
-              size="sm"
-              onClick={() => setNewCouponModalOpen(true)}
-              className="text-xs font-bold gap-1"
-            >
-              <Plus className="size-3.5" />
-              <span>إضافة كود خصم</span>
-            </Button>
+            {canManage && (
+              <Button
+                size="sm"
+                onClick={() => setNewCouponModalOpen(true)}
+                className="text-xs font-bold gap-1"
+              >
+                <Plus className="size-3.5" />
+                <span>إضافة كود خصم</span>
+              </Button>
+            )}
           </div>
 
           <div className="rounded-xl border border-border bg-card overflow-hidden shadow-xs">
