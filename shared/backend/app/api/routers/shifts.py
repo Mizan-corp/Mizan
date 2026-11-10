@@ -160,18 +160,15 @@ async def list_shifts(
     current_user: User = Depends(require_perm("shifts")),
 ):
     await verify_warehouse_access(db, current_user, warehouse_id)
-    q = select(Shift)
+    # One query: the cashier's name comes with each shift (was one query per shift, #20).
+    q = select(Shift, User.full_name).outerjoin(User, User.id == Shift.cashier_id)
     if warehouse_id:
         q = q.where(Shift.warehouse_id == warehouse_id)
     q = q.order_by(Shift.started_at.desc()).limit(limit).offset(offset)
-    result = await db.execute(q)
-    shifts = result.scalars().all()
     out = []
-    for s in shifts:
-        o = ShiftOut.model_validate(s)
-        if s.cashier_id:
-            name = (await db.execute(text("SELECT full_name FROM users WHERE id=:id"), {"id": s.cashier_id})).scalar()
-            o.cashier_name = name
+    for shift, cashier_name in (await db.execute(q)).all():
+        o = ShiftOut.model_validate(shift)
+        o.cashier_name = cashier_name
         out.append(o)
     return out
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime, timedelta
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -274,7 +273,24 @@ async def list_drugs(
     """List drugs with stock sums and generic alternatives count."""
     await _ensure_seeded(db)
 
-    stmt = select(PharmacyDrug)
+    # One query (was two per drug, #21): stock per drug and drugs per scientific name
+    # come from grouped subqueries; alternatives = same scientific name, minus itself.
+    stock = (
+        select(PharmacyBatch.drug_id, func.coalesce(func.sum(PharmacyBatch.quantity_on_hand), 0).label("total"))
+        .group_by(PharmacyBatch.drug_id)
+        .subquery()
+    )
+    same_name = (
+        select(PharmacyDrug.scientific_name, func.count(PharmacyDrug.id).label("n"))
+        .where(PharmacyDrug.scientific_name.is_not(None))
+        .group_by(PharmacyDrug.scientific_name)
+        .subquery()
+    )
+    stmt = (
+        select(PharmacyDrug, func.coalesce(stock.c.total, 0), func.coalesce(same_name.c.n - 1, 0))
+        .outerjoin(stock, stock.c.drug_id == PharmacyDrug.id)
+        .outerjoin(same_name, same_name.c.scientific_name == PharmacyDrug.scientific_name)
+    )
     if controlled_only:
         stmt = stmt.where(PharmacyDrug.is_controlled.is_(True))
     if q:
@@ -286,32 +302,9 @@ async def list_drugs(
             | (PharmacyDrug.barcode.ilike(term))
         )
     stmt = stmt.order_by(PharmacyDrug.trade_name.asc())
-    res = await db.execute(stmt)
-    drugs = res.scalars().all()
 
     items = []
-    for d in drugs:
-        # Sum current stock across active batches
-        stock_sum = (
-            await db.scalar(
-                select(func.coalesce(func.sum(PharmacyBatch.quantity_on_hand), 0)).where(
-                    PharmacyBatch.drug_id == d.id
-                )
-            )
-            or 0
-        )
-
-        # Count generic alternatives sharing the exact same scientific name
-        alt_count = (
-            await db.scalar(
-                select(func.count(PharmacyDrug.id)).where(
-                    PharmacyDrug.scientific_name == d.scientific_name,
-                    PharmacyDrug.id != d.id,
-                )
-            )
-            or 0
-        )
-
+    for d, stock_sum, alt_count in (await db.execute(stmt)).all():
         items.append(
             {
                 "id": d.id,

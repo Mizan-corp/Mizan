@@ -12,6 +12,8 @@ from app.models.tenant import Tenant
 from app.modules.pharmacy.models import PharmacyPrescription
 from app.modules.school.models import SchoolStudent
 
+from main import app  # noqa: F401  (registers every model)
+
 pytestmark = pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
 
 # Unique indexes on workspace tables that deliberately don't include tenant_id.
