@@ -1,0 +1,573 @@
+/* Mizan card payment page (Paymob iframe). Palette: docs/DESIGN_SYSTEM.md. */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap");
+
+:root {
+  --paper: #faf6f0;
+  --card: #ffffff;
+  --sand: #efe4d6;
+  --line: #e6dcd2;
+  --ink: #262321;
+  --ink-2: #4d4744;
+  --mute: #77716e;
+  --wine: #651e2c;
+  --wine-hover: #521723;
+  --merlot: #35151d;
+  --rose: #b86b76;
+  --ok: #27835c;
+  --bad: #c14e50;
+  --radius: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--paper);
+}
+
+.mz {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 24px 18px 28px;
+  font-family: "IBM Plex Sans Arabic", "Segoe UI", Tahoma, system-ui, sans-serif;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.mz svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mz .mz-logo,
+.mz .mz-logo * {
+  stroke: none;
+}
+
+/* ── Header ─────────────────────────────────────────── */
+.mz-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mz-logo {
+  width: 40px;
+  height: 34px;
+}
+.mz-brand {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.mz-brand strong {
+  font-size: 18px;
+}
+.mz-brand span {
+  font-size: 12px;
+  color: var(--mute);
+}
+.mz-lock {
+  margin-inline-start: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(39, 131, 92, 0.1);
+  color: var(--ok);
+  font-size: 12px;
+  font-weight: 600;
+}
+.mz-lock svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ── Summary ────────────────────────────────────────── */
+.mz-summary {
+  margin-top: 18px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.mz-muted {
+  font-size: 13px;
+  color: var(--mute);
+}
+.mz-amount {
+  margin-top: 2px;
+  direction: rtl;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.mz-amount small {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-2);
+  margin-inline-start: 4px;
+}
+.mz-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--mute);
+  white-space: nowrap;
+}
+.mz-timer svg {
+  width: 14px;
+  height: 14px;
+}
+.mz-timer.mz-late {
+  color: var(--bad);
+}
+
+/* ── Card preview ───────────────────────────────────── */
+.mz-scene {
+  margin: 20px auto 6px;
+  width: 100%;
+  max-width: 340px;
+  aspect-ratio: 1.586;
+  perspective: 1000px;
+}
+.mz-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.mz-card.mz-flipped {
+  transform: rotateY(180deg);
+}
+.mz-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  padding: 18px 20px;
+  color: #faf6f0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 115% 120%, transparent 0 38%, rgba(255, 255, 255, 0.05) 38.4% 39%, transparent 39.4%),
+    radial-gradient(circle at 115% 120%, transparent 0 54%, rgba(255, 255, 255, 0.05) 54.4% 55%, transparent 55.4%),
+    radial-gradient(circle at 115% 120%, transparent 0 70%, rgba(255, 255, 255, 0.04) 70.4% 71%, transparent 71.4%),
+    linear-gradient(135deg, #651e2c 0%, #48151f 55%, #35151d 100%);
+  box-shadow:
+    0 18px 40px -18px rgba(53, 21, 29, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: background 0.4s;
+}
+.mz-back {
+  transform: rotateY(180deg);
+  padding: 0;
+}
+.mz-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mz-chip {
+  width: 42px;
+  height: 31px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, #e7cf9a, #b9965a);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+.mz-brandmark {
+  height: 28px;
+  min-width: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+.mz-number {
+  margin-top: 34px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: clamp(17px, 5.4vw, 21px);
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+.mz-meta {
+  margin-top: 18px;
+  align-items: flex-end;
+  gap: 12px;
+}
+.mz-meta small {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  opacity: 0.65;
+  margin-bottom: 2px;
+}
+.mz-exp {
+  text-align: right;
+}
+.mz-meta span {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  max-width: 190px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.mz-exp span {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+.mz-stripe {
+  margin-top: 24px;
+  height: 42px;
+  background: #1c0a0f;
+}
+.mz-sign {
+  margin: 18px 20px 0;
+  height: 38px;
+  border-radius: 6px;
+  background: repeating-linear-gradient(-45deg, #f4ede4 0 6px, #e9dfd2 6px 12px);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 12px;
+}
+.mz-sign span {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 15px;
+  color: var(--ink);
+  font-style: italic;
+}
+.mz-backnote {
+  display: block;
+  text-align: right;
+  margin: 10px 20px 0;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+/* Brand marks on the card and in the input */
+.mz-mark-visa {
+  font-size: 22px;
+  font-weight: 800;
+  font-style: italic;
+  color: #fff;
+}
+.mz-mark-mc {
+  position: relative;
+  width: 44px;
+  height: 28px;
+}
+.mz-mark-mc::before,
+.mz-mark-mc::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+.mz-mark-mc::before {
+  left: 0;
+  background: #eb001b;
+}
+.mz-mark-mc::after {
+  right: 0;
+  background: #f79e1b;
+  mix-blend-mode: screen;
+  opacity: 0.92;
+}
+.mz-mark-meeza {
+  font-size: 18px;
+  font-weight: 700;
+  font-style: normal;
+  color: #fff;
+  letter-spacing: 0;
+}
+.mz-mark-amex {
+  font-size: 13px;
+  font-weight: 800;
+  padding: 3px 6px;
+  border: 1.5px solid #fff;
+  border-radius: 4px;
+  font-style: normal;
+}
+
+/* ── Form ───────────────────────────────────────────── */
+.mz-form {
+  margin-top: 18px;
+}
+.mz-field {
+  margin-bottom: 12px;
+}
+.mz-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.mz-hint {
+  font-weight: 500;
+  color: var(--mute);
+  font-size: 11px;
+}
+.mz-input {
+  position: relative;
+}
+.mz-input input {
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  text-align: left;
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.mz-input input::placeholder {
+  color: #b3aaa3;
+  letter-spacing: 0.02em;
+}
+.mz-input input:focus {
+  border-color: var(--wine);
+  box-shadow: 0 0 0 3px rgba(101, 30, 44, 0.14);
+}
+.mz-input input[aria-invalid="true"] {
+  border-color: var(--bad);
+  box-shadow: 0 0 0 3px rgba(193, 78, 80, 0.12);
+}
+.mz-input input.mz-valid {
+  border-color: rgba(39, 131, 92, 0.55);
+}
+.mz-with-icon input {
+  padding-right: 64px;
+}
+.mz-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 26px;
+  min-width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  pointer-events: none;
+}
+.mz-icon:not(:empty) {
+  background: var(--merlot);
+  padding: 0 6px;
+}
+.mz-icon .mz-mark-visa {
+  font-size: 13px;
+}
+.mz-icon .mz-mark-mc {
+  width: 30px;
+  height: 18px;
+}
+.mz-icon .mz-mark-mc::before,
+.mz-icon .mz-mark-mc::after {
+  width: 18px;
+  height: 18px;
+}
+.mz-icon .mz-mark-meeza {
+  font-size: 12px;
+}
+.mz-icon .mz-mark-amex {
+  font-size: 9px;
+  padding: 1px 3px;
+}
+.mz-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.mz-err {
+  min-height: 0;
+  margin: 5px 2px 0;
+  font-size: 12px;
+  color: var(--bad);
+}
+.mz-err:empty {
+  display: none;
+}
+
+/* ── Pay button ─────────────────────────────────────── */
+.mz-pay {
+  margin-top: 8px;
+  width: 100%;
+  height: 52px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--wine);
+  color: #faf6f0;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 10px 22px -12px rgba(101, 30, 44, 0.8);
+  transition:
+    background 0.15s,
+    transform 0.1s,
+    opacity 0.15s;
+}
+.mz-pay svg {
+  width: 18px;
+  height: 18px;
+}
+.mz-pay:hover:not(:disabled) {
+  background: var(--wine-hover);
+}
+.mz-pay:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.mz-pay:focus-visible {
+  outline: 3px solid rgba(101, 30, 44, 0.35);
+  outline-offset: 2px;
+}
+.mz-pay:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.mz-spinner {
+  display: none;
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(250, 246, 240, 0.35);
+  border-top-color: #faf6f0;
+  border-radius: 50%;
+  animation: mz-spin 0.8s linear infinite;
+}
+.mz-pay.mz-busy .mz-spinner {
+  display: inline-block;
+}
+.mz-pay.mz-busy svg {
+  display: none;
+}
+@keyframes mz-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Footer ─────────────────────────────────────────── */
+.mz-foot {
+  margin-top: 18px;
+  font-size: 12px;
+  color: var(--mute);
+  line-height: 1.7;
+}
+.mz-foot p {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+}
+.mz-foot p svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--ok);
+}
+.mz-logos {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.mz-badge {
+  height: 24px;
+  min-width: 40px;
+  padding: 0 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--card);
+  font-size: 11px;
+  font-weight: 800;
+}
+.mz-visa {
+  color: #1a1f71;
+  font-style: italic;
+}
+.mz-mc {
+  gap: 0;
+}
+.mz-mc i {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #eb001b;
+}
+.mz-mc i + i {
+  margin-left: -5px;
+  background: #f79e1b;
+  opacity: 0.9;
+}
+.mz-meeza {
+  color: #0b7a3e;
+  font-weight: 700;
+}
+.mz-powered {
+  margin-inline-start: auto;
+  font-size: 11px;
+}
+.mz-powered b {
+  color: #1a56db;
+  letter-spacing: -0.01em;
+}
+
+@media (max-width: 360px) {
+  .mz {
+    padding: 18px 12px 22px;
+  }
+  .mz-amount {
+    font-size: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mz-card,
+  .mz-face,
+  .mz-pay {
+    transition: none;
+  }
+  .mz-spinner {
+    animation-duration: 2s;
+  }
+}

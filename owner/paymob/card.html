@@ -1,0 +1,141 @@
+<!--
+  Mizan's card payment page, hosted by Paymob (Accept iframe).
+  Paymob's script submits #paymob_checkout and reads the [paymob_field] inputs:
+  card_number (digits), card_holdername, card_expiry_mm, card_expiry_yy (2 digits),
+  card_cvn, subtype=CARD. Everything else is presentation (card.css, card.js).
+  Upload with: python owner/paymob/upload.py
+-->
+<div class="mz" dir="rtl" lang="ar">
+  <header class="mz-head">
+    <svg class="mz-logo" viewBox="0 0 48 40" aria-hidden="true">
+      <defs>
+          <linearGradient id="mzpay-left-outer" x1="4" y1="4" x2="16" y2="36" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#8A293B" />
+            <stop offset="100%" stop-color="#5E1B28" />
+          </linearGradient>
+          <linearGradient id="mzpay-left-inner" x1="12" y1="4" x2="24" y2="36" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#48151F" />
+            <stop offset="100%" stop-color="#2E0D14" />
+          </linearGradient>
+          <linearGradient id="mzpay-right-inner" x1="36" y1="4" x2="24" y2="36" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#48151F" />
+            <stop offset="100%" stop-color="#2E0D14" />
+          </linearGradient>
+          <linearGradient id="mzpay-right-outer" x1="44" y1="4" x2="32" y2="36" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#8A293B" />
+            <stop offset="100%" stop-color="#5E1B28" />
+          </linearGradient>
+        </defs>
+        <polygon points="3,36 9,6 18,17 11,36" fill="url(#mzpay-left-outer)" />
+        <polygon points="9,6 24,36 18,17" fill="url(#mzpay-left-inner)" />
+        <polygon points="39,6 24,36 30,17" fill="url(#mzpay-right-inner)" />
+        <polygon points="45,36 39,6 30,17 37,36" fill="url(#mzpay-right-outer)" />
+        <polygon points="9,6 12,10 18,17" fill="#A63A4E" opacity="0.35" />
+        <polygon points="39,6 36,10 30,17" fill="#A63A4E" opacity="0.35" />
+    </svg>
+    <div class="mz-brand">
+      <strong>ميزان</strong>
+      <span>صفحة دفع آمنة</span>
+    </div>
+    <span class="mz-lock" title="اتصال مشفر">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3" /><rect x="4" y="10" width="16" height="11" rx="2.5" /></svg>
+      مشفر
+    </span>
+  </header>
+
+  <section class="mz-summary" aria-label="ملخص الدفع">
+    <div>
+      <span class="mz-muted" id="mz-desc">اشتراك ميزان</span>
+      <div class="mz-amount" id="mz-amount">—</div>
+    </div>
+    <div class="mz-timer" id="mz-timer" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+      <span>تنتهي الصفحة خلال <b id="mz-countdown" dir="ltr">--:--</b></span>
+    </div>
+  </section>
+
+  <div class="mz-scene" aria-hidden="true">
+    <div class="mz-card" id="mz-card" dir="ltr">
+      <div class="mz-face mz-front">
+        <div class="mz-row">
+          <span class="mz-chip"></span>
+          <span class="mz-brandmark" id="mz-brandmark"></span>
+        </div>
+        <div class="mz-number" id="mz-pnumber" dir="ltr">•••• •••• •••• ••••</div>
+        <div class="mz-row mz-meta">
+          <div><small>CARD HOLDER</small><span id="mz-pname">YOUR NAME</span></div>
+          <div class="mz-exp"><small>VALID THRU</small><span id="mz-pexp">MM/YY</span></div>
+        </div>
+      </div>
+      <div class="mz-face mz-back">
+        <div class="mz-stripe"></div>
+        <div class="mz-sign"><span id="mz-pcvv" dir="ltr">•••</span></div>
+        <small class="mz-backnote" dir="rtl">رمز الأمان (CVV) على ظهر البطاقة</small>
+      </div>
+    </div>
+  </div>
+
+  <form id="paymob_checkout" class="mz-form" novalidate>
+    <div class="mz-field">
+      <label for="mz-number">رقم البطاقة</label>
+      <div class="mz-input mz-with-icon">
+        <input id="mz-number" type="text" inputmode="numeric" autocomplete="cc-number" dir="ltr"
+               placeholder="0000 0000 0000 0000" maxlength="23" aria-describedby="mz-number-err" required />
+        <span class="mz-icon" id="mz-numicon"></span>
+      </div>
+      <p class="mz-err" id="mz-number-err" role="alert"></p>
+      <input type="hidden" id="pm-number" paymob_field="card_number" />
+    </div>
+
+    <div class="mz-grid">
+      <div class="mz-field">
+        <label for="mz-expiry">تاريخ الانتهاء</label>
+        <div class="mz-input">
+          <input id="mz-expiry" type="text" inputmode="numeric" autocomplete="cc-exp" dir="ltr"
+                 placeholder="MM / YY" maxlength="7" aria-describedby="mz-expiry-err" required />
+        </div>
+        <p class="mz-err" id="mz-expiry-err" role="alert"></p>
+        <input type="hidden" id="pm-mm" paymob_field="card_expiry_mm" />
+        <input type="hidden" id="pm-yy" paymob_field="card_expiry_yy" />
+      </div>
+      <div class="mz-field">
+        <label for="mz-cvv">رمز الأمان <span class="mz-hint">CVV</span></label>
+        <div class="mz-input">
+          <input id="mz-cvv" type="password" inputmode="numeric" autocomplete="cc-csc" dir="ltr"
+                 placeholder="•••" maxlength="4" paymob_field="card_cvn" aria-describedby="mz-cvv-err" required />
+        </div>
+        <p class="mz-err" id="mz-cvv-err" role="alert"></p>
+      </div>
+    </div>
+
+    <div class="mz-field">
+      <label for="mz-name">الاسم على البطاقة</label>
+      <div class="mz-input">
+        <input id="mz-name" type="text" autocomplete="cc-name" dir="ltr" placeholder="NAME ON CARD"
+               paymob_field="card_holdername" aria-describedby="mz-name-err" required />
+      </div>
+      <p class="mz-err" id="mz-name-err" role="alert"></p>
+    </div>
+
+    <input type="hidden" value="CARD" paymob_field="subtype" />
+
+    <button type="submit" id="mz-pay" class="mz-pay" disabled>
+      <span class="mz-spinner" aria-hidden="true"></span>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3" /><rect x="4" y="10" width="16" height="11" rx="2.5" /></svg>
+      <span id="mz-paylabel">ادفع</span>
+    </button>
+  </form>
+
+  <footer class="mz-foot">
+    <p>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z" /><path d="M9 12l2 2 4-4" /></svg>
+      <span>بيانات بطاقتك تذهب مباشرة إلى Paymob ولا تصل إلى ميزان. قد يطلب بنكك رمز تحقق <bdi dir="ltr">(3-D Secure)</bdi>.</span>
+    </p>
+    <div class="mz-logos" aria-label="البطاقات المقبولة">
+      <span class="mz-badge mz-visa">VISA</span>
+      <span class="mz-badge mz-mc"><i></i><i></i></span>
+      <span class="mz-badge mz-meeza">meeza</span>
+      <span class="mz-powered">بواسطة <b>paymob</b></span>
+    </div>
+  </footer>
+</div>
