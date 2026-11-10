@@ -19,8 +19,9 @@ import ClaimsTab from "./tabs/ClaimsTab";
 import PatientsTab from "./tabs/PatientsTab";
 
 // Standalone 24 Healthcare ERP Modules (HLT-01..24)
-export const HEALTHCARE_MODULES_MAP: Record<string, { code: string; title: string; category: string; icon: any; component: React.LazyExoticComponent<any> }> = {
-  facility_management: { code: "HLT-01", title: "إدارة المنشآت والمرافق", category: "Core", icon: Building2, component: lazy(() => import("@modules/healthcare/facility_management/index")) },
+// preview: the screen runs on sample data and isn't wired to the API yet; it says so (#47).
+export const HEALTHCARE_MODULES_MAP: Record<string, { code: string; title: string; category: string; icon: any; component: React.LazyExoticComponent<any>; preview?: boolean }> = {
+  facility_management: { code: "HLT-01", title: "إدارة المنشآت والمرافق", category: "Core", icon: Building2, component: lazy(() => import("@modules/healthcare/facility_management/index")), preview: true },
   patient_identity: { code: "HLT-02", title: "تسجيل وهوية المرضى (MPI)", category: "Patients", icon: Users, component: lazy(() => import("@modules/healthcare/patient_identity/index")) },
   appointments_sched: { code: "HLT-03", title: "المواعيد وجدولة الأطباء", category: "Patients", icon: Calendar, component: lazy(() => import("@modules/healthcare/appointments/index")) },
   medical_staff: { code: "HLT-04", title: "الأطباء والكوادر الطبية", category: "Core", icon: UserCheck, component: lazy(() => import("@modules/healthcare/medical_staff/index")) },
@@ -688,6 +689,12 @@ export default function ClinicHealthcarePage() {
               </span>
             </div>
           </div>
+          {HEALTHCARE_MODULES_MAP[activeModuleKey].preview && (
+            <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900">
+              <strong className="font-semibold">معاينة:</strong> هذه الشاشة تعرض بيانات توضيحية، والتعديلات عليها لا تُحفظ بعد.
+              إدارة المنشآت والمباني والغرف الفعلية قيد التطوير.
+            </div>
+          )}
           <Suspense
             fallback={
               <div className="p-16 text-center text-muted-foreground bg-card border border-border rounded-2xl">
@@ -875,6 +882,9 @@ export default function ClinicHealthcarePage() {
                       <IconComp className="w-3.5 h-3.5" />
                       <span className="font-mono text-[10px] opacity-75">{mod.code}</span>
                       <span>{mod.title}</span>
+                      {mod.preview && (
+                        <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">معاينة</span>
+                      )}
                     </button>
                   );
                 })}
