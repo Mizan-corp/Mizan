@@ -23,10 +23,10 @@ from sqlalchemy import select, text
 from main import app
 from app.db.base import AsyncSessionLocal
 from app.platform.auth.security import create_access_token, hash_password
-from app.models.tenant import Tenant
-from app.models.user import User
-from app.models.warehouse import Warehouse
-from app.models.sale import Sale
+from app.platform.tenancy.models import Tenant
+from app.platform.auth.models.user import User
+from app.modules.general.inventory.models.warehouse import Warehouse
+from app.modules.general.sales.models.sale import Sale
 from app.modules.healthcare.healthcare_clinic.models import (
     ClinicAppointment,
     ClinicEncounter,
@@ -64,6 +64,7 @@ async def _create_test_env():
             active_modules=["healthcare_clinic", "pharmacy", "finance"],
         )
         session.add(tenant)
+        await session.flush()  # the workspace exists before its users
 
         wh = Warehouse(
             id=uuid.uuid4(),
@@ -691,6 +692,7 @@ async def test_p1_12_module_guard_blocks_unsubscribed_tenant():
             active_modules=["core", "pos", "inventory"],
         )
         session.add(tenant)
+        await session.flush()  # the workspace exists before its users
         user_id = uuid.uuid4()
         user = User(
             id=user_id,

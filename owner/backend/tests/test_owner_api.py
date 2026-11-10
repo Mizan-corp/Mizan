@@ -10,9 +10,9 @@ from httpx import ASGITransport, AsyncClient
 from app.core.config import settings
 from app.platform.auth.security import create_access_token, hash_password
 from app.db.base import AsyncSessionLocal
-from app.models.owner import OwnerAccount
-from app.models.tenant import Tenant
-from app.models.user import User
+from app.platform.auth.models.owner import OwnerAccount
+from app.platform.tenancy.models import Tenant
+from app.platform.auth.models.user import User
 from app.integrations.paymob import service as paymob
 from main import app
 

@@ -17,8 +17,8 @@ from app.catalog import canonical_activity
 from app.catalog.sectors import PLANS, SCALE_ALIASES, SCALES, SECTOR_PRIMARY_ROUTES, SECTORS, TRIAL_DAYS
 from app.platform.auth.security import hash_password
 from app.db.base import get_db
-from app.models.owner import OwnerAccount
-from app.models.user import User
+from app.platform.auth.models.owner import OwnerAccount
+from app.platform.auth.models.user import User
 from app.platform.auth.services.owners import issue_owner_token, normalize_login
 from app.platform.tenancy.service import create_workspace
 

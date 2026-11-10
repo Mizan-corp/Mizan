@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.ratelimit import RateLimiter
 from app.db.base import get_db
-from app.models.tenant import Tenant
+from app.platform.tenancy.models import Tenant
 from app.platform.auth.services import auth as auth_service
 from app.platform.auth.services.owners import authenticate_owner, issue_owner_token
 

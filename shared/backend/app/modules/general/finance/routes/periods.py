@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import BusinessError
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
-from app.models.user import User
+from app.platform.auth.models.user import User
 
 router = APIRouter(prefix="/periods", tags=["periods"])
 

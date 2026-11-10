@@ -7,10 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import BusinessError
-from app.models.sale import Sale, SaleItem, SaleStatus
-from app.models.shift import DrawerTransaction, DrawerTxType, Shift
-from app.models.stock import MovementType, StockMovement
-from app.schemas.stock import StockMovementCreate
+from app.modules.general.sales.models.sale import Sale, SaleItem, SaleStatus
+from app.modules.general.pos.models import DrawerTransaction, DrawerTxType, Shift
+from app.modules.general.inventory.models.stock import MovementType, StockMovement
+from app.modules.general.inventory.schemas.stock import StockMovementCreate
 from app.modules.general.inventory.services.stock import _update_stock_balance, get_balance, record_movement
 
 
@@ -65,7 +65,7 @@ async def create_quotation(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sal
         db.add(SaleItem(sale_id=sale.id, product_id=item.product_id, qty=item.qty,
                         unit_price=item.unit_price, unit_cost=item.unit_cost, discount=item.discount))
     # Auto-archive within same transaction
-    from app.models.archive import ArchivedDocument, DocType
+    from app.platform.archive.models import ArchivedDocument, DocType
     db.add(ArchivedDocument(doc_number=sale.invoice_number, doc_type=DocType.quotation,
                             ref_id=sale.id, created_by=cashier_id,
                             metadata_={"items_count": len(data.items), "mode": data.sale_mode}))
@@ -112,7 +112,7 @@ async def confirm_quotation(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.
 
     sale.status = SaleStatus.confirmed
     sale.invoice_number = await _invoice_number(db)
-    from app.models.archive import ArchivedDocument, DocType
+    from app.platform.archive.models import ArchivedDocument, DocType
     doc = ArchivedDocument(
         doc_type=DocType.sale_invoice,
         doc_number=sale.invoice_number,
@@ -124,7 +124,7 @@ async def confirm_quotation(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.
 
     # ── Cash destination: drawer (user's open shift) or safe ─────────────
     if sale.net_total and not sale.is_credit:
-        from app.models.shift import ShiftStatus
+        from app.modules.general.pos.models import ShiftStatus
         if destination == "safe":
             if not safe_id:
                 raise BusinessError("يجب اختيار خزنة لإيداع المقبوضات")
@@ -222,7 +222,7 @@ async def create_draft_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sa
 async def confirm_draft_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID) -> Sale:
     """Convert a draft sale to confirmed — assigns real invoice number, deducts stock."""
     from app.core.exceptions import NotFoundError
-    from app.models.archive import ArchivedDocument, DocType
+    from app.platform.archive.models import ArchivedDocument, DocType
     result = await db.execute(select(Sale).options(selectinload(Sale.items)).where(Sale.id == sale_id).with_for_update())
     sale = result.scalar_one_or_none()
     if not sale:
@@ -299,7 +299,7 @@ async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
                 prod_name = prod.scalar() or str(item.product_id)
                 if not allow_neg:
                     raise BusinessError(f"المخزون غير كافي لـ {prod_name}")
-                from app.models.audit_log import AuditLog
+                from app.platform.audit.models import AuditLog
                 db.add(AuditLog(
                     user_id=cashier_id,
                     action="inventory_discrepancy",
@@ -330,7 +330,7 @@ async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
     from app.platform.tenancy.context import current_tenant_id
     tid = current_tenant_id.get()
     if not tid and cashier_id:
-        from app.models.user import User
+        from app.platform.auth.models.user import User
         cashier_u = await db.get(User, cashier_id)
         if cashier_u and cashier_u.tenant_id:
             tid = cashier_u.tenant_id
@@ -459,7 +459,7 @@ async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
                                    f"بيع {sale.invoice_number}", cashier_id)
 
     # Auto-archive within the same transaction
-    from app.models.archive import ArchivedDocument, DocType
+    from app.platform.archive.models import ArchivedDocument, DocType
     db.add(ArchivedDocument(doc_number=sale.invoice_number, doc_type=DocType.sale_invoice,
                             amount=Decimal(str(net_total)), ref_id=sale.id, created_by=cashier_id,
                             metadata_={"items_count": len(data.items), "mode": str(data.sale_mode)}))
@@ -583,7 +583,7 @@ async def cancel_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID) 
 
     # BIZ-02: Protect closed shift ledger history against corruption
     if sale.shift_id:
-        from app.models.shift import Shift
+        from app.modules.general.pos.models import Shift
         shift = await db.get(Shift, sale.shift_id)
         if shift and shift.status == "closed":
             raise BusinessError("لا يمكن إلغاء فاتورة تابعة لوردية مغلقة. يرجى استخدام مرتجع المبيعات بدلاً من الإلغاء للحفاظ على السجل المالي للوردية")
@@ -648,10 +648,10 @@ async def partial_return_sale(db: AsyncSession, sale_id: uuid.UUID, data: dict, 
     from sqlalchemy import text as sqlt
     from sqlalchemy.orm import selectinload as sil
 
-    from app.models.archive import ArchivedDocument, DocType
-    from app.models.shift import DrawerTransaction, DrawerTxType
-    from app.models.stock import MovementType
-    from app.schemas.stock import StockMovementCreate
+    from app.platform.archive.models import ArchivedDocument, DocType
+    from app.modules.general.pos.models import DrawerTransaction, DrawerTxType
+    from app.modules.general.inventory.models.stock import MovementType
+    from app.modules.general.inventory.schemas.stock import StockMovementCreate
     from app.modules.general.inventory.services.stock import record_movement
 
     orig = (await db.execute(select(Sale).options(sil(Sale.items)).where(Sale.id == sale_id).with_for_update())).scalar_one_or_none()
@@ -762,7 +762,7 @@ async def update_sale_item_qty(db: AsyncSession, sale_id: uuid.UUID, item_id: uu
     from sqlalchemy import text as sqlt
 
     from app.core.exceptions import NotFoundError
-    from app.models.shift import DrawerTransaction, DrawerTxType
+    from app.modules.general.pos.models import DrawerTransaction, DrawerTxType
 
     new_qty = data.qty
 
@@ -827,7 +827,7 @@ async def delete_sale_item(db: AsyncSession, sale_id: uuid.UUID, item_id: uuid.U
     from sqlalchemy import text as sqlt
 
     from app.core.exceptions import NotFoundError
-    from app.models.shift import DrawerTransaction, DrawerTxType
+    from app.modules.general.pos.models import DrawerTransaction, DrawerTxType
 
     item_row = await db.execute(sqlt(
         "SELECT si.*, s.warehouse_id, s.shift_id, s.status as sale_status, p.stock_status FROM sale_items si "

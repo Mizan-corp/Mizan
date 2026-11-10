@@ -8,9 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.platform.licensing import keys as licensing
-from app.models.licence import Licence
-from app.models.owner import OwnerAccount
-from app.models.tenant import Tenant
+from app.platform.licensing.models import Licence
+from app.platform.auth.models.owner import OwnerAccount
+from app.platform.tenancy.models import Tenant
 
 CLOUD = "cloud_saas"
 ON_PREMISE = ("desktop", "lan")

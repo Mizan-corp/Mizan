@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog.sectors import SECTOR_PRIMARY_MODULES, SECTOR_PRIMARY_ROUTES
 from app.db.base import get_db
-from app.models.settings import StoreSetting
-from app.models.tenant import Tenant
+from app.platform.settings.models import StoreSetting
+from app.platform.tenancy.models import Tenant
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 

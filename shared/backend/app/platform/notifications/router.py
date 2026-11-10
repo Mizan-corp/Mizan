@@ -17,11 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
-from app.models.device_token import DeviceToken
-from app.models.notification import Notification
-from app.models.product import Product
-from app.models.tenant import Tenant
-from app.models.user import User
+from app.platform.notifications.models.device_token import DeviceToken
+from app.platform.notifications.models.notification import Notification
+from app.modules.general.inventory.models.product import Product
+from app.platform.tenancy.models import Tenant
+from app.platform.auth.models.user import User
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/notifications", tags=["notifications"])

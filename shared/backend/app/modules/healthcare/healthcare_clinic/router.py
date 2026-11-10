@@ -15,10 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.framework.activation import require_module
 from app.db.base import get_db
 from app.dependencies import get_current_user
-from app.models.product import Category, Product
-from app.models.sale import Sale, SaleItem, SaleMode, SaleStatus
-from app.models.user import User
-from app.models.warehouse import Warehouse
+from app.modules.general.inventory.models.product import Category, Product
+from app.modules.general.sales.models.sale import Sale, SaleItem, SaleMode, SaleStatus
+from app.platform.auth.models.user import User
+from app.modules.general.inventory.models.warehouse import Warehouse
 from app.platform.audit.service import log as audit_log
 from app.modules.healthcare.healthcare_clinic.models import (
     ClinicAppointment,

@@ -8,7 +8,7 @@ from sqlalchemy import delete, text
 from sqlalchemy.exc import IntegrityError
 
 from app.db.base import AsyncSessionLocal
-from app.models.tenant import Tenant
+from app.platform.tenancy.models import Tenant
 from app.modules.pharmacy.pharmacy.models import PharmacyPrescription
 from app.modules.school.school.models import SchoolStudent
 

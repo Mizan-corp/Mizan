@@ -26,10 +26,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.platform.tenancy.context import TenantScoped
 from app.db.base import Base
 
-import app.models.user  # noqa: F401 (Ensures User is registered in SQLAlchemy mapper)
+import app.platform.auth.models.user  # noqa: F401 (Ensures User is registered in SQLAlchemy mapper)
 
 if TYPE_CHECKING:
-    from app.models.user import User
+    from app.platform.auth.models.user import User
 
 
 class AccountType(str, enum.Enum):

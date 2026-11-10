@@ -54,6 +54,8 @@ A module with several areas splits them, and keeps the same entry points:
 - `routes/<area>.py`, each with its own `APIRouter`; `router.py` combines them
   (e.g. `general/finance`: ledger, finance, safes, wallets, expenses, periods).
 - `services/<area>.py` instead of a single `service.py`.
+- `models/<area>.py` and `schemas/<area>.py` instead of `models.py` / `schemas.py`
+  (`models/__init__.py` may re-export the classes). `module check` accepts either form.
 
 The general modules (the core ERP, always available) keep their historical URLs (`/sales`,
 `/stock`, `/hr`…) and are not guarded by `require_module`.

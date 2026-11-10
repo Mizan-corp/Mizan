@@ -5,9 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_open_period, require_perm
-from app.models.user import User
-from app.schemas.purchase import PurchaseCreate, PurchaseReceive, PurchaseUpdate, QuickProductCreate
-from app.schemas.supplier_price import (
+from app.platform.auth.models.user import User
+from app.modules.general.purchases.schemas.purchase import PurchaseCreate, PurchaseReceive, PurchaseUpdate, QuickProductCreate
+from app.modules.general.purchases.schemas.supplier_price import (
     SupplierPriceComparison,
     SupplierPriceCreate,
     SupplierPriceOut,

@@ -16,9 +16,9 @@ from app.framework.activation import SECTOR_TO_PRESET, set_active_modules
 from app.platform.billing.plans import PLANS_CONFIG, get_plan_limits
 from app.catalog.sectors import PALETTE_HUES, SECTOR_PRIMARY_MODULES, SECTORS, TRIAL_DAYS
 from app.platform.tenancy.context import bind_tenant
-from app.models.owner import OwnerAccount
-from app.models.tenant import Tenant
-from app.models.user import User
+from app.platform.auth.models.owner import OwnerAccount
+from app.platform.tenancy.models import Tenant
+from app.platform.auth.models.user import User
 from app.services.demo_seed import seed_demo
 
 

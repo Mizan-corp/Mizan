@@ -461,8 +461,12 @@ Choices made while implementing phase 1 (#99), for review:
   authorization/RBAC catalogue/roles → `platform/permissions`, printing engine → `platform/printing`,
   licence keys → `platform/licensing`, releases → `platform/updates`, plans → `platform/billing`,
   sectors → `catalog/`, module activation and presets → `framework/activation.py`. `core/` keeps only
-  the kernel: config, exceptions, pagination, rate limiting. Still to do in phase 2: logic inside
-  route functions moves to services.
+  the kernel: config, exceptions, pagination, rate limiting. Then the data models and schemas:
+  `app/models/*` and `app/schemas/*` moved into their module (`models.py` or `models/<area>.py`,
+  same for schemas) or platform engine (users and owners → `platform/auth`, tenants →
+  `platform/tenancy`, access tables → `platform/permissions`, …); `app/models/` keeps only the
+  model registry and the migrations table. Still to do in phase 2: logic inside route functions
+  moves to services.
 
 ## Decision log (review of 2026-11-10)
 Answers as given by the owner; *italics* = how this ADR applies them.

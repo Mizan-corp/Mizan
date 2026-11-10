@@ -11,11 +11,11 @@ from typing import Any
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.notification import Notification
-from app.models.product import Product
-from app.models.sale import Sale
-from app.models.shift import Shift, ShiftStatus
-from app.models.tenant import Tenant
+from app.platform.notifications.models.notification import Notification
+from app.modules.general.inventory.models.product import Product
+from app.modules.general.sales.models.sale import Sale
+from app.modules.general.pos.models import Shift, ShiftStatus
+from app.platform.tenancy.models import Tenant
 from app.platform.automation_worker.models import AutomationJobLog, AutomationSchedule
 
 logger = logging.getLogger("mizan.automation")

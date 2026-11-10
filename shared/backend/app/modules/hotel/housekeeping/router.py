@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
+from app.platform.auth.models.user import User
 from app.modules.hotel.hospitality.models import HotelHousekeepingTask, HotelRoom
 from .schemas import HousekeepingTaskCreate, TaskCompleteRequest
 

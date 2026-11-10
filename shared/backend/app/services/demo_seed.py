@@ -12,14 +12,14 @@ from decimal import Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.party import Customer, Supplier
-from app.models.payment_wallet import PaymentWallet
-from app.models.product import Category, Product, Subcategory
-from app.models.safe import Safe
-from app.models.sale import Sale, SaleItem, SaleMode, SaleStatus
-from app.models.sale_payment import SalePayment
-from app.models.stock_balance import StockBalance
-from app.models.warehouse import Warehouse
+from app.modules.general.contacts.models.party import Customer, Supplier
+from app.modules.general.finance.models.payment_wallet import PaymentWallet
+from app.modules.general.inventory.models.product import Category, Product, Subcategory
+from app.modules.general.finance.models.safe import Safe
+from app.modules.general.sales.models.sale import Sale, SaleItem, SaleMode, SaleStatus
+from app.modules.general.sales.models.sale_payment import SalePayment
+from app.modules.general.inventory.models.stock_balance import StockBalance
+from app.modules.general.inventory.models.warehouse import Warehouse
 
 rng = random.Random(20260131)
 

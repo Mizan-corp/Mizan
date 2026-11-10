@@ -5,11 +5,11 @@ from typing import Any
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.product import Category, Product, Subcategory
-from app.models.sale import Sale, SaleItem
-from app.models.settings import StoreSetting
-from app.models.stock import IN_TYPES, StockMovement
-from app.models.warehouse import Warehouse
+from app.modules.general.inventory.models.product import Category, Product, Subcategory
+from app.modules.general.sales.models.sale import Sale, SaleItem
+from app.platform.settings.models import StoreSetting
+from app.modules.general.inventory.models.stock import IN_TYPES, StockMovement
+from app.modules.general.inventory.models.warehouse import Warehouse
 
 
 async def daily_sales(db: AsyncSession, target_date: date, warehouse_id: str | None = None):
@@ -185,7 +185,7 @@ async def profit_report(db: AsyncSession, from_date: str, to_date: str, warehous
 async def sales_by_cashier(db: AsyncSession, from_date: str, to_date: str, warehouse_id: str | None = None) -> list[dict[str, Any]]:
     import uuid as _uuid
 
-    from app.models.user import User as UserModel
+    from app.platform.auth.models.user import User as UserModel
     start = datetime.fromisoformat(from_date)
     end = datetime.fromisoformat(to_date)
     q = (

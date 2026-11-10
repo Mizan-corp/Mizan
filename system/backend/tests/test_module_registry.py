@@ -76,7 +76,7 @@ async def test_active_modules_live_on_the_workspace():
     await engine.dispose()  # this test's event loop gets its own connections
     from app.platform.tenancy.context import bind_tenant
     from app.db.base import AsyncSessionLocal
-    from app.models.tenant import Tenant
+    from app.platform.tenancy.models import Tenant
 
     tid = uuid.uuid4()
     async with AsyncSessionLocal() as db:

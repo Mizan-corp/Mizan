@@ -14,10 +14,10 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.core.exceptions import BusinessError, NotFoundError
 from app.core.pagination import Page
-from app.models.product import Category, Product, ProductBarcode, Subcategory
-from app.models.stock import IN_TYPES, StockMovement
-from app.models.user import User
-from app.schemas.product import (
+from app.modules.general.inventory.models.product import Category, Product, ProductBarcode, Subcategory
+from app.modules.general.inventory.models.stock import IN_TYPES, StockMovement
+from app.platform.auth.models.user import User
+from app.modules.general.inventory.schemas.product import (
     CategoryCreate,
     CategoryOut,
     MoveProduct,
@@ -169,7 +169,7 @@ async def list_products(
     offset = (page - 1) * page_size
     products = (await db.execute(base_q.offset(offset).limit(page_size))).scalars().all()
 
-    from app.schemas.product import ProductOutWithBalance
+    from app.modules.general.inventory.schemas.product import ProductOutWithBalance
 
     items_out: list[ProductOutWithBalance] = []
     for p in products:

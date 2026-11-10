@@ -8,10 +8,10 @@ from sqlalchemy.orm import selectinload
 from app.core.exceptions import BusinessError, NotFoundError
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_is_manager, require_open_period, require_perm
-from app.models.product import Product
-from app.models.sale import Sale, SaleItem, SaleStatus
-from app.models.user import User
-from app.schemas.sale import (
+from app.modules.general.inventory.models.product import Product
+from app.modules.general.sales.models.sale import Sale, SaleItem, SaleStatus
+from app.platform.auth.models.user import User
+from app.modules.general.sales.schemas import (
     ConfirmQuotationRequest,
     PartialReturnRequest,
     SaleCreate,
@@ -103,7 +103,7 @@ async def list_sales(
 ):
     from sqlalchemy import text as sqlt
 
-    from app.models.party import Customer
+    from app.modules.general.contacts.models.party import Customer
     if page_size is not None:
         limit = page_size
     if page is not None:
@@ -180,9 +180,9 @@ async def print_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=D
     """بيانات الفاتورة/عرض السعر للطباعة — تشمل بيانات المتجر والعميل والمنتجات."""
     from sqlalchemy import select as sa_select
 
-    from app.models.party import Customer
-    from app.models.product import Product
-    from app.models.settings import StoreSetting
+    from app.modules.general.contacts.models.party import Customer
+    from app.modules.general.inventory.models.product import Product
+    from app.platform.settings.models import StoreSetting
 
     result = await db.execute(sa_select(Sale).options(selectinload(Sale.items)).where(Sale.id == sale_id))
     sale = result.scalar_one_or_none()
@@ -237,7 +237,7 @@ async def print_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=D
 async def get_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
     from sqlalchemy import text as sqlt
 
-    from app.models.customer_payment import CustomerPayment
+    from app.modules.general.contacts.models.customer_payment import CustomerPayment
     row = await db.execute(sqlt("""
         SELECT s.*, c.name as customer_name,
                 COALESCE(json_agg(json_build_object(

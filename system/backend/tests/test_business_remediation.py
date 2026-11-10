@@ -18,13 +18,13 @@ from main import app
 from app.db.base import AsyncSessionLocal
 from app.core.exceptions import BusinessError
 from app.platform.auth.security import hash_password
-from app.models.tenant import Tenant
-from app.models.user import User
-from app.models.warehouse import Warehouse
-from app.models.product import Product
-from app.models.shift import Shift, DrawerTransaction, DrawerTxType
-from app.models.stock_balance import StockBalance
-from app.schemas.sale import SaleCreate, SaleItemCreate
+from app.platform.tenancy.models import Tenant
+from app.platform.auth.models.user import User
+from app.modules.general.inventory.models.warehouse import Warehouse
+from app.modules.general.inventory.models.product import Product
+from app.modules.general.pos.models import Shift, DrawerTransaction, DrawerTxType
+from app.modules.general.inventory.models.stock_balance import StockBalance
+from app.modules.general.sales.schemas import SaleCreate, SaleItemCreate
 from app.modules.general.sales.service import create_sale, return_sale, cancel_sale
 
 pytestmark = pytest.mark.skipif(

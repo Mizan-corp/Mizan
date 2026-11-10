@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_current_user, verify_warehouse_access
-from app.models.user import User
+from app.platform.auth.models.user import User
 from app.modules.general.finance.services import ledger as ledger_service
 
 router = APIRouter(prefix="/reports/ledger", tags=["ledger"])

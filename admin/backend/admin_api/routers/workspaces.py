@@ -21,19 +21,19 @@ from app.platform.auth.security import hash_password
 from app.platform.tenancy.context import bind_tenant
 from app.db.base import get_db
 from app.dependencies import require_superadmin
-from app.models.billing import BillingInvoice
-from app.models.product import Product
-from app.models.sale import Sale
-from app.models.tenant import Subscription, Tenant
-from app.models.user import User
-from app.models.warehouse import Warehouse
+from app.platform.billing.models import BillingInvoice
+from app.modules.general.inventory.models.product import Product
+from app.modules.general.sales.models.sale import Sale
+from app.platform.tenancy.models import Subscription, Tenant
+from app.platform.auth.models.user import User
+from app.modules.general.inventory.models.warehouse import Warehouse
 from app.platform.auth.services import auth as auth_service
-from app.models.owner import OwnerAccount
+from app.platform.auth.models.owner import OwnerAccount
 from app.platform.auth.services.owners import normalize_login
 from app.platform.tenancy.service import create_workspace as new_workspace
 from app.platform.billing.services.subscriptions import monthly_price
 from app.platform.licensing.keys import LicenceError
-from app.models.licence import Installation
+from app.platform.licensing.models import Installation
 from app.platform.licensing.services.licences import ensure_licence, get_licence, is_on_premise, issue_key
 from app.platform.licensing.services.licences import status as licence_status
 

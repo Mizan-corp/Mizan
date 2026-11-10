@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
-from app.models.settings import StoreSetting
+from app.platform.settings.models import StoreSetting
 from app.catalog import canonical_module, canonical_modules
 from app.framework.loader import manifest_index
 
@@ -325,7 +325,7 @@ async def get_active_modules(db: AsyncSession) -> list[str]:
     """The current workspace's active modules: tenants.active_modules, the only source
     (ADR-006 phase 1; the installed_modules setting was folded into it by migration v50)."""
     from app.platform.tenancy.context import current_tenant_id
-    from app.models.tenant import Tenant
+    from app.platform.tenancy.models import Tenant
 
     tid = current_tenant_id.get()
     if tid is not None:
@@ -344,7 +344,7 @@ async def get_active_preset(db: AsyncSession) -> str:
     # Fallback for tenants created before preset was persisted: derive from sector.
     try:
         from app.platform.tenancy.context import current_tenant_id
-        from app.models.tenant import Tenant
+        from app.platform.tenancy.models import Tenant
 
         tid = current_tenant_id.get()
         if tid is not None:
@@ -359,7 +359,7 @@ async def get_active_preset(db: AsyncSession) -> str:
 async def set_active_modules(db: AsyncSession, modules: list[str], preset_id: str | None = None) -> None:
     """Save the current workspace's active modules (with their dependencies) and preset."""
     from app.platform.tenancy.context import current_tenant_id
-    from app.models.tenant import Tenant
+    from app.platform.tenancy.models import Tenant
 
     tid = current_tenant_id.get()
     if tid is None:

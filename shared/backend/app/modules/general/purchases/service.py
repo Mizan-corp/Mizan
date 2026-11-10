@@ -13,13 +13,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.exceptions import BusinessError, NotFoundError
 from app.core.pagination import Page
-from app.models.product import Product, Subcategory
-from app.models.purchase import POStatus, PurchaseOrder, PurchaseOrderItem
-from app.models.stock import MovementType
-from app.models.supplier_price import SupplierPrice
-from app.models.user import User
-from app.schemas.stock import StockMovementCreate
-from app.schemas.supplier_price import (
+from app.modules.general.inventory.models.product import Product, Subcategory
+from app.modules.general.purchases.models.purchase import POStatus, PurchaseOrder, PurchaseOrderItem
+from app.modules.general.inventory.models.stock import MovementType
+from app.modules.general.purchases.models.supplier_price import SupplierPrice
+from app.platform.auth.models.user import User
+from app.modules.general.inventory.schemas.stock import StockMovementCreate
+from app.modules.general.purchases.schemas.supplier_price import (
     SupplierPriceOut,
 )
 from app.modules.general.inventory.services.stock import record_movement
@@ -229,7 +229,7 @@ async def receive_purchase(
         ), {"remaining": remaining, "sid": po.supplier_id})
 
     # Archive the purchase invoice
-    from app.models.archive import ArchivedDocument, DocType
+    from app.platform.archive.models import ArchivedDocument, DocType
     supplier_name = (await db.execute(text("SELECT name FROM suppliers WHERE id=:id"), {"id": po.supplier_id})).scalar() if po.supplier_id else None
     total_received = sum(
         float(overrides.get(str(item.product_id), {}).get("unit_cost", item.unit_cost)) *

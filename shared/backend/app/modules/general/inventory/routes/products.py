@@ -5,8 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
-from app.models.user import User
-from app.schemas.product import (
+from app.platform.auth.models.user import User
+from app.modules.general.inventory.schemas.product import (
     CategoryCreate,
     CategoryOut,
     MoveProduct,
@@ -176,7 +176,7 @@ async def bulk_set_reorder_level(
     current_user: User = Depends(require_perm("inventory")),
 ):
     from sqlalchemy import update, func
-    from app.models.product import Product
+    from app.modules.general.inventory.models.product import Product
 
     stmt = (
         update(Product)

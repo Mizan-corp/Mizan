@@ -8,10 +8,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.platform.tenancy.context import TenantScoped
 from app.db.base import Base
-from app.models.user import user_warehouses
+from app.platform.auth.models.user import user_warehouses
 
 if TYPE_CHECKING:
-    from app.models.user import User
+    from app.platform.auth.models.user import User
 
 
 class Warehouse(TenantScoped, Base):

@@ -9,9 +9,9 @@ from admin_api.common import days_until, iso, tenant_names
 from admin_api.routers.activity import recent_activity
 from app.db.base import get_db
 from app.dependencies import require_superadmin
-from app.models.billing import BillingInvoice
-from app.models.tenant import Subscription, Tenant
-from app.models.user import User
+from app.platform.billing.models import BillingInvoice
+from app.platform.tenancy.models import Subscription, Tenant
+from app.platform.auth.models.user import User
 from app.platform.billing.services.subscriptions import PAID_PLANS, revenue_breakdown
 
 router = APIRouter(prefix="/admoon/overview", tags=["admin: overview"])

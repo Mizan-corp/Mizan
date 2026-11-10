@@ -19,9 +19,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.platform.auth.security import create_access_token, decode_token, verify_password
 from app.db.base import get_db
-from app.models.owner import OwnerAccount
-from app.models.tenant import Tenant
-from app.models.user import User
+from app.platform.auth.models.owner import OwnerAccount
+from app.platform.tenancy.models import Tenant
+from app.platform.auth.models.user import User
 
 OWNER_SCOPE = "owner"
 _bearer = OAuth2PasswordBearer(tokenUrl="/account/login", auto_error=False)

@@ -5,9 +5,9 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BusinessError
-from app.models.product import Product
-from app.models.stock import MovementType, StockMovement
-from app.models.stock_balance import StockBalance
+from app.modules.general.inventory.models.product import Product
+from app.modules.general.inventory.models.stock import MovementType, StockMovement
+from app.modules.general.inventory.models.stock_balance import StockBalance
 
 
 async def get_balance(db: AsyncSession, product_id: uuid.UUID, warehouse_id: uuid.UUID, for_update: bool = False) -> Decimal:
@@ -101,7 +101,7 @@ async def transfer_stock(db: AsyncSession, data, created_by: uuid.UUID):
     if balance < data.qty:
         raise BusinessError(f"Insufficient stock: available {balance}")
 
-    from app.schemas.stock import StockMovementCreate
+    from app.modules.general.inventory.schemas.stock import StockMovementCreate
     out = StockMovementCreate(
         product_id=data.product_id, warehouse_id=data.from_warehouse_id,
         movement_type=MovementType.transfer_out, qty=data.qty, note=data.note,
@@ -154,7 +154,7 @@ async def check_low_stock_and_notify(
     creates in-app notification for managers and triggers optional email notification.
     """
     from datetime import datetime, UTC, timedelta
-    from app.models.notification import Notification
+    from app.platform.notifications.models.notification import Notification
 
     cutoff = datetime.now(UTC) - timedelta(hours=4)
 

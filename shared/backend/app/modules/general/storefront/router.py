@@ -19,9 +19,9 @@ from app.core.pagination import Page
 from app.platform.tenancy.context import bind_tenant, current_tenant_id
 from app.db.base import get_db
 from app.dependencies import require_perm
-from app.models.product import Category, Product, Subcategory
-from app.models.tenant import Tenant
-from app.models.user import User
+from app.modules.general.inventory.models.product import Category, Product, Subcategory
+from app.platform.tenancy.models import Tenant
+from app.platform.auth.models.user import User
 from app.modules.general.storefront.models import (
     StorefrontConfig,
     StorefrontCoupon,
@@ -460,7 +460,7 @@ async def storefront_checkout(
 
     # Trigger In-App Notification for Merchant ERP
     try:
-        from app.models.notification import Notification
+        from app.platform.notifications.models.notification import Notification
 
         notif = Notification(
             id=uuid.uuid4(),

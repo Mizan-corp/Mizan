@@ -3,12 +3,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.platform.auth.security import create_access_token, hash_password, verify_password
-from app.models.user import User
+from app.platform.auth.models.user import User
 
 
 async def authenticate(db: AsyncSession, username: str, password: str, tenant_slug: str | None = None) -> User:
     from sqlalchemy import text
-    from app.models.tenant import Tenant
+    from app.platform.tenancy.models import Tenant
 
     await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
 

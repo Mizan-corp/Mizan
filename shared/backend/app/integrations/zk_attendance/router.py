@@ -14,10 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_current_user
-from app.models.hr_attendance import HrAttendance
-from app.models.hr_sync_log import HrSyncLog
-from app.models.payroll import HrEmployee
-from app.models.user import User
+from app.modules.general.hr.models.hr_attendance import HrAttendance
+from app.modules.general.hr.models.hr_sync_log import HrSyncLog
+from app.modules.general.hr.models.payroll import HrEmployee
+from app.platform.auth.models.user import User
 from app.integrations.zk_attendance.models import BiometricPunchLog, ZkBiometricDevice
 
 router = APIRouter(prefix="/modules/zk_attendance", tags=["zk-attendance"])

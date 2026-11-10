@@ -16,12 +16,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
-from app.models.archive import ArchivedDocument, DocType
-from app.models.product import Product
-from app.models.settings import StoreSetting
-from app.models.stock import MovementType, StockMovement
-from app.models.user import User
-from app.models.warehouse import Warehouse
+from app.platform.archive.models import ArchivedDocument, DocType
+from app.modules.general.inventory.models.product import Product
+from app.platform.settings.models import StoreSetting
+from app.modules.general.inventory.models.stock import MovementType, StockMovement
+from app.platform.auth.models.user import User
+from app.modules.general.inventory.models.warehouse import Warehouse
 from app.platform.audit.service import log as audit_log
 from app.modules.general.inventory.services.stock import get_balance
 

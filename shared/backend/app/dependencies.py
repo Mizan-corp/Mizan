@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.platform.auth.security import decode_token
 from app.platform.tenancy.context import bind_tenant, current_tenant_id
 from app.db.base import get_db
-from app.models.user import User, user_warehouses
+from app.platform.auth.models.user import User, user_warehouses
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
@@ -76,7 +76,7 @@ async def ensure_workspace_open(db: AsyncSession, user: User) -> None:
     """Suspended workspaces are closed to their own people; platform staff keep access."""
     if user.is_superadmin or user.role == "superadmin" or not user.tenant_id:
         return
-    from app.models.tenant import Tenant
+    from app.platform.tenancy.models import Tenant
 
     workspace_status = await db.scalar(select(Tenant.status).where(Tenant.id == user.tenant_id))
     if workspace_status == "suspended":

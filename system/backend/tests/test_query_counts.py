@@ -10,9 +10,9 @@ from sqlalchemy import delete, event
 from app.platform.auth.security import hash_password
 from app.platform.tenancy.context import bind_tenant, current_tenant_id
 from app.db.base import AsyncSessionLocal, engine
-from app.models.shift import Shift
-from app.models.tenant import Tenant
-from app.models.user import User
+from app.modules.general.pos.models import Shift
+from app.platform.tenancy.models import Tenant
+from app.platform.auth.models.user import User
 
 from main import app  # noqa: F401  (registers every model)
 

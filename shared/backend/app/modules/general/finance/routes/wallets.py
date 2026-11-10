@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm, verify_warehouse_access
-from app.models.user import User
-from app.schemas.wallet import WalletCreate, WalletUpdate
+from app.platform.auth.models.user import User
+from app.modules.general.finance.schemas.wallet import WalletCreate, WalletUpdate
 
 router = APIRouter(prefix="/wallets", tags=["wallets"])
 

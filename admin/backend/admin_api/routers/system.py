@@ -10,11 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.base import get_db
 from app.db.migrations import MIGRATIONS
 from app.dependencies import require_superadmin
-from app.models.billing import BillingInvoice
-from app.models.product import Product
-from app.models.sale import Sale
-from app.models.tenant import Tenant
-from app.models.user import User
+from app.platform.billing.models import BillingInvoice
+from app.modules.general.inventory.models.product import Product
+from app.modules.general.sales.models.sale import Sale
+from app.platform.tenancy.models import Tenant
+from app.platform.auth.models.user import User
 
 router = APIRouter(prefix="/admoon/system", tags=["admin: system"])
 

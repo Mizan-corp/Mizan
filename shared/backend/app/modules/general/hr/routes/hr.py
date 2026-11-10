@@ -13,8 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
-from app.models.user import User
-from app.schemas.hr import (
+from app.platform.auth.models.user import User
+from app.modules.general.hr.schemas import (
     AdvanceCreate,
     AttendanceCreate,
     EmployeeCreate,
@@ -350,7 +350,7 @@ async def _report_auth(request: Request, token: str | None = None, db: AsyncSess
     import uuid
 
     from app.platform.auth.security import decode_token
-    from app.models.user import User
+    from app.platform.auth.models.user import User
     # Try cookie first, then query param
     t = request.cookies.get("access_token") or token
     if not t:

@@ -20,7 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog import GENERAL, activities, families, family_of
-from app.models.settings import StoreSetting
+from app.platform.settings.models import StoreSetting
 
 logger = logging.getLogger("mizan.modules")
 

@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
-from app.models.user import User
+from app.platform.auth.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ async def upload_cover(
 
 
 async def _upsert_setting(db: AsyncSession, key: str, value: Any) -> None:
-    from app.models.settings import StoreSetting
+    from app.platform.settings.models import StoreSetting
     row = (await db.execute(select(StoreSetting).where(StoreSetting.key == key))).scalar_one_or_none()
     if row:
         row.value = value
@@ -161,7 +161,7 @@ async def get_settings(db: AsyncSession = Depends(get_db)):
     """Public endpoint — returns store settings for login page and app."""
     import json as _json
 
-    from app.models.settings import StoreSetting
+    from app.platform.settings.models import StoreSetting
     result = await db.execute(select(StoreSetting))
     out = {}
     for row in result.scalars().all():
@@ -177,7 +177,7 @@ async def get_settings(db: AsyncSession = Depends(get_db)):
 async def update_settings(data: dict[str, Any], db: AsyncSession = Depends(get_db), _=Depends(require_perm("settings"))):
     import json as _json
 
-    from app.models.settings import StoreSetting
+    from app.platform.settings.models import StoreSetting
     items = data.get("settings") if isinstance(data.get("settings"), dict) else data
     for key, value in items.items():
         if key == "settings" and isinstance(value, dict):
@@ -199,7 +199,7 @@ async def get_product_options(db: AsyncSession = Depends(get_db), _=Depends(get_
     """Return sizes, companies, materials, units lists."""
     import json as _json
 
-    from app.models.settings import StoreSetting
+    from app.platform.settings.models import StoreSetting
     keys = ["product_options_sizes", "product_options_companies", "product_options_materials", "product_options_units"]
     result = await db.execute(select(StoreSetting).where(StoreSetting.key.in_(keys)))
     rows = {r.key: r.value for r in result.scalars().all()}
@@ -216,7 +216,7 @@ async def update_product_options(data: dict, db: AsyncSession = Depends(get_db),
     """Update one or more option lists. Pass {sizes:[...], companies:[...], ...}"""
     import json as _json
 
-    from app.models.settings import StoreSetting
+    from app.platform.settings.models import StoreSetting
     mapping = {"sizes": "product_options_sizes", "companies": "product_options_companies",
                "materials": "product_options_materials", "units": "product_options_units"}
     for field, db_key in mapping.items():

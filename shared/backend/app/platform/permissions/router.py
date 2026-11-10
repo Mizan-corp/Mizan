@@ -28,8 +28,8 @@ from sqlalchemy.orm import selectinload
 
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
-from app.models.user import User
-from app.models.auth_access import (
+from app.platform.auth.models.user import User
+from app.platform.permissions.models import (
     AccountType, PositionCategory, OrgPosition, SysPermission,
     SysRole, SysRolePermission, UserPosition, UserRoleAssignment,
     UserFacilityAssignment, UserPermissionOverride,

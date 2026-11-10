@@ -20,8 +20,8 @@ from main import app
 from app.db.base import AsyncSessionLocal
 from app.platform.auth.security import create_access_token, hash_password
 from app.dependencies import require_superadmin
-from app.models.tenant import Tenant
-from app.models.user import User
+from app.platform.tenancy.models import Tenant
+from app.platform.auth.models.user import User
 from fastapi import HTTPException
 
 pytestmark = pytest.mark.skipif(
@@ -49,6 +49,7 @@ async def _create_security_test_env():
             active_modules=["healthcare_clinic", "sales", "finance"],
         )
         session.add(tenant1)
+        await session.flush()  # the workspace exists before its users
 
         t2_id = uuid.uuid4()
         tenant2 = Tenant(
@@ -59,6 +60,7 @@ async def _create_security_test_env():
             active_modules=["sales"],
         )
         session.add(tenant2)
+        await session.flush()  # the workspace exists before its users
 
         # 1. Backdoor test user 1: username="ammar", role="cashier", is_superadmin=False
         u_ammar = User(
@@ -329,6 +331,7 @@ async def test_sec_04_cross_tenant_login_ambiguity():
             status="active",
         )
         session.add(tenant1)
+        await session.flush()  # the workspace exists before its users
 
         t2_id = uuid.uuid4()
         tenant2 = Tenant(
@@ -338,6 +341,7 @@ async def test_sec_04_cross_tenant_login_ambiguity():
             status="active",
         )
         session.add(tenant2)
+        await session.flush()  # the workspace exists before its users
 
         shared_username = f"cashier_{uuid.uuid4().hex[:6]}"
         u1 = User(

@@ -11,9 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from admin_api.common import iso, record, tenant_names
 from app.db.base import get_db
 from app.dependencies import require_superadmin
-from app.models.billing import BillingInvoice
-from app.models.tenant import Subscription
-from app.models.user import User
+from app.platform.billing.models import BillingInvoice
+from app.platform.tenancy.models import Subscription
+from app.platform.auth.models.user import User
 from app.platform.billing.services.subscriptions import activate_invoice, plan_name, revenue_breakdown
 
 router = APIRouter(prefix="/admoon/billing", tags=["admin: billing"])

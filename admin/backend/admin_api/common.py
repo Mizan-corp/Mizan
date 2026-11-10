@@ -8,8 +8,8 @@ from fastapi import HTTPException, Request
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.tenant import PlatformAuditLog, Tenant
-from app.models.user import User
+from app.platform.tenancy.models import PlatformAuditLog, Tenant
+from app.platform.auth.models.user import User
 
 
 async def bypass_rls(db: AsyncSession) -> None:

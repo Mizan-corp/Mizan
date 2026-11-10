@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_user
 from app.db.base import get_db
-from app.models.user import User
+from app.platform.auth.models.user import User
 from app.integrations.pos_hardware.models import PosHardwareProfile
 
 router = APIRouter(prefix="/modules/pos_hardware", tags=["pos-hardware"])

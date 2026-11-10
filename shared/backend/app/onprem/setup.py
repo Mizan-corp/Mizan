@@ -69,9 +69,9 @@ async def build_schema(workspace_id: uuid.UUID, workspace_name: str) -> list[str
 
 
 async def create_workspace(payload: dict, *, admin_username: str, admin_password: str, admin_name: str, demo: bool) -> dict:
-    from app.models.settings import StoreSetting
-    from app.models.tenant import Tenant
-    from app.models.user import User
+    from app.platform.settings.models import StoreSetting
+    from app.platform.tenancy.models import Tenant
+    from app.platform.auth.models.user import User
     from app.services.demo_seed import seed_demo
 
     ws = payload["workspace"]

@@ -121,7 +121,7 @@ async def send_low_stock_email_alert(db: AsyncSession, tenant_id, low_stock_item
     if not ENABLE_EMAIL_NOTIFICATIONS and not RESEND_API_KEY and not SENDGRID_API_KEY:
         return
 
-    from app.models.user import User
+    from app.platform.auth.models.user import User
 
     manager_stmt = select(User.username).where(
         User.tenant_id == tenant_id if tenant_id else True,

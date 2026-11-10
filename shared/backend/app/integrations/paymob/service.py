@@ -27,9 +27,9 @@ import urllib.request
 from typing import Any
 
 from app.core.config import settings
-from app.models.billing import BillingInvoice
-from app.models.owner import OwnerAccount
-from app.models.tenant import Tenant
+from app.platform.billing.models import BillingInvoice
+from app.platform.auth.models.owner import OwnerAccount
+from app.platform.tenancy.models import Tenant
 
 logger = logging.getLogger("mizan.paymob")
 

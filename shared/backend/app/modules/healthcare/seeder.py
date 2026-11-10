@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..",
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.base import AsyncSessionLocal
-from app.models.tenant import Tenant
+from app.platform.tenancy.models import Tenant
 from app.modules.healthcare.models import (
     HealthcareFacility, FacilityDepartment,
     PatientIdentity, MedicalStaff, MedicalAppointment,

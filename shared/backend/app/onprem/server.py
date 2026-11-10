@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 from app.platform.licensing import keys as licensing
 from app.core.config import settings
 from app.dependencies import get_current_user
-from app.models.user import User
+from app.platform.auth.models.user import User
 from app.onprem import checkin, licence, state
 
 READ_ONLY_DETAIL = {

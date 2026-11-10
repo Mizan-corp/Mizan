@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.models.stock import MovementType
+from app.modules.general.inventory.models.stock import MovementType
 
 
 class StockMovementCreate(BaseModel):

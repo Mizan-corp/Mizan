@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from admin_api.common import iso, record, tenant_names
 from app.db.base import get_db
 from app.dependencies import require_superadmin
-from app.models.tenant import PlatformAuditLog
-from app.models.user import User
+from app.platform.tenancy.models import PlatformAuditLog
+from app.platform.auth.models.user import User
 
 router = APIRouter(prefix="/admoon/team", tags=["admin: team"])
 

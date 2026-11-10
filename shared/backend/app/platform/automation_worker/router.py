@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
+from app.platform.auth.models.user import User
 from app.platform.automation_worker.models import AutomationJobLog, AutomationSchedule
 from app.platform.automation_worker.runner import JOB_REGISTRY, run_all_jobs, run_job
 

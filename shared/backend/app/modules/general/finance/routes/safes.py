@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_is_manager, require_perm
-from app.models.user import User
-from app.schemas.safe import SafeCreate, SafeDepositCreate, SafeTransferCreate, SafeUpdate, SafeWithdrawCreate
+from app.platform.auth.models.user import User
+from app.modules.general.finance.schemas.safe import SafeCreate, SafeDepositCreate, SafeTransferCreate, SafeUpdate, SafeWithdrawCreate
 from app.modules.general.finance.services.wallets import record_wallet_tx
 
 router = APIRouter(prefix="/safes", tags=["safes"])

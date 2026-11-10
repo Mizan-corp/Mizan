@@ -14,8 +14,8 @@ from app.core.config import settings
 from app.platform.tenancy.context import current_tenant_id
 from app.db.base import get_db
 from app.dependencies import get_current_user
-from app.models.tenant import Subscription, Tenant
-from app.models.user import User
+from app.platform.tenancy.models import Subscription, Tenant
+from app.platform.auth.models.user import User
 
 logger = logging.getLogger("mizan.platform")
 

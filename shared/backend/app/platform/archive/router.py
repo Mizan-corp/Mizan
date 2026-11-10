@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import BusinessError, NotFoundError
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
-from app.models.archive import ArchivedDocument
+from app.platform.archive.models import ArchivedDocument
 
 router = APIRouter(prefix="/archive", tags=["archive"])
 

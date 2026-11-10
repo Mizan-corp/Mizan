@@ -25,10 +25,10 @@ from app.platform.auth.security import hash_password
 from app.platform.tenancy.context import bind_tenant
 from app.db.base import AsyncSessionLocal
 from app.models.registry import load_all_models
-from app.models.owner import OwnerAccount
-from app.models.settings import StoreSetting
-from app.models.tenant import Tenant
-from app.models.user import User
+from app.platform.auth.models.owner import OwnerAccount
+from app.platform.settings.models import StoreSetting
+from app.platform.tenancy.models import Tenant
+from app.platform.auth.models.user import User
 
 DEFAULT_WORKSPACE_NAME = "ميزان"
 

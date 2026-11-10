@@ -9,10 +9,10 @@ from sqlalchemy import text as sqlt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BusinessError, ForbiddenError, NotFoundError
-from app.models.shift import DrawerTransaction, DrawerTxType, Shift, ShiftStatus
+from app.modules.general.pos.models import DrawerTransaction, DrawerTxType, Shift, ShiftStatus
 
 if TYPE_CHECKING:
-    from app.models.user import User
+    from app.platform.auth.models.user import User
 
 
 async def _find_employee_by_user_id(db: AsyncSession, user_id: uuid.UUID):
@@ -116,7 +116,7 @@ async def close_shift(db: AsyncSession, shift_id: uuid.UUID, closing_balance: De
 async def close_shift_with_manager(db: AsyncSession, shift_id: uuid.UUID, data, current_user_id: uuid.UUID) -> dict:
     """Close shift with manager override. Verifies manager credentials first."""
     from app.platform.auth.security import verify_password
-    from app.models.user import User
+    from app.platform.auth.models.user import User
 
     mgr = await db.get(User, data.manager_id)
     if not mgr or not mgr.is_manager:
@@ -326,8 +326,8 @@ async def transfer_drawer(db: AsyncSession, shift_id: uuid.UUID, to_user_id: uui
     db.add(new_shift)
 
     # Archive handover document
-    from app.models.archive import ArchivedDocument, DocType
-    from app.models.user import User
+    from app.platform.archive.models import ArchivedDocument, DocType
+    from app.platform.auth.models.user import User
     from_user = (await db.execute(select(User.full_name).where(User.id == from_user_id))).scalar()
     to_user = (await db.execute(select(User.full_name).where(User.id == to_user_id))).scalar()
     doc_number = f"HND-{datetime.now(UTC).strftime('%m%d%H%M%S')}-{uuid.uuid4().hex[:4]}"
@@ -383,7 +383,7 @@ async def add_transaction(db: AsyncSession, shift_id: uuid.UUID, tx_type: Drawer
 
     # Customer debt payment
     if customer_id and tx_type == DrawerTxType.deposit:
-        from app.models.customer_payment import CustomerPayment
+        from app.modules.general.contacts.models.customer_payment import CustomerPayment
         db.add(CustomerPayment(
             customer_id=customer_id,
             amount=amount,
@@ -402,7 +402,7 @@ async def add_transaction(db: AsyncSession, shift_id: uuid.UUID, tx_type: Drawer
 async def revenue_delivery(db: AsyncSession, shift_id: uuid.UUID, data, current_user: "User") -> dict:
     """Mid-shift revenue delivery to safe — requires manager authorization."""
     from app.platform.auth.security import verify_password
-    from app.models.user import User
+    from app.platform.auth.models.user import User
 
     mgr = await db.get(User, data.manager_id)
     if not mgr or not mgr.is_manager:

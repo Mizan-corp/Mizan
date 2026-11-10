@@ -14,7 +14,7 @@ from typing import List, Dict, Any
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.auth_access import (
+from app.platform.permissions.models import (
     AccountType, PositionCategory, OrgPosition,
     SysPermission, SysRole, SysRolePermission
 )

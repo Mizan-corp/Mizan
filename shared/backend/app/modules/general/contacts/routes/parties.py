@@ -7,11 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
-from app.models.customer_payment import CustomerPayment
-from app.models.party import Customer
-from app.models.sale import Sale, SaleStatus
-from app.models.user import User
-from app.schemas.party import CustomerCreate, CustomerPaymentCreate, CustomerUpdate, SetBalanceRequest
+from app.modules.general.contacts.models.customer_payment import CustomerPayment
+from app.modules.general.contacts.models.party import Customer
+from app.modules.general.sales.models.sale import Sale, SaleStatus
+from app.platform.auth.models.user import User
+from app.modules.general.contacts.schemas import CustomerCreate, CustomerPaymentCreate, CustomerUpdate, SetBalanceRequest
 from app.platform.audit.service import log as audit_log
 
 router = APIRouter(tags=["parties"])
@@ -234,7 +234,7 @@ async def add_payment(cid: uuid.UUID, data: CustomerPaymentCreate, db: AsyncSess
 
     # Also record in the cash drawer if the user has an open shift
     # Use the sale's warehouse to pick the correct shift when sale_id is provided
-    from app.models.shift import DrawerTransaction, DrawerTxType, Shift, ShiftStatus
+    from app.modules.general.pos.models import DrawerTransaction, DrawerTxType, Shift, ShiftStatus
     shift_query = select(Shift).where(
         Shift.cashier_id == current_user.id,
         Shift.status == ShiftStatus.open,

@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_open_period, require_perm, verify_warehouse_access
-from app.models.user import User
-from app.schemas.expense import ExpenseApprove, ExpenseCreate, ExpenseUpdate, ExpenseVendorCreate, ExpenseVendorUpdate
+from app.platform.auth.models.user import User
+from app.modules.general.finance.schemas.expense import ExpenseApprove, ExpenseCreate, ExpenseUpdate, ExpenseVendorCreate, ExpenseVendorUpdate
 from app.modules.general.finance.services.wallets import record_wallet_tx
 
 router = APIRouter(tags=["expenses"])
@@ -161,7 +161,7 @@ async def update_expense(eid: uuid.UUID, data: ExpenseUpdate, db: AsyncSession =
     existing = await db.execute(sqlt("SELECT * FROM expenses WHERE id = :id"), {"id": eid})
     if not existing.mappings().first():
         raise NotFoundError()
-    from app.schemas.expense import ExpenseUpdate as _ExpenseUpdate
+    from app.modules.general.finance.schemas.expense import ExpenseUpdate as _ExpenseUpdate
     # Exclude 'status' — it must be changed via the approve/reject endpoint only
     ALLOWED_EXPENSE_FIELDS = set(_ExpenseUpdate.model_fields.keys()) - {"status"}
     updates = {k: v for k, v in data.model_dump(exclude_unset=True).items() if k in ALLOWED_EXPENSE_FIELDS}

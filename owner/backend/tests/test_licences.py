@@ -11,9 +11,9 @@ from sqlalchemy import text
 from app.platform.licensing import keys as licensing
 from app.core.config import settings
 from app.db.base import AsyncSessionLocal
-from app.models.billing import BillingInvoice
-from app.models.licence import Licence
-from app.models.tenant import Tenant
+from app.platform.billing.models import BillingInvoice
+from app.platform.licensing.models import Licence
+from app.platform.tenancy.models import Tenant
 from app.platform.billing.services.subscriptions import activate_invoice, new_invoice
 from main import app
 from tests.test_owner_api import client, login, make_owner  # noqa: F401  (fixtures/helpers)

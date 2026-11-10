@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import NotFoundError
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
-from app.models.user import User, user_warehouses
-from app.schemas.user import PasswordReset, SetUserWarehouses, UserCreate, UserOut, UserUpdate
+from app.platform.auth.models.user import User, user_warehouses
+from app.platform.auth.schemas.user import PasswordReset, SetUserWarehouses, UserCreate, UserOut, UserUpdate
 from app.platform.auth.services import auth as auth_service
 
 router = APIRouter(prefix="/users", tags=["users"])

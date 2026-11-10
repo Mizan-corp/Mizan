@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_current_user
-from app.models.user import User
+from app.platform.auth.models.user import User
 from app.platform.notifications.service import send_email
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
@@ -247,7 +247,7 @@ async def send_invoice_email(
     """Send branded invoice PDF to customer via email."""
     import asyncio
     from weasyprint import HTML
-    from app.models.notification import Notification
+    from app.platform.notifications.models.notification import Notification
 
     html, sale = await _render_invoice_html(db, invoice_id, current_user.tenant_id)
     loop = asyncio.get_running_loop()

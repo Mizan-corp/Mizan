@@ -12,8 +12,8 @@ from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.platform.billing.plans import PLANS_CONFIG, get_plan, get_plan_limits
-from app.models.billing import BillingInvoice
-from app.models.tenant import Subscription, Tenant
+from app.platform.billing.models import BillingInvoice
+from app.platform.tenancy.models import Subscription, Tenant
 
 PAID_PLANS = tuple(p for p in PLANS_CONFIG if p != "trial")
 

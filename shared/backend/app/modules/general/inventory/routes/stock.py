@@ -7,10 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_open_period, require_perm, verify_warehouse_access
-from app.models.user import User
-from app.models.warehouse import Warehouse
-from app.schemas.stock import StockMovementCreate, StockMovementOut, TransferRequest
-from app.schemas.warehouse import WarehouseCreate, WarehouseUpdate
+from app.platform.auth.models.user import User
+from app.modules.general.inventory.models.warehouse import Warehouse
+from app.modules.general.inventory.schemas.stock import StockMovementCreate, StockMovementOut, TransferRequest
+from app.modules.general.inventory.schemas.warehouse import WarehouseCreate, WarehouseUpdate
 from app.modules.general.inventory.services import stock as stock_service
 from app.platform.audit.service import log as audit_log
 
@@ -81,7 +81,7 @@ async def get_balance_bulk(warehouse_id: uuid.UUID, product_ids: list[uuid.UUID]
     """POST body: list of product UUIDs. Returns {product_id: qty} plus a __tracked__ map."""
     from sqlalchemy import text as sqlt
 
-    from app.models.stock_balance import StockBalance
+    from app.modules.general.inventory.models.stock_balance import StockBalance
     await verify_warehouse_access(db, current_user, warehouse_id)
     if not product_ids:
         return {}
@@ -103,7 +103,7 @@ async def get_total_balance_bulk(product_ids: list[uuid.UUID] = Body(...), db: A
     """Total stock across ALL warehouses. POST body: list of product UUIDs."""
     from sqlalchemy import func
 
-    from app.models.stock_balance import StockBalance
+    from app.modules.general.inventory.models.stock_balance import StockBalance
     if not product_ids:
         return {}
     result = await db.execute(
@@ -122,7 +122,7 @@ async def get_balance_breakdown(product_id: uuid.UUID, db: AsyncSession = Depend
     """Stock per warehouse for a single product — uses maintained balances."""
     from sqlalchemy import func
 
-    from app.models.stock_balance import StockBalance
+    from app.modules.general.inventory.models.stock_balance import StockBalance
     rows = await db.execute(
         select(
             Warehouse.name.label("warehouse_name"),

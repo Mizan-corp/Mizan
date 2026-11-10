@@ -6,9 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_is_manager, require_perm, verify_warehouse_access
-from app.models.shift import DrawerTransaction, Shift, ShiftStatus
-from app.models.user import User
-from app.schemas.shift import (
+from app.modules.general.pos.models import DrawerTransaction, Shift, ShiftStatus
+from app.platform.auth.models.user import User
+from app.modules.general.pos.schemas import (
     CloseWithManagerRequest,
     DrawerTxCreate,
     DrawerTxOut,

@@ -17,8 +17,8 @@ from app.platform.billing.plans import PLANS_CONFIG
 from app.platform.tenancy.context import current_tenant_id
 from app.db.base import get_db
 from app.dependencies import get_current_user
-from app.models.billing import BillingInvoice
-from app.models.user import User
+from app.platform.billing.models import BillingInvoice
+from app.platform.auth.models.user import User
 from app.platform.billing.services.plan_gating import get_tenant_limits_and_usage
 
 router = APIRouter(prefix="/billing", tags=["billing"])

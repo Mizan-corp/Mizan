@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.platform.auth.security import hash_password, verify_password
 from app.db.base import get_db
-from app.models.owner import OwnerAccount
-from app.models.user import User
+from app.platform.auth.models.owner import OwnerAccount
+from app.platform.auth.models.user import User
 from app.platform.auth.services.owners import bypass_rls, get_current_owner
 
 router = APIRouter(prefix="/account", tags=["account"])

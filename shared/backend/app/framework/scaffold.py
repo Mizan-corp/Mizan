@@ -94,16 +94,27 @@ def _plan(module_dir: Path, manifest: dict) -> list[tuple[Path, Path, dict[str, 
     return out
 
 
+# A larger module may split a file into a package (docs/MODULE_STANDARD.md, "Larger modules").
+PACKAGE_FORM = {"models.py": "models", "schemas.py": "schemas", "service.py": "services", "router.py": "routes"}
+
+
+def _present(target: Path) -> bool:
+    if target.exists():
+        return True
+    package = target.parent / PACKAGE_FORM[target.name] if target.name in PACKAGE_FORM else None
+    return bool(package and package.is_dir() and any(package.glob("*.py")))
+
+
 def missing(module_dir: Path, manifest: dict) -> list[Path]:
     """The standard files this module doesn't have yet (backend and frontend)."""
-    return [target for target, _, _ in _plan(module_dir, manifest) if not target.exists()]
+    return [target for target, _, _ in _plan(module_dir, manifest) if not _present(target)]
 
 
 def scaffold(module_dir: Path, manifest: dict) -> list[Path]:
     """Create whatever is missing; return what was created."""
     created = []
     for target, template, values in _plan(module_dir, manifest):
-        if target.exists():
+        if _present(target):
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(render(template, values), encoding="utf-8")

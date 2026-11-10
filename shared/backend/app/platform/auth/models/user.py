@@ -10,8 +10,8 @@ from app.platform.tenancy.context import TenantScoped, primary_tenant_id  # noqa
 from app.db.base import Base
 
 if TYPE_CHECKING:
-    from app.models.warehouse import Warehouse
-    from app.models.auth_access import (
+    from app.modules.general.inventory.models.warehouse import Warehouse
+    from app.platform.permissions.models import (
         UserPosition, UserRoleAssignment, UserFacilityAssignment,
         UserPermissionOverride, PatientAccessAssignment
     )

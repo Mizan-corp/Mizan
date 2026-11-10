@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from app.models.billing import BillingInvoice
-from app.models.tenant import Tenant
+from app.platform.billing.models import BillingInvoice
+from app.platform.tenancy.models import Tenant
 
 
 def iso(value: datetime | None) -> str | None:

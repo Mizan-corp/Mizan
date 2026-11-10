@@ -125,7 +125,7 @@ async def primary_tenant_id(db) -> uuid.UUID | None:
     """The platform's first (default) workspace — legacy users land here."""
     from sqlalchemy import select
 
-    from app.models.tenant import Tenant
+    from app.platform.tenancy.models import Tenant
 
     res = await db.execute(select(Tenant.id).order_by(Tenant.created_at).limit(1))
     return res.scalar()

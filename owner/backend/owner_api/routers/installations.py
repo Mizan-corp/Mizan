@@ -17,8 +17,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.platform.licensing.keys import LicenceError, verify
 from app.core.ratelimit import RateLimiter
 from app.db.base import get_db
-from app.models.licence import Installation, Licence
-from app.models.tenant import Tenant
+from app.platform.licensing.models import Installation, Licence
+from app.platform.tenancy.models import Tenant
 from app.platform.licensing.services.licences import issue_key, status
 from app.platform.auth.services.owners import bypass_rls
 

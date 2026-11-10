@@ -9,9 +9,9 @@ from app.core.ratelimit import RateLimiter
 from app.platform.auth.security import create_access_token
 from app.db.base import get_db
 from app.dependencies import ensure_workspace_open, get_current_user
-from app.models.user import User
-from app.schemas.auth import LoginRequest, TokenResponse
-from app.schemas.user import UserPasswordUpdate
+from app.platform.auth.models.user import User
+from app.platform.auth.schemas.auth import LoginRequest, TokenResponse
+from app.platform.auth.schemas.user import UserPasswordUpdate
 from app.platform.auth.services import auth as auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -55,7 +55,7 @@ async def get_roles(_=Depends(get_current_user)):
 
 @router.get("/me")
 async def me(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    from app.models.tenant import Tenant
+    from app.platform.tenancy.models import Tenant
     user = await db.merge(current_user)
     await db.refresh(user)
 
