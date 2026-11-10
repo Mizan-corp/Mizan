@@ -168,10 +168,11 @@ filter, automatic stamping on insert, and **PostgreSQL Row-Level Security** as a
 inside the database. If an application bug forgets a filter, the database still says no.
 
 **2. Modules are plug-ins, not forks.**
-Every module has a backend folder named after its id (`shared/backend/app/modules/<id>/`) with
-a `manifest.json` (its home activity, kind and dependencies), its own models and API router, and
-its screens under `system/frontend/src/modules/`. One loader mounts every module; families and
-activities are data in `app/catalog/`. The marketplace at `/modules` turns modules on and off per
+Every module has a backend folder named after its id, under its home activity
+(`shared/backend/app/modules/<activity>/<id>/`), with a `manifest.json` (its home activity, kind and
+dependencies), its own models and API router, and its screens in the matching
+`system/frontend/src/modules/<activity>/<id>/`. One loader (`app/framework/`) mounts every module;
+families and activities are data (`app/catalog/`, `app/activities/`). The marketplace at `/modules` turns modules on and off per
 workspace, and module routes check that the workspace has the module on (`require_module`;
 not yet every module, see ADR-006). Where this is heading:
 [ADR-006](docs/decisions/ADR-006-module-platform.md).

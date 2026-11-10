@@ -156,7 +156,8 @@ WINDOWS_RESERVED = re.compile(r"^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$", r
 def test_module_paths_are_valid_on_windows():
     # The installers are built on Windows.
     roots = [MODULES, APP / "platform", APP / "integrations", APP / "framework", APP / "activities", APP / "catalog",
-             REPO / "system" / "frontend" / "src" / "modules"]
+             REPO / "system" / "frontend" / "src" / "modules", REPO / "system" / "frontend" / "src" / "platform",
+             REPO / "system" / "frontend" / "src" / "integrations"]
     for root in roots:
         for path in root.rglob("*"):
             if "__pycache__" in path.parts:
@@ -176,3 +177,21 @@ def test_legacy_ids_point_to_current_modules():
         assert old not in current, old
         assert new in current, f"{old} -> {new}"
     assert canonical_modules(["prn", "printing", "retail-pos", "pos", "cst"]) == ["printing", "pos", "construction"]
+
+
+def test_frontend_mirrors_the_backend_layout():
+    # system/frontend/src/modules/<home_activity>/<module_id>/, src/platform/<id>/, src/integrations/<id>/
+    from app.framework.loader import manifest_index
+
+    index = manifest_index()
+    frontend = REPO / "system" / "frontend" / "src"
+    by_activity = {}  # activity -> the backend folder names of its modules
+    for m in index.values():
+        by_activity.setdefault(m["activity"], set()).add(Path(m["_dir"]).name)
+    for activity_dir in (frontend / "modules").iterdir():
+        assert activity_dir.name in by_activity, f"src/modules/{activity_dir.name} is not an activity with modules"
+        for module_dir in (p for p in activity_dir.iterdir() if p.is_dir()):
+            assert module_dir.name in by_activity[activity_dir.name], f"{module_dir.relative_to(frontend)}"
+    for root, kind in (("platform", "platform"), ("integrations", "integration")):
+        for module_dir in (frontend / root).iterdir():
+            assert index.get(module_dir.name, {}).get("kind") == kind, module_dir

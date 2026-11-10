@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/stores/auth";
 import { useModulesStore } from "@app/stores/modules";
 import { useI18nStore } from "@/i18n";
-import { AutomationWorkerModal } from "@modules/automation_worker/AutomationWorkerModal";
+import { AutomationWorkerModal } from "@app/platform/automation_worker/AutomationWorkerModal";
 import { MizanAppLauncher } from "@app/components/MizanAppLauncher";
 import { MizanLogo } from "@/components/MizanLogo";
 import { Avatar, AvatarFallback } from "@/components/kit/avatar";

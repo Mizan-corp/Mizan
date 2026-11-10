@@ -17,6 +17,6 @@ Mizan serves specialized verticals through dedicated sector modules while mainta
 ## 3. Technology Stack Summary
 - **Backend:** Python 3.12, FastAPI, SQLAlchemy 2.0 (async), Pydantic v2, PostgreSQL 16 (Neon in the cloud, bundled on site) with Row Level Security, Uvicorn.
 - **Frontend:** React 19, Vite 6, TypeScript 5.8, Tailwind CSS v4, Base UI / Radix primitives, Lucide React, Recharts.
-- **Architecture:** Hybrid modular monolith with pluggable business modules (`shared/backend/app/modules/<sector>/<module>`), deployed as four separate products: system (ERP), website, owner panel and admin panel, plus on-site installers. See ADR-003, ADR-004 and ADR-005.
+- **Architecture:** Hybrid modular monolith with pluggable business modules (`shared/backend/app/modules/<activity>/<module>`, ADR-006), deployed as four separate products: system (ERP), website, owner panel and admin panel, plus on-site installers. See ADR-003, ADR-004 and ADR-005.
 - **Security:** RLS multi-tenancy, JWT + httpOnly session cookies, granular RBAC + ABAC permissions, Break-Glass emergency clinical access, immutable audit logging.
 - **Deployment:** Vercel (frontends and serverless APIs) with Neon PostgreSQL for the cloud. Workspaces can instead run on site, on one computer or as a server on the shop's network, installed by Mizan Setup for Windows and Linux with a bundled PostgreSQL and an offline, signed licence (ADR-005, `installer/`). Docker Compose for local development.

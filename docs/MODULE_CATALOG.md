@@ -1,7 +1,7 @@
 # Mizan ERP — Module Catalog
 
 ## 1. Global Business Activities & Modules Directory
-Every business activity in Mizan is isolated in `shared/backend/app/modules/<business_activity>/` (screens in `system/frontend/src/modules/<business_activity>/`):
+Every module lives under its home activity: `shared/backend/app/modules/<activity>/<module_id>/` (screens in `system/frontend/src/modules/<activity>/<module_id>/`). Activities are defined in `shared/backend/app/activities/<activity_id>/activity.json`. Grouped below by activity:
 
 ### A. Healthcare & Hospitals (`healthcare/`)
 - `facility_management` (HLT-01): Multi-branch organizations, facilities, buildings, floors, departments, rooms, and schedules.
@@ -29,11 +29,11 @@ Every business activity in Mizan is isolated in `shared/backend/app/modules/<bus
 - `notifications` (HLT-23): SMS/WhatsApp appointment reminders and critical lab alerts.
 - `analytics` (HLT-24): Clinical KPIs, bed turnover, and financial revenue cycle metrics.
 
-### B. Retail & Point of Sale (`pos/`)
+### B. Retail & Point of Sale (`general/pos/`)
 - Cashier shifts, barcode scanning, thermal receipt printing, and quick sales.
 
 ### C. Wholesale & Distribution (`wholesale/`)
 - Bulk pricing, customer credit limits, delivery dispatch, and multi-warehouse transfers.
 
-### D. Hospitality & Hotels (`hospitality/`)
+### D. Hospitality & Hotels (`hotel/`)
 - Property Management System (PMS), room reservations, check-in/out, and folio billing.

@@ -3,7 +3,7 @@
 ## 1. Architectural Style
 Mizan is built as a **Modular Monolith** optimized for developer velocity, transaction integrity, and deployment simplicity:
 - **Shared Enterprise Kernel:** Multi-tenancy resolution, database session lifecycle, audit logging, security context, and notification dispatch.
-- **Pluggable Domain Modules:** Encapsulated in `shared/backend/app/modules/<domain>/` (models, routers, services) with screens in `system/frontend/src/modules/<domain>/`.
+- **Pluggable Domain Modules:** Each in `shared/backend/app/modules/<home_activity>/<module_id>/` (manifest, models, router, templates) with screens in `system/frontend/src/modules/<home_activity>/<module_id>/`; platform modules in `app/platform/`, connectors in `app/integrations/`, the loader in `app/framework/` (ADR-006).
 
 ```
                     ┌─────────────────────────────────┐

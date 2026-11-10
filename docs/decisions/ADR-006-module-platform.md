@@ -395,7 +395,7 @@ Each phase ends usable and tested; existing workspaces and on-site installs keep
 Choices made while implementing phase 1 (#99), for review:
 - **Families** (`app/catalog/families.json`): general, commerce, food & hospitality, health,
   education, services, logistics, industry, projects/real estate/energy, financial & public
-  institutions. Each of the 35 existing activities is assigned to one (`activities.json`); the
+  institutions. Each of the 35 existing activities is assigned to one (`app/activities/<id>/activity.json`); the
   five legacy sectors (`services`, `plumbing`, `electrical`, `tiles`, `paint`) are marked
   `legacy_of` their current activity.
 - **Manifest v2** adds `activity` and `kind` (`business` | `platform` | `integration`) and drops
@@ -412,6 +412,14 @@ Choices made while implementing phase 1 (#99), for review:
   activities only list real modules.
 - **Migrations**: v50 (active modules in `tenants.active_modules` only), v51 (old ids rewritten in
   stored module lists and module settings keys).
+- **Folder layout applied** (backend and frontend): `modules/<home_activity>/<module_id>/`,
+  `platform/<id>/`, `integrations/<id>/`, `framework/loader.py`, `activities/<id>/activity.json`;
+  the frontend mirrors it (`src/modules/<activity>/<module>/`, `src/platform/`,
+  `src/integrations/`). `modules/healthcare/` also keeps shared healthcare code (`models.py`,
+  `seeder.py`) until phase 8. **Not yet**: each module's internal files (`schemas.py`,
+  `service.py`, `hooks.py`, `migrations/`, `seed.py`, `tests/`, `variants/`); they are split when
+  a module's code is reworked (general in phase 2, the rest in phase 8). Per-activity `seed.py`
+  follows when demo data moves out of `services/demo_seed.py`.
 
 ## Decision log (review of 2026-11-10)
 Answers as given by the owner; *italics* = how this ADR applies them.
