@@ -34,3 +34,24 @@ def test_dispatch_receipt_request_flow(owner_api, reg, wh, product):
 
     rows = owner_api.ok(owner_api.get("/operations"))
     assert isinstance(rows, list)
+
+def test_operations_refuse_bad_input_and_number_uniquely(owner_api, reg, wh, product):
+    twh = owner_api.ok(owner_api.post("/stock/warehouses", json={
+        "code": f"E2E-WH-{uid('w')}", "name": f"E2E-WH-{uid('w')}", "warehouse_type": "warehouse"}))
+    reg.add("warehouse", twh["id"])
+
+    # A negative quantity would pass the stock check and create stock in the source warehouse.
+    r = owner_api.post("/operations/dispatch", json={
+        "from_warehouse_id": wh["id"], "to_warehouse_id": twh["id"],
+        "items": [{"product_id": product["id"], "qty": -5}]})
+    assert r.status_code == 422, r.text[:200]
+
+    r = owner_api.post("/operations/goods-receipt", json={
+        "warehouse_id": "00000000-0000-0000-0000-000000000000",
+        "items": [{"product_id": product["id"], "qty": 1, "unit_cost": "1"}]})
+    assert r.status_code == 404, r.text[:200]
+
+    numbers = {owner_api.ok(owner_api.post("/operations/stock-request", json={
+        "from_warehouse_id": wh["id"], "to_warehouse_id": twh["id"],
+        "items": [{"product_id": product["id"], "qty": 1}]}))["doc_number"] for _ in range(3)}
+    assert len(numbers) == 3, numbers
