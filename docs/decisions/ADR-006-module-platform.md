@@ -1,210 +1,431 @@
 # ADR-006: Module platform: activities, variants, roles & screens, marketplace
 
 ## Status
-Proposed (2026-11-10). Decisions below were agreed with the owner in a structured review
-("grilling") on 2026-11-10; the plan is not started. Supersedes the module conventions in
-`AGENTS.md` once accepted. Related: #94 (act as one role), #89 (updates), #91/#92.
+Proposed (2026-11-10). Agreed with the owner in a structured review on 2026-11-10 (the full
+question-by-question record is in the **Decision log** at the end). Not started. Once accepted
+it replaces the module conventions in `AGENTS.md`. Related: #94 (act as one role at a time),
+#89 (updates for installed servers), #91 (bring your own database), #92 (device limits).
 
-## Context
-Today (audited 2026-11-10):
+## Goals (as set by the owner)
+1. **Customise every business activity.**
+2. **Use a module from one business activity in another.**
+3. **User management with positions and roles, unique per business activity if wanted.**
+4. **Every role or position has its own custom screen.**
 
-- `shared/backend/app/modules/` has 48 folders in four layouts (flat, `backend/` subfolder,
-  sub-packages, a 24-module `healthcare/` group). Folder name ≠ module id (`printing` = `prn`);
-  cryptic ids (`agr`, `bnk`, `cst`…); hyphenated manifest-only stubs (`gym-pos`, `retail-pos`,
-  `restaurant-pos`) and an empty `gym_fitness`.
-- The core ERP is **not** in modules: `sales`, `inventory`, `finance`, `purchases`, `pos`, `hr`,
-  `core` are shells with 0 routes; the real code is 36 routers in `app/api/routers/`.
-- Duplicates: gym ×3, restaurant/kitchen_display, pharmacy/phm/healthcare-pharmacy,
-  healthcare_clinic vs `healthcare/`; healthcare re-implements accounting, billing, HR,
-  inventory, notifications.
-- Two loaders: the registry, and hand-written imports in `system_api/router.py` (the registry
-  only mounts `hlt_*`/`hot_*`; e.g. `kitchen_display` routes are never served).
-- Manifests use ~20 category ids that don't match `categories.json`; pharmacy depends on a
-  non-existent `invoicing`.
-- **No variants**: one `PosPage.tsx` for every activity.
-- Two permission systems: `User.permissions` (`"pos"`, checked by `require_perm`) and
-  `sys_roles`/`sys_permissions` (`"inventory.view"`, checked by `authorization.py`). Admins hold
-  `"*"` (granted at signup, bootstrap, on-site setup, and injected at sign-in by `auth.py`) and
-  `require_perm` lets admin/owner/superadmin roles bypass all checks.
-- Positions (98) and roles exist with two layers (platform standard, workspace custom); no
-  per-activity layer; no role-specific screens.
+Plus: a **development framework** for families and modules that Mizan and **community
+developers** both use; a **marketplace** where developers publish and sell modules; owners
+install them, or install privately packaged modules.
+
+## Context: what exists today (audited 2026-11-10)
+
+### Module structure
+- `shared/backend/app/modules/` has 48 folders in **four layouts**:
+  - flat: `manifest.json` + `models.py` + `router.py`, the most common
+  - code in a `backend/` subfolder: `healthcare_clinic/`
+  - one module with sub-packages: `hospitality/` (`hotel_pms`, `housekeeping`, `night_audit`, …)
+  - a group folder holding 24 modules: `healthcare/` (`hlt_*` ids)
+- Frontend: `system/frontend/src/modules/` (39 folders) roughly mirrors it; core ERP screens
+  live separately in `src/features/`.
+- **The core ERP is not in modules.** `core`, `sales`, `inventory`, `finance`, `purchases`,
+  `pos`, `hr` are module shells with **0 routes**; the real code is 36 routers in
+  `app/api/routers/`. "Modules are plug-ins" holds only for industry modules.
+- **Duplicates / overlaps**:
+  - gym: `gym`, `gym_fitness`, `gym-pos`
+  - restaurant: `restaurant`, `restaurant-pos`, `kitchen_display`
+  - pharmacy: `pharmacy` (retail), `phm` (pharma manufacturing), `healthcare/pharmacy`
+  - clinic vs hospital: `healthcare_clinic` vs the `healthcare/` group, whose modules
+    re-implement accounting, billing, HR, inventory and notifications.
+- **Stubs**: `gym_fitness`, `gym-pos`, `restaurant-pos` and `retail-pos` have only a
+  manifest. A hyphen can't be part of a Python package name.
+- **Naming**: cryptic ids (`agr bnk cst eng ent fod gov ins oil phm rec mfg`), and folder ≠ id
+  (`printing` holds `prn`). Platform features (`i18n`, `automation_worker`) and integrations
+  (`whatsapp_gateway`, `zk_attendance`, `pos_hardware`) sit next to business modules.
+- **Two loaders**: the registry, and hand-written imports in `system_api/router.py`. The
+  registry only mounts `hlt_*`/`hot_*`, so e.g. the `kitchen_display` routes are never served.
+- **Metadata**:
+  - Manifests use about 20 category ids that don't match the 11 in `categories.json`.
+  - `pharmacy` depends on `invoicing`, which doesn't exist.
+- **No variants**: one `PosPage.tsx` for every activity. The README's "a restaurant sees a
+  floor plan, a pharmacy a drug search" is not implemented.
+- Activities exist only as a list of names (`core/sectors.py`, 30+) selecting modules and demo
+  data.
+
+### People and access
+- **Two permission systems**:
+  - `User.permissions` (`"pos"`, `"finance"`), checked by `require_perm`
+  - `sys_roles` / `sys_permissions` (`"inventory.view"`), checked by `authorization.py`
+- **Admins hold everything at once**:
+  - they get `"*"` at signup (`services/workspaces.py`), in the bootstrap and in on-site setup
+  - `auth.py` adds `"*"` at sign-in for any admin or owner who lacks it
+  - since `9964b65`, `require_perm` lets the admin/owner/superadmin roles bypass every check
+    (it replaced a username backdoor)
+  - the clinic module and `shifts.py` have their own admin shortcuts
+- The docs and the app's `can()` say "permissions decide, never role names" and promise
+  clinical isolation from non-clinical staff.
+- 98 standard positions and the standard roles exist, in two layers: platform (`tenant_id` null)
+  and workspace custom. There is **no per-activity layer** and **no role-specific screens**:
+  everyone gets the same dashboard and navigation, filtered by permissions.
+
+### Status against the goals
+| Goal | Today |
+|---|---|
+| 1. Customise an activity | Partial: an activity only picks modules and demo data |
+| 2. Module across activities | Mostly possible, but some code checks the activity, not the module |
+| 3. Positions/roles per activity | No activity layer; two permission systems |
+| 4. Screen per role/position | Missing |
 
 ## Decisions
 
 ### D1. Concepts
+
 | Concept | Meaning |
 |---|---|
-| **Family** | Organising label only (Health, Food, Commerce…). No behaviour. |
-| **Activity** | A business activity (pharmacy, restaurant, school…). Belongs to one family. Defines base modules, roles, positions, terms, settings, demo data. **`general` is a special activity every workspace inherits** (POS, sales, inventory, purchases, finance, HR, contacts, catalog, reports). |
-| **Module** | Unit of functionality with a **unique id** and a **home activity**. Owns its data, logic, permissions, screens, widgets, settings. |
-| **Variant** | How a module works for a *specific other activity* (`pos` → `pharmacy` variant). `standard` fits every activity unless the module marks otherwise. |
-| **Workspace** | One business. Exactly **one activity**, fixed at creation. |
+| **Family** | Organising label only (Health, Food, Commerce, …): browsing and grouping. No behaviour. |
+| **Activity** | A business activity (pharmacy, restaurant, school, …). Belongs to one family. Defines base modules, positions, roles, role screens, terms, settings, demo data. |
+| **`general`** | A special activity that **every activity inherits**: contacts, catalog, inventory, sales, purchases, finance, POS, HR, reports. |
+| **Module** | A unit of functionality with a **unique id** and a **home activity**. It owns its data, logic, permissions, screens, widgets and settings. |
+| **Variant** | How a module works **for a specific activity**, e.g. the `pos` module's `pharmacy` variant. `standard` fits every activity unless the module says otherwise. An activity from one family may have a variant for an activity of another family. |
+| **Workspace** | One business with **exactly one activity**, fixed at creation. |
 
-A module from activity A may be used by a workspace of activity B **only if it has a variant
-compatible with B** (`standard` counts). A variant changes *how* a module works (screens,
-extra fields, rules, terms, defaults, permissions, templates, widgets); anything needing its
-own records is a module, which a variant can plug into via `uses`.
+**Variant or module?**
+- A **variant** changes *how* a module works for an activity: same data, plus extra fields.
+- Anything that needs its **own records** (tables, kitchen tickets, prescriptions, rooms) is a
+  **module**, which a variant can plug into through `uses`.
+- So `restaurant` is a module, while "restaurant POS" is a variant of `pos` that uses it.
 
-### D2. Workspace composition
-- On creation: base = `general` defaults + the activity's defaults, each in the activity's
-  variant. The owner can add any module of the same family, or any module from another activity
-  that has a compatible variant.
-- The **variant is fixed by the activity**; owners change only module **settings**.
-- **Default modules can be uninstalled** behind a warning listing consequences (dependent
-  modules removed too, screens/roles affected) and a typed confirmation (`delete`). The owner
-  chooses: delete data now (backup taken first), or keep it hidden for 30 days (reinstall
-  restores it).
-- **Changing activity** is possible through a guided conversion **approved by the Mizan team**
-  (price may change).
+**What a variant can change (`variant.json` + `hooks.py`):**
 
-### D3. Storage quota
-Counts database rows, files, and kept (uninstalled) data. The owner sees it broken down by
-module, can free space or export. Warn at 80%; at 100% new uploads are blocked (sales and daily
-work never stop); more can be bought.
+| Part | Example: the pharmacy variant of POS |
+|---|---|
+| **screens**: replace or add | checkout becomes a drug-search counter |
+| **fields**: extra fields on the module's records | sale line: batch, expiry, prescription number |
+| **rules** (`hooks.py`): validation, side effects | no prescription drug without a prescription |
+| **uses**: other modules it plugs into | `pharmacy` (batches); restaurant POS uses `restaurant` (tables, kitchen) |
+| **terms** | "item" → "دواء", "customer" → "مريض" |
+| **settings**: defaults | FEFO on, sell by strip or box |
+| **permissions**: extra | `pos.dispense_controlled` |
+| **print templates** | receipt shows batch and expiry |
+| **widgets** | "expiring this month" |
 
-### D4. People: positions, roles, screens
-- **Positions** (job titles) and **roles** (permissions + screens) stay separate; a position
-  suggests default roles.
-- Three layers, each overriding the previous: platform standard → activity → workspace.
-- **Nobody holds everything at once** (#94): the owner assigns roles to a user; the user
-  **acts as one role at a time** and switches from the top bar (logged). `"*"` and the role
-  bypass are removed; admins get explicit permission sets.
+**Example: POS and its variants**
+
+```
+modules/general/pos/
+├── manifest.json        variants: standard, retail, restaurant, pharmacy, salon
+├── models.py            one sales/shift model for every variant
+├── service.py · router.py
+├── hooks.py             extension points: before_add_item, before_confirm, after_confirm…
+└── variants/
+    ├── standard/   variant.json
+    ├── retail/     variant.json   fast-scan layout, barcode first, F-keys
+    ├── restaurant/ variant.json   uses: restaurant (tables, kitchen)
+    │               hooks.py       after_confirm → send a ticket to the kitchen
+    └── pharmacy/   variant.json   search by scientific name, batch by expiry (FEFO)
+                    hooks.py       before_confirm → prescription required for flagged drugs
+```
+
+### D2. How a workspace is composed
+
+1. **At creation** the workspace takes its activity's required modules, from any activity, each
+   in a **compatible variant** (`standard` counts):
+   - **base** = `general` defaults + the activity's defaults
+2. **Adding modules**: the owner can extend from the base to
+   - any module in the activity's **family**, or
+   - a module from **another activity** if it has a compatible variant for this activity.
+3. **The variant is fixed by the activity.** Owners cannot change it; they change each
+   module's **settings** (every module has settings).
+4. **Default modules can be uninstalled**:
+   - behind a warning listing the consequences: dependent modules removed too, roles and
+     screens that use them
+   - plus a security check: typing `delete`
+   - then the owner chooses: **delete the data** (immediately, after a backup), or **keep it
+     hidden for 30 days** (reinstalling restores it).
+5. **Changing activity** is possible through a **guided conversion**:
+   - variants swapped, data mapped
+   - **approved by the Mizan team**, since the price may differ
+
+**Resolution order**: module (base) → variant (chosen by the activity) → workspace settings,
+custom fields, role screens.
+
+**Example: `activities/pharmacy/activity.json`**
+
+```json
+{
+  "id": "pharmacy",
+  "family": "health",
+  "modules": {
+    "pos": "pharmacy", "inventory": "pharmacy", "sales": "standard",
+    "purchases": "standard", "finance": "standard", "contacts": "standard",
+    "pharmacy": "standard"
+  },
+  "optional": ["hr", "whatsapp"],
+  "terms": { "customer": "مريض", "item": "دواء" },
+  "positions": ["pharmacist", "pharmacy_assistant", "cashier", "store_keeper"],
+  "roles": {
+    "pharmacist": {
+      "permissions": ["pos.sell", "pharmacy.dispense", "pharmacy.batches.view"],
+      "home": "pos.checkout",
+      "nav": ["pos.checkout", "pharmacy.prescriptions", "sales.returns"],
+      "dashboard": ["pharmacy.expiring_soon", "sales.today"]
+    }
+  },
+  "settings": { "inventory.fefo": true }
+}
+```
+
+### D3. Storage quota (cloud, where Mizan provides storage)
+- **What counts**: database rows, files, and kept (uninstalled) data.
+- **The owner sees it analysed by module**, and can free space or export it.
+- **Limits**: a warning at 80%. At 100% new uploads are blocked, while sales and daily work
+  never stop. More can be bought.
+
+### D4. People: positions, roles and screens
+- **Positions** (job titles: pharmacist, chief accountant) and **roles** (permissions +
+  screens) **stay separate**; a position suggests default roles.
+- **Three layers**, each overriding the one before:
+
+  ```
+  platform     standard positions, roles, permissions
+     ↓
+  activity     pharmacy adds "pharmacist", hides what it doesn't need, renames terms
+     ↓
+  workspace    the owner creates/edits positions and roles, picks each role's screens
+  ```
+- **Nobody holds everything at once.** A workspace super admin does not get all permissions; they
+  **act as a role** (doctor, HR, accountant, cashier…), one at a time.
+  - The **owner assigns roles to users** in the workspace settings.
+  - The **user switches between their assigned roles** from the top bar; every switch is logged.
+  - `"*"` and the role bypass are removed; admins get explicit permission sets (#94).
 - **One permission system**: permissions are declared in module manifests
-  (`pharmacy.dispense`…) and checked by a single `require_perm`.
-- **Each role has its own screens**: home, navigation, dashboard, built from screens/widgets
-  modules provide. Screen ids resolve through the active variant, so "cashier" sees a drug
-  counter in a pharmacy and a floor plan in a restaurant.
-- **Full screen builder**: layouts, **custom fields** (stored per workspace, usable in
-  reports), and forms. Used by the owner and staff with a `designer` permission.
+  (`pharmacy.dispense`…) and checked by one `require_perm`. Clinical isolation holds.
+- **Every role has its own screens**: home, navigation and dashboard, assembled from the screens
+  and widgets that modules and variants provide.
+  - Screen ids resolve through the active variant: the same "cashier" role gets a drug counter
+    in a pharmacy and a floor plan in a restaurant.
+- **A full screen builder**:
+  - **what it changes**: layouts, **custom fields** (stored per workspace, usable in reports)
+    and **forms**
+  - **who uses it**: the owner, and staff the owner gives a **`designer`** permission
 
-### D5. Marketplace, developers, pricing
-- **Pricing per module**: a base subscription (platform + the activity's default modules,
-  users/branches/storage) plus add-on modules, official or community, billed monthly.
-- **Community developers** build with the framework and either **publish** (free or paid) to
-  the marketplace, or **package privately** and give the file to an owner to install.
-- Paid community modules are sold **through Mizan with a revenue share**; Mizan pays developers.
-- **Security**: third-party code (published or private) runs **isolated** with "smart
-  restrictions": no direct database or process access, only declared scopes through the SDK
-  API. On install the owner **approves the scopes** (like phone apps); an update asking for more
-  asks again.
-- **Third-party UI only through the screen builder** (declarative), never custom JavaScript.
-- **Versions**: official modules run the latest version for everyone on the cloud; owners choose
-  community module versions. Security-fix policy is an **owner setting** (proposed default:
-  apply security fixes automatically; Mizan can always revoke a malicious module from the
-  marketplace).
-- **On-site installs**: each purchased module is delivered as **one file bound to the
-  installation id** (signed, encrypted, not transferable or reversible); installed locally. The
-  same local install works on cloud workspaces.
+### D5. Development framework, marketplace, pricing
+
+**Pricing**
+- **Per module**: a **base subscription** (the platform plus the activity's default modules;
+  users, branches and storage) plus **add-on modules**, official or community, billed monthly.
+- This replaces today's plan tiers (`core/plans.py`); existing subscriptions are mapped.
+
+**Who builds what**
+- **One framework for everyone**: it scaffolds families, activities, modules and variants. Mizan
+  builds with it, and so do **community developers**.
+- **Developers either**:
+  - **publish** to the marketplace (free or paid), and owners install from it; or
+  - **package privately** and hand the file to an owner, who installs it locally. Private
+    installs are allowed **anywhere** (cloud included), made safe by isolation and smart
+    restrictions.
+- **Paid community modules are sold through Mizan** with a revenue share. The owner pays Mizan
+  (Paymob); Mizan pays developers.
+
+**Security**
+- **Isolation**: third-party code runs **isolated**, with "smart restrictions": no database
+  credentials or process access, only its declared scopes through the SDK API (see Isolation).
+- **Scopes**: on install, the owner **sees and approves the module's scopes**, like phone apps.
+  An update that asks for more asks again.
+- **No custom JavaScript**: third-party screens are **built with the screen builder only**
+  (declarative); they can't steal sessions.
+
+**Versions**
+- **Official modules**: everyone on the cloud runs the latest version.
+- **Community modules**: owners choose the version, and several versions can run side by side.
+- **Security fixes**: decided by the **owner, through a setting**.
+  - Proposed default: apply security fixes automatically.
+  - Mizan can always pull a malicious module from the marketplace.
+
+**On-site installs** (single device / LAN)
+- Each purchased module is exported to the owner as **one file bound to the installation id**:
+  signed and encrypted, it can't be reversed or installed on another instance.
+- Installation is local. Installing from a file works on cloud workspaces too.
 
 ## Target structure
 
 ```
 shared/backend/app/
-├── platform/                 auth, tenancy, permissions engine, i18n, printing, scheduler,
+├── platform/                 the engine, never switched off: auth, tenancy, permissions
+│                             engine, i18n, printing, scheduler (automation_worker),
 │                             notifications, audit, files, storage quota, custom fields
 ├── integrations/             whatsapp · zkteco · pos_hardware · paymob · eta_einvoice
-├── framework/                module runtime: manifest schema, loader (the only one), variants,
-│                             hooks, screens/widgets registry, settings, migrations per module,
-│                             isolation host for third-party modules, scopes, licences
+├── framework/                module runtime: manifest schema, the only loader, variant
+│                             resolution, hooks, screens/widgets registry, settings,
+│                             per-module migrations, scopes, licences, isolation host
 ├── catalog/families.json     families (labels)
 ├── activities/<activity_id>/
-│   ├── activity.json         family, base modules, roles, positions, terms, settings, nav defaults
+│   ├── activity.json         family, base modules + variants, positions, roles (permissions,
+│   │                         home, nav, dashboard), terms, settings
 │   └── seed.py               demo data
 └── modules/<home_activity>/<module_id>/
-    ├── manifest.json         id, activity, version, depends_on, permissions, screens, widgets,
-    │                         settings schema, fits: [activities] | "all", scopes (3rd party)
-    ├── models.py · schemas.py · service.py · router.py · hooks.py · migrations/ · seed.py
-    ├── templates/ · tests/ · README.md
+    ├── manifest.json         id (= folder), activity, version, depends_on, permissions,
+    │                         screens, widgets, settings schema, fits ("all" | activities),
+    │                         scopes (third party)
+    ├── models.py · schemas.py · service.py (logic, not in the router) · router.py
+    ├── hooks.py · migrations/ · seed.py · templates/ · tests/ · README.md
     └── variants/<activity_id>/
-        ├── variant.json      screens, fields, terms, settings, permissions, uses, templates, widgets
-        └── hooks.py          rules for this activity
+        ├── variant.json
+        └── hooks.py
 
 modules/general/              contacts · catalog · inventory · sales · purchases · finance ·
-                              pos · hr · reports      (from app/api/routers/)
+                              pos · hr · reports       (from app/api/routers/)
 
 system/frontend/src/
-├── framework/                screen renderer (builder schemas), role shell, nav from role
+├── framework/                screen renderer (builder schemas), role shell, navigation and
+│                             home built from the active role
 └── modules/<home_activity>/<module_id>/
-    ├── index.ts              routes, screens, widgets, nav entries
+    ├── index.ts              routes, screens, widgets, nav entries (App.tsx and nav.ts stop
+    │                         listing modules by hand)
     ├── screens/ · components/ · api.ts
-    └── variants/<activity_id>/
+    └── variants/<activity_id>/   screens/components replacing or adding to the base
 ```
 
 ### Mapping of today's modules
-| Today | Target |
-|---|---|
-| `api/routers/*` + empty shells `core sales inventory purchases finance pos hr contacts` | `modules/general/<area>` |
-| `i18n`, `automation_worker` | `platform/` |
-| `whatsapp_gateway`, `zk_attendance`, `pos_hardware` | `integrations/` |
-| `retail-pos`, `restaurant-pos`, `gym-pos`, `gym_fitness` | deleted; become `pos` variants / activity defaults |
-| `kitchen_display` | part of `modules/restaurant/restaurant` |
-| `healthcare_clinic`, `healthcare/*` (`hlt_*`) | `modules/<clinic|hospital>/<readable id>`; accounting/billing/hr/inventory/notifications merged into general/platform |
-| `hospitality/*` (`hot_*`) | `modules/hotel/<readable id>` |
-| `agr bnk cst eng ent fod gov ins oil phm rec prn mfg` | `agriculture banking construction energy events food_manufacturing government insurance oil_gas pharma_manufacturing real_estate printing manufacturing` |
+| Today | Target | Why |
+|---|---|---|
+| `api/routers/*` + the empty shells `core sales inventory purchases finance pos hr contacts` | `modules/general/<area>` | The real code is in `api/routers` |
+| `i18n`, `automation_worker` | `platform/` | Engines, not business modules |
+| `whatsapp_gateway`, `zk_attendance`, `pos_hardware` | `integrations/` | Connectors |
+| `retail-pos`, `restaurant-pos`, `gym-pos`, `gym_fitness` | deleted; become POS variants / activity defaults | Manifest-only stubs |
+| `kitchen_display` | part of `modules/restaurant/restaurant` | Part of the restaurant |
+| `healthcare_clinic` | `modules/clinic/clinic` | One layout |
+| `healthcare/*` (`hlt_*`) | `modules/hospital/<readable id>`; `hlt_pharmacy` → `hospital_pharmacy` | Readable, no clash with retail `pharmacy` |
+| `healthcare/accounting`, `billing`, `hr_workforce`, `inventory_procurement`, `notifications` | merged into `general` finance/hr/inventory and `platform/notifications` (as variants where clinical) | They duplicate the core |
+| `hospitality/*` (`hot_*`) | `modules/hotel/<readable id>` | Readable ids |
+| `agr bnk cst eng ent fod gov ins oil phm rec prn mfg` | `agriculture banking construction energy events food_manufacturing government insurance oil_gas pharma_manufacturing real_estate printing manufacturing` | Readable; folder = id |
 
-Old ids stay valid through a `legacy_ids` map and a migration of `tenants.active_modules`.
+### Rules that keep it correct (enforced by tests/CI)
+- **Folder name = module id**, unique, readable, valid on Windows (installers are built there).
+- **IDs never break workspaces**: a `legacy_ids` map (`prn` → `printing`, `hlt_emr` → `emr`…)
+  plus a migration of `tenants.active_modules`.
+- **Families and categories come from one list**; the ~20 ad-hoc category ids disappear.
+- **Dependencies are validated at startup** (a missing one like `invoicing` fails the build).
+- **One loader** only (no hand-written module imports).
+- **Every module declares its permissions, screens and settings**; nothing checks the activity
+  name directly.
 
 ## Developer framework & portal
 
-**SDK** (`mizan-sdk`, Python + a TypeScript screen-schema package) and **CLI**:
-`mizan module new | dev | test | build | package | publish`, `mizan variant new`,
-`mizan activity new`.
-- `dev` runs a local Mizan with the module mounted and a demo workspace per activity.
-- `test` runs the module's tests plus the framework's contract checks (manifest schema,
-  scopes, Windows-safe names, unique ids, variants resolve, migrations up/down, no raw access).
-- `package` produces a signed `.mzm` file; `publish` uploads it for review.
+### SDK and CLI
+- **Packages**: `mizan-sdk`, Python, plus a TypeScript screen-schema package.
+- **Commands**:
+  - `mizan family new` · `mizan activity new` · `mizan module new` · `mizan variant new`
+  - `mizan dev`: a local Mizan with the module mounted and a demo workspace per activity
+  - `mizan test`: the module's tests plus the framework's contract checks: manifest schema,
+    scopes, Windows-safe names, unique ids, variants resolve, migrations up and down, no raw
+    database access
+  - `mizan build` / `mizan package`: a signed `.mzm` file
+  - `mizan publish`: uploads it for review
 
-**Developer portal** (new product, `developer/` frontend + API, own domain):
-- Accounts and teams; identity/KYC and payout details for sellers.
-- Docs, API reference, examples, sandbox workspaces per activity.
-- Submissions: automated checks → security review → listing approval; review status and
-  feedback; every published version signed by Mizan.
-- Listings: description, screenshots, activities/variants supported, scopes, pricing.
-- Analytics: installs, revenue, ratings, errors; payouts history.
-- Version management, deprecation, emergency revoke; issue reports from owners.
+### Developer portal
+A new product: `developer/` frontend + API, on its own domain.
+- **Accounts and teams**: identity verification and payout details for sellers.
+- **Learning**: docs, API reference, examples, sandbox workspaces per activity.
+- **Submissions**: automated checks → security review → listing approval. Developers see
+  review status and feedback; every published version is signed by Mizan.
+- **Listings**: description, screenshots, supported activities and variants, scopes, price.
+- **Analytics**: installs, revenue, ratings, error reports, payout history.
+- **Versions**: management and deprecation; emergency revoke.
 
-**Owner side**: a marketplace in the owner panel (browse by family/activity, see scopes and
-price, install/uninstall, choose versions for community modules, security-fix setting), and
-"install from file" for private packages and on-site purchases.
+### Owner side (owner panel)
+- **Marketplace**: browse by family and activity; see scopes and price; install and uninstall
+  (with the D2 flow); choose community module versions; the security-fix setting.
+- **Install from file**: for private packages and on-site purchases.
+- **Storage**: usage and its analysis (D3).
+- **Workspace settings**: roles, positions and role assignment (D4).
 
-**Admin side**: review queue, developer management, revenue share settings, revocations,
-module usage across workspaces.
+### Admin side (admin panel)
+- Review queue, developer management, revenue-share settings, revocations.
+- Module usage across workspaces.
+- Approving activity changes (D2).
 
-## Isolation (to be detailed in ADR-007 before phase 6)
-Official modules run in-process. Third-party modules run in a separate sandboxed runtime per
-module (container or WASM, decided in ADR-007) with no database credentials and no outbound
-network except an allow-list; they call Mizan through the SDK API with a per-workspace
-capability token limited to the approved scopes; their own data lives in tables the framework
-creates for them, still tenant-scoped with RLS; CPU/memory/time quotas and rate limits.
+## Isolation (detailed in ADR-007 before phase 6)
+- **Official modules** run in-process.
+- **Third-party modules** (published or private) run in a separate **sandboxed runtime per
+  module** (container or WASM, chosen in ADR-007):
+  - no database credentials, no access to other processes
+  - no outbound network except an allow-list
+  - they call Mizan only through the SDK API, with a per-workspace capability token limited to
+    the approved scopes
+  - their own data lives in framework-created tables: tenant-scoped, under RLS, counted in the
+    storage quota
+  - CPU, memory and time quotas, and rate limits
+  - signed versions only
 
 ## Plan
 
-Each phase ends usable and tested; nothing breaks existing workspaces.
+Each phase ends usable and tested; existing workspaces and on-site installs keep working.
 
 | Phase | Delivers | Key work |
 |---|---|---|
-| **0. Finish the bug batch** | #23, #47, #78 + the fixes on `fix/audit-bugs` | Merge, deploy together when needed |
-| **1. Framework core** | One loader, manifest schema v2, module ids = folders, `legacy_ids`, families/activities as data | Delete second loader; validate dependencies at startup; Windows-safe/unique checks in CI |
-| **2. General activity** | `modules/general/*` from `api/routers/*` | Move code, keep URLs; empty shells removed; platform/ and integrations/ split out |
-| **3. One permission system + act as role** | Manifest-declared permissions, single `require_perm`, no `*`/role bypass, role switching | Migration of existing admins/owners to explicit sets; e2e: admin acting as cashier can't reach finance/clinical (#94) |
-| **4. Activities & variants** | `activity.json`, variant resolution, hooks; **pharmacy** end to end (POS + inventory variants) | Workspace creation from activity; module install rules (family / compatible variant); uninstall flow with 30-day keep; storage quota |
-| **5. Roles with screens & builder** | Role home/nav/dashboard; screen builder with custom fields and forms; `designer` permission | Frontend framework renders screens from schemas; nav from active role |
-| **6. Isolation & SDK** | ADR-007; sandbox runtime; scopes; SDK + CLI; private package install (`.mzm`) | Security review of the runtime; on-site per-installation module files |
-| **7. Marketplace & developer portal** | Portal, review pipeline, listings, payouts, owner marketplace, admin review | Paymob payouts, revenue share, per-module billing (base + add-ons) |
-| **8. Migrate all activities** | Every current module in the new structure with variants; duplicates merged | Activity by activity; demo data per activity |
-| **9. Activity change** | Guided conversion with Mizan approval | Price change through billing |
+| **0. Finish the bug batch** | #47, #78; the fixes on `fix/audit-bugs` (#17–#23, #81, migration v49) | Re-run e2e; merge and deploy together when needed |
+| **1. Framework core** | One loader; manifest schema v2; folder = id; `legacy_ids`; families and activities as data | Remove the second loader; startup dependency validation; CI checks (names, ids) |
+| **2. General activity** | `modules/general/*` from `api/routers/*`; `platform/` and `integrations/` split out | Move code, keep URLs; delete empty shells and stubs |
+| **3. One permission system + act as a role** | Manifest-declared permissions, one `require_perm`; no `"*"` or role bypass; owner assigns roles, user switches | Migrate admins/owners to explicit sets; e2e: an admin acting as cashier can't reach finance or clinical records (#94) |
+| **4. Activities & variants** | `activity.json`, variant resolution, hooks; **pharmacy end to end** (POS + inventory variants) | Workspace creation from the activity; install rules (family / compatible variant); uninstall flow with 30-day keep; storage quota and its analysis |
+| **5. Role screens & builder** | Role home/navigation/dashboard; screen builder with custom fields and forms; `designer` permission | Frontend framework renders builder schemas; navigation from the active role |
+| **6. Isolation & SDK** | ADR-007; sandbox runtime; scopes and owner approval; SDK + CLI; private `.mzm` installs | Security review of the runtime; on-site per-installation module files |
+| **7. Marketplace & developer portal** | Portal, review pipeline, listings, payouts; owner marketplace; admin review queue | Per-module billing (base + add-ons); Paymob payouts and revenue share |
+| **8. Migrate every activity** | All current modules in the new structure, with variants; duplicates merged | Activity by activity, with demo data per activity |
+| **9. Activity change** | Guided conversion, approved by the Mizan team | Price change through billing |
 
 ## Consequences
-- One way to build anything: the framework the community uses is the one Mizan uses.
-- Large migration: most backend and frontend files move; done in phases with legacy ids and
-  URL compatibility so existing workspaces and on-site installs keep working.
-- Third-party code on the shared cloud is the main risk; it is gated by isolation, scopes,
-  review and revocation (ADR-007).
-- Per-module pricing replaces plan tiers; existing subscriptions need a mapping.
+- **One way to build anything**: the framework the community uses is the one Mizan uses.
+- **A large migration**: most backend and frontend files move. It happens in phases, with legacy
+  ids and URL compatibility.
+- **Third-party code on the shared cloud is the main risk**: isolation, scopes, review, signing
+  and revocation gate it.
+- **Per-module pricing replaces plan tiers**: existing subscriptions are mapped.
 
 ## Open questions
-- Exact sandbox technology and its cost per module (ADR-007).
-- Revenue share percentage, payout schedule, developer KYC requirements.
-- Base subscription contents and prices per activity; trial rules with add-ons.
-- How on-site installs receive official module updates offline (ties to #89).
-- What an admin keeps regardless of the acting role (user management, settings?).
+- **Isolation**: the sandbox technology and its cost per module (ADR-007).
+- **Commercial**:
+  - the revenue-share percentage, payout schedule and developer verification
+  - base subscription contents and prices per activity; trials with add-ons
+- **Admin rights**: what an admin keeps whatever role they act as (user management, settings?).
+- **Offline updates**: how on-site installs get official module updates (#89).
+- **Uninstall**: whether "delete data now" still keeps a short safety backup the owner can
+  restore.
+
+## Decision log (review of 2026-11-10)
+Answers as given by the owner; *italics* = how this ADR applies them.
+
+| # | Question | Answer |
+|---|---|---|
+| — | Where does the core ERP (contacts, catalog, inventory, sales, purchases, finance, POS, HR, reports) go? | A family/activity called **general**; modules can be customised by the activity they're part of: **modules have variants** |
+| — | Goals check | Customise every activity; use a module from one activity in another; positions/roles unique per activity if wanted; every role/position has its own custom screen |
+| — | Should an admin whose permission was removed still use it? | "Super admin can't access everything at once; instead he can act as any role: doctor, HR, etc." → #94 |
+| 1 | Mandatory modules? | A **module/family development framework**; the family/activity structure defines the **default modules**; uninstalling them is allowed with a warning, a typed `delete` and awareness of the consequences |
+| 2 | Several activities per workspace? | **One activity**, with base modules; the user can extend within the **family** or with modules from **other activities that have a variant** for this one |
+| 3 | Who picks the variant? | **The activity; it can't be changed**, but each module's **settings** can |
+| 4 | Positions vs roles | **Separate**; a position suggests roles |
+| 5 | Several roles per user | Done from the **owner's workspace settings** |
+| 6 | Screen customisation | **Full builder** |
+| 7 | Who creates new activities/variants | **Pluggable**: community developers using the framework |
+| 8 | "Local only" plugins | Developers **upload** modules (and can **sell** them; owners install), or **package privately** and install through the owner |
+| 9 | Does `standard` fit every activity? | **Yes**, unless marked otherwise |
+| 10 | Several roles: who switches? | **The owner assigns roles; the user switches between them** |
+| 11 | Changing activity later | **Yes, with a guided conversion**, approved by the SaaS team (price may differ) |
+| 12 | Data on uninstall | The owner chooses: delete now, or keep 30 days. Plus a **storage quota** the owner can see analysed, free or export |
+| 13 | Builder scope | **Layouts + custom fields + forms** |
+| 14 | Who uses the builder | **Owner + a `designer` permission** |
+| 15 | Plans and families | **Paid per module** |
+| 16 | Marketplace code on the cloud | **"Secure it"** → *isolation (ADR-007)* |
+| 17 | Private packages | **Allowed anywhere**, secured with **custom smart restrictions and isolation** |
+| 18 | Install permissions | **The owner approves the scopes** |
+| 19 | Selling modules | **Through Mizan, revenue share** |
+| 20 | Base price | **Base subscription** (platform + activity defaults) **+ add-ons** |
+| 21 | Storage quota | **Database + files + kept data; warn at 80%, block uploads at 100%** |
+| 22 | Module updates | **Owner always chooses** → *refined by #25* |
+| 23 | Families and activities | **Every module has its activity**, a unique id and variants for other activities; a new workspace takes the required modules from any activity (**a compatible variant is a must**) |
+| 24 | What is a family? | **Families group activities, for organising only**; `general` is inherited by all; an activity in one family may have a variant for an activity of another |
+| 25 | Versions on the cloud | **Community modules: owner's choice; official: everyone on the latest** |
+| 26 | Security fixes | **The owner decides, in settings** → *proposed default: automatic; Mizan can still pull a malicious module from the marketplace* |
+| 27 | Third-party UI | **Screen builder only** |
+| 28 | On-site and paid modules | Each module sold for a non-cloud install is exported as **one file with the instance id**: can't be reversed or installed elsewhere; installation is local, and works on the cloud too |
+| 29 | First milestone | **A detailed plan about everything, including the developer portal** (this ADR) |
+| 30 | The bug batch | **Finish it first**, then start this |
