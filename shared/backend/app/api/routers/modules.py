@@ -174,10 +174,6 @@ async def apply_preset(
     }
 
 
-import io
-import json
-import zipfile
-from fastapi import File, UploadFile
 from app.modules.restaurant.router import (
     get_restaurant_tables as db_get_tables,
     update_table_status as db_update_table,
@@ -221,55 +217,6 @@ from app.modules.services.router import (
     UpdateDeadlineStatusRequest,
     get_consulting_summary as db_get_consulting_summary,
 )
-
-
-@router.post("/upload")
-async def upload_module_package(
-    file: UploadFile = File(...),
-    db: AsyncSession = Depends(get_db),
-    _=Depends(require_perm("settings")),
-):
-    """Import and install a custom third-party module package (.zip)."""
-    if not file.filename.endswith(".zip"):
-        raise HTTPException(status_code=400, detail="يجب أن تكون حزمة الموديول ملفاً مضغوطاً بصيغة .zip")
-
-    content = await file.read()
-    try:
-        with zipfile.ZipFile(io.BytesIO(content)) as z:
-            manifest_names = [n for n in z.namelist() if n.endswith("manifest.json")]
-            if not manifest_names:
-                raise HTTPException(status_code=400, detail="الحزمة لا تحتوي على ملف manifest.json التعريفي")
-
-            manifest_path = manifest_names[0]
-            manifest_data = json.loads(z.read(manifest_path).decode("utf-8"))
-            mod_id = manifest_data.get("id")
-            if not mod_id:
-                raise HTTPException(status_code=400, detail="معرف الموديول 'id' غير محدد في المانيفست")
-
-            target_dir = registry.modules_dir / mod_id
-            target_dir.mkdir(parents=True, exist_ok=True)
-
-            prefix = manifest_path.rsplit("manifest.json", 1)[0]
-            for member in z.namelist():
-                if member.endswith("/"):
-                    continue
-                rel_path = member[len(prefix):] if prefix and member.startswith(prefix) else member
-                if not rel_path or ".." in rel_path:
-                    continue
-                dest = target_dir / rel_path
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_bytes(z.read(member))
-
-            registry._discovered = False
-            discovered = registry.discover_modules()
-            manifest = discovered.get(mod_id)
-
-            return {
-                "detail": f"تم استيراد وتثبيت وحدة «{manifest_data.get('name', mod_id)}» بنجاح في النظام",
-                "module": asdict(manifest) if manifest else manifest_data,
-            }
-    except zipfile.BadZipFile:
-        raise HTTPException(status_code=400, detail="ملف الـ ZIP تالف أو غير صالح")
 
 
 # ============================================================================

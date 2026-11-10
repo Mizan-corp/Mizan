@@ -422,3 +422,25 @@ async def test_db_01_all_tenant_tables_have_rls_enabled():
         assert vulnerable_count == 0, f"Found {vulnerable_count} tables with tenant_id lacking Row Level Security!"
 
 
+
+
+def test_module_guard_reads_the_signed_in_workspace():
+    # require_module must resolve the user (which binds the workspace) before reading the
+    # workspace's modules; otherwise it reads installed_modules across workspaces.
+    import inspect
+
+    from app.core.modules import require_module
+    from app.dependencies import get_current_user
+
+    params = inspect.signature(require_module("restaurant")).parameters.values()
+    assert any(getattr(p.default, "dependency", None) is get_current_user for p in params)
+
+
+def test_module_packages_cannot_be_uploaded():
+    # Uploaded zips were unpacked into the server's code and imported (ADR-006 phase 6
+    # replaces this with signed, isolated packages).
+    from fastapi.routing import APIRoute
+
+    from main import app
+
+    assert not [r for r in app.routes if isinstance(r, APIRoute) and r.path == "/modules/upload"]

@@ -798,7 +798,11 @@ def require_module(module_id: str):
         "healthcare_clinic": "clinic",
     }
 
-    async def _checker(db: AsyncSession = Depends(get_db)):
+    from app.dependencies import get_current_user
+
+    # Depends on the user so the workspace is bound before its modules are read; without it the
+    # guard read installed_modules with no workspace (another workspace's row, or several).
+    async def _checker(db: AsyncSession = Depends(get_db), _user=Depends(get_current_user)):
         active = await get_active_modules(db)
         target_alias = MODULE_ALIASES.get(module_id, module_id)
         if module_id not in active and target_alias not in active:
