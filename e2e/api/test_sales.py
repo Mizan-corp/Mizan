@@ -188,3 +188,16 @@ def test_invoice_pdf_renders(admin_api, reg, product, wh):
     r = admin_api.get(f"/invoices/{s['id']}/pdf")
     assert r.status_code == 200, r.text[:200]
     assert r.headers["content-type"] == "application/pdf" and r.content[:4] == b"%PDF"
+def test_quotation_partial_edit_keeps_items_and_customer(admin_api, reg, product, wh, customer):
+    q = admin_api.ok(admin_api.post("/sales/quotations", json=_sale_payload(product, wh, customer_id=customer["id"])))
+    reg.add("sale", q["id"])
+    # Editing only the notes used to delete every item (total 0) and unlink the customer.
+    admin_api.ok(admin_api.put(f"/sales/{q['id']}", json={"notes": "e2e only notes"}))
+    after = admin_api.ok(admin_api.get(f"/sales/{q['id']}"))
+    assert len(after["items"]) == 1
+    assert float(after["net_total"]) == 100
+    assert after["customer_id"] == customer["id"]
+    assert after["notes"] == "e2e only notes"
+
+    admin_api.ok(admin_api.put(f"/sales/{q['id']}", json={"discount_amount": "10"}))
+    assert float(admin_api.ok(admin_api.get(f"/sales/{q['id']}"))["net_total"]) == 90

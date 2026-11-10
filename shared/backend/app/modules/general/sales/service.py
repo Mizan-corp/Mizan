@@ -74,6 +74,36 @@ async def create_quotation(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sal
     return result.scalar_one()
 
 
+async def update_quotation(db: AsyncSession, sale_id: uuid.UUID, data) -> None:
+    """Edit a quotation. Only what the request contains changes: leaving out items, notes or the
+    customer keeps them (it used to clear them). Totals follow create_quotation()."""
+    status = (await db.execute(text("SELECT status FROM sales WHERE id = :id FOR UPDATE"), {"id": sale_id})).scalar()
+    if status is None:
+        from app.core.exceptions import NotFoundError
+        raise NotFoundError()
+    if status != "quotation":
+        raise BusinessError("Only quotations can be edited")
+    sent = data.model_fields_set
+    if "items" in sent or "discount_amount" in sent:
+        if "items" in sent:
+            await db.execute(text("DELETE FROM sale_items WHERE sale_id = :id"), {"id": sale_id})
+            for item in data.items:
+                db.add(SaleItem(sale_id=sale_id, product_id=item.product_id, qty=item.qty, unit_price=item.unit_price,
+                                unit_cost=item.unit_cost, discount=item.discount))
+            await db.flush()
+        rows = (await db.execute(text("SELECT qty, unit_price, discount FROM sale_items WHERE sale_id = :id"), {"id": sale_id})).all()
+        gross = sum((Decimal(r.qty) * Decimal(r.unit_price) for r in rows), Decimal("0"))
+        line_discounts = sum((Decimal(r.discount or 0) for r in rows), Decimal("0"))
+        invoice_discount = data.discount_amount if "discount_amount" in sent else Decimal(
+            (await db.execute(text("SELECT discount_amount FROM sales WHERE id = :id"), {"id": sale_id})).scalar() or 0)
+        await db.execute(text("UPDATE sales SET total = :t, net_total = :n, discount_amount = :d WHERE id = :id"),
+                         {"t": gross, "n": gross - line_discounts - invoice_discount, "d": invoice_discount, "id": sale_id})
+    if "notes" in sent:
+        await db.execute(text("UPDATE sales SET notes = :v WHERE id = :id"), {"v": data.notes, "id": sale_id})
+    if "customer_id" in sent:
+        await db.execute(text("UPDATE sales SET customer_id = :v WHERE id = :id"), {"v": data.customer_id, "id": sale_id})
+
+
 async def confirm_quotation(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID,
                             destination: str = "drawer", safe_id: uuid.UUID | None = None) -> Sale:
     """Convert a quotation to a confirmed sale — deducts stock and records the cash destination (drawer/safe)."""

@@ -279,35 +279,7 @@ async def get_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Dep
 @router.put("/{sale_id}")
 async def update_sale(sale_id: uuid.UUID, data: UpdateSale, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("quotations"))):
     """Edit a quotation (status=quotation only)."""
-    from sqlalchemy import text as sqlt
-    d = data.model_dump()
-    sale_row = await db.execute(sqlt("SELECT status FROM sales WHERE id=:id"), {"id": sale_id})
-    sale = sale_row.fetchone()
-    if not sale:
-        raise NotFoundError()
-    if sale.status != "quotation":
-        raise BusinessError("Only quotations can be edited")
-    # Update items + recalculate total
-    await db.execute(sqlt("DELETE FROM sale_items WHERE sale_id=:id"), {"id": sale_id})
-    total = 0.0
-    for item in d.get("items", []):
-        line = float(item["qty"]) * float(item["unit_price"])
-        disc = item.get("discount", 0) or 0
-        total += line - disc
-        await db.execute(sqlt("""
-            INSERT INTO sale_items (id, sale_id, product_id, qty, unit_price, unit_cost, discount)
-            VALUES (gen_random_uuid(), :sid, :pid, :qty, :price, :cost, :disc)
-        """), {"sid": sale_id, "pid": item["product_id"], "qty": item["qty"],
-               "price": item["unit_price"], "cost": item.get("unit_cost", 0),
-               "disc": disc})
-    invoice_disc = float(d.get("discount_amount", 0) or 0)
-    net_total = total - invoice_disc
-    await db.execute(sqlt("UPDATE sales SET total=:total, net_total=:net, discount_amount=:disc WHERE id=:id"),
-                     {"total": total, "net": net_total, "disc": invoice_disc, "id": sale_id})
-    if "notes" in d:
-        await db.execute(sqlt("UPDATE sales SET notes=:notes WHERE id=:id"), {"notes": d["notes"], "id": sale_id})
-    if "customer_id" in d:
-        await db.execute(sqlt("UPDATE sales SET customer_id=:cid WHERE id=:id"), {"cid": d.get("customer_id"), "id": sale_id})
+    await sale_service.update_quotation(db, sale_id, data)
     await db.commit()
     return {"id": str(sale_id)}
 

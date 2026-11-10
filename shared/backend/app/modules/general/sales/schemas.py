@@ -66,9 +66,9 @@ class SaleCreate(BaseModel):
 class UpdateSaleItem(BaseModel):
     product_id: uuid.UUID
     qty: Decimal = Field(..., gt=0)
-    unit_price: Decimal
-    unit_cost: Decimal = Decimal("0")
-    discount: Decimal = Decimal("0")
+    unit_price: Decimal = Field(..., ge=0)
+    unit_cost: Decimal = Field(default=Decimal("0"), ge=0)
+    discount: Decimal = Field(default=Decimal("0"), ge=0)
 
 
 class UpdateSale(BaseModel):
