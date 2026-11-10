@@ -403,15 +403,29 @@ Choices made while implementing phase 1 (#99), for review:
   `modules/` until phase 2 moves them to `platform/` and `integrations/`.
 - **Readable ids now** for the top-level modules (`prn`→`printing`, `agr`→`agriculture`, …,
   `ent`→`events`, `mfg`→`manufacturing`); URLs (`/prn`, `/agr`…) and table names are unchanged.
-  The grouped `hlt_*`/`hot_*` modules keep their ids until phase 8 moves (and partly merges)
-  them, to avoid renaming twice.
+  The hospital and hotel modules lost their `hlt_*`/`hot_*` prefixes too (owner's decision:
+  full names now); clashes resolved as `hospital_pharmacy`, `health_insurance`,
+  `medical_billing`, `medical_accounting`, `patient_notifications`, `medical_workforce`,
+  `medical_supplies`, `hospital_analytics`, `hotel_pms`. Merging duplicates is still phase 8.
+- **Activities are one full word** (owner's decision): `discrete_mfg`→`manufacturing`,
+  `food_mfg`→`food`, `pharma_mfg`→`pharmaceuticals`, `wms_3pl`→`warehousing`,
+  `law_firm`→`legal`, `field_service`→`maintenance`, `oil_gas`→`petroleum`,
+  `real_estate`→`property` (migration v52 rewrites stored sectors; `legacy_activities` keeps the
+  old ids accepted).
+- **Planned modules from the SRS**: every module the SRS names that isn't built has a folder
+  under its activity with only a `README.md` (`(planned)`, the SRS requirements it covers, where
+  related code lives today), mirrored on the frontend: e.g. `restaurant/menu`,
+  `pharmacy/drug_interactions`, `school/timetable`, the banking, insurance, government,
+  entertainment and petroleum modules (grouped from the SRS requirement lists), the shared
+  `general/*` engines (XMOD), `platform/marketplace`, `platform/customization`,
+  `integrations/{webhooks,fawry,instapay}`.
 - **Business presets** keep their ids (`prn`, `cst`…): they are a separate namespace stored in
   the workspace's settings; only the module lists inside them were renamed.
 - The manifest-only stubs (`retail-pos`, `restaurant-pos`, `gym-pos`, `gym_fitness`) were
   removed now; their ids map to `pos`, `restaurant`, `gym`. `operations` got a manifest so
   activities only list real modules.
-- **Migrations**: v50 (active modules in `tenants.active_modules` only), v51 (old ids rewritten in
-  stored module lists and module settings keys).
+- **Migrations**: v50 (active modules in `tenants.active_modules` only), v51 and v52 (old module
+  and activity ids rewritten in stored sectors, module lists and module settings keys).
 - **Folder layout applied** (backend and frontend): `modules/<home_activity>/<module_id>/`,
   `platform/<id>/`, `integrations/<id>/`, `framework/loader.py`, `activities/<id>/activity.json`;
   the frontend mirrors it (`src/modules/<activity>/<module>/`, `src/platform/`,

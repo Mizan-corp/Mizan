@@ -195,9 +195,11 @@ def test_frontend_mirrors_the_backend_layout():
     for m in index.values():
         by_activity.setdefault(m["activity"], set()).add(Path(m["_dir"]).name)
     for activity_dir in (frontend / "modules").iterdir():
-        assert activity_dir.name in by_activity, f"src/modules/{activity_dir.name} is not an activity with modules"
+        assert (APP / "activities" / activity_dir.name).is_dir(), f"src/modules/{activity_dir.name} is not an activity"
+        by_activity.setdefault(activity_dir.name, set())
+        planned = {p.name for p in (MODULES / activity_dir.name).iterdir() if p.is_dir() and not (p / "manifest.json").exists()}
         for module_dir in (p for p in activity_dir.iterdir() if p.is_dir()):
-            assert module_dir.name in by_activity[activity_dir.name], f"{module_dir.relative_to(frontend)}"
+            assert module_dir.name in by_activity[activity_dir.name] | planned, f"{module_dir.relative_to(frontend)}"
     for root, kind in (("platform", "platform"), ("integrations", "integration")):
         for module_dir in (frontend / root).iterdir():
             assert index.get(module_dir.name, {}).get("kind") == kind, module_dir
@@ -224,3 +226,19 @@ def test_activities_have_the_adr_fields_and_valid_variants():
         for module_id, variant in activity["variants"].items():
             assert module_id in set(activity["modules"]) | general, f"{aid}: {module_id} isn't one of its modules"
             assert variant in index[module_id].get("variants", ["standard"]), f"{aid}: {module_id} has no '{variant}' variant"
+
+
+def test_planned_modules_are_readme_only_and_mirrored():
+    # SRS modules not built yet: a folder with only README.md, backend and frontend (ADR-006).
+    from app.framework.loader import manifest_index
+
+    ids = set(manifest_index())
+    frontend = REPO / "system" / "frontend" / "src" / "modules"
+    planned = [p for p in MODULES.glob("*/*") if p.is_dir() and not (p / "manifest.json").exists() and p.name != "__pycache__"]
+    assert planned
+    for folder in planned:
+        files = {f.name for f in folder.iterdir() if f.name != "__pycache__"}
+        assert files == {"README.md"}, f"{folder.relative_to(APP)}: {files}"
+        assert folder.name not in ids, f"{folder.name} is also a module id"
+        assert "(planned)" in (folder / "README.md").read_text(encoding="utf-8")
+        assert (frontend / folder.parent.name / folder.name / "README.md").exists(), folder

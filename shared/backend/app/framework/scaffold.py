@@ -178,7 +178,10 @@ def new_module(activity: str, module_id: str, name: str, name_en: str = "", kind
         "version": "0.1.0", "icon": "Blocks", "description": "", "dependencies": ["core"],
         "permissions": [], "screens": [], "widgets": [], "variants": ["standard"],
     }
-    module_dir.mkdir(parents=True)
+    if module_dir.exists() and {f.name for f in module_dir.iterdir()} - {"README.md"}:
+        raise ValueError(f"{module_dir} already exists")
+    # A planned module (a folder with only its README) becomes a real one; its README is kept.
+    module_dir.mkdir(parents=True, exist_ok=True)
     (module_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     scaffold(module_dir, manifest)
     return module_dir
