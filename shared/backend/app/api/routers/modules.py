@@ -15,7 +15,7 @@ from app.core.modules import (
     set_active_modules,
 )
 from app.catalog import canonical_module
-from app.modules.loader import registry
+from app.framework.loader import registry
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
 

@@ -738,7 +738,7 @@ def cmd_cron(opts: argparse.Namespace) -> None:
 import asyncio
 import main  # noqa: F401  (loads models and settings)
 from app.db.base import AsyncSessionLocal
-from app.modules.automation_worker.runner import run_all_jobs, run_job
+from app.platform.automation_worker.runner import run_all_jobs, run_job
 
 async def go():
     async with AsyncSessionLocal() as db:

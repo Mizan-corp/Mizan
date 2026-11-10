@@ -1,0 +1,16 @@
+{
+  "id": "healthcare",
+  "family": "health",
+  "order": 10,
+  "name": "عيادات ومراكز طبية ومستشفيات",
+  "name_en": "Healthcare",
+  "description": "ملفات مرضى، حجز مواعيد، روشتات، وفواتير تأمين طبي",
+  "modules": [
+    "healthcare_clinic",
+    "pharmacy",
+    "finance",
+    "inventory",
+    "hr"
+  ],
+  "home": "/clinic"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "general",
+  "family": "general",
+  "order": 0,
+  "name": "الأساس العام",
+  "name_en": "General",
+  "description": "يرثه كل نشاط: جهات الاتصال، الأصناف، المخزون، المبيعات، المشتريات، المالية، نقاط البيع، الموظفون، التقارير",
+  "modules": [
+    "core",
+    "contacts",
+    "inventory",
+    "operations",
+    "sales",
+    "purchases",
+    "finance",
+    "pos",
+    "hr"
+  ],
+  "home": "/"
+}

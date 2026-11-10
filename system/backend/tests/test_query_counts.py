@@ -92,8 +92,8 @@ async def test_shift_list_query_count_is_constant():
 
 
 async def test_drug_list_query_count_is_constant():
-    from app.modules.pharmacy.models import PharmacyBatch, PharmacyDrug
-    from app.modules.pharmacy.router import list_drugs
+    from app.modules.pharmacy.pharmacy.models import PharmacyBatch, PharmacyDrug
+    from app.modules.pharmacy.pharmacy.router import list_drugs
 
     async with AsyncSessionLocal() as s:
         tid, user = await _workspace(s)

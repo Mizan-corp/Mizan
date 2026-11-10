@@ -1,0 +1,14 @@
+{
+  "id": "hotel",
+  "family": "food_hospitality",
+  "order": 13,
+  "name": "فنادق، منتجعات، وضيافة",
+  "name_en": "Hotels & Resorts",
+  "description": "حجوزات، غرف، فواتير إقامة، وتدقيق ليلي ومطاعم فندقية",
+  "modules": [
+    "hospitality",
+    "restaurant",
+    "finance"
+  ],
+  "home": "/hospitality"
+}

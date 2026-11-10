@@ -1,0 +1,16 @@
+{
+  "id": "retail",
+  "family": "commerce",
+  "order": 1,
+  "name": "تجارة، تجزئة، وسوبرماركت",
+  "name_en": "Retail",
+  "description": "سوبرماركت، معارض، ومخازن تجارية وRetail-POS مع موازين وباركود",
+  "modules": [
+    "pos",
+    "inventory",
+    "sales",
+    "finance",
+    "hr"
+  ],
+  "home": "/pos"
+}

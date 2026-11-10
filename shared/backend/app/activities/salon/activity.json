@@ -1,0 +1,14 @@
+{
+  "id": "salon",
+  "family": "services",
+  "order": 15,
+  "name": "صالونات تجميل ومراكز سبا",
+  "name_en": "Salon & Spa",
+  "description": "مواعيد مصففين، باقات خدمات، وعمولات موظفين ومستهلكات",
+  "modules": [
+    "salon",
+    "pos",
+    "finance"
+  ],
+  "home": "/salon"
+}

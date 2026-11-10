@@ -278,7 +278,7 @@ async def generate_system_alerts(
 
     # 2. Storefront pending orders
     try:
-        from app.modules.storefront.models import StorefrontOrder
+        from app.modules.general.storefront.models import StorefrontOrder
         pending_stmt = select(func.count(StorefrontOrder.id)).where(
             StorefrontOrder.tenant_id == current_user.tenant_id,
             StorefrontOrder.status == "pending",

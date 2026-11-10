@@ -1,0 +1,14 @@
+{
+  "id": "consulting",
+  "family": "services",
+  "order": 4,
+  "name": "مكاتب محاسبة واستشارات",
+  "name_en": "Consulting",
+  "description": "ساعات قابلة للفوترة، خطابات تكليف، عقود، وتقارير أرباح المشروعات",
+  "modules": [
+    "services",
+    "finance",
+    "hr"
+  ],
+  "home": "/services"
+}

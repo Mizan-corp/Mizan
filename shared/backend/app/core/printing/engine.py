@@ -13,7 +13,6 @@ from typing import Any
 
 ENGINE_DIR = Path(__file__).resolve().parent
 # Templates live inside each module: app/modules/<module_id>/templates/<category>/*.html
-MODULES_DIR = Path(__file__).resolve().parents[2] / "modules"
 TEMPLATES_DIR = ENGINE_DIR / "templates"
 CONFIG_FILE = ENGINE_DIR / "config.json"
 
@@ -21,9 +20,8 @@ CONFIG_FILE = ENGINE_DIR / "config.json"
 class PrintEngine:
     """Core Print Management Engine."""
 
-    def __init__(self, templates_dir: Path = TEMPLATES_DIR, config_file: Path = CONFIG_FILE, modules_dir: Path = MODULES_DIR) -> None:
+    def __init__(self, templates_dir: Path = TEMPLATES_DIR, config_file: Path = CONFIG_FILE) -> None:
         self.templates_dir = templates_dir
-        self.modules_dir = modules_dir
         self.config_file = config_file
         self._config = self._load_config()
 
@@ -46,16 +44,19 @@ class PrintEngine:
     def get_template_path(self, module_id: str, category: str, name: str) -> Path:
         """Resolve a template file inside a module's templates/<category>/ folder."""
         filename = name if name.endswith(".html") else f"{name}.html"
-        return self.modules_dir / module_id / "templates" / category / filename
+        from app.framework.loader import module_dirs
+
+        module_dir = module_dirs().get(module_id)
+        if module_dir is None:
+            raise FileNotFoundError(f"Unknown module '{module_id}' for template {category}/{filename}")
+        return module_dir / "templates" / category / filename
 
     def list_templates(self) -> dict[str, dict[str, list[str]]]:
         """List all templates grouped by module -> category -> [names]."""
         result: dict[str, dict[str, list[str]]] = {}
-        if not self.modules_dir.exists():
-            return result
-        for mod_dir in sorted(self.modules_dir.iterdir()):
-            if not mod_dir.is_dir() or mod_dir.name.startswith(("_", ".")):
-                continue
+        from app.framework.loader import module_dirs
+
+        for module_id, mod_dir in sorted(module_dirs().items()):
             tpl_root = mod_dir / "templates"
             if not tpl_root.exists():
                 continue
@@ -67,7 +68,7 @@ class PrintEngine:
                 if names:
                     mod_entry[cat_dir.name] = names
             if mod_entry:
-                result[mod_dir.name] = mod_entry
+                result[module_id] = mod_entry
         return result
 
     @staticmethod

@@ -27,7 +27,7 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.warehouse import Warehouse
 from app.models.sale import Sale
-from app.modules.healthcare_clinic.backend.models import (
+from app.modules.healthcare.healthcare_clinic.backend.models import (
     ClinicAppointment,
     ClinicEncounter,
     ClinicInpatientBed,
@@ -37,7 +37,7 @@ from app.modules.healthcare_clinic.backend.models import (
     ClinicPatient,
     ClinicPrescription,
 )
-from app.modules.pharmacy.models import PharmacyBatch, PharmacyDrug
+from app.modules.pharmacy.pharmacy.models import PharmacyBatch, PharmacyDrug
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set"

@@ -1,0 +1,14 @@
+{
+  "id": "logistics",
+  "family": "logistics",
+  "order": 7,
+  "name": "نقل، شحن، وخدمات لوجستية",
+  "name_en": "Logistics",
+  "description": "بوالص شحن، تتبع مسارات، إدارة أساطيل، وتكاليف وقود",
+  "modules": [
+    "logistics",
+    "finance",
+    "operations"
+  ],
+  "home": "/logistics"
+}

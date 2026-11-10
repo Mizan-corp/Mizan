@@ -14,7 +14,7 @@ from admin_api.common import days_until, get_tenant, iso, record
 from admin_api.routers.activity import recent_activity
 from app.core.modules import set_active_modules
 from app.catalog import canonical_modules, family_of
-from app.modules.loader import manifest_index
+from app.framework.loader import manifest_index
 from app.core.plans import PLANS_CONFIG, get_plan_limits
 from app.core.sectors import SECTORS
 from app.core.security import hash_password

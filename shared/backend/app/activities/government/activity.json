@@ -1,0 +1,14 @@
+{
+  "id": "government",
+  "family": "institutions",
+  "order": 28,
+  "name": "جهات حكومية وجمعيات غير ربحية",
+  "name_en": "Gov & Nonprofits",
+  "description": "محاسبة صناديق، موازنات ومخصصات، مناقصات، ومساعدات مستفيدين",
+  "modules": [
+    "government",
+    "finance",
+    "operations"
+  ],
+  "home": "/gov"
+}

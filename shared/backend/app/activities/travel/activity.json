@@ -1,0 +1,14 @@
+{
+  "id": "travel",
+  "family": "food_hospitality",
+  "order": 12,
+  "name": "وكالات السياحة والسفر",
+  "name_en": "Travel Agency",
+  "description": "برامج سياحية، حجوزات طيران وفنادق، وفواتير موحدة للمجموعات",
+  "modules": [
+    "travel",
+    "sales",
+    "finance"
+  ],
+  "home": "/travel"
+}

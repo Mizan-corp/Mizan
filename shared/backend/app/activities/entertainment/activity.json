@@ -1,0 +1,15 @@
+{
+  "id": "entertainment",
+  "family": "food_hospitality",
+  "order": 29,
+  "name": "فعاليات ومدن ترفيهية وألعاب",
+  "name_en": "Entertainment",
+  "description": "تذاكر، بوابات دخول، بطاقات ألعاب، وتوزيع إيرادات فعاليات",
+  "modules": [
+    "events",
+    "pos",
+    "finance",
+    "operations"
+  ],
+  "home": "/ent"
+}

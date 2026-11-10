@@ -1,0 +1,15 @@
+{
+  "id": "restaurant",
+  "family": "food_hospitality",
+  "order": 2,
+  "name": "مطاعم، كافيهات، وضيافة",
+  "name_en": "Restaurant",
+  "description": "إدارة صالة، طاولات، وشاشات مطبخ KDS تفاعلية وRestaurant-POS",
+  "modules": [
+    "restaurant",
+    "pos",
+    "inventory",
+    "finance"
+  ],
+  "home": "/restaurant/tables"
+}

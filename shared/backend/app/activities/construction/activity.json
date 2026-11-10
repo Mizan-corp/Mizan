@@ -1,0 +1,15 @@
+{
+  "id": "construction",
+  "family": "projects",
+  "order": 22,
+  "name": "مقاولات عامة وتشييد",
+  "name_en": "Construction",
+  "description": "مقايسات BOQ، مستخلصات، مقاولو باطن، ومعدات ثقيلة",
+  "modules": [
+    "construction",
+    "inventory",
+    "operations",
+    "finance"
+  ],
+  "home": "/cst"
+}

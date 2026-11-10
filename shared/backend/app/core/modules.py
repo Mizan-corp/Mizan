@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.base import get_db
 from app.models.settings import StoreSetting
 from app.catalog import canonical_module, canonical_modules
-from app.modules.loader import manifest_index
+from app.framework.loader import manifest_index
 
 
 @dataclass

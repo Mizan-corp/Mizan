@@ -1,6 +1,7 @@
 """Families and activities as data (ADR-006).
 
-A family only groups activities. An activity is a business activity a workspace runs (exactly
+Families (catalog/families.json) only group activities. Activities live in
+app/activities/<activity_id>/activity.json. An activity is a business activity a workspace runs (exactly
 one per workspace); every activity inherits ``general``. Modules name their home activity in
 their manifest (``"activity"``), and take their family from it.
 """
@@ -24,9 +25,17 @@ def families() -> dict[str, dict[str, Any]]:
     return {f["id"]: f for f in sorted(_read("families.json", "families"), key=lambda f: f["order"])}
 
 
+ACTIVITIES_DIR = CATALOG_DIR.parent / "activities"
+
+
 @lru_cache(maxsize=1)
 def activities() -> dict[str, dict[str, Any]]:
-    return {a["id"]: a for a in _read("activities.json", "activities")}
+    """Every activity, from app/activities/<activity_id>/activity.json."""
+    found = {}
+    for f in sorted(ACTIVITIES_DIR.glob("*/activity.json")):
+        data = json.loads(f.read_text(encoding="utf-8"))
+        found[data["id"]] = data
+    return dict(sorted(found.items(), key=lambda kv: kv[1].get("order", 999)))
 
 
 def family_of(activity_id: str) -> str | None:

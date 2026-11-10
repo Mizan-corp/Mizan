@@ -1,0 +1,15 @@
+{
+  "id": "services",
+  "family": "services",
+  "order": 31,
+  "name": "خدمات عامة، مكاتب، ومقاولات",
+  "name_en": "",
+  "description": "استشارات، عقود، فواتير مشاريع، وتتبع تكاليف ميدانية",
+  "modules": [
+    "services",
+    "finance",
+    "hr"
+  ],
+  "home": "/services",
+  "legacy_of": "consulting"
+}

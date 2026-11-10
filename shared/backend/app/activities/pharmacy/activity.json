@@ -1,0 +1,15 @@
+{
+  "id": "pharmacy",
+  "family": "health",
+  "order": 3,
+  "name": "صيدليات ومستلزمات طبية",
+  "name_en": "Pharmacy",
+  "description": "دواء، تشغيلات، تواريخ صلاحية، رقابة صرف وتأمين صحي",
+  "modules": [
+    "pharmacy",
+    "inventory",
+    "pos",
+    "finance"
+  ],
+  "home": "/pharmacy"
+}

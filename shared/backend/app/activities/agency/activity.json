@@ -1,0 +1,14 @@
+{
+  "id": "agency",
+  "family": "services",
+  "order": 16,
+  "name": "وكالات دعاية وتصميم وترجمة",
+  "name_en": "Creative Agency",
+  "description": "إدارة ملخصات العملاء، مهام، مراجعة تصاميم، وفواتير مشروعات",
+  "modules": [
+    "agency",
+    "finance",
+    "operations"
+  ],
+  "home": "/agency"
+}

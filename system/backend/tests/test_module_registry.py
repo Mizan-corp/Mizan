@@ -9,7 +9,7 @@ import pytest
 
 from fastapi.routing import APIRoute
 
-from app.modules.loader import registry
+from app.framework.loader import registry
 from main import app
 
 SYSTEM_API = Path(__file__).resolve().parents[1] / "system_api"
@@ -61,7 +61,7 @@ def test_one_catalogue_and_one_store_of_active_modules():
 
 
 def test_manifest_index_covers_every_module():
-    from app.modules.loader import manifest_index
+    from app.framework.loader import manifest_index
 
     assert set(manifest_index()) == {m.id for m in registry.get_all_manifests()}
 
@@ -101,7 +101,7 @@ async def test_active_modules_live_on_the_workspace():
 
 def test_activities_and_families_are_consistent():
     from app.catalog import GENERAL, activities, families
-    from app.modules.loader import manifest_index
+    from app.framework.loader import manifest_index
 
     index = manifest_index()
     assert GENERAL in activities()
@@ -117,21 +117,37 @@ def test_activities_and_families_are_consistent():
 
 
 REPO = Path(__file__).resolve().parents[3]
-MODULES = REPO / "shared" / "backend" / "app" / "modules"
-# Grouped modules keep their old ids until they move to modules/hospital and modules/hotel
-# (ADR-006 phase 8). This list may only shrink.
-GROUPED_UNTIL_PHASE_8 = ("healthcare", "hospitality")
+APP = REPO / "shared" / "backend" / "app"
+MODULES = APP / "modules"
+# Grouped healthcare/hotel modules keep their hlt_*/hot_* ids until ADR-006 phase 8 renames
+# (and partly merges) them. This may only shrink.
+OLD_IDS_UNTIL_PHASE_8 = ("hlt_", "hot_")
 
 
-def test_module_folder_is_its_id():
-    from app.modules.loader import manifest_files
+def test_modules_live_in_their_home_activity():
+    # modules/<home_activity>/<module_id>/, platform/<id>/, integrations/<id>/ (ADR-006).
+    from app.framework.loader import manifest_files
 
     for manifest in manifest_files():
+        data = json.loads(manifest.read_text(encoding="utf-8"))
         folder = manifest.parent
-        if folder.parent.name in GROUPED_UNTIL_PHASE_8:
-            continue
-        module_id = json.loads(manifest.read_text(encoding="utf-8"))["id"]
-        assert folder.name == module_id, f"{folder.relative_to(MODULES)} holds '{module_id}'"
+        where = folder.relative_to(APP).parts
+        kind = data.get("kind", "business")
+        if kind == "business":
+            assert where[0] == "modules" and where[1] == data["activity"], f"{folder} is not in modules/{data['activity']}/"
+        else:
+            assert where[0] == {"platform": "platform", "integration": "integrations"}[kind], folder
+        if not data["id"].startswith(OLD_IDS_UNTIL_PHASE_8):
+            assert folder.name == data["id"], f"{folder.relative_to(APP)} holds '{data['id']}'"
+
+
+def test_activity_folders_match_their_ids():
+    for f in (APP / "activities").glob("*/activity.json"):
+        assert json.loads(f.read_text(encoding="utf-8"))["id"] == f.parent.name, f
+    activities = {f.parent.name for f in (APP / "activities").glob("*/activity.json")}
+    for folder in MODULES.iterdir():
+        if folder.is_dir() and not folder.name.startswith(("_", ".")):
+            assert folder.name in activities, f"modules/{folder.name} is not an activity"
 
 
 WINDOWS_RESERVED = re.compile(r"^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$", re.IGNORECASE)
@@ -139,7 +155,8 @@ WINDOWS_RESERVED = re.compile(r"^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$", r
 
 def test_module_paths_are_valid_on_windows():
     # The installers are built on Windows.
-    roots = [MODULES, REPO / "system" / "frontend" / "src" / "modules", REPO / "shared" / "backend" / "app" / "catalog"]
+    roots = [MODULES, APP / "platform", APP / "integrations", APP / "framework", APP / "activities", APP / "catalog",
+             REPO / "system" / "frontend" / "src" / "modules"]
     for root in roots:
         for path in root.rglob("*"):
             if "__pycache__" in path.parts:

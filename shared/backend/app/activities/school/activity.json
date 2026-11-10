@@ -1,0 +1,14 @@
+{
+  "id": "school",
+  "family": "education",
+  "order": 5,
+  "name": "مدارس ومعاهد تدريب وأكاديميات",
+  "name_en": "School",
+  "description": "شؤون الطلاب، أقساط، وإيصالات رسوم مدرسية وحافلات نقل",
+  "modules": [
+    "school",
+    "finance",
+    "hr"
+  ],
+  "home": "/school/students"
+}

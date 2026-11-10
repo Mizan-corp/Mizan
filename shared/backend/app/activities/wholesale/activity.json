@@ -1,0 +1,15 @@
+{
+  "id": "wholesale",
+  "family": "commerce",
+  "order": 6,
+  "name": "تجارة جملة وتوزيع وتوريدات",
+  "name_en": "Wholesale",
+  "description": "أسعار كميات، قوائم أسعار عملاء، تسعير حسب الحجم والخصومات",
+  "modules": [
+    "wholesale",
+    "inventory",
+    "sales",
+    "finance"
+  ],
+  "home": "/wholesale"
+}

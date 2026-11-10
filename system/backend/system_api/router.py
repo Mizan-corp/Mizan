@@ -75,7 +75,7 @@ router.include_router(invoices.router)
 
 
 # Every module's routes come from the one loader (ADR-006): no module is imported by hand.
-from app.modules.loader import registry
+from app.framework.loader import registry
 
 for _module_router in registry.get_routers().values():
     router.include_router(_module_router)

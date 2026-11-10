@@ -1,0 +1,13 @@
+{
+  "id": "insurance",
+  "family": "institutions",
+  "order": 27,
+  "name": "شركات تأمين وتكافل",
+  "name_en": "Insurance",
+  "description": "وثائق، تسعير اكتواري، مطالبات، واحتياطيات فنية وإعادة تأمين",
+  "modules": [
+    "insurance",
+    "finance"
+  ],
+  "home": "/ins"
+}
