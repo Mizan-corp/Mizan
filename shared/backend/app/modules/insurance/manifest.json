@@ -1,0 +1,20 @@
+{
+  "id": "insurance",
+  "name": "إدارة التأمين وإعادة التأمين (Insurance ERP)",
+  "activity": "insurance",
+  "kind": "business",
+  "description": "وثائق التأمين (السيارات، الطبي، الممتلكات)، احتساب الأقساط الاكتوارية، مطالبات الحوادث (FNOL) والمعاينات، مخصصات IFRS 17، واتفاقيات إعادة التأمين.",
+  "version": "1.0.0",
+  "dependencies": [
+    "core",
+    "finance"
+  ],
+  "routes_prefix": "/ins",
+  "features": [
+    "policy_lifecycle_rating",
+    "fnol_claims_survey",
+    "ifrs17_reserves_ibnr",
+    "reinsurance_treaties",
+    "fraud_detection_scoring"
+  ]
+}

@@ -2,12 +2,25 @@
   "id": "hot_banquet_events",
   "name": "الحفلات والمؤتمرات والقاعات (Banquets)",
   "name_en": "Banquets, Events & Conference Halls",
-  "category": "hospitality",
+  "activity": "hotel",
+  "kind": "business",
   "version": "1.0.0",
   "icon": "Users",
   "badge": "Events",
   "description": "حجوزات قاعات الحفلات والاجتماعات، تنظيم برامج الضيافة والبوفيه المفتوح، وتنسيق الفعاليات.",
-  "dependencies": ["core", "finance"],
-  "business_types": ["hotel", "resort", "boutique_hotel", "event_venue"],
-  "required_permissions": ["hotel:view", "hotel:manage", "hotel:banquet"]
+  "dependencies": [
+    "core",
+    "finance"
+  ],
+  "business_types": [
+    "hotel",
+    "resort",
+    "boutique_hotel",
+    "event_venue"
+  ],
+  "required_permissions": [
+    "hotel:view",
+    "hotel:manage",
+    "hotel:banquet"
+  ]
 }

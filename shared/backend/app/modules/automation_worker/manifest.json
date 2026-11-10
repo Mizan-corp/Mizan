@@ -2,12 +2,17 @@
   "id": "automation_worker",
   "name": "محرك الأتمتة والمهام الخلفية",
   "name_en": "Background Automation & Cron Worker",
-  "category": "system",
+  "activity": "general",
+  "kind": "platform",
   "version": "1.0.0",
   "icon": "Cpu",
   "description": "جدولة وأتمتة العمليات اليومية: إغلاق الورديات التلقائي منتصف الليل، متابعة اشتراكات المستأجرين، وإنشاء التقارير والتنبيهات الدورية.",
-  "target_business_types": ["all"],
-  "dependencies": ["core"],
+  "target_business_types": [
+    "all"
+  ],
+  "dependencies": [
+    "core"
+  ],
   "is_core": false,
   "settings_schema": [
     {

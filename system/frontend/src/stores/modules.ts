@@ -38,11 +38,21 @@ export interface BusinessPreset {
   modules: string[];
 }
 
+/** A family groups activities (and their modules); see app/catalog/families.json. */
+export interface ModuleFamily {
+  id: string;
+  name: string;
+  name_en: string;
+  icon: string;
+  order: number;
+}
+
 interface ModulesState {
   activePreset: string;
   activeModules: string[];
   catalog: ModuleManifest[];
   presets: BusinessPreset[];
+  families: ModuleFamily[];
   isLoaded: boolean;
   isLoading: boolean;
   fetchModules: () => Promise<void>;
@@ -67,6 +77,7 @@ export const useModulesStore = create<ModulesState>((set, get) => ({
   })(),
   catalog: [],
   presets: [],
+  families: [],
   isLoaded: false,
   isLoading: false,
 
@@ -78,6 +89,7 @@ export const useModulesStore = create<ModulesState>((set, get) => ({
         active_modules: string[];
         catalog: ModuleManifest[];
         presets: BusinessPreset[];
+        categories: ModuleFamily[];
       }>("/modules");
 
       localStorage.setItem("mizan.active_preset", data.active_preset);
@@ -88,6 +100,7 @@ export const useModulesStore = create<ModulesState>((set, get) => ({
         activeModules: data.active_modules,
         catalog: data.catalog,
         presets: data.presets,
+        families: data.categories ?? [],
         isLoaded: true,
         isLoading: false,
       });
@@ -116,9 +129,9 @@ export const useModulesStore = create<ModulesState>((set, get) => ({
       if (sector === "salon" && (moduleId === "salon" || moduleId === "staff_commissions" || moduleId === "color_formulas")) return true;
       if (sector === "hotel" && (moduleId === "hospitality" || moduleId === "guest_folios" || moduleId === "housekeeping" || moduleId === "night_audit")) return true;
       if (sector === "wholesale" && (moduleId === "wholesale" || moduleId === "credit_limits" || moduleId === "sales_reps")) return true;
-      if (sector === "construction" && (moduleId === "cst" || moduleId === "progress_invoices" || moduleId === "subcontractors" || moduleId === "heavy_equipment")) return true;
-      if (sector === "discrete_mfg" && (moduleId === "mfg" || moduleId === "work_orders" || moduleId === "mrp_planning")) return true;
-      if (sector === "real_estate" && (moduleId === "rec" || moduleId === "lease_contracts" || moduleId === "cheque_portfolio" || moduleId === "facility_maintenance")) return true;
+      if (sector === "construction" && (moduleId === "construction" || moduleId === "progress_invoices" || moduleId === "subcontractors" || moduleId === "heavy_equipment")) return true;
+      if (sector === "discrete_mfg" && (moduleId === "manufacturing" || moduleId === "work_orders" || moduleId === "mrp_planning")) return true;
+      if (sector === "real_estate" && (moduleId === "real_estate" || moduleId === "lease_contracts" || moduleId === "cheque_portfolio" || moduleId === "facility_maintenance")) return true;
       if (sector === "field_service" && (moduleId === "field_service" || moduleId === "tech_dispatch" || moduleId === "mobile_parts" || moduleId === "customer_signature")) return true;
       if (sector === "travel" && (moduleId === "travel" || moduleId === "flight_hotel" || moduleId === "commissions" || moduleId === "passports_vault")) return true;
       if (sector === "logistics" && (moduleId === "logistics" || moduleId === "fleet_vehicles" || moduleId === "e_pod")) return true;

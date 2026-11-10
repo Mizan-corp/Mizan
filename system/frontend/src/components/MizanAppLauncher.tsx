@@ -159,7 +159,7 @@ const ALL_SYSTEM_APPS: AppTile[] = [
     color: "from-lime-500 to-emerald-600",
   },
   {
-    id: "mfg",
+    id: "manufacturing",
     label: "التصنيع والإنتاج",
     labelEn: "Manufacturing MRP",
     to: "/mfg",

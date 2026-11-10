@@ -2,12 +2,17 @@
   "id": "zk_attendance",
   "name": "ربط أجهزة البصمة والحضور الذكي",
   "name_en": "Biometric Attendance & ZK Device Sync",
-  "category": "hr",
+  "activity": "general",
+  "kind": "integration",
   "version": "1.0.0",
   "icon": "Fingerprint",
   "description": "ربط أجهزة تسجيل الحضور بالبصمة والوجه (ZK Teco وغيرها)، فحص الاتصال بالشبكة المحلية، ومزامنة سجلات الحضور والانصراف تلقائياً مع استيراد ملفات CSV.",
-  "target_business_types": ["all"],
-  "dependencies": ["hr"],
+  "target_business_types": [
+    "all"
+  ],
+  "dependencies": [
+    "hr"
+  ],
   "is_core": false,
   "settings_schema": [
     {

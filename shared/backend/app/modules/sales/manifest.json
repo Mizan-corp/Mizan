@@ -2,11 +2,15 @@
   "id": "sales",
   "name": "إدارة المبيعات والفوترة",
   "name_en": "Sales & Invoicing",
-  "category": "sales",
+  "activity": "general",
+  "kind": "business",
   "version": "3.0.0",
   "icon": "Receipt",
   "description": "إصدار أوامر البيع وعروض الأسعار، الفواتير الضريبية، المرتجعات، وتتبع مدفوعات العملاء.",
-  "dependencies": ["core", "inventory"],
+  "dependencies": [
+    "core",
+    "inventory"
+  ],
   "is_core": true,
   "settings_schema": [
     {

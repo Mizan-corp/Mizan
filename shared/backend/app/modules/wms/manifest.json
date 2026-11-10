@@ -2,13 +2,23 @@
   "id": "wms",
   "name": "المستودعات والخدمات اللوجستية للغير (3PL WMS)",
   "name_en": "3PL & Warehouse Management System",
-  "category": "distribution_logistics",
-  "target_business_types": ["wms_3pl", "wholesale", "logistics", "fulfillment"],
+  "activity": "wms_3pl",
+  "kind": "business",
+  "target_business_types": [
+    "wms_3pl",
+    "wholesale",
+    "logistics",
+    "fulfillment"
+  ],
   "version": "1.0.0",
   "icon": "Warehouse",
   "badge": "جديد",
   "description": "إدارة مستودعات العملاء المتعددين وتتبع ملكية المخزون لكل عميل، المواقع التخزينية المرمزة (Zone-Aisle-Rack-Shelf-Bin)، خوارزميات التخزين الذكي (Putaway)، موجات الجمع والانتقاء (Wave & Batch Picking)، استلام البضائع وفروقات الفحص (OS&D)، العبور السريع (Cross-Docking)، والفوترة الشهرية لرسوم التخزين والمناولة.",
-  "dependencies": ["core", "inventory", "finance"],
+  "dependencies": [
+    "core",
+    "inventory",
+    "finance"
+  ],
   "is_core": false,
   "nav_items": [
     {

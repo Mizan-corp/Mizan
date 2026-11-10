@@ -2,12 +2,25 @@
   "id": "hot_pms",
   "name": "إدارة الغرف والتسكين (Hotel PMS)",
   "name_en": "Hotel Property Management System",
-  "category": "hospitality",
+  "activity": "hotel",
+  "kind": "business",
   "version": "1.0.0",
   "icon": "Hotel",
   "badge": "FrontDesk",
   "description": "خريطة الغرف التفاعلية، الحجوزات، تسكين ومغادرة النزلاء (Check-in/Check-out)، وتتبع حالات الغرف.",
-  "dependencies": ["core", "finance"],
-  "business_types": ["hotel", "resort", "boutique_hotel", "serviced_apartments"],
-  "required_permissions": ["hotel:view", "hotel:manage", "hotel:frontdesk"]
+  "dependencies": [
+    "core",
+    "finance"
+  ],
+  "business_types": [
+    "hotel",
+    "resort",
+    "boutique_hotel",
+    "serviced_apartments"
+  ],
+  "required_permissions": [
+    "hotel:view",
+    "hotel:manage",
+    "hotel:frontdesk"
+  ]
 }

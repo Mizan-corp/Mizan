@@ -1,12 +1,18 @@
 {
-  "id": "prn",
+  "id": "printing",
   "name": "الطباعة والتغليف والكرتون (Job Dockets/MHR)",
   "name_en": "Printing & Packaging ERP",
+  "activity": "printing",
+  "kind": "business",
   "version": "1.0.0",
   "description": "تذاكر الشغل والطباعة Job Dockets، تخطيط المونتاج وتوزيع الصفحات Imposition، جدولة ماكينات الطباعة وتغيير الأحبار، تكلفة ساعات التشغيل الميكانيكية MHR، ومخزون الورق والكرتون بالجراماج GSM",
-  "category": "industry",
   "author": "Mizan Industrial Solutions",
-  "dependencies": ["core", "inventory", "purchases", "mfg"],
+  "dependencies": [
+    "core",
+    "inventory",
+    "purchases",
+    "manufacturing"
+  ],
   "permissions": [
     "prn.view",
     "prn.jobs.create",

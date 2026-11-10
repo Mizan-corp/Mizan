@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog import canonical_modules
 from app.core.modules import SECTOR_TO_PRESET, set_active_modules
 from app.core.plans import PLANS_CONFIG, get_plan_limits
 from app.core.sectors import PALETTE_HUES, SECTOR_PRIMARY_MODULES, SECTORS, TRIAL_DAYS
@@ -74,7 +75,7 @@ async def create_workspace(
         raise HTTPException(status_code=422, detail="Unknown plan")
 
     features = features or []
-    modules = list(dict.fromkeys(SECTOR_PRIMARY_MODULES.get(sector, ["pos", "inventory", "finance"]) + features))
+    modules = canonical_modules(SECTOR_PRIMARY_MODULES.get(sector, ["pos", "inventory", "finance"]) + features)
     tenant = Tenant(
         id=uuid.uuid4(),
         name=name.strip(),

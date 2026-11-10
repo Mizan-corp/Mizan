@@ -2,11 +2,14 @@
   "id": "finance",
   "name": "المالية والحسابات والخزائن",
   "name_en": "Accounting & Finance",
-  "category": "finance",
+  "activity": "general",
+  "kind": "business",
   "version": "3.0.0",
   "icon": "Wallet",
   "description": "إدارة الخزائن النقدية، المحافظ الإلكترونية، المصروفات، بنود الصرف، وسجل القيود المحاسبية.",
-  "dependencies": ["core"],
+  "dependencies": [
+    "core"
+  ],
   "is_core": true,
   "settings_schema": [
     {

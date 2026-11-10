@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib
 import json
 import logging
+import re
 from dataclasses import asdict, dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -18,6 +19,7 @@ from fastapi import APIRouter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.catalog import GENERAL, activities, families, family_of
 from app.models.settings import StoreSetting
 
 logger = logging.getLogger("mizan.modules")
@@ -51,6 +53,33 @@ class ModuleManifest:
     badge: str | None = None
     nav_items: list[dict[str, Any]] = field(default_factory=list)
     settings_schema: list[SettingField] = field(default_factory=list)
+    activity: str = GENERAL
+    kind: str = "business"
+
+
+# Manifest v2 (ADR-006): the module's home activity (its family comes from it) and its kind.
+MODULE_KINDS = ("business", "platform", "integration")
+MODULE_ID = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+def manifest_problems(data: dict[str, Any]) -> list[str]:
+    """What's wrong with a manifest against schema v2 (empty when valid)."""
+    problems = []
+    for key in ("id", "name", "version", "activity"):
+        if not isinstance(data.get(key), str) or not data.get(key):
+            problems.append(f"'{key}' is required")
+    if isinstance(data.get("id"), str) and not MODULE_ID.match(data["id"]):
+        problems.append(f"id '{data['id']}' must be lowercase letters, digits and underscores")
+    if data.get("activity") and data["activity"] not in activities():
+        problems.append(f"unknown activity '{data['activity']}'")
+    if data.get("kind", "business") not in MODULE_KINDS:
+        problems.append(f"kind must be one of {MODULE_KINDS}")
+    if "category" in data:
+        problems.append("'category' is replaced by 'activity' (the family comes from it)")
+    deps = data.get("dependencies", [])
+    if not isinstance(deps, list) or not all(isinstance(d, str) for d in deps):
+        problems.append("'dependencies' must be a list of module ids")
+    return problems
 
 
 def manifest_files(modules_dir: Path = MODULES_DIR) -> list[Path]:
@@ -100,6 +129,10 @@ class ModuleRegistry:
 
         try:
             data = json.loads(manifest_file.read_text(encoding="utf-8"))
+            problems = manifest_problems(data)
+            if problems:
+                self.errors.append(f"{manifest_file}: " + "; ".join(problems))
+                return
             fields_raw = data.get("settings_schema", [])
             settings_schema = [
                 SettingField(
@@ -117,7 +150,9 @@ class ModuleRegistry:
                 id=data["id"],
                 name=data["name"],
                 name_en=data.get("name_en", data["name"]),
-                category=data.get("category", parent_pkg or "general"),
+                category=family_of(data["activity"]) or GENERAL,
+                activity=data["activity"],
+                kind=data.get("kind", "business"),
                 version=data.get("version", "1.0.0"),
                 icon=data.get("icon", "Blocks"),
                 description=data.get("description", ""),
@@ -179,15 +214,8 @@ class ModuleRegistry:
         return self._manifests
 
     def get_categories(self) -> list[dict[str, Any]]:
-        """Load and return category definitions from categories.json in the modules directory."""
-        categories_file = self.modules_dir / "categories.json"
-        if categories_file.exists():
-            try:
-                data = json.loads(categories_file.read_text(encoding="utf-8"))
-                return data.get("categories", [])
-            except Exception as err:
-                logger.error("Failed to load categories.json: %s", err)
-        return []
+        """The families modules are grouped by (a module's family is its activity's)."""
+        return list(families().values())
 
     def get_manifest(self, module_id: str) -> ModuleManifest | None:
         if not self._discovered:

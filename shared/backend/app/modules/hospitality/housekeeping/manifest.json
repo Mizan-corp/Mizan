@@ -2,12 +2,25 @@
   "id": "hot_housekeeping",
   "name": "التدبير المنزلي ونظافة الغرف (Housekeeping)",
   "name_en": "Hotel Housekeeping & Cleaning Operations",
-  "category": "hospitality",
+  "activity": "hotel",
+  "kind": "business",
   "version": "1.0.0",
   "icon": "Sparkles",
   "badge": "Operations",
   "description": "إدارة مهام التدبير المنزلي، تنظيف الغرف بعد المغادرة أو التسكين، وتعيين الفرق وجدولتها.",
-  "dependencies": ["core", "hot_pms"],
-  "business_types": ["hotel", "resort", "boutique_hotel", "serviced_apartments"],
-  "required_permissions": ["hotel:view", "hotel:manage", "hotel:housekeeper"]
+  "dependencies": [
+    "core",
+    "hot_pms"
+  ],
+  "business_types": [
+    "hotel",
+    "resort",
+    "boutique_hotel",
+    "serviced_apartments"
+  ],
+  "required_permissions": [
+    "hotel:view",
+    "hotel:manage",
+    "hotel:housekeeper"
+  ]
 }

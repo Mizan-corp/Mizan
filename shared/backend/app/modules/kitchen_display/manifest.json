@@ -2,13 +2,22 @@
   "id": "kitchen_display",
   "name": "شاشات المطبخ اللحظية (KDS)",
   "name_en": "Kitchen Display System",
-  "category": "hospitality",
-  "target_business_types": ["restaurant", "cafe", "fast_food", "cloud_kitchen"],
+  "activity": "restaurant",
+  "kind": "business",
+  "target_business_types": [
+    "restaurant",
+    "cafe",
+    "fast_food",
+    "cloud_kitchen"
+  ],
   "version": "1.0.0",
   "icon": "ChefHat",
   "badge": "مباشر",
   "description": "شاشات تحضير الطلبات اللحظية لطهاة المطبخ والبار، ترتيب التذاكر حسب الأولوية، ومتابعة أوقات الإعداد.",
-  "dependencies": ["core", "pos"],
+  "dependencies": [
+    "core",
+    "pos"
+  ],
   "is_core": false,
   "nav_items": [
     {

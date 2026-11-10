@@ -2,12 +2,21 @@
   "id": "inventory",
   "name": "إدارة المخزون والتوريد",
   "name_en": "Inventory & Supply",
-  "category": "retail",
-  "target_business_types": ["retail", "supermarket", "wholesale", "restaurant", "pharmacy"],
+  "activity": "general",
+  "kind": "business",
+  "target_business_types": [
+    "retail",
+    "supermarket",
+    "wholesale",
+    "restaurant",
+    "pharmacy"
+  ],
   "version": "3.0.0",
   "icon": "Boxes",
   "description": "تتبع الأرصدة اللحظية، إدارة الفروع والمستودعات، تسويات الجرد، وأوامر الشراء والتوريد.",
-  "dependencies": ["core"],
+  "dependencies": [
+    "core"
+  ],
   "is_core": false,
   "settings_schema": [
     {
@@ -29,7 +38,10 @@
       "label": "طريقة تقييم المخزون المعتمدة",
       "type": "select",
       "default": "average_cost",
-      "options": ["average_cost", "fifo"],
+      "options": [
+        "average_cost",
+        "fifo"
+      ],
       "description": "طريقة حساب تكلفة البضاعة المباعة (متوسط التكلفة المرجح أو الوارد أولاً صادر أولاً)."
     }
   ]

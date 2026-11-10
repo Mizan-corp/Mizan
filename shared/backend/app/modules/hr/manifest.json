@@ -2,11 +2,15 @@
   "id": "hr",
   "name": "الموارد البشرية والرواتب",
   "name_en": "Human Resources & Payroll",
-  "category": "hr",
+  "activity": "general",
+  "kind": "business",
   "version": "3.0.0",
   "icon": "UserCog",
   "description": "سجلات الموظفين، مسيرات الرواتب الشهرية، الحضور والانصراف، والسلف والخصومات.",
-  "dependencies": ["core", "finance"],
+  "dependencies": [
+    "core",
+    "finance"
+  ],
   "is_core": false,
   "settings_schema": [
     {

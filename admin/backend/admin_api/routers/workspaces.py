@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from admin_api.common import days_until, get_tenant, iso, record
 from admin_api.routers.activity import recent_activity
 from app.core.modules import set_active_modules
+from app.catalog import canonical_modules, family_of
 from app.modules.loader import manifest_index
 from app.core.plans import PLANS_CONFIG, get_plan_limits
 from app.core.sectors import SECTORS
@@ -413,9 +414,10 @@ async def extend_trial(
 def module_catalog() -> list[dict]:
     """Every module from its manifest.json (no module code is imported)."""
     return [
-        {"id": mid, "name": m.get("name", mid), "name_en": m.get("name_en", ""), "category": m.get("category", "")}
+        {"id": mid, "name": m.get("name", mid), "name_en": m.get("name_en", ""),
+         "category": family_of(m.get("activity", "")) or "", "activity": m.get("activity", "")}
         for mid, m in sorted(manifest_index().items())
-        if m.get("category") not in ("system", "core")
+        if m.get("kind", "business") != "platform"  # always on, never toggled
     ]
 
 
@@ -436,6 +438,7 @@ async def set_modules(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_superadmin),
 ):
+    body.active_modules = canonical_modules(body.active_modules)
     known = {m["id"] for m in module_catalog()}
     unknown = set(body.active_modules) - known - {"pos", "inventory", "sales", "finance", "hr", "operations", "purchases", "contacts"}
     if unknown:

@@ -2,12 +2,21 @@
   "id": "services",
   "name": "الشركات والمكاتب الخدمية",
   "name_en": "Professional Services",
-  "category": "services",
-  "target_business_types": ["services", "consulting", "contracting", "freelance"],
+  "activity": "consulting",
+  "kind": "business",
+  "target_business_types": [
+    "services",
+    "consulting",
+    "contracting",
+    "freelance"
+  ],
   "version": "1.0.0",
   "icon": "Briefcase",
   "description": "عروض الأسعار، عقود المشاريع، المطالبات والفوترة الزمنية، ومتابعة تسليمات العملاء.",
-  "dependencies": ["core", "finance"],
+  "dependencies": [
+    "core",
+    "finance"
+  ],
   "is_core": false,
   "settings_schema": [
     {

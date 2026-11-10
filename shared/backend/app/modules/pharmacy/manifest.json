@@ -2,12 +2,20 @@
   "id": "pharmacy",
   "name": "إدارة الصيدليات والأدوية والروشتات",
   "name_en": "Pharmacy & Medication Dispensing",
-  "category": "vertical_sectors",
+  "activity": "pharmacy",
+  "kind": "business",
   "version": "1.0.0",
   "icon": "Pill",
   "description": "منظومة صيدلانية متكاملة: دليل الأدوية بالاسم العلمي والتجاري، تتبع الصلاحيات والتشغيلات (FEFO)، صرف الروشتات، التأمين الطبي، وسجل الأدوية المراقبة (جدول).",
-  "target_business_types": ["pharmacy", "healthcare", "hospital"],
-  "dependencies": ["inventory", "sales"],
+  "target_business_types": [
+    "pharmacy",
+    "healthcare",
+    "hospital"
+  ],
+  "dependencies": [
+    "inventory",
+    "sales"
+  ],
   "is_core": false,
   "badge": "Phase 1 Core",
   "nav_items": [

@@ -2,12 +2,22 @@
   "id": "pos",
   "name": "نقطة البيع السريعة والكاشير",
   "name_en": "Point of Sale (POS)",
-  "category": "retail",
-  "target_business_types": ["retail", "restaurant", "supermarket", "cafe", "pharmacy"],
+  "activity": "general",
+  "kind": "business",
+  "target_business_types": [
+    "retail",
+    "restaurant",
+    "supermarket",
+    "cafe",
+    "pharmacy"
+  ],
   "version": "3.0.0",
   "icon": "ShoppingCart",
   "description": "إصدار الفواتير الفوري، دعم قارئ الباركود، الشاشات اللمسية، إدارة أدراج الكاشير والورديات.",
-  "dependencies": ["core", "inventory"],
+  "dependencies": [
+    "core",
+    "inventory"
+  ],
   "is_core": false,
   "settings_schema": [
     {

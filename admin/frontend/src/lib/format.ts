@@ -89,28 +89,18 @@ const SECTORS: Record<string, string> = {
 export const sectorLabel = (s: string) => SECTORS[s] ?? s.replace(/_/g, " ");
 export const SECTOR_OPTIONS = Object.entries(SECTORS).slice(0, 30);
 
+// Module families (shared/backend/app/catalog/families.json).
 const CATEGORIES: Record<string, string> = {
-  pos_collections: "Point of sale",
-  pos: "Point of sale",
-  retail: "Retail",
-  sales: "Sales",
-  purchases: "Purchasing",
-  finance: "Finance",
-  hr: "People & payroll",
-  crm: "Customers",
-  vertical_sectors: "Pharmacy & specialist trades",
-  healthcare: "Healthcare",
-  hospitality: "Hospitality",
-  tourism_hospitality: "Hospitality & travel",
+  general: "General",
+  commerce: "Commerce",
+  food_hospitality: "Food & hospitality",
+  health: "Health",
   education: "Education",
   services: "Services",
-  professional_services: "Professional services",
-  sports_wellness: "Sports & wellness",
-  distribution_logistics: "Distribution & logistics",
-  industry: "Manufacturing",
-  infrastructure_projects: "Projects & land",
-  specialized: "Specialised",
-  integrations: "Integrations",
+  logistics: "Logistics",
+  industry: "Industry",
+  projects: "Projects, real estate & energy",
+  institutions: "Financial & public institutions",
 };
 export const categoryLabel = (c: string) => CATEGORIES[c] ?? c.replace(/_/g, " ");
 

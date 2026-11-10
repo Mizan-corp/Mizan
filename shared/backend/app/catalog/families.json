@@ -1,0 +1,74 @@
+{
+  "families": [
+    {
+      "id": "general",
+      "name": "عام",
+      "name_en": "General",
+      "icon": "Blocks",
+      "order": 0
+    },
+    {
+      "id": "commerce",
+      "name": "التجارة",
+      "name_en": "Commerce",
+      "icon": "ShoppingCart",
+      "order": 1
+    },
+    {
+      "id": "food_hospitality",
+      "name": "الطعام والضيافة",
+      "name_en": "Food & Hospitality",
+      "icon": "UtensilsCrossed",
+      "order": 2
+    },
+    {
+      "id": "health",
+      "name": "الصحة",
+      "name_en": "Health",
+      "icon": "HeartPulse",
+      "order": 3
+    },
+    {
+      "id": "education",
+      "name": "التعليم",
+      "name_en": "Education",
+      "icon": "GraduationCap",
+      "order": 4
+    },
+    {
+      "id": "services",
+      "name": "الخدمات",
+      "name_en": "Services",
+      "icon": "Briefcase",
+      "order": 5
+    },
+    {
+      "id": "logistics",
+      "name": "النقل والمستودعات",
+      "name_en": "Logistics",
+      "icon": "Truck",
+      "order": 6
+    },
+    {
+      "id": "industry",
+      "name": "الصناعة",
+      "name_en": "Industry",
+      "icon": "Factory",
+      "order": 7
+    },
+    {
+      "id": "projects",
+      "name": "المشاريع والعقارات والطاقة",
+      "name_en": "Projects, Real Estate & Energy",
+      "icon": "HardHat",
+      "order": 8
+    },
+    {
+      "id": "institutions",
+      "name": "المؤسسات المالية والحكومية",
+      "name_en": "Financial & Public Institutions",
+      "icon": "Landmark",
+      "order": 9
+    }
+  ]
+}

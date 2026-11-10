@@ -1,0 +1,23 @@
+{
+  "_comment": "Old module id -> current id (ADR-006). Never remove an entry: stored workspaces, licences and on-site installs may still use the old id.",
+  "legacy_ids": {
+    "agr": "agriculture",
+    "bnk": "banking",
+    "cst": "construction",
+    "eng": "energy",
+    "ent": "events",
+    "fod": "food_manufacturing",
+    "gov": "government",
+    "ins": "insurance",
+    "oil": "oil_gas",
+    "phm": "pharma_manufacturing",
+    "rec": "real_estate",
+    "prn": "printing",
+    "mfg": "manufacturing",
+    "retail-pos": "pos",
+    "restaurant-pos": "restaurant",
+    "gym-pos": "gym",
+    "gym_fitness": "gym",
+    "clinic": "healthcare_clinic"
+  }
+}

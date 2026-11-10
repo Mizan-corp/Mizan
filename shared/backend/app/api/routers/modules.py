@@ -14,6 +14,7 @@ from app.core.modules import (
     get_active_preset,
     set_active_modules,
 )
+from app.catalog import canonical_module
 from app.modules.loader import registry
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
@@ -115,6 +116,7 @@ async def toggle_module(
 ):
     """Enable or disable a specific module."""
     # The same catalogue the module centre lists: discovered modules can be enabled too.
+    module_id = canonical_module(module_id)
     catalog = _catalog()
     if module_id not in catalog:
         raise HTTPException(status_code=404, detail="الوحدة المطلوبة غير موجودة في الدليل")

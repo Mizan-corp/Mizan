@@ -99,23 +99,23 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/field-service", label: "الصيانة الميدانية (FSM)", perm: "operations", module: "field_service", icon: Wrench, group: "stock" },
 
   // Manufacturing & Industrial (Phase 4)
-  { to: "/mfg", label: "التصنيع الميكانيكي (BOM/MRP)", perm: "operations", module: "mfg", icon: Factory, group: "stock" },
-  { to: "/fod", label: "الصناعات الغذائية (HACCP)", perm: "operations", module: "fod", icon: Utensils, group: "stock" },
-  { to: "/phm", label: "التصنيع الدوائي (cGMP)", perm: "operations", module: "phm", icon: FlaskConical, group: "stock" },
-  { to: "/prn", label: "الطباعة والتغليف (Job Dockets)", perm: "operations", module: "prn", icon: Printer, group: "stock" },
+  { to: "/mfg", label: "التصنيع الميكانيكي (BOM/MRP)", perm: "operations", module: "manufacturing", icon: Factory, group: "stock" },
+  { to: "/fod", label: "الصناعات الغذائية (HACCP)", perm: "operations", module: "food_manufacturing", icon: Utensils, group: "stock" },
+  { to: "/phm", label: "التصنيع الدوائي (cGMP)", perm: "operations", module: "pharma_manufacturing", icon: FlaskConical, group: "stock" },
+  { to: "/prn", label: "الطباعة والتغليف (Job Dockets)", perm: "operations", module: "printing", icon: Printer, group: "stock" },
 
   // Projects & Infrastructure (Phase 5)
-  { to: "/cst", label: "المقاولات العامة والإنشاءات", perm: "operations", module: "cst", icon: HardHat, group: "stock" },
-  { to: "/rec", label: "التطوير العقاري وإدارة الأملاك", perm: "operations", module: "rec", icon: Building2, group: "main" },
-  { to: "/agr", label: "الزراعة وإدارة المزارع", perm: "operations", module: "agr", icon: Tractor, group: "stock" },
-  { to: "/eng", label: "محطات الطاقة وتوليد الكهرباء", perm: "operations", module: "eng", icon: Zap, group: "stock" },
+  { to: "/cst", label: "المقاولات العامة والإنشاءات", perm: "operations", module: "construction", icon: HardHat, group: "stock" },
+  { to: "/rec", label: "التطوير العقاري وإدارة الأملاك", perm: "operations", module: "real_estate", icon: Building2, group: "main" },
+  { to: "/agr", label: "الزراعة وإدارة المزارع", perm: "operations", module: "agriculture", icon: Tractor, group: "stock" },
+  { to: "/eng", label: "محطات الطاقة وتوليد الكهرباء", perm: "operations", module: "energy", icon: Zap, group: "stock" },
 
   // Specialized & Public Sector (Phase 6)
-  { to: "/bnk", label: "البنوك والمؤسسات المصرفية", perm: "finance", module: "bnk", icon: Landmark, group: "money" },
-  { to: "/ins", label: "التأمين وإدارة المطالبات", perm: "finance", module: "ins", icon: Shield, group: "money" },
-  { to: "/gov", label: "القطاع الحكومي والمنظمات", perm: "operations", module: "gov", icon: Building, group: "main" },
-  { to: "/ent", label: "الترفيه والفعاليات والملاهي", perm: "operations", module: "ent", icon: Ticket, group: "main" },
-  { to: "/oil", label: "عمليات البترول والغاز", perm: "operations", module: "oil", icon: Flame, group: "stock" },
+  { to: "/bnk", label: "البنوك والمؤسسات المصرفية", perm: "finance", module: "banking", icon: Landmark, group: "money" },
+  { to: "/ins", label: "التأمين وإدارة المطالبات", perm: "finance", module: "insurance", icon: Shield, group: "money" },
+  { to: "/gov", label: "القطاع الحكومي والمنظمات", perm: "operations", module: "government", icon: Building, group: "main" },
+  { to: "/ent", label: "الترفيه والفعاليات والملاهي", perm: "operations", module: "events", icon: Ticket, group: "main" },
+  { to: "/oil", label: "عمليات البترول والغاز", perm: "operations", module: "oil_gas", icon: Flame, group: "stock" },
 
   // Stock & Inventory
   { to: "/products", label: "المنتجات", perm: "inventory", module: "inventory", icon: Package, group: "stock" },
@@ -499,10 +499,10 @@ export function getSectorNavigation(
         id: "contracting",
         label: "المقايسات والمشاريع (BOQ)",
         items: [
-          { to: "/cst", label: "لوحة المشاريع والمقايسات", perm: "operations", module: "cst", icon: HardHat, group: "main" },
-          { to: "/cst?tab=boq", label: "جداول الكميات وبنود التكلفة", perm: "operations", module: "cst", icon: Boxes, group: "main" },
-          { to: "/cst?tab=invoices", label: "المستخلصات الجارية والختامية", perm: "operations", module: "cst", icon: Receipt, group: "main" },
-          { to: "/cst?tab=subcontractors", label: "مقاولو الباطن وحصر الأعمال", perm: "operations", module: "cst", icon: Users, group: "main" },
+          { to: "/cst", label: "لوحة المشاريع والمقايسات", perm: "operations", module: "construction", icon: HardHat, group: "main" },
+          { to: "/cst?tab=boq", label: "جداول الكميات وبنود التكلفة", perm: "operations", module: "construction", icon: Boxes, group: "main" },
+          { to: "/cst?tab=invoices", label: "المستخلصات الجارية والختامية", perm: "operations", module: "construction", icon: Receipt, group: "main" },
+          { to: "/cst?tab=subcontractors", label: "مقاولو الباطن وحصر الأعمال", perm: "operations", module: "construction", icon: Users, group: "main" },
         ],
       },
       {
@@ -541,9 +541,9 @@ export function getSectorNavigation(
         id: "properties",
         label: "إدارة العقارات والوحدات",
         items: [
-          { to: "/rec", label: "لوحة الأبراج والوحدات العقارية", perm: "operations", module: "rec", icon: Building2, group: "main" },
-          { to: "/rec?tab=leases", label: "عقود الإيجار والتحصيل الدوري", perm: "operations", module: "rec", icon: Receipt, group: "main" },
-          { to: "/rec?tab=maintenance", label: "بلاغات الصيانة والمرافق", perm: "operations", module: "rec", icon: Wrench, group: "main" },
+          { to: "/rec", label: "لوحة الأبراج والوحدات العقارية", perm: "operations", module: "real_estate", icon: Building2, group: "main" },
+          { to: "/rec?tab=leases", label: "عقود الإيجار والتحصيل الدوري", perm: "operations", module: "real_estate", icon: Receipt, group: "main" },
+          { to: "/rec?tab=maintenance", label: "بلاغات الصيانة والمرافق", perm: "operations", module: "real_estate", icon: Wrench, group: "main" },
           { to: "/customers", label: "دليل المستأجرين وسجلاتهم", perm: "customers", module: "finance", icon: Contact, group: "main" },
         ],
       },
@@ -570,7 +570,7 @@ export function getSectorNavigation(
   // 11. Manufacturing & Production
   if (sector === "discrete_mfg" || sector === "food_mfg" || sector === "pharma_mfg") {
     const primaryRoute = sector === "food_mfg" ? "/fod" : sector === "pharma_mfg" ? "/phm" : "/mfg";
-    const primaryModule = sector === "food_mfg" ? "fod" : sector === "pharma_mfg" ? "phm" : "mfg";
+    const primaryModule = sector === "food_mfg" ? "food_manufacturing" : sector === "pharma_mfg" ? "pharma_manufacturing" : "manufacturing";
     return filterItems([
       {
         id: "production",

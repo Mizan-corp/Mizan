@@ -66,19 +66,19 @@ def load_all_models() -> None:
     import app.modules.salon.models
     import app.modules.agency.models
     import app.modules.field_service.models
-    import app.modules.mfg.models
-    import app.modules.fod.models
-    import app.modules.phm.models
+    import app.modules.manufacturing.models
+    import app.modules.food_manufacturing.models
+    import app.modules.pharma_manufacturing.models
     import app.modules.printing.models
-    import app.modules.cst.models
-    import app.modules.rec.models
-    import app.modules.agr.models
-    import app.modules.eng.models
-    import app.modules.bnk.models
-    import app.modules.ins.models
-    import app.modules.gov.models
-    import app.modules.ent.models
-    import app.modules.oil.models
+    import app.modules.construction.models
+    import app.modules.real_estate.models
+    import app.modules.agriculture.models
+    import app.modules.energy.models
+    import app.modules.banking.models
+    import app.modules.insurance.models
+    import app.modules.government.models
+    import app.modules.events.models
+    import app.modules.oil_gas.models
     import app.modules.storefront.models
     import app.modules.pos_hardware.models
     import app.modules.automation_worker.models

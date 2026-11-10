@@ -182,19 +182,19 @@ function renderErpChildRoutes(includeIndex: boolean = true) {
       <Route path="salon" element={<Guard perm="" module="salon"><SalonSpaPage /></Guard>} />
       <Route path="agency" element={<Guard perm="" module="agency"><CreativeAgencyPage /></Guard>} />
       <Route path="field-service" element={<Guard perm="" module="field_service"><FieldServicePage /></Guard>} />
-      <Route path="mfg" element={<Guard perm="" module="mfg"><DiscreteManufacturingPage /></Guard>} />
-      <Route path="fod" element={<Guard perm="" module="fod"><FoodProcessingPage /></Guard>} />
-      <Route path="phm" element={<Guard perm="" module="phm"><PharmaGmpPage /></Guard>} />
-      <Route path="prn" element={<Guard perm="" module="prn"><PrintingPackagingPage /></Guard>} />
-      <Route path="cst" element={<Guard perm="" module="cst"><ConstructionPage /></Guard>} />
-      <Route path="rec" element={<Guard perm="" module="rec"><RealEstatePage /></Guard>} />
-      <Route path="agr" element={<Guard perm="" module="agr"><AgricultureFarmPage /></Guard>} />
-      <Route path="eng" element={<Guard perm="" module="eng"><EnergyPowerPlantPage /></Guard>} />
-      <Route path="bnk" element={<Guard perm="" module="bnk"><BankingPage /></Guard>} />
-      <Route path="ins" element={<Guard perm="" module="ins"><InsurancePage /></Guard>} />
-      <Route path="gov" element={<Guard perm="" module="gov"><GovernmentPage /></Guard>} />
-      <Route path="ent" element={<Guard perm="" module="ent"><EntertainmentPage /></Guard>} />
-      <Route path="oil" element={<Guard perm="" module="oil"><OilGasPage /></Guard>} />
+      <Route path="mfg" element={<Guard perm="" module="manufacturing"><DiscreteManufacturingPage /></Guard>} />
+      <Route path="fod" element={<Guard perm="" module="food_manufacturing"><FoodProcessingPage /></Guard>} />
+      <Route path="phm" element={<Guard perm="" module="pharma_manufacturing"><PharmaGmpPage /></Guard>} />
+      <Route path="prn" element={<Guard perm="" module="printing"><PrintingPackagingPage /></Guard>} />
+      <Route path="cst" element={<Guard perm="" module="construction"><ConstructionPage /></Guard>} />
+      <Route path="rec" element={<Guard perm="" module="real_estate"><RealEstatePage /></Guard>} />
+      <Route path="agr" element={<Guard perm="" module="agriculture"><AgricultureFarmPage /></Guard>} />
+      <Route path="eng" element={<Guard perm="" module="energy"><EnergyPowerPlantPage /></Guard>} />
+      <Route path="bnk" element={<Guard perm="" module="banking"><BankingPage /></Guard>} />
+      <Route path="ins" element={<Guard perm="" module="insurance"><InsurancePage /></Guard>} />
+      <Route path="gov" element={<Guard perm="" module="government"><GovernmentPage /></Guard>} />
+      <Route path="ent" element={<Guard perm="" module="events"><EntertainmentPage /></Guard>} />
+      <Route path="oil" element={<Guard perm="" module="oil_gas"><OilGasPage /></Guard>} />
       <Route path="storefront" element={<Guard perm="" module="storefront"><StorefrontAdminPage /></Guard>} />
       <Route path="pricing" element={<Guard perm=""><PricingPage /></Guard>} />
       <Route path="login" element={<LoginPage />} />

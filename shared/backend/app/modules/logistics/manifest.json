@@ -2,13 +2,22 @@
   "id": "logistics",
   "name": "الشحن والخدمات اللوجستية وإدارة الأساطيل",
   "name_en": "Logistics & Fleet Transportation",
-  "category": "distribution_logistics",
-  "target_business_types": ["logistics", "freight", "transportation", "courier"],
+  "activity": "logistics",
+  "kind": "business",
+  "target_business_types": [
+    "logistics",
+    "freight",
+    "transportation",
+    "courier"
+  ],
   "version": "1.0.0",
   "icon": "Truck",
   "badge": "جديد",
   "description": "تتبع دورة حياة الشحنات وبوالص الشحن (AWB / BoL)، تخطيط المسارات وإدارة أساطيل المركبات، امتثال السائقين، تسعير الشحن والرسوم التكميلية، إثبات التسليم الرقمي (e-POD)، ومصاريف التشغيل والوقود.",
-  "dependencies": ["core", "finance"],
+  "dependencies": [
+    "core",
+    "finance"
+  ],
   "is_core": false,
   "nav_items": [
     {

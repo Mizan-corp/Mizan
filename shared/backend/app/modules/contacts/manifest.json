@@ -2,11 +2,14 @@
   "id": "contacts",
   "name": "جهات الاتصال والعملاء والموردين",
   "name_en": "Contacts & Partners",
-  "category": "crm",
+  "activity": "general",
+  "kind": "business",
   "version": "3.0.0",
   "icon": "Contact",
   "description": "سجل الموردين والعملاء، كشوف الحسابات التفصيلية، حدود الائتمان وسقوف المديونية، وأرصدة الذمم.",
-  "dependencies": ["core"],
+  "dependencies": [
+    "core"
+  ],
   "is_core": true,
   "settings_schema": [
     {

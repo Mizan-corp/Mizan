@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.models.settings import StoreSetting
+from app.catalog import canonical_module, canonical_modules
 from app.modules.loader import manifest_index
 
 
@@ -190,7 +191,7 @@ BUSINESS_PRESETS: dict[str, BusinessPreset] = {
         icon="Factory",
         badge="تصنيع وتجميع",
         description="شجرة المنتج متعددة المستويات BOM، تخطيط الاحتياجات MRP، مراكز التشغيل والمسارات، تكلفة أوامر التشغيل، ومؤشرات كفاءة المعدات OEE.",
-        modules=["core", "mfg", "inventory", "purchases", "finance"],
+        modules=["core", "manufacturing", "inventory", "purchases", "finance"],
     ),
     "fod": BusinessPreset(
         id="fod",
@@ -199,7 +200,7 @@ BUSINESS_PRESETS: dict[str, BusinessPreset] = {
         icon="Utensils",
         badge="أغذية ومشروبات",
         description="تركيبات ووصفات التصنيع، سلامة الغذاء ونقاط HACCP، السحب والاستدعاء الفوري Mock Recall، وتتبع التشغيلات FEFO.",
-        modules=["core", "fod", "inventory", "purchases", "finance"],
+        modules=["core", "food_manufacturing", "inventory", "purchases", "finance"],
     ),
     "phm": BusinessPreset(
         id="phm",
@@ -208,7 +209,7 @@ BUSINESS_PRESETS: dict[str, BusinessPreset] = {
         icon="ShieldCheck",
         badge="دوائي وكيميائي",
         description="سجلات التشغيل الدوائية EBR، اعتماد وضبط الجودة QP Release، تقارير الانحرافات وحالات CAPA، وتوقيعات 21 CFR Part 11 المعتمدة.",
-        modules=["core", "phm", "pharmacy", "inventory", "purchases", "finance"],
+        modules=["core", "pharma_manufacturing", "pharmacy", "inventory", "purchases", "finance"],
     ),
     "prn": BusinessPreset(
         id="prn",
@@ -217,7 +218,7 @@ BUSINESS_PRESETS: dict[str, BusinessPreset] = {
         icon="Printer",
         badge="طباعة وتغليف",
         description="أوامر الطباعة Job Dockets، تخطيط المونتاج Imposition، إدارة الأحبار والورق GSM، وحساب تكلفة الماكينات بساعات MHR.",
-        modules=["core", "prn", "mfg", "inventory", "purchases", "finance"],
+        modules=["core", "printing", "manufacturing", "inventory", "purchases", "finance"],
     ),
     "cst": BusinessPreset(
         id="cst",
@@ -226,7 +227,7 @@ BUSINESS_PRESETS: dict[str, BusinessPreset] = {
         icon="HardHat",
         badge="مقاولات وإنشاءات",
         description="إدارة مشاريع البناء والمواقع، جداول الكميات BOQ، المستخلصات التنفيذية IPC، تتبع أوامر التغيير، وإدارة المعدات الثقيلة.",
-        modules=["core", "cst", "inventory", "purchases", "finance", "hr"],
+        modules=["core", "construction", "inventory", "purchases", "finance", "hr"],
     ),
     "rec": BusinessPreset(
         id="rec",
@@ -235,7 +236,7 @@ BUSINESS_PRESETS: dict[str, BusinessPreset] = {
         icon="Building2",
         badge="عقارات وأملاك",
         description="إدارة المولات والمباني، عقود الإيجار والتحصيل، الشيكات الآجلة PDC، رسوم الخدمات المشتركة CAM، وتحليل عوائد الاستثمار NOI.",
-        modules=["core", "rec", "finance"],
+        modules=["core", "real_estate", "finance"],
     ),
     "agr": BusinessPreset(
         id="agr",
@@ -244,7 +245,7 @@ BUSINESS_PRESETS: dict[str, BusinessPreset] = {
         icon="Tractor",
         badge="زراعة وإنتاج",
         description="إدارة الأراضي والبيفوتات، جداول التسميد والمكافحة PHI، دورات الري، شحنات الحصاد GlobalG.A.P.، وقطعان الألبان والماشية.",
-        modules=["core", "agr", "inventory", "purchases", "finance"],
+        modules=["core", "agriculture", "inventory", "purchases", "finance"],
     ),
     "eng": BusinessPreset(
         id="eng",
@@ -253,7 +254,7 @@ BUSINESS_PRESETS: dict[str, BusinessPreset] = {
         icon="Zap",
         badge="طاقة وكهرباء",
         description="إدارة محطات التوليد، ربط SCADA اللحظي، تصاريح العمل وعزل الطاقة PTW/LOTO، تسوية اتفاقيات PPA، ومراقبة الانبعاثات CEMS.",
-        modules=["core", "eng", "inventory", "purchases", "finance", "hr"],
+        modules=["core", "energy", "inventory", "purchases", "finance", "hr"],
     ),
     "bnk": BusinessPreset(
         id="bnk",
@@ -262,7 +263,7 @@ BUSINESS_PRESETS: dict[str, BusinessPreset] = {
         icon="Landmark",
         badge="مصارف وتمويل",
         description="إدارة الحسابات المصرفية، سجل المعاملات الفورية، الجدارة الائتمانية I-Score، تقييم خسائر الائتمان المتوقعة ECL، ومراقبة الامتثال AML.",
-        modules=["core", "bnk", "finance"],
+        modules=["core", "banking", "finance"],
     ),
     "ins": BusinessPreset(
         id="ins",
@@ -271,7 +272,7 @@ BUSINESS_PRESETS: dict[str, BusinessPreset] = {
         icon="Shield",
         badge="تأمين ومطالبات",
         description="إصدار وثائق التأمين، إدارة الحوادث والتعويضات FNOL، المعاينات الفنية، مخصصات IFRS 17، وتوزيع اتفاقيات إعادة التأمين.",
-        modules=["core", "ins", "finance"],
+        modules=["core", "insurance", "finance"],
     ),
     "gov": BusinessPreset(
         id="gov",
@@ -280,7 +281,7 @@ BUSINESS_PRESETS: dict[str, BusinessPreset] = {
         icon="Building",
         badge="قطاع عام ومنظمات",
         description="محاسبة الصناديق والمنح، الرقابة على الموازنات وحجز الارتباطات، سجلات المساعدات الإنسانية والتحقق البصري، والمناقصات الحكومية.",
-        modules=["core", "gov", "finance"],
+        modules=["core", "government", "finance"],
     ),
     "ent": BusinessPreset(
         id="ent",
@@ -289,7 +290,7 @@ BUSINESS_PRESETS: dict[str, BusinessPreset] = {
         icon="Ticket",
         badge="ترفيه ومهرجانات",
         description="تنظيم الفعاليات والمقاعد، بوابات التذاكر الإلكترونية، بطاقات شحن ألعاب الأركيد، وبوفيهات الأغذية السريعة.",
-        modules=["core", "ent", "pos", "finance"],
+        modules=["core", "events", "pos", "finance"],
     ),
     "oil": BusinessPreset(
         id="oil",
@@ -298,7 +299,7 @@ BUSINESS_PRESETS: dict[str, BusinessPreset] = {
         icon="Flame",
         badge="بترول وطاقة",
         description="إدارة حقول وآبار البترول والغاز، تقارير الإنتاج، تقرير الحفر اليومي DDR، قياسات صهاريج الخام والمصافي، ومطالبات الشركاء JV Cash Calls.",
-        modules=["core", "oil", "finance", "cst", "eng"],
+        modules=["core", "oil_gas", "finance", "construction", "energy"],
     ),
 }
 
@@ -330,7 +331,7 @@ async def get_active_modules(db: AsyncSession) -> list[str]:
     if tid is not None:
         mods = await db.scalar(select(Tenant.active_modules).where(Tenant.id == tid))
         if mods:
-            return list(dict.fromkeys(["core", *mods]))
+            return canonical_modules(["core", *mods])
     return list(DEFAULT_MODULES)
 
 
@@ -364,7 +365,7 @@ async def set_active_modules(db: AsyncSession, modules: list[str], preset_id: st
     if tid is None:
         raise HTTPException(status_code=400, detail="لا توجد منشأة محددة")
 
-    clean_mods = list(dict.fromkeys(["core", *modules]))
+    clean_mods = canonical_modules(["core", *modules])
     for mod_id in list(clean_mods):
         for dep in manifest_index().get(mod_id, {}).get("dependencies", []):
             if dep not in clean_mods:
@@ -388,10 +389,7 @@ async def set_active_modules(db: AsyncSession, modules: list[str], preset_id: st
 
 def require_module(module_id: str):
     """FastAPI dependency to guard endpoints requiring a specific active module."""
-    MODULE_ALIASES = {
-        "clinic": "healthcare_clinic",
-        "healthcare_clinic": "clinic",
-    }
+    module_id = canonical_module(module_id)
 
     from app.dependencies import get_current_user
 
@@ -399,10 +397,9 @@ def require_module(module_id: str):
     # guard read the modules with no workspace bound (another workspace's, or several).
     async def _checker(db: AsyncSession = Depends(get_db), _user=Depends(get_current_user)):
         active = await get_active_modules(db)
-        target_alias = MODULE_ALIASES.get(module_id, module_id)
-        if module_id not in active and target_alias not in active:
+        if module_id not in active:
             index = manifest_index()
-            name = (index.get(module_id) or index.get(target_alias) or {}).get("name", module_id)
+            name = index.get(module_id, {}).get("name", module_id)
             raise HTTPException(
                 status_code=403,
                 detail=f"وحدة «{name}» غير مفعلة في اشتراك المنشأة الحالي. يمكنك تفعيلها من متجر الإضافات.",

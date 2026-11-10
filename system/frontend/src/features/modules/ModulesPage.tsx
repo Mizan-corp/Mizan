@@ -59,6 +59,7 @@ export default function ModulesPage() {
     activeModules,
     catalog,
     presets,
+    families,
     isLoading,
     fetchModules,
     applyPreset,
@@ -380,15 +381,13 @@ export default function ModulesPage() {
               />
             </div>
 
-            {/* Category Filter Pills */}
-            <div className="flex items-center gap-1">
+            {/* Family Filter Pills */}
+            <div className="flex flex-wrap items-center gap-1">
               {[
                 { k: "all", l: "الكل" },
-                { k: "retail", l: "التجزئة" },
-                { k: "hospitality", l: "الضيافة" },
-                { k: "education", l: "التعليم" },
-                { k: "finance", l: "المالية" },
-                { k: "hr", l: "الموظفون" },
+                ...families
+                  .filter((f) => catalog.some((m) => m.category === f.id))
+                  .map((f) => ({ k: f.id, l: f.name })),
               ].map((c) => (
                 <button
                   key={c.k}

@@ -22,6 +22,7 @@ from pathlib import Path
 from sqlalchemy import func, select, text
 
 from app.core import licensing
+from app.catalog import canonical_modules
 from app.core.modules import SECTOR_TO_PRESET, set_active_modules
 from app.core.security import hash_password
 from app.core.tenancy import bind_tenant, install_tenancy_events
@@ -84,7 +85,7 @@ async def create_workspace(payload: dict, *, admin_username: str, admin_password
         tenant.sector = tenant.business_type = ws.get("sector") or tenant.sector
         tenant.scale = ws.get("scale") or tenant.scale
         tenant.palette = ws.get("palette") or tenant.palette
-        tenant.active_modules = ws.get("modules") or tenant.active_modules
+        tenant.active_modules = canonical_modules(ws.get("modules") or []) or tenant.active_modules
         tenant.plan = payload.get("plan") or tenant.plan
         tenant.limits = payload.get("limits") or tenant.limits
         tenant.deployment_mode = payload["mode"]

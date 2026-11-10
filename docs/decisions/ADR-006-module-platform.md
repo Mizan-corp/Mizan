@@ -391,6 +391,28 @@ Each phase ends usable and tested; existing workspaces and on-site installs keep
 - **Uninstall**: whether "delete data now" still keeps a short safety backup the owner can
   restore.
 
+## Phase 1 implementation notes (2026-11-10)
+Choices made while implementing phase 1 (#99), for review:
+- **Families** (`app/catalog/families.json`): general, commerce, food & hospitality, health,
+  education, services, logistics, industry, projects/real estate/energy, financial & public
+  institutions. Each of the 35 existing activities is assigned to one (`activities.json`); the
+  five legacy sectors (`services`, `plumbing`, `electrical`, `tiles`, `paint`) are marked
+  `legacy_of` their current activity.
+- **Manifest v2** adds `activity` and `kind` (`business` | `platform` | `integration`) and drops
+  `category`: a module's family is its activity's. Platform/integration modules stay in
+  `modules/` until phase 2 moves them to `platform/` and `integrations/`.
+- **Readable ids now** for the top-level modules (`prn`→`printing`, `agr`→`agriculture`, …,
+  `ent`→`events`, `mfg`→`manufacturing`); URLs (`/prn`, `/agr`…) and table names are unchanged.
+  The grouped `hlt_*`/`hot_*` modules keep their ids until phase 8 moves (and partly merges)
+  them, to avoid renaming twice.
+- **Business presets** keep their ids (`prn`, `cst`…): they are a separate namespace stored in
+  the workspace's settings; only the module lists inside them were renamed.
+- The manifest-only stubs (`retail-pos`, `restaurant-pos`, `gym-pos`, `gym_fitness`) were
+  removed now; their ids map to `pos`, `restaurant`, `gym`. `operations` got a manifest so
+  activities only list real modules.
+- **Migrations**: v50 (active modules in `tenants.active_modules` only), v51 (old ids rewritten in
+  stored module lists and module settings keys).
+
 ## Decision log (review of 2026-11-10)
 Answers as given by the owner; *italics* = how this ADR applies them.
 

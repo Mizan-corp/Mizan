@@ -2,13 +2,23 @@
   "id": "school",
   "name": "المدارس والأكاديميات التعليمية",
   "name_en": "School & Education Management",
-  "category": "education",
-  "target_business_types": ["school", "academy", "training_center", "kindergarten", "institute"],
+  "activity": "school",
+  "kind": "business",
+  "target_business_types": [
+    "school",
+    "academy",
+    "training_center",
+    "kindergarten",
+    "institute"
+  ],
   "version": "1.0.0",
   "icon": "GraduationCap",
   "badge": "جديد",
   "description": "شؤون وقيد الطلاب، إدارة المراحل والفصول، تحصيل الأقساط والمصروفات المجدولة، وإصدار إيصالات السداد الإلكترونية.",
-  "dependencies": ["core", "finance"],
+  "dependencies": [
+    "core",
+    "finance"
+  ],
   "is_core": false,
   "nav_items": [
     {

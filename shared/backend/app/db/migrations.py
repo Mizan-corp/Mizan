@@ -2492,6 +2492,63 @@ MIGRATIONS = [
         WHERE m.tenant_id = t.id AND m.mods IS NOT NULL;
         DELETE FROM store_settings WHERE key = 'installed_modules';
     """),
+    # Readable module ids (ADR-006 phase 1): prn → printing, agr → agriculture, …; the
+    # manifest-only stubs (retail-pos, restaurant-pos, gym-pos, gym_fitness) map to the modules
+    # they stood for. app/catalog/legacy_ids.json keeps the old ids working in code.
+    ("v51_readable_module_ids", """
+        UPDATE tenants t SET active_modules = (
+            SELECT COALESCE(jsonb_agg(x.m ORDER BY x.pos), '[]'::jsonb)
+            FROM (
+                SELECT COALESCE(l.new_id, e.elem) AS m, MIN(e.ord) AS pos
+                FROM jsonb_array_elements_text(t.active_modules) WITH ORDINALITY AS e(elem, ord)
+                LEFT JOIN (VALUES
+                ('agr', 'agriculture'),
+                ('bnk', 'banking'),
+                ('cst', 'construction'),
+                ('eng', 'energy'),
+                ('ent', 'events'),
+                ('fod', 'food_manufacturing'),
+                ('gov', 'government'),
+                ('ins', 'insurance'),
+                ('oil', 'oil_gas'),
+                ('phm', 'pharma_manufacturing'),
+                ('rec', 'real_estate'),
+                ('prn', 'printing'),
+                ('mfg', 'manufacturing'),
+                ('retail-pos', 'pos'),
+                ('restaurant-pos', 'restaurant'),
+                ('gym-pos', 'gym'),
+                ('gym_fitness', 'gym'),
+                ('clinic', 'healthcare_clinic')
+                ) AS l(old_id, new_id) ON l.old_id = e.elem
+                GROUP BY 1
+            ) x
+        )
+        WHERE t.active_modules ?| array['agr', 'bnk', 'cst', 'eng', 'ent', 'fod', 'gov', 'ins', 'oil', 'phm', 'rec', 'prn', 'mfg', 'retail-pos', 'restaurant-pos', 'gym-pos', 'gym_fitness', 'clinic'];
+        UPDATE store_settings s SET key = 'mod_settings_' || l.new_id
+        FROM (VALUES
+                ('agr', 'agriculture'),
+                ('bnk', 'banking'),
+                ('cst', 'construction'),
+                ('eng', 'energy'),
+                ('ent', 'events'),
+                ('fod', 'food_manufacturing'),
+                ('gov', 'government'),
+                ('ins', 'insurance'),
+                ('oil', 'oil_gas'),
+                ('phm', 'pharma_manufacturing'),
+                ('rec', 'real_estate'),
+                ('prn', 'printing'),
+                ('mfg', 'manufacturing'),
+                ('retail-pos', 'pos'),
+                ('restaurant-pos', 'restaurant'),
+                ('gym-pos', 'gym'),
+                ('gym_fitness', 'gym'),
+                ('clinic', 'healthcare_clinic')
+        ) AS l(old_id, new_id)
+        WHERE s.key = 'mod_settings_' || l.old_id
+          AND NOT EXISTS (SELECT 1 FROM store_settings o WHERE o.tenant_id = s.tenant_id AND o.key = 'mod_settings_' || l.new_id);
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

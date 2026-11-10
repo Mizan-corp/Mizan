@@ -2,11 +2,15 @@
   "id": "purchases",
   "name": "المشتريات وإدارة الموردين",
   "name_en": "Purchases & Procurement",
-  "category": "purchases",
+  "activity": "general",
+  "kind": "business",
   "version": "3.0.0",
   "icon": "Truck",
   "description": "أوامر الشراء، استلام البضائع، سجل أسعار الموردين التاريخية، ومتابعة فواتير الشراء.",
-  "dependencies": ["core", "inventory"],
+  "dependencies": [
+    "core",
+    "inventory"
+  ],
   "is_core": true,
   "settings_schema": [
     {

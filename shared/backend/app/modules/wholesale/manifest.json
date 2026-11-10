@@ -2,13 +2,23 @@
   "id": "wholesale",
   "name": "تجارة الجملة والتوزيع والتوريدات",
   "name_en": "Wholesale & Bulk Distribution",
-  "category": "distribution_logistics",
-  "target_business_types": ["wholesale", "retail", "distribution", "fmcg"],
+  "activity": "wholesale",
+  "kind": "business",
+  "target_business_types": [
+    "wholesale",
+    "retail",
+    "distribution",
+    "fmcg"
+  ],
   "version": "1.0.0",
   "icon": "Boxes",
   "badge": "جديد",
   "description": "سلالم التسعير الكمي المتدرج، قوائم أسعار العملاء المتعاقد عليها، قيود الائتمان وسقوف المديونية، تكلفة الاستيراد المفرغة (Landed Cost)، والشحن المباشر Drop-Shipping، ومكافآت التوزيع التراكمية.",
-  "dependencies": ["core", "inventory", "finance"],
+  "dependencies": [
+    "core",
+    "inventory",
+    "finance"
+  ],
   "is_core": false,
   "nav_items": [
     {

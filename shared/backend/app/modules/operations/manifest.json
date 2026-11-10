@@ -1,0 +1,15 @@
+{
+  "id": "operations",
+  "name": "العمليات المخزنية",
+  "name_en": "Stock Operations",
+  "activity": "general",
+  "kind": "business",
+  "version": "1.0.0",
+  "icon": "ArrowLeftRight",
+  "description": "التحويلات بين المخازن، التسويات، الجرد، والهالك. الكود الحالي في واجهات النظام العامة وينتقل إلى هذه الوحدة في المرحلة الثانية (ADR-006).",
+  "dependencies": [
+    "core",
+    "inventory"
+  ],
+  "is_core": true
+}

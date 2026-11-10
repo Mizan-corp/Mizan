@@ -1,4 +1,5 @@
 """The module registry is the only way modules reach the API (ADR-006, phase 1)."""
+import json
 import os
 import re
 import uuid
@@ -96,3 +97,65 @@ async def test_active_modules_live_on_the_workspace():
             await db.execute(delete(Tenant).where(Tenant.id == tid))
             await db.commit()
         await engine.dispose()
+
+
+def test_activities_and_families_are_consistent():
+    from app.catalog import GENERAL, activities, families
+    from app.modules.loader import manifest_index
+
+    index = manifest_index()
+    assert GENERAL in activities()
+    for activity in activities().values():
+        assert activity["family"] in families(), activity["id"]
+        unknown = [m for m in activity["modules"] if m not in index]
+        assert not unknown, f"{activity['id']}: {unknown}"
+        if "legacy_of" in activity:
+            assert activity["legacy_of"] in activities()
+    for module in registry.get_all_manifests():
+        assert module.activity in activities(), module.id
+        assert module.category == activities()[module.activity]["family"], module.id
+
+
+REPO = Path(__file__).resolve().parents[3]
+MODULES = REPO / "shared" / "backend" / "app" / "modules"
+# Grouped modules keep their old ids until they move to modules/hospital and modules/hotel
+# (ADR-006 phase 8). This list may only shrink.
+GROUPED_UNTIL_PHASE_8 = ("healthcare", "hospitality")
+
+
+def test_module_folder_is_its_id():
+    from app.modules.loader import manifest_files
+
+    for manifest in manifest_files():
+        folder = manifest.parent
+        if folder.parent.name in GROUPED_UNTIL_PHASE_8:
+            continue
+        module_id = json.loads(manifest.read_text(encoding="utf-8"))["id"]
+        assert folder.name == module_id, f"{folder.relative_to(MODULES)} holds '{module_id}'"
+
+
+WINDOWS_RESERVED = re.compile(r"^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$", re.IGNORECASE)
+
+
+def test_module_paths_are_valid_on_windows():
+    # The installers are built on Windows.
+    roots = [MODULES, REPO / "system" / "frontend" / "src" / "modules", REPO / "shared" / "backend" / "app" / "catalog"]
+    for root in roots:
+        for path in root.rglob("*"):
+            if "__pycache__" in path.parts:
+                continue
+            assert not WINDOWS_RESERVED.match(path.name), path
+            assert not re.search(r'[<>:"|?*]', path.name), path
+        for folder in [root, *[p for p in root.rglob("*") if p.is_dir()]]:
+            names = [p.name.lower() for p in folder.iterdir()]
+            assert len(names) == len(set(names)), f"names differing only in case in {folder}"
+
+
+def test_legacy_ids_point_to_current_modules():
+    from app.catalog import canonical_modules, legacy_ids
+
+    current = {m.id for m in registry.get_all_manifests()}
+    for old, new in legacy_ids().items():
+        assert old not in current, old
+        assert new in current, f"{old} -> {new}"
+    assert canonical_modules(["prn", "printing", "retail-pos", "pos", "cst"]) == ["printing", "pos", "construction"]

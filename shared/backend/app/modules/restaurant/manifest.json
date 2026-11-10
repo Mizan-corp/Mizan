@@ -2,13 +2,23 @@
   "id": "restaurant",
   "name": "إدارة المطاعم والصالة",
   "name_en": "Restaurant & Dining Hall",
-  "category": "hospitality",
-  "target_business_types": ["restaurant", "cafe", "fast_food", "lounge"],
+  "activity": "restaurant",
+  "kind": "business",
+  "target_business_types": [
+    "restaurant",
+    "cafe",
+    "fast_food",
+    "lounge"
+  ],
   "version": "1.0.0",
   "icon": "UtensilsCrossed",
   "badge": "جديد",
   "description": "مخطط صالة الطعام، إدارة وحجز الطاولات، تتبع الجلسات وأوقات الانتظار، وإجمالي حسابات الضيوف الجارية.",
-  "dependencies": ["core", "pos", "inventory"],
+  "dependencies": [
+    "core",
+    "pos",
+    "inventory"
+  ],
   "is_core": false,
   "nav_items": [
     {

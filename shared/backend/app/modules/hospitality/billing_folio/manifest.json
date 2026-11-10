@@ -2,12 +2,26 @@
   "id": "hot_billing_folio",
   "name": "فواتير النزلاء والمصاريف (Folio)",
   "name_en": "Guest Folio & Incidentals Room Posting",
-  "category": "hospitality",
+  "activity": "hotel",
+  "kind": "business",
   "version": "1.0.0",
   "icon": "DollarSign",
   "badge": "Revenue",
   "description": "إدارة كشوف حسابات النزلاء (Folio)، ترحيل مصاريف المطعم والميني بار والخدمات، وتسوية الفواتير.",
-  "dependencies": ["core", "finance", "hot_pms"],
-  "business_types": ["hotel", "resort", "boutique_hotel", "serviced_apartments"],
-  "required_permissions": ["hotel:view", "hotel:manage", "hotel:folio"]
+  "dependencies": [
+    "core",
+    "finance",
+    "hot_pms"
+  ],
+  "business_types": [
+    "hotel",
+    "resort",
+    "boutique_hotel",
+    "serviced_apartments"
+  ],
+  "required_permissions": [
+    "hotel:view",
+    "hotel:manage",
+    "hotel:folio"
+  ]
 }

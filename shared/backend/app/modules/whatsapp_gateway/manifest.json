@@ -2,12 +2,18 @@
   "id": "whatsapp_gateway",
   "name": "ربط WhatsApp Business وإرسال الإيصالات",
   "name_en": "WhatsApp Business & Digital Receipt Dispatch",
-  "category": "integrations",
-  "target_business_types": ["*"],
+  "activity": "general",
+  "kind": "integration",
+  "target_business_types": [
+    "*"
+  ],
   "version": "1.0.0",
   "icon": "MessageCircle",
   "description": "إرسال إيصالات رقمية وفواتير تلقائياً إلى WhatsApp العملاء عند إتمام البيع أو طلب المتجر، مع قوالب رسائل قابلة للتخصيص.",
-  "dependencies": ["core", "sales"],
+  "dependencies": [
+    "core",
+    "sales"
+  ],
   "is_core": false,
   "settings_schema": [
     {
@@ -29,7 +35,11 @@
       "label": "قالب الرسالة الافتراضي",
       "type": "select",
       "default": "receipt_basic",
-      "options": ["receipt_basic", "receipt_detailed", "receipt_with_qr"],
+      "options": [
+        "receipt_basic",
+        "receipt_detailed",
+        "receipt_with_qr"
+      ],
       "description": "القالب المستخدم لإرسال الإيصالات تلقائياً."
     },
     {

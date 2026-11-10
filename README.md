@@ -168,10 +168,13 @@ filter, automatic stamping on insert, and **PostgreSQL Row-Level Security** as a
 inside the database. If an application bug forgets a filter, the database still says no.
 
 **2. Modules are plug-ins, not forks.**
-Every module has a backend folder (`shared/backend/app/modules/<id>/`) with a `manifest.json`
-(category, dependencies, permissions, business types), its own models and API router, and its
-screens in `system/frontend/src/modules/<id>/`. The marketplace at
-`/modules` turns them on and off per workspace, and every route is guarded by `require_module`.
+Every module has a backend folder named after its id (`shared/backend/app/modules/<id>/`) with
+a `manifest.json` (its home activity, kind and dependencies), its own models and API router, and
+its screens under `system/frontend/src/modules/`. One loader mounts every module; families and
+activities are data in `app/catalog/`. The marketplace at `/modules` turns modules on and off per
+workspace, and module routes check that the workspace has the module on (`require_module`;
+not yet every module, see ADR-006). Where this is heading:
+[ADR-006](docs/decisions/ADR-006-module-platform.md).
 
 **3. Permissions mirror real jobs.**
 Mizan separates **positions** (what someone does: pharmacist, cashier, chief accountant;
