@@ -485,3 +485,16 @@ async def upload_product_image(
     p.image_url = f"/uploads/products/{filename}"
     await db.commit()
     return p.image_url
+
+
+async def set_reorder_level(db, product_ids, level, tenant_id=None) -> int:
+    """Set the reorder level (and point) of several products; returns how many changed."""
+    from sqlalchemy import func, update
+
+    from app.modules.general.inventory.models.product import Product
+
+    stmt = update(Product).where(Product.id.in_(product_ids))
+    if tenant_id:  # besides row-level security
+        stmt = stmt.where(Product.tenant_id == tenant_id)
+    result = await db.execute(stmt.values(reorder_level=level, reorder_point=level, updated_at=func.now()))
+    return result.rowcount

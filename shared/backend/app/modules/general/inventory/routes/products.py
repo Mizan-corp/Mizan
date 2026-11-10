@@ -175,25 +175,7 @@ async def bulk_set_reorder_level(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_perm("inventory")),
 ):
-    from sqlalchemy import update, func
-    from app.modules.general.inventory.models.product import Product
-
-    stmt = (
-        update(Product)
-        .where(Product.id.in_(data.product_ids))
-    )
-    if current_user.tenant_id:
-        stmt = stmt.where(Product.tenant_id == current_user.tenant_id)
-    stmt = stmt.values(
-        reorder_level=data.reorder_level,
-        reorder_point=data.reorder_level,
-        updated_at=func.now(),
-    )
-    result = await db.execute(stmt)
+    updated = await product_service.set_reorder_level(db, data.product_ids, data.reorder_level, current_user.tenant_id)
     await db.commit()
-    return {
-        "ok": True,
-        "updated_count": result.rowcount,
-        "reorder_level": data.reorder_level,
-    }
+    return {"ok": True, "updated_count": updated, "reorder_level": data.reorder_level}
 

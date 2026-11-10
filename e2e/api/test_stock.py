@@ -4,7 +4,7 @@ import uuid
 
 from helpers import uid
 
-from conftest import product, category, subcategory, supplier, owner_api  # noqa: F401
+from conftest import product, category, subcategory, supplier, owner_api, db  # noqa: F401
 
 
 def _wh(admin_api, reg, kind="warehouse"):
@@ -26,7 +26,7 @@ def _open(admin_api, product_id, warehouse_id, qty=10):
 
 
 # ---------------- warehouses ----------------
-def test_warehouse_crud(admin_api, reg):
+def test_warehouse_crud(admin_api, reg, db):
     w = _wh(admin_api, reg)
     lst = admin_api.ok(admin_api.get("/stock/warehouses"))
     assert any(x["id"] == w["id"] for x in lst)
@@ -37,6 +37,7 @@ def test_warehouse_crud(admin_api, reg):
 
     r = admin_api.delete(f"/stock/warehouses/{w['id']}")
     assert r.status_code == 204  # soft delete
+    assert db.one("SELECT count(*) FROM audit_log WHERE entity_id = %s AND action = 'deactivate'", (w["id"],))[0] == 1
 
 
 def test_warehouse_delete_guard_when_linked(admin_api, reg, product):
@@ -187,3 +188,12 @@ def test_price_history(admin_api, reg, product, supplier, wh):
 def test_purchase_suggestions(owner_api):
     s = owner_api.ok(owner_api.get("/purchases/suggestions"))
     assert s == [] or isinstance(s, list)
+
+def test_reset_warehouse_stock_is_audited(admin_api, reg, product, db):
+    w = _wh(admin_api, reg)
+    _open(admin_api, product["id"], w["id"])
+    r = admin_api.delete("/stock/movements", params={"warehouse_id": w["id"]})
+    assert r.status_code == 204, r.text[:200]
+    assert db.one("SELECT count(*) FROM stock_movements WHERE warehouse_id = %s", (w["id"],))[0] == 0
+    logged = db.one("SELECT changes->>'movements_deleted' FROM audit_log WHERE entity_id = %s AND action = 'reset_stock'", (w["id"],))
+    assert logged and logged[0] == "1"

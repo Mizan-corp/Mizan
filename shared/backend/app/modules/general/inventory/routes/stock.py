@@ -12,6 +12,7 @@ from app.modules.general.inventory.models.warehouse import Warehouse
 from app.modules.general.inventory.schemas.stock import StockMovementCreate, StockMovementOut, TransferRequest
 from app.modules.general.inventory.schemas.warehouse import WarehouseCreate, WarehouseUpdate
 from app.modules.general.inventory.services import stock as stock_service
+from app.modules.general.inventory.services import warehouses as warehouses_service
 from app.platform.audit.service import log as audit_log
 
 router = APIRouter(prefix="/stock", tags=["stock"])
@@ -50,29 +51,8 @@ async def update_warehouse(wh_id: uuid.UUID, data: WarehouseUpdate, db: AsyncSes
 
 
 @router.delete("/warehouses/{wh_id}", status_code=204)
-async def delete_warehouse(wh_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("settings"))):
-    from sqlalchemy import text as sqlt
-
-    from app.core.exceptions import BusinessError
-
-    result = await db.execute(select(Warehouse).where(Warehouse.id == wh_id))
-    w = result.scalar_one_or_none()
-    if not w:
-        from app.core.exceptions import NotFoundError
-        raise NotFoundError()
-
-    # Check for linked records
-    movements_count = await db.scalar(sqlt("SELECT COUNT(*) FROM stock_movements WHERE warehouse_id = :id"), {"id": wh_id})
-    sales_count = await db.scalar(sqlt("SELECT COUNT(*) FROM sales WHERE warehouse_id = :id"), {"id": wh_id})
-    shifts_count = await db.scalar(sqlt("SELECT COUNT(*) FROM shifts WHERE warehouse_id = :id"), {"id": wh_id})
-
-    total_linked = (movements_count or 0) + (sales_count or 0) + (shifts_count or 0)
-    if total_linked > 0:
-        raise BusinessError(
-            f"لا يمكن حذف هذا المخزن — يحتوي على {movements_count or 0} حركة مخزون، {sales_count or 0} فاتورة بيع، و{shifts_count or 0} شيفت. يرجى حذف البيانات المرتبطة أولاً."
-        )
-
-    w.is_active = False
+async def delete_warehouse(wh_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("settings"))):
+    await warehouses_service.deactivate(db, wh_id, current_user)
     await db.commit()
 
 
@@ -147,23 +127,10 @@ async def add_movement(data: StockMovementCreate, db: AsyncSession = Depends(get
 async def reset_warehouse_stock(
     warehouse_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _=Depends(require_perm("settings")),
+    current_user: User = Depends(require_perm("settings")),
 ):
     """Delete all stock movements for a warehouse (reset inventory)."""
-    from sqlalchemy import text as sqlt
-
-    from app.core.exceptions import BusinessError
-    count = (await db.execute(sqlt("SELECT COUNT(*) FROM stock_movements WHERE warehouse_id = :wid"), {"wid": warehouse_id})).scalar() or 0
-    if count > 1000:
-        raise BusinessError(f"لا يمكن إعادة تعيين {count} حركة — تجاوز الحد الأقصى")
-    await db.execute(sqlt("DELETE FROM stock_movements WHERE warehouse_id = :wid"), {"wid": warehouse_id})
-    await db.execute(sqlt("DELETE FROM stock_balances WHERE warehouse_id = :wid"), {"wid": warehouse_id})
-    await db.execute(sqlt("DELETE FROM warehouse_product_status WHERE warehouse_id = :wid"), {"wid": warehouse_id})
-    await db.execute(sqlt("""
-        UPDATE products SET stock_status = 'untracked'
-        WHERE id NOT IN (SELECT DISTINCT product_id FROM stock_movements)
-        AND id NOT IN (SELECT DISTINCT product_id FROM warehouse_product_status)
-    """))
+    await warehouses_service.reset_stock(db, warehouse_id, current_user)
     await db.commit()
 
 
