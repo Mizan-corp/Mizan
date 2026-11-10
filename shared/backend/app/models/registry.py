@@ -55,30 +55,30 @@ def load_all_models() -> None:
     import app.modules.consulting.services.models
     import app.modules.wholesale.wholesale.models
     import app.modules.logistics.logistics.models
-    import app.modules.wms_3pl.wms.models
+    import app.modules.warehousing.wms.models
     import app.modules.ecommerce.ecommerce.models
     import app.modules.healthcare.healthcare_clinic.models
     import app.modules.healthcare.models
-    import app.modules.law_firm.law.models
+    import app.modules.legal.law.models
     import app.modules.travel.travel.models
     import app.modules.hotel.hospitality.models
     import app.modules.gym.gym.models
     import app.modules.salon.salon.models
     import app.modules.agency.agency.models
-    import app.modules.field_service.field_service.models
-    import app.modules.discrete_mfg.manufacturing.models
-    import app.modules.food_mfg.food_manufacturing.models
-    import app.modules.pharma_mfg.pharma_manufacturing.models
+    import app.modules.maintenance.field_service.models
+    import app.modules.manufacturing.manufacturing.models
+    import app.modules.food.food_manufacturing.models
+    import app.modules.pharmaceuticals.pharma_manufacturing.models
     import app.modules.printing.printing.models
     import app.modules.construction.construction.models
-    import app.modules.real_estate.real_estate.models
+    import app.modules.property.real_estate.models
     import app.modules.agriculture.agriculture.models
     import app.modules.energy.energy.models
     import app.modules.banking.banking.models
     import app.modules.insurance.insurance.models
     import app.modules.government.government.models
     import app.modules.entertainment.events.models
-    import app.modules.oil_gas.oil_gas.models
+    import app.modules.petroleum.oil_gas.models
     import app.modules.general.storefront.models
     import app.integrations.pos_hardware.models
     import app.platform.automation_worker.models

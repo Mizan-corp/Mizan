@@ -11,7 +11,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.catalog import canonical_modules
+from app.catalog import canonical_activity, canonical_modules
 from app.core.modules import SECTOR_TO_PRESET, set_active_modules
 from app.core.plans import PLANS_CONFIG, get_plan_limits
 from app.core.sectors import PALETTE_HUES, SECTOR_PRIMARY_MODULES, SECTORS, TRIAL_DAYS
@@ -69,6 +69,7 @@ async def create_workspace(
 
     if deployment_mode not in MODES:
         raise HTTPException(status_code=422, detail="Unknown deployment mode")
+    sector = canonical_activity(sector)
     if sector not in SECTORS:
         raise HTTPException(status_code=422, detail="نشاط غير معروف")
     if plan not in PLANS_CONFIG:

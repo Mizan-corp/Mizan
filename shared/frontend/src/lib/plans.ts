@@ -98,28 +98,28 @@ export const SECTOR_OPTIONS = [
   // Phase 2: Distribution and Logistics
   { value: "wholesale", label: "تجارة جملة وتوزيع وتوريدات (Wholesale)", desc: "أسعار كميات، قوائم أسعار عملاء، تسعير حسب الحجم والخصومات" },
   { value: "logistics", label: "نقل، شحن، وخدمات لوجستية (Logistics)", desc: "بوالص شحن، تتبع مسارات، إدارة أساطيل، وتكاليف وقود" },
-  { value: "wms_3pl", label: "مستودعات وخدمات لوجستية للغير (3PL WMS)", desc: "مستودعات متعددة العملاء، استلام، وتوزيع حسب مواقع التخزين" },
+  { value: "warehousing", label: "مستودعات وخدمات لوجستية للغير (3PL WMS)", desc: "مستودعات متعددة العملاء، استلام، وتوزيع حسب مواقع التخزين" },
   { value: "ecommerce", label: "تجارة إلكترونية ومتاجر رقمية (E-commerce)", desc: "ربط المتاجر، مزامنة المخزون اللحظية، وتجهيز الشحنات" },
   
   // Phase 3: Service-Based Systems
   { value: "healthcare", label: "عيادات ومراكز طبية ومستشفيات (Healthcare)", desc: "ملفات مرضى، حجز مواعيد، روشتات، وفواتير تأمين طبي" },
-  { value: "law_firm", label: "مكاتب ومؤسسات المحاماة (Law Firm)", desc: "إدارة القضايا، مواعيد الجلسات، وسجلات أموال العملاء وحسابات الأمانة" },
+  { value: "legal", label: "مكاتب ومؤسسات المحاماة (Law Firm)", desc: "إدارة القضايا، مواعيد الجلسات، وسجلات أموال العملاء وحسابات الأمانة" },
   { value: "travel", label: "وكالات السياحة والسفر (Travel Agency)", desc: "برامج سياحية، حجوزات طيران وفنادق، وفواتير موحدة للمجموعات" },
   { value: "hotel", label: "فنادق، منتجعات، وضيافة (Hotels & Resorts)", desc: "حجوزات، غرف، فواتير إقامة، وتدقيق ليلي ومطاعم فندقية" },
   { value: "gym", label: "أندية وصالات رياضية ولياقة بدنية (Gym)", desc: "اشتراكات، بوابات دخول ذكية، حصص تدريب شخصي، وكافيتيريا Gym-POS" },
   { value: "salon", label: "صالونات تجميل ومراكز سبا (Salon & Spa)", desc: "مواعيد مصففين، باقات خدمات، وعمولات موظفين ومستهلكات" },
   { value: "agency", label: "وكالات دعاية وتصميم وترجمة (Creative Agency)", desc: "إدارة ملخصات العملاء، مهام، مراجعة تصاميم، وفواتير مشروعات" },
-  { value: "field_service", label: "صيانة وخدمات ميدانية وتشغيل (Field Service)", desc: "أوامر شغل، توجيه فنيين، قطع غيار متنقلة، وتوقيعات عملاء" },
+  { value: "maintenance", label: "صيانة وخدمات ميدانية وتشغيل (Field Service)", desc: "أوامر شغل، توجيه فنيين، قطع غيار متنقلة، وتوقيعات عملاء" },
 
   // Phase 4: Manufacturing and Production
-  { value: "discrete_mfg", label: "تصنيع وتجميع ميكانيكي وإلكتروني (Manufacturing)", desc: "شجرة منتج BOM، مراكز تشغيل، تخطيط مواد MRP، وتكاليف إنتاج" },
-  { value: "food_mfg", label: "تصنيع ومعالجة أغذية ومشروبات (Food Mfg)", desc: "وصفات وخلطات، تتبع تشغيلات، صلاحيات، ورقابة سلامة الغذاء" },
-  { value: "pharma_mfg", label: "صناعات دوائية وكيميائية (Pharma Mfg)", desc: "سجلات تشغيل إلكترونية، معايير GMP، ورقابة جودة وتتبع حرج" },
+  { value: "manufacturing", label: "تصنيع وتجميع ميكانيكي وإلكتروني (Manufacturing)", desc: "شجرة منتج BOM، مراكز تشغيل، تخطيط مواد MRP، وتكاليف إنتاج" },
+  { value: "food", label: "تصنيع ومعالجة أغذية ومشروبات (Food Mfg)", desc: "وصفات وخلطات، تتبع تشغيلات، صلاحيات، ورقابة سلامة الغذاء" },
+  { value: "pharmaceuticals", label: "صناعات دوائية وكيميائية (Pharma Mfg)", desc: "سجلات تشغيل إلكترونية، معايير GMP، ورقابة جودة وتتبع حرج" },
   { value: "printing", label: "مطابع، تغليف، وتعبئة (Print & Packaging)", desc: "تذاكر تشغيل، مونتاج، استهلاك أحبار وورق، وهالك تجهيز" },
 
   // Phase 5: Projects and Infrastructure
   { value: "construction", label: "مقاولات عامة وتشييد (Construction)", desc: "مقايسات BOQ، مستخلصات، مقاولو باطن، ومعدات ثقيلة" },
-  { value: "real_estate", label: "إدارة عقارات ومجمعات تجارية (Real Estate)", desc: "وحدات، عقود إيجار، تحصيل شيكات، وصيانة وإيرادات صافية" },
+  { value: "property", label: "إدارة عقارات ومجمعات تجارية (Real Estate)", desc: "وحدات، عقود إيجار، تحصيل شيكات، وصيانة وإيرادات صافية" },
   { value: "agriculture", label: "مزارع وإنتاج زراعي وحيواني (Agriculture)", desc: "أحواض زراعية، دورات محصولية، أسمدة، وتتبع محاصيل وثروة حيوانية" },
   { value: "energy", label: "محطات طاقة وتوليد ومرافق (Energy & Utilities)", desc: "أصول، صيانة تنبؤية، قراءات عدادات، وتصاريح عمل وأمان بيئي" },
 
@@ -128,7 +128,7 @@ export const SECTOR_OPTIONS = [
   { value: "insurance", label: "شركات تأمين وتكافل (Insurance)", desc: "وثائق، تسعير اكتواري، مطالبات، واحتياطيات فنية وإعادة تأمين" },
   { value: "government", label: "جهات حكومية وجمعيات غير ربحية (Gov & Nonprofits)", desc: "محاسبة صناديق، موازنات ومخصصات، مناقصات، ومساعدات مستفيدين" },
   { value: "entertainment", label: "فعاليات ومدن ترفيهية وألعاب (Entertainment)", desc: "تذاكر، بوابات دخول، بطاقات ألعاب، وتوزيع إيرادات فعاليات" },
-  { value: "oil_gas", label: "عمليات بترول وغاز وتكرير (Oil & Gas)", desc: "آبار، إنتاج يومي، محاسبة مشاركات نفطية، وأمان تشغيلي" },
+  { value: "petroleum", label: "عمليات بترول وغاز وتكرير (Oil & Gas)", desc: "آبار، إنتاج يومي، محاسبة مشاركات نفطية، وأمان تشغيلي" },
 
   // Legacy aliases
   { value: "services", label: "خدمات عامة، مكاتب، ومقاولات", desc: "استشارات، عقود، فواتير مشاريع، وتتبع تكاليف ميدانية" },
@@ -163,7 +163,7 @@ export const SECTOR_PRIMARY_ROUTES: Record<string, string> = {
   restaurant: "/restaurant/tables",
   pharmacy: "/pharmacy",
   school: "/school/students",
-  law_firm: "/law",
+  legal: "/law",
   travel: "/travel",
   hotel: "/hospitality",
   gym: "/gym",
@@ -171,16 +171,16 @@ export const SECTOR_PRIMARY_ROUTES: Record<string, string> = {
   consulting: "/services",
   services: "/services",
   agency: "/agency",
-  field_service: "/field-service",
+  maintenance: "/field-service",
   wholesale: "/wholesale",
   logistics: "/logistics",
-  wms_3pl: "/wms",
+  warehousing: "/wms",
   ecommerce: "/ecommerce",
   construction: "/cst",
-  real_estate: "/rec",
-  discrete_mfg: "/mfg",
-  food_mfg: "/fod",
-  pharma_mfg: "/phm",
+  property: "/rec",
+  manufacturing: "/mfg",
+  food: "/fod",
+  pharmaceuticals: "/phm",
   printing: "/prn",
   agriculture: "/agr",
   energy: "/eng",
@@ -188,7 +188,7 @@ export const SECTOR_PRIMARY_ROUTES: Record<string, string> = {
   insurance: "/ins",
   government: "/gov",
   entertainment: "/ent",
-  oil_gas: "/oil",
+  petroleum: "/oil",
   retail: "/pos",
   plumbing: "/pos",
 };
@@ -227,7 +227,7 @@ export const SECTOR_MODULES_MAP: Record<string, SectorModuleItem[]> = {
     { id: "hr", label: "حضور الطلاب ورواتب المعلمين", desc: "دفاتر الغياب اليومية، رواتب الكادر التعليمي والإداري، والمكافآت", badge: "رواتب", defaultChecked: true },
     { id: "finance", label: "الحسابات والموازنة المدرسية", desc: "الحسابات البنكية، رسوم الأنشطة، والمصروفات التشغيلية والمشتريات", badge: "مالية", defaultChecked: true },
   ],
-  law_firm: [
+  legal: [
     { id: "law", label: "إدارة القضايا والملفات القضائية", desc: "أرقام الدوائر، الرول، درجات التقاضي، وتاريخ الجلسات ومذكرات الدفاع", badge: "قضايا", defaultChecked: true },
     { id: "court_sessions", label: "أجندة المحاكم ومواعيد الطعون", desc: "تقويم الجلسات، تنبيهات مواعيد النقض والاستئناف وسقوط الحق القانوني", badge: "أجندة", defaultChecked: true },
     { id: "client_trust", label: "حسابات أمانات الموكلين المفرزة (IOLTA)", desc: "إدارة أموال القضايا المفصولة تماماً عن إيراد المكتب طبقاً لأصول المهنة", badge: "أمانات", defaultChecked: true },
@@ -278,7 +278,7 @@ export const SECTOR_MODULES_MAP: Record<string, SectorModuleItem[]> = {
     { id: "e_pod", label: "إثبات التسليم الرقمي والتوقيعات (e-POD)", desc: "توقيع العميل الإلكتروني على جهاز السائق وصور الشحنة عند الاستلام", badge: "تسليم", defaultChecked: true },
     { id: "finance", label: "تكاليف الشحن ومطالبات العملاء", desc: "فواتير النقل، حسابات السائقين والمنقولات ومصروفات الطرق والرسوم", badge: "مالية", defaultChecked: true },
   ],
-  wms_3pl: [
+  warehousing: [
     { id: "wms", label: "مستودعات العملاء المتعددين (3PL)", desc: "عزل ملكيات المخزون وتخصيص المساحات التخزينية لكل عميل مستودع", badge: "تخزين", defaultChecked: true },
     { id: "bin_locations", label: "المواقع التخزينية المرمزة (Bin Locations)", desc: "ترميز الممرات والرفوف لسرعة الوصول والتخزين الموجه", badge: "ترميز", defaultChecked: true },
     { id: "pick_pack", label: "موجات الجمع والانتقاء والعبور السريع", desc: "خطوط تجميع الطلبات والشحن الفوري Cross-Docking", badge: "مناولة", defaultChecked: true },
@@ -299,28 +299,28 @@ export const SECTOR_MODULES_MAP: Record<string, SectorModuleItem[]> = {
     { id: "heavy_equipment", label: "المعدات الثقيلة والمخزن الموقعي", desc: "تتبع ساعات تشغيل الحفارات والمعدات وصرف الإسمنت والحديد للموقع", badge: "معدات", defaultChecked: true },
     { id: "finance", label: "تكاليف المشاريع والتدفقات النقدية", desc: "متابعة ربحية كل مشروع والمصروفات الموقعية والتدفقات النقدية", badge: "مالية", defaultChecked: true },
   ],
-  real_estate: [
+  property: [
     { id: "real_estate", label: "إدارة الأبراج والمجمعات والوحدات", desc: "دليل الوحدات السكنية والتجارية، المساحات، وحالات الإيجار والشاغر", badge: "عقارات", defaultChecked: true },
     { id: "lease_contracts", label: "عقود الإيجار والتحصيل الدوري", desc: "تجديد العقود التلقائي، جداول الأقساط الشهرية والسنوية، وغرامات التأخير", badge: "عقود", defaultChecked: true },
     { id: "cheque_portfolio", label: "حافظة الشيكات وسندات الصرف", desc: "مواعيد استحقاق شيكات الإيجار والإيداع البنكي ومتابعة الشيكات المرتجعة", badge: "شيكات", defaultChecked: true },
     { id: "facility_maintenance", label: "بلاغات الصيانة وتذاكر المرافق", desc: "تذاكر صيانة المصاعد والسباكة والكهرباء وتوزيع التكاليف على الملاك", badge: "صيانة", defaultChecked: true },
     { id: "finance", label: "كشوف حسابات الملاك وصافي الإيراد", desc: "كشوف حسابات ملاك الأبراج وتوزيع صافي العوائد بعد خصم إدارة الأملاك", badge: "مالية", defaultChecked: true },
   ],
-  discrete_mfg: [
+  manufacturing: [
     { id: "manufacturing", label: "شجرة المنتج ومسارات التصنيع (BOM)", desc: "تفريغ الخامات ومراحل التشغيل والفاقد المسموح لكل مرحلة صناعية", badge: "BOM", defaultChecked: true },
     { id: "work_orders", label: "أوامر الإنتاج وتذاكر التشغيل", desc: "متابعة خطوط التجميع، زمن الإنجاز الفعلي، ومخرجات الورديات الصناعية", badge: "تشغيل", defaultChecked: true },
     { id: "mrp_planning", label: "تخطيط متطلبات المواد (MRP)", desc: "حساب احتياجات الخامات بدقة لمنع توقف خط الإنتاج وتأخير التوريد", badge: "تخطيط", defaultChecked: true },
     { id: "inventory", label: "مستودعات الخامات والمنتج التام", desc: "تتبع أرصدة الخامات، حدود الطلب، وأذون الصرف للإنتاج والتسليم", badge: "مستودعات", defaultChecked: true },
     { id: "finance", label: "تكاليف التصنيع والأجور المباشرة", desc: "حساب تكلفة الإنتاج الفعلية وترحيل التكاليف الصناعية للدفاتر المالية", badge: "تكاليف", defaultChecked: true },
   ],
-  food_mfg: [
+  food: [
     { id: "food_manufacturing", label: "خلطات ووصفات التصنيع الغذائي", desc: "تتبع نسب المكونات، تشغيلات الطهي والخلط ومقاييس الجودة الغذائية", badge: "خلطات", defaultChecked: true },
     { id: "haccp_safety", label: "رقابة سلامة الغذاء ومعايير HACCP", desc: "نقاط التحكم الحرجة، درجات الحرارة وسجلات الفحص المخبري للغذاء", badge: "سلامة", defaultChecked: true },
     { id: "lot_tracking", label: "تتبع أرقام التشغيلات والصلاحيات", desc: "استدعاء دفعات الإنتاج وتتبع تواريخ الصلاحية وسلاسل التوريد", badge: "تشغيلات", defaultChecked: true },
     { id: "inventory", label: "مخازن التبريد والمواد الأولية", desc: "مراقبة درجات حرارة الثلاجات والمستودعات ونواقص التعبئة والتغليف", badge: "مخازن", defaultChecked: true },
     { id: "finance", label: "تكلفة الوجبات وخطوط التعبئة", desc: "حساب تكلفة الوحدة المنتجة والهالك الغذائي والأرباح الصناعية", badge: "مالية", defaultChecked: true },
   ],
-  pharma_mfg: [
+  pharmaceuticals: [
     { id: "pharma_manufacturing", label: "سجلات التشغيل الإلكترونية (eBMR)", desc: "توثيق مراحل التصنيع الدوائي خطوة بخطوة وتوقيعات المشرفين الرقمية", badge: "eBMR", defaultChecked: true },
     { id: "gmp_compliance", label: "معايير ممارسات التصنيع الجيد (cGMP)", desc: "بيئات الغرف النظيفة، ضغط الهواء، والتوثيق الرقابي الصارم", badge: "cGMP", defaultChecked: true },
     { id: "quarantine_qc", label: "العزل والفحص المخبري والإفراج", desc: "سحب العينات واختبارات الجودة الكيميائية والبيولوجية والإفراج النهائي", badge: "رقابة", defaultChecked: true },
@@ -376,7 +376,7 @@ export const SECTOR_MODULES_MAP: Record<string, SectorModuleItem[]> = {
     { id: "concessions", label: "نقاط بيع الأغذية والمشروبات (F&B)", desc: "كاشير سريع للوجبات الخفيفة والفيشار والهدايا التذكارية", badge: "كاشير", defaultChecked: true },
     { id: "finance", label: "تسوية إيرادات الفعاليات والرعايات", desc: "تقارير مبيعات التذاكر، نسب المنظمين، وتوزيع حصص الفعاليات", badge: "مالية", defaultChecked: true },
   ],
-  oil_gas: [
+  petroleum: [
     { id: "oil_gas", label: "شجرة الآبار والمكامن البترولية", desc: "تتبع الآبار البرية والبحرية، منصات الحفر، وحالات التشغيل", badge: "آبار", defaultChecked: true },
     { id: "daily_production", label: "تقرير الإنتاج اليومي (DDR)", desc: "براميل النفط الخام، الغاز المصاحب، ونسب المياه المفرزة لكل بئر", badge: "إنتاج", defaultChecked: true },
     { id: "tanks_inventory", label: "صهاريج التخزين وعمليات الضخ", desc: "قياسات الخزانات اللحظية ومعدلات النقل والشحن لخطوط الأنابيب", badge: "صهاريج", defaultChecked: true },
@@ -404,7 +404,7 @@ export const SECTOR_MODULES_MAP: Record<string, SectorModuleItem[]> = {
     { id: "project_billing", label: "فواتير المشروعات والحملات", desc: "الفوترة المرحلية وتكاليف الإعلانات الممولة ونسب الوكالة", badge: "فواتير", defaultChecked: true },
     { id: "finance", label: "أرباح المشروعات والميزانية الإعلانية", desc: "متابعة ربحية كل حملة إعلانية، وسندات القبض ومصروفات الإنتاج", badge: "مالية", defaultChecked: true },
   ],
-  field_service: [
+  maintenance: [
     { id: "field_service", label: "أوامر الشغل وبلاغات الصيانة الميدانية", desc: "تسجيل الأعطال، تصنيف أولويات الإصلاح، وإسناد المهمة للفني المختص", badge: "أوامر", defaultChecked: true },
     { id: "tech_dispatch", label: "توجيه وجدولة الفنيين بالموقع", desc: "إرسال أوامر العمل لأجهزة الفنيين ومسارات الزيارات وتوقيتات الوصول", badge: "توجيه", defaultChecked: true },
     { id: "mobile_parts", label: "قطع الغيار والمخزن المتنقل", desc: "صرف القطع من سيارة الفني وخصمها من المخزن فورياً مع الفاتورة", badge: "قطع", defaultChecked: true },
@@ -499,20 +499,20 @@ export const SECTOR_BADGES: Record<string, string> = {
   restaurant: "مطاعم وضيافة",
   pharmacy: "صيدلية ومستلزمات",
   school: "مدارس وأكاديميات",
-  law_firm: "محاماة وقضايا",
+  legal: "محاماة وقضايا",
   gym: "جيم ولياقة بدنية",
   salon: "صالون وسبا",
   hotel: "فنادق وضيافة (PMS)",
   travel: "سياحة وحجوزات",
   wholesale: "تجارة جملة وتوزيع",
   logistics: "شحن وأسطول",
-  wms_3pl: "مستودعات 3PL",
+  warehousing: "مستودعات 3PL",
   ecommerce: "تجارة إلكترونية",
   construction: "مقاولات وإنشاءات",
-  real_estate: "إدارة عقارات وأملاك",
-  discrete_mfg: "تصنيع وتجميع (BOM)",
-  food_mfg: "صناعات غذائية",
-  pharma_mfg: "تصنيع دوائي (GMP)",
+  property: "إدارة عقارات وأملاك",
+  manufacturing: "تصنيع وتجميع (BOM)",
+  food: "صناعات غذائية",
+  pharmaceuticals: "تصنيع دوائي (GMP)",
   printing: "طباعة وتغليف",
   agriculture: "مزارع وإنتاج زراعي",
   energy: "محطات طاقة ومرافق",
@@ -520,7 +520,7 @@ export const SECTOR_BADGES: Record<string, string> = {
   insurance: "تأمين وتكافل",
   government: "قطاع حكومي وغير ربحي",
   entertainment: "ترفيه وفعاليات",
-  oil_gas: "بترول وغاز",
+  petroleum: "بترول وغاز",
   consulting: "استشارات ومشاريع",
   services: "خدمات عامة ومقاولات",
   plumbing: "معارض ومواد بناء",

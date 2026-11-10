@@ -1,6 +1,6 @@
 {
   "id": "standard",
-  "module": "hlt_facility_management",
+  "module": "facility_management",
   "status": "active",
   "description": "The module as it is, for every activity.",
   "screens": {},

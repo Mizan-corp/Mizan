@@ -2549,6 +2549,108 @@ MIGRATIONS = [
         WHERE s.key = 'mod_settings_' || l.old_id
           AND NOT EXISTS (SELECT 1 FROM store_settings o WHERE o.tenant_id = s.tenant_id AND o.key = 'mod_settings_' || l.new_id);
     """),
+    # Full names (ADR-006): one-word activity ids (discrete_mfg → manufacturing, oil_gas →
+    # petroleum, …) and the hospital/hotel modules without hlt_/hot_ prefixes. Stored activities
+    # (tenants.sector, business_type), module lists and module settings keys are rewritten;
+    # app/catalog/legacy_ids.json keeps the old ids working in code.
+    ("v52_full_activity_and_module_names", """
+        UPDATE tenants t SET sector = l.new_id
+        FROM (VALUES
+                ('discrete_mfg', 'manufacturing'),
+                ('food_mfg', 'food'),
+                ('pharma_mfg', 'pharmaceuticals'),
+                ('wms_3pl', 'warehousing'),
+                ('law_firm', 'legal'),
+                ('field_service', 'maintenance'),
+                ('oil_gas', 'petroleum'),
+                ('real_estate', 'property')
+        ) AS l(old_id, new_id) WHERE t.sector = l.old_id;
+        UPDATE tenants t SET business_type = l.new_id
+        FROM (VALUES
+                ('discrete_mfg', 'manufacturing'),
+                ('food_mfg', 'food'),
+                ('pharma_mfg', 'pharmaceuticals'),
+                ('wms_3pl', 'warehousing'),
+                ('law_firm', 'legal'),
+                ('field_service', 'maintenance'),
+                ('oil_gas', 'petroleum'),
+                ('real_estate', 'property')
+        ) AS l(old_id, new_id) WHERE t.business_type = l.old_id;
+        UPDATE tenants t SET active_modules = (
+            SELECT COALESCE(jsonb_agg(x.m ORDER BY x.pos), '[]'::jsonb)
+            FROM (
+                SELECT COALESCE(l.new_id, e.elem) AS m, MIN(e.ord) AS pos
+                FROM jsonb_array_elements_text(t.active_modules) WITH ORDINALITY AS e(elem, ord)
+                LEFT JOIN (VALUES
+                ('hlt_accounting', 'medical_accounting'),
+                ('hlt_admissions', 'admissions'),
+                ('hlt_analytics', 'hospital_analytics'),
+                ('hlt_appointments', 'appointments'),
+                ('hlt_beds', 'beds'),
+                ('hlt_billing', 'medical_billing'),
+                ('hlt_consultation', 'consultation'),
+                ('hlt_emergency', 'emergency'),
+                ('hlt_emr', 'emr'),
+                ('hlt_equipment_maintenance', 'equipment_maintenance'),
+                ('hlt_facility_management', 'facility_management'),
+                ('hlt_hr_workforce', 'medical_workforce'),
+                ('hlt_insurance', 'health_insurance'),
+                ('hlt_inventory_procurement', 'medical_supplies'),
+                ('hlt_laboratory', 'laboratory'),
+                ('hlt_medical_staff', 'medical_staff'),
+                ('hlt_notifications', 'patient_notifications'),
+                ('hlt_nursing', 'nursing'),
+                ('hlt_patient_identity', 'patient_identity'),
+                ('hlt_patient_portal', 'patient_portal'),
+                ('hlt_pharmacy', 'hospital_pharmacy'),
+                ('hlt_radiology', 'radiology'),
+                ('hlt_surgery', 'surgery'),
+                ('hlt_telemedicine', 'telemedicine'),
+                ('hot_banquet_events', 'banquet_events'),
+                ('hot_billing_folio', 'billing_folio'),
+                ('hot_pms', 'hotel_pms'),
+                ('hot_housekeeping', 'housekeeping'),
+                ('hot_night_audit', 'night_audit')
+                ) AS l(old_id, new_id) ON l.old_id = e.elem
+                GROUP BY 1
+            ) x
+        )
+        WHERE t.active_modules ?| array['hlt_accounting', 'hlt_admissions', 'hlt_analytics', 'hlt_appointments', 'hlt_beds', 'hlt_billing', 'hlt_consultation', 'hlt_emergency', 'hlt_emr', 'hlt_equipment_maintenance', 'hlt_facility_management', 'hlt_hr_workforce', 'hlt_insurance', 'hlt_inventory_procurement', 'hlt_laboratory', 'hlt_medical_staff', 'hlt_notifications', 'hlt_nursing', 'hlt_patient_identity', 'hlt_patient_portal', 'hlt_pharmacy', 'hlt_radiology', 'hlt_surgery', 'hlt_telemedicine', 'hot_banquet_events', 'hot_billing_folio', 'hot_pms', 'hot_housekeeping', 'hot_night_audit'];
+        UPDATE store_settings s SET key = 'mod_settings_' || l.new_id
+        FROM (VALUES
+                ('hlt_accounting', 'medical_accounting'),
+                ('hlt_admissions', 'admissions'),
+                ('hlt_analytics', 'hospital_analytics'),
+                ('hlt_appointments', 'appointments'),
+                ('hlt_beds', 'beds'),
+                ('hlt_billing', 'medical_billing'),
+                ('hlt_consultation', 'consultation'),
+                ('hlt_emergency', 'emergency'),
+                ('hlt_emr', 'emr'),
+                ('hlt_equipment_maintenance', 'equipment_maintenance'),
+                ('hlt_facility_management', 'facility_management'),
+                ('hlt_hr_workforce', 'medical_workforce'),
+                ('hlt_insurance', 'health_insurance'),
+                ('hlt_inventory_procurement', 'medical_supplies'),
+                ('hlt_laboratory', 'laboratory'),
+                ('hlt_medical_staff', 'medical_staff'),
+                ('hlt_notifications', 'patient_notifications'),
+                ('hlt_nursing', 'nursing'),
+                ('hlt_patient_identity', 'patient_identity'),
+                ('hlt_patient_portal', 'patient_portal'),
+                ('hlt_pharmacy', 'hospital_pharmacy'),
+                ('hlt_radiology', 'radiology'),
+                ('hlt_surgery', 'surgery'),
+                ('hlt_telemedicine', 'telemedicine'),
+                ('hot_banquet_events', 'banquet_events'),
+                ('hot_billing_folio', 'billing_folio'),
+                ('hot_pms', 'hotel_pms'),
+                ('hot_housekeeping', 'housekeeping'),
+                ('hot_night_audit', 'night_audit')
+        ) AS l(old_id, new_id)
+        WHERE s.key = 'mod_settings_' || l.old_id
+          AND NOT EXISTS (SELECT 1 FROM store_settings o WHERE o.tenant_id = s.tenant_id AND o.key = 'mod_settings_' || l.new_id);
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

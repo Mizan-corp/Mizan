@@ -22,7 +22,7 @@ from pathlib import Path
 from sqlalchemy import func, select, text
 
 from app.core import licensing
-from app.catalog import canonical_modules
+from app.catalog import canonical_activity, canonical_modules
 from app.core.modules import SECTOR_TO_PRESET, set_active_modules
 from app.core.security import hash_password
 from app.core.tenancy import bind_tenant, install_tenancy_events
@@ -82,7 +82,7 @@ async def create_workspace(payload: dict, *, admin_username: str, admin_password
             raise SystemExit("The database already holds another workspace. Use an empty database.")
         tenant.name = ws["name"]
         tenant.slug = ws.get("slug") or tenant.slug
-        tenant.sector = tenant.business_type = ws.get("sector") or tenant.sector
+        tenant.sector = tenant.business_type = canonical_activity(ws.get("sector") or "") or tenant.sector
         tenant.scale = ws.get("scale") or tenant.scale
         tenant.palette = ws.get("palette") or tenant.palette
         tenant.active_modules = canonical_modules(ws.get("modules") or []) or tenant.active_modules

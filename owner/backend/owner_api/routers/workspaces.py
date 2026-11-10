@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.plans import get_plan
+from app.catalog import canonical_activity
 from app.core.sectors import SECTORS
 from app.db.base import get_db
 from app.models.billing import BillingInvoice
@@ -116,6 +117,7 @@ class NewWorkspace(BaseModel):
 
 @router.post("", status_code=201)
 async def new_workspace(data: NewWorkspace, db: AsyncSession = Depends(get_db), owner: OwnerAccount = Depends(get_current_owner)):
+    data.sector = canonical_activity(data.sector)
     if data.sector not in SECTORS:
         raise HTTPException(status_code=422, detail="نشاط غير معروف")
     owned = (await db.execute(select(Tenant.plan, Tenant.trial_ends_at).where(Tenant.owner_account_id == owner.id))).all()

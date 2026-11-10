@@ -1,5 +1,5 @@
 {
-  "id": "hot_night_audit",
+  "id": "night_audit",
   "name": "التدقيق الليلي ومؤشرات الإيراد (Night Audit)",
   "name_en": "Night Audit & Hospitality Metrics",
   "activity": "hotel",
@@ -11,7 +11,7 @@
   "dependencies": [
     "core",
     "finance",
-    "hot_pms"
+    "hotel_pms"
   ],
   "business_types": [
     "hotel",

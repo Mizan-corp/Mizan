@@ -1,6 +1,6 @@
 {
   "id": "standard",
-  "module": "hot_billing_folio",
+  "module": "billing_folio",
   "status": "active",
   "description": "The module as it is, for every activity.",
   "screens": {},

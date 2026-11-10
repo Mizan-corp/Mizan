@@ -1,5 +1,5 @@
 {
-  "id": "hlt_patient_identity",
+  "id": "patient_identity",
   "name": "تسجيل وهوية المرضى (MPI)",
   "name_en": "Patient Registration & Master Patient Index",
   "activity": "healthcare",

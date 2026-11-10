@@ -1,5 +1,5 @@
 {
-  "id": "hot_housekeeping",
+  "id": "housekeeping",
   "name": "التدبير المنزلي ونظافة الغرف (Housekeeping)",
   "name_en": "Hotel Housekeeping & Cleaning Operations",
   "activity": "hotel",
@@ -10,7 +10,7 @@
   "description": "إدارة مهام التدبير المنزلي، تنظيف الغرف بعد المغادرة أو التسكين، وتعيين الفرق وجدولتها.",
   "dependencies": [
     "core",
-    "hot_pms"
+    "hotel_pms"
   ],
   "business_types": [
     "hotel",

@@ -1,6 +1,6 @@
 {
   "id": "standard",
-  "module": "hlt_nursing",
+  "module": "nursing",
   "status": "active",
   "description": "The module as it is, for every activity.",
   "screens": {},

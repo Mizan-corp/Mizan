@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from admin_api.common import days_until, get_tenant, iso, record
 from admin_api.routers.activity import recent_activity
 from app.core.modules import set_active_modules
-from app.catalog import canonical_modules, family_of
+from app.catalog import canonical_activity, canonical_modules, family_of
 from app.framework.loader import manifest_index
 from app.core.plans import PLANS_CONFIG, get_plan_limits
 from app.core.sectors import SECTORS
@@ -281,6 +281,7 @@ async def create_workspace(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_superadmin),
 ):
+    data.sector = canonical_activity(data.sector)
     if data.sector not in SECTORS:
         raise HTTPException(status_code=422, detail="Unknown business type")
     if data.plan not in PLANS_CONFIG:

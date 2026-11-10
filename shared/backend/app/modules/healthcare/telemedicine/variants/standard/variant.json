@@ -1,6 +1,6 @@
 {
   "id": "standard",
-  "module": "hlt_telemedicine",
+  "module": "telemedicine",
   "status": "active",
   "description": "The module as it is, for every activity.",
   "screens": {},

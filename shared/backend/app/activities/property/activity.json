@@ -1,0 +1,20 @@
+{
+  "id": "property",
+  "family": "projects",
+  "order": 23,
+  "name": "إدارة عقارات ومجمعات تجارية",
+  "name_en": "Real Estate",
+  "description": "وحدات، عقود إيجار، تحصيل شيكات، وصيانة وإيرادات صافية",
+  "modules": [
+    "real_estate",
+    "finance",
+    "operations"
+  ],
+  "home": "/rec",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
+}

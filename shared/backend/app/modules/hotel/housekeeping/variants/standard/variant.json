@@ -1,6 +1,6 @@
 {
   "id": "standard",
-  "module": "hot_housekeeping",
+  "module": "housekeeping",
   "status": "active",
   "description": "The module as it is, for every activity.",
   "screens": {},

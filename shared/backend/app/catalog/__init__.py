@@ -56,3 +56,13 @@ def canonical_module(module_id: str) -> str:
 def canonical_modules(module_ids: list[str]) -> list[str]:
     """Current ids, in order, without duplicates."""
     return list(dict.fromkeys(canonical_module(m) for m in module_ids))
+
+
+@lru_cache(maxsize=1)
+def legacy_activities() -> dict[str, str]:
+    """Old activity id → current id (stored as tenants.sector)."""
+    return json.loads((CATALOG_DIR / "legacy_ids.json").read_text(encoding="utf-8")).get("legacy_activities", {})
+
+
+def canonical_activity(activity_id: str) -> str:
+    return legacy_activities().get(activity_id, activity_id)

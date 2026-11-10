@@ -1,0 +1,21 @@
+{
+  "id": "food",
+  "family": "industry",
+  "order": 19,
+  "name": "تصنيع ومعالجة أغذية ومشروبات",
+  "name_en": "Food Mfg",
+  "description": "وصفات وخلطات، تتبع تشغيلات، صلاحيات، ورقابة سلامة الغذاء",
+  "modules": [
+    "food_manufacturing",
+    "inventory",
+    "operations",
+    "finance"
+  ],
+  "home": "/fod",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
+}

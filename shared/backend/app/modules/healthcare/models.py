@@ -12,16 +12,16 @@ from .beds.models import HospitalWard, HospitalBed
 from .nursing.models import MedicationAdminRecord
 from .laboratory.models import LabTestItem, LabSpecimenOrder
 from .radiology.models import RadiologyStudyOrder
-from .pharmacy.models import MedicationProduct, MedicationDispenseRecord
+from .hospital_pharmacy.models import MedicationProduct, MedicationDispenseRecord
 from .emergency.models import EmergencyCase
 from .surgery.models import SurgicalCase
-from .billing.models import PatientInvoice
-from .insurance.models import InsuranceClaimRecord
-from .inventory_procurement.models import MedicalSupplyItem
-from .accounting.models import HealthcareCostCenter
-from .hr_workforce.models import ClinicalCredentialRecord
+from .medical_billing.models import PatientInvoice
+from .health_insurance.models import InsuranceClaimRecord
+from .medical_supplies.models import MedicalSupplyItem
+from .medical_accounting.models import HealthcareCostCenter
+from .medical_workforce.models import ClinicalCredentialRecord
 from .equipment_maintenance.models import BiomedicalDevice
 from .patient_portal.models import PatientPortalRequest
 from .telemedicine.models import TeleconsultationSession
-from .notifications.models import HealthcareAlert
-from .analytics.models import HealthcareDailyMetric
+from .patient_notifications.models import HealthcareAlert
+from .hospital_analytics.models import HealthcareDailyMetric

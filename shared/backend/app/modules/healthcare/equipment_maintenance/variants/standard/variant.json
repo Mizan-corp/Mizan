@@ -1,6 +1,6 @@
 {
   "id": "standard",
-  "module": "hlt_equipment_maintenance",
+  "module": "equipment_maintenance",
   "status": "active",
   "description": "The module as it is, for every activity.",
   "screens": {},

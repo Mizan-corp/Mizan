@@ -1,6 +1,6 @@
 {
   "id": "standard",
-  "module": "hlt_beds",
+  "module": "beds",
   "status": "active",
   "description": "The module as it is, for every activity.",
   "screens": {},

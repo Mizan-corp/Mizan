@@ -1,6 +1,6 @@
 {
   "id": "standard",
-  "module": "hot_night_audit",
+  "module": "night_audit",
   "status": "active",
   "description": "The module as it is, for every activity.",
   "screens": {},

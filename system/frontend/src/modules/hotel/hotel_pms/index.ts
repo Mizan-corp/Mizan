@@ -3,7 +3,7 @@ import type { ModuleDefinition } from "@app/framework/types";
 // Hotel Property Management System: the routes, screens, widgets and navigation entries this module provides (ADR-006).
 // Screens are still registered in App.tsx and lib/nav.ts until the framework renders them.
 const definition: ModuleDefinition = {
-  id: "hot_pms",
+  id: "hotel_pms",
   activity: "hotel",
   kind: "business",
   screens: {},

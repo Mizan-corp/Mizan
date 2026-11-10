@@ -1,6 +1,6 @@
 {
   "id": "standard",
-  "module": "hlt_medical_staff",
+  "module": "medical_staff",
   "status": "active",
   "description": "The module as it is, for every activity.",
   "screens": {},

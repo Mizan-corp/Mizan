@@ -230,7 +230,7 @@ export default function DashboardPage() {
                 ? "إدارة الروشتات، التأمين الطبي، وتتبع الصلاحيات (FEFO & Pharmacy)"
                 : tenant?.sector === "school"
                 ? "شؤون الطلاب، تحصيل الأقساط المدرسية، وحافلات النقل"
-                : tenant?.sector === "law_firm"
+                : tenant?.sector === "legal"
                 ? "إدارة القضايا، الجلسات، وأمانات الموكلين (Legal Practice)"
                 : `منظومة العمليات التخصصية لنشاط ${sectorBadge || tenant?.name || ""}`}
             </h2>

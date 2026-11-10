@@ -1,0 +1,42 @@
+{
+  "id": "hospital_analytics",
+  "name": "المؤشرات والذكاء السريري (BI)",
+  "name_en": "Clinical Analytics & Business Intelligence",
+  "activity": "healthcare",
+  "kind": "business",
+  "version": "1.0.0",
+  "icon": "BarChart3",
+  "description": "نسبة إشغال الأسرة (BOR)، متوسط مدة الإقامة (ALOS)، إنتاجية الأطباء، ومؤشرات الجودة ومكافحة العدوى.",
+  "target_business_types": [
+    "clinic",
+    "hospital",
+    "healthcare"
+  ],
+  "dependencies": [
+    "core"
+  ],
+  "is_core": false,
+  "badge": "HLT-24",
+  "nav_items": [
+    {
+      "label": "المؤشرات والذكاء السريري (BI)",
+      "path": "/clinic/analytics",
+      "icon": "BarChart3"
+    }
+  ],
+  "settings_schema": [
+    {
+      "key": "analytics_auto_notify",
+      "label": "إرسال إشعارات تلقائية",
+      "type": "boolean",
+      "default": true,
+      "description": "تفعيل تنبيهات النظام الطبية التلقائية"
+    }
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ]
+}

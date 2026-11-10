@@ -1,5 +1,5 @@
 {
-  "_comment": "Old module id -> current id (ADR-006). Never remove an entry: stored workspaces, licences and on-site installs may still use the old id.",
+  "_comment": "Old module/activity id -> current id (ADR-006). Never remove an entry: stored workspaces, licences and on-site installs may still use the old id.",
   "legacy_ids": {
     "agr": "agriculture",
     "bnk": "banking",
@@ -18,6 +18,45 @@
     "restaurant-pos": "restaurant",
     "gym-pos": "gym",
     "gym_fitness": "gym",
-    "clinic": "healthcare_clinic"
+    "clinic": "healthcare_clinic",
+    "hlt_accounting": "medical_accounting",
+    "hlt_admissions": "admissions",
+    "hlt_analytics": "hospital_analytics",
+    "hlt_appointments": "appointments",
+    "hlt_beds": "beds",
+    "hlt_billing": "medical_billing",
+    "hlt_consultation": "consultation",
+    "hlt_emergency": "emergency",
+    "hlt_emr": "emr",
+    "hlt_equipment_maintenance": "equipment_maintenance",
+    "hlt_facility_management": "facility_management",
+    "hlt_hr_workforce": "medical_workforce",
+    "hlt_insurance": "health_insurance",
+    "hlt_inventory_procurement": "medical_supplies",
+    "hlt_laboratory": "laboratory",
+    "hlt_medical_staff": "medical_staff",
+    "hlt_notifications": "patient_notifications",
+    "hlt_nursing": "nursing",
+    "hlt_patient_identity": "patient_identity",
+    "hlt_patient_portal": "patient_portal",
+    "hlt_pharmacy": "hospital_pharmacy",
+    "hlt_radiology": "radiology",
+    "hlt_surgery": "surgery",
+    "hlt_telemedicine": "telemedicine",
+    "hot_banquet_events": "banquet_events",
+    "hot_billing_folio": "billing_folio",
+    "hot_pms": "hotel_pms",
+    "hot_housekeeping": "housekeeping",
+    "hot_night_audit": "night_audit"
+  },
+  "legacy_activities": {
+    "discrete_mfg": "manufacturing",
+    "food_mfg": "food",
+    "pharma_mfg": "pharmaceuticals",
+    "wms_3pl": "warehousing",
+    "law_firm": "legal",
+    "field_service": "maintenance",
+    "oil_gas": "petroleum",
+    "real_estate": "property"
   }
 }

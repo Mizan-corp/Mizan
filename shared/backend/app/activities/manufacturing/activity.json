@@ -1,0 +1,21 @@
+{
+  "id": "manufacturing",
+  "family": "industry",
+  "order": 18,
+  "name": "تصنيع وتجميع ميكانيكي وإلكتروني",
+  "name_en": "Manufacturing",
+  "description": "شجرة منتج BOM، مراكز تشغيل، تخطيط مواد MRP، وتكاليف إنتاج",
+  "modules": [
+    "manufacturing",
+    "inventory",
+    "operations",
+    "finance"
+  ],
+  "home": "/mfg",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
+}

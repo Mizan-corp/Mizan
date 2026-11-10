@@ -1,0 +1,28 @@
+{
+  "id": "oil_gas",
+  "name": "عمليات البترول والغاز واستخراج الطاقة (Oil & Gas ERP)",
+  "activity": "petroleum",
+  "kind": "business",
+  "description": "شجرة الآبار والمكامن البترولية، تقارير الإنتاج اليومي وتخصيص الهيدروكربونات، تقرير الحفر اليومي (DDR / IADC)، مستودعات صهاريج الخام والوقود (Tank Farm)، ومحاسبة الشركاء والاتفاقيات (JV Cash Calls & PSC).",
+  "version": "1.0.0",
+  "dependencies": [
+    "core",
+    "finance",
+    "construction",
+    "energy"
+  ],
+  "routes_prefix": "/oil",
+  "features": [
+    "wellhead_reservoir_hierarchy",
+    "daily_hydrocarbon_allocation",
+    "daily_drilling_reports_ddr",
+    "tank_farm_telemetry",
+    "jv_cash_calls_psc"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ]
+}

@@ -83,7 +83,7 @@ const SECTOR_META_MAP: Record<string, { category: SectorMeta["category"]; icon: 
   retail: { category: "commerce", icon: ShoppingCart, badge: "Retail-POS", popular: true },
   wholesale: { category: "commerce", icon: Truck, badge: "تسعير كميات", popular: true },
   ecommerce: { category: "commerce", icon: Globe, badge: "ربط متجر", popular: true },
-  wms_3pl: { category: "commerce", icon: Warehouse, badge: "مستودعات 3PL" },
+  warehousing: { category: "commerce", icon: Warehouse, badge: "مستودعات 3PL" },
   logistics: { category: "commerce", icon: Truck, badge: "بوالص وأساطيل" },
 
   // Food & Hospitality
@@ -100,25 +100,25 @@ const SECTOR_META_MAP: Record<string, { category: SectorMeta["category"]; icon: 
 
   // Services & Professions
   consulting: { category: "services", icon: Briefcase, badge: "ساعات قابلة للفوترة" },
-  law_firm: { category: "services", icon: ScaleIcon, badge: "قضايا وأمانات" },
+  legal: { category: "services", icon: ScaleIcon, badge: "قضايا وأمانات" },
   agency: { category: "services", icon: Palette, badge: "مشاريع وعقود" },
-  field_service: { category: "services", icon: Wrench, badge: "أوامر شغل وفنيون" },
+  maintenance: { category: "services", icon: Wrench, badge: "أوامر شغل وفنيون" },
   school: { category: "services", icon: GraduationCap, badge: "أقساط ورسوم" },
   services: { category: "services", icon: Building2, badge: "خدمات وعقود" },
 
   // Construction & Property
   construction: { category: "construction", icon: HardHat, badge: "BOQ ومستخلصات", popular: true },
-  real_estate: { category: "construction", icon: Building, badge: "عقود وصيانة" },
+  property: { category: "construction", icon: Building, badge: "عقود وصيانة" },
   plumbing: { category: "construction", icon: Store, badge: "معارض وتشطيبات" },
 
   // Industry & Energy
-  discrete_mfg: { category: "industry", icon: Factory, badge: "BOM وMRP" },
-  food_mfg: { category: "industry", icon: Apple, badge: "خلطات وسلامة" },
-  pharma_mfg: { category: "industry", icon: FlaskConical, badge: "معايير GMP" },
+  manufacturing: { category: "industry", icon: Factory, badge: "BOM وMRP" },
+  food: { category: "industry", icon: Apple, badge: "خلطات وسلامة" },
+  pharmaceuticals: { category: "industry", icon: FlaskConical, badge: "معايير GMP" },
   printing: { category: "industry", icon: Printer, badge: "تذاكر ومونتاج" },
   agriculture: { category: "industry", icon: Wheat, badge: "محاصيل وثروة" },
   energy: { category: "industry", icon: Zap, badge: "عدادات وصيانة" },
-  oil_gas: { category: "industry", icon: Flame, badge: "آبار وتشغيل" },
+  petroleum: { category: "industry", icon: Flame, badge: "آبار وتشغيل" },
   banking: { category: "industry", icon: Landmark, badge: "قيود مزدوجة" },
   insurance: { category: "industry", icon: ShieldCheck, badge: "وثائق ومطالبات" },
   government: { category: "industry", icon: Landmark, badge: "صناديق وموازنات" },

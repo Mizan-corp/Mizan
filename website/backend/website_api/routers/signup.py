@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.ratelimit import RateLimiter
+from app.catalog import canonical_activity
 from app.core.sectors import PLANS, SCALE_ALIASES, SCALES, SECTOR_PRIMARY_ROUTES, SECTORS, TRIAL_DAYS
 from app.core.security import hash_password
 from app.db.base import get_db
@@ -49,6 +50,7 @@ async def list_plans():
 @router.post("/signup")
 async def signup(data: SignupRequest, request: Request, db: AsyncSession = Depends(get_db), _=Depends(signup_limiter)):
     norm_scale = SCALE_ALIASES.get(data.scale, data.scale)
+    data.sector = canonical_activity(data.sector)
     if data.sector not in SECTORS or (data.scale not in SCALES and norm_scale not in SCALES):
         raise HTTPException(status_code=422, detail="نشاط غير معروف")
     data.scale = norm_scale

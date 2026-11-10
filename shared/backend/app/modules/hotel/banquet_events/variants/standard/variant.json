@@ -1,6 +1,6 @@
 {
   "id": "standard",
-  "module": "hot_banquet_events",
+  "module": "banquet_events",
   "status": "active",
   "description": "The module as it is, for every activity.",
   "screens": {},

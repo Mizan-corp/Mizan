@@ -1,6 +1,6 @@
 {
   "id": "standard",
-  "module": "hlt_patient_identity",
+  "module": "patient_identity",
   "status": "active",
   "description": "The module as it is, for every activity.",
   "screens": {},

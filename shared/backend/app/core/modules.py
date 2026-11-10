@@ -309,14 +309,14 @@ DEFAULT_PRESET = "retail"
 SECTOR_TO_PRESET: dict[str, str] = {
     "retail": "retail", "restaurant": "restaurant", "pharmacy": "pharmacy",
     "consulting": "services", "school": "school", "wholesale": "wholesale",
-    "logistics": "logistics", "wms_3pl": "wms_3pl", "ecommerce": "ecommerce",
-    "healthcare": "healthcare", "law_firm": "services", "travel": "travel_agency",
+    "logistics": "logistics", "warehousing": "wms_3pl", "ecommerce": "ecommerce",
+    "healthcare": "healthcare", "legal": "services", "travel": "travel_agency",
     "hotel": "hospitality_hotel", "gym": "gym_sports", "salon": "salon_spa",
-    "agency": "creative_agency", "field_service": "field_service",
-    "discrete_mfg": "mfg", "food_mfg": "mfg", "pharma_mfg": "mfg", "printing": "prn",
-    "construction": "cst", "real_estate": "rec", "agriculture": "agr", "energy": "services",
+    "agency": "creative_agency", "maintenance": "field_service",
+    "manufacturing": "mfg", "food": "mfg", "pharmaceuticals": "mfg", "printing": "prn",
+    "construction": "cst", "property": "rec", "agriculture": "agr", "energy": "services",
     "banking": "bnk", "insurance": "ins", "government": "gov", "entertainment": "ent",
-    "oil_gas": "oil", "services": "services", "plumbing": "retail", "electrical": "retail",
+    "petroleum": "oil", "services": "services", "plumbing": "retail", "electrical": "retail",
     "tiles": "retail", "paint": "retail",
 }
 

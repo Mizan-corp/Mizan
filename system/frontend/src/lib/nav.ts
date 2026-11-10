@@ -535,7 +535,7 @@ export function getSectorNavigation(
   }
 
   // 10. Real Estate & Property Management
-  if (sector === "real_estate") {
+  if (sector === "property") {
     return filterItems([
       {
         id: "properties",
@@ -568,9 +568,9 @@ export function getSectorNavigation(
   }
 
   // 11. Manufacturing & Production
-  if (sector === "discrete_mfg" || sector === "food_mfg" || sector === "pharma_mfg") {
-    const primaryRoute = sector === "food_mfg" ? "/fod" : sector === "pharma_mfg" ? "/phm" : "/mfg";
-    const primaryModule = sector === "food_mfg" ? "food_manufacturing" : sector === "pharma_mfg" ? "pharma_manufacturing" : "manufacturing";
+  if (sector === "manufacturing" || sector === "food" || sector === "pharmaceuticals") {
+    const primaryRoute = sector === "food" ? "/fod" : sector === "pharmaceuticals" ? "/phm" : "/mfg";
+    const primaryModule = sector === "food" ? "food_manufacturing" : sector === "pharmaceuticals" ? "pharma_manufacturing" : "manufacturing";
     return filterItems([
       {
         id: "production",
@@ -612,7 +612,7 @@ export function getSectorNavigation(
   }
 
   // 12. Field Service & Maintenance
-  if (sector === "field_service") {
+  if (sector === "maintenance") {
     return filterItems([
       {
         id: "fsm",
@@ -676,8 +676,8 @@ export function getSectorNavigation(
   }
 
   // 14. Logistics, Freight & 3PL
-  if (sector === "logistics" || sector === "wms_3pl") {
-    const isWms = sector === "wms_3pl";
+  if (sector === "logistics" || sector === "warehousing") {
+    const isWms = sector === "warehousing";
     return filterItems([
       {
         id: "freight_ops",

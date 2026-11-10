@@ -119,9 +119,6 @@ def test_activities_and_families_are_consistent():
 REPO = Path(__file__).resolve().parents[3]
 APP = REPO / "shared" / "backend" / "app"
 MODULES = APP / "modules"
-# Grouped healthcare/hotel modules keep their hlt_*/hot_* ids until ADR-006 phase 8 renames
-# (and partly merges) them. This may only shrink.
-OLD_IDS_UNTIL_PHASE_8 = ("hlt_", "hot_")
 
 
 def test_modules_live_in_their_home_activity():
@@ -137,8 +134,14 @@ def test_modules_live_in_their_home_activity():
             assert where[0] == "modules" and where[1] == data["activity"], f"{folder} is not in modules/{data['activity']}/"
         else:
             assert where[0] == {"platform": "platform", "integration": "integrations"}[kind], folder
-        if not data["id"].startswith(OLD_IDS_UNTIL_PHASE_8):
-            assert folder.name == data["id"], f"{folder.relative_to(APP)} holds '{data['id']}'"
+        assert folder.name == data["id"], f"{folder.relative_to(APP)} holds '{data['id']}'"
+
+
+def test_activity_ids_are_full_one_word_names():
+    from app.catalog import activities
+
+    for aid in activities():
+        assert re.fullmatch(r"[a-z]+", aid), f"activity '{aid}' should be one full word"
 
 
 def test_activity_folders_match_their_ids():
@@ -177,6 +180,9 @@ def test_legacy_ids_point_to_current_modules():
         assert old not in current, old
         assert new in current, f"{old} -> {new}"
     assert canonical_modules(["prn", "printing", "retail-pos", "pos", "cst"]) == ["printing", "pos", "construction"]
+    assert canonical_modules(["hlt_pharmacy", "hot_pms", "hlt_emr"]) == ["hospital_pharmacy", "hotel_pms", "emr"]
+    from app.catalog import canonical_activity
+    assert canonical_activity("oil_gas") == "petroleum" and canonical_activity("retail") == "retail"
 
 
 def test_frontend_mirrors_the_backend_layout():
