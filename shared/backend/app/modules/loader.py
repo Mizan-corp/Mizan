@@ -58,6 +58,9 @@ class ModuleRegistry:
         self._manifests: dict[str, ModuleManifest] = {}
         self._routers: dict[str, APIRouter] = {}
         self._discovered = False
+        # Problems found while discovering modules. The API still starts without the broken
+        # module, but tests/CI fail on any entry (see tests/test_module_registry.py).
+        self.errors: list[str] = []
 
     def _load_module_from_dir(self, entry: Path, parent_pkg: str | None = None) -> None:
         """Parse manifest.json and mount router for a module directory."""
@@ -95,6 +98,9 @@ class ModuleRegistry:
                 nav_items=data.get("nav_items", []),
                 settings_schema=settings_schema,
             )
+            if manifest.id in self._manifests:
+                self.errors.append(f"{entry}: module id '{manifest.id}' is already used by another module")
+                return
             self._manifests[manifest.id] = manifest
             logger.info("Discovered module: %s v%s (path: %s)", manifest.id, manifest.version, entry)
 
@@ -110,6 +116,7 @@ class ModuleRegistry:
                         logger.info("Mounted router for module: %s (%s.backend.router)", manifest.id, pkg_prefix)
                 except Exception as err:
                     logger.error("Failed to load router for module %s: %s", manifest.id, err)
+                    self.errors.append(f"{entry}: router failed to load: {err!r}")
             elif router_flat.exists():
                 try:
                     mod = importlib.import_module(f"{pkg_prefix}.router")
@@ -118,9 +125,11 @@ class ModuleRegistry:
                         logger.info("Mounted router for module: %s (%s.router)", manifest.id, pkg_prefix)
                 except Exception as err:
                     logger.error("Failed to load router for module %s: %s", manifest.id, err)
+                    self.errors.append(f"{entry}: router failed to load: {err!r}")
 
         except Exception as err:
             logger.error("Failed to parse module manifest at %s: %s", manifest_file, err)
+            self.errors.append(f"{manifest_file}: invalid manifest: {err!r}")
 
     def discover_modules(self) -> dict[str, ModuleManifest]:
         """Scan directory for modules with manifest.json and load them (both flat and nested business activity folders)."""

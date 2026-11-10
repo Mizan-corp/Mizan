@@ -4,6 +4,8 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
+
+from app.core.modules import require_module
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -19,7 +21,11 @@ from app.modules.school.models import (
     SchoolStudent,
 )
 
-router = APIRouter(prefix="", tags=["School Module"])
+router = APIRouter(
+    prefix="/modules/school",
+    tags=["School Module"],
+    dependencies=[Depends(require_module("school"))],
+)
 
 
 class PayInstallmentRequest(BaseModel):

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 from fastapi import APIRouter, Depends, HTTPException
+
+from app.core.modules import require_module
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +13,11 @@ from app.db.base import get_db
 from app.dependencies import get_current_user
 from app.modules.kitchen_display.models import KitchenTicket
 
-router = APIRouter(prefix="", tags=["Kitchen Display Module"])
+router = APIRouter(
+    prefix="/modules/restaurant",
+    tags=["Kitchen Display Module"],
+    dependencies=[Depends(require_module("restaurant"))],
+)
 
 
 class UpdateTicketStatusRequest(BaseModel):

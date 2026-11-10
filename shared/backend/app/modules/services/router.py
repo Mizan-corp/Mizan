@@ -4,6 +4,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
+
+from app.core.modules import require_module
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +18,11 @@ from app.modules.services.models import (
     ConsultingTimesheet,
 )
 
-router = APIRouter(prefix="", tags=["Services & Consulting Module"])
+router = APIRouter(
+    prefix="/modules/services",
+    tags=["Services & Consulting Module"],
+    dependencies=[Depends(require_module("services"))],
+)
 
 
 class CreateEngagementRequest(BaseModel):
