@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, func
 from app.db.base import Base
-from app.core.tenancy import TenantScoped
+from app.platform.tenancy.context import TenantScoped
 
 class TeleconsultationSession(TenantScoped, Base):
     __tablename__ = "hlt_teleconsultations"

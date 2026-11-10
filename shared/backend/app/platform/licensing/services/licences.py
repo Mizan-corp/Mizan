@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import licensing
+from app.platform.licensing import keys as licensing
 from app.models.licence import Licence
 from app.models.owner import OwnerAccount
 from app.models.tenant import Tenant

@@ -6,7 +6,7 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Table, Uni
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.tenancy import TenantScoped, primary_tenant_id  # noqa: F401 (used by deps)
+from app.platform.tenancy.context import TenantScoped, primary_tenant_id  # noqa: F401 (used by deps)
 from app.db.base import Base
 
 if TYPE_CHECKING:

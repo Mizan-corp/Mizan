@@ -22,7 +22,7 @@ from sqlalchemy import select, text
 
 from main import app
 from app.db.base import AsyncSessionLocal
-from app.core.security import create_access_token, hash_password
+from app.platform.auth.security import create_access_token, hash_password
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.warehouse import Warehouse

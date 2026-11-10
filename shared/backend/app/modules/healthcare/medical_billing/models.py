@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Numeric, DateTime, func
 from app.db.base import Base
-from app.core.tenancy import TenantScoped
+from app.platform.tenancy.context import TenantScoped
 
 class PatientInvoice(TenantScoped, Base):
     __tablename__ = "hlt_patient_invoices"

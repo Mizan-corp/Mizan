@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 
-from app.core import licensing
+from app.platform.licensing import keys as licensing
 from app.core.config import settings
 from app.db.base import AsyncSessionLocal
 from app.models.billing import BillingInvoice
@@ -181,7 +181,7 @@ assert app  # the owner API is importable with the installations router
 
 
 def test_published_installers(monkeypatch):
-    from app.core.releases import published_installers
+    from app.platform.updates.releases import published_installers
 
     monkeypatch.delenv("MIZAN_INSTALLERS", raising=False)
     assert published_installers("desktop") == []

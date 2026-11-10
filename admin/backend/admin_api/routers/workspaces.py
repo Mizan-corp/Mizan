@@ -12,13 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from admin_api.common import days_until, get_tenant, iso, record
 from admin_api.routers.activity import recent_activity
-from app.core.modules import set_active_modules
+from app.framework.activation import set_active_modules
 from app.catalog import canonical_activity, canonical_modules, family_of
 from app.framework.loader import manifest_index
-from app.core.plans import PLANS_CONFIG, get_plan_limits
-from app.core.sectors import SECTORS
-from app.core.security import hash_password
-from app.core.tenancy import bind_tenant
+from app.platform.billing.plans import PLANS_CONFIG, get_plan_limits
+from app.catalog.sectors import SECTORS
+from app.platform.auth.security import hash_password
+from app.platform.tenancy.context import bind_tenant
 from app.db.base import get_db
 from app.dependencies import require_superadmin
 from app.models.billing import BillingInvoice
@@ -32,7 +32,7 @@ from app.models.owner import OwnerAccount
 from app.platform.auth.services.owners import normalize_login
 from app.platform.tenancy.service import create_workspace as new_workspace
 from app.platform.billing.services.subscriptions import monthly_price
-from app.core.licensing import LicenceError
+from app.platform.licensing.keys import LicenceError
 from app.models.licence import Installation
 from app.platform.licensing.services.licences import ensure_licence, get_licence, is_on_premise, issue_key
 from app.platform.licensing.services.licences import status as licence_status

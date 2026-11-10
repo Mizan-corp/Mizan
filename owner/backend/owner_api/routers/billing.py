@@ -11,7 +11,7 @@ from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.plans import PLANS_CONFIG
+from app.platform.billing.plans import PLANS_CONFIG
 from app.db.base import get_db
 from app.models.billing import BillingInvoice
 from app.models.owner import OwnerAccount, PaymentTransaction

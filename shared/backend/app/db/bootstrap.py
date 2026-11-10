@@ -21,8 +21,8 @@ import uuid
 
 from sqlalchemy import func, select, text
 
-from app.core.security import hash_password
-from app.core.tenancy import bind_tenant
+from app.platform.auth.security import hash_password
+from app.platform.tenancy.context import bind_tenant
 from app.db.base import AsyncSessionLocal
 from app.models.registry import load_all_models
 from app.models.owner import OwnerAccount

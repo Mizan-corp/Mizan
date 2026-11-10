@@ -12,10 +12,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog import canonical_activity, canonical_modules
-from app.core.modules import SECTOR_TO_PRESET, set_active_modules
-from app.core.plans import PLANS_CONFIG, get_plan_limits
-from app.core.sectors import PALETTE_HUES, SECTOR_PRIMARY_MODULES, SECTORS, TRIAL_DAYS
-from app.core.tenancy import bind_tenant
+from app.framework.activation import SECTOR_TO_PRESET, set_active_modules
+from app.platform.billing.plans import PLANS_CONFIG, get_plan_limits
+from app.catalog.sectors import PALETTE_HUES, SECTOR_PRIMARY_MODULES, SECTORS, TRIAL_DAYS
+from app.platform.tenancy.context import bind_tenant
 from app.models.owner import OwnerAccount
 from app.models.tenant import Tenant
 from app.models.user import User

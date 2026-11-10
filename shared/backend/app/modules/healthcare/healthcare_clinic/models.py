@@ -9,7 +9,7 @@ from sqlalchemy import Boolean, DateTime, Float, Integer, ForeignKey, String, Te
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.tenancy import TenantScoped
+from app.platform.tenancy.context import TenantScoped
 from app.db.base import Base
 
 

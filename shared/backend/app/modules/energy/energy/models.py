@@ -8,7 +8,7 @@ from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Te
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.core.tenancy import TenantScoped
+from app.platform.tenancy.context import TenantScoped
 
 class EngPowerAsset(TenantScoped, Base):
     __tablename__ = "eng_power_assets"

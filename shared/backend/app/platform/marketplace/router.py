@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.modules import (
+from app.framework.activation import (
     BUSINESS_PRESETS,
     get_active_modules,
     get_active_preset,

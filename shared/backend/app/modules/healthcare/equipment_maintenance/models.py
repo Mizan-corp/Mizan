@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Date, DateTime, func
 from app.db.base import Base
-from app.core.tenancy import TenantScoped
+from app.platform.tenancy.context import TenantScoped
 
 class BiomedicalDevice(TenantScoped, Base):
     __tablename__ = "hlt_biomedical_devices"

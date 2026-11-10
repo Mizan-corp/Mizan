@@ -11,7 +11,7 @@ import urllib.error
 import urllib.request
 from datetime import UTC, datetime
 
-from app.core import licensing
+from app.platform.licensing import keys as licensing
 from app.core.config import settings
 from app.onprem import licence, state
 

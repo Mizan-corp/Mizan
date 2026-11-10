@@ -7,7 +7,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.tenancy import TenantScoped
+from app.platform.tenancy.context import TenantScoped
 from app.db.base import Base
 
 

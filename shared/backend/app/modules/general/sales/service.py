@@ -327,7 +327,7 @@ async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
                 remaining = Decimal(str(c.credit_limit)) - Decimal(str(c.balance or 0))
                 raise BusinessError(f"تجاوز حد الائتمان (الحد: {c.credit_limit:.2f}, المتبقي: {remaining:.2f})")
 
-    from app.core.tenancy import current_tenant_id
+    from app.platform.tenancy.context import current_tenant_id
     tid = current_tenant_id.get()
     if not tid and cashier_id:
         from app.models.user import User

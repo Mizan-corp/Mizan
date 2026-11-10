@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.plans import get_plan, get_plan_limits
+from app.platform.billing.plans import get_plan, get_plan_limits
 from app.models.product import Product
 from app.models.sale import Sale
 from app.models.tenant import Tenant

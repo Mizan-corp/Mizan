@@ -95,7 +95,7 @@ gh release create v1.0.0 MizanSetup-* mizan-setup-* SHA256SUMS.txt --repo ammar0
 
 Then point the owner panel at them (v1.0.0 is already set): `MIZAN_INSTALLERS` on the owner API (production), e.g.
 `{"windows": {"url": "https://github.com/ammar0xff/mizan-releases/releases/download/v1.0.0/MizanSetup-1.0.0-windows.exe", "version": "1.0.0", "size_mb": 150}, "linux": {…}}`
-(see `shared/backend/app/core/releases.py`), and redeploy it.
+(see `shared/backend/app/platform/updates/releases.py`), and redeploy it.
 
 The setup binary's layout: `[program][payload.zip][licence stamp][footer]`, footer =
 `MZNSETUP` + payload offset + payload length + stamp length (u64 LE each). See

@@ -18,7 +18,7 @@ from httpx import ASGITransport, AsyncClient
 
 from main import app
 from app.db.base import AsyncSessionLocal
-from app.core.security import create_access_token, hash_password
+from app.platform.auth.security import create_access_token, hash_password
 from app.dependencies import require_superadmin
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -429,7 +429,7 @@ def test_module_guard_reads_the_signed_in_workspace():
     # workspace's modules; otherwise it reads installed_modules across workspaces.
     import inspect
 
-    from app.core.modules import require_module
+    from app.framework.activation import require_module
     from app.dependencies import get_current_user
 
     params = inspect.signature(require_module("restaurant")).parameters.values()

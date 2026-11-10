@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.plans import PLANS_CONFIG, get_plan, get_plan_limits
+from app.platform.billing.plans import PLANS_CONFIG, get_plan, get_plan_limits
 from app.models.billing import BillingInvoice
 from app.models.tenant import Subscription, Tenant
 

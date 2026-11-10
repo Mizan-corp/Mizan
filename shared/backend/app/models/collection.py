@@ -7,7 +7,7 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.tenancy import TenantScoped
+from app.platform.tenancy.context import TenantScoped
 from app.db.base import Base
 
 

@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from app.core import licensing
+from app.platform.licensing import keys as licensing
 from app.core.config import settings
 from app.dependencies import get_current_user
 from app.models.user import User

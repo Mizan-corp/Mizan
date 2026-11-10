@@ -14,8 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.ratelimit import RateLimiter
 from app.catalog import canonical_activity
-from app.core.sectors import PLANS, SCALE_ALIASES, SCALES, SECTOR_PRIMARY_ROUTES, SECTORS, TRIAL_DAYS
-from app.core.security import hash_password
+from app.catalog.sectors import PLANS, SCALE_ALIASES, SCALES, SECTOR_PRIMARY_ROUTES, SECTORS, TRIAL_DAYS
+from app.platform.auth.security import hash_password
 from app.db.base import get_db
 from app.models.owner import OwnerAccount
 from app.models.user import User

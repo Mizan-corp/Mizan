@@ -42,7 +42,7 @@ in `shared/backend/app/framework/module_template/`, and applied by
 | `hooks.py` | Extension points (`before_confirm`, `after_confirm`, …) other modules and variants use. | Planned (ADR-006 phase 4). |
 | `seed.py` | Demo data for a new workspace (`is_demo`, removable). | Existing demo data still lives in `app/services/demo_seed.py`. |
 | `migrations/README.md` | The module's own migrations, in order. | Until the per-module runner exists, migrations go in `app/db/migrations.py`. |
-| `templates/README.md` | Print templates, `templates/<category>/<name>.html`. | Rendered by `core/printing`; a variant can replace one. |
+| `templates/README.md` | Print templates, `templates/<category>/<name>.html`. | Rendered by the print engine (`platform/printing/engine.py`); a variant can replace one. |
 | `tests/README.md` | The module's tests. | Until collected here: `system/backend/tests/` and `e2e/`. |
 | `variants/<variant>/variant.json` | How the module works for one activity: screens, fields, uses, terms, settings, permissions, templates, widgets. | `standard` fits every activity; others are named after the activity (`pharmacy`). Business modules only. |
 | `variants/<variant>/hooks.py` | Rules that variant adds through the module's hooks. | Phase 4. |

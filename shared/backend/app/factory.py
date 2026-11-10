@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.core.tenancy import install_tenancy_events
+from app.platform.tenancy.context import install_tenancy_events
 from app.db.base import Base, engine
 from app.middleware import add_csrf_middleware
 from app.models.registry import load_all_models

@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import create_access_token, hash_password, verify_password
+from app.platform.auth.security import create_access_token, hash_password, verify_password
 from app.models.user import User
 
 
@@ -70,8 +70,8 @@ async def create_user(db: AsyncSession, data) -> User:
     from fastapi import HTTPException
     from sqlalchemy.exc import IntegrityError
 
-    from app.core.roles import ROLE_DEFAULT_PERMISSIONS
-    from app.core.tenancy import current_tenant_id, primary_tenant_id
+    from app.platform.permissions.roles import ROLE_DEFAULT_PERMISSIONS
+    from app.platform.tenancy.context import current_tenant_id, primary_tenant_id
     if len(data.password) < 8:
         raise HTTPException(status_code=400, detail="كلمة المرور يجب أن تكون 8 أحرف على الأقل")
     tid = current_tenant_id.get() or await primary_tenant_id(db)

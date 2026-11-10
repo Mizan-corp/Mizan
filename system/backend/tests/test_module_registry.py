@@ -70,11 +70,11 @@ def test_manifest_index_covers_every_module():
 async def test_active_modules_live_on_the_workspace():
     from sqlalchemy import delete, text
 
-    from app.core.modules import get_active_modules, set_active_modules
+    from app.framework.activation import get_active_modules, set_active_modules
     from app.db.base import engine
 
     await engine.dispose()  # this test's event loop gets its own connections
-    from app.core.tenancy import bind_tenant
+    from app.platform.tenancy.context import bind_tenant
     from app.db.base import AsyncSessionLocal
     from app.models.tenant import Tenant
 

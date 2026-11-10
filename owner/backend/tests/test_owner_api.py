@@ -8,7 +8,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.core.config import settings
-from app.core.security import create_access_token, hash_password
+from app.platform.auth.security import create_access_token, hash_password
 from app.db.base import AsyncSessionLocal
 from app.models.owner import OwnerAccount
 from app.models.tenant import Tenant
@@ -203,7 +203,7 @@ async def test_open_hands_over_an_erp_session_for_the_owners_user():
         h = await login(c, owner)
         r = await c.post(f"/account/workspaces/{tenant.id}/open", headers=h)
         assert r.status_code == 200
-        from app.core.security import decode_token
+        from app.platform.auth.security import decode_token
 
         claims = decode_token(r.json()["access_token"])
         assert claims["sub"] == str(user.id) and claims["tid"] == str(tenant.id) and "scope" not in claims

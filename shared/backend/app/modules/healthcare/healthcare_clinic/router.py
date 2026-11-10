@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.modules import require_module
+from app.framework.activation import require_module
 from app.db.base import get_db
 from app.dependencies import get_current_user
 from app.models.product import Category, Product

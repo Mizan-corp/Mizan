@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.pagination import Page
-from app.core.tenancy import bind_tenant, current_tenant_id
+from app.platform.tenancy.context import bind_tenant, current_tenant_id
 from app.db.base import get_db
 from app.dependencies import require_perm
 from app.models.product import Category, Product, Subcategory
@@ -60,7 +60,7 @@ async def _open_store(db: AsyncSession, slug: str, *, allow_closed: bool = False
     A workspace's catalogue is public only while it uses the storefront module and hasn't
     closed its shop (#95); otherwise the shop doesn't exist, whatever the address.
     """
-    from app.core.modules import get_active_modules
+    from app.framework.activation import get_active_modules
 
     tenant = await _resolve_tenant_by_slug(db, slug)
     await bind_tenant(db, tenant.id)

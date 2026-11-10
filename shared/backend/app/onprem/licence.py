@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from app.core import licensing
+from app.platform.licensing import keys as licensing
 from app.onprem import state
 
 

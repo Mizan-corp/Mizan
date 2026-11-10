@@ -6,8 +6,8 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import decode_token
-from app.core.tenancy import bind_tenant, current_tenant_id
+from app.platform.auth.security import decode_token
+from app.platform.tenancy.context import bind_tenant, current_tenant_id
 from app.db.base import get_db
 from app.models.user import User, user_warehouses
 

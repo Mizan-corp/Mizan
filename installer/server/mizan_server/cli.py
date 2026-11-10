@@ -157,7 +157,7 @@ def cmd_control(a) -> int:
 def cmd_licence(a) -> int:
     cfg = Config.load(Path(a.data_dir) if a.data_dir else None)
     _app_env(cfg)
-    from app.core import licensing
+    from app.platform.licensing import keys as licensing
     from app.onprem import checkin, licence
 
     if a.action == "show":
@@ -218,7 +218,7 @@ def cmd_verify_licence(a) -> int:
     app_import_path()
     os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://x:x@127.0.0.1/x")
     os.environ.setdefault("SECRET_KEY", "verify-only")
-    from app.core import licensing
+    from app.platform.licensing import keys as licensing
 
     try:
         print(json.dumps({"ok": True, "payload": licensing.verify(a.key)}, ensure_ascii=False))

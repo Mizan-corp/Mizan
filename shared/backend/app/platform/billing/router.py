@@ -13,8 +13,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.plans import PLANS_CONFIG
-from app.core.tenancy import current_tenant_id
+from app.platform.billing.plans import PLANS_CONFIG
+from app.platform.tenancy.context import current_tenant_id
 from app.db.base import get_db
 from app.dependencies import get_current_user
 from app.models.billing import BillingInvoice

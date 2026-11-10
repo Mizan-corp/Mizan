@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import hash_password, verify_password
+from app.platform.auth.security import hash_password, verify_password
 from app.db.base import get_db
 from app.models.owner import OwnerAccount
 from app.models.user import User

@@ -23,7 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.core.tenancy import TenantScoped
+from app.platform.tenancy.context import TenantScoped
 from app.db.base import Base
 
 import app.models.user  # noqa: F401 (Ensures User is registered in SQLAlchemy mapper)

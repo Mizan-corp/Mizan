@@ -349,7 +349,7 @@ async def _report_auth(request: Request, token: str | None = None, db: AsyncSess
     """Accept JWT as query param or httpOnly cookie for browser-opened HTML reports."""
     import uuid
 
-    from app.core.security import decode_token
+    from app.platform.auth.security import decode_token
     from app.models.user import User
     # Try cookie first, then query param
     t = request.cookies.get("access_token") or token

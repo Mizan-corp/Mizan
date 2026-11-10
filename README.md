@@ -105,7 +105,7 @@ that plugs into the shared core.
 | **Sales invoices / month** | 100 | 500 | 5,000 | Unlimited |
 | **Industries** | Core | Core + Phase 1 | Phases 1–3 | All 30 |
 
-Prices come from `shared/backend/app/core/plans.py`, which is the source of truth.
+Prices come from `shared/backend/app/platform/billing/plans.py`, which is the source of truth.
 
 ---
 
@@ -379,7 +379,7 @@ installer/              single-device and LAN installs
   build.py · stamp.py   build the installers · stamp a client's licence into one
 shared/                 code every product uses
   frontend/src/         design kit (components/kit), API client, stores, i18n, styles, pricing
-  backend/app/          kernel: factory, core (tenancy, auth, plans, printing), models, framework
+  backend/app/          kernel: factory, core (config, errors), models, framework
                         (module loader + template), platform (engines), modules/<activity>/<module>
                         (core ERP in general/, built and planned), activities, catalog, integrations,
                         onprem (server mode, licence gate, check-in), db (baseline schema, migrations, bootstrap)

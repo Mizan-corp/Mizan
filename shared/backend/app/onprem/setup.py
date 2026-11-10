@@ -21,11 +21,11 @@ from pathlib import Path
 
 from sqlalchemy import func, select, text
 
-from app.core import licensing
+from app.platform.licensing import keys as licensing
 from app.catalog import canonical_activity, canonical_modules
-from app.core.modules import SECTOR_TO_PRESET, set_active_modules
-from app.core.security import hash_password
-from app.core.tenancy import bind_tenant, install_tenancy_events
+from app.framework.activation import SECTOR_TO_PRESET, set_active_modules
+from app.platform.auth.security import hash_password
+from app.platform.tenancy.context import bind_tenant, install_tenancy_events
 from app.db.base import AsyncSessionLocal, Base, engine
 from app.db.migrations import FOUNDATION_SQL, apply_migrations, split_statements
 from app.models.registry import load_all_models

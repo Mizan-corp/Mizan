@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from main import app
 from app.db.base import AsyncSessionLocal
 from app.core.exceptions import BusinessError
-from app.core.security import hash_password
+from app.platform.auth.security import hash_password
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.warehouse import Warehouse
@@ -124,7 +124,7 @@ async def _create_sales_test_env():
 async def test_biz_01_cash_sale_return_deducts_from_drawer():
     """BIZ-01: Verify single-payment cash return correctly records a return DrawerTransaction."""
     env = await _create_sales_test_env()
-    from app.core.tenancy import current_tenant_id
+    from app.platform.tenancy.context import current_tenant_id
     current_tenant_id.set(env["tenant_id"])
 
     async with AsyncSessionLocal() as session:
@@ -174,7 +174,7 @@ async def test_biz_01_cash_sale_return_deducts_from_drawer():
 async def test_biz_02_cancel_sale_blocks_when_shift_is_closed():
     """BIZ-02: Verify cancel_sale raises BusinessError when shift is closed, protecting historical ledger integrity."""
     env = await _create_sales_test_env()
-    from app.core.tenancy import current_tenant_id
+    from app.platform.tenancy.context import current_tenant_id
     current_tenant_id.set(env["tenant_id"])
 
     # 1. Create confirmed cash sale

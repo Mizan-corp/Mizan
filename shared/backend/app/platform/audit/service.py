@@ -5,7 +5,7 @@ import uuid
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.tenancy import current_tenant_id
+from app.platform.tenancy.context import current_tenant_id
 
 
 async def log(

@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy import delete, event
 
-from app.core.security import hash_password
-from app.core.tenancy import bind_tenant, current_tenant_id
+from app.platform.auth.security import hash_password
+from app.platform.tenancy.context import bind_tenant, current_tenant_id
 from app.db.base import AsyncSessionLocal, engine
 from app.models.shift import Shift
 from app.models.tenant import Tenant

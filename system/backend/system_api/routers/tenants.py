@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.sectors import SECTOR_PRIMARY_MODULES, SECTOR_PRIMARY_ROUTES
+from app.catalog.sectors import SECTOR_PRIMARY_MODULES, SECTOR_PRIMARY_ROUTES
 from app.db.base import get_db
 from app.models.settings import StoreSetting
 from app.models.tenant import Tenant

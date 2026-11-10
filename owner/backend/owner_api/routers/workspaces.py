@@ -10,9 +10,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.plans import get_plan
+from app.platform.billing.plans import get_plan
 from app.catalog import canonical_activity
-from app.core.sectors import SECTORS
+from app.catalog.sectors import SECTORS
 from app.db.base import get_db
 from app.models.billing import BillingInvoice
 from app.models.owner import OwnerAccount
@@ -24,8 +24,8 @@ from app.platform.auth.services.owners import get_current_owner, owned_workspace
 from app.platform.billing.services.plan_gating import get_tenant_limits_and_usage
 from app.platform.billing.services.subscriptions import paid_until
 from app.platform.tenancy.service import create_workspace
-from app.core.licensing import LicenceError
-from app.core.releases import published_installers
+from app.platform.licensing.keys import LicenceError
+from app.platform.updates.releases import published_installers
 from app.models.licence import Installation, Licence
 from app.platform.licensing.services.licences import get_licence, is_on_premise, issue_key
 from app.platform.licensing.services.licences import status as licence_status

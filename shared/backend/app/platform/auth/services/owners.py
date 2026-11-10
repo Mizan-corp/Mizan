@@ -17,7 +17,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import create_access_token, decode_token, verify_password
+from app.platform.auth.security import create_access_token, decode_token, verify_password
 from app.db.base import get_db
 from app.models.owner import OwnerAccount
 from app.models.tenant import Tenant

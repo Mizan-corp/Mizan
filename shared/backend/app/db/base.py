@@ -58,7 +58,7 @@ async def get_db() -> AsyncSession:
         finally:
             # release the connection with no tenant bound (pool hygiene)
             try:
-                from app.core.tenancy import unbind_tenant
+                from app.platform.tenancy.context import unbind_tenant
                 await unbind_tenant(session)
             except Exception:
                 pass

@@ -324,7 +324,7 @@ SECTOR_TO_PRESET: dict[str, str] = {
 async def get_active_modules(db: AsyncSession) -> list[str]:
     """The current workspace's active modules: tenants.active_modules, the only source
     (ADR-006 phase 1; the installed_modules setting was folded into it by migration v50)."""
-    from app.core.tenancy import current_tenant_id
+    from app.platform.tenancy.context import current_tenant_id
     from app.models.tenant import Tenant
 
     tid = current_tenant_id.get()
@@ -343,7 +343,7 @@ async def get_active_preset(db: AsyncSession) -> str:
         return row.value
     # Fallback for tenants created before preset was persisted: derive from sector.
     try:
-        from app.core.tenancy import current_tenant_id
+        from app.platform.tenancy.context import current_tenant_id
         from app.models.tenant import Tenant
 
         tid = current_tenant_id.get()
@@ -358,7 +358,7 @@ async def get_active_preset(db: AsyncSession) -> str:
 
 async def set_active_modules(db: AsyncSession, modules: list[str], preset_id: str | None = None) -> None:
     """Save the current workspace's active modules (with their dependencies) and preset."""
-    from app.core.tenancy import current_tenant_id
+    from app.platform.tenancy.context import current_tenant_id
     from app.models.tenant import Tenant
 
     tid = current_tenant_id.get()

@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, Boolean, Numeric, DateTime, func
 from app.db.base import Base
-from app.core.tenancy import TenantScoped
+from app.platform.tenancy.context import TenantScoped
 
 class LabTestItem(TenantScoped, Base):
     __tablename__ = "hlt_lab_catalog"

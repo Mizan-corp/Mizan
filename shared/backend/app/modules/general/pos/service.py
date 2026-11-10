@@ -115,7 +115,7 @@ async def close_shift(db: AsyncSession, shift_id: uuid.UUID, closing_balance: De
 
 async def close_shift_with_manager(db: AsyncSession, shift_id: uuid.UUID, data, current_user_id: uuid.UUID) -> dict:
     """Close shift with manager override. Verifies manager credentials first."""
-    from app.core.security import verify_password
+    from app.platform.auth.security import verify_password
     from app.models.user import User
 
     mgr = await db.get(User, data.manager_id)
@@ -401,7 +401,7 @@ async def add_transaction(db: AsyncSession, shift_id: uuid.UUID, tx_type: Drawer
 
 async def revenue_delivery(db: AsyncSession, shift_id: uuid.UUID, data, current_user: "User") -> dict:
     """Mid-shift revenue delivery to safe — requires manager authorization."""
-    from app.core.security import verify_password
+    from app.platform.auth.security import verify_password
     from app.models.user import User
 
     mgr = await db.get(User, data.manager_id)

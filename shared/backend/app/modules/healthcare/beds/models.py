@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, Numeric, DateTime, func
 from app.db.base import Base
-from app.core.tenancy import TenantScoped
+from app.platform.tenancy.context import TenantScoped
 
 class HospitalWard(TenantScoped, Base):
     __tablename__ = "hlt_hospital_wards"

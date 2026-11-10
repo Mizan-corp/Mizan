@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.tenancy import current_tenant_id
+from app.platform.tenancy.context import current_tenant_id
 from app.db.base import get_db
 from app.dependencies import get_current_user
 from app.models.tenant import Subscription, Tenant
@@ -193,7 +193,7 @@ async def run_platform_migrations(
 
     # Automatically seed RBAC catalog if positions or roles were created
     try:
-        from app.core.rbac_catalog import seed_rbac_catalog
+        from app.platform.permissions.catalog import seed_rbac_catalog
         await seed_rbac_catalog(db)
     except Exception as err:
         logger.warning("Notice during RBAC catalog seeding: %s", err)

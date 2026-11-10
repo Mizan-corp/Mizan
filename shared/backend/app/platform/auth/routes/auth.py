@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.ratelimit import RateLimiter
-from app.core.security import create_access_token
+from app.platform.auth.security import create_access_token
 from app.db.base import get_db
 from app.dependencies import ensure_workspace_open, get_current_user
 from app.models.user import User
@@ -49,7 +49,7 @@ async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends
 
 @router.get("/roles")
 async def get_roles(_=Depends(get_current_user)):
-    from app.core.roles import ROLE_LABELS
+    from app.platform.permissions.roles import ROLE_LABELS
     return [{"value": k, "label": v} for k, v in ROLE_LABELS.items()]
 
 

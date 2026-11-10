@@ -89,7 +89,7 @@ async def update_user(user_id: uuid.UUID, data: UserUpdate, db: AsyncSession = D
     user = result.scalar_one_or_none()
     if not user:
         raise NotFoundError("User not found")
-    from app.core.roles import ROLE_LABELS
+    from app.platform.permissions.roles import ROLE_LABELS
     fields = data.model_dump(exclude_unset=True)
     for k, v in fields.items():
         if k == "is_manager":
@@ -111,7 +111,7 @@ async def update_user(user_id: uuid.UUID, data: UserUpdate, db: AsyncSession = D
 async def reset_password(user_id: uuid.UUID, data: PasswordReset, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("users"))):
     from sqlalchemy import text as sqlt
 
-    from app.core.security import hash_password
+    from app.platform.auth.security import hash_password
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:

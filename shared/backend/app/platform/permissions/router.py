@@ -35,8 +35,8 @@ from app.models.auth_access import (
     UserFacilityAssignment, UserPermissionOverride,
     PatientAccessAssignment, TemporaryAccessGrant, UserAccessAudit
 )
-from app.core.authorization import AuthorizationEngine, EffectiveAccessProfile
-from app.core.rbac_catalog import (
+from app.platform.permissions.engine import AuthorizationEngine, EffectiveAccessProfile
+from app.platform.permissions.catalog import (
     STANDARD_POSITIONS, STANDARD_ACCOUNT_TYPES,
     STANDARD_PERMISSIONS, STANDARD_ROLES, seed_rbac_catalog
 )

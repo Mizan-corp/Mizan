@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.licensing import LicenceError, verify
+from app.platform.licensing.keys import LicenceError, verify
 from app.core.ratelimit import RateLimiter
 from app.db.base import get_db
 from app.models.licence import Installation, Licence

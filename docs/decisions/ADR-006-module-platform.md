@@ -457,8 +457,12 @@ Choices made while implementing phase 1 (#99), for review:
   module and the fixed reports the `reporting` module (both now active). URLs unchanged; removed:
   the unused duplicate mounts under `/modules/<core module>/…` and `/modules/core/…`, and the
   retired `/payroll` router that was still reachable through them (its tables were dropped).
-  Still to do in phase 2: logic inside routes moves to services; `core/` (security, tenancy,
-  authorization, printing engine) moves into the platform engines.
+  Then `core/`'s engines moved too: security → `platform/auth`, tenancy → `platform/tenancy/context.py`,
+  authorization/RBAC catalogue/roles → `platform/permissions`, printing engine → `platform/printing`,
+  licence keys → `platform/licensing`, releases → `platform/updates`, plans → `platform/billing`,
+  sectors → `catalog/`, module activation and presets → `framework/activation.py`. `core/` keeps only
+  the kernel: config, exceptions, pagination, rate limiting. Still to do in phase 2: logic inside
+  route functions moves to services.
 
 ## Decision log (review of 2026-11-10)
 Answers as given by the owner; *italics* = how this ADR applies them.
