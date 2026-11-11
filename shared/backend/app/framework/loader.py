@@ -88,6 +88,8 @@ def manifest_problems(data: dict[str, Any]) -> list[str]:
     for key in ("permissions", "screens", "widgets", "variants"):
         if not isinstance(data.get(key, []), list):
             problems.append(f"'{key}' must be a list")
+    if not isinstance(data.get("forms", {}), dict):
+        problems.append("'forms' must map a record to its form's built-in fields")
     if data.get("kind", "business") == "business" and "standard" not in data.get("variants", ["standard"]):
         problems.append("'variants' must include 'standard'")
     deps = data.get("dependencies", [])

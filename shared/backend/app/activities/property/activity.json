@@ -51,7 +51,7 @@
           "label": "شركات صيانة المصاعد والمرافق"
         },
         {
-          "screen": "core.reports",
+          "screen": "reporting.reports",
           "label": "كشوف حسابات الملاك وصافي الإيراد"
         }
       ]
@@ -67,6 +67,9 @@
         {
           "screen": "core.settings",
           "label": "إعدادات العقارات والعمولات"
+        },
+        {
+          "screen": "core.designer"
         }
       ]
     }

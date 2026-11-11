@@ -50,7 +50,7 @@
       "path": "/wms",
       "label": "مستودعات 3PL",
       "icon": "Warehouse",
-      "permission": "inventory"
+      "permission": "inventory|operations"
     }
   ],
   "widgets": [],

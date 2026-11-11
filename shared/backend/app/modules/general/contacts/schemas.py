@@ -12,6 +12,7 @@ class CustomerCreate(BaseModel):
     address: str | None = None
     is_cash: bool = False
     credit_limit: Decimal | None = Field(None, ge=0)
+    extra: dict = Field(default_factory=dict)  # custom fields (app/framework/fields.py)
 
 
 class CustomerUpdate(BaseModel):
@@ -20,6 +21,7 @@ class CustomerUpdate(BaseModel):
     address: str | None = None
     is_cash: bool | None = None
     credit_limit: Decimal | None = Field(None, ge=0)
+    extra: dict | None = None
 
 
 class CustomerPaymentCreate(BaseModel):

@@ -40,6 +40,7 @@ def load_all_models() -> None:
     import app.models.schema_migration
     import app.platform.settings.models
     import app.framework.fields  # workspace_fields
+    import app.framework.layouts  # workspace_layouts
     import app.framework.composition  # module_retention
     import app.framework.storage  # storage_usage
     import app.modules.general.pos.models

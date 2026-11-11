@@ -81,7 +81,7 @@
           "label": "الخزائن والمالية"
         },
         {
-          "screen": "core.reports",
+          "screen": "reporting.reports",
           "label": "تقارير الصيدلية والنواقص"
         }
       ]
@@ -101,6 +101,9 @@
         {
           "screen": "core.settings",
           "label": "إعدادات الصيدلية"
+        },
+        {
+          "screen": "core.designer"
         }
       ]
     }

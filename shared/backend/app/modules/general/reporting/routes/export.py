@@ -42,17 +42,36 @@ async def _to_excel(rows: list[dict], sheet_name: str = "Sheet1") -> bytes:
     return buf.getvalue()
 
 
+async def _with_fields(db: AsyncSession, record: str, rows) -> list[dict]:
+    """The rows with one column per custom field of the record (titled by its label), taken from
+    the row's `extra` (ADR-006 phase 5: custom fields are usable in reports)."""
+    from app.framework.fields import fields_for
+    from app.framework.hooks import workspace_activity
+
+    fields = await fields_for(db, record, await workspace_activity(db))
+    out = []
+    for r in rows:
+        row = dict(r)
+        extra = row.pop("extra", None) or {}
+        for f in fields:
+            title = f.get("label") or f["key"]
+            value = extra.get(f["key"])
+            row[title if title not in row else f"{title} ({f['key']})"] = ("نعم" if value else "لا") if isinstance(value, bool) else value
+        out.append(row)
+    return out
+
+
 @router.get("/products")
 async def export_products(db: AsyncSession = Depends(get_db), _=Depends(require_perm("inventory"))):
     rows = (await db.execute(text("""
         SELECT p.name, p.company, p.unit, p.retail_price, p.wholesale_price, p.cost_price,
-               c.name as category, s.name as subcategory, p.stock_status
+               c.name as category, s.name as subcategory, p.stock_status, p.extra
         FROM products p
         LEFT JOIN subcategories s ON s.id = p.subcategory_id
         LEFT JOIN categories c ON c.id = s.category_id
         ORDER BY p.name
     """))).mappings().fetchall()
-    data = [dict(r) for r in rows]
+    data = await _with_fields(db, "product", rows)
     excel = await _to_excel(data, "المنتجات")
     return StreamingResponse(io.BytesIO(excel), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": "attachment; filename=products.xlsx"})
@@ -71,7 +90,7 @@ async def export_sales(from_date: str = Query(None), to_date: str = Query(None),
     rows = (await db.execute(text(f"""
         SELECT s.invoice_number, CAST(s.created_at AS date) as date, c.name as customer,
                s.total, s.discount_amount, s.net_total, s.paid_amount, s.is_credit,
-               s.payment_method, u.full_name as cashier, s.status, w.name as warehouse
+               s.payment_method, u.full_name as cashier, s.status, w.name as warehouse, s.extra
         FROM sales s
         LEFT JOIN customers c ON c.id = s.customer_id
         LEFT JOIN users u ON u.id = s.cashier_id
@@ -79,7 +98,7 @@ async def export_sales(from_date: str = Query(None), to_date: str = Query(None),
         WHERE {' AND '.join(whr)}
         ORDER BY s.created_at DESC
     """), params)).mappings().fetchall()
-    data = [dict(r) for r in rows]
+    data = await _with_fields(db, "sale", rows)
     excel = await _to_excel(data, "المبيعات")
     return StreamingResponse(io.BytesIO(excel), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": "attachment; filename=sales.xlsx"})
@@ -89,7 +108,7 @@ async def export_sales(from_date: str = Query(None), to_date: str = Query(None),
 async def export_stock(db: AsyncSession = Depends(get_db), _=Depends(require_perm("inventory"))):
     rows = (await db.execute(text("""
         SELECT p.name, p.company, w.name as warehouse, COALESCE(s.qty,0) as qty, p.unit,
-               p.retail_price, p.cost_price, (COALESCE(s.qty,0) * p.cost_price) as stock_value
+               p.retail_price, p.cost_price, (COALESCE(s.qty,0) * p.cost_price) as stock_value, p.extra
         FROM products p
         CROSS JOIN warehouses w
         LEFT JOIN LATERAL (
@@ -101,7 +120,7 @@ async def export_stock(db: AsyncSession = Depends(get_db), _=Depends(require_per
         WHERE p.stock_status='tracked'
         ORDER BY p.name, w.name
     """))).mappings().fetchall()
-    data = [dict(r) for r in rows]
+    data = await _with_fields(db, "product", rows)
     excel = await _to_excel(data, "المخزون")
     return StreamingResponse(io.BytesIO(excel), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": "attachment; filename=stock.xlsx"})
@@ -110,11 +129,11 @@ async def export_stock(db: AsyncSession = Depends(get_db), _=Depends(require_per
 @router.get("/customers")
 async def export_customers(db: AsyncSession = Depends(get_db), _=Depends(require_perm("sales"))):
     rows = (await db.execute(text("""
-        SELECT c.name, c.phone, c.balance, c.credit_limit
+        SELECT c.name, c.phone, c.balance, c.credit_limit, c.extra
         FROM customers c
         ORDER BY c.name
     """))).mappings().fetchall()
-    data = [dict(r) for r in rows]
+    data = await _with_fields(db, "customer", rows)
     excel = await _to_excel(data, "العملاء")
     return StreamingResponse(io.BytesIO(excel), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": "attachment; filename=customers.xlsx"})
@@ -123,11 +142,11 @@ async def export_customers(db: AsyncSession = Depends(get_db), _=Depends(require
 @router.get("/suppliers")
 async def export_suppliers(db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases"))):
     rows = (await db.execute(text("""
-        SELECT s.name, s.phone, s.balance
+        SELECT s.name, s.phone, s.balance, s.extra
         FROM suppliers s
         ORDER BY s.name
     """))).mappings().fetchall()
-    data = [dict(r) for r in rows]
+    data = await _with_fields(db, "supplier", rows)
     excel = await _to_excel(data, "الموردون")
     return StreamingResponse(io.BytesIO(excel), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": "attachment; filename=suppliers.xlsx"})

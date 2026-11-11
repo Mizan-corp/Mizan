@@ -16,6 +16,7 @@ import { api } from "@/lib/api";
 import { D, dateTime, moneyEGP } from "@/lib/format";
 import { Button, Card, Empty, ErrorBox, Input, Modal, Spinner, useToast } from "@/components/ui";
 import { sound } from "@/lib/sound";
+import { RecordFormFields, cleanExtra, missingRequired, useRecordForm, type ExtraValues } from "@app/framework/forms";
 
 interface Customer {
   id: string;
@@ -37,7 +38,10 @@ export default function CustomersPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "", credit_limit: "" });
+  const [form, setForm] = useState({ name: "", phone: "", credit_limit: "", address: "" });
+  const [extra, setExtra] = useState<ExtraValues>({});
+  const layout = useRecordForm("customer");
+  const missing = missingRequired(layout.data, extra);
   const [ledgerFor, setLedgerFor] = useState<Customer | null>(null);
   const [payFor, setPayFor] = useState<Customer | null>(null);
   const [payAmount, setPayAmount] = useState("");
@@ -59,11 +63,14 @@ export default function CustomersPage() {
         name: form.name,
         phone: form.phone || null,
         credit_limit: form.credit_limit ? D(form.credit_limit).toNumber() : null,
+        address: form.address.trim() || null,
+        extra: cleanExtra(extra),
       }),
     onSuccess: () => {
       sound.success();
       setCreating(false);
-      setForm({ name: "", phone: "", credit_limit: "" });
+      setForm({ name: "", phone: "", credit_limit: "", address: "" });
+      setExtra({});
       qc.invalidateQueries({ queryKey: ["customers"] });
     },
     onError: () => sound.error(),
@@ -329,57 +336,46 @@ export default function CustomersPage() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!create.isPending && form.name) create.mutate();
+            if (!create.isPending && form.name && !missing.length) create.mutate();
           }}
           className="flex flex-col gap-4"
         >
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-foreground">
-              اسم العميل أو المؤسسة *
-            </label>
-            <Input
-              autoFocus
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="مثال: شركة النصر للمقاولات أو الأستاذ محمد علي"
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-foreground">
-                رقم الهاتف / الواتساب
-              </label>
-              <Input
-                className="num text-xs"
-                dir="ltr"
-                placeholder="01012345678"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-foreground">
-                الحد الائتماني (ج.م)
-              </label>
-              <Input
-                className="num text-xs"
-                inputMode="decimal"
-                placeholder="مثال: 50000"
-                value={form.credit_limit}
-                onChange={(e) => setForm({ ...form, credit_limit: e.target.value })}
-              />
-            </div>
-          </div>
+          <RecordFormFields
+            record="customer"
+            required={["name"]}
+            wide={["address"]}
+            extra={extra}
+            onExtra={setExtra}
+            builtin={{
+              name: (
+                <Input
+                  id="f-customer-name"
+                  autoFocus
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="مثال: شركة النصر للمقاولات أو الأستاذ محمد علي"
+                  required
+                />
+              ),
+              phone: (
+                <Input id="f-customer-phone" className="num text-xs" dir="ltr" placeholder="01012345678" value={form.phone}
+                       onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              ),
+              credit_limit: (
+                <Input id="f-customer-credit_limit" className="num text-xs" inputMode="decimal" placeholder="مثال: 50000" value={form.credit_limit}
+                       onChange={(e) => setForm({ ...form, credit_limit: e.target.value })} />
+              ),
+              address: <Input id="f-customer-address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />,
+            }}
+          />
+          {missing.length > 0 && <p className="text-xs text-muted-foreground">حقول مطلوبة: {missing.join("، ")}</p>}
 
           {create.isError && <ErrorBox message={(create.error as Error).message} />}
 
           <Button
             type="submit"
             className="w-full h-10 font-bold"
-            disabled={create.isPending || !form.name.trim()}
+            disabled={create.isPending || !form.name.trim() || missing.length > 0}
           >
             {create.isPending ? <Spinner /> : "حفظ العميل"}
           </Button>

@@ -1,3 +1,4 @@
+import json
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -16,6 +17,7 @@ class SupplierIn(BaseModel):
     address: str | None = None
     type: str = "supplier"
     notes: str | None = None
+    extra: dict | None = None  # custom fields (app/framework/fields.py)
 
 class TxIn(BaseModel):
     amount: float
@@ -29,6 +31,14 @@ class TxIn(BaseModel):
         if v not in ("debit", "credit"):
             raise ValueError("type must be 'debit' or 'credit'")
         return v
+
+async def _clean_extra(db: AsyncSession, extra: dict | None, current: dict | None = None, partial: bool = False) -> dict:
+    """A supplier's custom field values, checked against the workspace's fields."""
+    from app.framework.fields import clean_extra
+    from app.framework.hooks import workspace_activity
+
+    return await clean_extra(db, "supplier", extra, await workspace_activity(db), current=current, partial=partial)
+
 
 @router.get("")
 async def list_suppliers(type: str | None = None, page: int = 1, page_size: int = 200, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -44,17 +54,22 @@ async def list_suppliers(type: str | None = None, page: int = 1, page_size: int 
 
 @router.post("", status_code=201)
 async def create_supplier(data: SupplierIn, db: AsyncSession = Depends(get_db), _=Depends(require_perm("inventory", "purchases"))):
+    payload = data.model_dump()
+    payload["extra"] = json.dumps(await _clean_extra(db, payload.get("extra")))
     r = await db.execute(text(
-        "INSERT INTO suppliers (id,name,phone,address,type,notes,balance) VALUES (gen_random_uuid(),:name,:phone,:address,:type,:notes,0) RETURNING id,name,phone,address,type,balance,notes,created_at"
-    ), data.model_dump())
+        "INSERT INTO suppliers (id,name,phone,address,type,notes,balance,extra) VALUES (gen_random_uuid(),:name,:phone,:address,:type,:notes,0,CAST(:extra AS jsonb)) RETURNING id,name,phone,address,type,balance,notes,extra,created_at"
+    ), payload)
     await db.commit()
     return dict(r.fetchone()._mapping)
 
 @router.put("/{sid}")
 async def update_supplier(sid: uuid.UUID, data: SupplierIn, db: AsyncSession = Depends(get_db), _=Depends(require_perm("inventory", "purchases"))):
+    payload = data.model_dump()
+    current = await db.scalar(text("SELECT extra FROM suppliers WHERE id=:id"), {"id": sid})
+    payload["extra"] = json.dumps(await _clean_extra(db, payload.get("extra"), current=current or {}, partial=data.extra is None))
     r = await db.execute(text(
-        "UPDATE suppliers SET name=:name,phone=:phone,address=:address,type=:type,notes=:notes WHERE id=:id RETURNING *"
-    ), {**data.model_dump(), "id": sid})
+        "UPDATE suppliers SET name=:name,phone=:phone,address=:address,type=:type,notes=:notes,extra=CAST(:extra AS jsonb) WHERE id=:id RETURNING *"
+    ), {**payload, "id": sid})
     await db.commit()
     row = r.fetchone()
     if not row:

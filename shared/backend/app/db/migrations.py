@@ -2888,9 +2888,27 @@ MIGRATIONS = [
         CREATE POLICY tenant_isolation ON storage_usage
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
-    # Each role's screens (ADR-006 phase 5): home, menu and dashboard, edited in the builder.
-    ("v66_role_layouts", """
-        ALTER TABLE sys_roles ADD COLUMN IF NOT EXISTS layout jsonb NOT NULL DEFAULT '{}'::jsonb;
+    # The screen builder's layouts (ADR-006 phase 5), per workspace: a role's home, menu and
+    # dashboard (kind 'role', target = role id; standard roles are platform rows, shared by every
+    # workspace) and a record's form (kind 'form', target = record).
+    ("v66_workspace_layouts", """
+        CREATE TABLE IF NOT EXISTS workspace_layouts (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+                DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+            kind varchar(16) NOT NULL,
+            target varchar(64) NOT NULL,
+            layout jsonb NOT NULL DEFAULT '{}'::jsonb,
+            updated_by uuid,
+            updated_at timestamptz NOT NULL DEFAULT now(),
+            CONSTRAINT uq_workspace_layouts_target UNIQUE (tenant_id, kind, target)
+        );
+        CREATE INDEX IF NOT EXISTS ix_workspace_layouts_tenant_id ON workspace_layouts (tenant_id);
+        ALTER TABLE workspace_layouts ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE workspace_layouts FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON workspace_layouts;
+        CREATE POLICY tenant_isolation ON workspace_layouts
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
 ]
 

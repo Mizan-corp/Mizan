@@ -69,7 +69,7 @@
           "label": "الخزائن ومتابعة الشيكات والذمم"
         },
         {
-          "screen": "core.reports",
+          "screen": "reporting.reports",
           "label": "تقارير أعمار الديون والمبيعات"
         }
       ]
@@ -85,6 +85,9 @@
         {
           "screen": "core.settings",
           "label": "إعدادات سقوف الائتمان والأسعار"
+        },
+        {
+          "screen": "core.designer"
         }
       ]
     }

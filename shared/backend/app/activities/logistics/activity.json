@@ -55,7 +55,7 @@
           "label": "الخزائن وتكاليف الوقود ومصاريف الطرق"
         },
         {
-          "screen": "core.reports",
+          "screen": "reporting.reports",
           "label": "تقارير الشحنات والمسارات اليومية"
         }
       ]
@@ -71,6 +71,9 @@
         {
           "screen": "core.settings",
           "label": "إعدادات مناطق التوصيل والتسعير"
+        },
+        {
+          "screen": "core.designer"
         }
       ]
     }

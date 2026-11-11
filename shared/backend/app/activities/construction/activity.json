@@ -70,7 +70,7 @@
           "label": "العهد الموقعية والخزينة"
         },
         {
-          "screen": "core.reports",
+          "screen": "reporting.reports",
           "label": "تقارير ربحية المشاريع والتدفقات"
         }
       ]
@@ -86,6 +86,9 @@
         {
           "screen": "core.settings",
           "label": "إعدادات تكويد المشاريع"
+        },
+        {
+          "screen": "core.designer"
         }
       ]
     }

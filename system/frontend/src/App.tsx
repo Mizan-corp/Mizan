@@ -8,6 +8,7 @@ const PayrollPage = lazy(() => import("@modules/general/hr/PayrollPage"));
 const ShiftsPage = lazy(() => import("@app/features/shifts/ShiftsPage"));
 const CustomersPage = lazy(() => import("@app/features/customers/CustomersPage"));
 const SettingsPage = lazy(() => import("@app/features/settings/SettingsPage"));
+const DesignerPage = lazy(() => import("@app/features/designer/DesignerPage"));
 const FinancePage = lazy(() => import("@modules/general/finance/FinancePage"));
 const SuppliersPage = lazy(() => import("@app/features/suppliers/SuppliersPage"));
 const UsersPage = lazy(() => import("@app/features/users/UsersPage"));
@@ -163,6 +164,7 @@ function renderErpChildRoutes(includeIndex: boolean = true) {
       <Route path="reports" element={<Guard perm="reports"><ReportsPage /></Guard>} />
       <Route path="users" element={<Guard perm="users"><UsersPage /></Guard>} />
       <Route path="settings" element={<Guard perm="settings"><SettingsPage /></Guard>} />
+      <Route path="designer" element={<Guard perm="designer"><DesignerPage /></Guard>} />
       <Route path="modules" element={<Guard perm=""><ModulesPage /></Guard>} />
       <Route path="restaurant/tables" element={<Guard perm="" module="restaurant"><RestaurantTablesPage /></Guard>} />
       <Route path="restaurant/kitchen" element={<Guard perm="" module="restaurant"><KitchenDisplayPage /></Guard>} />

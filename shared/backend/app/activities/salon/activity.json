@@ -75,6 +75,9 @@
         {
           "screen": "core.settings",
           "label": "إعدادات باقات الصالون"
+        },
+        {
+          "screen": "core.designer"
         }
       ]
     }

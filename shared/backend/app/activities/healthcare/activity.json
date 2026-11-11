@@ -26,26 +26,25 @@
       "items": [
         {
           "screen": "healthcare_clinic.clinic",
-          "label": "لوحة التحكم الطبية",
-          "permission": ""
+          "label": "لوحة التحكم الطبية"
         },
         {
-          "screen": "core.clinic_appointments"
+          "screen": "healthcare_clinic.clinic_appointments"
         },
         {
-          "screen": "core.clinic_patients"
+          "screen": "healthcare_clinic.clinic_patients"
         },
         {
-          "screen": "core.clinic_emr"
+          "screen": "healthcare_clinic.clinic_emr"
         },
         {
-          "screen": "core.clinic_rx_labs"
+          "screen": "healthcare_clinic.clinic_rx_labs"
         },
         {
-          "screen": "core.clinic_labs"
+          "screen": "healthcare_clinic.clinic_labs"
         },
         {
-          "screen": "core.clinic_beds"
+          "screen": "healthcare_clinic.clinic_beds"
         }
       ]
     },
@@ -72,10 +71,10 @@
       "label": "المالية والفوترة الطبية",
       "items": [
         {
-          "screen": "core.clinic_billing"
+          "screen": "healthcare_clinic.clinic_billing"
         },
         {
-          "screen": "core.clinic_claims"
+          "screen": "healthcare_clinic.clinic_claims"
         },
         {
           "screen": "finance.customers",
@@ -90,7 +89,7 @@
           "label": "الخزائن والإيرادات الطبية"
         },
         {
-          "screen": "core.reports",
+          "screen": "reporting.reports",
           "label": "التقارير الطبية والمالية"
         }
       ]
@@ -118,6 +117,9 @@
         {
           "screen": "core.settings",
           "label": "إعدادات العيادات والمجمع"
+        },
+        {
+          "screen": "core.designer"
         }
       ]
     }

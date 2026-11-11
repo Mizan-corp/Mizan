@@ -17,6 +17,14 @@ from app.modules.general.contacts import service as contacts_service
 router = APIRouter(tags=["parties"])
 
 
+async def _clean_extra(db: AsyncSession, extra: dict | None, current: dict | None = None) -> dict:
+    """A customer's custom field values, checked against the workspace's fields."""
+    from app.framework.fields import clean_extra
+    from app.framework.hooks import workspace_activity
+
+    return await clean_extra(db, "customer", extra, await workspace_activity(db), current=current)
+
+
 # ── Customers ────────────────────────────────────────────────────────────────
 @router.get("/customers")
 async def list_customers(search: str | None = None, limit: int = Query(200, le=1000), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
@@ -41,7 +49,9 @@ async def list_customers(search: str | None = None, limit: int = Query(200, le=1
 
 @router.post("/customers")
 async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("customers"))):
-    c = Customer(**data.model_dump())
+    payload = data.model_dump()
+    payload["extra"] = await _clean_extra(db, payload.get("extra"))
+    c = Customer(**payload)
     db.add(c)
     await db.commit()
     await db.refresh(c)
@@ -54,7 +64,10 @@ async def update_customer(cid: uuid.UUID, data: CustomerUpdate, db: AsyncSession
     c = result.scalar_one_or_none()
     if not c:
         raise NotFoundError()
-    for k, v in data.model_dump(exclude_unset=True).items():
+    changes = data.model_dump(exclude_unset=True)
+    if "extra" in changes:
+        changes["extra"] = await _clean_extra(db, changes["extra"], current=c.extra)
+    for k, v in changes.items():
         setattr(c, k, v)
     await db.commit()
     await db.refresh(c)

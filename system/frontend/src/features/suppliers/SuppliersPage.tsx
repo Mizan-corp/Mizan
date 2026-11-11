@@ -16,6 +16,7 @@ import { api } from "@/lib/api";
 import { D, dateTime, moneyEGP } from "@/lib/format";
 import { Button, Card, Empty, ErrorBox, Input, Modal, Select, Spinner, useToast } from "@/components/ui";
 import { sound } from "@/lib/sound";
+import { RecordFormFields, cleanExtra, missingRequired, useRecordForm, type ExtraValues } from "@app/framework/forms";
 
 interface Supplier {
   id: string;
@@ -39,7 +40,10 @@ export default function SuppliersPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "" });
+  const [form, setForm] = useState({ name: "", phone: "", address: "", notes: "" });
+  const [extra, setExtra] = useState<ExtraValues>({});
+  const layout = useRecordForm("supplier");
+  const missing = missingRequired(layout.data, extra);
   const [ledgerFor, setLedgerFor] = useState<Supplier | null>(null);
   const [txFor, setTxFor] = useState<Supplier | null>(null);
   const [txAmount, setTxAmount] = useState("");
@@ -64,11 +68,15 @@ export default function SuppliersPage() {
   const { toast } = useToast();
 
   const create = useMutation({
-    mutationFn: () => api.post("/suppliers", { name: form.name, phone: form.phone || null }),
+    mutationFn: () => api.post("/suppliers", {
+      name: form.name, phone: form.phone || null, address: form.address.trim() || null, notes: form.notes.trim() || null,
+      extra: cleanExtra(extra),
+    }),
     onSuccess: () => {
       sound.success();
       setCreating(false);
-      setForm({ name: "", phone: "" });
+      setForm({ name: "", phone: "", address: "", notes: "" });
+      setExtra({});
       toast("success", "تمت إضافة المورد بنجاح");
       qc.invalidateQueries({ queryKey: ["suppliers"] });
     },
@@ -320,42 +328,37 @@ export default function SuppliersPage() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!create.isPending && form.name) create.mutate();
+            if (!create.isPending && form.name && !missing.length) create.mutate();
           }}
           className="flex flex-col gap-4"
         >
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-foreground">
-              اسم المورد أو الشركة المصنعة *
-            </label>
-            <Input
-              autoFocus
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="مثال: شركة الأهرام للمستلزمات الكهربائية"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-foreground">
-              رقم الهاتف / مسؤول المبيعات
-            </label>
-            <Input
-              className="num text-xs"
-              dir="ltr"
-              placeholder="01112345678"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            />
-          </div>
+          <RecordFormFields
+            record="supplier"
+            required={["name"]}
+            wide={["address", "notes"]}
+            extra={extra}
+            onExtra={setExtra}
+            builtin={{
+              name: (
+                <Input id="f-supplier-name" autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
+                       placeholder="مثال: شركة الأهرام للمستلزمات الكهربائية" required />
+              ),
+              phone: (
+                <Input id="f-supplier-phone" className="num text-xs" dir="ltr" placeholder="01112345678" value={form.phone}
+                       onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              ),
+              address: <Input id="f-supplier-address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />,
+              notes: <Input id="f-supplier-notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />,
+            }}
+          />
+          {missing.length > 0 && <p className="text-xs text-muted-foreground">حقول مطلوبة: {missing.join("، ")}</p>}
 
           {create.isError && <ErrorBox message={(create.error as Error).message} />}
 
           <Button
             type="submit"
             className="w-full h-10 font-bold"
-            disabled={create.isPending || !form.name.trim()}
+            disabled={create.isPending || !form.name.trim() || missing.length > 0}
           >
             {create.isPending ? <Spinner /> : "حفظ المورد"}
           </Button>

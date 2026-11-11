@@ -68,7 +68,7 @@
           "label": "الخزينة والاشتراكات المجدولة"
         },
         {
-          "screen": "core.reports",
+          "screen": "reporting.reports",
           "label": "تقارير تجديد الاشتراكات"
         }
       ]
@@ -88,6 +88,9 @@
         {
           "screen": "core.settings",
           "label": "إعدادات باقات الاشتراكات"
+        },
+        {
+          "screen": "core.designer"
         }
       ]
     }

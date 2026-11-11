@@ -19,11 +19,12 @@ import { PageHeader, SearchField, TablePagination, TableShell } from "@/componen
 import { Badge as KitBadge } from "@/components/kit/badge";
 import { Skeleton } from "@/components/kit/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/kit/table";
+import { RecordFormFields, cleanExtra, missingRequired, useRecordForm, type ExtraValues } from "@app/framework/forms";
 
 interface Product {
   id: string; name: string; code: string | null; barcode: string | null; unit: string;
   retail_price: string; wholesale_price: string; cost_price: string; company: string | null;
-  size: string | null; is_active: boolean; subcategory_id: string | null;
+  size: string | null; is_active: boolean; subcategory_id: string | null; extra?: ExtraValues;
 }
 interface Subcategory { id: string; name: string; category_id: string }
 
@@ -33,6 +34,9 @@ export default function ProductsPage() {
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<Partial<Product> | null>(null);
   const [form, setForm] = useState({ name: "", barcode: "", unit: "قطعة", retail_price: "", wholesale_price: "", cost_price: "", subcategory_id: "" });
+  const [extra, setExtra] = useState<ExtraValues>({});
+  const layout = useRecordForm("product");
+  const missing = missingRequired(layout.data, extra);
 
   const list = useQuery({
     queryKey: ["products", search, page],
@@ -42,6 +46,7 @@ export default function ProductsPage() {
 
   function openNew() {
     setForm({ name: "", barcode: "", unit: "قطعة", retail_price: "", wholesale_price: "", cost_price: "", subcategory_id: "" });
+    setExtra({});
     setEditing({});
   }
   function openEdit(p: Product) {
@@ -50,6 +55,7 @@ export default function ProductsPage() {
       retail_price: p.retail_price, wholesale_price: p.wholesale_price,
       cost_price: p.cost_price, subcategory_id: p.subcategory_id ?? "",
     });
+    setExtra(p.extra ?? {});
     setEditing(p);
   }
 
@@ -59,6 +65,7 @@ export default function ProductsPage() {
         name: form.name, barcode: form.barcode || null, unit: form.unit,
         retail_price: form.retail_price, wholesale_price: form.wholesale_price,
         cost_price: form.cost_price, subcategory_id: form.subcategory_id || null,
+        extra: cleanExtra(extra),
       };
       return editing?.id
         ? api.put(`/products/${editing.id}`, body)
@@ -151,50 +158,36 @@ export default function ProductsPage() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!save.isPending && form.name && form.retail_price) save.mutate();
+            if (!save.isPending && form.name && form.retail_price && !missing.length) save.mutate();
           }}
           className="flex flex-col gap-3"
         >
-          <div>
-            <label className="mb-1 block text-sm font-medium">الاسم *</label>
-            <Input autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium">الباركود</label>
-              <Input className="num" dir="ltr" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">الوحدة</label>
-              <Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="mb-1 block text-sm font-medium">تجزئة *</label>
-              <Input className="num" inputMode="decimal" value={form.retail_price} onChange={(e) => setForm({ ...form, retail_price: e.target.value })} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">جملة</label>
-              <Input className="num" inputMode="decimal" value={form.wholesale_price} onChange={(e) => setForm({ ...form, wholesale_price: e.target.value })} />
-            </div>
-            <div>
-              <label className="mb-1 block text-sm font-medium">التكلفة</label>
-              <Input className="num" inputMode="decimal" value={form.cost_price} onChange={(e) => setForm({ ...form, cost_price: e.target.value })} />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">التصنيف</label>
-            <Select value={form.subcategory_id} onChange={(e) => setForm({ ...form, subcategory_id: e.target.value })}>
-              <option value="">— بدون —</option>
-              {subs.data?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </Select>
-          </div>
+          <RecordFormFields
+            record="product"
+            required={["name", "retail_price"]}
+            extra={extra}
+            onExtra={setExtra}
+            builtin={{
+              name: <Input id="f-product-name" autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />,
+              barcode: <Input id="f-product-barcode" className="num" dir="ltr" value={form.barcode} onChange={(e) => setForm({ ...form, barcode: e.target.value })} />,
+              unit: <Input id="f-product-unit" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />,
+              retail_price: <Input id="f-product-retail_price" className="num" inputMode="decimal" value={form.retail_price} onChange={(e) => setForm({ ...form, retail_price: e.target.value })} />,
+              wholesale_price: <Input id="f-product-wholesale_price" className="num" inputMode="decimal" value={form.wholesale_price} onChange={(e) => setForm({ ...form, wholesale_price: e.target.value })} />,
+              cost_price: <Input id="f-product-cost_price" className="num" inputMode="decimal" value={form.cost_price} onChange={(e) => setForm({ ...form, cost_price: e.target.value })} />,
+              subcategory_id: (
+                <Select id="f-product-subcategory_id" value={form.subcategory_id} onChange={(e) => setForm({ ...form, subcategory_id: e.target.value })}>
+                  <option value="">— بدون —</option>
+                  {subs.data?.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </Select>
+              ),
+            }}
+          />
+          {missing.length > 0 && <p className="text-xs text-muted-foreground">حقول مطلوبة: {missing.join("، ")}</p>}
           {save.isError && <ErrorBox message={(save.error as Error).message} />}
           <Button
             type="submit"
             className="w-full h-10 font-bold"
-            disabled={save.isPending || !form.name || !form.retail_price}
+            disabled={save.isPending || !form.name || !form.retail_price || missing.length > 0}
           >
             {save.isPending ? <Spinner /> : "حفظ المنتج"}
           </Button>

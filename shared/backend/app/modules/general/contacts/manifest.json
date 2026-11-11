@@ -31,5 +31,30 @@
   "widgets": [],
   "variants": [
     "standard"
-  ]
+  ],
+  "forms": {
+    "customer": {
+      "label": "العميل",
+      "fields": [
+        {
+          "key": "name",
+          "label": "اسم العميل أو المؤسسة",
+          "locked": true
+        },
+        {
+          "key": "phone",
+          "label": "رقم الهاتف / الواتساب"
+        },
+        {
+          "key": "credit_limit",
+          "label": "الحد الائتماني (ج.م)"
+        },
+        {
+          "key": "address",
+          "label": "العنوان",
+          "hidden": true
+        }
+      ]
+    }
+  }
 }

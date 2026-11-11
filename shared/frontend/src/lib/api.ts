@@ -91,6 +91,8 @@ async function request<T>(
   }
 
   if (opts.raw) return res as unknown as T;
+  // No content (204): the server may still label it JSON, and parsing the empty body would throw.
+  if (res.status === 204 || res.headers.get("content-length") === "0") return undefined as T;
   const ct = res.headers.get("content-type") ?? "";
   if (ct.includes("application/json")) return (await res.json()) as T;
   return (await res.text()) as unknown as T;

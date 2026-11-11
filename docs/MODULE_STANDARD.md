@@ -66,7 +66,7 @@ The general modules (the core ERP, always available) keep their historical URLs 
 
 | File | What goes in it |
 |---|---|
-| `index.ts` | The module's `ModuleDefinition` (`src/framework/types.ts`): id, activity, kind, status, screens, widgets, navigation entries. Collected by `src/framework/registry.ts` (active modules only). |
+| `index.ts` | The module's `ModuleDefinition` (`src/framework/types.ts`): id, activity, kind, status, screens, and `widgets` (widget id → lazy component, for every widget the manifest declares). Collected by `src/framework/registry.ts` (active modules only). Menus are not here: they come from the manifest's `screens` through `/settings/screens`. |
 | `api.ts` | The module's API calls (paths under `/modules/<module_id>`). |
 | `screens/README.md` | Full pages, one file each, `<Name>Page.tsx`. |
 | `components/README.md` | Parts used only by this module's screens; shared parts go in `@/components`. |
@@ -87,7 +87,9 @@ Older modules keep some screens at the module root (`PosPage.tsx`) until they ar
 | `icon`, `description` | | Shown in the module centre. |
 | `dependencies` | | Module ids that must be on too (checked at startup). |
 | `permissions` | | What the module's routes check: `[{"id": "pharmacy.dispense", "name": "…", "name_en": "…"}]`. Roles grant these ids; `require_perm("<id>")` checks them. An id is declared by one module only. |
-| `screens`, `widgets` | | Declared by the module (ADR-006 phases 4–5). |
+| `screens` | | Pages the module offers: `[{"id": "<module>.<name>", "path": "/products", "label", "icon": "<lucide name>", "permission": "inventory\|purchases"}]`. Activities arrange them into menus (`activity.json` "menu"); a role only sees those its permissions allow (ADR-006 phase 5). |
+| `widgets` | | Dashboard widgets: `[{"id": "<module>.<name>", "label", "permission", "size": "s\|m\|l"}]`; each id is registered to a component in the module's `index.ts`. |
+| `forms` | | A record's form and its built-in fields, which the screen builder arranges with the workspace's custom fields: `{"product": {"label", "fields": [{"key", "label", "locked"?, "hidden"?}]}}` (`locked`: can't be hidden; `hidden`: off until the builder shows it). |
 | `variants` | business | Includes `standard`; one folder each under `variants/`. |
 | `srs` | | SRS requirement ids the module implements. |
 | `settings_schema` | | Per-workspace settings shown in the module centre. |

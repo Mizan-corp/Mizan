@@ -56,7 +56,7 @@
           "label": "الخزائن والتدقيق الليلي"
         },
         {
-          "screen": "core.reports",
+          "screen": "reporting.reports",
           "label": "تقارير نسب الإشغال و RevPAR"
         }
       ]
@@ -76,6 +76,9 @@
         {
           "screen": "core.settings",
           "label": "إعدادات أسعار الغرف والمواسم"
+        },
+        {
+          "screen": "core.designer"
         }
       ]
     }

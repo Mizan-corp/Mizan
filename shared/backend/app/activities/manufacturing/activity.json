@@ -67,7 +67,7 @@
           "label": "الخزائن وتكاليف التشغيل الصناعي"
         },
         {
-          "screen": "core.reports",
+          "screen": "reporting.reports",
           "label": "تقارير التكاليف الصناعية والإنتاجية"
         }
       ]
@@ -87,6 +87,9 @@
         {
           "screen": "core.settings",
           "label": "إعدادات مراكز التكلفة والمصنع"
+        },
+        {
+          "screen": "core.designer"
         }
       ]
     }

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
-from app.dependencies import get_current_user, verify_warehouse_access
+from app.dependencies import get_current_user, require_perm, verify_warehouse_access
 from app.platform.auth.models.user import User
 from app.modules.general.reporting import service as report_service
 
@@ -90,3 +90,43 @@ async def aging_report(
 ):
     """Aging report: customer and supplier debts split into 0-30 / 30-60 / 60-90 / 90+ day buckets."""
     return await report_service.aging_report(db, as_of=as_of)
+
+
+# Custom fields in reports (ADR-006 phase 5): records counted (and sales totalled) by a field's value.
+_FIELD_REPORT_TABLES = {"product": "products", "customer": "customers", "supplier": "suppliers", "sale": "sales"}
+
+
+@router.get("/fields/{record}/{key}")
+async def by_custom_field(record: str, key: str, from_date: date | None = None, to_date: date | None = None,
+                          db: AsyncSession = Depends(get_db), _=Depends(require_perm("reports"))):
+    """How many records have each value of a custom field; for sales, their net total too
+    (confirmed sales, optionally in a date range). Records without a value are grouped as null."""
+    from fastapi import HTTPException
+    from sqlalchemy import text
+
+    from app.framework.fields import fields_for
+    from app.framework.hooks import workspace_activity
+
+    table = _FIELD_REPORT_TABLES.get(record)
+    if table is None:
+        raise HTTPException(404, "سجل غير معروف")
+    field = next((f for f in await fields_for(db, record, await workspace_activity(db), include_hidden=True) if f["key"] == key), None)
+    if field is None:
+        raise HTTPException(404, "حقل غير معروف")
+    where, params = ["true"], {"k": key}
+    if record == "sale":
+        where.append("status = 'confirmed'")
+        if from_date:
+            where.append("created_at >= CAST(:fd AS date)")
+            params["fd"] = from_date
+        if to_date:
+            where.append("created_at < CAST(:td AS date) + 1")
+            params["td"] = to_date
+    total = ", COALESCE(SUM(net_total), 0) AS total" if record == "sale" else ""
+    rows = (await db.execute(text(f"""
+        SELECT extra ->> :k AS value, COUNT(*) AS count{total}
+        FROM {table} WHERE {' AND '.join(where)}
+        GROUP BY 1 ORDER BY 2 DESC, 1 NULLS LAST LIMIT 200
+    """), params)).mappings().all()
+    return {"record": record, "field": {k: field.get(k) for k in ("key", "label", "type", "options")},
+            "rows": [dict(r) for r in rows]}

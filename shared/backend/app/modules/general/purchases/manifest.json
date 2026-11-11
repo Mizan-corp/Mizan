@@ -32,5 +32,31 @@
   "widgets": [],
   "variants": [
     "standard"
-  ]
+  ],
+  "forms": {
+    "supplier": {
+      "label": "المورد",
+      "fields": [
+        {
+          "key": "name",
+          "label": "اسم المورد أو الشركة المصنعة",
+          "locked": true
+        },
+        {
+          "key": "phone",
+          "label": "رقم الهاتف / مسؤول المبيعات"
+        },
+        {
+          "key": "address",
+          "label": "العنوان",
+          "hidden": true
+        },
+        {
+          "key": "notes",
+          "label": "ملاحظات",
+          "hidden": true
+        }
+      ]
+    }
+  }
 }

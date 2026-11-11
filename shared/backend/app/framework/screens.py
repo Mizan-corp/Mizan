@@ -3,23 +3,31 @@
 Modules declare what they offer in their manifest:
   "screens": [{"id": "inventory.products", "path": "/products", "label", "icon", "permission"}]
   "widgets": [{"id": "reporting.sales_today", "label", "permission", "size": "s|m|l"}]
-An activity arranges them (`activity.json` "menu", "dashboard", "home", and per standard role
-"roles": {"cashier": {"home", "menu", "dashboard"}}); `general`'s menu is everyone's default.
-A workspace role can have its own layout (sys_roles.layout, edited in the builder).
+An activity arranges them in activity.json: "menu" (groups of {"screen", "label"?, "icon"?}),
+"dashboard" (widget ids, or {"id", "size"}) and "home" (a path), and per standard role in
+"roles": {"cashier": {"home": <screen id>, "menu", "dashboard"}}. `general`'s are the defaults.
+A workspace can give any role its own layout in the builder (workspace_layouts, kind 'role').
 
-What a user sees, for the role they act as: the role's layout, else the activity's layout for
-that role, else the activity's, else general's; then only screens and widgets of installed
-modules that the role's permissions allow. A variant can relabel a screen ("screens" with a
-dict value in variant.json).
+What a user sees, for the role they act as: the workspace's layout for the role, else the
+activity's for that role, else the activity's, else general's; then only screens and widgets of
+installed modules that the role's permissions allow. A screen's permission is its own: a menu
+arranges and renames screens, it never changes who may see them. A variant can relabel a screen
+("screens" with a dict value in variant.json).
 """
 from __future__ import annotations
 
+import re
 from functools import lru_cache
+
+from fastapi import HTTPException
 
 from app.framework import variants
 
 # Available to every workspace whatever its active modules (their routes have no module guard).
 ALWAYS_ON = ("core", "reporting")
+SIZES = ("s", "m", "l")
+GROUP_ID = re.compile(r"^[a-z0-9_]{1,40}$")
+ICON = re.compile(r"^[A-Z][A-Za-z0-9]{1,40}$")  # a lucide icon name; unknown ones render a circle
 
 
 @lru_cache(maxsize=1)
@@ -40,15 +48,15 @@ def catalogue() -> tuple[dict[str, dict], dict[str, dict]]:
     return screens, widgets
 
 
-def _allowed(permission: str | None, granted: frozenset) -> bool:
+def allowed(permission: str | None, granted: frozenset | set) -> bool:
     return not permission or any(p in granted for p in permission.split("|"))
 
 
-def _active(module_id: str, active: set) -> bool:
+def installed(module_id: str, active) -> bool:
     return module_id in ALWAYS_ON or module_id in active
 
 
-def _screen(screen_id: str, activity_id: str | None) -> dict | None:
+def screen(screen_id: str, activity_id: str | None) -> dict | None:
     s = catalogue()[0].get(screen_id)
     if s is None:
         return None
@@ -56,16 +64,25 @@ def _screen(screen_id: str, activity_id: str | None) -> dict | None:
     return {**s, **override} if isinstance(override, dict) else s
 
 
+def _screen_at(path: str | None) -> str | None:
+    return next((sid for sid, s in catalogue()[0].items() if s["path"] == path), None) if path else None
+
+
+def _dashboard_entry(entry) -> dict:
+    return {"id": entry, "size": None} if isinstance(entry, str) else {"id": entry.get("id"), "size": entry.get("size")}
+
+
 def defaults(activity_id: str | None, role_code: str | None) -> dict:
-    """The activity's layout for this standard role, else the activity's, else general's."""
+    """The activity's layout for this standard role, else the activity's, else general's, in
+    the builder's form: {"home": screen id, "menu": [...], "dashboard": [{"id", "size"}]}."""
     act = variants.activity(activity_id)
     general = variants.activity("general")
     per_role = (act.get("roles") or {}).get(role_code or "", {}) or {}
     return {
-        "home": per_role.get("home") or act.get("home_screen") or general.get("home_screen"),
-        "home_path": act.get("home"),
+        "home": per_role.get("home") or _screen_at(act.get("home")) or "core.home",
         "menu": per_role.get("menu") or act.get("menu") or general.get("menu") or [],
-        "dashboard": per_role.get("dashboard") or act.get("dashboard") or general.get("dashboard") or [],
+        "dashboard": [_dashboard_entry(e) for e in
+                      (per_role.get("dashboard") or act.get("dashboard") or general.get("dashboard") or [])],
     }
 
 
@@ -75,13 +92,10 @@ def resolve(layout: dict | None, activity_id: str | None, role_code: str | None,
     base = defaults(activity_id, role_code)
     layout = layout or {}
     active = set(active_modules)
-    hidden = set(layout.get("hidden") or [])
 
-    def visible(screen_id: str, permission: str | None = None) -> dict | None:
-        s = _screen(screen_id, activity_id)
-        if not s or screen_id in hidden or not _active(s["module"], active):
-            return None
-        if not _allowed(permission if permission is not None else s.get("permission"), granted):
+    def visible(screen_id: str) -> dict | None:
+        s = screen(screen_id, activity_id)
+        if not s or not installed(s["module"], active) or not allowed(s.get("permission"), granted):
             return None
         return s
 
@@ -89,29 +103,78 @@ def resolve(layout: dict | None, activity_id: str | None, role_code: str | None,
     for group in layout.get("menu") or base["menu"]:
         items = []
         for entry in group.get("items") or []:
-            s = visible(entry["screen"], entry.get("permission"))
+            s = visible(entry["screen"])
             if s:
-                items.append({"id": s["id"], "path": entry.get("path") or s["path"],
-                              "label": entry.get("label") or s.get("label"), "icon": entry.get("icon") or s.get("icon")})
+                items.append({"id": s["id"], "path": s["path"], "label": entry.get("label") or s.get("label"),
+                              "icon": entry.get("icon") or s.get("icon")})
         if items:
             menu.append({"id": group.get("id"), "label": group.get("label"), "items": items})
 
     available = [{"id": s["id"], "path": s["path"], "label": s.get("label"), "icon": s.get("icon"), "module": s["module"]}
                  for sid in catalogue()[0] if (s := visible(sid))]
 
-    home_id = layout.get("home") or base["home"]
-    home = visible(home_id) if home_id else None
-    home_path = home["path"] if home else (base["home_path"] if base["home_path"] and any(
-        i["path"] == base["home_path"] for g in menu for i in g["items"]) else None) or "/"
+    home = visible(layout.get("home") or base["home"])
 
     widgets = catalogue()[1]
     dashboard = []
     for entry in layout.get("dashboard") or base["dashboard"]:
-        # "widget.id", or {"id", "size"} to place it at another size than the module's default.
-        wid, size = (entry, None) if isinstance(entry, str) else (entry.get("id"), entry.get("size"))
-        w = widgets.get(wid)
-        if w and _active(w["module"], active) and _allowed(w.get("permission"), granted) and wid not in hidden:
-            dashboard.append({**{k: w.get(k) for k in ("id", "label", "size", "module")}, **({"size": size} if size else {})})
+        e = _dashboard_entry(entry)
+        w = widgets.get(e["id"])
+        if w and installed(w["module"], active) and allowed(w.get("permission"), granted):
+            dashboard.append({"id": w["id"], "label": w.get("label"), "module": w["module"], "size": e["size"] or w.get("size")})
 
-    return {"home": home_path, "menu": menu, "dashboard": dashboard, "screens": available,
+    return {"home": home["path"] if home else "/", "menu": menu, "dashboard": dashboard, "screens": available,
             "custom": bool(layout)}
+
+
+def check_layout(layout: dict) -> dict:
+    """A role layout from the builder, cleaned: known screens and widgets, sane sizes."""
+    screens, widgets = catalogue()
+    out: dict = {}
+    home = layout.get("home")
+    if home:
+        if home not in screens:
+            raise HTTPException(422, f"شاشة غير معروفة: {home}")
+        out["home"] = home
+
+    menu, seen_groups, seen_screens = [], set(), set()
+    for group in (layout.get("menu") or [])[:12]:
+        gid = str(group.get("id") or "").strip()
+        label = str(group.get("label") or "").strip()[:64]
+        if not GROUP_ID.match(gid) or gid in seen_groups:
+            raise HTTPException(422, f"معرّف مجموعة غير صالح: {gid or '—'}")
+        if not label:
+            raise HTTPException(422, "اسم المجموعة مطلوب")
+        seen_groups.add(gid)
+        items = []
+        for entry in (group.get("items") or [])[:60]:
+            sid = entry.get("screen")
+            if sid not in screens:
+                raise HTTPException(422, f"شاشة غير معروفة: {sid}")
+            if sid in seen_screens:
+                raise HTTPException(422, f"الشاشة مكررة في القائمة: {screens[sid].get('label')}")
+            seen_screens.add(sid)
+            item = {"screen": sid}
+            if (entry.get("label") or "").strip() and entry["label"].strip() != screens[sid].get("label"):
+                item["label"] = entry["label"].strip()[:64]
+            if ICON.match(str(entry.get("icon") or "")) and entry["icon"] != screens[sid].get("icon"):
+                item["icon"] = entry["icon"]
+            items.append(item)
+        menu.append({"id": gid, "label": label, "items": items})
+    if not any(g["items"] for g in menu):
+        raise HTTPException(422, "القائمة تحتاج شاشة واحدة على الأقل")
+    out["menu"] = menu
+
+    dashboard, seen_widgets = [], set()
+    for entry in (layout.get("dashboard") or [])[:24]:
+        e = _dashboard_entry(entry)
+        if e["id"] not in widgets:
+            raise HTTPException(422, f"عنصر لوحة غير معروف: {e['id']}")
+        if e["id"] in seen_widgets:
+            continue
+        seen_widgets.add(e["id"])
+        if e["size"] not in (None, *SIZES):
+            raise HTTPException(422, f"مقاس غير صالح: {e['size']}")
+        dashboard.append({"id": e["id"], **({"size": e["size"]} if e["size"] and e["size"] != widgets[e["id"]].get("size") else {})})
+    out["dashboard"] = dashboard
+    return out

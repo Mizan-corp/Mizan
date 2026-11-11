@@ -2,7 +2,8 @@
 
 ## Status
 Proposed (2026-11-10). Agreed with the owner in a structured review on 2026-11-10 (the full
-question-by-question record is in the **Decision log** at the end). Not started. Once accepted
+question-by-question record is in the **Decision log** at the end). Phases 1–5 are built (see the
+implementation notes); 6–9 are not started. Once accepted
 it replaces the module conventions in `AGENTS.md`. Related: #94 (act as one role at a time),
 #89 (updates for installed servers), #91 (bring your own database), #92 (device limits).
 
@@ -557,6 +558,54 @@ POS's `pharmacy` variant (dispensing is a sale), and fields are fully customisab
 - **Known gaps**: uploaded files are written to the API's disk, which isn't kept on Vercel; POS
   variants other than pharmacy (retail, restaurant, salon) are still "planned"; insurance
   co-pay at the POS is not built.
+
+## Phase 5 implementation notes (2026-11-11)
+Role screens and the screen builder (#103). The owner chose: every activity's menu converted now,
+and a builder covering role layouts, custom fields, form layouts and a dashboard widget catalogue.
+
+- **Screens are declared**: the hand-typed menus (`lib/nav.ts`, one per activity) became data. 77
+  screens in module manifests (`"screens": [{"id", "path", "label", "icon", "permission"}]`), each
+  activity's menu in `activity.json` (`"menu"`: groups of `{"screen", "label"?, "icon"?}`;
+  `general`'s is the default). A screen's permission is its own: a menu arranges and renames
+  screens, it never changes who sees them (the two entries that overrode a permission were folded
+  into their screens). The app only maps icon names to components.
+- **What a role sees** (`framework/screens.py`, `GET /settings/screens`): the workspace's layout for
+  the acting role, else the activity's for that role (`activity.json` "roles"), else the
+  activity's, else general's; then only screens and widgets of installed modules that the role's
+  permissions allow. `core` and `reporting` count as always installed (their routes have no
+  module guard). The sidebar, rail, top bar, command palette and the "no access" fallback all use it.
+- **Widgets**: modules declare them (`"widgets": [{"id", "label", "permission", "size": s|m|l}]`)
+  and register their components in `index.ts`; the dashboard renders the role's list (an entry can
+  set its own size). The old dashboard was split into reporting (today, month, 14-day trend),
+  POS (shift, latest invoices), inventory (shortage count and list) and batches (expiring). The
+  trend comes from a new `/reports/sales/trend` (it was built from the last 14 invoices).
+- **Layouts are per workspace** (`workspace_layouts`, v66, RLS): kind `role` (target: role id) and
+  `form` (target: record). Standard roles are platform rows shared by every workspace, so their
+  layouts can't live on `sys_roles` (the first draft of v66 did that; it never reached production).
+- **The builder** (`/designer`, `platform/settings/designer.py`), gated by the `designer`
+  permission (admins hold every declared permission, so owners have it):
+  - *role screens*: main screen, menu groups (add, rename, order, move screens between groups,
+    rename screens) and dashboard widgets (order, size); screens the role can't open are marked;
+    reset returns to the activity's default;
+  - *forms*: modules declare a form's built-in fields (`"forms": {"product": {"label", "fields":
+    [{"key", "label", "locked"?, "hidden"?}]}}`); a layout arranges built-in and custom fields in
+    sections and hides fields (not locked or required ones). Fields placed nowhere go to the first
+    (built-in) or last (custom) section. Product, customer and supplier forms render through
+    `RecordFormFields` (`src/framework/forms.tsx`);
+  - *custom fields*: the phase 4 fields API, now behind `designer`; a key can't take a built-in
+    field's. Customers and suppliers now accept and validate `extra` like products and sales.
+  - Changes are written to the audit log.
+- **Custom fields in reports**: every export of products, stock, sales, customers and suppliers
+  has a column per custom field; `/reports/fields/{record}/{key}` counts records (and totals
+  sales) by a field's value.
+- **Fixed on the way**: the shared `Input`/`Select` dropped their styling whenever a page passed a
+  `className` (price and phone inputs rendered unstyled); the API client failed on 204 responses
+  labelled JSON (every "reset"/"delete" reported an error); batches' frontend definition was still
+  "planned"; healthcare's clinic screens were attributed to `core`.
+- **Known gaps**: the report by field has no screen yet (API and exports only); sale and sale-line
+  forms (POS) don't use form layouts; layouts can't be copied between roles; activities don't yet
+  declare per-role defaults (`roles` is empty everywhere, so a cashier starts from the activity's
+  menu filtered by permissions).
 
 ## Decision log (review of 2026-11-10)
 Answers as given by the owner; *italics* = how this ADR applies them.

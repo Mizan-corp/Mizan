@@ -167,7 +167,7 @@
           "screen": "finance.finance"
         },
         {
-          "screen": "core.reports"
+          "screen": "reporting.reports"
         }
       ]
     },
@@ -192,6 +192,9 @@
         },
         {
           "screen": "core.settings"
+        },
+        {
+          "screen": "core.designer"
         }
       ]
     }

@@ -73,60 +73,11 @@
       "permission": "archive"
     },
     {
-      "id": "core.clinic_appointments",
-      "path": "/clinic?tab=appointments",
-      "label": "حجز المواعيد والانتظار",
-      "icon": "Calendar",
-      "permission": ""
-    },
-    {
-      "id": "core.clinic_beds",
-      "path": "/clinic?tab=beds",
-      "label": "أسرّة التنويم والأجنحة",
-      "icon": "Bed",
-      "permission": ""
-    },
-    {
-      "id": "core.clinic_billing",
-      "path": "/clinic?tab=billing",
-      "label": "فواتير الكشوفات والتأمين",
-      "icon": "Receipt",
-      "permission": ""
-    },
-    {
-      "id": "core.clinic_claims",
-      "path": "/clinic?tab=claims",
-      "label": "مطالبات شركات التأمين",
-      "icon": "ShieldCheck",
-      "permission": ""
-    },
-    {
-      "id": "core.clinic_emr",
-      "path": "/clinic?tab=emr",
-      "label": "الكشوفات السريرية والتشخيص",
-      "icon": "HeartPulse",
-      "permission": ""
-    },
-    {
-      "id": "core.clinic_labs",
-      "path": "/clinic?tab=labs",
-      "label": "الفحوصات والتحاليل المخبرية",
-      "icon": "Microscope",
-      "permission": ""
-    },
-    {
-      "id": "core.clinic_patients",
-      "path": "/clinic?tab=patients",
-      "label": "سجلات وملفات المرضى (EMR)",
-      "icon": "Users",
-      "permission": ""
-    },
-    {
-      "id": "core.clinic_rx_labs",
-      "path": "/clinic?tab=rx_labs",
-      "label": "الروشتات والوصفات الرقمية",
-      "icon": "Pill",
-      "permission": ""
+      "id": "core.designer",
+      "path": "/designer",
+      "label": "مصمم الشاشات والنماذج",
+      "icon": "Palette",
+      "permission": "designer"
     },
     {
       "id": "core.modules",
@@ -134,13 +85,6 @@
       "label": "سوق الوحدات والأنشطة",
       "icon": "Blocks",
       "permission": "settings"
-    },
-    {
-      "id": "core.reports",
-      "path": "/reports",
-      "label": "التقارير",
-      "icon": "ChartColumn",
-      "permission": "reports"
     },
     {
       "id": "core.settings",

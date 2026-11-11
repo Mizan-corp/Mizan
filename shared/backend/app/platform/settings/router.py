@@ -9,10 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
 from app.platform.auth.models.user import User
+from app.platform.settings.designer import router as designer_router
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/settings", tags=["settings"])
+router.include_router(designer_router)  # the screen builder (ADR-006 phase 5)
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 MAX_UPLOAD_SIZE = 5 * 1024 * 1024
@@ -264,7 +266,7 @@ async def workspace_profile(db: AsyncSession = Depends(get_db), _: User = Depend
 
 
 @router.get("/fields/{record}")
-async def list_fields(record: str, db: AsyncSession = Depends(get_db), _: User = Depends(require_perm("settings"))):
+async def list_fields(record: str, db: AsyncSession = Depends(get_db), _: User = Depends(require_perm("designer"))):
     """A record's fields, hidden ones included (for editing)."""
     from app.framework import fields as F
     from app.framework.hooks import workspace_activity
@@ -276,7 +278,7 @@ async def list_fields(record: str, db: AsyncSession = Depends(get_db), _: User =
 
 @router.put("/fields/{record}/{key}")
 async def save_field(record: str, key: str, data: FieldIn, db: AsyncSession = Depends(get_db),
-                     _: User = Depends(require_perm("settings"))):
+                     _: User = Depends(require_perm("designer"))):
     """Add a field of the workspace's own, or change (relabel, require, hide) a variant's field."""
     from app.framework import fields as F
     from app.framework.hooks import workspace_activity
@@ -286,6 +288,10 @@ async def save_field(record: str, key: str, data: FieldIn, db: AsyncSession = De
     if not F.KEY.match(key):
         raise HTTPException(422, "مفتاح الحقل: حروف إنجليزية صغيرة وأرقام و _ فقط")
     activity_id = await workspace_activity(db)
+    from app.framework.layouts import forms
+
+    if key in {f["key"] for f in (forms().get(record) or {}).get("fields", [])}:
+        raise HTTPException(422, "هذا المفتاح مستخدم لحقل أساسي في النموذج")
     base = {f["key"]: f for f in F.variant_fields(record, activity_id)}.get(key)
     definition = F.check_definition({**(base or {}), **data.definition})
     if base is None and not definition.get("label"):
@@ -302,7 +308,7 @@ async def save_field(record: str, key: str, data: FieldIn, db: AsyncSession = De
 
 @router.delete("/fields/{record}/{key}", status_code=204)
 async def reset_field(record: str, key: str, db: AsyncSession = Depends(get_db),
-                      _: User = Depends(require_perm("settings"))):
+                      _: User = Depends(require_perm("designer"))):
     """Remove the workspace's change (a variant's field goes back to its default) or its own field
     (values already saved stay on the records)."""
     await db.execute(text("DELETE FROM workspace_fields WHERE record = :r AND key = :k"), {"r": record, "k": key})
@@ -319,18 +325,3 @@ async def storage(refresh: bool = False, db: AsyncSession = Depends(get_db), use
     await db.commit()
     return out
 
-
-
-@router.get("/screens")
-async def my_screens(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
-    """The acting role's home, menu and dashboard, and every screen it may open (ADR-006 phase 5)."""
-    from app.framework.activation import get_active_modules
-    from app.framework.hooks import workspace_activity
-    from app.framework.screens import resolve
-
-    acting = getattr(user, "acting_role", None)
-    layout = {}
-    if acting:
-        layout = await db.scalar(text("SELECT layout FROM sys_roles WHERE id = :r"), {"r": acting["id"]}) or {}
-    return resolve(layout, await workspace_activity(db), acting["code"] if acting else None,
-                   getattr(user, "effective_permissions", frozenset()), await get_active_modules(db))

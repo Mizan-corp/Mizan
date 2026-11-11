@@ -101,5 +101,42 @@
   "variants": [
     "standard",
     "pharmacy"
-  ]
+  ],
+  "forms": {
+    "product": {
+      "label": "المنتج",
+      "fields": [
+        {
+          "key": "name",
+          "label": "الاسم",
+          "locked": true
+        },
+        {
+          "key": "barcode",
+          "label": "الباركود"
+        },
+        {
+          "key": "unit",
+          "label": "الوحدة"
+        },
+        {
+          "key": "retail_price",
+          "label": "سعر التجزئة",
+          "locked": true
+        },
+        {
+          "key": "wholesale_price",
+          "label": "سعر الجملة"
+        },
+        {
+          "key": "cost_price",
+          "label": "التكلفة"
+        },
+        {
+          "key": "subcategory_id",
+          "label": "التصنيف"
+        }
+      ]
+    }
+  }
 }

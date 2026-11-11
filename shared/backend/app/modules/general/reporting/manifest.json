@@ -18,7 +18,15 @@
       "name_en": "Reports"
     }
   ],
-  "screens": [],
+  "screens": [
+    {
+      "id": "reporting.reports",
+      "path": "/reports",
+      "label": "التقارير",
+      "icon": "ChartColumn",
+      "permission": "reports"
+    }
+  ],
   "widgets": [
     {
       "id": "reporting.sales_today",

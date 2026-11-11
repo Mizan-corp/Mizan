@@ -24,8 +24,7 @@
       "items": [
         {
           "screen": "wms.wms",
-          "label": "لوحة المستودع والتخزين (3PL)",
-          "permission": "operations"
+          "label": "لوحة المستودع والتخزين (3PL)"
         },
         {
           "screen": "pos.sales",
@@ -56,7 +55,7 @@
           "label": "الخزائن وتكاليف الوقود ومصاريف الطرق"
         },
         {
-          "screen": "core.reports",
+          "screen": "reporting.reports",
           "label": "تقارير الشحنات والمسارات اليومية"
         }
       ]
@@ -72,6 +71,9 @@
         {
           "screen": "core.settings",
           "label": "إعدادات مناطق التوصيل والتسعير"
+        },
+        {
+          "screen": "core.designer"
         }
       ]
     }
