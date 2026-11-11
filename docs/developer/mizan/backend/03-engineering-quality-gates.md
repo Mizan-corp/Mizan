@@ -21,6 +21,7 @@ GPT model: gpt-6
   2. **Before-flush stamp**: copies ContextVar onto new TenantScoped rows in `before_flush`
   3. **PostgreSQL RLS**: `ENABLE + FORCE` with `tenant_isolation` policy; GUC `app.tenant_id` set per transaction
 - After `db.commit()` under PgBouncer: re-apply `set_config('app.tenant_id', :t, true)` via `after_begin` listener
+- While a workspace is bound, every transaction runs `SET LOCAL ROLE mizan_app` (in `bind_tenant` and `after_begin`). The login role (Neon's `neondb_owner`, a local superuser) **bypasses RLS**, so without this RLS does nothing (#112). Scripts and migrations (no workspace bound) keep the login role; request code must not run DDL or write platform rows (no `tenant_id`) except in a separate session with no workspace bound
 - Never bypass any layer — a single bypass leaks all tenant data
 - `users` table must have RLS too (fixed in migration v33)
 - Migrations must run with `app.bypass = 'on'`

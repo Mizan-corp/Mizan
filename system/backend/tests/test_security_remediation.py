@@ -23,6 +23,7 @@ from app.dependencies import require_superadmin
 from app.platform.tenancy.models import Tenant
 from app.platform.auth.models.user import User
 from fastapi import HTTPException
+from tests.conftest import give_roles
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set"
@@ -160,6 +161,7 @@ async def _create_security_test_env():
         )
         session.add(u_t2_user)
 
+        await give_roles(session)
         await session.commit()
 
         def make_token(u):
@@ -365,6 +367,7 @@ async def test_sec_04_cross_tenant_login_ambiguity():
             is_active=True,
         )
         session.add(u2)
+        await give_roles(session)
         await session.commit()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:

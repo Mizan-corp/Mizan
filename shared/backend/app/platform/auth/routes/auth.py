@@ -1,7 +1,9 @@
+import uuid
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -82,9 +84,10 @@ async def me(current_user: User = Depends(get_current_user), db: AsyncSession = 
                 "trial_ends_at": t.trial_ends_at.isoformat() if t.trial_ends_at else None,
             }
 
-    perms = list(user.permissions or [])
-    if (user.role in ("admin", "owner") or user.is_superadmin) and "*" not in perms:
-        perms.append("*")
+    # The acting role's permissions (ADR-006 phase 3): no "*", even for admins.
+    perms = sorted(getattr(current_user, "effective_permissions", frozenset()))
+    acting = getattr(current_user, "acting_role", None)
+    roles = [{"id": str(r["id"]), "code": r["code"], "name": r["name"]} for r in getattr(current_user, "assigned_roles", [])]
 
     return {
         "id": str(user.id),
@@ -93,6 +96,8 @@ async def me(current_user: User = Depends(get_current_user), db: AsyncSession = 
         "role": user.role,
         "tenant_id": str(user.tenant_id) if user.tenant_id else None,
         "permissions": perms,
+        "acting_role": {"id": str(acting["id"]), "code": acting["code"], "name": acting["name"]} if acting else None,
+        "roles": roles,
         "is_manager": bool(user.is_manager) if user.is_manager is not None else False,
         "is_superadmin": bool(user.is_superadmin),
         "default_warehouse_id": str(user.default_warehouse_id) if user.default_warehouse_id else None,
@@ -120,3 +125,18 @@ async def reauthenticate(data: LoginRequest, current_user: User = Depends(get_cu
     """Verify credentials without issuing a new session — used for handover/manager approval."""
     user = await auth_service.authenticate(db, data.username, data.password)
     return {"user_id": str(user.id), "username": user.username, "full_name": user.full_name}
+
+
+class ActingRoleIn(BaseModel):
+    role_id: uuid.UUID
+
+
+@router.post("/me/acting-role")
+async def switch_acting_role(data: ActingRoleIn, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    """Act as another of one's assigned roles. Nobody holds every permission at once (#94)."""
+    from app.platform.permissions.access import switch_role
+
+    role = await switch_role(db, current_user, data.role_id)
+    await db.commit()
+    return {"acting_role": {"id": str(role["id"]), "code": role["code"], "name": role["name"]},
+            "permissions": sorted(current_user.effective_permissions)}

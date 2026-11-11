@@ -25,7 +25,33 @@
       "description": "رمز العملة المستخدمة في كافة المعاملات المالية"
     }
   ],
-  "permissions": [],
+  "permissions": [
+    {
+      "id": "users",
+      "name": "المستخدمون والأدوار",
+      "name_en": "Users and roles"
+    },
+    {
+      "id": "settings",
+      "name": "إعدادات المنشأة",
+      "name_en": "Workspace settings"
+    },
+    {
+      "id": "admin",
+      "name": "لوحة الإدارة والملخص المالي",
+      "name_en": "Administration overview"
+    },
+    {
+      "id": "archive",
+      "name": "الأرشيف",
+      "name_en": "Archive"
+    },
+    {
+      "id": "supervise",
+      "name": "الإشراف على كل الفروع والورديات",
+      "name_en": "Supervise every branch and shift"
+    }
+  ],
   "screens": [],
   "widgets": []
 }

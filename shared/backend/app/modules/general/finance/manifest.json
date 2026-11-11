@@ -20,7 +20,13 @@
       "description": "منع تسجيل أي حركة صرف إذا كان رصيد الخزينة المحددة غير كافٍ"
     }
   ],
-  "permissions": [],
+  "permissions": [
+    {
+      "id": "finance",
+      "name": "المالية والخزائن",
+      "name_en": "Finance and safes"
+    }
+  ],
   "screens": [],
   "widgets": [],
   "variants": [

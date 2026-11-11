@@ -21,7 +21,13 @@
       "description": "تحديث سعر تكلفة الصنف في بطاقة المنتج فور تسجيل فاتورة شراء جديدة"
     }
   ],
-  "permissions": [],
+  "permissions": [
+    {
+      "id": "purchases",
+      "name": "المشتريات والموردون",
+      "name_en": "Purchases and suppliers"
+    }
+  ],
   "screens": [],
   "widgets": [],
   "variants": [

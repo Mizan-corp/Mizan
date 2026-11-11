@@ -5,6 +5,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
+from app.platform.permissions.access import can
 from app.dependencies import get_current_user, require_is_manager, require_perm, verify_warehouse_access
 from app.modules.general.pos.models import DrawerTransaction, Shift, ShiftStatus
 from app.platform.auth.models.user import User
@@ -102,7 +103,7 @@ async def transfer_drawer(shift_id: uuid.UUID, data: TransferDrawerRequest, db: 
     shift = await db.get(Shift, shift_id)
     if shift:
         await verify_warehouse_access(db, current_user, shift.warehouse_id)
-    is_privileged = current_user.is_manager or current_user.role in ('admin', 'manager')
+    is_privileged = current_user.is_manager or can(current_user, "supervise")
     # Pass None as from_user_id so service skips ownership check for privileged users
     ownership_id = None if is_privileged else current_user.id
     new_shift = await shift_service.transfer_drawer(db, shift_id, data.to_user_id, data.amount, ownership_id, data.notes, closed_by=current_user.id)
@@ -118,7 +119,7 @@ async def transfer_drawer(shift_id: uuid.UUID, data: TransferDrawerRequest, db: 
 async def shift_summary(shift_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     shift = await db.get(Shift, shift_id)
     is_own = shift and shift.cashier_id == current_user.id
-    is_privileged = current_user.is_manager or current_user.role in ('admin', 'manager')
+    is_privileged = current_user.is_manager or can(current_user, "supervise")
     if shift and not is_own and not is_privileged:
         raise HTTPException(status_code=403, detail="لا يمكنك الاطلاع على وردية موظف آخر")
     return await shift_service.compute_summary(db, shift_id)
@@ -140,7 +141,7 @@ async def add_transaction(shift_id: uuid.UUID, data: DrawerTxCreate, db: AsyncSe
 async def list_transactions(shift_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     shift = await db.get(Shift, shift_id)
     is_own = shift and shift.cashier_id == current_user.id
-    is_privileged = current_user.is_manager or current_user.role in ('admin', 'manager')
+    is_privileged = current_user.is_manager or can(current_user, "supervise")
     if shift and not is_own and not is_privileged:
         raise HTTPException(status_code=403, detail="لا يمكنك الاطلاع على وردية موظف آخر")
     result = await db.execute(

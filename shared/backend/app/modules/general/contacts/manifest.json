@@ -20,7 +20,13 @@
       "description": "الحد الأقصى للمديونية المسموح بها للعميل قبل تنبيه الكاشير"
     }
   ],
-  "permissions": [],
+  "permissions": [
+    {
+      "id": "customers",
+      "name": "العملاء وحساباتهم",
+      "name_en": "Customers and their accounts"
+    }
+  ],
   "screens": [],
   "widgets": [],
   "variants": [

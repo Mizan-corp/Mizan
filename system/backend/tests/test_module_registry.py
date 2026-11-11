@@ -66,6 +66,25 @@ def test_manifest_index_covers_every_module():
     assert set(manifest_index()) == {m.id for m in registry.get_all_manifests()}
 
 
+def test_every_checked_permission_is_declared_once():
+    """One permission system (ADR-006 phase 3): ids live in one module's manifest, and every
+    require_perm(...) names a declared id."""
+    from app.framework.loader import manifest_index
+
+    owners: dict[str, list[str]] = {}
+    for module_id, manifest in manifest_index().items():
+        for p in manifest.get("permissions", []):
+            owners.setdefault(p["id"] if isinstance(p, dict) else p, []).append(module_id)
+    assert not {k: v for k, v in owners.items() if len(v) > 1}
+
+    root = Path(__file__).resolve().parents[3] / "shared" / "backend" / "app"
+    checked = set()
+    for f in root.rglob("*.py"):
+        for call in re.findall(r"require_perm\(([^)]*)\)", f.read_text(errors="ignore")):
+            checked.update(re.findall(r"[\"']([^\"']+)[\"']", call))
+    assert checked - set(owners) == set()
+
+
 @pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
 async def test_active_modules_live_on_the_workspace():
     from sqlalchemy import delete, text

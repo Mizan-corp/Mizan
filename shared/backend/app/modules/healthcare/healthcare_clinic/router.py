@@ -38,33 +38,15 @@ async def get_current_tenant_id(user: User = Depends(get_current_user)) -> uuid.
 
 # ─── RBAC / ABAC Permissions Enforcement ───────────────────────────────────
 def _has_clinic_perm(user: User, *perms: str) -> bool:
-    if getattr(user, "is_superadmin", False) or user.role in ("admin", "manager"):
+    """The acting role's clinic permissions: 'clinic' is the whole clinic; with no specific
+    permission asked, 'clinic:view' is enough. (Role names used to grant these; the standard
+    roles hold them now, ADR-006 phase 3.)"""
+    granted = getattr(user, "effective_permissions", frozenset())
+    if "clinic" in granted:
         return True
-    user_perms = user.permissions or []
-    if "*" in user_perms or "clinic" in user_perms:
-        return True
-
     if not perms:
-        return "clinic:view" in user_perms or user.role in (
-            "doctor", "nurse", "receptionist", "lab_tech", "pharmacist", "accountant"
-        )
-
-    for p in perms:
-        if p in user_perms:
-            return True
-        if p == "clinic:doctor" and user.role == "doctor":
-            return True
-        if p == "clinic:nurse" and user.role in ("doctor", "nurse"):
-            return True
-        if p == "clinic:dispense" and user.role in ("pharmacist", "doctor"):
-            return True
-        if p == "clinic:lab" and user.role in ("lab_tech", "doctor"):
-            return True
-        if p == "clinic:manage" and user.role in ("doctor", "nurse", "receptionist"):
-            return True
-        if p == "clinic:billing" and user.role in ("accountant", "receptionist", "doctor"):
-            return True
-    return False
+        return "clinic:view" in granted
+    return any(p in granted for p in perms)
 
 
 async def require_clinic_view(current_user: User = Depends(get_current_user)) -> User:

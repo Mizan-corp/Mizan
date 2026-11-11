@@ -79,21 +79,11 @@ def _ensure_user(admin_api: Api, username: str, full_name: str, role: str, passw
     raise RuntimeError(f"Unable to provision {username}: {r.status_code} {r.text[:200]}")
 
 
-FULL_PERMS = [
-    "pos", "sales", "quotations", "inventory", "operations", "purchases",
-    "customers", "reports", "archive", "payroll", "users", "settings",
-    "admin", "shifts", "finance",
-]
-
-
 @pytest.fixture(scope="session")
 def owner(admin_api: Api, reg: Registry, db: DB):
-    """A user with every permission (incl. 'finance' + 'purchases')."""
+    """A user acting as admin: every permission (the admin role holds them explicitly)."""
     uid_owner = _ensure_user(admin_api, OWNER_USER, "E2E Owner", "admin", "E2eOwner9!", reg)
-    db.q(
-        "UPDATE users SET permissions = %s::jsonb, is_manager = TRUE WHERE id = %s",
-        (json.dumps(FULL_PERMS), uid_owner),
-    )
+    db.q("UPDATE users SET is_manager = TRUE WHERE id = %s", (uid_owner,))
     return uid_owner
 
 

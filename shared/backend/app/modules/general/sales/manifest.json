@@ -28,7 +28,18 @@
       "description": "تمكين الكاشير أو مسؤول المبيعات من تطبيق خصم مباشر على الفاتورة"
     }
   ],
-  "permissions": [],
+  "permissions": [
+    {
+      "id": "sales",
+      "name": "المبيعات والفواتير",
+      "name_en": "Sales and invoices"
+    },
+    {
+      "id": "quotations",
+      "name": "عروض الأسعار",
+      "name_en": "Quotations"
+    }
+  ],
   "screens": [],
   "widgets": [],
   "variants": [

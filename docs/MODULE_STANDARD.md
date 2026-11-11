@@ -84,7 +84,8 @@ Older modules keep some screens at the module root (`PosPage.tsx`) until they ar
 | `version` | yes | Semantic version. |
 | `icon`, `description` | | Shown in the module centre. |
 | `dependencies` | | Module ids that must be on too (checked at startup). |
-| `permissions`, `screens`, `widgets` | | Declared by the module (ADR-006 phases 3–5). |
+| `permissions` | | What the module's routes check: `[{"id": "pharmacy.dispense", "name": "…", "name_en": "…"}]`. Roles grant these ids; `require_perm("<id>")` checks them. An id is declared by one module only. |
+| `screens`, `widgets` | | Declared by the module (ADR-006 phases 4–5). |
 | `variants` | business | Includes `standard`; one folder each under `variants/`. |
 | `srs` | | SRS requirement ids the module implements. |
 | `settings_schema` | | Per-workspace settings shown in the module centre. |

@@ -910,6 +910,8 @@ Every business row has `tenant_id UUID NOT NULL` with cascade delete. Three enfo
 
 GUC `app.tenant_id` is re-applied on every transaction via `after_begin` listener (PgBouncer safety).
 
+RLS only binds roles without BYPASSRLS, so while a workspace is bound every transaction runs as `mizan_app` (`SET LOCAL ROLE`, migration v48b); the login role is used only with no workspace bound (scripts, migrations) (#112).
+
 ### 9.2 Data Model Summary
 
 52 tables. 50 tenant-scoped, 2 platform-only.

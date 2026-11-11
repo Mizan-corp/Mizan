@@ -65,20 +65,28 @@ async def delete_category(cat_id: uuid.UUID, db: AsyncSession = Depends(get_db),
 # ── User Permissions ───────────────────────────────────────────────────────
 @router.get("/permissions/{user_id}")
 async def get_permissions(user_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("users"))):
-    r = await db.execute(text("SELECT permissions, is_manager FROM users WHERE id=:id"), {'id': user_id})
-    row = r.fetchone()
+    """The permissions of the role the user acts as (ADR-006 phase 3), and the manager flag."""
+    from app.platform.permissions.access import roles_of
+
+    row = (await db.execute(text("SELECT active_role_id, is_manager FROM users WHERE id=:id"), {"id": user_id})).fetchone()
     if not row:
         raise HTTPException(404)
-    return {"permissions": row[0] or [], "is_manager": bool(row[1])}
+    roles = await roles_of(db, user_id)
+    acting = next((r for r in roles if r["id"] == row[0]), roles[0] if roles else None)
+    return {"permissions": sorted(acting["grants"] or []) if acting else [], "is_manager": bool(row[1])}
 
 
 @router.put("/permissions/{user_id}")
 async def update_permissions(user_id: uuid.UUID, data: PermissionsUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("users"))):
-    import json as _json
-    await db.execute(
-        text("UPDATE users SET permissions=cast(:p as jsonb), is_manager=:m WHERE id=:id"),
-        {'id': user_id, 'p': _json.dumps(data.permissions), 'm': data.is_manager}
-    )
+    """Set a user's access: their standard role if the list matches it, else a role of their own."""
+    from app.platform.auth.models.user import User as _User
+    from app.platform.permissions.access import set_access
+
+    user = await db.get(_User, user_id)
+    if not user:
+        raise HTTPException(404)
+    await set_access(db, user, user.role, list(data.permissions))
+    user.is_manager = data.is_manager
     await db.commit()
     return {"detail": "updated"}
 

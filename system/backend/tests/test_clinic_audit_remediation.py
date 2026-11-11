@@ -38,6 +38,7 @@ from app.modules.healthcare.healthcare_clinic.models import (
     ClinicPrescription,
 )
 from app.modules.pharmacy.pharmacy.models import PharmacyBatch, PharmacyDrug
+from tests.conftest import give_roles
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set"
@@ -103,6 +104,7 @@ async def _create_test_env():
         )
         session.add(cashier)
 
+        await give_roles(session)
         await session.commit()
 
         doc_token = create_access_token({
@@ -705,6 +707,7 @@ async def test_p1_12_module_guard_blocks_unsubscribed_tenant():
             is_active=True,
         )
         session.add(user)
+        await give_roles(session)
         await session.commit()
 
         token = create_access_token({

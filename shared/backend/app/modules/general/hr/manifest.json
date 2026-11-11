@@ -21,7 +21,13 @@
       "description": "عدد ساعات الدوام القياسي لاحتساب ساعات الإضافي والغياب"
     }
   ],
-  "permissions": [],
+  "permissions": [
+    {
+      "id": "payroll",
+      "name": "الموظفون والرواتب",
+      "name_en": "Employees and payroll"
+    }
+  ],
   "screens": [],
   "widgets": [],
   "variants": [

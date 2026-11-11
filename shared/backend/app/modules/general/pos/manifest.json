@@ -49,7 +49,18 @@
       "description": "إظهار لوحة أرقام 44px سريعة لتسجيل المبالغ المستلمة وحساب الباقي."
     }
   ],
-  "permissions": [],
+  "permissions": [
+    {
+      "id": "pos",
+      "name": "نقطة البيع",
+      "name_en": "Point of sale"
+    },
+    {
+      "id": "shifts",
+      "name": "الورديات والدرج",
+      "name_en": "Shifts and cash drawer"
+    }
+  ],
   "screens": [],
   "widgets": [],
   "variants": [

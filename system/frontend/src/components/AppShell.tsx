@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
   Clock,
@@ -21,7 +21,7 @@ import { api } from "@/lib/api";
 import { NAV_ITEMS, getSectorNavigation } from "@app/lib/nav";
 import { SECTOR_BADGES, SECTOR_PRIMARY_ROUTES } from "@/lib/plans";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/stores/auth";
+import { type RoleRef, useAuth } from "@/stores/auth";
 import { useModulesStore } from "@app/stores/modules";
 import { useI18nStore } from "@/i18n";
 import { AutomationWorkerModal } from "@app/platform/automation_worker/AutomationWorkerModal";
@@ -385,7 +385,20 @@ function AppTopNav() {
 
 function AppTopbar({ onOpenMenu, onOpenSearch }: { onOpenMenu: () => void; onOpenSearch: () => void }) {
   const navigate = useNavigate();
-  const { user, tenant, logout } = useAuth();
+  const { user, tenant, logout, setUser } = useAuth();
+  const queryClient = useQueryClient();
+  // Act as another assigned role: its permissions replace the current ones (#94).
+  const switchRole = useMutation({
+    mutationFn: (roleId: string) =>
+      api.post<{ acting_role: RoleRef; permissions: string[] }>("/auth/me/acting-role", { role_id: roleId }),
+    onSuccess: (res) => {
+      if (user) setUser({ ...user, acting_role: res.acting_role, permissions: res.permissions });
+      sound.success();
+      queryClient.invalidateQueries();
+      navigate(tenantTo("/"));
+    },
+    onError: () => sound.error(),
+  });
   const { warehouses, branchId, branchName, setBranchId } = useBranch();
   const { density, toggleDensity, soundMuted, toggleSound, setAppearanceModalOpen } = useUiStore();
   const { locale, toggleLocale } = useI18nStore();
@@ -497,7 +510,9 @@ function AppTopbar({ onOpenMenu, onOpenSearch }: { onOpenMenu: () => void; onOpe
             </Avatar>
             <span className="hidden flex-col items-start leading-tight md:flex">
               <span className="text-xs font-semibold text-foreground">{user?.full_name}</span>
-              <span className="text-[10px] text-muted-foreground">{tenant?.name ?? user?.role}</span>
+              <span className="text-[10px] text-muted-foreground">
+                {user?.acting_role ? `${user.acting_role.name}${tenant?.name ? ` · ${tenant.name}` : ""}` : (tenant?.name ?? user?.role)}
+              </span>
             </span>
             <ChevronDown className="size-3 text-muted-foreground/60 hidden md:block" />
           </DropdownMenuTrigger>
@@ -505,9 +520,27 @@ function AppTopbar({ onOpenMenu, onOpenSearch }: { onOpenMenu: () => void; onOpe
             <DropdownMenuGroup>
               <DropdownMenuLabel className="text-xs font-semibold px-2 py-1.5">
                 <p className="font-bold text-foreground">{user?.full_name}</p>
-                <p className="text-[10px] text-muted-foreground font-normal">{user?.username} · {user?.role}</p>
+                <p className="text-[10px] text-muted-foreground font-normal">{user?.username} · {user?.acting_role?.name ?? user?.role}</p>
               </DropdownMenuLabel>
               <div className="h-px bg-border/60 my-1" />
+            </DropdownMenuGroup>
+            {(user?.roles?.length ?? 0) > 1 && (
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="text-[11px] text-muted-foreground px-2">العمل بدور</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={user?.acting_role?.id ?? ""}
+                  onValueChange={(v) => v && v !== user?.acting_role?.id && switchRole.mutate(String(v))}
+                >
+                  {user?.roles?.map((r) => (
+                    <DropdownMenuRadioItem key={r.id} value={r.id} disabled={switchRole.isPending}>
+                      {r.name}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+                <div className="h-px bg-border/60 my-1" />
+              </DropdownMenuGroup>
+            )}
+            <DropdownMenuGroup>
 
               <DropdownMenuItem onClick={() => navigate(tenantTo("/settings"))}>
                 <Settings className="size-4" />

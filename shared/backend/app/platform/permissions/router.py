@@ -35,6 +35,8 @@ from app.platform.permissions.models import (
     UserFacilityAssignment, UserPermissionOverride,
     PatientAccessAssignment, TemporaryAccessGrant, UserAccessAudit
 )
+from app.platform.permissions import access
+from app.platform.permissions.access import can
 from app.platform.permissions.engine import AuthorizationEngine, EffectiveAccessProfile
 from app.platform.permissions.catalog import (
     STANDARD_POSITIONS, STANDARD_ACCOUNT_TYPES,
@@ -230,7 +232,7 @@ async def get_effective_user_permissions(
     if not is_super and target_user.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=403, detail="لا يمكن الاطلاع على صلاحيات مستخدم في منشأة أخرى")
 
-    if not is_super and current_user.id != target_user.id and current_user.role not in ("admin", "manager", "superadmin", "owner") and "users" not in (current_user.permissions or []):
+    if not is_super and current_user.id != target_user.id and not can(current_user, "users"):
         raise HTTPException(status_code=403, detail="غير مصرح لك بالاطلاع على صلاحيات مستخدمين آخرين")
 
     profile = await AuthorizationEngine.get_effective_profile(
@@ -327,6 +329,8 @@ async def assign_user_role(
     role = await db.get(SysRole, data.role_id)
     if not role:
         raise HTTPException(status_code=404, detail="الدور غير موجود")
+    # Assignments decide access now (ADR-006 phase 3): same no-escalation rule as /authz/access.
+    access.ensure_within(current_user, role.grants or [])
 
     assignment = UserRoleAssignment(
         tenant_id=target_user.tenant_id,
@@ -486,12 +490,8 @@ async def activate_emergency_break_glass(
     current_user: User = Depends(get_current_user),
 ):
     """Emergency 'Break-Glass' protocol granting temporary clinical access with mandatory audit logging."""
-    clinical_roles = {"doctor", "nurse", "physician", "surgeon", "consultant", "clinical", "admin", "manager", "superadmin"}
-    is_clinical_user = (
-        current_user.role in clinical_roles
-        or getattr(current_user, "is_superadmin", False)
-        or any(p in (current_user.permissions or []) for p in ("clinical", "emr", "doctor", "nurse", "medical"))
-    )
+    # Clinical staff only: the acting role must hold a clinical permission (no role names).
+    is_clinical_user = can(current_user, "clinic", "clinic:doctor", "clinic:nurse", "clinical", "emr")
     if not is_clinical_user:
         raise HTTPException(
             status_code=403,
@@ -600,3 +600,8 @@ async def seed_authz_catalog_endpoint(
         "status": "ok",
         "message": "تم تهيئة دليل المناصب (98 وظيفة)، الأدوار (20 دور)، والصلاحيات بنجاح",
     }
+
+
+from app.platform.permissions.routes_access import router as _access_router  # noqa: E402
+
+router.include_router(_access_router, prefix="")

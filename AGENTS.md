@@ -35,7 +35,8 @@ Before performing any significant task:
   - Frontend components and routes are modularized with clear domain boundaries.
 - Avoid unnecessary abstractions and premature microservices.
 - Keep modules maintainable and independently understandable.
-- Preserve strict tenant isolation (`TenantScoped` models, RLS, and explicit session tenant context).
+- Preserve strict tenant isolation (`TenantScoped` models, RLS, and explicit session tenant context). While a workspace is bound, transactions run as the `mizan_app` database role, because the login role bypasses RLS: request code never runs DDL or writes platform rows (no `tenant_id`) except in a separate session with no workspace bound (#112).
+- Permissions decide, never role names: modules declare permissions in their manifest (`"permissions": [{"id", "name", "name_en"}]`), roles hold them (`sys_roles.grants`), and a user acts as one assigned role at a time. Check with `require_perm(...)` / `can(user, ...)` on the backend and `can()` on the frontend; there is no `"*"` and no admin bypass (ADR-006 phase 3).
 - Never introduce architectural changes without explaining their impact.
 - Record significant architectural decisions in `docs/decisions/` (ADRs).
 - Identify breaking changes before implementing them.
@@ -95,7 +96,7 @@ Whenever modifying shared code, investigate its impact across the entire project
 Examples include:
 - Global navigation (`src/lib/nav.ts`, `AppShell.tsx`, `TenantScopeLayout.tsx`).
 - Authentication and session storage (`stores/auth.ts`, JWT tokens, session cookies).
-- Authorization & RBAC/ABAC matrix (`shared/backend/app/platform/permissions/`: `engine.py`, `catalog.py`, `roles.py`; `require_perm` in `app/dependencies.py`).
+- Authorization (`shared/backend/app/platform/permissions/`: `access.py` (roles, acting role, `can`), `routes_access.py`, `roles.py`, `migrate.py`; the older `engine.py`/`catalog.py`; `require_perm` in `app/dependencies.py`).
 - Tenant context and resolution (`admoon/resolve-slug`).
 - Design tokens and theme palettes (`globals.css`, Tailwind v4 theme variables).
 - Shared components (`@/components/ui/*`, modals, data tables).

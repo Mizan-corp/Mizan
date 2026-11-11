@@ -386,7 +386,6 @@ Each phase ends usable and tested; existing workspaces and on-site installs keep
 - **Commercial**:
   - the revenue-share percentage, payout schedule and developer verification
   - base subscription contents and prices per activity; trials with add-ons
-- **Admin rights**: what an admin keeps whatever role they act as (user management, settings?).
 - **Offline updates**: how on-site installs get official module updates (#89).
 - **Uninstall**: whether "delete data now" still keeps a short safety backup the owner can
   restore.
@@ -471,6 +470,46 @@ Choices made while implementing phase 1 (#99), for review:
   `services/demo_seed.py` into the modules' and activities' `seed.py`, run by `framework/demo.py`
   (same data for every activity that had a catalogue; others now get the retail catalogue instead
   of the plumbing one). `app/services/` is gone.
+
+## Phase 3 implementation notes (2026-11-11)
+One permission system and acting as one role (#101, #94). Answers given by the owner:
+- **An admin acting as another role keeps nothing extra.** Acting as cashier means only the
+  cashier's permissions; managing users or settings needs switching back (one click in the top
+  bar). This resolves the open question "admin rights".
+- **Permission names are the current area names** (`pos`, `sales`, `quotations`, `customers`,
+  `inventory`, `purchases`, `operations`, `finance`, `payroll`, `reports`, `users`, `settings`,
+  `admin`, `archive`, `shifts`, the clinic ones), plus `supervise` (every branch and shift, which
+  used to come from the `manager` role name). Each is declared in the owning module's manifest
+  (`"permissions": [{"id", "name", "name_en"}]`). Finer names (`inventory.manage`…) can come
+  later, module by module.
+- **Existing users keep exactly their access.** Migration v54 gives each user the standard role
+  for their role name when it matches their access exactly, otherwise a workspace role of their
+  own (`<role>-<uid8>`, "cashier — Ahmed"). Admins and owners get the admin role, which lists
+  every declared permission explicitly. Verified locally: 165 users, 0 differences.
+
+How it works:
+- `sys_roles.grants` holds a role's permissions (v53). Standard roles have no workspace, are
+  synced from `roles.py` once per process (in a session with no workspace bound), and workspaces
+  can read them but not change them. Workspaces create their own roles.
+- `user_role_assignments` lists a user's roles; `users.active_role_id` is the one they act as.
+  `get_current_user` loads the acting role; `require_perm` and the clinic checks look only at its
+  permissions. There is no `"*"`, and no role name grants anything.
+- `POST /auth/me/acting-role` switches role (logged as `switch_role`); `/auth/me` returns
+  `acting_role` and `roles`. The top bar shows "العمل بدور" when a user has more than one role.
+- `/authz/access/{permissions,roles,roles/{id},users/{id}/roles}`: roles and assignments, with
+  the `users` permission. **No escalation**: you can only create, edit, delete or assign roles
+  within the permissions of the role you act as now. Standard roles can't be edited.
+- `PUT /permissions/{id}` (the users screen's checklist) still works: a list equal to the
+  standard role assigns it, otherwise it becomes the user's own role.
+- The users screen shows the acting role and the assigned roles, and assigns roles. The older
+  "advanced" screen (positions, overrides, catalogue roles) stays for now. Its role assignment
+  follows the same no-escalation rule, and catalogue roles that hold no permissions are not
+  offered.
+- Migrations can now be Python steps (`"python:module:function"`), run by the app's runner and
+  by `manage.py db migrate` (inside the system API container).
+- Everything runs under workspace isolation by the database role (#112): a request's
+  transactions use `mizan_app`, so platform rows such as standard roles are written in a separate
+  session.
 
 ## Decision log (review of 2026-11-10)
 Answers as given by the owner; *italics* = how this ADR applies them.

@@ -11,7 +11,13 @@
   "dependencies": [
     "core"
   ],
-  "permissions": [],
+  "permissions": [
+    {
+      "id": "reports",
+      "name": "التقارير",
+      "name_en": "Reports"
+    }
+  ],
   "screens": [],
   "widgets": [],
   "variants": [

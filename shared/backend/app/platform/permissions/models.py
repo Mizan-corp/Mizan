@@ -112,6 +112,8 @@ class SysRole(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     is_system: Mapped[bool] = mapped_column(Boolean, default=False)
     is_clinical: Mapped[bool] = mapped_column(Boolean, default=False)
+    # The role's permissions (ids declared in module manifests). ADR-006 phase 3.
+    grants: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

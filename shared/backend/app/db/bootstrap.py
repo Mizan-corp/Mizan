@@ -59,7 +59,6 @@ async def bootstrap() -> str:
             username=username,
             full_name="مدير النظام",
             role="admin",
-            permissions=["*"],
             is_manager=True,
             password_hash=password_hash,
             owner_account_id=owner.id,
@@ -70,10 +69,14 @@ async def bootstrap() -> str:
             username=os.environ.get("MIZAN_PLATFORM_USERNAME", "platform"),
             full_name="Platform admin",
             role="admin",
-            permissions=["*"],
             is_superadmin=True,
             password_hash=hash_password(os.environ.get("MIZAN_PLATFORM_PASSWORD", "changeme")),
         ))
+        await db.flush()
+        from app.platform.permissions.access import set_access
+
+        for user in (await db.scalars(select(User).where(User.tenant_id == tenant.id))).all():
+            await set_access(db, user, "admin")  # both start with the admin role (no "*")
         existing = set((await db.scalars(select(StoreSetting.key).where(StoreSetting.tenant_id == tenant.id))).all())
         for key, value in (("store_name", tenant.name), ("currency", "EGP")):
             if key not in existing:

@@ -38,3 +38,15 @@ def remove_tenants_created_by_tests():
             asyncio.run(_run("DELETE FROM tenants WHERE id = ANY(:ids)", ids=list(created)))
         except Exception as exc:  # cleanup must never mask test results
             warnings.warn(f"could not remove {len(created)} test tenants: {exc}", stacklevel=1)
+
+
+async def give_roles(session) -> None:
+    """Users made directly in a test get roles as the v54 migration gives them: exactly the access
+    their role name and permission list used to mean (ADR-006 phase 3)."""
+    from sqlalchemy import text
+
+    from app.platform.permissions.migrate import migrate_users
+
+    await session.flush()
+    await session.execute(text("SELECT set_config('app.bypass', 'on', true)"))
+    await migrate_users(session)

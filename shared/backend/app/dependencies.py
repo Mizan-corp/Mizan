@@ -66,6 +66,9 @@ async def get_current_user(
     if not tid_str:
         await bind_tenant(db, user.tenant_id)
     await ensure_workspace_open(db, user)
+    from app.platform.permissions.access import load_acting
+
+    await load_acting(db, user)  # the role the user acts as, and its permissions
     return user
 
 
@@ -105,15 +108,18 @@ async def get_print_user(request: Request, token: str | None = None, db: AsyncSe
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     if not tid_str:
         await bind_tenant(db, user.tenant_id)
+    from app.platform.permissions.access import load_acting
+
+    await load_acting(db, user)  # the role the user acts as, and its permissions
     return user
 
 
 def require_perm(*perms: str):
+    """Any of `perms` held by the role the user acts as now. No "*", no role-name bypass (#94)."""
     async def checker(current_user: User = Depends(get_current_user)) -> User:
-        if getattr(current_user, "is_superadmin", False) or current_user.role in ("superadmin", "owner", "admin"):
-            return current_user
-        user_perms = current_user.permissions or []
-        if "*" in user_perms or any(p in user_perms for p in perms):
+        from app.platform.permissions.access import can
+
+        if can(current_user, *perms):
             return current_user
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
     return checker
@@ -152,8 +158,10 @@ async def verify_warehouse_access(
     """Check if user has access to a warehouse. Returns warehouse_id if valid."""
     if warehouse_id is None:
         return None
-    # Managers and admins have full access to all warehouses.
-    if current_user.is_manager or current_user.role in ("admin", "manager"):
+    # Managers, and roles that supervise every branch, reach all warehouses.
+    from app.platform.permissions.access import can
+
+    if current_user.is_manager or can(current_user, "supervise"):
         return warehouse_id
     result = await db.execute(
         select(user_warehouses.c.warehouse_id).where(

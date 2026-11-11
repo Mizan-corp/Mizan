@@ -109,12 +109,14 @@ async def create_workspace(
         full_name=admin_full_name.strip(),
         role="admin",
         is_manager=True,
-        permissions=["*"],
         password_hash=admin_password_hash,
         owner_account_id=owner.id if owner else None,
     )
     db.add(admin)
     await db.flush()
+    from app.platform.permissions.access import set_access
+
+    await set_access(db, admin, "admin")  # the admin role: every permission, explicitly
 
     if demo_data:
         await seed_workspace(db, tenant.id, admin.id, sector, scale, modules)

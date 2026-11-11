@@ -15,6 +15,7 @@ from app.platform.tenancy.models import Tenant
 from app.platform.auth.models.user import User
 
 from main import app  # noqa: F401  (registers every model)
+from tests.conftest import give_roles
 
 pytestmark = pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
 
@@ -49,6 +50,7 @@ async def _workspace(session) -> tuple[uuid.UUID, User]:
     user = User(id=uuid.uuid4(), tenant_id=tid, username=f"mgr_{tid.hex[:6]}", full_name="مديرة الوردية",
                 role="admin", password_hash=hash_password("Pass123!"), permissions=["*"], is_active=True)
     session.add(user)
+    await give_roles(session)
     await session.commit()
     return tid, user
 

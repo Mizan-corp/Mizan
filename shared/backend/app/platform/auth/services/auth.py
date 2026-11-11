@@ -95,6 +95,12 @@ async def create_user(db: AsyncSession, data) -> User:
             raise HTTPException(400, f"اسم المستخدم '{data.username}' مستخدم بالفعل") from None
         raise
     await db.refresh(user)
+    # Access comes from roles (ADR-006 phase 3): the standard role for their role name.
+    from app.platform.permissions.access import set_access
+
+    await set_access(db, user, data.role)
+    await db.commit()
+    await db.refresh(user)
     return user
 
 

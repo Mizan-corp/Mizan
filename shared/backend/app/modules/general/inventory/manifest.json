@@ -45,7 +45,13 @@
       "description": "طريقة حساب تكلفة البضاعة المباعة (متوسط التكلفة المرجح أو الوارد أولاً صادر أولاً)."
     }
   ],
-  "permissions": [],
+  "permissions": [
+    {
+      "id": "inventory",
+      "name": "المخزون والأصناف",
+      "name_en": "Inventory and products"
+    }
+  ],
   "screens": [],
   "widgets": [],
   "variants": [

@@ -98,9 +98,12 @@ async def create_workspace(payload: dict, *, admin_username: str, admin_password
         admin = await db.scalar(select(User).where(User.tenant_id == tenant.id, User.role == "admin").limit(1))
         if admin is None:
             admin = User(id=uuid.uuid4(), tenant_id=tenant.id, username=admin_username, full_name=admin_name,
-                         role="admin", is_manager=True, permissions=["*"], password_hash=hash_password(admin_password))
+                         role="admin", is_manager=True, password_hash=hash_password(admin_password))
             db.add(admin)
             await db.flush()
+            from app.platform.permissions.access import set_access
+
+            await set_access(db, admin, "admin")
             created = True
             if demo:
                 await seed_workspace(db, tenant.id, admin.id, tenant.sector, tenant.scale, tenant.active_modules)

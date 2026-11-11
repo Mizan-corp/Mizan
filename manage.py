@@ -263,6 +263,31 @@ def _apply(sql: str, split: Callable[[str], list[str]]) -> bool:
     return success
 
 
+def _apply_python(target: str) -> bool:
+    """A data migration written in Python ("module:function"), run in the system API container
+    with RLS bypassed."""
+    module_name, _, fn_name = target.partition(":")
+    script = f"""
+import asyncio
+import main  # noqa: F401  (loads models and settings)
+from sqlalchemy import text
+from app.db.base import AsyncSessionLocal
+from {module_name} import {fn_name}
+
+async def go():
+    async with AsyncSessionLocal() as db:
+        await db.execute(text("SELECT set_config('app.bypass', 'on', false)"))
+        await {fn_name}(db)
+        await db.commit()
+
+asyncio.run(go())
+"""
+    r = compose("exec", "-T", SYSTEM.api_service, "python", "-c", script, capture=True, check=False)
+    if r.returncode != 0:
+        warn(f"   {(r.stderr or r.stdout).strip().splitlines()[-1] if (r.stderr or r.stdout).strip() else r.returncode}")
+    return r.returncode == 0
+
+
 def migrate() -> None:
     foundation, migrations, split = _migration_list()
     require_db()
@@ -274,7 +299,11 @@ def migrate() -> None:
         if name in applied:
             done += 1
             continue
-        if _apply(sql, split):
+        if sql.startswith("python:"):
+            ok_ = _apply_python(sql.removeprefix("python:"))
+        else:
+            ok_ = _apply(sql, split)
+        if ok_:
             psql(f"INSERT INTO schema_migrations (id) VALUES ('{name}') ON CONFLICT DO NOTHING;", check=True)
             ok(name)
             done += 1

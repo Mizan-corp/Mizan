@@ -25,6 +25,7 @@ GLOBAL_BY_DESIGN = {
     "hr_payroll_entries",         # (period_id, employee_id)
     "supplier_prices",            # (supplier_id, product_id)
     "user_permission_overrides",  # (user_id, permission_id)
+    "sys_roles",                  # code WHERE tenant_id IS NULL: the platform's standard roles
 }
 
 

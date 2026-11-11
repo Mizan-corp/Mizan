@@ -28,7 +28,63 @@
     "clinic:lab",
     "clinic:billing"
   ],
-  "permissions": [],
+  "permissions": [
+    {
+      "id": "clinic",
+      "name": "العيادة كاملة",
+      "name_en": "Whole clinic"
+    },
+    {
+      "id": "clinic:view",
+      "name": "عرض العيادة",
+      "name_en": "View the clinic"
+    },
+    {
+      "id": "clinic:manage",
+      "name": "إدارة المواعيد والملفات",
+      "name_en": "Manage appointments and records"
+    },
+    {
+      "id": "clinic:doctor",
+      "name": "صلاحيات الطبيب",
+      "name_en": "Doctor"
+    },
+    {
+      "id": "clinic:nurse",
+      "name": "صلاحيات التمريض",
+      "name_en": "Nursing"
+    },
+    {
+      "id": "clinic:dispense",
+      "name": "صرف الأدوية",
+      "name_en": "Dispensing"
+    },
+    {
+      "id": "clinic:lab",
+      "name": "المختبر",
+      "name_en": "Laboratory"
+    },
+    {
+      "id": "clinic:billing",
+      "name": "فواتير العيادة",
+      "name_en": "Clinic billing"
+    },
+    {
+      "id": "clinical",
+      "name": "السجلات السريرية",
+      "name_en": "Clinical records"
+    },
+    {
+      "id": "emr",
+      "name": "الملف الطبي الإلكتروني",
+      "name_en": "Electronic medical record"
+    },
+    {
+      "id": "patients",
+      "name": "بيانات المرضى",
+      "name_en": "Patients"
+    }
+  ],
   "screens": [],
   "widgets": [],
   "variants": [

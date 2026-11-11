@@ -56,14 +56,20 @@ async def update_my_settings(data: dict[str, Any], db: AsyncSession = Depends(ge
 
 @router.get("")
 async def list_users(db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("users"))):
-    # Explicit workspace filter on top of RLS (#112); password hashes never leave the server.
     rows = await db.execute(text("""
-        SELECT u.*, w.name as default_warehouse_name
+        SELECT u.*, w.name as default_warehouse_name,
+               (SELECT json_agg(json_build_object('id', r.id, 'code', r.code, 'name', r.name) ORDER BY a.created_at)
+                FROM user_role_assignments a JOIN sys_roles r ON r.id = a.role_id
+                WHERE a.user_id = u.id AND a.is_active) AS roles,
+               ar.name AS acting_role_name
         FROM users u
         LEFT JOIN warehouses w ON w.id = u.default_warehouse_id
+        LEFT JOIN sys_roles ar ON ar.id = u.active_role_id
         WHERE u.is_active = true AND u.tenant_id = :t ORDER BY u.full_name
     """), {"t": current_user.tenant_id})
-    return [{k: v for k, v in dict(r._mapping).items() if k != "password_hash"} for r in rows.fetchall()]
+    # Explicit workspace filter on top of RLS (#112). The legacy per-user permissions column no
+    # longer decides anything (roles do), and password hashes never leave the server.
+    return [{k: v for k, v in dict(r._mapping).items() if k not in ("permissions", "password_hash")} for r in rows.fetchall()]
 
 
 @router.post("", response_model=UserOut)
@@ -102,6 +108,11 @@ async def update_user(user_id: uuid.UUID, data: UserUpdate, db: AsyncSession = D
     if "role" in fields and fields["role"] not in ROLE_LABELS:
         from fastapi import HTTPException
         raise HTTPException(status_code=400, detail=f"Invalid role: {fields['role']}")
+    if "role" in fields:
+        # A new role name gives the standard role for it (access follows the role).
+        from app.platform.permissions.access import set_access
+
+        await set_access(db, user, fields["role"])
     await db.commit()
     await db.refresh(user)
     return user

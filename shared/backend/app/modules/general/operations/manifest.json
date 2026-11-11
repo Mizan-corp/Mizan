@@ -12,7 +12,13 @@
     "inventory"
   ],
   "is_core": true,
-  "permissions": [],
+  "permissions": [
+    {
+      "id": "operations",
+      "name": "العمليات المخزنية",
+      "name_en": "Stock operations"
+    }
+  ],
   "screens": [],
   "widgets": [],
   "variants": [

@@ -12,6 +12,16 @@ export interface User {
   is_superadmin?: boolean;
   tenant_id?: string | null;
   default_warehouse_id: string | null;
+  /** The role the user acts as now; `permissions` are this role's (ADR-006 phase 3). */
+  acting_role?: RoleRef | null;
+  /** Every role assigned to the user; they switch between them (#94). */
+  roles?: RoleRef[];
+}
+
+export interface RoleRef {
+  id: string;
+  code: string;
+  name: string;
 }
 
 export interface LoginConfig {
@@ -137,12 +147,12 @@ export const useAuth = create<AuthState>((set, get) => ({
     set({ token: null, user: null, tenant: null });
   },
   /** Permissions decide, never role names. "a|b" means either one. */
+  // The acting role's permissions only: no "*", no bypass for any role (#94).
   can: (perm) => {
     const u = get().user;
     if (!u) return false;
-    if (u.is_superadmin) return true;
     if (!perm) return true;
     const perms = Array.isArray(u.permissions) ? u.permissions : [];
-    return perms.includes("*") || perm.split("|").some((p) => perms.includes(p));
+    return perm.split("|").some((p) => perms.includes(p));
   },
 }));

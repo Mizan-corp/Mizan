@@ -2651,6 +2651,24 @@ MIGRATIONS = [
         WHERE s.key = 'mod_settings_' || l.old_id
           AND NOT EXISTS (SELECT 1 FROM store_settings o WHERE o.tenant_id = s.tenant_id AND o.key = 'mod_settings_' || l.new_id);
     """),
+    # One permission system (ADR-006 phase 3): roles hold their permissions (grants); a user acts
+    # as one assigned role (active_role_id). Workspaces can read the platform's standard roles
+    # (tenant_id NULL) but not change them.
+    ("v53_roles_hold_permissions", """
+        ALTER TABLE sys_roles ADD COLUMN IF NOT EXISTS grants jsonb NOT NULL DEFAULT '[]'::jsonb;
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS active_role_id uuid REFERENCES sys_roles(id) ON DELETE SET NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_sys_roles_platform_code ON sys_roles (code) WHERE tenant_id IS NULL;
+        DROP POLICY IF EXISTS tenant_isolation ON sys_roles;
+        DROP POLICY IF EXISTS tenant_read ON sys_roles;
+        DROP POLICY IF EXISTS tenant_write ON sys_roles;
+        CREATE POLICY tenant_read ON sys_roles FOR SELECT
+            USING (tenant_id IS NULL OR tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        CREATE POLICY tenant_write ON sys_roles FOR ALL
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
+    # Every user gets roles with exactly the access they had (Python: needs the permission catalogue).
+    ("v54_users_get_roles", "python:app.platform.permissions.migrate:migrate_users"),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:
@@ -2683,6 +2701,17 @@ async def apply_migrations(session: AsyncSession) -> List[str]:
             continue
 
         logger.info(f"Applying migration {mid}...")
+        if sql.startswith("python:"):
+            # A data migration in Python, run with RLS bypassed; it must be idempotent.
+            import importlib
+
+            module_name, _, fn_name = sql.removeprefix("python:").partition(":")
+            await getattr(importlib.import_module(module_name), fn_name)(session)
+            await session.execute(text("INSERT INTO schema_migrations (id) VALUES (:id) ON CONFLICT DO NOTHING"), {"id": mid})
+            await session.commit()
+            applied_now.append(mid)
+            logger.info(f"Successfully applied migration {mid}")
+            continue
         stmts = split_statements(sql)
         for stmt in stmts:
             stmt_clean = stmt.strip()
