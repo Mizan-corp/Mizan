@@ -249,6 +249,11 @@ class DB:
             f"DELETE FROM user_warehouses WHERE user_id IN ({q(usr)}) OR warehouse_id IN ({q(wh)})",
             f"DELETE FROM device_tokens WHERE user_id IN ({q(usr)})",
             f"DELETE FROM users WHERE id IN ({q(usr)})",
+            # Test warehouses were never deleted: locally the e2e workspace reached its plan's
+            # warehouse limit after enough runs (CI starts from an empty database).
+            f"DELETE FROM stock_balances WHERE warehouse_id IN ({q(wh)})",
+            f"DELETE FROM warehouse_product_status WHERE warehouse_id IN ({q(wh)})",
+            f"DELETE FROM warehouses WHERE id IN ({q(wh)})",
         ]
         with self.conn.cursor() as cur:
             for i, sql in enumerate(steps):

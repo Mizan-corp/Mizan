@@ -465,8 +465,12 @@ Choices made while implementing phase 1 (#99), for review:
   `app/models/*` and `app/schemas/*` moved into their module (`models.py` or `models/<area>.py`,
   same for schemas) or platform engine (users and owners → `platform/auth`, tenants →
   `platform/tenancy`, access tables → `platform/permissions`, …); `app/models/` keeps only the
-  model registry and the migrations table. Still to do in phase 2: logic inside route functions
-  moves to services.
+  model registry and the migrations table. Then logic left in route functions moved to services (finance safes/expenses/
+  wallets, contacts payments, operations, quotations, inventory warehouses, HR employees and
+  attendance, invoices), fixing the money and stock bugs found on the way; and demo data moved from
+  `services/demo_seed.py` into the modules' and activities' `seed.py`, run by `framework/demo.py`
+  (same data for every activity that had a catalogue; others now get the retail catalogue instead
+  of the plumbing one). `app/services/` is gone.
 
 ## Decision log (review of 2026-11-10)
 Answers as given by the owner; *italics* = how this ADR applies them.

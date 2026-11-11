@@ -1,2 +1,3 @@
-"""Pharmacy: demo data for a new workspace of this activity. Still in
-app/services/demo_seed.py; it moves here activity by activity (ADR-006)."""
+"""Pharmacy: demo data for a new workspace. A pharmacy sells the same medicines and supplies as
+the healthcare catalogue."""
+from app.activities.healthcare.seed import CATALOG  # noqa: F401

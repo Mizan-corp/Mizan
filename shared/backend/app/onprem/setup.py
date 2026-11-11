@@ -72,7 +72,7 @@ async def create_workspace(payload: dict, *, admin_username: str, admin_password
     from app.platform.settings.models import StoreSetting
     from app.platform.tenancy.models import Tenant
     from app.platform.auth.models.user import User
-    from app.services.demo_seed import seed_demo
+    from app.framework.demo import seed_workspace
 
     ws = payload["workspace"]
     async with AsyncSessionLocal() as db:
@@ -103,7 +103,7 @@ async def create_workspace(payload: dict, *, admin_username: str, admin_password
             await db.flush()
             created = True
             if demo:
-                await seed_demo(db, tenant.id, admin.id, tenant.sector, tenant.scale, tenant.active_modules)
+                await seed_workspace(db, tenant.id, admin.id, tenant.sector, tenant.scale, tenant.active_modules)
         await set_active_modules(db, tenant.active_modules, preset_id=SECTOR_TO_PRESET.get(tenant.sector))
         existing = set((await db.scalars(select(StoreSetting.key).where(StoreSetting.tenant_id == tenant.id))).all())
         for key, value in (("store_name", tenant.name), ("currency", "EGP")):

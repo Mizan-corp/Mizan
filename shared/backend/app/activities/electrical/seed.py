@@ -1,2 +1,9 @@
-"""electrical: demo data for a new workspace of this activity. Still in
-app/services/demo_seed.py; it moves here activity by activity (ADR-006)."""
+"""electrical: demo data for a new workspace. CATALOG: category -> item names (Arabic trade
+names), turned into products by modules/general/inventory/seed.py."""
+
+CATALOG: list[tuple[str, list[str]]] = [
+    ('أسلاك وكوابل', ['سلك نحاس 1.5 مم أحمر', 'سلك نحاس 2.5 مم أزرق', 'كوابل مسلحة 3×2.5', 'كرتونة سلك 100 متر']),
+    ('قواطع ولوحات', ['قاطع كهربائي 16 أمبير', 'قاطع رئيسي 63 أمبير', 'مفتاح لمبة نقطة', 'بريزة أرضية دبل', 'لوحة تجزيء 12 خط']),
+    ('إضاءة', ['لمبة ليد 9 وات', 'لمبة موفرة 14 وات', 'كشاف سقف 24 وات', 'نيون ليد شريط 5 متر']),
+    ('مراوح وتجهيزات', ['مروحة سقف 56 بوصة', 'مروحة حائط 16 بوصة', 'جرار تهوية 8 بوصة', 'جرس باب كهربائي']),
+]

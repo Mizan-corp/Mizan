@@ -1,2 +1,10 @@
-"""plumbing: demo data for a new workspace of this activity. Still in
-app/services/demo_seed.py; it moves here activity by activity (ADR-006)."""
+"""plumbing: demo data for a new workspace. CATALOG: category -> item names (Arabic trade
+names), turned into products by modules/general/inventory/seed.py."""
+
+CATALOG: list[tuple[str, list[str]]] = [
+    ('خلاطات ومحابس', ['خلاط مربط فراع واحد كروم', 'خلاط حوض بيس عصا', 'حنف حوض يبس', 'حنف بانيو دبلوم', 'صنبور سقف مربع', 'محبس زاوية ½']),
+    ('مواسير ووصلات', ['ماسورة PVC صرف 4 بوصة', 'ماسورة PPR نطفة 25 مم', 'كوع PVC 90°', 'وصلية بروز ½', 'حوامل مواسير', 'فلنجة تركية 2 بوصة']),
+    ('أطقم حمامات', ['كورة أرضية نواتنج', 'كورة حائط مدمسة', 'شنيور أرضي بلاستك', 'طقم غسونة خزف', 'مغسلة بورسلان أبيض']),
+    ('سخانات', ['سخان كهربائي 50 لتر', 'سخان غاز 30 لتر', 'سخان فوري 7 كيلو', 'منظم حرارة سخان']),
+    ('لاصق وعزل', ['لاصق بلاط بورتلاند', 'عزل مائي أسمنتي', 'سيليكون شفاف', 'شريط عزل لحام', 'فوم جوانب']),
+]

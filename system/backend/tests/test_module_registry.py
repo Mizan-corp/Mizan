@@ -252,3 +252,47 @@ def test_the_written_standard_covers_the_template():
         for rel in (scaffold.TEMPLATE / side).rglob("*.tmpl"):
             name = rel.relative_to(scaffold.TEMPLATE / side).with_suffix("").as_posix().replace("{{variant}}", "<variant>")
             assert f"`{name}`" in doc, f"{side}/{name} is not described in docs/MODULE_STANDARD.md"
+
+
+def test_demo_catalogue_follows_the_activity():
+    # Activities without a catalogue used to get the plumbing one (a pharmacy full of taps).
+    from app.activities.consulting.seed import CATALOG as consulting
+    from app.activities.healthcare.seed import CATALOG as healthcare
+    from app.activities.retail.seed import CATALOG as retail
+    from app.framework.demo import catalog_for
+
+    assert catalog_for("pharmacy") == healthcare
+    assert catalog_for("consulting") == consulting and catalog_for("services") == consulting
+    assert catalog_for("gym") == retail and catalog_for("petroleum") == retail
+    assert catalog_for("plumbing") != retail
+
+
+@pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
+async def test_new_workspaces_get_their_activitys_demo_data():
+    from sqlalchemy import delete, text
+
+    from app.db.base import AsyncSessionLocal, engine
+    from app.platform.tenancy.models import Tenant
+    from app.platform.tenancy.service import create_workspace
+
+    await engine.dispose()
+    created = []
+    try:
+        for sector, item in (("healthcare", "باراسيتامول"), ("gym", "أرز مصري")):
+            async with AsyncSessionLocal() as db:
+                tenant, _ = await create_workspace(
+                    db, name=f"Demo {sector} {uuid.uuid4().hex[:6]}", sector=sector, scale="small",
+                    admin_username=f"demo_{uuid.uuid4().hex[:8]}", admin_full_name="Demo", admin_password_hash="x")
+                await db.commit()
+                created.append(tenant.id)
+                names = (await db.execute(text("SELECT name FROM products WHERE tenant_id = :t"), {"t": tenant.id})).scalars().all()
+                assert len(names) == 24 and any(item in n for n in names), (sector, names[:3])
+                if sector == "healthcare":
+                    patients = await db.scalar(text("SELECT count(*) FROM clinic_patients WHERE tenant_id = :t"), {"t": str(tenant.id)})
+                    assert patients and patients > 0
+    finally:
+        async with AsyncSessionLocal() as db:
+            await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
+            await db.execute(delete(Tenant).where(Tenant.id.in_(created)))
+            await db.commit()
+        await engine.dispose()

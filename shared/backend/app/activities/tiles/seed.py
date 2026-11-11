@@ -1,2 +1,9 @@
-"""tiles: demo data for a new workspace of this activity. Still in
-app/services/demo_seed.py; it moves here activity by activity (ADR-006)."""
+"""tiles: demo data for a new workspace. CATALOG: category -> item names (Arabic trade
+names), turned into products by modules/general/inventory/seed.py."""
+
+CATALOG: list[tuple[str, list[str]]] = [
+    ('بلاط أرضيات', ['بورسلان أرضيات 60×60 بيج', 'سيراميك أرضيات 45×45 رمادي', 'بورسلان لامع 80×80', 'بلاط مقاوم انزلاق 30×30']),
+    ('بلاط حوائط', ['سيراميك حوائط 25×40 أبيض', 'ديكور حائط 3D', 'سيراميك مطبخ 20×25']),
+    ('جرانيت ورخام', ['جرانيت طبيعي رمادي', 'رخام صعيدي مصقول', 'درابزين رخام']),
+    ('مواد لصق ولواصق', ['لاصق بلاط أبيض', 'جروت رمادي', 'تبارك عزل', 'مكحول لوني']),
+]

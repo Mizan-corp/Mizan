@@ -1,2 +1,9 @@
-"""Retail: demo data for a new workspace of this activity. Still in
-app/services/demo_seed.py; it moves here activity by activity (ADR-006)."""
+"""Retail: demo data for a new workspace. CATALOG: category -> item names (Arabic trade
+names), turned into products by modules/general/inventory/seed.py."""
+
+CATALOG: list[tuple[str, list[str]]] = [
+    ('مواد غذائية وبقالة', ['أرز مصري درجة أولى 1 كجم', 'سكر أبيض ناعم 1 كجم', 'زيت عباد الشمس 800 مل', 'مكرونة فرن 400 جم', 'شاي أسود فاخر 250 جم']),
+    ('ألبان وأجبان', ['جبنة بيضاء براميلي 1 كجم', 'لبن كامل الدسم 1 لتر', 'جبنة رومي قديمة 500 جم', 'زبادي طبيعي 105 جم']),
+    ('مشروبات وعصائر', ['عصير برتقال طبيعي 1 لتر', 'مياه معدنية 1.5 لتر', 'مشروب غازي كانز 330 مل']),
+    ('منظفات وعناية', ['مسحوق غسيل أوتوماتيك 3 كجم', 'سائل غسيل أطباق 1 لتر', 'صابون يد معقم 120 جم', 'مناديل مطبخ رول']),
+]

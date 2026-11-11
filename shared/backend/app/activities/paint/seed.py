@@ -1,2 +1,9 @@
-"""paint: demo data for a new workspace of this activity. Still in
-app/services/demo_seed.py; it moves here activity by activity (ADR-006)."""
+"""paint: demo data for a new workspace. CATALOG: category -> item names (Arabic trade
+names), turned into products by modules/general/inventory/seed.py."""
+
+CATALOG: list[tuple[str, list[str]]] = [
+    ('دهانات داخلي', ['بلاستيك مطفي أبيض', 'بلاستيك لامع كريمي', 'دهان مائي ناعم', 'لوكس داخلي فاخر']),
+    ('دهانات خارجي', ['سيلو بلاست رمادي', 'دهان واجهات أبيض', 'تكسر خشبي بني', 'كاتم صدا أسود']),
+    ('معاجين وأساسات', ['معجون أكريليك', 'برايمر عزل', 'سيلر أساس', 'ماسح جدران']),
+    ('أدوات دهان', ['فرشاة 4 بوصة', 'رول فرش 9 بوصة', 'صينية دهان', 'شريط لاصق ورنيش']),
+]

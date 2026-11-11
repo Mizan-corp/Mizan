@@ -1,2 +1,2 @@
-"""services: demo data for a new workspace of this activity. Still in
-app/services/demo_seed.py; it moves here activity by activity (ADR-006)."""
+"""services (legacy name of consulting): the consulting demo data."""
+from app.activities.consulting.seed import CATALOG  # noqa: F401

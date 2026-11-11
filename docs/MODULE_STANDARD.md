@@ -40,7 +40,7 @@ in `shared/backend/app/framework/module_template/`, and applied by
 | `service.py` | Business logic. | One business operation per function, in one transaction; raises `HTTPException` with an Arabic message; the only place other modules call into. Never touches another module's tables. |
 | `router.py` | API routes, `prefix="/modules/<module_id>"`, guarded by `require_module`. | Thin: parse, check permission (`require_perm`), call the service. Older modules keep their historical URLs. |
 | `hooks.py` | Extension points (`before_confirm`, `after_confirm`, …) other modules and variants use. | Planned (ADR-006 phase 4). |
-| `seed.py` | Demo data for a new workspace (`is_demo`, removable). | Existing demo data still lives in `app/services/demo_seed.py`. |
+| `seed.py` | Demo data for a new workspace (`is_demo`, removable). | Called by `app/framework/demo.py` in a fixed order with one shared random generator; activities add a `CATALOG` and/or `seed(db, ctx)` in `app/activities/<id>/seed.py`. |
 | `migrations/README.md` | The module's own migrations, in order. | Until the per-module runner exists, migrations go in `app/db/migrations.py`. |
 | `templates/README.md` | Print templates, `templates/<category>/<name>.html`. | Rendered by the print engine (`platform/printing/engine.py`); a variant can replace one. |
 | `tests/README.md` | The module's tests. | Until collected here: `system/backend/tests/` and `e2e/`. |

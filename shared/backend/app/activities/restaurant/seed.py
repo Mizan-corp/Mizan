@@ -1,2 +1,10 @@
-"""Restaurant: demo data for a new workspace of this activity. Still in
-app/services/demo_seed.py; it moves here activity by activity (ADR-006)."""
+"""Restaurant: demo data for a new workspace. CATALOG: category -> item names (Arabic trade
+names), turned into products by modules/general/inventory/seed.py."""
+
+CATALOG: list[tuple[str, list[str]]] = [
+    ('أطباق رئيسية', ['وجبة برجر لحم فاخر دبل', 'بيتزا مارجريتا إيطالي وسط', 'طاجن مكرونة بشاميل باللحم', 'شيش طاووق مشوي مع أرز', 'وجبة كرسبي دجاج 4 قطع']),
+    ('مقبلات وسلطات', ['سلطة خضراء طازجة', 'بطاطس محمرة كرسبي', 'شوربة كريمة بالدجاج', 'حلقات بصل مقلية']),
+    ('مشروبات ساخنة', ['قهوة تركي بن محوج', 'كابتشينو إيطالي فوم', 'شاي كرك بالحليب', 'إسبريسو دبل']),
+    ('مشروبات باردة', ['سموذي فراولة طبيعي', 'عصير ليمون بالنعناع مثلج', 'موهيتو توت منعش', 'ميلك شيك شوكولاتة']),
+    ('حلويات', ['تشيز كيك لوتس', 'كيك شوكولاتة فادج', 'أم علي بالمكسرات']),
+]

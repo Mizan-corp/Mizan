@@ -19,7 +19,7 @@ from app.platform.tenancy.context import bind_tenant
 from app.platform.auth.models.owner import OwnerAccount
 from app.platform.tenancy.models import Tenant
 from app.platform.auth.models.user import User
-from app.services.demo_seed import seed_demo
+from app.framework.demo import seed_workspace
 
 
 def slugify(name: str) -> str:
@@ -117,6 +117,6 @@ async def create_workspace(
     await db.flush()
 
     if demo_data:
-        await seed_demo(db, tenant.id, admin.id, sector, scale, modules)
+        await seed_workspace(db, tenant.id, admin.id, sector, scale, modules)
     await set_active_modules(db, modules, preset_id=SECTOR_TO_PRESET.get(sector))
     return tenant, admin

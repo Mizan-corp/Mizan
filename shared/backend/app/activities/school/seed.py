@@ -1,2 +1,9 @@
-"""School: demo data for a new workspace of this activity. Still in
-app/services/demo_seed.py; it moves here activity by activity (ADR-006)."""
+"""School: demo data for a new workspace. CATALOG: category -> item names (Arabic trade
+names), turned into products by modules/general/inventory/seed.py."""
+
+CATALOG: list[tuple[str, list[str]]] = [
+    ('رسوم دراسية', ['قسط دراسي أول - مرحلة ابتدائية', 'قسط دراسي ثاني - مرحلة إعدادية', 'رسوم تسجيل وقيد سنوي', 'رسوم اشتراك حافلة المدرسة']),
+    ('كتب ومطبوعات', ['كتاب اللغة العربية والخط', 'كتاب الرياضيات والعلوم', 'مذكرة تدريبات اللغات', 'دفتر واجبات مدرسي']),
+    ('زي مدرسي', ['قميص مدرسي قطن مطرز', 'بنطلون زي مدرسي كحلي', 'جاكيت شتوي بشعار المدرسة']),
+    ('أنشطة ورحلات', ['اشتراك النشاط الرياضي والسباحة', 'رحلة مدرسية استكشافية', 'دورة حاسب آلي وتطوير']),
+]
