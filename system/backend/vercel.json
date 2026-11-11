@@ -1,7 +1,19 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/$1" },
-    { "source": "/uploads/(.*)", "destination": "/uploads/$1" },
-    { "source": "/updates/(.*)", "destination": "/updates/$1" }
-  ]
+    {
+      "source": "/api/(.*)",
+      "destination": "/$1"
+    },
+    {
+      "source": "/uploads/(.*)",
+      "destination": "/uploads/$1"
+    },
+    {
+      "source": "/updates/(.*)",
+      "destination": "/updates/$1"
+    }
+  ],
+  "git": {
+    "deploymentEnabled": false
+  }
 }

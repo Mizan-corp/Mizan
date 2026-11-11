@@ -120,6 +120,14 @@ A workspace runs in one of these, chosen when it's created:
 - **Licences** are Ed25519-signed (`MZN1.<payload>.<signature>`, `app.core.licensing`),
   verified offline against the public key built into the app, and extended by
   `activate_invoice` when the owner pays.
+- **Deploys** (#64): `.github/workflows/deploy.yml`. After CI passes on `master` it migrates the
+  production database (`manage.py db migrate --production --no-backup`; Neon's point-in-time
+  restore is the way back), deploys the four APIs, then the four apps (`vercel deploy --prod
+  --archive=tgz`), and checks `/api/health`. Vercel's Git deploys are off (`"git":
+  {"deploymentEnabled": false}` in each `vercel.json`), so code never goes live before its
+  migrations; migrations must stay backward compatible. Re-run by hand: Actions → Deploy → Run
+  workflow. Secrets: `VERCEL_TOKEN`, `MIZAN_PROD_DATABASE_URL`. Free-plan limits: 100 deployments
+  and 5,000 uploaded files a day (8 deployments per push).
 - **Uploaded files** (logo and its PWA icons, sign-in cover, product images, purchase invoice
   images) go through one service, `app/framework/files.py` (#114). In the cloud it writes to
   Vercel Blob (`BLOB_READ_WRITE_TOKEN`, set on the system and admin APIs; a public store, each file
