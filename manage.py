@@ -400,6 +400,25 @@ for t in Base.metadata.sorted_tables:
     return sorted(c for c in models if c.split(".")[0] in tables and c not in have)
 
 
+
+def _backup_production(url: str) -> Path:
+    step("Backup")
+    BACKUPS.mkdir(exist_ok=True)
+    out = BACKUPS / f"prod_{stamp()}.dump"
+    with out.open("wb") as fh:
+        dump = subprocess.run(["docker", "run", "--rm", "--network", "host", PG_IMAGE, "pg_dump", "-Fc", url], stdout=fh,
+                              stderr=subprocess.PIPE, text=False, check=False)
+    if dump.returncode != 0 or out.stat().st_size < 10_000:
+        die(f"Backup failed: {dump.stderr.decode(errors='replace').strip()[-300:]}")
+    check = subprocess.run(["docker", "run", "--rm", "-v", f"{BACKUPS}:/b", PG_IMAGE, "pg_restore", "-l", f"/b/{out.name}"],
+                           capture_output=True, text=True, check=False)
+    tables = sum(1 for line in check.stdout.splitlines() if "TABLE DATA" in line)
+    if check.returncode != 0 or not tables:
+        die("The backup can't be read back; nothing was changed.")
+    ok(f"Backup: {out.relative_to(ROOT)} ({out.stat().st_size // 1024:,} KB, {tables} tables). It holds customer data: keep it private.")
+    return out
+
+
 def migrate_production(opts: argparse.Namespace) -> None:
     """Backup, then apply pending migrations to production in order, each in one transaction.
     Run it BEFORE deploying code that needs them (migrations stay backward compatible)."""
@@ -426,20 +445,11 @@ def migrate_production(opts: argparse.Namespace) -> None:
     for n, sql in pending:
         info(f"  pending: {n}{'  (python)' if sql.startswith('python:') else ''}")
 
-    step("Backup")
-    BACKUPS.mkdir(exist_ok=True)
-    out = BACKUPS / f"prod_{stamp()}.dump"
-    with out.open("wb") as fh:
-        dump = subprocess.run(["docker", "run", "--rm", "--network", "host", PG_IMAGE, "pg_dump", "-Fc", url], stdout=fh,
-                              stderr=subprocess.PIPE, text=False, check=False)
-    if dump.returncode != 0 or out.stat().st_size < 10_000:
-        die(f"Backup failed: {dump.stderr.decode(errors='replace').strip()[-300:]}")
-    check = subprocess.run(["docker", "run", "--rm", "-v", f"{BACKUPS}:/b", PG_IMAGE, "pg_restore", "-l", f"/b/{out.name}"],
-                           capture_output=True, text=True, check=False)
-    tables = sum(1 for line in check.stdout.splitlines() if "TABLE DATA" in line)
-    if check.returncode != 0 or not tables:
-        die("The backup can't be read back; nothing was changed.")
-    ok(f"Backup: {out.relative_to(ROOT)} ({out.stat().st_size // 1024:,} KB, {tables} tables). It holds customer data: keep it private.")
+    out = None
+    if getattr(opts, "no_backup", False):
+        warn("No backup taken (--no-backup): Neon's point-in-time restore is the way back.")
+    else:
+        out = _backup_production(url)
 
     confirm(f"Apply {len(pending)} migration(s) to {host}?", opts)
     step("Migrations")
@@ -451,8 +461,10 @@ def migrate_production(opts: argparse.Namespace) -> None:
                              single_transaction=True)
         if res.returncode != 0:
             err = ((res.stderr or "") + (res.stdout or "")).strip().splitlines()
+            restore = (f"docker run --rm -i {PG_IMAGE} pg_restore --clean -d <url> < {out}" if out
+                       else "Neon's point-in-time restore (console: Branches > Restore)")
             die(f"{n} failed and was rolled back; later ones were not run. {err[-1] if err else ''}\n"
-                f"   Restore if needed: docker run --rm -i {PG_IMAGE} pg_restore --clean -d <url> < {out}")
+                f"   Restore if needed: {restore}")
         ok(n)
     drift = _schema_drift(url)
     if drift:
@@ -991,6 +1003,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("file", nargs="?", help="With `restore`: a file in backups/ or a path")
     p.add_argument("--production", action="store_true",
                    help="With `migrate`: back up production, then apply its pending migrations (#64)")
+    p.add_argument("--no-backup", dest="no_backup", action="store_true",
+                   help="With `migrate --production`: skip the pg_dump (CI; Neon's point-in-time restore covers it)")
 
     p = add("dev", cmd_dev, "Run frontend dev servers (default: all)")
     p.add_argument("app", nargs="?", default="all", choices=APP_CHOICES)

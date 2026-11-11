@@ -1,0 +1,102 @@
+name: Deploy
+
+# Production deploys (#64): once CI passes on master, migrate the production database, then
+# deploy the APIs, then the apps. Vercel's own Git deploys are off (each vercel.json), so code
+# never goes live before its migrations, and a failed test or migration stops the deploy.
+# Migrations stay backward compatible: the old code keeps running until the deploy finishes.
+#
+# Secrets: VERCEL_TOKEN (a Vercel access token for the team), MIZAN_PROD_DATABASE_URL.
+# No backup is taken here: Neon's point-in-time restore is the way back.
+
+on:
+  workflow_run:
+    workflows: ["CI/CD"]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch: {}
+
+# One deploy at a time, never cancelled halfway.
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+env:
+  VERCEL_ORG_ID: team_OkyZeexcM7TggQJuU7ewzvcv
+
+jobs:
+  deploy:
+    name: Migrate and deploy
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-22.04
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Only the latest master
+        id: latest
+        run: |
+          git fetch -q origin master
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/master)" ]; then
+            echo "A newer commit is on master; its own run will deploy it."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.latest.outputs.skip != 'true'
+        with:
+          python-version: '3.12'
+
+      - name: Install the shared backend (migrations and models)
+        if: steps.latest.outputs.skip != 'true'
+        run: pip install ./shared/backend
+
+      - name: Migrate production
+        if: steps.latest.outputs.skip != 'true'
+        env:
+          MIZAN_PROD_DATABASE_URL: ${{ secrets.MIZAN_PROD_DATABASE_URL }}
+        run: python manage.py db migrate --production --yes --no-backup
+
+      - uses: actions/setup-node@v4
+        if: steps.latest.outputs.skip != 'true'
+        with:
+          node-version: 22
+
+      - name: Install the Vercel CLI
+        if: steps.latest.outputs.skip != 'true'
+        run: npm install --global vercel@latest
+
+      - name: Deploy the APIs, then the apps
+        if: steps.latest.outputs.skip != 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          deploy() {
+            echo "::group::$1"
+            VERCEL_PROJECT_ID="$2" vercel deploy --prod --yes --token "$VERCEL_TOKEN" \
+              --meta githubCommitSha="$(git rev-parse HEAD)" > "/tmp/$1.url"
+            echo "$1 → $(cat /tmp/$1.url)"
+            echo "::endgroup::"
+          }
+          # APIs first (they serve both the old and the new apps), then the apps.
+          deploy mizan-system-api  prj_BvMjRYrivMrw088mhabIuDi3ZVAv
+          deploy mizan-owner-api   prj_UdOIXqidzcjZvzqJcCOsI2ASp2WU
+          deploy mizan-website-api prj_SUCeYPHPTkWWcDakZIqAgGu02ddl
+          deploy mizan-admin-api   prj_Ap1twlLFl7DIPpNKkUNE7uPI1SqN
+          deploy mizan-system      prj_ljAgxMVkePP2uqS0iLTmuFcc2w8b
+          deploy mizan-owner       prj_Bf9mwZXuzqKg6CwRGNH6oHwdm7g0
+          deploy mizan-website     prj_Fo0R6cVAwkRcMv34IduiO5ZfnRlw
+          deploy mizan-admin       prj_f9BiUthn9bh8egOqTAws97fQzDuA
+
+      - name: Check the API answers
+        if: steps.latest.outputs.skip != 'true'
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" https://mizan-co-api.vercel.app/api/health || true)
+            [ "$code" = "200" ] && echo "API healthy" && exit 0
+            sleep 5
+          done
+          echo "The system API isn't answering /health"; exit 1
