@@ -6,7 +6,7 @@ manage.py — one command line for the whole Mizan monorepo.
     python manage.py doctor                        check tools, dependencies and stack health
 
     python manage.py stack  up | down | restart | status | logs [svc] | build | update | shell <svc>
-    python manage.py db     migrate | backup | restore <file> | backups | reset | baseline | export | psql
+    python manage.py db     migrate [--production] | backup | restore <file> | backups | reset | baseline | export | psql
     python manage.py dev    [system|website|owner|admin|all]       run frontends (default: all)
     python manage.py build  [system|website|owner|admin|all]       type-check and build frontends
     python manage.py test   [unit|backend|e2e|all]           run test suites (default: unit + backend)
@@ -318,6 +318,149 @@ def migrate() -> None:
     ok(f"Bootstrap: {r.stdout.strip()}")
 
 
+# ─── production migrations (#64) ────────────────────────────────────────────
+
+PG_IMAGE = "postgres:18"  # pg_dump must be at least the server's version (Neon runs 18)
+PROD_VERCEL_PROJECT = "mizan-system-api"
+
+
+def _production_url() -> str:
+    """The production database URL: MIZAN_PROD_DATABASE_URL, else the system API's Vercel env.
+    Returned as a plain libpq URL on the direct host (DDL and pg_dump bypass the pooler)."""
+    url = os.environ.get("MIZAN_PROD_DATABASE_URL", "").strip()
+    if not url:
+        need("vercel", "Install the Vercel CLI and run `vercel login`, or set MIZAN_PROD_DATABASE_URL.")
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            run(["vercel", "link", "--project", PROD_VERCEL_PROJECT, "--yes"], cwd=Path(tmp), capture=True)
+            run(["vercel", "env", "pull", ".env.prod", "--environment", "production", "--yes"], cwd=Path(tmp), capture=True)
+            for line in (Path(tmp) / ".env.prod").read_text().splitlines():
+                if line.startswith("DATABASE_URL="):
+                    url = line.split("=", 1)[1].strip().strip('"')
+        if not url:
+            die(f"No DATABASE_URL in the {PROD_VERCEL_PROJECT} production environment.")
+    url = url.replace("postgresql+asyncpg://", "postgresql://", 1).replace("-pooler.", ".", 1)
+    return url.replace("&channel_binding=require", "").replace("?channel_binding=require&", "?")
+
+
+def _prod_psql(url: str, sql: str, *, single_transaction: bool = False) -> subprocess.CompletedProcess:
+    args = ["docker", "run", "--rm", "-i", "--network", "host", PG_IMAGE, "psql", url, "-v", "ON_ERROR_STOP=1", "-At"]
+    if single_transaction:
+        args.append("--single-transaction")
+    return run(args, input_text=sql, check=False)
+
+
+def _prod_python_step(url: str, name: str, target: str) -> subprocess.CompletedProcess:
+    """A Python migration step against production, run locally with the shared backend; the
+    migration is recorded in the same transaction."""
+    module_name, _, fn_name = target.partition(":")
+    script = f"""
+import asyncio, sys
+sys.path.insert(0, {str(SHARED_BACKEND)!r})
+from sqlalchemy import text
+from app.models.registry import load_all_models
+from app.db.base import AsyncSessionLocal
+from {module_name} import {fn_name}
+
+async def go():
+    load_all_models()
+    async with AsyncSessionLocal() as db:
+        await db.execute(text("SELECT set_config('app.bypass', 'on', false)"))
+        await {fn_name}(db)
+        await db.execute(text("INSERT INTO schema_migrations (id) VALUES (:id) ON CONFLICT DO NOTHING"), {{"id": {name!r}}})
+        await db.commit()
+
+asyncio.run(go())
+"""
+    env = {"DATABASE_URL": url.replace("postgresql://", "postgresql+asyncpg://", 1),
+           "SECRET_KEY": os.environ.get("SECRET_KEY", "migration-only-" + "x" * 32), "MIZAN_DB_APP_ROLE": ""}
+    return run([python_bin(), "-c", script], env=env, capture=True, check=False)
+
+
+def _schema_drift(url: str) -> list[str]:
+    """Model columns the database lacks. Local databases get tables from create_all, which hides
+    a missing migration; production only has what migrations added."""
+    script = f"""
+import os, sys
+sys.path.insert(0, {str(SHARED_BACKEND)!r})
+os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://x:y@localhost/z")
+os.environ.setdefault("SECRET_KEY", "x" * 40)
+from app.models.registry import load_all_models
+load_all_models()
+from app.db.base import Base
+for t in Base.metadata.sorted_tables:
+    for c in t.columns:
+        print(t.name + "." + c.name)
+"""
+    models = run([python_bin(), "-c", script], capture=True, check=False).stdout.split()
+    r = _prod_psql(url, "SELECT table_name || '.' || column_name FROM information_schema.columns WHERE table_schema = 'public';")
+    have = set(r.stdout.split())
+    tables = {c.split(".")[0] for c in have}
+    return sorted(c for c in models if c.split(".")[0] in tables and c not in have)
+
+
+def migrate_production(opts: argparse.Namespace) -> None:
+    """Backup, then apply pending migrations to production in order, each in one transaction.
+    Run it BEFORE deploying code that needs them (migrations stay backward compatible)."""
+    need("docker", "Install Docker: https://docs.docker.com/get-docker/")
+    _, migrations, _ = _migration_list()
+    url = _production_url()
+    host = url.split("@", 1)[-1].split("/", 1)[0]
+    step(f"Production database: {host}")
+    r = _prod_psql(url, "SELECT id FROM schema_migrations;")
+    if r.returncode != 0:
+        die(f"Can't read schema_migrations: {(r.stderr or '').strip()[:200]}")
+    applied = set(r.stdout.split())
+    pending = [(n, sql) for n, sql in migrations if n not in applied]
+    unknown = sorted(applied - {n for n, _ in migrations})
+    if unknown:
+        warn(f"Applied in production but not in this branch: {', '.join(unknown)}")
+    if not pending:
+        ok(f"Nothing pending ({len(applied)} applied).")
+        drift = _schema_drift(url)
+        if drift:
+            die(f"Columns the code expects but the database lacks (write a migration): {', '.join(drift)}")
+        ok("Schema matches the models.")
+        return
+    for n, sql in pending:
+        info(f"  pending: {n}{'  (python)' if sql.startswith('python:') else ''}")
+
+    step("Backup")
+    BACKUPS.mkdir(exist_ok=True)
+    out = BACKUPS / f"prod_{stamp()}.dump"
+    with out.open("wb") as fh:
+        dump = subprocess.run(["docker", "run", "--rm", "--network", "host", PG_IMAGE, "pg_dump", "-Fc", url], stdout=fh,
+                              stderr=subprocess.PIPE, text=False, check=False)
+    if dump.returncode != 0 or out.stat().st_size < 10_000:
+        die(f"Backup failed: {dump.stderr.decode(errors='replace').strip()[-300:]}")
+    check = subprocess.run(["docker", "run", "--rm", "-v", f"{BACKUPS}:/b", PG_IMAGE, "pg_restore", "-l", f"/b/{out.name}"],
+                           capture_output=True, text=True, check=False)
+    tables = sum(1 for line in check.stdout.splitlines() if "TABLE DATA" in line)
+    if check.returncode != 0 or not tables:
+        die("The backup can't be read back; nothing was changed.")
+    ok(f"Backup: {out.relative_to(ROOT)} ({out.stat().st_size // 1024:,} KB, {tables} tables). It holds customer data: keep it private.")
+
+    confirm(f"Apply {len(pending)} migration(s) to {host}?", opts)
+    step("Migrations")
+    for n, sql in pending:
+        if sql.startswith("python:"):
+            res = _prod_python_step(url, n, sql.removeprefix("python:"))
+        else:
+            res = _prod_psql(url, sql + f"\nINSERT INTO schema_migrations (id) VALUES ('{n}') ON CONFLICT DO NOTHING;\n",
+                             single_transaction=True)
+        if res.returncode != 0:
+            err = ((res.stderr or "") + (res.stdout or "")).strip().splitlines()
+            die(f"{n} failed and was rolled back; later ones were not run. {err[-1] if err else ''}\n"
+                f"   Restore if needed: docker run --rm -i {PG_IMAGE} pg_restore --clean -d <url> < {out}")
+        ok(n)
+    drift = _schema_drift(url)
+    if drift:
+        die(f"Migrated, but columns the code expects are still missing (write a migration first, "
+            f"don't deploy): {', '.join(drift)}")
+    ok(f"{len(pending)} migration(s) applied to production; schema matches the models. Deploy the code now.")
+
+
 # ─── setup / doctor ─────────────────────────────────────────────────────────
 
 
@@ -479,7 +622,7 @@ def cmd_db(opts: argparse.Namespace) -> None:
     need("docker", "Install Docker: https://docs.docker.com/get-docker/")
     action = opts.action
     if action == "migrate":
-        migrate()
+        migrate_production(opts) if getattr(opts, "production", False) else migrate()
     elif action == "backup":
         _backup()
     elif action == "backups":
@@ -846,6 +989,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("db", cmd_db, "Database: migrate, backup, restore, backups, reset, baseline, export, psql")
     p.add_argument("action", choices=["migrate", "backup", "restore", "backups", "reset", "baseline", "export", "psql"])
     p.add_argument("file", nargs="?", help="With `restore`: a file in backups/ or a path")
+    p.add_argument("--production", action="store_true",
+                   help="With `migrate`: back up production, then apply its pending migrations (#64)")
 
     p = add("dev", cmd_dev, "Run frontend dev servers (default: all)")
     p.add_argument("app", nargs="?", default="all", choices=APP_CHOICES)

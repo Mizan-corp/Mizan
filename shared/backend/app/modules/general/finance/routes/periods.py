@@ -31,12 +31,15 @@ async def ensure_period_table(db: AsyncSession):
     await db.execute(text("""
         CREATE TABLE IF NOT EXISTS accounting_periods (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            month VARCHAR(7) UNIQUE NOT NULL,
+            tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+                DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+            month VARCHAR(7) NOT NULL,
             status VARCHAR(20) NOT NULL DEFAULT 'open',
             closed_by UUID REFERENCES users(id),
             closed_at TIMESTAMPTZ,
             created_at TIMESTAMPTZ DEFAULT now(),
-            updated_at TIMESTAMPTZ DEFAULT now()
+            updated_at TIMESTAMPTZ DEFAULT now(),
+            UNIQUE (tenant_id, month)
         )
     """))
     await db.commit()

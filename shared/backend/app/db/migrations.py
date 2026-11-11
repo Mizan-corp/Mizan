@@ -2669,6 +2669,60 @@ MIGRATIONS = [
     """),
     # Every user gets roles with exactly the access they had (Python: needs the permission catalogue).
     ("v54_users_get_roles", "python:app.platform.permissions.migrate:migrate_users"),
+    # Production drift found by rehearsing on a production copy: columns the clinic audit
+    # remediation added only through create_all (so every clinic screen using them failed in
+    # production), and two codes still unique across all workspaces (a second pharmacy's demo
+    # drugs, or closing a month another workspace had closed, failed with a 500).
+    ("v55_production_drift", """
+        ALTER TABLE clinic_appointments ADD COLUMN IF NOT EXISTS cancellation_reason VARCHAR(256);
+        ALTER TABLE clinic_appointments ADD COLUMN IF NOT EXISTS created_by VARCHAR(128);
+        ALTER TABLE clinic_appointments ADD COLUMN IF NOT EXISTS reschedule_count INTEGER DEFAULT 0 NOT NULL;
+        ALTER TABLE clinic_appointments ADD COLUMN IF NOT EXISTS rescheduled_from VARCHAR(64);
+        ALTER TABLE clinic_appointments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL;
+        ALTER TABLE clinic_appointments ADD COLUMN IF NOT EXISTS updated_by VARCHAR(128);
+        ALTER TABLE clinic_encounters ADD COLUMN IF NOT EXISTS created_by VARCHAR(128);
+        ALTER TABLE clinic_encounters ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL;
+        ALTER TABLE clinic_encounters ADD COLUMN IF NOT EXISTS updated_by VARCHAR(128);
+        ALTER TABLE clinic_inpatient_beds ADD COLUMN IF NOT EXISTS created_by VARCHAR(128);
+        ALTER TABLE clinic_inpatient_beds ADD COLUMN IF NOT EXISTS current_patient_id VARCHAR(36);
+        ALTER TABLE clinic_inpatient_beds ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL;
+        ALTER TABLE clinic_inpatient_beds ADD COLUMN IF NOT EXISTS updated_by VARCHAR(128);
+        ALTER TABLE clinic_insurance_claims ADD COLUMN IF NOT EXISTS created_by VARCHAR(128);
+        ALTER TABLE clinic_invoices ADD COLUMN IF NOT EXISTS created_by VARCHAR(128);
+        ALTER TABLE clinic_invoices ADD COLUMN IF NOT EXISTS paid_by VARCHAR(128);
+        ALTER TABLE clinic_lab_orders ADD COLUMN IF NOT EXISTS collected_at TIMESTAMP WITH TIME ZONE;
+        ALTER TABLE clinic_lab_orders ADD COLUMN IF NOT EXISTS created_by VARCHAR(128);
+        ALTER TABLE clinic_lab_orders ADD COLUMN IF NOT EXISTS is_critical BOOLEAN DEFAULT false NOT NULL;
+        ALTER TABLE clinic_lab_orders ADD COLUMN IF NOT EXISTS numeric_value FLOAT;
+        ALTER TABLE clinic_lab_orders ADD COLUMN IF NOT EXISTS signed_off_at TIMESTAMP WITH TIME ZONE;
+        ALTER TABLE clinic_lab_orders ADD COLUMN IF NOT EXISTS signed_off_by VARCHAR(128);
+        ALTER TABLE clinic_lab_orders ADD COLUMN IF NOT EXISTS test_fee FLOAT DEFAULT 150.0 NOT NULL;
+        ALTER TABLE clinic_lab_orders ADD COLUMN IF NOT EXISTS unit VARCHAR(32) DEFAULT '' NOT NULL;
+        ALTER TABLE clinic_lab_orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL;
+        ALTER TABLE clinic_lab_orders ADD COLUMN IF NOT EXISTS updated_by VARCHAR(128);
+        ALTER TABLE clinic_patients ADD COLUMN IF NOT EXISTS created_by VARCHAR(128);
+        ALTER TABLE clinic_patients ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL;
+        ALTER TABLE clinic_patients ADD COLUMN IF NOT EXISTS updated_by VARCHAR(128);
+        ALTER TABLE clinic_prescriptions ADD COLUMN IF NOT EXISTS created_by VARCHAR(128);
+        ALTER TABLE clinic_prescriptions ADD COLUMN IF NOT EXISTS dispensed_at TIMESTAMP WITH TIME ZONE;
+        ALTER TABLE clinic_prescriptions ADD COLUMN IF NOT EXISTS dispensed_by VARCHAR(128);
+        ALTER TABLE clinic_prescriptions ADD COLUMN IF NOT EXISTS quantity INTEGER DEFAULT 1 NOT NULL;
+        ALTER TABLE clinic_prescriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL;
+        ALTER TABLE clinic_prescriptions ADD COLUMN IF NOT EXISTS updated_by VARCHAR(128);
+        DO $$ BEGIN
+        IF to_regclass('public.pharmacy_drugs') IS NOT NULL THEN
+            DROP INDEX IF EXISTS ix_pharmacy_drugs_code;
+            CREATE INDEX IF NOT EXISTS ix_pharmacy_drugs_code ON pharmacy_drugs (code);
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_pharmacy_drugs_tenant_code') THEN
+                ALTER TABLE pharmacy_drugs ADD CONSTRAINT uq_pharmacy_drugs_tenant_code UNIQUE (tenant_id, code);
+            END IF;
+        END IF;
+        IF to_regclass('public.accounting_periods') IS NOT NULL THEN
+            DROP INDEX IF EXISTS ix_accounting_periods_month;
+            CREATE INDEX IF NOT EXISTS ix_accounting_periods_month ON accounting_periods (month);
+        END IF;
+        END $$;
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:
