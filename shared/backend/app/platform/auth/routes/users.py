@@ -61,7 +61,11 @@ async def list_users(db: AsyncSession = Depends(get_db), current_user: User = De
                (SELECT json_agg(json_build_object('id', r.id, 'code', r.code, 'name', r.name) ORDER BY a.created_at)
                 FROM user_role_assignments a JOIN sys_roles r ON r.id = a.role_id
                 WHERE a.user_id = u.id AND a.is_active) AS roles,
-               ar.name AS acting_role_name
+               ar.name AS acting_role_name,
+               (SELECT op.id FROM user_positions up JOIN org_positions op ON op.id = up.position_id
+                WHERE up.user_id = u.id ORDER BY up.is_primary DESC, up.created_at DESC LIMIT 1) AS position_id,
+               (SELECT op.name FROM user_positions up JOIN org_positions op ON op.id = up.position_id
+                WHERE up.user_id = u.id ORDER BY up.is_primary DESC, up.created_at DESC LIMIT 1) AS position_name
         FROM users u
         LEFT JOIN warehouses w ON w.id = u.default_warehouse_id
         LEFT JOIN sys_roles ar ON ar.id = u.active_role_id

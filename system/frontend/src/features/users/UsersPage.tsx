@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, Plus, ShieldCheck, ListOrdered } from "lucide-react";
+import { KeyRound, Plus } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
 import { Badge, Button, Empty, ErrorBox, Input, Modal, Select, Spinner } from "@/components/ui";
-import AccessControlManagement from "./AccessControlManagement";
 
 interface RoleRef { id: string; code: string; name: string }
 interface UserRow {
@@ -12,12 +11,15 @@ interface UserRow {
   is_manager: boolean; roles?: RoleRef[] | null; acting_role_name?: string | null;
   /** The owner's own login in this workspace: its password is managed in the owner panel (#75). */
   owner_account_id?: string | null;
+  position_id?: string | null;
+  position_name?: string | null;
 }
 interface RoleDef extends RoleRef { grants: string[]; standard: boolean }
 interface PermDef { id: string; name: string; module: string }
+/** A job title: general, the workspace's activity's, or the workspace's own. Suggests roles. */
+interface PositionDef { id: string; name: string; activity: string | null; standard: boolean; suggested_role_ids: string[] }
 export default function UsersPage() {
   const qc = useQueryClient();
-  const [viewMode, setViewMode] = useState<"rbac" | "classic">("classic");
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ username: "", full_name: "", password: "", role: "cashier" });
   const [permFor, setPermFor] = useState<UserRow | null>(null);
@@ -26,6 +28,7 @@ export default function UsersPage() {
   const [rolesFor, setRolesFor] = useState<UserRow | null>(null);
   const [roleIds, setRoleIds] = useState<string[]>([]);
   const [activeRoleId, setActiveRoleId] = useState<string | null>(null);
+  const [positionId, setPositionId] = useState<string>("");
   const [pwFor, setPwFor] = useState<UserRow | null>(null);
   const [newPw, setNewPw] = useState("");
 
@@ -33,6 +36,7 @@ export default function UsersPage() {
   // Permissions are declared by modules; roles are the platform's standard ones plus the workspace's own.
   const catalogue = useQuery({ queryKey: ["authz", "permissions"], queryFn: () => api.get<PermDef[]>("/authz/access/permissions") });
   const roles = useQuery({ queryKey: ["authz", "roles"], queryFn: () => api.get<RoleDef[]>("/authz/access/roles") });
+  const positions = useQuery({ queryKey: ["authz", "positions"], queryFn: () => api.get<PositionDef[]>("/authz/access/positions") });
 
   const create = useMutation({
     mutationFn: () => api.post("/users", form),
@@ -55,10 +59,13 @@ export default function UsersPage() {
   });
 
   const saveRoles = useMutation({
-    mutationFn: () => api.put(`/authz/access/users/${rolesFor!.id}/roles`, {
-      role_ids: roleIds,
-      active_role_id: activeRoleId && roleIds.includes(activeRoleId) ? activeRoleId : null,
-    }),
+    mutationFn: async () => {
+      await api.put(`/authz/access/users/${rolesFor!.id}/position`, { position_id: positionId || null });
+      return api.put(`/authz/access/users/${rolesFor!.id}/roles`, {
+        role_ids: roleIds,
+        active_role_id: activeRoleId && roleIds.includes(activeRoleId) ? activeRoleId : null,
+      });
+    },
     onSuccess: () => { setRolesFor(null); qc.invalidateQueries({ queryKey: ["users"] }); },
   });
 
@@ -77,7 +84,15 @@ export default function UsersPage() {
     setRolesFor(u);
     setRoleIds([]);
     setActiveRoleId(null);
+    setPositionId(u.position_id ?? "");
     loadRoles.mutate(u);
+  }
+
+  /** Picking a position pre-ticks the roles it suggests (they can still be changed). */
+  function pickPosition(id: string) {
+    setPositionId(id);
+    const suggested = positions.data?.find((p) => p.id === id)?.suggested_role_ids ?? [];
+    if (suggested.length) setRoleIds((s) => [...new Set([...s, ...suggested])]);
   }
 
   const roleLabel = (code: string) => roles.data?.find((r) => r.code === code && r.standard)?.name ?? code;
@@ -87,33 +102,11 @@ export default function UsersPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold tracking-tight">المستخدمون والصلاحيات</h1>
-          <div className="flex rounded-xl bg-[#FAF6F0] p-1 border border-[#E5DDD0] text-xs">
-            <button
-              onClick={() => setViewMode("rbac")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
-                viewMode === "rbac" ? "bg-[#651E2C] text-white shadow-xs font-semibold" : "text-[#706A60] hover:text-[#262321]"
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              المنظومة المتقدمة (RBAC + ABAC)
-            </button>
-            <button
-              onClick={() => setViewMode("classic")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium transition-all ${
-                viewMode === "classic" ? "bg-[#651E2C] text-white shadow-xs font-semibold" : "text-[#706A60] hover:text-[#262321]"
-              }`}
-            >
-              <ListOrdered className="w-3.5 h-3.5" />
-              المستخدمون والأدوار
-            </button>
-          </div>
         </div>
         <Button onClick={() => setCreating(true)}><Plus size={16} /> مستخدم جديد</Button>
       </div>
 
-      {viewMode === "rbac" ? (
-        <AccessControlManagement />
-      ) : list.isLoading ? (
+      {list.isLoading ? (
         <div className="flex flex-col gap-2" aria-busy="true" aria-label="جارٍ التحميل">
             <Skeleton className="h-10 w-full" />
             {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
@@ -129,6 +122,7 @@ export default function UsersPage() {
               <tr className="border-b border-line text-xs text-muted">
                 <th className="p-3 text-start">اسم المستخدم</th>
                 <th className="p-3 text-start">الاسم</th>
+                <th className="hidden p-3 text-start lg:table-cell">المسمى الوظيفي</th>
                 <th className="hidden p-3 text-start md:table-cell">الدور الحالي</th>
                 <th className="hidden p-3 text-start sm:table-cell">الأدوار المسندة</th>
                 <th className="p-3 text-start">الحالة</th>
@@ -140,6 +134,7 @@ export default function UsersPage() {
                 <tr key={u.id} className="border-b border-line/60 last:border-0 hover:bg-elevated">
                   <td className="p-3 font-bold" dir="ltr">{u.username}</td>
                   <td className="w-full max-w-0 truncate p-3">{u.full_name}</td>
+                  <td className="hidden p-3 text-muted lg:table-cell">{u.position_name ?? "—"}</td>
                   <td className="hidden p-3 md:table-cell"><Badge tone="brand">{u.acting_role_name ?? roleLabel(u.role)}</Badge></td>
                   <td className="hidden p-3 text-muted sm:table-cell">
                     <span className="line-clamp-1">{u.roles?.length ? u.roles.map((r) => r.name).join("، ") : "—"}</span>
@@ -250,6 +245,26 @@ export default function UsersPage() {
 
       <Modal open={!!rolesFor} onClose={() => setRolesFor(null)} title={`الأدوار — ${rolesFor?.full_name ?? ""}`} wide>
         <div className="flex flex-col gap-4">
+          <div>
+            <label htmlFor="user-position" className="mb-1 block text-sm font-medium">المسمى الوظيفي</label>
+            <Select id="user-position" value={positionId} onChange={(e) => pickPosition(e.target.value)} disabled={positions.isLoading}>
+              <option value="">— بدون مسمى —</option>
+              {positions.data?.some((p) => p.standard && p.activity !== "general") && (
+                <optgroup label="خاصة بنشاط المنشأة">
+                  {positions.data.filter((p) => p.standard && p.activity !== "general").map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </optgroup>
+              )}
+              <optgroup label="عامة">
+                {positions.data?.filter((p) => p.standard && p.activity === "general").map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </optgroup>
+              {positions.data?.some((p) => !p.standard) && (
+                <optgroup label="مسميات المنشأة">
+                  {positions.data.filter((p) => !p.standard).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </optgroup>
+              )}
+            </Select>
+            <p className="mt-1 text-xs text-muted">المسمى يقترح الأدوار المناسبة فقط؛ الأدوار وحدها تحدد الصلاحيات.</p>
+          </div>
           <p className="text-sm text-muted-foreground">
             يعمل المستخدم بدور واحد في كل مرة، ويبدّل بين أدواره من القائمة العلوية. لا يمكنك إسناد دور يتجاوز صلاحيات دورك الحالي.
           </p>

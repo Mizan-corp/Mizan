@@ -1,0 +1,39 @@
+[
+  {
+    "code": "operations_supervisor",
+    "name": "مشرف عمليات المستودع",
+    "name_en": "Warehouse Operations Supervisor",
+    "suggested_roles": [
+      "storekeeper",
+      "manager"
+    ]
+  },
+  {
+    "code": "picker",
+    "name": "عامل تجهيز طلبات",
+    "name_en": "Picker",
+    "suggested_roles": []
+  },
+  {
+    "code": "forklift_operator",
+    "name": "سائق رافعة شوكية",
+    "name_en": "Forklift Operator",
+    "suggested_roles": []
+  },
+  {
+    "code": "shipping_clerk",
+    "name": "موظف شحن واستلام",
+    "name_en": "Shipping Clerk",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  },
+  {
+    "code": "client_account_manager",
+    "name": "مدير حسابات العملاء",
+    "name_en": "Client Account Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  }
+]

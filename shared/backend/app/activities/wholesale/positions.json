@@ -1,0 +1,34 @@
+[
+  {
+    "code": "distribution_manager",
+    "name": "مدير التوزيع",
+    "name_en": "Distribution Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "key_account_manager",
+    "name": "مدير حسابات كبرى",
+    "name_en": "Key Account Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "route_salesman",
+    "name": "مندوب توزيع",
+    "name_en": "Route Salesman",
+    "suggested_roles": [
+      "cashier"
+    ]
+  },
+  {
+    "code": "delivery_supervisor",
+    "name": "مشرف تسليم",
+    "name_en": "Delivery Supervisor",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  }
+]

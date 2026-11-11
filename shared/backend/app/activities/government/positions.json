@@ -1,0 +1,38 @@
+[
+  {
+    "code": "department_head",
+    "name": "رئيس الإدارة",
+    "name_en": "Department Head",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "program_officer",
+    "name": "مسؤول برامج",
+    "name_en": "Program Officer",
+    "suggested_roles": []
+  },
+  {
+    "code": "social_worker",
+    "name": "أخصائي اجتماعي",
+    "name_en": "Social Worker",
+    "suggested_roles": []
+  },
+  {
+    "code": "registry_clerk",
+    "name": "موظف السجلات",
+    "name_en": "Registry Clerk",
+    "suggested_roles": [
+      "receptionist"
+    ]
+  },
+  {
+    "code": "government_procurement_officer",
+    "name": "مسؤول المشتريات الحكومية",
+    "name_en": "Procurement Officer",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  }
+]

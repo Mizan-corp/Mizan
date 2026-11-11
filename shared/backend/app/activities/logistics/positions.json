@@ -1,0 +1,30 @@
+[
+  {
+    "code": "fleet_manager",
+    "name": "مدير الأسطول",
+    "name_en": "Fleet Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "dispatcher",
+    "name": "منسق الرحلات",
+    "name_en": "Dispatcher",
+    "suggested_roles": [
+      "receptionist"
+    ]
+  },
+  {
+    "code": "shipment_coordinator",
+    "name": "منسق شحنات",
+    "name_en": "Shipment Coordinator",
+    "suggested_roles": []
+  },
+  {
+    "code": "customs_broker",
+    "name": "مخلّص جمركي",
+    "name_en": "Customs Broker",
+    "suggested_roles": []
+  }
+]

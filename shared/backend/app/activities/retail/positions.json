@@ -1,0 +1,42 @@
+[
+  {
+    "code": "store_manager",
+    "name": "مدير المتجر",
+    "name_en": "Store Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "shift_supervisor",
+    "name": "مشرف وردية",
+    "name_en": "Shift Supervisor",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "sales_associate",
+    "name": "موظف مبيعات",
+    "name_en": "Sales Associate",
+    "suggested_roles": [
+      "cashier"
+    ]
+  },
+  {
+    "code": "merchandiser",
+    "name": "منسق عرض بضائع",
+    "name_en": "Merchandiser",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  },
+  {
+    "code": "stock_clerk",
+    "name": "موظف رصّ وتخزين",
+    "name_en": "Stock Clerk",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  }
+]

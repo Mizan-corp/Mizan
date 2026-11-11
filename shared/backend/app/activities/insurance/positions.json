@@ -1,0 +1,38 @@
+[
+  {
+    "code": "underwriting_manager",
+    "name": "مدير الاكتتاب",
+    "name_en": "Underwriting Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "underwriter",
+    "name": "مكتتب",
+    "name_en": "Underwriter",
+    "suggested_roles": []
+  },
+  {
+    "code": "claims_adjuster",
+    "name": "مسوّي مطالبات",
+    "name_en": "Claims Adjuster",
+    "suggested_roles": []
+  },
+  {
+    "code": "insurance_agent",
+    "name": "وكيل تأمين",
+    "name_en": "Insurance Agent",
+    "suggested_roles": [
+      "cashier"
+    ]
+  },
+  {
+    "code": "actuary",
+    "name": "خبير اكتواري",
+    "name_en": "Actuary",
+    "suggested_roles": [
+      "accountant"
+    ]
+  }
+]

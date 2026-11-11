@@ -1,0 +1,38 @@
+[
+  {
+    "code": "bank_branch_manager",
+    "name": "مدير فرع البنك",
+    "name_en": "Bank Branch Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "relationship_manager",
+    "name": "مدير علاقات العملاء",
+    "name_en": "Relationship Manager",
+    "suggested_roles": []
+  },
+  {
+    "code": "credit_analyst",
+    "name": "محلل ائتمان",
+    "name_en": "Credit Analyst",
+    "suggested_roles": [
+      "accountant"
+    ]
+  },
+  {
+    "code": "teller",
+    "name": "صرّاف",
+    "name_en": "Teller",
+    "suggested_roles": [
+      "cashier"
+    ]
+  },
+  {
+    "code": "compliance_officer",
+    "name": "مسؤول الالتزام",
+    "name_en": "Compliance Officer",
+    "suggested_roles": []
+  }
+]

@@ -1,0 +1,40 @@
+[
+  {
+    "code": "plant_manager",
+    "name": "مدير المصنع",
+    "name_en": "Plant Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "production_supervisor",
+    "name": "مشرف إنتاج",
+    "name_en": "Production Supervisor",
+    "suggested_roles": []
+  },
+  {
+    "code": "food_technologist",
+    "name": "أخصائي تكنولوجيا أغذية",
+    "name_en": "Food Technologist",
+    "suggested_roles": []
+  },
+  {
+    "code": "haccp_coordinator",
+    "name": "منسق سلامة الغذاء (HACCP)",
+    "name_en": "HACCP Coordinator",
+    "suggested_roles": []
+  },
+  {
+    "code": "quality_inspector",
+    "name": "مفتش جودة",
+    "name_en": "Quality Inspector",
+    "suggested_roles": []
+  },
+  {
+    "code": "line_operator",
+    "name": "عامل خط إنتاج",
+    "name_en": "Line Operator",
+    "suggested_roles": []
+  }
+]

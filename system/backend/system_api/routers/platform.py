@@ -191,13 +191,6 @@ async def run_platform_migrations(
     from app.db.migrations import apply_migrations
     applied = await apply_migrations(db)
 
-    # Automatically seed RBAC catalog if positions or roles were created
-    try:
-        from app.platform.permissions.catalog import seed_rbac_catalog
-        await seed_rbac_catalog(db)
-    except Exception as err:
-        logger.warning("Notice during RBAC catalog seeding: %s", err)
-
     seeded = False
     if data.seed:
         try:

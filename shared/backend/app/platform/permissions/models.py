@@ -66,6 +66,8 @@ class OrgPosition(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), nullable=True)  # Null = standard platform position
+    # Standard positions: the activity they belong to ('general' = every business), ADR-006 D4.
+    activity: Mapped[Optional[str]] = mapped_column(String(48), nullable=True)
     code: Mapped[str] = mapped_column(String(64), nullable=False)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     name_en: Mapped[str] = mapped_column(String(128), nullable=False)

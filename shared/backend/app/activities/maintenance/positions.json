@@ -1,0 +1,40 @@
+[
+  {
+    "code": "service_manager",
+    "name": "مدير الخدمة",
+    "name_en": "Service Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "dispatcher",
+    "name": "منسق البلاغات والتوزيع",
+    "name_en": "Dispatcher",
+    "suggested_roles": [
+      "receptionist"
+    ]
+  },
+  {
+    "code": "field_technician",
+    "name": "فني ميداني",
+    "name_en": "Field Technician",
+    "suggested_roles": []
+  },
+  {
+    "code": "maintenance_supervisor",
+    "name": "مشرف الصيانة",
+    "name_en": "Maintenance Supervisor",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "spare_parts_keeper",
+    "name": "أمين قطع الغيار",
+    "name_en": "Spare Parts Keeper",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  }
+]

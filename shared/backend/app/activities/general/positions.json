@@ -1,0 +1,217 @@
+[
+  {
+    "code": "general_manager",
+    "name": "المدير العام",
+    "name_en": "General Manager",
+    "suggested_roles": [
+      "admin"
+    ]
+  },
+  {
+    "code": "operations_manager",
+    "name": "مدير العمليات",
+    "name_en": "Operations Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "branch_manager",
+    "name": "مدير الفرع",
+    "name_en": "Branch Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "dept_manager",
+    "name": "مدير القسم",
+    "name_en": "Department Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "cfo",
+    "name": "المدير المالي",
+    "name_en": "Chief Financial Officer",
+    "suggested_roles": [
+      "accountant",
+      "manager"
+    ]
+  },
+  {
+    "code": "chief_accountant",
+    "name": "رئيس الحسابات",
+    "name_en": "Chief Accountant",
+    "suggested_roles": [
+      "accountant"
+    ]
+  },
+  {
+    "code": "accountant",
+    "name": "محاسب",
+    "name_en": "Accountant",
+    "suggested_roles": [
+      "accountant"
+    ]
+  },
+  {
+    "code": "cost_accountant",
+    "name": "محاسب تكاليف",
+    "name_en": "Cost Accountant",
+    "suggested_roles": [
+      "accountant"
+    ]
+  },
+  {
+    "code": "internal_auditor",
+    "name": "مراجع داخلي",
+    "name_en": "Internal Auditor",
+    "suggested_roles": [
+      "accountant"
+    ]
+  },
+  {
+    "code": "cashier",
+    "name": "كاشير / أمين صندوق",
+    "name_en": "Cashier",
+    "suggested_roles": [
+      "cashier"
+    ]
+  },
+  {
+    "code": "sales_manager",
+    "name": "مدير المبيعات",
+    "name_en": "Sales Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "sales_representative",
+    "name": "مندوب مبيعات",
+    "name_en": "Sales Representative",
+    "suggested_roles": [
+      "cashier"
+    ]
+  },
+  {
+    "code": "customer_service",
+    "name": "خدمة العملاء",
+    "name_en": "Customer Service",
+    "suggested_roles": [
+      "receptionist"
+    ]
+  },
+  {
+    "code": "receptionist",
+    "name": "موظف استقبال",
+    "name_en": "Receptionist",
+    "suggested_roles": [
+      "receptionist"
+    ]
+  },
+  {
+    "code": "procurement_manager",
+    "name": "مدير المشتريات",
+    "name_en": "Procurement Manager",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  },
+  {
+    "code": "purchasing_officer",
+    "name": "مسؤول مشتريات",
+    "name_en": "Purchasing Officer",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  },
+  {
+    "code": "warehouse_manager",
+    "name": "مدير المخازن",
+    "name_en": "Warehouse Manager",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  },
+  {
+    "code": "storekeeper",
+    "name": "أمين مخزن",
+    "name_en": "Storekeeper",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  },
+  {
+    "code": "inventory_controller",
+    "name": "مراقب مخزون",
+    "name_en": "Inventory Controller",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  },
+  {
+    "code": "hr_manager",
+    "name": "مدير الموارد البشرية",
+    "name_en": "HR Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "hr_specialist",
+    "name": "أخصائي موارد بشرية",
+    "name_en": "HR Specialist",
+    "suggested_roles": []
+  },
+  {
+    "code": "payroll_officer",
+    "name": "مسؤول الرواتب",
+    "name_en": "Payroll Officer",
+    "suggested_roles": [
+      "accountant"
+    ]
+  },
+  {
+    "code": "it_manager",
+    "name": "مدير تقنية المعلومات",
+    "name_en": "IT Manager",
+    "suggested_roles": [
+      "admin"
+    ]
+  },
+  {
+    "code": "system_administrator",
+    "name": "مسؤول الأنظمة",
+    "name_en": "System Administrator",
+    "suggested_roles": [
+      "admin"
+    ]
+  },
+  {
+    "code": "it_support",
+    "name": "دعم فني",
+    "name_en": "IT Support",
+    "suggested_roles": []
+  },
+  {
+    "code": "data_analyst",
+    "name": "محلل بيانات",
+    "name_en": "Data Analyst",
+    "suggested_roles": []
+  },
+  {
+    "code": "maintenance_technician",
+    "name": "فني صيانة",
+    "name_en": "Maintenance Technician",
+    "suggested_roles": []
+  },
+  {
+    "code": "driver",
+    "name": "سائق",
+    "name_en": "Driver",
+    "suggested_roles": []
+  }
+]

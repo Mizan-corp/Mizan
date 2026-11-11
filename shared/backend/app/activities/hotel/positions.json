@@ -1,0 +1,63 @@
+[
+  {
+    "code": "hotel_manager",
+    "name": "مدير الفندق",
+    "name_en": "Hotel Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "front_office_manager",
+    "name": "مدير المكتب الأمامي",
+    "name_en": "Front Office Manager",
+    "suggested_roles": [
+      "receptionist",
+      "manager"
+    ]
+  },
+  {
+    "code": "front_desk_agent",
+    "name": "موظف الاستقبال الأمامي",
+    "name_en": "Front Desk Agent",
+    "suggested_roles": [
+      "receptionist"
+    ]
+  },
+  {
+    "code": "concierge",
+    "name": "كونسيرج",
+    "name_en": "Concierge",
+    "suggested_roles": [
+      "receptionist"
+    ]
+  },
+  {
+    "code": "housekeeping_supervisor",
+    "name": "مشرف الإشراف الداخلي",
+    "name_en": "Housekeeping Supervisor",
+    "suggested_roles": []
+  },
+  {
+    "code": "housekeeper",
+    "name": "عامل إشراف داخلي",
+    "name_en": "Housekeeper",
+    "suggested_roles": []
+  },
+  {
+    "code": "night_auditor",
+    "name": "مدقق ليلي",
+    "name_en": "Night Auditor",
+    "suggested_roles": [
+      "accountant"
+    ]
+  },
+  {
+    "code": "fb_manager",
+    "name": "مدير الأغذية والمشروبات",
+    "name_en": "F&B Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  }
+]

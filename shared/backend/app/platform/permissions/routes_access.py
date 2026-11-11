@@ -26,6 +26,10 @@ class RoleUpdate(BaseModel):
     grants: list[str] | None = None
 
 
+class UserPositionIn(BaseModel):
+    position_id: uuid.UUID | None = None
+
+
 class UserRolesIn(BaseModel):
     role_ids: list[uuid.UUID] = Field(min_length=1)
     active_role_id: uuid.UUID | None = None
@@ -132,3 +136,34 @@ async def set_user_roles(user_id: uuid.UUID, data: UserRolesIn, db: AsyncSession
                     {"roles": [roles[rid]["code"] for rid in data.role_ids]}, "تعيين الأدوار")
     await db.commit()
     return {"roles": [_out(roles[rid]) for rid in data.role_ids]}
+
+
+@router.get("/positions")
+async def list_positions(db: AsyncSession = Depends(get_db), _: User = Depends(require_perm("users"))):
+    """Job titles (standard, then the workspace's own), each with the roles it suggests."""
+    from app.platform.permissions.positions import list_positions as _list
+
+    sector = await db.scalar(text("SELECT sector FROM tenants WHERE id = :t"), {"t": _.tenant_id}) if _.tenant_id else None
+    roles = {r["code"]: str(r["id"]) for r in await access.available_roles(db) if r.get("standard")}
+    return [{"id": str(p["id"]), "code": p["code"], "name": p["name"], "name_en": p["name_en"],
+             "activity": p["activity"], "standard": p["standard"],
+             "suggested_role_ids": [roles[c] for c in p["suggested_roles"] if c in roles]}
+            for p in await _list(db, sector)]
+
+
+@router.put("/users/{user_id}/position")
+async def set_user_position(user_id: uuid.UUID, data: UserPositionIn, db: AsyncSession = Depends(get_db),
+                            user: User = Depends(require_perm("users"))):
+    """A user's job title. It suggests roles but grants nothing by itself."""
+    from app.platform.permissions.positions import set_position
+
+    target = await db.get(User, user_id)
+    if not target:
+        raise HTTPException(404, "المستخدم غير موجود")
+    if data.position_id is not None:
+        found = await db.scalar(text("SELECT 1 FROM org_positions WHERE id = :p AND is_active"), {"p": data.position_id})
+        if not found:
+            raise HTTPException(404, "المسمى الوظيفي غير موجود")
+    await set_position(db, target, data.position_id)
+    await db.commit()
+    return {"position_id": str(data.position_id) if data.position_id else None}

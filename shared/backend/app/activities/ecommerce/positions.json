@@ -1,0 +1,32 @@
+[
+  {
+    "code": "ecommerce_manager",
+    "name": "مدير المتجر الإلكتروني",
+    "name_en": "E-commerce Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "catalogue_specialist",
+    "name": "مسؤول كتالوج المنتجات",
+    "name_en": "Catalogue Specialist",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  },
+  {
+    "code": "fulfilment_officer",
+    "name": "مسؤول تجهيز الطلبات",
+    "name_en": "Fulfilment Officer",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  },
+  {
+    "code": "digital_marketer",
+    "name": "مسوّق رقمي",
+    "name_en": "Digital Marketer",
+    "suggested_roles": []
+  }
+]

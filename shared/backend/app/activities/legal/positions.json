@@ -1,0 +1,42 @@
+[
+  {
+    "code": "managing_partner",
+    "name": "الشريك المدير",
+    "name_en": "Managing Partner",
+    "suggested_roles": [
+      "admin"
+    ]
+  },
+  {
+    "code": "senior_lawyer",
+    "name": "محامٍ أول",
+    "name_en": "Senior Lawyer",
+    "suggested_roles": []
+  },
+  {
+    "code": "lawyer",
+    "name": "محامٍ",
+    "name_en": "Lawyer",
+    "suggested_roles": []
+  },
+  {
+    "code": "legal_counsel",
+    "name": "مستشار قانوني",
+    "name_en": "Legal Counsel",
+    "suggested_roles": []
+  },
+  {
+    "code": "paralegal",
+    "name": "مساعد قانوني",
+    "name_en": "Paralegal",
+    "suggested_roles": []
+  },
+  {
+    "code": "legal_secretary",
+    "name": "سكرتير قانوني",
+    "name_en": "Legal Secretary",
+    "suggested_roles": [
+      "receptionist"
+    ]
+  }
+]

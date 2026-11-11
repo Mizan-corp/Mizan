@@ -14,8 +14,10 @@ in `shared/backend/app/framework/module_template/`, and applied by
 | `integration` | `shared/backend/app/integrations/<module_id>/` | `system/frontend/src/integrations/<module_id>/` |
 
 - `<activity>` is the module's **home activity**, one full word (`pharmacy`, `manufacturing`,
-  `petroleum`), defined in `app/activities/<activity>/activity.json`. `general` holds what every
-  activity inherits.
+  `petroleum`), defined in `app/activities/<activity>/activity.json`, with its demo data in
+  `seed.py` and its job titles in `positions.json` (`[{"code", "name", "name_en",
+  "suggested_roles"}]`, roles from `platform/permissions/roles.py`). `general` holds what every
+  activity inherits, including the positions every business has; an activity doesn't repeat them.
 - `<module_id>` is the **folder name**: unique across all modules (built and planned), lowercase
   words joined by `_`, full words (`drug_interactions`, not `drg_int`), valid on Windows.
 - Renamed ids stay in `app/catalog/legacy_ids.json` forever.

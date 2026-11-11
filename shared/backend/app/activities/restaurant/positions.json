@@ -1,0 +1,58 @@
+[
+  {
+    "code": "restaurant_manager",
+    "name": "مدير المطعم",
+    "name_en": "Restaurant Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "head_chef",
+    "name": "رئيس الطهاة",
+    "name_en": "Head Chef",
+    "suggested_roles": []
+  },
+  {
+    "code": "chef",
+    "name": "طاهٍ",
+    "name_en": "Chef",
+    "suggested_roles": []
+  },
+  {
+    "code": "kitchen_assistant",
+    "name": "مساعد مطبخ",
+    "name_en": "Kitchen Assistant",
+    "suggested_roles": []
+  },
+  {
+    "code": "waiter",
+    "name": "نادل",
+    "name_en": "Waiter",
+    "suggested_roles": [
+      "cashier"
+    ]
+  },
+  {
+    "code": "host",
+    "name": "مضيف استقبال",
+    "name_en": "Host",
+    "suggested_roles": [
+      "receptionist"
+    ]
+  },
+  {
+    "code": "barista",
+    "name": "باريستا",
+    "name_en": "Barista",
+    "suggested_roles": [
+      "cashier"
+    ]
+  },
+  {
+    "code": "delivery_rider",
+    "name": "مندوب توصيل",
+    "name_en": "Delivery Rider",
+    "suggested_roles": []
+  }
+]

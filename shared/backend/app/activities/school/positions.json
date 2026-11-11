@@ -1,0 +1,53 @@
+[
+  {
+    "code": "principal",
+    "name": "مدير المدرسة",
+    "name_en": "Principal",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "vice_principal",
+    "name": "وكيل المدرسة",
+    "name_en": "Vice Principal",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "teacher",
+    "name": "معلم",
+    "name_en": "Teacher",
+    "suggested_roles": []
+  },
+  {
+    "code": "registrar",
+    "name": "مسؤول القبول والتسجيل",
+    "name_en": "Registrar",
+    "suggested_roles": [
+      "receptionist"
+    ]
+  },
+  {
+    "code": "student_counselor",
+    "name": "مرشد طلابي",
+    "name_en": "Student Counselor",
+    "suggested_roles": []
+  },
+  {
+    "code": "fees_officer",
+    "name": "مسؤول الرسوم",
+    "name_en": "Fees Officer",
+    "suggested_roles": [
+      "accountant",
+      "cashier"
+    ]
+  },
+  {
+    "code": "librarian",
+    "name": "أمين مكتبة",
+    "name_en": "Librarian",
+    "suggested_roles": []
+  }
+]

@@ -1,0 +1,43 @@
+[
+  {
+    "code": "pharmacist_in_charge",
+    "name": "الصيدلي المسؤول",
+    "name_en": "Pharmacist in Charge",
+    "suggested_roles": [
+      "pharmacist",
+      "manager"
+    ]
+  },
+  {
+    "code": "pharmacist",
+    "name": "صيدلي",
+    "name_en": "Pharmacist",
+    "suggested_roles": [
+      "pharmacist"
+    ]
+  },
+  {
+    "code": "assistant_pharmacist",
+    "name": "مساعد صيدلي",
+    "name_en": "Assistant Pharmacist",
+    "suggested_roles": [
+      "pharmacist"
+    ]
+  },
+  {
+    "code": "pharmacy_technician",
+    "name": "فني صيدلة",
+    "name_en": "Pharmacy Technician",
+    "suggested_roles": [
+      "pharmacist"
+    ]
+  },
+  {
+    "code": "medical_rep_liaison",
+    "name": "مسؤول علاقات شركات الأدوية",
+    "name_en": "Supplier Liaison",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  }
+]

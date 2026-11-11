@@ -1,0 +1,41 @@
+[
+  {
+    "code": "managing_partner",
+    "name": "الشريك المدير",
+    "name_en": "Managing Partner",
+    "suggested_roles": [
+      "admin"
+    ]
+  },
+  {
+    "code": "audit_manager",
+    "name": "مدير مراجعة",
+    "name_en": "Audit Manager",
+    "suggested_roles": [
+      "accountant",
+      "manager"
+    ]
+  },
+  {
+    "code": "senior_accountant",
+    "name": "محاسب أول",
+    "name_en": "Senior Accountant",
+    "suggested_roles": [
+      "accountant"
+    ]
+  },
+  {
+    "code": "consultant",
+    "name": "مستشار",
+    "name_en": "Consultant",
+    "suggested_roles": []
+  },
+  {
+    "code": "office_administrator",
+    "name": "مدير المكتب",
+    "name_en": "Office Administrator",
+    "suggested_roles": [
+      "receptionist"
+    ]
+  }
+]

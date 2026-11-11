@@ -1,0 +1,38 @@
+[
+  {
+    "code": "agency_manager",
+    "name": "مدير الوكالة",
+    "name_en": "Agency Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "travel_consultant",
+    "name": "مستشار سفر",
+    "name_en": "Travel Consultant",
+    "suggested_roles": [
+      "cashier"
+    ]
+  },
+  {
+    "code": "ticketing_agent",
+    "name": "موظف حجز تذاكر",
+    "name_en": "Ticketing Agent",
+    "suggested_roles": [
+      "cashier"
+    ]
+  },
+  {
+    "code": "visa_officer",
+    "name": "مسؤول تأشيرات",
+    "name_en": "Visa Officer",
+    "suggested_roles": []
+  },
+  {
+    "code": "tour_guide",
+    "name": "مرشد سياحي",
+    "name_en": "Tour Guide",
+    "suggested_roles": []
+  }
+]

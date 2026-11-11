@@ -1,0 +1,50 @@
+[
+  {
+    "code": "plant_manager",
+    "name": "مدير المصنع",
+    "name_en": "Plant Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "production_manager",
+    "name": "مدير الإنتاج",
+    "name_en": "Production Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "production_planner",
+    "name": "مخطط إنتاج",
+    "name_en": "Production Planner",
+    "suggested_roles": []
+  },
+  {
+    "code": "production_supervisor",
+    "name": "مشرف إنتاج",
+    "name_en": "Production Supervisor",
+    "suggested_roles": []
+  },
+  {
+    "code": "machine_operator",
+    "name": "مشغّل ماكينة",
+    "name_en": "Machine Operator",
+    "suggested_roles": []
+  },
+  {
+    "code": "quality_inspector",
+    "name": "مفتش جودة",
+    "name_en": "Quality Inspector",
+    "suggested_roles": []
+  },
+  {
+    "code": "raw_materials_keeper",
+    "name": "أمين مخزن الخامات",
+    "name_en": "Raw Materials Keeper",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  }
+]

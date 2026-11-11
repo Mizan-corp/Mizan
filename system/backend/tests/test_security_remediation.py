@@ -257,68 +257,31 @@ async def test_sec_02_bola_and_privilege_escalation_guardrails():
     dummy_role_id = str(uuid.uuid4())
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        # 1. Non-admin cashier tries to assign role -> 403 Forbidden
-        res_cashier_assign = await c.post(
-            f"/authz/users/{cashier.id}/assign-role",
-            json={"role_id": dummy_role_id},
-            headers=env["h_t1_cashier"],
-        )
-        assert res_cashier_assign.status_code == 403
+        # 1. A cashier can't assign roles, list roles or set positions -> 403
+        res = await c.put(f"/authz/access/users/{cashier.id}/roles", json={"role_ids": [dummy_role_id]},
+                          headers=env["h_t1_cashier"])
+        assert res.status_code == 403
+        assert (await c.get("/authz/access/roles", headers=env["h_t1_cashier"])).status_code == 403
+        res = await c.put(f"/authz/access/users/{cashier.id}/position", json={"position_id": None},
+                          headers=env["h_t1_cashier"])
+        assert res.status_code == 403
 
-        # 2. Non-admin cashier tries permission override -> 403 Forbidden
-        res_cashier_perm = await c.post(
-            f"/authz/users/{cashier.id}/permission-override",
-            json={"permission_code": "financial.delete", "override_type": "allow"},
-            headers=env["h_t1_cashier"],
-        )
-        assert res_cashier_perm.status_code == 403
-
-        # 3. Non-admin cashier tries reading audit logs -> 403 Forbidden
-        res_cashier_audit = await c.get("/authz/audit-logs", headers=env["h_t1_cashier"])
-        assert res_cashier_audit.status_code == 403
-
-        # 4. Admin tries to mutate user belonging to DIFFERENT tenant -> 403 Forbidden or 404 Not Found (RLS isolation)
-        res_cross_tenant = await c.post(
-            f"/authz/users/{t2_user.id}/assign-role",
-            json={"role_id": dummy_role_id},
-            headers=env["h_t1_admin"],
-        )
+        # 2. An admin can't touch a user of another workspace -> 404 (isolation)
+        res_cross_tenant = await c.put(f"/authz/access/users/{t2_user.id}/roles", json={"role_ids": [dummy_role_id]},
+                                       headers=env["h_t1_admin"])
         assert res_cross_tenant.status_code in (403, 404)
 
 
 @pytest.mark.asyncio
-async def test_sec_03_break_glass_clinical_guardrails():
-    """SEC-03: Verify break-glass is restricted to clinical roles/permissions, requires justification, and caps duration."""
+async def test_sec_03_unenforced_access_controls_are_gone():
+    """Break-glass, permission overrides and facility/patient rules enforced nothing (no endpoint
+    checked them); they were removed rather than shown as security controls (#94 follow-up)."""
     env = await _create_security_test_env()
-
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-        # 1. Non-clinical cashier tries break-glass -> 403 Forbidden
-        res_cashier = await c.post(
-            "/authz/break-glass",
-            json={"grant_reason": "Emergency patient in critical condition requiring lab access", "duration_hours": 2},
-            headers=env["h_t1_cashier"],
-        )
-        assert res_cashier.status_code == 403
-        assert "طوارئ" in res_cashier.json()["detail"] or "مخصص" in res_cashier.json()["detail"]
-
-        # 2. Doctor tries break-glass with too short/empty reason -> 422 Unprocessable Entity
-        res_short_reason = await c.post(
-            "/authz/break-glass",
-            json={"grant_reason": "urgent", "duration_hours": 2},
-            headers=env["h_t1_doc"],
-        )
-        assert res_short_reason.status_code in (400, 422)
-
-        # 3. Doctor triggers break-glass with 24 hours -> clamped to max 4 hours
-        res_valid = await c.post(
-            "/authz/break-glass",
-            json={"grant_reason": "Emergency cardiac resuscitation in ER room 3 requiring full chart override", "duration_hours": 24},
-            headers=env["h_t1_doc"],
-        )
-        assert res_valid.status_code == 200
-        data = res_valid.json()
-        assert data["duration_hours"] == 4, f"Expected clamped 4 hours, got {data.get('duration_hours')}"
-        assert data["status"] == "ok"
+        for path in ("/authz/break-glass", "/authz/seed", f"/authz/users/{env['u_t1_cashier'].id}/permission-override",
+                     f"/authz/users/{env['u_t1_cashier'].id}/assign-role", "/authz/patient-assignments"):
+            res = await c.post(path, json={}, headers=env["h_t1_admin"])
+            assert res.status_code in (404, 405), path
 
 
 @pytest.mark.asyncio

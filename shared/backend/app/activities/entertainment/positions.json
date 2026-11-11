@@ -1,0 +1,38 @@
+[
+  {
+    "code": "venue_manager",
+    "name": "مدير المنشأة الترفيهية",
+    "name_en": "Venue Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "event_coordinator",
+    "name": "منسق فعاليات",
+    "name_en": "Event Coordinator",
+    "suggested_roles": []
+  },
+  {
+    "code": "ticket_seller",
+    "name": "موظف تذاكر",
+    "name_en": "Ticket Seller",
+    "suggested_roles": [
+      "cashier"
+    ]
+  },
+  {
+    "code": "ride_operator",
+    "name": "مشغّل ألعاب",
+    "name_en": "Ride Operator",
+    "suggested_roles": []
+  },
+  {
+    "code": "guest_services",
+    "name": "خدمة الزوار",
+    "name_en": "Guest Services",
+    "suggested_roles": [
+      "receptionist"
+    ]
+  }
+]

@@ -1,0 +1,37 @@
+[
+  {
+    "code": "salon_manager",
+    "name": "مدير الصالون",
+    "name_en": "Salon Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "stylist",
+    "name": "مصفف شعر",
+    "name_en": "Stylist",
+    "suggested_roles": []
+  },
+  {
+    "code": "beautician",
+    "name": "خبيرة تجميل",
+    "name_en": "Beautician",
+    "suggested_roles": []
+  },
+  {
+    "code": "spa_therapist",
+    "name": "أخصائي سبا",
+    "name_en": "Spa Therapist",
+    "suggested_roles": []
+  },
+  {
+    "code": "salon_receptionist",
+    "name": "موظف استقبال الصالون",
+    "name_en": "Salon Receptionist",
+    "suggested_roles": [
+      "receptionist",
+      "cashier"
+    ]
+  }
+]

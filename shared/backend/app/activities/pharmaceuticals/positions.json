@@ -1,0 +1,44 @@
+[
+  {
+    "code": "plant_manager",
+    "name": "مدير المصنع",
+    "name_en": "Plant Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "qualified_person",
+    "name": "الشخص المؤهل (QP)",
+    "name_en": "Qualified Person",
+    "suggested_roles": []
+  },
+  {
+    "code": "qa_manager",
+    "name": "مدير توكيد الجودة",
+    "name_en": "QA Manager",
+    "suggested_roles": []
+  },
+  {
+    "code": "qc_analyst",
+    "name": "محلل رقابة جودة",
+    "name_en": "QC Analyst",
+    "suggested_roles": [
+      "lab_tech"
+    ]
+  },
+  {
+    "code": "production_pharmacist",
+    "name": "صيدلي إنتاج",
+    "name_en": "Production Pharmacist",
+    "suggested_roles": [
+      "pharmacist"
+    ]
+  },
+  {
+    "code": "validation_specialist",
+    "name": "أخصائي تحقق ومعايرة",
+    "name_en": "Validation Specialist",
+    "suggested_roles": []
+  }
+]

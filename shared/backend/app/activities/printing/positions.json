@@ -1,0 +1,36 @@
+[
+  {
+    "code": "print_manager",
+    "name": "مدير المطبعة",
+    "name_en": "Print Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "prepress_operator",
+    "name": "فني ما قبل الطباعة",
+    "name_en": "Prepress Operator",
+    "suggested_roles": []
+  },
+  {
+    "code": "press_operator",
+    "name": "مشغّل ماكينة طباعة",
+    "name_en": "Press Operator",
+    "suggested_roles": []
+  },
+  {
+    "code": "finishing_operator",
+    "name": "فني تشطيب وتجليد",
+    "name_en": "Finishing Operator",
+    "suggested_roles": []
+  },
+  {
+    "code": "estimator",
+    "name": "مسعّر أعمال",
+    "name_en": "Estimator",
+    "suggested_roles": [
+      "accountant"
+    ]
+  }
+]

@@ -26,6 +26,7 @@ GLOBAL_BY_DESIGN = {
     "supplier_prices",            # (supplier_id, product_id)
     "user_permission_overrides",  # (user_id, permission_id)
     "sys_roles",                  # code WHERE tenant_id IS NULL: the platform's standard roles
+    "org_positions",              # (activity, code) WHERE tenant_id IS NULL: standard positions
 }
 
 

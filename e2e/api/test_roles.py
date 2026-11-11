@@ -74,3 +74,19 @@ def test_custom_permission_list_becomes_a_personal_role(admin_api, reg):
     assert admin_api.ok(admin_api.get(f"/permissions/{u['id']}"))["permissions"] == ["pos", "reports"]
     me = api.ok(api.get("/auth/me"))
     assert me["permissions"] == ["pos", "reports"] and me["acting_role"]["code"].startswith("cashier-")
+
+
+def test_positions_are_general_plus_the_workspaces_activity(admin_api, reg):
+    """Each activity has its own positions (ADR-006 D4); a position suggests roles, grants none."""
+    positions = admin_api.ok(admin_api.get("/authz/access/positions"))
+    activities = {p["activity"] for p in positions if p["standard"]}
+    assert "general" in activities and len(activities) <= 2, activities  # general + this activity
+
+    u, api = _user(admin_api, reg, "cashier")
+    general = next(p for p in positions if p["activity"] == "general" and p["suggested_role_ids"])
+    before = api.ok(api.get("/auth/me"))["permissions"]
+    admin_api.ok(admin_api.put(f"/authz/access/users/{u['id']}/position", json={"position_id": general["id"]}))
+    row = next(x for x in admin_api.ok(admin_api.get("/users")) if x["id"] == u["id"])
+    assert row["position_name"] == general["name"]
+    assert api.ok(api.get("/auth/me"))["permissions"] == before  # a title grants nothing
+    assert api.put(f"/authz/access/users/{u['id']}/position", json={"position_id": None}).status_code == 403

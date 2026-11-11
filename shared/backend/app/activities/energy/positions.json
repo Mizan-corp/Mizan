@@ -1,0 +1,34 @@
+[
+  {
+    "code": "plant_manager",
+    "name": "مدير المحطة",
+    "name_en": "Plant Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "control_room_operator",
+    "name": "مشغّل غرفة التحكم",
+    "name_en": "Control Room Operator",
+    "suggested_roles": []
+  },
+  {
+    "code": "electrical_engineer",
+    "name": "مهندس كهرباء",
+    "name_en": "Electrical Engineer",
+    "suggested_roles": []
+  },
+  {
+    "code": "maintenance_engineer",
+    "name": "مهندس صيانة",
+    "name_en": "Maintenance Engineer",
+    "suggested_roles": []
+  },
+  {
+    "code": "hse_officer",
+    "name": "مسؤول الصحة والسلامة والبيئة",
+    "name_en": "HSE Officer",
+    "suggested_roles": []
+  }
+]

@@ -1,0 +1,39 @@
+[
+  {
+    "code": "property_manager",
+    "name": "مدير العقارات",
+    "name_en": "Property Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "leasing_agent",
+    "name": "مسؤول التأجير",
+    "name_en": "Leasing Agent",
+    "suggested_roles": [
+      "receptionist"
+    ]
+  },
+  {
+    "code": "rent_collector",
+    "name": "محصّل إيجارات",
+    "name_en": "Rent Collector",
+    "suggested_roles": [
+      "accountant",
+      "cashier"
+    ]
+  },
+  {
+    "code": "facility_manager",
+    "name": "مدير المرافق",
+    "name_en": "Facility Manager",
+    "suggested_roles": []
+  },
+  {
+    "code": "building_supervisor",
+    "name": "مشرف مبنى",
+    "name_en": "Building Supervisor",
+    "suggested_roles": []
+  }
+]

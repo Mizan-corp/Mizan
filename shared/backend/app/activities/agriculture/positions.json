@@ -1,0 +1,42 @@
+[
+  {
+    "code": "farm_manager",
+    "name": "مدير المزرعة",
+    "name_en": "Farm Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "agronomist",
+    "name": "مهندس زراعي",
+    "name_en": "Agronomist",
+    "suggested_roles": []
+  },
+  {
+    "code": "veterinarian",
+    "name": "طبيب بيطري",
+    "name_en": "Veterinarian",
+    "suggested_roles": []
+  },
+  {
+    "code": "farm_supervisor",
+    "name": "مشرف مزرعة",
+    "name_en": "Farm Supervisor",
+    "suggested_roles": []
+  },
+  {
+    "code": "farm_worker",
+    "name": "عامل زراعي",
+    "name_en": "Farm Worker",
+    "suggested_roles": []
+  },
+  {
+    "code": "farm_storekeeper",
+    "name": "أمين مخزن المزرعة",
+    "name_en": "Farm Storekeeper",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  }
+]

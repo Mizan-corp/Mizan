@@ -1,0 +1,496 @@
+[
+  {
+    "code": "hospital_director",
+    "name": "مدير المستشفى",
+    "name_en": "Hospital Director",
+    "suggested_roles": [
+      "admin"
+    ]
+  },
+  {
+    "code": "medical_director",
+    "name": "المدير الطبي",
+    "name_en": "Medical Director",
+    "suggested_roles": [
+      "manager",
+      "doctor"
+    ]
+  },
+  {
+    "code": "hospital_administrator",
+    "name": "مدير إداري للمستشفى",
+    "name_en": "Hospital Administrator",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "clinic_manager",
+    "name": "مدير العيادات الخارجية",
+    "name_en": "Clinic Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "quality_manager",
+    "name": "مدير الجودة والاعتماد",
+    "name_en": "Quality Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "compliance_officer",
+    "name": "مسؤول الامتثال الرقابي",
+    "name_en": "Compliance Officer",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "patient_relations_manager",
+    "name": "مدير علاقات وتجربة المرضى",
+    "name_en": "Patient Relations Manager",
+    "suggested_roles": [
+      "receptionist"
+    ]
+  },
+  {
+    "code": "medical_secretary",
+    "name": "سكرتير طبي",
+    "name_en": "Medical Secretary",
+    "suggested_roles": [
+      "receptionist"
+    ]
+  },
+  {
+    "code": "chief_physician",
+    "name": "كبير الأطباء",
+    "name_en": "Chief Physician",
+    "suggested_roles": [
+      "doctor"
+    ]
+  },
+  {
+    "code": "consultant_physician",
+    "name": "طبيب استشاري",
+    "name_en": "Consultant Physician",
+    "suggested_roles": [
+      "doctor"
+    ]
+  },
+  {
+    "code": "specialist_physician",
+    "name": "طبيب أخصائي",
+    "name_en": "Specialist Physician",
+    "suggested_roles": [
+      "doctor"
+    ]
+  },
+  {
+    "code": "general_practitioner",
+    "name": "طبيب ممارس عام",
+    "name_en": "General Practitioner",
+    "suggested_roles": [
+      "doctor"
+    ]
+  },
+  {
+    "code": "resident_doctor",
+    "name": "طبيب مقيم",
+    "name_en": "Resident Doctor",
+    "suggested_roles": [
+      "doctor"
+    ]
+  },
+  {
+    "code": "intern_doctor",
+    "name": "طبيب امتياز",
+    "name_en": "Intern Doctor",
+    "suggested_roles": [
+      "doctor"
+    ]
+  },
+  {
+    "code": "surgeon",
+    "name": "جراح",
+    "name_en": "Surgeon",
+    "suggested_roles": [
+      "doctor"
+    ]
+  },
+  {
+    "code": "anesthesiologist",
+    "name": "استشاري تخدير",
+    "name_en": "Anesthesiologist",
+    "suggested_roles": [
+      "doctor"
+    ]
+  },
+  {
+    "code": "emergency_physician",
+    "name": "أخصائي طب طوارئ",
+    "name_en": "Emergency Physician",
+    "suggested_roles": [
+      "doctor"
+    ]
+  },
+  {
+    "code": "pediatrician",
+    "name": "أخصائي طب الأطفال",
+    "name_en": "Pediatrician",
+    "suggested_roles": [
+      "doctor"
+    ]
+  },
+  {
+    "code": "cardiologist",
+    "name": "استشاري أمراض القلب",
+    "name_en": "Cardiologist",
+    "suggested_roles": [
+      "doctor"
+    ]
+  },
+  {
+    "code": "dentist",
+    "name": "طبيب أسنان",
+    "name_en": "Dentist",
+    "suggested_roles": [
+      "doctor"
+    ]
+  },
+  {
+    "code": "dermatologist",
+    "name": "أخصائي الجلدية والتجميل",
+    "name_en": "Dermatologist",
+    "suggested_roles": [
+      "doctor"
+    ]
+  },
+  {
+    "code": "gynecologist",
+    "name": "أخصائي النساء والتوليد",
+    "name_en": "Gynecologist",
+    "suggested_roles": [
+      "doctor"
+    ]
+  },
+  {
+    "code": "radiologist",
+    "name": "استشاري أشعة تشخيصية",
+    "name_en": "Radiologist",
+    "suggested_roles": [
+      "doctor"
+    ]
+  },
+  {
+    "code": "pathologist",
+    "name": "استشاري علم الأمراض والأنسجة",
+    "name_en": "Pathologist",
+    "suggested_roles": [
+      "doctor"
+    ]
+  },
+  {
+    "code": "medical_officer",
+    "name": "ضابط طبي ميداني",
+    "name_en": "Medical Officer",
+    "suggested_roles": [
+      "doctor"
+    ]
+  },
+  {
+    "code": "cno",
+    "name": "رئيس هيئة التمريض",
+    "name_en": "Chief Nursing Officer",
+    "suggested_roles": [
+      "nurse"
+    ]
+  },
+  {
+    "code": "nursing_manager",
+    "name": "مدير التمريض",
+    "name_en": "Nursing Manager",
+    "suggested_roles": [
+      "nurse"
+    ]
+  },
+  {
+    "code": "head_nurse",
+    "name": "رئيس تمريض قسم / جناح",
+    "name_en": "Head Nurse",
+    "suggested_roles": [
+      "nurse"
+    ]
+  },
+  {
+    "code": "registered_nurse",
+    "name": "ممرض قانوني معتمد (RN)",
+    "name_en": "Registered Nurse",
+    "suggested_roles": [
+      "nurse"
+    ]
+  },
+  {
+    "code": "assistant_nurse",
+    "name": "مساعد ممرض",
+    "name_en": "Assistant Nurse",
+    "suggested_roles": [
+      "nurse"
+    ]
+  },
+  {
+    "code": "practical_nurse",
+    "name": "ممرض ممارس",
+    "name_en": "Practical Nurse",
+    "suggested_roles": [
+      "nurse"
+    ]
+  },
+  {
+    "code": "icu_nurse",
+    "name": "ممرض عناية مركزة (ICU)",
+    "name_en": "ICU Nurse",
+    "suggested_roles": [
+      "nurse"
+    ]
+  },
+  {
+    "code": "er_nurse",
+    "name": "ممرض طوارئ وفرز",
+    "name_en": "Emergency Nurse",
+    "suggested_roles": [
+      "nurse"
+    ]
+  },
+  {
+    "code": "or_nurse",
+    "name": "ممرض غرف العمليات (OR)",
+    "name_en": "Operating Room Nurse",
+    "suggested_roles": [
+      "nurse"
+    ]
+  },
+  {
+    "code": "recovery_nurse",
+    "name": "ممرض إفاقة ورعاية لاحقة",
+    "name_en": "Recovery Nurse",
+    "suggested_roles": [
+      "nurse"
+    ]
+  },
+  {
+    "code": "nursing_supervisor",
+    "name": "مشرف نوبتجيات تمريض",
+    "name_en": "Nursing Supervisor",
+    "suggested_roles": [
+      "nurse"
+    ]
+  },
+  {
+    "code": "lab_director",
+    "name": "مدير المختبرات وبنك الدم",
+    "name_en": "Laboratory Director",
+    "suggested_roles": [
+      "lab_tech"
+    ]
+  },
+  {
+    "code": "lab_supervisor",
+    "name": "مشرف مختبر",
+    "name_en": "Laboratory Supervisor",
+    "suggested_roles": [
+      "lab_tech"
+    ]
+  },
+  {
+    "code": "lab_technician",
+    "name": "فني تحاليل مخبرية",
+    "name_en": "Laboratory Technician",
+    "suggested_roles": [
+      "lab_tech"
+    ]
+  },
+  {
+    "code": "lab_specialist",
+    "name": "أخصائي تحاليل طبية",
+    "name_en": "Laboratory Specialist",
+    "suggested_roles": [
+      "lab_tech"
+    ]
+  },
+  {
+    "code": "phlebotomist",
+    "name": "فني سحب عينات دم",
+    "name_en": "Phlebotomist",
+    "suggested_roles": [
+      "lab_tech"
+    ]
+  },
+  {
+    "code": "radiology_manager",
+    "name": "مدير قسم الأشعة",
+    "name_en": "Radiology Manager",
+    "suggested_roles": [
+      "lab_tech"
+    ]
+  },
+  {
+    "code": "radiology_technician",
+    "name": "فني أشعة وتصوير طبي",
+    "name_en": "Radiology Technician",
+    "suggested_roles": [
+      "lab_tech"
+    ]
+  },
+  {
+    "code": "mri_technician",
+    "name": "فني رنين مغناطيسي (MRI)",
+    "name_en": "MRI Technician",
+    "suggested_roles": [
+      "lab_tech"
+    ]
+  },
+  {
+    "code": "ct_technician",
+    "name": "فني أشعة مقطعية (CT)",
+    "name_en": "CT Technician",
+    "suggested_roles": [
+      "lab_tech"
+    ]
+  },
+  {
+    "code": "ultrasound_technician",
+    "name": "أخصائي تصوير موجات فوق صوتية",
+    "name_en": "Ultrasound Technician",
+    "suggested_roles": [
+      "lab_tech"
+    ]
+  },
+  {
+    "code": "imaging_coordinator",
+    "name": "منسق مواعيد الأشعة",
+    "name_en": "Imaging Coordinator",
+    "suggested_roles": [
+      "lab_tech"
+    ]
+  },
+  {
+    "code": "chief_pharmacist",
+    "name": "كبير الصيادلة",
+    "name_en": "Chief Pharmacist",
+    "suggested_roles": [
+      "pharmacist"
+    ]
+  },
+  {
+    "code": "pharmacy_manager",
+    "name": "مدير الصيدلية",
+    "name_en": "Pharmacy Manager",
+    "suggested_roles": [
+      "pharmacist"
+    ]
+  },
+  {
+    "code": "clinical_pharmacist",
+    "name": "صيدلي سريري",
+    "name_en": "Clinical Pharmacist",
+    "suggested_roles": [
+      "pharmacist"
+    ]
+  },
+  {
+    "code": "hospital_pharmacist",
+    "name": "صيدلي مستشفى وتنويم",
+    "name_en": "Hospital Pharmacist",
+    "suggested_roles": [
+      "pharmacist"
+    ]
+  },
+  {
+    "code": "community_pharmacist",
+    "name": "صيدلي عيادات خارجية",
+    "name_en": "Community Pharmacist",
+    "suggested_roles": [
+      "pharmacist"
+    ]
+  },
+  {
+    "code": "pharmacy_technician",
+    "name": "مساعد صيدلي / فني",
+    "name_en": "Pharmacy Technician",
+    "suggested_roles": [
+      "pharmacist"
+    ]
+  },
+  {
+    "code": "pharmacy_storekeeper",
+    "name": "أمين مستودع الأدوية",
+    "name_en": "Pharmacy Storekeeper",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  },
+  {
+    "code": "billing_officer",
+    "name": "موظف فوترة ومحاسبة مرضى",
+    "name_en": "Billing Officer",
+    "suggested_roles": [
+      "accountant",
+      "receptionist"
+    ]
+  },
+  {
+    "code": "insurance_manager",
+    "name": "مدير إدارة التأمين الطبي",
+    "name_en": "Insurance Manager",
+    "suggested_roles": [
+      "accountant"
+    ]
+  },
+  {
+    "code": "insurance_officer",
+    "name": "مسؤول مطالبات وموافقات التأمين",
+    "name_en": "Insurance Officer",
+    "suggested_roles": [
+      "accountant"
+    ]
+  },
+  {
+    "code": "claims_specialist",
+    "name": "أخصائي تسوية مطالبات ورفوضات",
+    "name_en": "Claims Specialist",
+    "suggested_roles": [
+      "accountant"
+    ]
+  },
+  {
+    "code": "rcm_manager",
+    "name": "مدير دورة الإيرادات (RCM)",
+    "name_en": "Revenue Cycle Manager",
+    "suggested_roles": [
+      "accountant"
+    ]
+  },
+  {
+    "code": "biomedical_engineer",
+    "name": "مهندس أجهزة طبية حيوية",
+    "name_en": "Biomedical Engineer",
+    "suggested_roles": []
+  },
+  {
+    "code": "biomedical_technician",
+    "name": "فني صيانة ومعايرة أجهزة طبية",
+    "name_en": "Biomedical Technician",
+    "suggested_roles": []
+  },
+  {
+    "code": "medical_receptionist",
+    "name": "موظف استقبال طبي",
+    "name_en": "Medical Receptionist",
+    "suggested_roles": [
+      "receptionist"
+    ]
+  }
+]

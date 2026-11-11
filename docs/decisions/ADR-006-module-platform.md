@@ -501,10 +501,18 @@ How it works:
   within the permissions of the role you act as now. Standard roles can't be edited.
 - `PUT /permissions/{id}` (the users screen's checklist) still works: a list equal to the
   standard role assigns it, otherwise it becomes the user's own role.
-- The users screen shows the acting role and the assigned roles, and assigns roles. The older
-  "advanced" screen (positions, overrides, catalogue roles) stays for now. Its role assignment
-  follows the same no-escalation rule, and catalogue roles that hold no permissions are not
-  offered.
+- **One access screen** (users): each user's position, acting role and assigned roles. The older
+  "advanced" screen was removed (2026-11-11): its policy engine was never called by any endpoint,
+  so permission overrides, catalogue roles, facility/patient rules and break-glass enforced
+  nothing. Their tables stay; real patient-level clinical access is #113.
+- **Positions per activity** (D4's three layers): `app/activities/general/positions.json` holds
+  the positions every business has; each activity adds its own in
+  `app/activities/<activity>/positions.json` (a pharmacy's pharmacists, a restaurant's chefs and
+  waiters, a hospital's medical staff); a workspace can add more. Legacy activities use the
+  positions of the activity they map to. Each position lists `suggested_roles` (standard role
+  codes); picking a position on the users screen pre-ticks them, but only roles grant access.
+  Standard positions are rows with no workspace keyed by (activity, code) (v58), synced from the
+  files once per process.
 - Migrations can now be Python steps (`"python:module:function"`), run by the app's runner and
   by `manage.py db migrate` (inside the system API container).
 - Everything runs under workspace isolation by the database role (#112): a request's

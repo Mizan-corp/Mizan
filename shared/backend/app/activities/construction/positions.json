@@ -1,0 +1,50 @@
+[
+  {
+    "code": "project_manager",
+    "name": "مدير المشروع",
+    "name_en": "Project Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "site_engineer",
+    "name": "مهندس موقع",
+    "name_en": "Site Engineer",
+    "suggested_roles": []
+  },
+  {
+    "code": "quantity_surveyor",
+    "name": "مهندس حصر وكميات",
+    "name_en": "Quantity Surveyor",
+    "suggested_roles": [
+      "accountant"
+    ]
+  },
+  {
+    "code": "site_supervisor",
+    "name": "مشرف موقع",
+    "name_en": "Site Supervisor",
+    "suggested_roles": []
+  },
+  {
+    "code": "foreman",
+    "name": "ملاحظ عمال",
+    "name_en": "Foreman",
+    "suggested_roles": []
+  },
+  {
+    "code": "safety_officer",
+    "name": "مسؤول السلامة",
+    "name_en": "Safety Officer",
+    "suggested_roles": []
+  },
+  {
+    "code": "site_storekeeper",
+    "name": "أمين مخزن الموقع",
+    "name_en": "Site Storekeeper",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  }
+]

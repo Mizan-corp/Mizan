@@ -1,0 +1,42 @@
+[
+  {
+    "code": "creative_director",
+    "name": "المدير الإبداعي",
+    "name_en": "Creative Director",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "account_manager",
+    "name": "مدير حسابات العملاء",
+    "name_en": "Account Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "designer",
+    "name": "مصمم",
+    "name_en": "Designer",
+    "suggested_roles": []
+  },
+  {
+    "code": "copywriter",
+    "name": "كاتب محتوى",
+    "name_en": "Copywriter",
+    "suggested_roles": []
+  },
+  {
+    "code": "translator",
+    "name": "مترجم",
+    "name_en": "Translator",
+    "suggested_roles": []
+  },
+  {
+    "code": "project_coordinator",
+    "name": "منسق مشروعات",
+    "name_en": "Project Coordinator",
+    "suggested_roles": []
+  }
+]

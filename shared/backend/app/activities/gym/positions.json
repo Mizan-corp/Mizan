@@ -1,0 +1,31 @@
+[
+  {
+    "code": "gym_manager",
+    "name": "مدير النادي",
+    "name_en": "Gym Manager",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "personal_trainer",
+    "name": "مدرب شخصي",
+    "name_en": "Personal Trainer",
+    "suggested_roles": []
+  },
+  {
+    "code": "fitness_instructor",
+    "name": "مدرب لياقة",
+    "name_en": "Fitness Instructor",
+    "suggested_roles": []
+  },
+  {
+    "code": "membership_advisor",
+    "name": "مستشار اشتراكات",
+    "name_en": "Membership Advisor",
+    "suggested_roles": [
+      "cashier",
+      "receptionist"
+    ]
+  }
+]

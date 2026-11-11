@@ -1,0 +1,36 @@
+[
+  {
+    "code": "field_superintendent",
+    "name": "مدير الحقل",
+    "name_en": "Field Superintendent",
+    "suggested_roles": [
+      "manager"
+    ]
+  },
+  {
+    "code": "drilling_engineer",
+    "name": "مهندس حفر",
+    "name_en": "Drilling Engineer",
+    "suggested_roles": []
+  },
+  {
+    "code": "production_engineer",
+    "name": "مهندس إنتاج",
+    "name_en": "Production Engineer",
+    "suggested_roles": []
+  },
+  {
+    "code": "hse_officer",
+    "name": "مسؤول الصحة والسلامة والبيئة",
+    "name_en": "HSE Officer",
+    "suggested_roles": []
+  },
+  {
+    "code": "materials_coordinator",
+    "name": "منسق المواد",
+    "name_en": "Materials Coordinator",
+    "suggested_roles": [
+      "storekeeper"
+    ]
+  }
+]

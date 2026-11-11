@@ -2742,6 +2742,23 @@ MIGRATIONS = [
               WHERE status = 'paid' AND period_end IS NOT NULL GROUP BY tenant_id) p
         WHERE p.tenant_id = t.id AND t.plan <> 'trial' AND t.paid_until IS NULL;
     """),
+    # Positions per activity (ADR-006 D4): standard positions have no workspace and belong to an
+    # activity ('general' = every business); workspaces read them but only change their own.
+    ("v58_standard_positions_readable", """
+        ALTER TABLE org_positions ADD COLUMN IF NOT EXISTS activity varchar(48);
+        -- The old catalogue (hospital titles shown to every workspace) is replaced by each
+        -- activity's positions (app/activities/*/positions.json), synced by the app.
+        DELETE FROM org_positions WHERE tenant_id IS NULL AND activity IS NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_org_positions_standard ON org_positions (activity, code) WHERE tenant_id IS NULL;
+        DROP POLICY IF EXISTS tenant_isolation ON org_positions;
+        DROP POLICY IF EXISTS tenant_read ON org_positions;
+        DROP POLICY IF EXISTS tenant_write ON org_positions;
+        CREATE POLICY tenant_read ON org_positions FOR SELECT
+            USING (tenant_id IS NULL OR tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        CREATE POLICY tenant_write ON org_positions FOR ALL
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:
