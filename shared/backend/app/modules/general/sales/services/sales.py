@@ -272,6 +272,28 @@ async def confirm_draft_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid
     return sale
 
 
+def _return_lots(item, qty: Decimal, skip: Decimal = Decimal("0")) -> list[tuple[Decimal, dict]]:
+    """Returned stock goes back into the batches the line was sold from (in order, after `skip`
+    already returned); lines without batches return plain stock."""
+    extra = item.extra or {}
+    lots = extra.get("batches") or ([{"batch_number": extra["batch_number"], "expiry_date": extra.get("expiry_date"),
+                                      "qty": float(item.qty)}] if extra.get("batch_number") else [])
+    if not lots:
+        return [(qty, {})]
+    out, left = [], qty
+    for lot in lots:
+        room = Decimal(str(lot["qty"]))
+        used = min(room, skip)
+        skip -= used
+        part = min(room - used, left)
+        if part > 0:
+            out.append((part, {"batch_number": lot["batch_number"], "expiry_date": lot.get("expiry_date")}))
+            left -= part
+    if left > 0:
+        out.append((left, {"batch_number": lots[-1]["batch_number"], "expiry_date": lots[-1].get("expiry_date")}))
+    return out
+
+
 async def _take_stock(db: AsyncSession, item, warehouse_id, sale_id, user_id) -> list:
     """A sale line leaves stock through the one stock path (apply_movement). The batches it came
     from (if the workspace tracks batches) are kept on the line's extra values."""
@@ -377,6 +399,11 @@ async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
         status=SaleStatus.confirmed,
         created_by=cashier_id,
     )
+    if getattr(data, "extra", None):
+        from app.framework.fields import clean_extra
+        from app.framework.hooks import workspace_activity
+
+        sale.extra = await clean_extra(db, "sale", data.extra, await workspace_activity(db), partial=True)
     db.add(sale)
     await db.flush()
 
@@ -495,15 +522,17 @@ async def return_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID) 
 
     total = Decimal("0")
     for item in sale.items:
-        mv = StockMovementCreate(
-            product_id=item.product_id,
-            warehouse_id=sale.warehouse_id,
-            movement_type=MovementType.return_in,
-            qty=item.qty,
-            unit_cost=item.unit_cost,
-            unit_price=item.unit_price,
-        )
-        await record_movement(db, mv, user_id, ref_id=sale.id, ref_type="return", sale_id=sale.id)
+        for qty, lot in _return_lots(item, Decimal(str(item.qty))):
+            mv = StockMovementCreate(
+                product_id=item.product_id,
+                warehouse_id=sale.warehouse_id,
+                movement_type=MovementType.return_in,
+                qty=qty,
+                unit_cost=item.unit_cost,
+                unit_price=item.unit_price,
+                **lot,
+            )
+            await record_movement(db, mv, user_id, ref_id=sale.id, ref_type="return", sale_id=sale.id)
         total += Decimal(str(item.qty)) * Decimal(str(item.unit_price)) - Decimal(str(item.discount))
 
     total -= Decimal(str(sale.discount_amount))
@@ -712,9 +741,10 @@ async def partial_return_sale(db: AsyncSession, sale_id: uuid.UUID, data: dict, 
         db.add(SaleItem(sale_id=ret.id, product_id=oi.product_id, qty=qty,
                         unit_price=oi.unit_price, unit_cost=oi.unit_cost, discount=prorated_discount))
         total += qty * oi.unit_price - prorated_discount
-        await record_movement(db, StockMovementCreate(product_id=oi.product_id, warehouse_id=orig.warehouse_id,
-            movement_type=MovementType.return_in, qty=qty, unit_cost=oi.unit_cost, unit_price=oi.unit_price),
-            current_user_id, ref_id=ret.id, ref_type="partial_return", sale_id=ret.id)
+        for part, lot in _return_lots(oi, qty, skip=already):
+            await record_movement(db, StockMovementCreate(product_id=oi.product_id, warehouse_id=orig.warehouse_id,
+                movement_type=MovementType.return_in, qty=part, unit_cost=oi.unit_cost, unit_price=oi.unit_price, **lot),
+                current_user_id, ref_id=ret.id, ref_type="partial_return", sale_id=ret.id)
 
     pmt = await db.execute(sqlt(
         "SELECT method, COALESCE(SUM(amount),0) as amt FROM sale_payments WHERE sale_id = :sid GROUP BY method"

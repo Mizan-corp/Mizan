@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import String, cast, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -153,8 +153,11 @@ async def list_products(
 
     if search:
         like = f"%{search}%"
-        base_q = base_q.where(or_(Product.name.ilike(like), Product.code.ilike(like)))
-        count_q = count_q.where(or_(Product.name.ilike(like), Product.code.ilike(like)))
+        # Name, code, barcode, or any of the activity's fields (a drug's scientific name…).
+        match = or_(Product.name.ilike(like), Product.code.ilike(like), Product.barcode.ilike(like),
+                    cast(Product.extra, String).ilike(like))
+        base_q = base_q.where(match)
+        count_q = count_q.where(match)
     if subcategory_id:
         base_q = base_q.where(Product.subcategory_id == subcategory_id)
         count_q = count_q.where(Product.subcategory_id == subcategory_id)
@@ -209,10 +212,19 @@ async def list_products(
     return Page(items=items_out, total=total, page=page, size=page_size, pages=pages)
 
 
+async def _clean_extra(db: AsyncSession, extra: dict | None, current: dict | None = None) -> dict:
+    """A product's extra values, checked against the workspace's product fields (ADR-006 phase 4)."""
+    from app.framework.fields import clean_extra
+    from app.framework.hooks import workspace_activity
+
+    return await clean_extra(db, "product", extra, await workspace_activity(db), current=current)
+
+
 async def create_product(db: AsyncSession, data: ProductCreate, current_user_id: uuid.UUID) -> ProductOut:
     payload = data.model_dump()
     if not payload.get("code"):
         payload["code"] = None
+    payload["extra"] = await _clean_extra(db, payload.get("extra"))
     p = Product(**payload)
     db.add(p)
     await db.commit()
@@ -264,6 +276,8 @@ async def update_product(
     payload = data.model_dump(exclude_none=True)
     if "code" in payload and not payload["code"]:
         payload["code"] = None
+    if "extra" in payload:
+        payload["extra"] = await _clean_extra(db, payload["extra"], current=p.extra)
     for k, v in payload.items():
         setattr(p, k, v)
     await audit_log(db, "product", "update", current_user.id, current_user.full_name, product_id, data.model_dump(mode="json", exclude_none=True), "تعديل المنتج")

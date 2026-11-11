@@ -2795,6 +2795,49 @@ MIGRATIONS = [
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
         CREATE INDEX IF NOT EXISTS ix_products_extra ON products USING gin (extra);
     """),
+    # Batches and expiry (ADR-006 phase 4c): stock lots per product, branch and batch number, and
+    # what each stock movement took from or put into each lot.
+    ("v61_batches", """
+        CREATE TABLE IF NOT EXISTS batches_lots (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+                DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+            product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+            warehouse_id uuid NOT NULL REFERENCES warehouses(id) ON DELETE CASCADE,
+            batch_number varchar(64) NOT NULL,
+            expiry_date date,
+            qty numeric(14, 3) NOT NULL DEFAULT 0,
+            unit_cost numeric(14, 2),
+            status varchar(16) NOT NULL DEFAULT 'active',
+            received_at timestamptz DEFAULT now(),
+            created_at timestamptz DEFAULT now(),
+            CONSTRAINT uq_batches_lots_batch UNIQUE (tenant_id, product_id, warehouse_id, batch_number)
+        );
+        CREATE INDEX IF NOT EXISTS ix_batches_lots_fefo ON batches_lots (product_id, warehouse_id, expiry_date);
+        CREATE INDEX IF NOT EXISTS ix_batches_lots_tenant_id ON batches_lots (tenant_id);
+        CREATE TABLE IF NOT EXISTS batches_lot_movements (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+                DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+            lot_id uuid NOT NULL REFERENCES batches_lots(id) ON DELETE CASCADE,
+            movement_id uuid NOT NULL REFERENCES stock_movements(id) ON DELETE CASCADE,
+            qty numeric(14, 3) NOT NULL,
+            created_at timestamptz DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_batches_lot_movements_lot_id ON batches_lot_movements (lot_id);
+        CREATE INDEX IF NOT EXISTS ix_batches_lot_movements_movement_id ON batches_lot_movements (movement_id);
+        CREATE INDEX IF NOT EXISTS ix_batches_lot_movements_tenant_id ON batches_lot_movements (tenant_id);
+        ALTER TABLE batches_lots ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE batches_lots FORCE ROW LEVEL SECURITY;
+        ALTER TABLE batches_lot_movements ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE batches_lot_movements FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON batches_lots;
+        CREATE POLICY tenant_isolation ON batches_lots
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        DROP POLICY IF EXISTS tenant_isolation ON batches_lot_movements;
+        CREATE POLICY tenant_isolation ON batches_lot_movements
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

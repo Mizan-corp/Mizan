@@ -7,6 +7,7 @@
   "description": "دواء، تشغيلات، تواريخ صلاحية، رقابة صرف وتأمين صحي",
   "modules": [
     "pharmacy",
+    "batches",
     "inventory",
     "pos",
     "finance"

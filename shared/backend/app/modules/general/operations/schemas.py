@@ -1,5 +1,6 @@
 """Stock operations: request schemas (dispatch, goods receipt, stock request)."""
 import uuid
+from datetime import date
 from decimal import Decimal
 
 from pydantic import BaseModel, Field, model_validator
@@ -10,6 +11,9 @@ class OperationItem(BaseModel):
     qty: Decimal = Field(gt=0)
     unit_cost: Decimal = Field(default=Decimal("0"), ge=0)
     note: str = ""
+    # Batch tracking (pharmacies, ADR-006 phase 4): which batch the stock comes in as.
+    batch_number: str | None = Field(None, max_length=64)
+    expiry_date: date | None = None
 
 
 class DispatchRequest(BaseModel):

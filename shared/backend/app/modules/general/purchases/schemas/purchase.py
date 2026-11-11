@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from decimal import Decimal
 
 from pydantic import BaseModel, Field
@@ -32,6 +33,9 @@ class ReceiveItemOverride(BaseModel):
     product_id: uuid.UUID
     qty_received: Decimal | None = Field(None, gt=0)
     unit_cost: Decimal | None = Field(None, ge=0)
+    # Batch tracking (pharmacies, ADR-006 phase 4): which batch the stock comes in as.
+    batch_number: str | None = Field(None, max_length=64)
+    expiry_date: date | None = None
 
 
 class PurchaseReceive(BaseModel):

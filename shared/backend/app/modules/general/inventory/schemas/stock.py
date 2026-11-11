@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, Field, field_validator
@@ -15,6 +15,9 @@ class StockMovementCreate(BaseModel):
     unit_cost: Decimal = Decimal("0")
     unit_price: Decimal = Decimal("0")
     note: str | None = None
+    # Batch tracking (pharmacies, ADR-006 phase 4): which batch the stock comes in as.
+    batch_number: str | None = Field(None, max_length=64)
+    expiry_date: date | None = None
 
     @field_validator('note')
     def note_required_for_damage(cls, v, info):

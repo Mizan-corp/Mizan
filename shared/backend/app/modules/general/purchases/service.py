@@ -171,7 +171,9 @@ async def receive_purchase(
 
     items = (await db.execute(select(PurchaseOrderItem).where(PurchaseOrderItem.po_id == po_id))).scalars().all()
 
-    overrides = {str(i.product_id): {'qty_received': i.qty_received, 'unit_cost': i.unit_cost} for i in data.items}
+    overrides = {str(i.product_id): {k: v for k, v in (('qty_received', i.qty_received), ('unit_cost', i.unit_cost),
+                                                       ('batch_number', i.batch_number), ('expiry_date', i.expiry_date))
+                                     if v is not None} for i in data.items}
 
     for item in items:
         override = overrides.get(str(item.product_id), {})
@@ -185,6 +187,8 @@ async def receive_purchase(
             movement_type=MovementType.purchase,
             qty=qty,
             unit_cost=cost,
+            batch_number=override.get("batch_number"),
+            expiry_date=override.get("expiry_date"),
         )
         await record_movement(db, mv, current_user.id, ref_id=po.id, ref_type="purchase", purchase_id=po.id)
         item.qty_received = qty

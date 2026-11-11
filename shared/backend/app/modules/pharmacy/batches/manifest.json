@@ -4,16 +4,21 @@
   "name_en": "Batches and expiry (FEFO)",
   "activity": "pharmacy",
   "kind": "business",
-  "status": "planned",
-  "version": "0.1.0",
+  "status": "active",
+  "version": "1.0.0",
   "icon": "Blocks",
-  "description": "",
+  "description": "التشغيلات وتواريخ الصلاحية لكل صنف وفرع؛ البيع من الأقرب انتهاءً (FEFO)، ومنع بيع المنتهي والمحجوز، وتتبّع أين ذهبت كل تشغيلة.",
   "dependencies": [
-    "core"
+    "inventory"
   ],
   "permissions": [],
   "screens": [],
-  "widgets": [],
+  "widgets": [
+    {
+      "id": "expiring_soon",
+      "name": "تشغيلات قاربت على الانتهاء"
+    }
+  ],
   "variants": [
     "standard"
   ],

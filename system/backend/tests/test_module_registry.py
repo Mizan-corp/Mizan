@@ -277,10 +277,11 @@ def test_demo_catalogue_follows_the_activity():
     # Activities without a catalogue used to get the plumbing one (a pharmacy full of taps).
     from app.activities.consulting.seed import CATALOG as consulting
     from app.activities.healthcare.seed import CATALOG as healthcare
+    from app.activities.pharmacy.seed import CATALOG as pharmacy
     from app.activities.retail.seed import CATALOG as retail
     from app.framework.demo import catalog_for
 
-    assert catalog_for("pharmacy") == healthcare
+    assert catalog_for("pharmacy") == pharmacy != healthcare  # its own drugs, with their details
     assert catalog_for("consulting") == consulting and catalog_for("services") == consulting
     assert catalog_for("gym") == retail and catalog_for("petroleum") == retail
     assert catalog_for("plumbing") != retail

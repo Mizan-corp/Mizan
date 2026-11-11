@@ -1,7 +1,7 @@
 {
   "id": "pharmacy",
   "module": "inventory",
-  "status": "planned",
+  "status": "active",
   "description": "Drugs: scientific name, form and strength on each product; stock kept in batches with expiry dates, first-expiry-first-out; expired batches can't be sold.",
   "screens": {},
   "fields": {

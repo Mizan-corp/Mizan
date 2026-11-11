@@ -58,6 +58,8 @@ class SaleCreate(BaseModel):
     paid_amount: Decimal | None = Field(default=None, ge=0)
     notes: str | None = None
     payments: list[SplitPaymentItem] | None = None
+    # Values of the fields the activity's variants and the workspace add (framework/fields.py).
+    extra: dict = Field(default_factory=dict)
     local_id: str | None = None  # idempotency key for offline sync dedup
     allow_negative_stock: bool = False
     is_offline_sync: bool = False
@@ -102,6 +104,7 @@ class SaleItemOut(BaseModel):
     unit_price: Decimal
     unit_cost: Decimal = Decimal("0")
     discount: Decimal = Decimal("0")
+    extra: dict = Field(default_factory=dict)
     model_config = {"from_attributes": True}
 
 
@@ -123,6 +126,7 @@ class SaleOut(BaseModel):
     payment_method: str
     wallet_id: uuid.UUID | None
     notes: str | None
+    extra: dict = Field(default_factory=dict)
     created_at: datetime
     items: list[SaleItemOut] = []
     model_config = {"from_attributes": True}

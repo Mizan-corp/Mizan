@@ -53,6 +53,7 @@ def load_all_models() -> None:
     import app.modules.restaurant.restaurant.models
     import app.modules.school.school.models
     import app.modules.pharmacy.pharmacy.models
+    import app.modules.pharmacy.batches.models
     import app.modules.consulting.services.models
     import app.modules.wholesale.wholesale.models
     import app.modules.logistics.logistics.models

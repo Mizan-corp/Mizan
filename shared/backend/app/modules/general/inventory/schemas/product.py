@@ -52,6 +52,8 @@ class ProductCreate(BaseModel):
     reorder_point: Decimal = Field(default=Decimal("0"), ge=0)
     reorder_qty: Decimal = Field(default=Decimal("0"), ge=0)
     reorder_level: int = Field(default=5, ge=0)
+    # Values of the fields the activity's variants and the workspace add (framework/fields.py).
+    extra: dict = Field(default_factory=dict)
 
 
 class ProductUpdate(BaseModel):
@@ -81,6 +83,8 @@ class ProductUpdate(BaseModel):
         if v is not None and v < 0:
             raise ValueError("must be >= 0")
         return v
+    # Values of the fields the activity's variants and the workspace add (framework/fields.py).
+    extra: dict | None = None
 
 
 class ProductOut(BaseModel):
@@ -106,6 +110,7 @@ class ProductOut(BaseModel):
     stock_status: str = "untracked"
     created_at: datetime
     updated_at: datetime
+    extra: dict = Field(default_factory=dict)
     model_config = {"from_attributes": True}
 
 
