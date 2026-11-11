@@ -86,9 +86,13 @@ async def measure(db: AsyncSession, tenant_id) -> dict:
     exports = await db.scalar(text("SELECT COALESCE(sum(length(export)), 0) FROM module_retention WHERE export IS NOT NULL"))
     if exports:
         by_module["module_exports"] = {"bytes": int(exports), "rows": 0, "kept": False}
-    files = _file_bytes(list((await db.execute(text("""
+    # Files the files service stored (their real sizes), plus older ones on an on-site disk.
+    from app.framework.files import total_bytes
+
+    files = await total_bytes(db) + _file_bytes(list((await db.execute(text("""
         SELECT image_url FROM products WHERE image_url IS NOT NULL
         UNION ALL SELECT value FROM store_settings WHERE key = 'logo_url'
+        EXCEPT SELECT url FROM workspace_files
     """))).scalars()))
     if files:
         by_module["files"] = {"bytes": files, "rows": 0, "kept": False}

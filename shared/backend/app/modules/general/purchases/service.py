@@ -1,6 +1,4 @@
 """Purchase service — business logic for purchase orders, receiving, supplier prices."""
-import os
-import re
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -10,7 +8,6 @@ from sqlalchemy import or_, select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.exceptions import BusinessError, NotFoundError
 from app.core.pagination import Page
 from app.modules.general.inventory.models.product import Product, Subcategory
@@ -287,13 +284,12 @@ async def upload_invoice_image(
         raise HTTPException(400, "نوع الملف غير مدعوم. الأنواع المسموحة: JPEG, PNG, GIF, WebP, PDF")
     if len(file_content) > MAX_UPLOAD_SIZE:
         raise HTTPException(400, "حجم الملف يتجاوز 10 ميجابايت")
-    os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-    safe_name = re.sub(r'[^a-zA-Z0-9._-]', '_', filename or "invoice.jpg")
-    ext = os.path.splitext(safe_name)[1] or ".jpg"
-    dest = os.path.join(settings.UPLOAD_DIR, f"po_{po_id}{ext}")
-    with open(dest, "wb") as f:
-        f.write(file_content)
-    url = f"/uploads/po_{po_id}{ext}"
+    if not await db.scalar(text("SELECT 1 FROM purchase_orders WHERE id=:id"), {"id": po_id}):
+        raise HTTPException(404, "أمر الشراء غير موجود")
+    from app.framework import files
+
+    url = await files.store(db, file_content, kind="po_invoice", owner_id=str(po_id),
+                            filename=filename or "invoice.jpg", content_type=content_type)
     await db.execute(text("UPDATE purchase_orders SET invoice_image_url=:url WHERE id=:id"), {"url": url, "id": po_id})
     await db.commit()
     return url

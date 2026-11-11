@@ -30,55 +30,32 @@ async def upload_logo(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_perm("settings")),
 ):
+    """The workspace's logo, and square PWA icons made from it (files service, #114)."""
     import io
-    import os
-    import uuid
 
     from PIL import Image
 
-    from app.core.config import settings as cfg
-    if file.content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(400, "نوع الملف غير مدعوم. الأنواع المسموحة: JPEG, PNG, GIF, WebP")
-    contents = await file.read()
-    from app.framework.storage import ensure_room
+    from app.framework import files
 
-    await ensure_room(db, len(contents))  # storage quota (ADR-006 D3)
-    if len(contents) > MAX_UPLOAD_SIZE:
-        raise HTTPException(400, "حجم الملف يتجاوز 5 ميجابايت")
-    try:
-        img = Image.open(io.BytesIO(contents))
-        img.verify()
-        img = Image.open(io.BytesIO(contents))
-    except Exception:
-        raise HTTPException(400, "الملف ليس صورة صالحة") from None
-    os.makedirs(cfg.UPLOAD_DIR, exist_ok=True)
-
-    t_prefix = f"tenant_{current_user.tenant_id}_" if current_user.tenant_id else ""
-    safe_uid = uuid.uuid4().hex[:8]
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    if ext not in [".png", ".jpg", ".jpeg", ".webp", ".gif"]:
-        ext = ".png"
-    dest_name = f"logo_{t_prefix}{safe_uid}{ext}"
-    dest = os.path.join(cfg.UPLOAD_DIR, dest_name)
-    with open(dest, "wb") as f:
-        f.write(contents)
-    # Generate square PWA icons from uploaded image
+    contents, img = await _read_image(db, file)
+    logo_url = await files.store(db, contents, kind="logo", filename=file.filename, content_type=file.content_type)
+    icons: dict[str, str] = {}
     try:
         w, h = img.size
-        size = min(w, h)
-        left = (w - size) // 2
-        top = (h - size) // 2
-        cropped = img.crop((left, top, left + size, top + size))
-        for icon_size in (192, 512):
-            resized = cropped.resize((icon_size, icon_size), Image.LANCZOS)
-            pwa_name = f"logo_{t_prefix}{safe_uid}-{icon_size}x{icon_size}.png"
-            resized.save(os.path.join(cfg.UPLOAD_DIR, pwa_name), "PNG")
+        side = min(w, h)
+        square = img.crop(((w - side) // 2, (h - side) // 2, (w - side) // 2 + side, (h - side) // 2 + side))
+        for size in (192, 512):
+            buf = io.BytesIO()
+            square.resize((size, size), Image.LANCZOS).save(buf, "PNG")
+            icons[str(size)] = await files.store(db, buf.getvalue(), kind="logo_icon", owner_id=str(size),
+                                                 filename="icon.png", content_type="image/png")
     except Exception:
-        pass
-    url = f"/uploads/{dest_name}"
-    await _upsert_setting(db, "logo_url", url)
+        logger.warning("could not make PWA icons from the logo", exc_info=True)
+    await _upsert_setting(db, "logo_url", logo_url)
+    for size, url in icons.items():
+        await _upsert_setting(db, f"logo_icon_{size}", url)
     await db.commit()
-    return {"logo_url": url}
+    return {"logo_url": logo_url}
 
 
 @router.post("/upload-cover")
@@ -87,42 +64,37 @@ async def upload_cover(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_perm("settings")),
 ):
-    import io
-    import os
-    import uuid
+    """The sign-in page's cover image (files service, #114)."""
+    from app.framework import files
 
-    from PIL import Image
-
-    from app.core.config import settings as cfg
-    if file.content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(400, "نوع الملف غير مدعوم. الأنواع المسموحة: JPEG, PNG, GIF, WebP")
-    contents = await file.read()
-    from app.framework.storage import ensure_room
-
-    await ensure_room(db, len(contents))  # storage quota (ADR-006 D3)
-    if len(contents) > MAX_UPLOAD_SIZE:
-        raise HTTPException(400, "حجم الملف يتجاوز 5 ميجابايت")
-    try:
-        img = Image.open(io.BytesIO(contents))
-        img.verify()
-    except Exception:
-        raise HTTPException(400, "الملف ليس صورة صالحة") from None
-    os.makedirs(cfg.UPLOAD_DIR, exist_ok=True)
-
-    t_prefix = f"tenant_{current_user.tenant_id}_" if current_user.tenant_id else ""
-    safe_uid = uuid.uuid4().hex[:8]
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    if ext not in [".png", ".jpg", ".jpeg", ".webp", ".gif"]:
-        ext = ".png"
-    dest_name = f"cover_{t_prefix}{safe_uid}{ext}"
-    dest = os.path.join(cfg.UPLOAD_DIR, dest_name)
-    with open(dest, "wb") as f:
-        f.write(contents)
-
-    url = f"/uploads/{dest_name}"
+    contents, _ = await _read_image(db, file)
+    url = await files.store(db, contents, kind="cover", filename=file.filename, content_type=file.content_type)
     await _upsert_setting(db, "login_cover_url", url)
     await db.commit()
     return {"cover_url": url}
+
+
+async def _read_image(db: AsyncSession, file: UploadFile):
+    """An uploaded image, checked: type, size, storage quota, and that it really is an image."""
+    import io
+
+    from PIL import Image
+
+    from app.framework.storage import ensure_room
+
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(400, "نوع الملف غير مدعوم. الأنواع المسموحة: JPEG, PNG, GIF, WebP")
+    contents = await file.read()
+    if len(contents) > MAX_UPLOAD_SIZE:
+        raise HTTPException(400, "حجم الملف يتجاوز 5 ميجابايت")
+    await ensure_room(db, len(contents))  # storage quota (ADR-006 D3)
+    try:
+        Image.open(io.BytesIO(contents)).verify()
+        img = Image.open(io.BytesIO(contents))
+        img.load()
+    except Exception:
+        raise HTTPException(400, "الملف ليس صورة صالحة") from None
+    return contents, img
 
 
 async def _upsert_setting(db: AsyncSession, key: str, value: Any) -> None:
@@ -138,15 +110,18 @@ async def _upsert_setting(db: AsyncSession, key: str, value: Any) -> None:
 async def pwa_manifest(db: AsyncSession = Depends(get_db)):
     """Dynamic PWA manifest using logo from settings."""
     import os
-    rows = (await db.execute(text("SELECT key, value FROM store_settings WHERE key IN ('store_name','logo_url','theme_color','theme_primary','theme_bg')"))).fetchall()
+    rows = (await db.execute(text("SELECT key, value FROM store_settings WHERE key IN ('store_name','logo_url','logo_icon_192','logo_icon_512','theme_color','theme_primary','theme_bg')"))).fetchall()
     s = {r.key: r.value for r in rows}
     name = s.get("store_name") or "ميزان"
     logo = s.get("logo_url") or ""
     theme_color = (s.get("theme_primary") or s.get("theme_color") or "#35151D").strip()
     background_color = (s.get("theme_bg") or "#FAF6F0").strip()
     icons = []
-    if logo:
-        if logo.startswith("/"):
+    if s.get("logo_icon_192") and s.get("logo_icon_512"):
+        icons.append({"src": s["logo_icon_192"], "sizes": "192x192", "type": "image/png", "purpose": "any"})
+        icons.append({"src": s["logo_icon_512"], "sizes": "512x512", "type": "image/png", "purpose": "any maskable"})
+    elif logo:
+        if logo.startswith("/"):  # a logo uploaded before the files service: icons named after it
             base = os.path.splitext(logo)[0]
             icons.append({"src": f"{base}-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"})
             icons.append({"src": f"{base}-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"})

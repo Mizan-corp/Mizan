@@ -497,6 +497,9 @@ async def delete_workspace(
     name, slug = t.name, t.slug
     await db.delete(t)
     await db.commit()
+    from app.framework.files import purge_workspace
+
+    await purge_workspace(tenant_id)  # its uploaded files (#114); the rows went with the workspace
     await record(db, admin, "tenant_deleted", tenant_id=tenant_id, request=request, name=name, slug=slug, workspace_name=name)
     return {"ok": True}
 

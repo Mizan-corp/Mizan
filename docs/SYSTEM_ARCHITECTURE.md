@@ -94,7 +94,7 @@ A workspace runs in one of these, chosen when it's created:
 
 | Mode | Where the data lives | How it's reached |
 |---|---|---|
-| Cloud | Neon (the platform database) | Vercel: the system app and API |
+| Cloud | Neon (the platform database); uploaded files in Vercel Blob (store `mizan-files`) | Vercel: the system app and API |
 | Single device | A private PostgreSQL 16 on the computer | `http://127.0.0.1:47800`, in a Mizan app window |
 | LAN | A private PostgreSQL 16 on the shop's server | `https://mizan.local` (mDNS) or the server's address, HTTPS with the install's own CA |
 | Bring your own database | The owner's PostgreSQL | Planned (#91) |
@@ -120,6 +120,13 @@ A workspace runs in one of these, chosen when it's created:
 - **Licences** are Ed25519-signed (`MZN1.<payload>.<signature>`, `app.core.licensing`),
   verified offline against the public key built into the app, and extended by
   `activate_invoice` when the owner pays.
+- **Uploaded files** (logo and its PWA icons, sign-in cover, product images, purchase invoice
+  images) go through one service, `app/framework/files.py` (#114). In the cloud it writes to
+  Vercel Blob (`BLOB_READ_WRITE_TOKEN`, set on the system and admin APIs; a public store, each file
+  with a random suffix); on site and in development, to `UPLOAD_DIR`, served at `/uploads`. On
+  Vercel without the token, uploads are refused (the function's disk isn't kept). Each file is
+  recorded in `workspace_files` (kind, owner, size): a replaced file is deleted, the storage quota
+  counts real sizes, and deleting a workspace in the admin panel deletes its files.
 - **Platform tables** (`licences`, `installations`) live in the cloud database; nothing
   from the client's business data is sent to the cloud.
 

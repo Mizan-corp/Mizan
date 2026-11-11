@@ -2910,6 +2910,28 @@ MIGRATIONS = [
         CREATE POLICY tenant_isolation ON workspace_layouts
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    # Uploaded files (#114): where each is stored (Vercel Blob in the cloud, the disk on site), what
+    # it belongs to and its size, so replaced files are deleted and the quota counts real bytes.
+    ("v67_workspace_files", """
+        CREATE TABLE IF NOT EXISTS workspace_files (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+                DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+            kind varchar(32) NOT NULL,
+            owner_id varchar(64),
+            url varchar(1024) NOT NULL,
+            size bigint NOT NULL DEFAULT 0,
+            content_type varchar(128),
+            created_at timestamptz DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_workspace_files_tenant_id ON workspace_files (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_workspace_files_owner ON workspace_files (tenant_id, kind, owner_id);
+        ALTER TABLE workspace_files ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE workspace_files FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON workspace_files;
+        CREATE POLICY tenant_isolation ON workspace_files
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

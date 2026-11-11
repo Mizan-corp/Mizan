@@ -1,6 +1,4 @@
 """Product service — business logic for products, categories, subcategories, barcodes."""
-import os
-import re
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -11,7 +9,6 @@ from sqlalchemy import String, cast, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.config import settings
 from app.core.exceptions import BusinessError, NotFoundError
 from app.core.pagination import Page
 from app.modules.general.inventory.models.product import Category, Product, ProductBarcode, Subcategory
@@ -488,15 +485,10 @@ async def upload_product_image(
     if not p:
         raise NotFoundError()
 
-    upload_dir = os.path.join(settings.UPLOAD_DIR, "products")
-    os.makedirs(upload_dir, exist_ok=True)
-    safe_name = re.sub(r'[^a-zA-Z0-9._-]', '_', filename or "img.png")
-    ext = os.path.splitext(safe_name)[1]
-    filename = f"{product_id}{ext}"
-    path = os.path.join(upload_dir, filename)
-    with open(path, "wb") as f:
-        f.write(file_content)
-    p.image_url = f"/uploads/products/{filename}"
+    from app.framework import files
+
+    p.image_url = await files.store(db, file_content, kind="product_image", owner_id=str(product_id),
+                                    filename=filename or "img.png", content_type=content_type)
     await db.commit()
     return p.image_url
 
