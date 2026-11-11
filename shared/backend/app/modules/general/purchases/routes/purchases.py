@@ -66,6 +66,9 @@ async def upload_invoice_image(po_id: uuid.UUID, file: UploadFile = File(...),
     if file.content_type not in ALLOWED_UPLOAD_TYPES:
         raise HTTPException(400, "نوع الملف غير مدعوم. الأنواع المسموحة: JPEG, PNG, GIF, WebP, PDF")
     contents = await file.read()
+    from app.framework.storage import ensure_room
+
+    await ensure_room(db, len(contents))  # storage quota (ADR-006 D3)
     if len(contents) > MAX_UPLOAD_SIZE:
         raise HTTPException(400, "حجم الملف يتجاوز 10 ميجابايت")
     image_url = await purchase_service.upload_invoice_image(db, po_id, contents, file.filename or "invoice.jpg", file.content_type)

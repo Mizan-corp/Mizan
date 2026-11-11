@@ -128,6 +128,9 @@ async def upload_product_image(product_id: uuid.UUID, file: UploadFile = File(..
     if file.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(400, "نوع الملف غير مدعوم. الأنواع المسموحة: JPEG, PNG, GIF, WebP")
     contents = await file.read()
+    from app.framework.storage import ensure_room
+
+    await ensure_room(db, len(contents))  # storage quota (ADR-006 D3)
     if len(contents) > MAX_UPLOAD_SIZE:
         raise HTTPException(400, "حجم الملف يتجاوز 5 ميجابايت")
     image_url = await product_service.upload_product_image(db, product_id, contents, file.filename or "img.png", file.content_type)

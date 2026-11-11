@@ -2874,6 +2874,20 @@ MIGRATIONS = [
         CREATE POLICY tenant_isolation ON module_retention
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    # Storage quota (ADR-006 D3): each workspace's last measurement, analysed by module.
+    ("v65_storage_usage", """
+        CREATE TABLE IF NOT EXISTS storage_usage (
+            tenant_id uuid PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
+            measured_at timestamptz DEFAULT now(),
+            total_bytes bigint NOT NULL DEFAULT 0,
+            by_module jsonb NOT NULL DEFAULT '{}'::jsonb
+        );
+        ALTER TABLE storage_usage ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE storage_usage FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON storage_usage;
+        CREATE POLICY tenant_isolation ON storage_usage
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

@@ -163,6 +163,20 @@ async def workspace_detail(tenant_id: uuid.UUID, db: AsyncSession = Depends(get_
     }
 
 
+@router.get("/{tenant_id}/storage")
+async def workspace_storage(tenant_id: uuid.UUID, refresh: bool = False, db: AsyncSession = Depends(get_db),
+                            owner: OwnerAccount = Depends(get_current_owner)):
+    """The workspace's storage analysed by module, against its plan's limit (ADR-006 D3)."""
+    from app.framework.storage import usage
+    from app.platform.tenancy.context import bind_tenant
+
+    t = await owned_workspace(db, owner, tenant_id)
+    await bind_tenant(db, t.id)  # every count sees only this workspace's rows
+    out = await usage(db, t.id, refresh=refresh)
+    await db.commit()
+    return out
+
+
 @router.post("/{tenant_id}/open")
 async def open_workspace(tenant_id: uuid.UUID, db: AsyncSession = Depends(get_db), owner: OwnerAccount = Depends(get_current_owner)):
     """An ERP session for the owner's user in this workspace, handed to the app."""

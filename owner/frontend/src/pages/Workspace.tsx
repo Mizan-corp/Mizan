@@ -9,6 +9,7 @@ import {
   type Plan,
   useMe,
   usePlans,
+  useStorage,
   useWorkspace,
   type Workspace as WorkspaceT,
 } from "@app/lib/data";
@@ -323,6 +324,68 @@ function Plans({ w, me }: { w: WorkspaceT; me: Owner }) {
   );
 }
 
+function size(bytes: number): string {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} جيجابايت`;
+  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(1)} ميجابايت`;
+  return `${Math.max(1, Math.round(bytes / 1024))} كيلوبايت`;
+}
+
+/** Storage: used against the plan's limit, and what takes the space, by module (ADR-006 D3). */
+function Storage({ id }: { id: string }) {
+  const [refresh, setRefresh] = useState(false);
+  const q = useStorage(id, refresh);
+  const s = q.data;
+  return (
+    <Panel
+      title="مساحة التخزين"
+      aside={
+        <button type="button" className="text-xs font-semibold text-wine hover:underline disabled:opacity-50"
+          disabled={q.isFetching} onClick={() => setRefresh(true)}>
+          {q.isFetching ? "جارٍ القياس…" : "قِس الآن"}
+        </button>
+      }
+    >
+      {q.isLoading ? (
+        <div className="h-16 animate-pulse rounded-lg bg-sand/60" aria-busy="true" />
+      ) : q.isError || !s ? (
+        <p className="text-sm text-bad">تعذّر قياس المساحة الآن.</p>
+      ) : (
+        <div className="grid gap-4">
+          <div>
+            <div className="mb-1.5 flex items-baseline justify-between text-sm">
+              <span className="text-ink-2">المستخدم</span>
+              <span className="data text-ink">{size(s.used_bytes)} <span className="text-mute">/ {size(s.limit_bytes)}</span></span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-sand" role="meter" aria-valuenow={s.percent} aria-valuemax={100} aria-label="مساحة التخزين">
+              <div className={cn("h-full rounded-full", s.state === "full" ? "bg-bad" : s.state === "warn" ? "bg-warn" : "bg-wine")}
+                style={{ width: `${Math.max(2, Math.min(100, s.percent))}%` }} />
+            </div>
+            {s.state !== "ok" && (
+              <p className={cn("mt-2 text-sm", s.state === "full" ? "text-bad" : "text-warn")}>
+                {s.state === "full"
+                  ? "المساحة ممتلئة: رفع الملفات متوقف، والبيع والعمل اليومي مستمران. احذف بيانات وحدات لا تحتاجها أو رقِّ الباقة."
+                  : "اقتربت المساحة من حد الباقة."}
+              </p>
+            )}
+          </div>
+          <ul className="divide-y divide-line-soft text-sm">
+            {s.by_module.slice(0, 8).map((m) => (
+              <li key={m.module} className="flex items-center justify-between gap-3 py-2">
+                <span className="text-ink-2">
+                  {m.name}
+                  {m.kept && <span className="ms-2 text-xs text-mute">(وحدة مُزالة، بياناتها محفوظة مؤقتًا)</span>}
+                </span>
+                <span className="data text-ink">{size(m.bytes)}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-xs text-mute">آخر قياس: {date(s.measured_at)}</p>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 export default function Workspace() {
   const { id = "" } = useParams();
   const q = useWorkspace(id);
@@ -402,6 +465,8 @@ export default function Workspace() {
         </Panel>
         )}
       </div>
+
+      {w.deployment_mode === "cloud_saas" && <Storage id={w.id} />}
 
       <Plans w={w} me={me.data} />
 

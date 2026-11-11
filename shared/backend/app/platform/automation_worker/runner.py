@@ -189,6 +189,14 @@ async def purge_removed_module_data(db: AsyncSession) -> dict[str, Any]:
     return {"message": f"حُذفت بيانات {purged} وحدة أزيلت منذ أكثر من 30 يومًا", "items_processed": purged}
 
 
+async def measure_storage(db: AsyncSession) -> dict[str, Any]:
+    """Each workspace's storage, analysed by module; a warning at 80% (ADR-006 D3)."""
+    from app.framework.storage import measure_all
+
+    n = await measure_all(db)
+    return {"message": f"قيست مساحة التخزين لـ {n} منشأة", "items_processed": n}
+
+
 JOB_REGISTRY = {
     "auto_close_shifts": {
         "title": "إغلاق الورديات التلقائي منتصف الليل",
@@ -224,6 +232,13 @@ JOB_REGISTRY = {
         "description": "عند إزالة وحدة مع الاحتفاظ ببياناتها تبقى مخفية 30 يومًا ثم تُحذف",
         "cron": "30 3 * * *",
         "handler": purge_removed_module_data,
+    },
+    "measure_storage": {
+        "title": "قياس مساحة التخزين لكل منشأة",
+        "title_en": "Measure each workspace's storage",
+        "description": "قياس البيانات والملفات لكل منشأة حسب الوحدة، وتنبيه عند 80% من حد الباقة",
+        "cron": "0 4 * * *",
+        "handler": measure_storage,
     },
 }
 

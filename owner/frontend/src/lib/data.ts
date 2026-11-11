@@ -113,6 +113,22 @@ export const useWorkspaces = () =>
 export const useWorkspace = (id: string) =>
   useQuery({ queryKey: ["workspace", id], queryFn: () => api.get<WorkspaceDetail>(`/account/workspaces/${id}`) });
 
+/** A workspace's storage against its plan, analysed by module (ADR-006 D3). */
+export interface StorageUsage {
+  used_bytes: number;
+  limit_bytes: number;
+  percent: number;
+  state: "ok" | "warn" | "full";
+  measured_at: string;
+  by_module: { module: string; name: string; bytes: number; rows: number; kept: boolean }[];
+}
+
+export const useStorage = (id: string, refresh = false) =>
+  useQuery({
+    queryKey: ["storage", id, refresh],
+    queryFn: () => api.get<StorageUsage>(`/account/workspaces/${id}/storage`, refresh ? { refresh: "true" } : undefined),
+  });
+
 /** card / wallet: chosen in the panel; "any": Paymob's page offers every method. */
 export type PaymentMethod = "card" | "wallet" | "any";
 

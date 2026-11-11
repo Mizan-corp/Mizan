@@ -39,6 +39,9 @@ async def upload_logo(
     if file.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(400, "نوع الملف غير مدعوم. الأنواع المسموحة: JPEG, PNG, GIF, WebP")
     contents = await file.read()
+    from app.framework.storage import ensure_room
+
+    await ensure_room(db, len(contents))  # storage quota (ADR-006 D3)
     if len(contents) > MAX_UPLOAD_SIZE:
         raise HTTPException(400, "حجم الملف يتجاوز 5 ميجابايت")
     try:
@@ -93,6 +96,9 @@ async def upload_cover(
     if file.content_type not in ALLOWED_IMAGE_TYPES:
         raise HTTPException(400, "نوع الملف غير مدعوم. الأنواع المسموحة: JPEG, PNG, GIF, WebP")
     contents = await file.read()
+    from app.framework.storage import ensure_room
+
+    await ensure_room(db, len(contents))  # storage quota (ADR-006 D3)
     if len(contents) > MAX_UPLOAD_SIZE:
         raise HTTPException(400, "حجم الملف يتجاوز 5 ميجابايت")
     try:
@@ -302,3 +308,14 @@ async def reset_field(record: str, key: str, db: AsyncSession = Depends(get_db),
     (values already saved stay on the records)."""
     await db.execute(text("DELETE FROM workspace_fields WHERE record = :r AND key = :k"), {"r": record, "k": key})
     await db.commit()
+
+
+
+@router.get("/storage")
+async def storage(refresh: bool = False, db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("settings"))):
+    """The workspace's storage: used, the plan's limit, and the analysis by module (ADR-006 D3)."""
+    from app.framework.storage import usage
+
+    out = await usage(db, user.tenant_id, refresh=refresh)
+    await db.commit()
+    return out
