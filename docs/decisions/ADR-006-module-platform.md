@@ -519,6 +519,45 @@ How it works:
   transactions use `mizan_app`, so platform rows such as standard roles are written in a separate
   session.
 
+## Phase 4 implementation notes (2026-11-11)
+Activities and variants, pharmacy end to end (#102). The owner's answers: pharmacy selling is the
+POS's `pharmacy` variant (dispensing is a sale), and fields are fully customisable.
+
+- **Variants** (`framework/variants.py`): the activity picks each module's variant
+  (`activity.json` "variants"); a variant still "planned" falls back to `standard`. Terms and
+  setting defaults resolve variant -> activity.
+- **Hooks** (`framework/hooks.py`): a module calls `emit("<module>.<moment>", db, ...)`; only the
+  workspace's variant's `hooks.py` runs. Used: `inventory.after_movement` and
+  `pos.before_confirm` / `pos.after_confirm`.
+- **Fields** (`framework/fields.py`): products, sales, sale lines, customers, suppliers and
+  purchase lines have an `extra` JSON column (v60). A variant declares default fields; the
+  workspace overrides, hides or adds its own (`workspace_fields`, `/settings/fields/...`).
+  Values are validated (types, required, unknown keys refused, read-only ones set by rules only).
+  `/settings/workspace-profile` gives the app the activity, variants, terms and fields.
+- **One stock path**: `inventory.apply_movement` is the only way stock changes. Consolidating it
+  found that goods receipts and branch transfers never updated balances (none in production).
+- **Batches** (module `batches`, v61): lots per product, branch and batch number with expiry;
+  first-expiry-first-out; expired and quarantined stock is never sold; transfers keep the batch;
+  cancellations and returns go back to their batch; lots always equal stock.
+- **Pharmacy**: drugs are products with the inventory variant's fields; the POS variant requires
+  the prescriber and patient for prescription-only drugs (plus national ID and licence for
+  controlled ones), records the prescription against the sale (v62) and logs controlled
+  dispensing with its batch; receipts print each line's batch and expiry. v63 moved the pharmacy's
+  own drugs and batches into products, stock and lots; the old dispensing endpoint answers 410.
+  Clinic dispensing goes through the same stock path.
+- **Composition** (`framework/composition.py`): new workspaces start with `general`'s defaults
+  plus the activity's; modules can be added from `general`, the activity, its family, or another
+  activity's module with a variant for it. Removal: preview, typed `delete`, keep 30 days
+  (reinstall restores; nightly purge) or delete now after an export stored with the record
+  (v64). Core ERP data is never deleted; modules the activity's variants `use` can't be removed.
+  "Apply preset" is retired.
+- **Storage** (`framework/storage.py`, v65): rows x average row size per table, grouped by
+  module, plus kept data, exports and files; nightly measurement with an 80% warning; uploads are
+  refused at 100% while daily work continues. Shown in the owner panel by module.
+- **Known gaps**: uploaded files are written to the API's disk, which isn't kept on Vercel; POS
+  variants other than pharmacy (retail, restaurant, salon) are still "planned"; insurance
+  co-pay at the POS is not built.
+
 ## Decision log (review of 2026-11-10)
 Answers as given by the owner; *italics* = how this ADR applies them.
 

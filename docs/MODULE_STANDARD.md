@@ -41,13 +41,13 @@ in `shared/backend/app/framework/module_template/`, and applied by
 | `schemas.py` | Request and response schemas (Pydantic). | Routes accept and return schemas, never models. |
 | `service.py` | Business logic. | One business operation per function, in one transaction; raises `HTTPException` with an Arabic message; the only place other modules call into. Never touches another module's tables. |
 | `router.py` | API routes, `prefix="/modules/<module_id>"`, guarded by `require_module`. | Thin: parse, check permission (`require_perm`), call the service. Older modules keep their historical URLs. |
-| `hooks.py` | Extension points (`before_confirm`, `after_confirm`, …) other modules and variants use. | Planned (ADR-006 phase 4). |
+| `hooks.py` | Names the module's extension points (`before_confirm`, `after_confirm`, …). | The module calls `await emit("<module>.<moment>", db, ...)` (`app/framework/hooks.py`); only the workspace's variant of the module runs. |
 | `seed.py` | Demo data for a new workspace (`is_demo`, removable). | Called by `app/framework/demo.py` in a fixed order with one shared random generator; activities add a `CATALOG` and/or `seed(db, ctx)` in `app/activities/<id>/seed.py`. |
 | `migrations/README.md` | The module's own migrations, in order. | Until the per-module runner exists, migrations go in `app/db/migrations.py`. |
 | `templates/README.md` | Print templates, `templates/<category>/<name>.html`. | Rendered by the print engine (`platform/printing/engine.py`); a variant can replace one. |
 | `tests/README.md` | The module's tests. | Until collected here: `system/backend/tests/` and `e2e/`. |
-| `variants/<variant>/variant.json` | How the module works for one activity: screens, fields, uses, terms, settings, permissions, templates, widgets. | `standard` fits every activity; others are named after the activity (`pharmacy`). Business modules only. |
-| `variants/<variant>/hooks.py` | Rules that variant adds through the module's hooks. | Phase 4. |
+| `variants/<variant>/variant.json` | How the module works for one activity: screens, fields, uses, terms, settings, permissions, templates, widgets. | `standard` fits every activity; others are named after the activity (`pharmacy`). Business modules only. `"status": "planned"` until built (the module then runs `standard`). `fields`: `{"product": [{"key", "label", "type": text\|number\|date\|boolean\|select, "required", "options", "searchable", "readonly"}]}` on the records in `app/framework/fields.py` (stored in their `extra` JSON; workspaces can change and add fields). `uses`: modules the variant relies on (they can't be removed while it runs). |
+| `variants/<variant>/hooks.py` | Rules that variant adds: one function per extension point, `async def before_confirm(db, activity_id=None, **ctx)`. | Raise `HTTPException` to refuse; e.g. `pos/variants/pharmacy/hooks.py`. |
 
 ### Larger modules
 
