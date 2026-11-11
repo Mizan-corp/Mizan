@@ -31,6 +31,8 @@ def test_a_product_image_is_stored_per_workspace_and_replaced(admin_api, subcate
                     (tid, product["id"]))
         assert [(r[0], r[1], r[2]) for r in rows] == [(second, len(PNG), "product_image")]
 
+        # A measurement taken moments ago is reused; age it so this one counts the new file.
+        db.q("UPDATE storage_usage SET measured_at = now() - interval '1 day' WHERE tenant_id = %s", (tid,))
         usage = admin_api.ok(admin_api.get("/settings/storage", params={"refresh": "true"}))
         files = next(m for m in usage["by_module"] if m["module"] == "files")
         assert files["bytes"] >= len(PNG)
