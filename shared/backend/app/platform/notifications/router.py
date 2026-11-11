@@ -308,6 +308,31 @@ async def generate_system_alerts(
 
     # 3. Tenant subscription / trial check
     tenant = await db.get(Tenant, current_user.tenant_id)
+    paid_end = tenant.paid_until if tenant and tenant.plan != "trial" else None
+    if paid_end:
+        if paid_end.tzinfo is None:
+            paid_end = paid_end.replace(tzinfo=UTC)
+        left = (paid_end - now).days
+        if left <= 7:  # #66: a week of reminders, then read-only on the end date
+            recent = select(Notification).where(
+                Notification.tenant_id == current_user.tenant_id,
+                Notification.type == "billing_alert",
+                Notification.created_at >= cutoff,
+            )
+            if not (await db.execute(recent)).scalars().first():
+                db.add(Notification(
+                    id=uuid.uuid4(),
+                    tenant_id=current_user.tenant_id,
+                    type="billing_alert",
+                    severity="warning" if left > 0 else "error",
+                    title="اقتراب انتهاء فترة الاشتراك" if left > 0 else "انتهت فترة الاشتراك",
+                    body=(f"تنتهي فترة اشتراك «{tenant.name}» خلال {max(0, left)} أيام، وبعدها تصبح مساحة العمل للقراءة فقط. جدّد من لوحة المالك."
+                          if left > 0 else f"انتهت فترة اشتراك «{tenant.name}»: مساحة العمل للقراءة فقط وبياناتك محفوظة. جدّد من لوحة المالك."),
+                    link="/billing",
+                    data_json={"remaining_days": left},
+                    is_read=False,
+                ))
+                generated_count += 1
     if tenant and tenant.plan == "trial" and tenant.trial_ends_at:
         trial_end = tenant.trial_ends_at
         if trial_end.tzinfo is None:

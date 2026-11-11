@@ -39,24 +39,45 @@ export function useHotkeySearch(open: () => void) {
 }
 
 /* ── Trial banner — routes to pricing (the SaaS conversion loop) ── */
+/** Where the workspace stands: trial days, a paid period about to end, or read-only (#66). */
 export function TrialBanner() {
   const { tenant } = useAuth();
-  if (!tenant || tenant.plan !== "trial" || !tenant.trial_ends_at) return null;
-  const isExpired = new Date(tenant.trial_ends_at).getTime() < Date.now();
-  const days = Math.max(0, Math.ceil((new Date(tenant.trial_ends_at).getTime() - Date.now()) / 86_400_000));
+  if (!tenant) return null;
+  const end = tenant.plan === "trial" ? tenant.trial_ends_at : tenant.paid_until;
+  if (!end) return null;
+  const ms = new Date(end).getTime() - Date.now();
+  const days = Math.max(0, Math.ceil(ms / 86_400_000));
+  const isTrial = tenant.plan === "trial";
 
-  if (isExpired) {
+  if (ms <= 0) {
     return (
-      <div className="no-print flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-destructive/30 bg-destructive/15 px-4 py-2.5 text-sm text-destructive font-medium">
+      <div role="status" className="no-print flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-destructive/30 bg-destructive/15 px-4 py-2.5 text-sm text-destructive font-medium">
         <span className="font-bold flex items-center gap-1.5">
-          <span>⚠️</span>
-          <span>انتهت فترة التجربة المجانية لمساحة العمل «{tenant.name}» (وضع القراءة فقط)</span>
+          <span aria-hidden>⚠️</span>
+          <span>
+            {isTrial ? "انتهت الفترة التجريبية" : "انتهت فترة الاشتراك"} لمساحة العمل «{tenant.name}» — وضع القراءة فقط
+          </span>
         </span>
         <span className="text-xs text-muted-foreground">
-          تم تجميد إضافة مستخدمين أو فروع أو فواتير جديدة حتى ترقية الباقة.
+          بياناتك محفوظة ويمكن عرضها وتصديرها، لكن لا يمكن إضافة أو تعديل شيء حتى {isTrial ? "الاشتراك" : "التجديد"} من لوحة المالك.
         </span>
         <Link to="/pricing" className="inline-flex items-center gap-1 font-bold text-primary underline hover:opacity-90">
-          ترقية باقة الاشتراك الآن
+          {isTrial ? "اختر باقتك" : "جدّد الاشتراك"}
+          <ArrowLeft className="size-4" aria-hidden />
+        </Link>
+      </div>
+    );
+  }
+
+  if (!isTrial) {
+    if (days > 7) return null;
+    return (
+      <div role="status" className="no-print flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-warning/30 bg-warning/10 px-4 py-2 text-sm">
+        <span>
+          <strong className="font-bold">ينتهي الاشتراك</strong> خلال <span className="num font-bold">{days}</span> يوم — بعدها تصبح «{tenant.name}» للقراءة فقط
+        </span>
+        <Link to="/pricing" className="inline-flex items-center gap-1 font-bold text-primary hover:underline">
+          جدّد الآن
           <ArrowLeft className="size-4" aria-hidden />
         </Link>
       </div>

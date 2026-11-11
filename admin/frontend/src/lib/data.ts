@@ -16,7 +16,7 @@ export interface ActivityItem {
 }
 
 export type AttentionItem =
-  | { kind: "trial_expired" | "trial_ending"; tenant_id: string; tenant_name: string; days: number; at: string }
+  | { kind: "trial_expired" | "trial_ending" | "paid_ended" | "paid_ending"; tenant_id: string; tenant_name: string; days: number; at: string }
   | { kind: "invoice_pending"; tenant_id: string; tenant_name: string | null; ref: string; amount_egp: number; plan: string; at: string }
   | { kind: "upgrade_request"; tenant_id: string; tenant_name: string | null; request_id: string; plan: string; phone: string | null; at: string };
 

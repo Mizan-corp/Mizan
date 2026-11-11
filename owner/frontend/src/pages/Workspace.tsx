@@ -13,7 +13,7 @@ import {
   type Workspace as WorkspaceT,
 } from "@app/lib/data";
 import { useOpenWorkspace } from "@app/lib/open";
-import { ago, date, errorText, LICENCE_STATUS, MODE, money, planLabel, sectorLabel, trialState } from "@app/lib/format";
+import { ago, date, errorText, LICENCE_STATUS, MODE, money, paidState, planLabel, sectorLabel, trialState } from "@app/lib/format";
 import { cn } from "@/lib/utils";
 import { appUrl } from "@/lib/urls";
 import { Badge, Button, ErrorNote, Field, Input, LoadError, Meter, Modal, ModalActions, PageSkeleton, Panel, Money } from "@app/ui";
@@ -41,13 +41,21 @@ function CurrentPlan({ w }: { w: WorkspaceT }) {
       </>
     );
   }
+  const p = paidState(w.paid_until);
   return (
     <>
       <div className="title text-2xl text-ink">باقة {planLabel(w.plan)}</div>
-      <p className="mt-1 text-sm text-mute">
+      <p className={cn("mt-1 text-sm", p?.tone === "bad" ? "text-bad" : p?.tone === "warn" ? "text-warn" : "text-mute")}>
         <Money value={w.monthly_price_egp} /> شهريًا
-        {w.paid_until && ` · مدفوعة حتى ${date(w.paid_until)}`}
+        {w.paid_until && ` · ${p?.ended ? "انتهت في" : "مدفوعة حتى"} ${date(w.paid_until)}`}
       </p>
+      {p && (
+        <p className="mt-3 text-sm leading-relaxed text-ink-2">
+          {p.ended
+            ? "انتهت فترة الاشتراك: مساحة العمل للقراءة فقط وبياناتك محفوظة. جدّد لتعود الإضافة والتعديل فورًا."
+            : "جدّد قبل نهاية الفترة لتستمر بدون توقف؛ تبدأ الفترة الجديدة من نهاية الحالية."}
+        </p>
+      )}
     </>
   );
 }

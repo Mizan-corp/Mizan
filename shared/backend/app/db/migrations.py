@@ -2734,6 +2734,14 @@ MIGRATIONS = [
         ALTER TABLE users ADD COLUMN IF NOT EXISTS tokens_valid_after timestamptz;
         ALTER TABLE owner_accounts ADD COLUMN IF NOT EXISTS tokens_valid_after timestamptz;
     """),
+    # Paid periods end (#66): the end of the last paid period, from paid invoices.
+    ("v57_tenants_paid_until", """
+        ALTER TABLE tenants ADD COLUMN IF NOT EXISTS paid_until timestamptz;
+        UPDATE tenants t SET paid_until = p.period_end
+        FROM (SELECT tenant_id, max(period_end) AS period_end FROM tenant_billing_invoices
+              WHERE status = 'paid' AND period_end IS NOT NULL GROUP BY tenant_id) p
+        WHERE p.tenant_id = t.id AND t.plan <> 'trial' AND t.paid_until IS NULL;
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

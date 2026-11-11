@@ -88,6 +88,15 @@ export function trialState(daysLeft: number | null | undefined): { text: string;
   return { text: `متبقٍ ${days(daysLeft)} من التجربة`, tone: daysLeft <= 3 ? "warn" : "info" };
 }
 
+/** A paid plan's period (#66): read-only the moment it ends; a week of warning before. */
+export function paidState(paidUntil: string | null | undefined): { text: string; tone: Tone; ended: boolean } | null {
+  if (!paidUntil) return null;
+  const left = Math.floor((new Date(paidUntil).getTime() - Date.now()) / 86_400_000);
+  if (new Date(paidUntil).getTime() <= Date.now()) return { text: "انتهى الاشتراك — للقراءة فقط", tone: "bad", ended: true };
+  if (left <= 7) return { text: left <= 0 ? "ينتهي الاشتراك اليوم" : `ينتهي الاشتراك خلال ${days(left)}`, tone: "warn", ended: false };
+  return null;
+}
+
 export const INVOICE_STATUS: Record<string, { label: string; tone: Tone }> = {
   paid: { label: "مدفوعة", tone: "ok" },
   pending: { label: "بانتظار الدفع", tone: "warn" },

@@ -67,6 +67,18 @@ async def overview(db: AsyncSession = Depends(get_db), _: User = Depends(require
     attention += [{"kind": "trial_ending", "tenant_id": str(t.id), "tenant_name": t.name,
                    "days": days_until(t.trial_ends_at), "at": iso(t.trial_ends_at)} for t in ending]
 
+    # Paid periods (#66): read-only since they ended, or ending within a week.
+    paid = Tenant.plan.in_(PAID_PLANS) & (Tenant.status != "suspended") & Tenant.paid_until.is_not(None)
+    lapsed = (await db.execute(select(Tenant).where(paid, Tenant.paid_until < now)
+                               .order_by(Tenant.paid_until))).scalars().all()
+    attention += [{"kind": "paid_ended", "tenant_id": str(t.id), "tenant_name": t.name,
+                   "days": -days_until(t.paid_until), "at": iso(t.paid_until)} for t in lapsed]
+    renewing = (await db.execute(select(Tenant).where(paid, Tenant.paid_until >= now,
+                                                      Tenant.paid_until < now + timedelta(days=7))
+                                 .order_by(Tenant.paid_until))).scalars().all()
+    attention += [{"kind": "paid_ending", "tenant_id": str(t.id), "tenant_name": t.name,
+                   "days": days_until(t.paid_until), "at": iso(t.paid_until)} for t in renewing]
+
     newest = (await db.execute(select(Tenant).order_by(Tenant.created_at.desc()).limit(5))).scalars().all()
 
     return {

@@ -82,6 +82,7 @@ async def me(current_user: User = Depends(get_current_user), db: AsyncSession = 
                 "limits": t.limits or {},
                 "plan": t.plan,
                 "trial_ends_at": t.trial_ends_at.isoformat() if t.trial_ends_at else None,
+                "paid_until": t.paid_until.isoformat() if t.paid_until else None,
             }
 
     # The acting role's permissions (ADR-006 phase 3): no "*", even for admins.

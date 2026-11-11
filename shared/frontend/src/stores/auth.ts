@@ -50,6 +50,8 @@ export interface TenantInfo {
   active_modules?: string[];
   plan: string;
   trial_ends_at: string | null;
+  /** End of the paid period: read-only after it (#66). */
+  paid_until?: string | null;
   deployment_mode?: string;
   tech_stack?: Record<string, unknown>;
   limits?: Record<string, unknown>;

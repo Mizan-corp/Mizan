@@ -68,7 +68,7 @@ def summary(
         "monthly_price_egp": get_plan(t.plan)["price_monthly_egp"],
         "trial_ends_at": iso(t.trial_ends_at),
         "trial_days_left": days_until(t.trial_ends_at) if t.plan == "trial" and t.trial_ends_at else None,
-        "paid_until": iso(until),
+        "paid_until": iso(t.paid_until or until),  # the column the read-only rule uses (#66)
         "users_count": users,
         "last_sale_at": iso(last_sale),
         "created_at": iso(t.created_at),

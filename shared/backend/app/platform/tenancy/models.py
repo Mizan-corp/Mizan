@@ -23,6 +23,9 @@ class Tenant(Base):
     features: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
     plan: Mapped[str] = mapped_column(String(16), nullable=False, default="trial", server_default=text("'trial'"))
     trial_ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # End of the last paid period (#66): after it the workspace is read-only until renewed.
+    # NULL on a paid plan = no end date (set by hand, without an invoice).
+    paid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     storefront_slug: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
 
     # Multi-tenancy routing & custom tech stack config

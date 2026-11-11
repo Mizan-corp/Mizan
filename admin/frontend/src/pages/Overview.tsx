@@ -17,6 +17,8 @@ const KIND: Record<AttentionItem["kind"], { label: string; tone: "bad" | "warn" 
   invoice_pending: { label: "Unpaid", tone: "warn" },
   upgrade_request: { label: "Upgrade", tone: "ox" },
   trial_ending: { label: "Trial ending", tone: "info" },
+  paid_ended: { label: "Read-only", tone: "bad" },
+  paid_ending: { label: "Renewal due", tone: "warn" },
 };
 
 function AttentionRow({ item }: { item: AttentionItem }) {
@@ -44,6 +46,20 @@ function AttentionRow({ item }: { item: AttentionItem }) {
       break;
     case "trial_ending":
       sentence = <>The trial for {name} ends {item.days === 0 ? "today" : `in ${plural(item.days, "day")}`}.</>;
+      action = (
+        <Button size="sm" variant="ghost" onClick={() => navigate(`/workspaces/${item.tenant_id}?tab=plan`)}>
+          Review plan
+        </Button>
+      );
+      break;
+    case "paid_ended":
+    case "paid_ending":
+      sentence =
+        item.kind === "paid_ended" ? (
+          <>The paid period for {name} ended {item.days === 0 ? "today" : `${plural(item.days, "day")} ago`}; it is read-only until renewed.</>
+        ) : (
+          <>The paid period for {name} ends {item.days === 0 ? "today" : `in ${plural(item.days, "day")}`}.</>
+        );
       action = (
         <Button size="sm" variant="ghost" onClick={() => navigate(`/workspaces/${item.tenant_id}?tab=plan`)}>
           Review plan
@@ -108,7 +124,7 @@ function AttentionRow({ item }: { item: AttentionItem }) {
       </Badge>
       <p className="text-sm text-ink-2">
         {sentence}
-        {item.kind !== "trial_expired" && item.kind !== "trial_ending" && <span className="text-xs text-mute"> {ago(item.at)}</span>}
+        {!["trial_expired", "trial_ending", "paid_ended", "paid_ending"].includes(item.kind) && <span className="text-xs text-mute"> {ago(item.at)}</span>}
       </p>
       <div className="col-span-2 flex gap-2 sm:col-span-1 sm:justify-end">{action}</div>
     </li>

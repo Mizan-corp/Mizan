@@ -6,6 +6,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.platform.auth.security import decode_token
 from app.platform.tenancy.context import bind_tenant, current_tenant_id
 from app.db.base import get_db
@@ -69,6 +70,8 @@ async def get_current_user(
     if not tid_str:
         await bind_tenant(db, user.tenant_id)
     await ensure_workspace_open(db, user)
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        await ensure_workspace_writable(db, user, request)
     from app.platform.permissions.access import load_acting
 
     await load_acting(db, user)  # the role the user acts as, and its permissions
@@ -87,6 +90,31 @@ async def ensure_workspace_open(db: AsyncSession, user: User) -> None:
     workspace_status = await db.scalar(select(Tenant.status).where(Tenant.id == user.tenant_id))
     if workspace_status == "suspended":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SUSPENDED_DETAIL)
+
+
+# While read-only, people can still sign in and out, switch role, print, read notifications and
+# see billing; renewing happens in the owner panel.
+READ_ONLY_ALLOWED = ("/auth/", "/notifications", "/billing")
+
+
+async def ensure_workspace_writable(db: AsyncSession, user: User, request: Request) -> None:
+    """A workspace whose trial or paid period has ended is read-only (#66): writes are refused,
+    reading and exporting keep working, data is kept. On-site installs follow their licence."""
+    if settings.MIZAN_MODE != "cloud" or user.is_superadmin or not user.tenant_id:
+        return
+    path, root = request.scope.get("path", ""), request.scope.get("root_path", "")
+    if root and path.startswith(root):
+        path = path[len(root):]
+    if path.startswith(READ_ONLY_ALLOWED):
+        return
+    from app.platform.billing.services.plan_gating import READ_ONLY_DETAIL, lapse
+    from app.platform.tenancy.models import Tenant
+
+    tenant = await db.get(Tenant, user.tenant_id)
+    reason = lapse(tenant) if tenant else None
+    if reason:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=READ_ONLY_DETAIL[reason],
+                            headers={"X-Mizan-Read-Only": reason})
 
 
 async def get_print_user(request: Request, token: str | None = None, db: AsyncSession = Depends(get_db)) -> User:

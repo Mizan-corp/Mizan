@@ -143,6 +143,8 @@ async def activate_invoice(
         tenant.status = "active"
         tenant.limits = get_plan_limits(invoice.plan)
         tenant.trial_ends_at = None
+        if invoice.period_end and (tenant.paid_until is None or invoice.period_end > tenant.paid_until):
+            tenant.paid_until = invoice.period_end  # renewals start where the paid period ends (#66)
         if invoice.period_end:
             # Single-device and LAN workspaces: the licence runs to the end of the paid period.
             from app.platform.licensing.services.licences import extend_to, is_on_premise

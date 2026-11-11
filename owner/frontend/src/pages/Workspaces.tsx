@@ -6,11 +6,11 @@ import { actions, type DeploymentMode, useAction, useMe, useWorkspaces, type Wor
 import { cn } from "@/lib/utils";
 import { DownloadButton } from "@app/DownloadDialog";
 import { staffLoginUrl, useOpenWorkspace } from "@app/lib/open";
-import { ago, date, errorText, LICENCE_STATUS, MODE, money, num, planLabel, SECTORS, sectorLabel, trialState } from "@app/lib/format";
+import { ago, date, errorText, LICENCE_STATUS, MODE, money, num, paidState, planLabel, SECTORS, sectorLabel, trialState } from "@app/lib/format";
 import { Badge, Button, ErrorNote, Field, Input, LoadError, Modal, ModalActions, PageHeader, PageSkeleton, Select } from "@app/ui";
 import Tour from "@app/Tour";
 
-export function PlanBadge({ w }: { w: Pick<Workspace, "plan" | "trial_days_left" | "status"> & Partial<Pick<Workspace, "licence">> }) {
+export function PlanBadge({ w }: { w: Pick<Workspace, "plan" | "trial_days_left" | "status"> & Partial<Pick<Workspace, "licence" | "paid_until">> }) {
   if (w.status === "suspended") return <Badge tone="bad">موقوفة</Badge>;
   // Single-device and LAN: the licence is what decides whether it works.
   if (w.licence && w.licence.status !== "active") {
@@ -18,13 +18,16 @@ export function PlanBadge({ w }: { w: Pick<Workspace, "plan" | "trial_days_left"
     return <Badge tone={l.tone}>{l.label}</Badge>;
   }
   if (w.licence && w.plan === "trial") return <Badge tone="ok">ترخيص حتى {date(w.licence.valid_until)}</Badge>;
-  if (w.plan !== "trial") return <Badge tone="wine">باقة {planLabel(w.plan)}</Badge>;
+  if (w.plan !== "trial") {
+    const p = paidState(w.paid_until);
+    return p ? <Badge tone={p.tone}>{p.text}</Badge> : <Badge tone="wine">باقة {planLabel(w.plan)}</Badge>;
+  }
   const t = trialState(w.trial_days_left);
   return <Badge tone={t.tone}>{t.text}</Badge>;
 }
 
 function WorkspaceCard({ w, first, onOpen, opening }: { w: Workspace; first: boolean; onOpen: () => void; opening: boolean }) {
-  const trialEnded = w.plan === "trial" && (w.trial_days_left ?? 0) < 0;
+  const trialEnded = (w.plan === "trial" && (w.trial_days_left ?? 0) < 0) || !!paidState(w.paid_until)?.ended;
   const onPrem = w.deployment_mode !== "cloud_saas";
   return (
     <article className="flex min-w-0 flex-col rounded-2xl border border-line bg-card shadow-xs" data-tour={first ? "workspace" : undefined}>

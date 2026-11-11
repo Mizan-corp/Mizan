@@ -26,8 +26,29 @@ async def get_tenant_by_id(db: AsyncSession, tenant_id: uuid.UUID) -> Tenant:
     return tenant
 
 
+def _aware(dt: datetime | None) -> datetime | None:
+    return dt.replace(tzinfo=UTC) if dt is not None and dt.tzinfo is None else dt
+
+
+def lapse(tenant: Tenant, now: datetime | None = None) -> str | None:
+    """Why the workspace is read-only: "trial" (the trial ended) or "paid" (the paid period
+    ended, no grace, #66); None while it is writable."""
+    now = now or datetime.now(UTC)
+    if tenant.plan == "trial":
+        end = _aware(tenant.trial_ends_at)
+        return "trial" if end and now > end else None
+    end = _aware(getattr(tenant, "paid_until", None))
+    return "paid" if end and now > end else None
+
+
+READ_ONLY_DETAIL = {
+    "trial": "انتهت الفترة التجريبية لمساحة العمل — مساحة العمل في وضع القراءة فقط. اشترك من لوحة المالك لتفعيل الإضافة والتعديل.",
+    "paid": "انتهت فترة الاشتراك المدفوعة — مساحة العمل في وضع القراءة فقط وبياناتك محفوظة. جدّد الاشتراك من لوحة المالك.",
+}
+
+
 async def check_tenant_active_and_writable(db: AsyncSession, tenant_id: uuid.UUID) -> Tenant:
-    """Verify tenant is not suspended and trial has not expired."""
+    """Verify the workspace is not suspended and its trial or paid period has not ended."""
     tenant = await get_tenant_by_id(db, tenant_id)
 
     if tenant.status == "suspended":
@@ -35,20 +56,9 @@ async def check_tenant_active_and_writable(db: AsyncSession, tenant_id: uuid.UUI
             status_code=403,
             detail="تم تعليق مساحة العمل من قبل إدارة المنصة. يرجى مراجعة الدعم الفني.",
         )
-
-    # Check Trial Expiration
-    if tenant.plan == "trial" and tenant.trial_ends_at:
-        now = datetime.now(UTC)
-        trial_end = tenant.trial_ends_at
-        if trial_end.tzinfo is None:
-            trial_end = trial_end.replace(tzinfo=UTC)
-
-        if now > trial_end:
-            raise HTTPException(
-                status_code=403,
-                detail="انتهت الفترة التجريبية لمساحة العمل — مساحة العمل في وضع القراءة فقط. يرجى الترقية لتفعيل عمليات الإضافة والمبيعات.",
-            )
-
+    reason = lapse(tenant)
+    if reason:
+        raise HTTPException(status_code=403, detail=READ_ONLY_DETAIL[reason])
     return tenant
 
 
@@ -114,13 +124,11 @@ async def get_tenant_limits_and_usage(db: AsyncSession, tenant_id: uuid.UUID) ->
     days_left_in_trial = 0
 
     if tenant.plan == "trial" and tenant.trial_ends_at:
-        trial_end = tenant.trial_ends_at
-        if trial_end.tzinfo is None:
-            trial_end = trial_end.replace(tzinfo=UTC)
-        delta = (trial_end - now).total_seconds() / 86400
+        delta = (_aware(tenant.trial_ends_at) - now).total_seconds() / 86400
         days_left_in_trial = max(0, int(delta))
-        if delta <= 0:
-            is_read_only = True
+    read_only_reason = lapse(tenant, now)
+    is_read_only = read_only_reason is not None
+    paid_until = _aware(tenant.paid_until)
 
     # 1. Users
     users_count = (
@@ -161,6 +169,9 @@ async def get_tenant_limits_and_usage(db: AsyncSession, tenant_id: uuid.UUID) ->
         "status": tenant.status,
         "is_read_only": is_read_only,
         "is_writable": not is_read_only,
+        "read_only_reason": read_only_reason,
+        "paid_until": paid_until.isoformat() if paid_until else None,
+        "days_left_paid": max(0, int((paid_until - now).total_seconds() / 86400)) if paid_until else None,
         "is_trial": tenant.plan == "trial",
         "trial_ends_at": tenant.trial_ends_at.isoformat() if tenant.trial_ends_at else None,
         "days_left_in_trial": days_left_in_trial,

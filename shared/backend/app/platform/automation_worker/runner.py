@@ -93,6 +93,22 @@ async def enforce_subscription_expiry(db: AsyncSession) -> dict[str, Any]:
         db.add(notification)
         processed_count += 1
 
+    # Paid periods that ended (#66): read-only from the end date itself; this marks and tells them.
+    paid = (await db.execute(select(Tenant).where(
+        Tenant.status == "active", Tenant.plan != "trial",
+        Tenant.paid_until.is_not(None), Tenant.paid_until < now,
+    ))).scalars().all()
+    for tenant in paid:
+        tenant.status = "expired"
+        db.add(Notification(
+            tenant_id=tenant.id,
+            title="انتهت فترة الاشتراك المدفوعة",
+            body=f"انتهت فترة اشتراك «{tenant.name}» وأصبحت مساحة العمل للقراءة فقط، وبياناتك محفوظة. جدّد الاشتراك من لوحة المالك.",
+            type="billing_alert",
+            severity="error",
+        ))
+        processed_count += 1
+
     await db.commit()
     return {
         "message": f"تم فحص الاشتراكات وتحديث {processed_count} منشأة منتهية وتوجيه تنبيهات مباشرة",
