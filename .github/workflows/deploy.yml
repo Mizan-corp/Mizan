@@ -76,7 +76,7 @@ jobs:
           set -euo pipefail
           deploy() {
             echo "::group::$1"
-            VERCEL_PROJECT_ID="$2" vercel deploy --prod --yes --token "$VERCEL_TOKEN" \
+            VERCEL_PROJECT_ID="$2" vercel deploy --prod --yes --archive=tgz --token "$VERCEL_TOKEN" \
               --meta githubCommitSha="$(git rev-parse HEAD)" > "/tmp/$1.url"
             echo "$1 → $(cat /tmp/$1.url)"
             echo "::endgroup::"
