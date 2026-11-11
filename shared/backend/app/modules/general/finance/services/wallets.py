@@ -55,3 +55,28 @@ async def get_wallet_history(db: AsyncSession, wallet_id: uuid.UUID, limit: int 
         ORDER BY wt.created_at DESC LIMIT :lim
     """), {"wid": wallet_id, "lim": limit})
     return [dict(r._mapping) for r in rows.fetchall()]
+
+
+DUPLICATE_NAME = "توجد محفظة بنفس الاسم. اختر اسمًا آخر."
+
+
+async def create_wallet(db, name: str, wallet_type: str, phone, tenant_id) -> dict:
+    """A new payment wallet. Deleting a wallet only deactivates it, so adding the same name again
+    brings it back; an active wallet with the same name is a 409."""
+    from fastapi import HTTPException
+    from sqlalchemy.exc import IntegrityError
+
+    params = {"name": name.strip(), "type": wallet_type, "phone": phone, "tid": tenant_id}
+    row = (await db.execute(text(
+        "UPDATE payment_wallets SET is_active=true, type=:type, phone=:phone "
+        "WHERE tenant_id=:tid AND name=:name AND is_active=false RETURNING *"
+    ), params)).fetchone()
+    if row is None:
+        try:
+            async with db.begin_nested():
+                row = (await db.execute(text(
+                    "INSERT INTO payment_wallets (tenant_id, name, type, phone) VALUES (:tid, :name, :type, :phone) RETURNING *"
+                ), params)).fetchone()
+        except IntegrityError:
+            raise HTTPException(status_code=409, detail=DUPLICATE_NAME) from None
+    return dict(row._mapping)

@@ -45,7 +45,12 @@ def test_keys_sign_verify_and_reject_tampering():
     assert licensing.verify(key)["lid"] == "x"
     prefix, body, sig = key.split(".")
     forged = licensing._b64e(b'{"lid":"x","valid_until":"2099-01-01T00:00:00+00:00"}')
-    for bad in (f"{prefix}.{forged}.{sig}", f"{prefix}.{body}.{sig[:-2]}AA", "MZN2." + body + "." + sig, "nonsense"):
+    # Flip a real byte of the signature. (Replacing its last characters with "AA" was a no-op
+    # about 1 time in 256: the last base64 character carries only 2 bits.)
+    raw = bytearray(licensing._b64d(sig))
+    raw[0] ^= 0x01
+    tampered_sig = licensing._b64e(bytes(raw))
+    for bad in (f"{prefix}.{forged}.{sig}", f"{prefix}.{body}.{tampered_sig}", "MZN2." + body + "." + sig, "nonsense"):
         with pytest.raises(licensing.LicenceError):
             licensing.verify(bad)
     assert licensing.is_current({"valid_until": (datetime.now(UTC) + timedelta(hours=1)).isoformat()})

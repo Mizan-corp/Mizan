@@ -25,7 +25,7 @@ from app.modules.general.inventory.models.product import Product
 from app.modules.general.pos.models import Shift, DrawerTransaction, DrawerTxType
 from app.modules.general.inventory.models.stock_balance import StockBalance
 from app.modules.general.sales.schemas import SaleCreate, SaleItemCreate
-from app.modules.general.sales.service import create_sale, return_sale, cancel_sale
+from app.modules.general.sales.services.sales import create_sale, return_sale, cancel_sale
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set"

@@ -19,7 +19,7 @@ from app.modules.general.sales.schemas import (
     SaleOut,
     UpdateSale,
 )
-from app.modules.general.sales import service as sale_service
+from app.modules.general.sales.services import sales as sale_service
 from app.platform.audit.service import log as audit_log
 
 router = APIRouter(prefix="/sales", tags=["sales"])

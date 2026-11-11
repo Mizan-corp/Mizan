@@ -201,3 +201,14 @@ def test_quotation_partial_edit_keeps_items_and_customer(admin_api, reg, product
 
     admin_api.ok(admin_api.put(f"/sales/{q['id']}", json={"discount_amount": "10"}))
     assert float(admin_api.ok(admin_api.get(f"/sales/{q['id']}"))["net_total"]) == 90
+
+
+def test_invoice_email_needs_a_real_address(admin_api, reg, product, wh):
+    s = admin_api.ok(admin_api.post("/sales", json=_sale_payload(product, wh)))
+    reg.add("sale", s["id"])
+    # No address used to fall back to the user's username or customer@example.com.
+    for body in ({}, {"email": "not-an-email"}):
+        r = admin_api.post(f"/invoices/{s['id']}/send", json=body)
+        assert r.status_code == 400, r.text[:200]
+    sent = admin_api.ok(admin_api.post(f"/invoices/{s['id']}/send", json={"email": "buyer@mizan.test"}))
+    assert "buyer@mizan.test" in sent["message"]

@@ -10,6 +10,7 @@ from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm, verify_warehouse_access
 from app.platform.auth.models.user import User
 from app.modules.general.finance.schemas.wallet import WalletCreate, WalletUpdate
+from app.modules.general.finance.services import wallets as wallets_service
 
 router = APIRouter(prefix="/wallets", tags=["wallets"])
 
@@ -19,28 +20,14 @@ async def list_wallets(db: AsyncSession = Depends(get_db), _=Depends(get_current
     return [dict(r._mapping) for r in rows.fetchall()]
 
 
-DUPLICATE_NAME = "توجد محفظة بنفس الاسم. اختر اسمًا آخر."
+DUPLICATE_NAME = wallets_service.DUPLICATE_NAME
 
 
 @router.post("", status_code=201)
 async def create_wallet(data: WalletCreate, db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("finance"))):
-    params = {"name": data.name.strip(), "type": data.type, "phone": data.phone, "tid": user.tenant_id}
-    # Deleting a wallet only deactivates it: adding the same name again brings it back.
-    revived = await db.execute(text(
-        "UPDATE payment_wallets SET is_active=true, type=:type, phone=:phone "
-        "WHERE tenant_id=:tid AND name=:name AND is_active=false RETURNING *"
-    ), params)
-    row = revived.fetchone()
-    if row is None:
-        try:
-            row = (await db.execute(text(
-                "INSERT INTO payment_wallets (tenant_id, name, type, phone) VALUES (:tid, :name, :type, :phone) RETURNING *"
-            ), params)).fetchone()
-        except IntegrityError:
-            await db.rollback()
-            raise HTTPException(status_code=409, detail=DUPLICATE_NAME) from None
+    wallet = await wallets_service.create_wallet(db, data.name, data.type, data.phone, user.tenant_id)
     await db.commit()
-    return dict(row._mapping)
+    return wallet
 
 
 @router.put("/{wid}")
