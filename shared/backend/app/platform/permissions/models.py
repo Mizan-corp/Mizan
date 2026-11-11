@@ -60,7 +60,9 @@ class OrgPosition(Base):
     """Standardized and custom organizational job titles (Groups A through I)."""
     __tablename__ = "org_positions"
     __table_args__ = (
-        UniqueConstraint("code", "tenant_id", name="uq_position_code_tenant"),
+        # A workspace's own positions are unique within it; standard ones per (activity, code) (v58/v59).
+        Index("uq_org_positions_workspace", "tenant_id", "code", unique=True, postgresql_where=text("tenant_id IS NOT NULL")),
+        Index("uq_org_positions_standard", "activity", "code", unique=True, postgresql_where=text("tenant_id IS NULL")),
         Index("idx_org_positions_cat", "category"),
     )
 

@@ -2759,6 +2759,13 @@ MIGRATIONS = [
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
             WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    # Standard positions are unique per (activity, code): the same title (plant_manager) exists in
+    # several activities. The old index made codes unique across all standard positions.
+    ("v59_positions_unique_per_activity", """
+        ALTER TABLE org_positions DROP CONSTRAINT IF EXISTS uq_position_code_tenant;
+        DROP INDEX IF EXISTS uq_position_code_tenant;
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_org_positions_workspace ON org_positions (tenant_id, code) WHERE tenant_id IS NOT NULL;
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:
