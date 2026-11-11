@@ -62,7 +62,8 @@ def test_closed_or_disabled_shop_is_private(admin_api, shop):  # noqa: F811
     finally:
         admin_api.ok(_set_open(admin_api, True))
 
-    admin_api.ok(admin_api.post("/modules/storefront/toggle", json={"enabled": False}))
+    # Removing a module goes through the uninstall flow (ADR-006 D2); its data is kept.
+    admin_api.ok(admin_api.post("/modules/storefront/uninstall", json={"confirm": "delete", "data": "keep"}))
     try:
         assert _public(f"/storefront/{shop}/products").status_code == 404
     finally:
