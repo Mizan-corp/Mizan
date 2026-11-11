@@ -1,6 +1,41 @@
 # ميزان (Mizan) — Roadmap & Delivery Status
 
-Current as of 2026-11-09. **Open work is tracked in [GitHub issues](https://github.com/ammar0xff/Mizan/issues)**; this file is the high-level summary of what has shipped.
+Current as of 2026-11-11. **Open work is tracked in [GitHub issues](https://github.com/ammar0xff/Mizan/issues)**; this file is the high-level summary of what has shipped.
+
+## 0. Priority plan (2026-11-11)
+
+Done: ADR-006 phases 1–5 (module platform, permissions and acting roles, activities and variants
+with pharmacy end to end, role screens and the screen builder). Open work in priority order;
+each step ships, is tested and deployed before the next.
+
+**P0 — Production safety (now)**
+1. #114 Uploaded files are lost on Vercel: move them to object storage (needs a provider choice).
+2. #64 Apply production migrations from CI, with the backup and schema check `db migrate --production` does.
+3. #115 PWA manifest and service worker paths (with a review of `sw.js`); #63 Vercel deploy limit.
+4. #85 Manual security follow-ups (owner: change the `platform` password, rotate the Paymob keys).
+
+**P1 — Getting paid and owner basics**
+5. #65 Paymob live (waiting on Paymob), then #67 reconciliation, #68 plan changes, #69 PDF receipts, #70 retire the old upgrade flow.
+6. #71 owner password reset, #72 verified email and phone, #74 workspace settings, #76 link to the owner panel, #73 owner accounts in admin, #79 website sign-in state.
+
+**P2 — The product customers use daily**
+7. Quick cross-cutting fixes: #26 badge contrast, #27 focus rings, #28 tables on small screens, #59/#60 POS touch and keyboard.
+8. ETA e-invoicing and e-receipts (legally required in Egypt).
+9. ADR-006 phase 8 (#106), activity by activity, each with per-role default layouts, its POS
+   variant and demo data: general/retail → restaurant → pharmacy (fold `drug_master`/`prescriptions`,
+   insurance co-pay) → healthcare (with #113 clinical access, #36, #39, #46, #48) → wholesale →
+   salon, gym, school → hotel (#24) → the rest (#25, #49–#58). Phase 5 leftovers (POS form
+   layouts, copying layouts between roles) go in here.
+
+**P3 — Platform for outside developers**
+10. ADR-006 phase 6 (#104): ADR-007, isolation runtime, scopes, SDK and CLI; a docs-only developer site can start here.
+11. ADR-006 phase 7 (#105): developer portal and marketplace (needs #65).
+12. ADR-006 phase 9 (#107): changing a workspace's activity.
+
+**P4 — On-site installs (as customers need them)**
+13. #89 updates first, then #90 backups, #88 LAN, #93 Windows signing, #92 device limits, #91 own database.
+
+**Ongoing** — #84 warnings and unused imports, #83 old docs, #80/#82 tests, #97 vitest workers, #96, #61, healthcare extras (#42–#45).
 
 ## 1. Shipped Core & SaaS Milestones (Completed & CI-Green)
 
