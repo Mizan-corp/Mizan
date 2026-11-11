@@ -181,3 +181,10 @@ def test_quotation_update_items(admin_api, reg, product, wh):
         "notes": "e2e-quote-update",
     }))
     assert "id" in upd
+
+def test_invoice_pdf_renders(admin_api, reg, product, wh):
+    s = admin_api.ok(admin_api.post("/sales", json=_sale_payload(product, wh)))
+    reg.add("sale", s["id"])
+    r = admin_api.get(f"/invoices/{s['id']}/pdf")
+    assert r.status_code == 200, r.text[:200]
+    assert r.headers["content-type"] == "application/pdf" and r.content[:4] == b"%PDF"

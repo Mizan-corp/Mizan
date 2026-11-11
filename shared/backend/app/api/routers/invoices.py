@@ -84,12 +84,11 @@ async def _render_invoice_html(db: AsyncSession, invoice_id: uuid.UUID, tenant_i
 
     # Check tenant palette if available
     if tenant_id:
-        t_row = (await db.execute(text("SELECT name, logo_url, palette FROM tenants WHERE id = :tid"), {"tid": tenant_id})).fetchone()
+        # The logo is a workspace setting (read above); tenants has no logo column.
+        t_row = (await db.execute(text("SELECT name, palette FROM tenants WHERE id = :tid"), {"tid": tenant_id})).fetchone()
         if t_row:
             if t_row.name:
                 store_name = t_row.name
-            if t_row.logo_url:
-                logo_url = t_row.logo_url
             if t_row.palette and isinstance(t_row.palette, dict) and t_row.palette.get("name"):
                 pal = t_row.palette.get("name")
                 if pal == "indigo":
