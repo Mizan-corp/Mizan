@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/kit/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/kit/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/kit/tabs";
 import { Empty, ErrorBox } from "@/components/ui";
+import { CustomFieldReport } from "./CustomFieldReport";
 
 interface Warehouse { id: string; name: string }
 interface DailyRow { date: string; total_sales: string; invoice_count: number }
@@ -93,6 +94,7 @@ export default function ReportsPage() {
           <TabsTrigger value="monthly">شهري</TabsTrigger>
           <TabsTrigger value="top">الأكثر مبيعاً</TabsTrigger>
           <TabsTrigger value="cashier">حسب الكاشير</TabsTrigger>
+          <TabsTrigger value="fields">حسب حقل مخصص</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -253,6 +255,8 @@ export default function ReportsPage() {
           )}
         </div>
       )}
+
+      {tab === "fields" && <CustomFieldReport from={from} to={to} onFrom={setFrom} onTo={setTo} Field={Field} />}
     </div>
   );
 }

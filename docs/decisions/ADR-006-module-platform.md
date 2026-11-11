@@ -597,13 +597,12 @@ and a builder covering role layouts, custom fields, form layouts and a dashboard
   - Changes are written to the audit log.
 - **Custom fields in reports**: every export of products, stock, sales, customers and suppliers
   has a column per custom field; `/reports/fields/{record}/{key}` counts records (and totals
-  sales) by a field's value.
+  sales) by a field's value (the reports page's "حسب حقل مخصص" tab).
 - **Fixed on the way**: the shared `Input`/`Select` dropped their styling whenever a page passed a
   `className` (price and phone inputs rendered unstyled); the API client failed on 204 responses
   labelled JSON (every "reset"/"delete" reported an error); batches' frontend definition was still
   "planned"; healthcare's clinic screens were attributed to `core`.
-- **Known gaps**: the report by field has no screen yet (API and exports only); sale and sale-line
-  forms (POS) don't use form layouts; layouts can't be copied between roles; activities don't yet
+- **Known gaps**: sale and sale-line forms (POS) don't use form layouts; layouts can't be copied between roles; activities don't yet
   declare per-role defaults (`roles` is empty everywhere, so a cashier starts from the activity's
   menu filtered by permissions).
 
