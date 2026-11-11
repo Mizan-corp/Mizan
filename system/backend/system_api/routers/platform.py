@@ -185,7 +185,7 @@ async def run_platform_migrations(
         raise HTTPException(status_code=403, detail="Platform admin or valid migration secret required")
 
     # DDL runs as the login role, not the workspace role a signed-in request switches to.
-    from app.core.tenancy import unbind_tenant
+    from app.platform.tenancy.context import unbind_tenant
 
     await unbind_tenant(db)
     from app.db.migrations import apply_migrations

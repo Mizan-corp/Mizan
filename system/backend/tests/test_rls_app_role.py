@@ -10,11 +10,11 @@ import pytest
 from sqlalchemy import text
 
 import main  # noqa: F401  (loads every model)
-from app.core.security import hash_password
-from app.core.tenancy import bind_tenant, current_tenant_id
+from app.platform.auth.security import hash_password
+from app.platform.tenancy.context import bind_tenant, current_tenant_id
 from app.db.base import AsyncSessionLocal
-from app.models.tenant import Tenant
-from app.models.user import User
+from app.platform.tenancy.models import Tenant
+from app.platform.auth.models.user import User
 
 pytestmark = pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="needs the database")
 
