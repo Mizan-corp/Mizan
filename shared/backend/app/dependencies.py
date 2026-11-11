@@ -63,6 +63,9 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    from app.platform.auth.sessions import ensure_live
+
+    await ensure_live(db, payload, user.tokens_valid_after)  # signed out, or sessions ended (#77)
     if not tid_str:
         await bind_tenant(db, user.tenant_id)
     await ensure_workspace_open(db, user)
@@ -87,8 +90,8 @@ async def ensure_workspace_open(db: AsyncSession, user: User) -> None:
 
 
 async def get_print_user(request: Request, token: str | None = None, db: AsyncSession = Depends(get_db)) -> User:
-    # Accept httpOnly cookie OR query param (frontend sends ?token=... for browser-opened tabs)
-    t = request.cookies.get("access_token") or token
+    # The print token in the URL first (the browser's session cookie is not a print token).
+    t = token or request.cookies.get("access_token")
     if not t:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token required")
     payload = decode_token(t)
@@ -106,6 +109,9 @@ async def get_print_user(request: Request, token: str | None = None, db: AsyncSe
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    from app.platform.auth.sessions import ensure_live
+
+    await ensure_live(db, payload, user.tokens_valid_after)
     if not tid_str:
         await bind_tenant(db, user.tenant_id)
     from app.platform.permissions.access import load_acting

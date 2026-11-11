@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.db.base import get_db
-from app.dependencies import get_current_user, require_perm
+from app.dependencies import get_print_user, get_current_user, require_perm
 from app.platform.auth.models.user import User
 from app.modules.general.hr.schemas import (
     AdvanceCreate,
@@ -301,22 +301,16 @@ async def add_advance(data: AdvanceCreate, db: AsyncSession = Depends(get_db), c
     return {"detail": "saved"}
 
 
-async def _report_auth(request: Request, token: str | None = None, db: AsyncSession = Depends(get_db)):
-    """Accept JWT as query param or httpOnly cookie for browser-opened HTML reports."""
-    import uuid
+async def _report_auth(user=Depends(get_print_user)):
+    """Payroll and attendance reports open in a browser tab with a print token: the workspace is
+    bound from it, and they need the payroll permission (they used to accept any token, bind no
+    workspace and check nothing)."""
+    from app.platform.permissions.access import can
 
-    from app.platform.auth.security import decode_token
-    from app.platform.auth.models.user import User
-    # Try cookie first, then query param
-    t = request.cookies.get("access_token") or token
-    if not t:
-        raise HTTPException(401, "Not authenticated")
-    payload = decode_token(t)
-    result = await db.execute(select(User).where(User.id == uuid.UUID(payload["sub"])))
-    user = result.scalar_one_or_none()
-    if not user or not user.is_active:
-        raise HTTPException(401)
+    if not can(user, "payroll"):
+        raise HTTPException(403, "Insufficient permissions")
     return user
+
 
 @router.get("/payroll/report/monthly")
 async def payroll_monthly_report(month: str, db: AsyncSession = Depends(get_db), _=Depends(_report_auth)):

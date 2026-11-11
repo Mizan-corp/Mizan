@@ -127,7 +127,15 @@ async def reset_password(user_id: uuid.UUID, data: PasswordReset, db: AsyncSessi
     user = result.scalar_one_or_none()
     if not user:
         raise NotFoundError()
+    if user.owner_account_id:
+        # The owner's own login: its password is the owner account's, changed in the owner panel (#75).
+        from fastapi import HTTPException
+
+        raise HTTPException(409, "هذا حساب المالك: تُغيَّر كلمة مروره من لوحة المالك")
+    from app.platform.auth.sessions import sessions_end_now
+
     user.password_hash = hash_password(data.password)
+    user.tokens_valid_after = sessions_end_now()  # their open sessions end (#77)
     await db.execute(sqlt(
         "INSERT INTO hr_audit_log (action_type, entity_type, entity_id, performed_by, reason, details) VALUES ('update', 'user', :eid, :by, 'إعادة تعيين كلمة المرور', CAST(:det AS jsonb))"
     ), {"eid": str(user_id), "by": current_user.id, "det": '{"action":"password_reset"}'})

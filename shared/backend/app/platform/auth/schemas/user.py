@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 _VALID_ROLES = {"admin", "manager", "cashier", "storekeeper", "accountant", "doctor", "nurse", "receptionist", "lab_tech", "pharmacist"}
 
@@ -44,7 +44,8 @@ class UserPasswordUpdate(BaseModel):
 
 
 class PasswordReset(BaseModel):
-    password: str = Field(..., min_length=8)
+    # The users screen sends new_password; older clients send password.
+    password: str = Field(..., min_length=8, validation_alias=AliasChoices("password", "new_password"))
 
 
 class UserOut(BaseModel):

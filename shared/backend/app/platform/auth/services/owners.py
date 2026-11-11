@@ -62,7 +62,11 @@ async def get_current_owner(token: str | None = Depends(_bearer), db: AsyncSessi
     owner = await db.get(OwnerAccount, owner_id)
     if not owner or not owner.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    from app.platform.auth.sessions import ensure_live
+
+    await ensure_live(db, payload, owner.tokens_valid_after)  # #77
     await bypass_rls(db)
+    owner.token_payload = payload  # for sign-out
     return owner
 
 

@@ -105,10 +105,49 @@ async def me(current_user: User = Depends(get_current_user), db: AsyncSession = 
     }
 
 
+def _session_cookie(resp: JSONResponse, token: str) -> JSONResponse:
+    resp.set_cookie(key="access_token", value=token, httponly=True, secure=settings.IS_PRODUCTION,
+                    samesite="lax", max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60, path="/")
+    return resp
+
+
 @router.put("/me/password")
 async def change_password(data: UserPasswordUpdate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db), _=Depends(password_limiter)):
-    await auth_service.change_password(db, current_user, data.current_password, data.new_password)
-    return {"detail": "Password updated"}
+    """Ends every other session (#77) and returns a fresh token for this one."""
+    if current_user.owner_account_id:
+        from fastapi import HTTPException
+
+        # One password for the owner everywhere: it is changed in the owner panel (#75).
+        raise HTTPException(409, "كلمة مرور حساب المالك تُغيَّر من لوحة المالك")
+    from app.platform.auth.sessions import sessions_end_now
+
+    user = await db.merge(current_user)
+    user.tokens_valid_after = sessions_end_now()
+    await auth_service.change_password(db, user, data.current_password, data.new_password)
+    token = auth_service.issue_token(user)["access_token"]
+    return _session_cookie(JSONResponse({"detail": "Password updated", "access_token": token}), token)
+
+
+@router.post("/logout", status_code=204)
+async def logout(request: Request, db: AsyncSession = Depends(get_db)):
+    """Sign this session out on the server too (#77): its token is refused from now on."""
+    from fastapi import Response
+
+    from app.platform.auth.security import decode_token
+    from app.platform.auth.sessions import revoke
+
+    auth = request.headers.get("authorization", "")
+    for raw in (auth[7:] if auth.lower().startswith("bearer ") else None, request.cookies.get("access_token")):
+        if not raw:
+            continue
+        try:
+            await revoke(db, decode_token(raw))
+        except Exception:
+            continue  # an invalid or expired token is already signed out
+    await db.commit()
+    resp = Response(status_code=204)
+    resp.delete_cookie("access_token", path="/")
+    return resp
 
 
 @router.post("/print-token")

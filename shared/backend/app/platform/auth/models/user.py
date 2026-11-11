@@ -39,6 +39,8 @@ class User(Base, TenantScoped):
     is_manager: Mapped[bool] = mapped_column(Boolean, default=False)
     # The role the user acts as now, one of their assigned roles (ADR-006 phase 3).
     active_role_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("sys_roles.id", ondelete="SET NULL"), nullable=True)
+    # Tokens issued before this are refused (password change or reset ends every session, #77).
+    tokens_valid_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     permissions: Mapped[list | None] = mapped_column(JSONB, nullable=True)

@@ -1,4 +1,4 @@
-import { useAuth } from "@/stores/auth";
+import { signOutSession } from "@/lib/api";
 import { appUrl } from "@/lib/urls";
 
 /**
@@ -19,15 +19,15 @@ export function goToSignIn(): void {
 /** Sign out here, then on the website (it keeps its own copy), ending on the app's /login. */
 export function signOut(): void {
   leaving = true;
+  signOutSession("/account/logout"); // ends the token on the server, so the website's copy too (#77)
   window.location.replace(appUrl("website", "/signout?to=login"));
-  useAuth.getState().logout();
 }
 
 /** /signout: the website's "Sign out" sends the owner here to clear this side too. */
 export function handleSignOutRoute(): boolean {
   if (window.location.pathname !== "/signout") return false;
   leaving = true;
-  useAuth.getState().logout();
+  signOutSession("/account/logout");
   window.location.replace(appUrl("website", "/"));
   return true;
 }

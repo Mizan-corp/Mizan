@@ -1,3 +1,4 @@
+import { useAuth } from "@/stores/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
@@ -142,8 +143,13 @@ export function useAction<TVars, TResult = unknown>(fn: (vars: TVars) => Promise
 
 export const actions = {
   updateMe: (v: { full_name?: string; email?: string; phone?: string }) => api.patch<Owner>("/account/me", v),
-  changePassword: (v: { current_password: string; new_password: string }) =>
-    api.post<{ ok: boolean; workspace_logins_updated: number }>("/account/password", v),
+  // Ends every other session (#77); this one continues with the fresh token, stored before the
+  // queries refetch.
+  changePassword: async (v: { current_password: string; new_password: string }) => {
+    const r = await api.post<{ ok: boolean; workspace_logins_updated: number; access_token?: string }>("/account/password", v);
+    if (r.access_token) useAuth.getState().setToken(r.access_token);
+    return r;
+  },
   tourDone: () => api.post<Owner>("/account/tour-done"),
   createWorkspace: (v: { name: string; sector: string; scale: string; demo_data: boolean; mode: DeploymentMode }) =>
     api.post<Workspace>("/account/workspaces", v),

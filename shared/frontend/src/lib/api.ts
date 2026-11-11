@@ -129,6 +129,24 @@ export async function openPrintDoc(path: string, params?: Record<string, string 
   }
 }
 
+/**
+ * Sign the current session out on the server too (#77), then clear it here. The request is
+ * sent with keepalive, so navigating away right after doesn't cancel it; failures are ignored
+ * (the token still expires on its own).
+ */
+export function signOutSession(path = "/auth/logout"): void {
+  const token = useAuth.getState().token;
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (isSameOrigin()) {
+    const csrf = document.cookie.split("; ").find((c) => c.startsWith("csrf_token="))?.split("=")[1];
+    if (csrf) headers["X-CSRF-Token"] = decodeURIComponent(csrf);
+  }
+  const url = new URL(RAW_BASE.replace(/\/+$/, "") + path, window.location.origin);
+  fetch(url.toString(), { method: "POST", headers, credentials: "include", keepalive: true }).catch(() => undefined);
+  useAuth.getState().logout();
+}
+
 /** Download an Excel export with proper auth (links can't send Bearer headers). */
 export async function downloadExport(path: string, params?: Record<string, string | number | undefined>, filename = "export.xlsx"): Promise<void> {
   const url = new URL(RAW_BASE + path, window.location.origin);

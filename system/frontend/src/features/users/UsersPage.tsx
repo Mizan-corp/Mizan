@@ -10,6 +10,8 @@ interface RoleRef { id: string; code: string; name: string }
 interface UserRow {
   id: string; username: string; full_name: string; role: string; is_active: boolean;
   is_manager: boolean; roles?: RoleRef[] | null; acting_role_name?: string | null;
+  /** The owner's own login in this workspace: its password is managed in the owner panel (#75). */
+  owner_account_id?: string | null;
 }
 interface RoleDef extends RoleRef { grants: string[]; standard: boolean }
 interface PermDef { id: string; name: string; module: string }
@@ -147,13 +149,23 @@ export default function UsersPage() {
                     <div className="flex gap-1">
                       <Button variant="outline" onClick={() => openRoles(u)}>الأدوار</Button>
                       <Button variant="outline" onClick={() => openPerms(u)}>الصلاحيات</Button>
-                      <button
-                        className="rounded-md p-2 text-muted hover:bg-elevated hover:text-ink"
-                        onClick={() => { setPwFor(u); setNewPw(""); }}
-                        aria-label="كلمة مرور جديدة"
-                      >
-                        <KeyRound size={16} />
-                      </button>
+                      {u.owner_account_id ? (
+                        <span
+                          className="rounded-md p-2 text-muted/50"
+                          title="كلمة مرور المالك تُغيَّر من لوحة المالك"
+                          aria-label="كلمة مرور المالك تُغيَّر من لوحة المالك"
+                        >
+                          <KeyRound size={16} />
+                        </span>
+                      ) : (
+                        <button
+                          className="rounded-md p-2 text-muted hover:bg-elevated hover:text-ink"
+                          onClick={() => { setPwFor(u); setNewPw(""); }}
+                          aria-label="كلمة مرور جديدة"
+                        >
+                          <KeyRound size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

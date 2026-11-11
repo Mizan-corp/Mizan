@@ -22,6 +22,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     expire = now + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode["exp"] = expire
     to_encode["iat"] = now
+    to_encode["iat_ms"] = int(now.timestamp() * 1000)  # exact issue time: sessions ended "before now" (#77)
     to_encode["jti"] = str(uuid.uuid4())
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 

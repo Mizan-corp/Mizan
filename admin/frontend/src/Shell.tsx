@@ -5,6 +5,7 @@ import { MizanLogo } from "@/components/MizanLogo";
 import { Avatar, AvatarFallback } from "@/components/kit/avatar";
 import { Button } from "@/components/kit/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/kit/sheet";
+import { signOutSession } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
 import { cn } from "@/lib/utils";
 import { appUrl } from "@/lib/urls";
@@ -15,7 +16,6 @@ type Item = { to: string; label: string; icon: ComponentType<{ className?: strin
 /** The side rail, built like the app's (AppSidebar). */
 function Sidebar({ onNavigate, primary }: { onNavigate?: () => void; primary?: boolean }) {
   const user = useAuth((s) => s.user);
-  const logout = useAuth((s) => s.logout);
   const overview = useOverview();
   const billing = useBilling();
 
@@ -96,7 +96,7 @@ function Sidebar({ onNavigate, primary }: { onNavigate?: () => void; primary?: b
             <div className="code truncate text-[10px] text-sidebar-foreground/55">@{user?.username}</div>
           </div>
           <button
-            onClick={logout}
+            onClick={() => signOutSession()}
             className="rounded-md p-1.5 text-sidebar-foreground/70 transition hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             title="Sign out"
             aria-label="Sign out"

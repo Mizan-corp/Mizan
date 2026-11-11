@@ -29,6 +29,8 @@ class OwnerAccount(Base):
     # UI state such as whether the welcome tour was finished.
     settings: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Tokens issued before this are refused (password change ends every session, #77).
+    tokens_valid_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -49,3 +51,11 @@ class PaymentTransaction(Base):
     currency: Mapped[str] = mapped_column(String(8), nullable=False, default="EGP")
     raw: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class RevokedToken(Base):
+    """A signed-out session's token id, refused until the token would have expired anyway (#77)."""
+    __tablename__ = "revoked_tokens"
+
+    jti: Mapped[str] = mapped_column(String(64), primary_key=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)

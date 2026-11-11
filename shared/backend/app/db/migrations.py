@@ -2723,6 +2723,17 @@ MIGRATIONS = [
         END IF;
         END $$;
     """),
+    # Real sign-out (#77): signed-out token ids are refused until they expire; a password change
+    # or reset ends every session issued before it.
+    ("v56_session_revocation", """
+        CREATE TABLE IF NOT EXISTS revoked_tokens (
+            jti varchar(64) PRIMARY KEY,
+            expires_at timestamptz NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS ix_revoked_tokens_expires_at ON revoked_tokens (expires_at);
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS tokens_valid_after timestamptz;
+        ALTER TABLE owner_accounts ADD COLUMN IF NOT EXISTS tokens_valid_after timestamptz;
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

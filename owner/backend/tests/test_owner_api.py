@@ -270,6 +270,23 @@ async def test_password_change_updates_workspace_logins():
         assert (await authenticate(db, user.username, "newpass123", tenant_slug=tenant.slug)).id == user.id
 
 
+async def test_sign_out_and_password_change_end_sessions():
+    """#77: sign-out revokes the token; a password change ends every other session, and the
+    response carries a fresh token for this one."""
+    owner, _, _ = await make_owner()
+    async with client() as c:
+        h = await login(c, owner)
+        assert (await c.post("/account/logout", headers=h)).status_code == 204
+        assert (await c.get("/account/me", headers=h)).status_code == 401
+
+        mine, other = await login(c, owner), await login(c, owner)
+        r = await c.post("/account/password", headers=mine, json={"current_password": "secret123", "new_password": "newpass123"})
+        assert (await c.get("/account/me", headers=other)).status_code == 401
+        assert (await c.get("/account/me", headers=mine)).status_code == 401
+        fresh = {"Authorization": f"Bearer {r.json()['access_token']}"}
+        assert (await c.get("/account/me", headers=fresh)).status_code == 200
+
+
 async def test_only_test_owners_can_pay_while_set(monkeypatch):
     owner, tenant, _ = await make_owner()
     other, other_tenant, _ = await make_owner()

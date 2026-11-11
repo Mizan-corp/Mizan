@@ -17,7 +17,7 @@ import {
   Cpu,
   Globe,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, signOutSession } from "@/lib/api";
 import { NAV_ITEMS, getSectorNavigation } from "@app/lib/nav";
 import { SECTOR_BADGES, SECTOR_PRIMARY_ROUTES } from "@/lib/plans";
 import { cn } from "@/lib/utils";
@@ -385,7 +385,7 @@ function AppTopNav() {
 
 function AppTopbar({ onOpenMenu, onOpenSearch }: { onOpenMenu: () => void; onOpenSearch: () => void }) {
   const navigate = useNavigate();
-  const { user, tenant, logout, setUser } = useAuth();
+  const { user, tenant, setUser } = useAuth();
   const queryClient = useQueryClient();
   // Act as another assigned role: its permissions replace the current ones (#94).
   const switchRole = useMutation({
@@ -578,7 +578,7 @@ function AppTopbar({ onOpenMenu, onOpenSearch }: { onOpenMenu: () => void; onOpe
                 variant="destructive"
                 onClick={() => {
                   sound.click();
-                  logout();
+                  signOutSession();
                   navigate(tenantTo("/login"), { replace: true });
                 }}
               >

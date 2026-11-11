@@ -12,7 +12,7 @@ from app.platform.auth.security import hash_password, verify_password
 from app.db.base import get_db
 from app.platform.auth.models.owner import OwnerAccount
 from app.platform.auth.models.user import User
-from app.platform.auth.services.owners import bypass_rls, get_current_owner
+from app.platform.auth.services.owners import bypass_rls, get_current_owner, issue_owner_token
 
 router = APIRouter(prefix="/account", tags=["account"])
 
@@ -60,12 +60,26 @@ class PasswordChange(BaseModel):
 async def change_password(data: PasswordChange, db: AsyncSession = Depends(get_db), owner: OwnerAccount = Depends(get_current_owner)):
     if not verify_password(data.current_password, owner.password_hash):
         raise HTTPException(status_code=400, detail="كلمة المرور الحالية غير صحيحة")
+    from app.platform.auth.sessions import sessions_end_now
+
+    ended = sessions_end_now()
     owner.password_hash = hash_password(data.new_password)
-    # The owner signs in to each workspace with the same password.
+    owner.tokens_valid_after = ended  # every other session ends (#77)
+    # The owner signs in to each workspace with the same password; those sessions end too.
     await bypass_rls(db)
-    changed = await db.execute(update(User).where(User.owner_account_id == owner.id).values(password_hash=owner.password_hash))
+    changed = await db.execute(update(User).where(User.owner_account_id == owner.id)
+                               .values(password_hash=owner.password_hash, tokens_valid_after=ended))
     await db.commit()
-    return {"ok": True, "workspace_logins_updated": changed.rowcount}
+    return {"ok": True, "workspace_logins_updated": changed.rowcount, "access_token": issue_owner_token(owner)}
+
+
+@router.post("/logout", status_code=204)
+async def logout(db: AsyncSession = Depends(get_db), owner: OwnerAccount = Depends(get_current_owner)):
+    """Sign this session out on the server (#77). The website's copy of the token ends with it."""
+    from app.platform.auth.sessions import revoke
+
+    await revoke(db, owner.token_payload)
+    await db.commit()
 
 
 @router.post("/tour-done")
