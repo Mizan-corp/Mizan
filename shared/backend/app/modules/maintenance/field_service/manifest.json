@@ -26,7 +26,15 @@
     "fsm:technician"
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "field_service.field_service",
+      "path": "/field-service",
+      "label": "الصيانة الميدانية (FSM)",
+      "icon": "Wrench",
+      "permission": "operations"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

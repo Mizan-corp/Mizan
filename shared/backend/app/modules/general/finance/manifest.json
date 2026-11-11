@@ -27,7 +27,29 @@
       "name_en": "Finance and safes"
     }
   ],
-  "screens": [],
+  "screens": [
+    {
+      "id": "finance.customers",
+      "path": "/customers",
+      "label": "العملاء (AR)",
+      "icon": "Contact",
+      "permission": "customers"
+    },
+    {
+      "id": "finance.finance",
+      "path": "/finance",
+      "label": "المالية والخزائن",
+      "icon": "Wallet",
+      "permission": "finance"
+    },
+    {
+      "id": "finance.suppliers",
+      "path": "/suppliers",
+      "label": "الموردون (AP)",
+      "icon": "Truck",
+      "permission": "inventory|purchases"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

@@ -16,7 +16,15 @@
     "hr"
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "energy.eng",
+      "path": "/eng",
+      "label": "محطات الطاقة وتوليد الكهرباء",
+      "icon": "Zap",
+      "permission": "operations"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

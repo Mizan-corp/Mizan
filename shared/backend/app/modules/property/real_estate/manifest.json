@@ -14,7 +14,29 @@
     "contacts"
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "real_estate.rec",
+      "path": "/rec",
+      "label": "التطوير العقاري وإدارة الأملاك",
+      "icon": "Building2",
+      "permission": "operations"
+    },
+    {
+      "id": "real_estate.rec_leases",
+      "path": "/rec?tab=leases",
+      "label": "عقود الإيجار والتحصيل الدوري",
+      "icon": "Receipt",
+      "permission": "operations"
+    },
+    {
+      "id": "real_estate.rec_maintenance",
+      "path": "/rec?tab=maintenance",
+      "label": "بلاغات الصيانة والمرافق",
+      "icon": "Wrench",
+      "permission": "operations"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

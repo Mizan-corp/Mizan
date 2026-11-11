@@ -24,7 +24,15 @@
     "travel:coordinator"
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "travel.travel",
+      "path": "/travel",
+      "label": "السياحة وحجوزات السفر",
+      "icon": "Compass",
+      "permission": "sales"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

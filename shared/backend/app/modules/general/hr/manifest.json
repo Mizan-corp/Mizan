@@ -28,7 +28,22 @@
       "name_en": "Employees and payroll"
     }
   ],
-  "screens": [],
+  "screens": [
+    {
+      "id": "hr.hr",
+      "path": "/hr",
+      "label": "الموظفون",
+      "icon": "UserCog",
+      "permission": "payroll"
+    },
+    {
+      "id": "hr.hr_payroll",
+      "path": "/hr/payroll",
+      "label": "الرواتب",
+      "icon": "Wallet",
+      "permission": "payroll"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

@@ -18,8 +18,8 @@ import {
   Globe,
 } from "lucide-react";
 import { api, signOutSession } from "@/lib/api";
-import { NAV_ITEMS, getSectorNavigation } from "@app/lib/nav";
-import { SECTOR_BADGES, SECTOR_PRIMARY_ROUTES } from "@/lib/plans";
+import { iconFor, useRoleScreens } from "@app/lib/nav";
+import { SECTOR_BADGES } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 import { type RoleRef, useAuth } from "@/stores/auth";
 import { useModulesStore } from "@app/stores/modules";
@@ -99,7 +99,7 @@ export function useBranch() {
 /* ── 1. Classic Full Sidebar (Tree View) ── */
 function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { can, tenant } = useAuth();
-  const { hasModule, activePreset, presets } = useModulesStore();
+  const { activePreset, presets } = useModulesStore();
   const { tenantTo, isPathActive } = useTenantNav();
   const currentPreset = presets.find((p) => p.id === activePreset);
   const tenantTrialEnds = tenant?.trial_ends_at
@@ -107,17 +107,13 @@ function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
     : "";
 
   const sectorBadge = tenant?.sector ? SECTOR_BADGES[tenant.sector] : null;
-  const isSpecializedSector = Boolean(tenant?.sector && [
-    "healthcare", "restaurant", "pharmacy", "school", "gym", "salon",
-    "hotel", "wholesale", "construction", "manufacturing", "food",
-    "pharmaceuticals", "property", "maintenance", "travel", "logistics", "warehousing",
-  ].includes(tenant.sector));
-  const sectorPrimaryPath = tenant?.sector ? SECTOR_PRIMARY_ROUTES[tenant.sector] : null;
-  const sectorFeaturedItem = !isSpecializedSector && sectorPrimaryPath && sectorPrimaryPath !== "/" && sectorPrimaryPath !== "/pos"
-    ? NAV_ITEMS.find((n) => n.to === sectorPrimaryPath)
-    : null;
-
-  const groups = getSectorNavigation(tenant?.sector, can, hasModule);
+  // The role's menu and home (ADR-006 phase 5): built by the backend from what modules declare.
+  const screens = useRoleScreens();
+  const groups = screens.data?.menu ?? [];
+  const home = screens.data?.home;
+  const inMenu = (path: string) => groups.some((g) => g.items.some((i) => i.path === path));
+  const featured = home && home !== "/" && !inMenu(home) ? screens.data?.screens.find((x) => x.path === home) ?? null : null;
+  const FeaturedIcon = iconFor(featured?.icon);
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground border-e border-sidebar-border">
@@ -148,7 +144,12 @@ function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
       <nav aria-label="القائمة الرئيسية" className="flex-1 overflow-y-auto px-3 py-4">
         <div className="flex flex-col gap-4">
           {/* Sector Highlight Banner if vertical business */}
-          {sectorFeaturedItem && (
+          {screens.isLoading && (
+            <div className="flex flex-col gap-2 px-3" aria-busy="true" aria-label="جارٍ تحميل القائمة">
+              {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-7 animate-pulse rounded-md bg-sidebar-accent/50" />)}
+            </div>
+          )}
+          {featured && (
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-2 shadow-xs mb-1">
               <div className="flex items-center justify-between pb-1 px-1">
                 <span className="text-[10px] font-bold text-primary flex items-center gap-1">
@@ -159,17 +160,17 @@ function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
                 </span>
               </div>
               <Link
-                to={tenantTo(sectorFeaturedItem.to)}
+                to={tenantTo(featured.path)}
                 onClick={onNavigate}
                 className={cn(
                   "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-bold transition-all",
-                  isPathActive(sectorFeaturedItem.to)
+                  isPathActive(featured.path)
                     ? "bg-primary text-primary-foreground shadow-sm"
                     : "bg-sidebar-accent/80 hover:bg-sidebar-accent text-sidebar-foreground border border-sidebar-border/40"
                 )}
               >
-                <sectorFeaturedItem.icon className={cn("size-4 shrink-0", isPathActive(sectorFeaturedItem.to) ? "text-primary-foreground" : "text-primary")} />
-                <span className="truncate">{sectorFeaturedItem.label}</span>
+                <FeaturedIcon className={cn("size-4 shrink-0", isPathActive(featured.path) ? "text-primary-foreground" : "text-primary")} />
+                <span className="truncate">{featured.label}</span>
               </Link>
             </div>
           )}
@@ -178,12 +179,12 @@ function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
             <div key={group.id} className="flex flex-col gap-1">
               <p className="px-3 pb-1 text-[11px] font-medium text-sidebar-foreground/50">{group.label}</p>
               {group.items.map((item) => {
-                const active = isPathActive(item.to);
-                const Icon = item.icon;
+                const active = isPathActive(item.path);
+                const Icon = iconFor(item.icon);
                 return (
                   <Link
-                    key={item.to}
-                    to={tenantTo(item.to)}
+                    key={item.id}
+                    to={tenantTo(item.path)}
                     onClick={onNavigate}
                     aria-current={active ? "page" : undefined}
                     className={cn(
@@ -267,12 +268,10 @@ function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
 
 /* ── 2. Compact Icon Rail (High-Density Screen Real Estate) ── */
 function AppRail({ onNavigate }: { onNavigate?: () => void }) {
-  const { can, tenant } = useAuth();
-  const { hasModule } = useModulesStore();
   const { tenantTo, isPathActive } = useTenantNav();
   const setAppearanceModalOpen = useUiStore((s) => s.setAppearanceModalOpen);
 
-  const groups = getSectorNavigation(tenant?.sector, can, hasModule);
+  const groups = useRoleScreens().data?.menu ?? [];
   const visible = groups.flatMap((g) => g.items);
 
   return (
@@ -289,12 +288,12 @@ function AppRail({ onNavigate }: { onNavigate?: () => void }) {
       {/* Nav Icons */}
       <nav className="flex flex-1 flex-col items-center gap-1.5 overflow-y-auto px-2">
         {visible.map((item) => {
-          const active = isPathActive(item.to);
-          const Icon = item.icon;
+          const active = isPathActive(item.path);
+          const Icon = iconFor(item.icon);
           return (
             <Link
-              key={item.to}
-              to={tenantTo(item.to)}
+              key={item.id}
+              to={tenantTo(item.path)}
               onClick={onNavigate}
               title={item.label}
               className={cn(
@@ -326,11 +325,9 @@ function AppRail({ onNavigate }: { onNavigate?: () => void }) {
 
 /* ── 3. Horizontal Top Navigation Bar (ERP Menu Bar) ── */
 function AppTopNav() {
-  const { can, tenant } = useAuth();
-  const { hasModule } = useModulesStore();
   const { tenantTo, isPathActive } = useTenantNav();
 
-  const groups = getSectorNavigation(tenant?.sector, can, hasModule);
+  const groups = useRoleScreens().data?.menu ?? [];
 
   return (
     <div className="no-print hidden lg:flex items-center gap-1 border-b border-border/80 bg-card px-6 py-1.5 text-xs">
@@ -345,7 +342,7 @@ function AppTopNav() {
       </Link>
 
       {groups.map((group) => {
-        const hasActiveItem = group.items.some((item) => isPathActive(item.to));
+        const hasActiveItem = group.items.some((item) => isPathActive(item.path));
         return (
           <DropdownMenu key={group.id}>
             <DropdownMenuTrigger
@@ -365,10 +362,10 @@ function AppTopNav() {
               <DropdownMenuGroup>
                 <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
                 {group.items.map((item) => {
-                  const active = isPathActive(item.to);
-                  const Icon = item.icon;
+                  const active = isPathActive(item.path);
+                  const Icon = iconFor(item.icon);
                   return (
-                    <DropdownMenuItem key={item.to} render={<Link to={tenantTo(item.to)} />}>
+                    <DropdownMenuItem key={item.id} render={<Link to={tenantTo(item.path)} />}>
                       <Icon className={cn("size-4 me-2", active && "text-primary")} />
                       <span className={cn(active && "font-semibold text-primary")}>{item.label}</span>
                     </DropdownMenuItem>

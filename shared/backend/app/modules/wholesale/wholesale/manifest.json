@@ -44,7 +44,15 @@
     }
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "wholesale.wholesale",
+      "path": "/wholesale",
+      "label": "تجارة الجملة والتوزيع",
+      "icon": "Boxes",
+      "permission": "sales"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

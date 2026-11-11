@@ -28,7 +28,29 @@
       "permission": "mfg.view"
     }
   ],
-  "screens": [],
+  "screens": [
+    {
+      "id": "manufacturing.mfg",
+      "path": "/mfg",
+      "label": "التصنيع الميكانيكي (BOM/MRP)",
+      "icon": "Factory",
+      "permission": "operations"
+    },
+    {
+      "id": "manufacturing.mfg_bom",
+      "path": "/mfg?tab=bom",
+      "label": "شجرة المنتج والخامات (BOM)",
+      "icon": "Boxes",
+      "permission": "operations"
+    },
+    {
+      "id": "manufacturing.mfg_mrp",
+      "path": "/mfg?tab=mrp",
+      "label": "تخطيط متطلبات المواد (MRP)",
+      "icon": "ArrowLeftRight",
+      "permission": "operations"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

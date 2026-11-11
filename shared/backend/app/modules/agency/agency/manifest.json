@@ -25,7 +25,15 @@
     "agency:creative"
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "agency.agency",
+      "path": "/agency",
+      "label": "الدعاية والإعلام والترجمة",
+      "icon": "Palette",
+      "permission": "operations"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

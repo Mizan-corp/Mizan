@@ -16,5 +16,62 @@
   "terms": {},
   "positions": [],
   "roles": {},
-  "settings": {}
+  "settings": {},
+  "menu": [
+    {
+      "id": "academic",
+      "label": "شؤون الطلاب والأكاديميا",
+      "items": [
+        {
+          "screen": "school.school_students",
+          "label": "سجلات الطلاب والقيد"
+        },
+        {
+          "screen": "school.school_students_admissions"
+        },
+        {
+          "screen": "school.school_students_buses"
+        }
+      ]
+    },
+    {
+      "id": "school_fees",
+      "label": "المصروفات والأقساط",
+      "items": [
+        {
+          "screen": "school.school_students_fees"
+        },
+        {
+          "screen": "finance.customers",
+          "label": "أولياء الأمور والجهات المانحة"
+        },
+        {
+          "screen": "finance.finance",
+          "label": "خزينة المدرسة والبنك"
+        },
+        {
+          "screen": "core.reports",
+          "label": "تقارير تحصيل الأقساط"
+        }
+      ]
+    },
+    {
+      "id": "school_staff",
+      "label": "الكادر التعليمي والإدارة",
+      "items": [
+        {
+          "screen": "hr.hr",
+          "label": "المعلمون والإداريون"
+        },
+        {
+          "screen": "hr.hr_payroll",
+          "label": "مسيرات رواتب الكادر"
+        },
+        {
+          "screen": "core.settings",
+          "label": "إعدادات المدرسة والعام الدراسي"
+        }
+      ]
+    }
+  ]
 }

@@ -44,7 +44,15 @@
     }
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "wms.wms",
+      "path": "/wms",
+      "label": "مستودعات 3PL",
+      "icon": "Warehouse",
+      "permission": "inventory"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

@@ -16,5 +16,64 @@
   "terms": {},
   "positions": [],
   "roles": {},
-  "settings": {}
+  "settings": {},
+  "menu": [
+    {
+      "id": "freight_ops",
+      "label": "المستودعات والخدمات اللوجستية",
+      "items": [
+        {
+          "screen": "wms.wms",
+          "label": "لوحة المستودع والتخزين (3PL)",
+          "permission": "operations"
+        },
+        {
+          "screen": "pos.sales",
+          "label": "فواتير الشحن والمناولة"
+        },
+        {
+          "screen": "finance.customers",
+          "label": "عملاء الشحن والتخزين"
+        }
+      ]
+    },
+    {
+      "id": "freight_stock",
+      "label": "المخزون ومواقع التخزين",
+      "items": [
+        {
+          "screen": "inventory.inventory",
+          "label": "المخزون ومواقع الرفوف (Bins)"
+        }
+      ]
+    },
+    {
+      "id": "freight_finance",
+      "label": "المالية وتكاليف النقل",
+      "items": [
+        {
+          "screen": "finance.finance",
+          "label": "الخزائن وتكاليف الوقود ومصاريف الطرق"
+        },
+        {
+          "screen": "core.reports",
+          "label": "تقارير الشحنات والمسارات اليومية"
+        }
+      ]
+    },
+    {
+      "id": "freight_admin",
+      "label": "السائقون والتشغيل",
+      "items": [
+        {
+          "screen": "hr.hr",
+          "label": "سائقو الشاحنات وعمال التحميل"
+        },
+        {
+          "screen": "core.settings",
+          "label": "إعدادات مناطق التوصيل والتسعير"
+        }
+      ]
+    }
+  ]
 }

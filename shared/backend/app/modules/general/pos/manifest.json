@@ -61,8 +61,45 @@
       "name_en": "Shifts and cash drawer"
     }
   ],
-  "screens": [],
-  "widgets": [],
+  "screens": [
+    {
+      "id": "pos.pos",
+      "path": "/pos",
+      "label": "نقطة البيع",
+      "icon": "ShoppingCart",
+      "permission": "pos"
+    },
+    {
+      "id": "pos.sales",
+      "path": "/sales",
+      "label": "المبيعات",
+      "icon": "Receipt",
+      "permission": "sales"
+    },
+    {
+      "id": "pos.shifts",
+      "path": "/shifts",
+      "label": "الورديات",
+      "icon": "Clock",
+      "permission": "shifts"
+    }
+  ],
+  "widgets": [
+    {
+      "id": "pos.shift_status",
+      "label": "حالة الوردية",
+      "label_en": "Shift status",
+      "permission": "pos|shifts",
+      "size": "s"
+    },
+    {
+      "id": "pos.recent_sales",
+      "label": "أحدث الفواتير",
+      "label_en": "Latest invoices",
+      "permission": "pos|sales",
+      "size": "m"
+    }
+  ],
   "variants": [
     "standard",
     "retail",

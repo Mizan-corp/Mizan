@@ -29,7 +29,15 @@
       "permission": "prn.view"
     }
   ],
-  "screens": [],
+  "screens": [
+    {
+      "id": "printing.prn",
+      "path": "/prn",
+      "label": "الطباعة والتغليف (Job Dockets)",
+      "icon": "Printer",
+      "permission": "operations"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

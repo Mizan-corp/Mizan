@@ -1,7 +1,8 @@
 import type { ModuleDefinition } from "@app/framework/types";
 
-// Printing & Packaging ERP: what this module provides to the app (docs/MODULE_STANDARD.md). Screens are
-// still registered in App.tsx and lib/nav.ts until the framework renders them (ADR-006 phase 5).
+// Printing & Packaging ERP: what this module provides to the app (docs/MODULE_STANDARD.md). Routes are
+// registered in App.tsx; menus come from the manifest's "screens" and widgets render by id
+// on the role's dashboard (ADR-006 phase 5).
 const definition: ModuleDefinition = {
   id: "printing",
   activity: "printing",
@@ -9,7 +10,6 @@ const definition: ModuleDefinition = {
   status: "active",
   screens: {},
   widgets: {},
-  nav: [],
 };
 
 export default definition;

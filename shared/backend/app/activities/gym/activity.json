@@ -16,5 +16,80 @@
   "terms": {},
   "positions": [],
   "roles": {},
-  "settings": {}
+  "settings": {},
+  "menu": [
+    {
+      "id": "fitness",
+      "label": "الصالة والاشتراكات",
+      "items": [
+        {
+          "screen": "gym.gym",
+          "label": "لوحة تحكم الصالة والمشتركين"
+        },
+        {
+          "screen": "gym.gym_members"
+        },
+        {
+          "screen": "gym.gym_access"
+        },
+        {
+          "screen": "gym.gym_pt"
+        },
+        {
+          "screen": "pos.pos",
+          "label": "كافيتيريا ومكملات الجيم"
+        }
+      ]
+    },
+    {
+      "id": "gym_stock",
+      "label": "المكملات والمخزون",
+      "items": [
+        {
+          "screen": "inventory.products",
+          "label": "المكملات والبروتين والمشروبات"
+        },
+        {
+          "screen": "inventory.inventory",
+          "label": "مخزون الكافيتيريا والمستودع"
+        }
+      ]
+    },
+    {
+      "id": "gym_finance",
+      "label": "الاشتراكات والمالية",
+      "items": [
+        {
+          "screen": "pos.sales",
+          "label": "فواتير الاشتراكات والخدمات"
+        },
+        {
+          "screen": "finance.finance",
+          "label": "الخزينة والاشتراكات المجدولة"
+        },
+        {
+          "screen": "core.reports",
+          "label": "تقارير تجديد الاشتراكات"
+        }
+      ]
+    },
+    {
+      "id": "gym_staff",
+      "label": "المدربون والإدارة",
+      "items": [
+        {
+          "screen": "hr.hr",
+          "label": "المدربون وفريق الاستقبال"
+        },
+        {
+          "screen": "pos.shifts",
+          "label": "ورديات الصالة"
+        },
+        {
+          "screen": "core.settings",
+          "label": "إعدادات باقات الاشتراكات"
+        }
+      ]
+    }
+  ]
 }

@@ -6,17 +6,10 @@ export type ModuleKind = "business" | "platform" | "integration";
 /** `planned`: described (SRS) and laid out, not built; not mounted or offered to workspaces. */
 export type ModuleStatus = "active" | "planned";
 
-/** A navigation entry a module offers; the active role decides which are shown (phase 5). */
-export interface ModuleNavEntry {
-  to: string;
-  label: string;
-  perm?: string;
-  icon?: ComponentType<{ className?: string }>;
-}
-
 /**
- * What a module provides to the app (its `index.ts`). Screen and widget ids resolve through the
- * workspace's variant, so the same role can see a different screen per activity (ADR-006 D4).
+ * What a module provides to the app (its `index.ts`). Menus come from the backend
+ * (`/settings/screens`, built from the manifest's "screens"); `widgets` maps the widget ids the
+ * manifest declares to the components a role's dashboard renders (ADR-006 phase 5).
  */
 export interface ModuleDefinition {
   id: string;
@@ -25,5 +18,4 @@ export interface ModuleDefinition {
   status: ModuleStatus;
   screens: Record<string, ComponentType>;
   widgets: Record<string, ComponentType>;
-  nav: ModuleNavEntry[];
 }

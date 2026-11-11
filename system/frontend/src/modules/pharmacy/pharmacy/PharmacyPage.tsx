@@ -7,7 +7,7 @@
  */
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, FileText, Pill, Plus, ShieldAlert, ShoppingCart, Truck } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
@@ -77,7 +77,9 @@ function TableSkeleton() {
 }
 
 export default function PharmacyPage() {
-  const [tab, setTab] = useState<Tab>("formulary");
+  const [params] = useSearchParams();
+  const asked = params.get("tab");
+  const [tab, setTab] = useState<Tab>(TABS.some((t) => t.key === asked) ? (asked as Tab) : "formulary");
   const navigate = useNavigate();
   const { tenantTo } = useTenantNav();
   const summary = useQuery({ queryKey: ["pharmacy", "summary"], queryFn: () => api.get<Summary>("/pharmacy/summary") });

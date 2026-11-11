@@ -19,7 +19,29 @@
     }
   ],
   "screens": [],
-  "widgets": [],
+  "widgets": [
+    {
+      "id": "reporting.sales_today",
+      "label": "إيراد اليوم",
+      "label_en": "Today's revenue",
+      "permission": "reports|pos",
+      "size": "s"
+    },
+    {
+      "id": "reporting.sales_month",
+      "label": "مبيعات الشهر الحالي",
+      "label_en": "This month's sales",
+      "permission": "reports",
+      "size": "s"
+    },
+    {
+      "id": "reporting.sales_trend",
+      "label": "منحنى المبيعات (١٤ يوماً)",
+      "label_en": "Sales trend (14 days)",
+      "permission": "reports",
+      "size": "l"
+    }
+  ],
   "variants": [
     "standard"
   ],

@@ -50,8 +50,112 @@
       "id": "supervise",
       "name": "الإشراف على كل الفروع والورديات",
       "name_en": "Supervise every branch and shift"
+    },
+    {
+      "id": "designer",
+      "name": "تصميم الشاشات والحقول والنماذج",
+      "name_en": "Design screens, fields and forms"
     }
   ],
-  "screens": [],
+  "screens": [
+    {
+      "id": "core.home",
+      "path": "/",
+      "label": "لوحة التحكم",
+      "icon": "LayoutDashboard",
+      "permission": ""
+    },
+    {
+      "id": "core.archive",
+      "path": "/archive",
+      "label": "الأرشيف",
+      "icon": "Archive",
+      "permission": "archive"
+    },
+    {
+      "id": "core.clinic_appointments",
+      "path": "/clinic?tab=appointments",
+      "label": "حجز المواعيد والانتظار",
+      "icon": "Calendar",
+      "permission": ""
+    },
+    {
+      "id": "core.clinic_beds",
+      "path": "/clinic?tab=beds",
+      "label": "أسرّة التنويم والأجنحة",
+      "icon": "Bed",
+      "permission": ""
+    },
+    {
+      "id": "core.clinic_billing",
+      "path": "/clinic?tab=billing",
+      "label": "فواتير الكشوفات والتأمين",
+      "icon": "Receipt",
+      "permission": ""
+    },
+    {
+      "id": "core.clinic_claims",
+      "path": "/clinic?tab=claims",
+      "label": "مطالبات شركات التأمين",
+      "icon": "ShieldCheck",
+      "permission": ""
+    },
+    {
+      "id": "core.clinic_emr",
+      "path": "/clinic?tab=emr",
+      "label": "الكشوفات السريرية والتشخيص",
+      "icon": "HeartPulse",
+      "permission": ""
+    },
+    {
+      "id": "core.clinic_labs",
+      "path": "/clinic?tab=labs",
+      "label": "الفحوصات والتحاليل المخبرية",
+      "icon": "Microscope",
+      "permission": ""
+    },
+    {
+      "id": "core.clinic_patients",
+      "path": "/clinic?tab=patients",
+      "label": "سجلات وملفات المرضى (EMR)",
+      "icon": "Users",
+      "permission": ""
+    },
+    {
+      "id": "core.clinic_rx_labs",
+      "path": "/clinic?tab=rx_labs",
+      "label": "الروشتات والوصفات الرقمية",
+      "icon": "Pill",
+      "permission": ""
+    },
+    {
+      "id": "core.modules",
+      "path": "/modules",
+      "label": "سوق الوحدات والأنشطة",
+      "icon": "Blocks",
+      "permission": "settings"
+    },
+    {
+      "id": "core.reports",
+      "path": "/reports",
+      "label": "التقارير",
+      "icon": "ChartColumn",
+      "permission": "reports"
+    },
+    {
+      "id": "core.settings",
+      "path": "/settings",
+      "label": "الإعدادات",
+      "icon": "Settings",
+      "permission": "settings"
+    },
+    {
+      "id": "core.users",
+      "path": "/users",
+      "label": "المستخدمون والصلاحيات",
+      "icon": "ShieldCheck",
+      "permission": "users"
+    }
+  ],
   "widgets": []
 }

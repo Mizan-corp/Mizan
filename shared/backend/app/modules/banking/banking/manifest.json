@@ -18,7 +18,15 @@
     "treasury_forex_trading"
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "banking.bnk",
+      "path": "/bnk",
+      "label": "البنوك والمؤسسات المصرفية",
+      "icon": "Landmark",
+      "permission": "finance"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

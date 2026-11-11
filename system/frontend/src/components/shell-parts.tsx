@@ -18,7 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
 import { useModulesStore } from "@app/stores/modules";
-import { getSectorNavigation } from "@app/lib/nav";
+import { iconFor, useRoleScreens } from "@app/lib/nav";
 import { Dialog, DialogContent, DialogTitle } from "@/components/kit/dialog";
 import { Kbd } from "@/components/kit/kbd";
 import { sound } from "@/lib/sound";
@@ -163,6 +163,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     staleTime: 30_000,
   });
 
+  const roleScreens = useRoleScreens().data?.screens;
   // Static actions and navigation
   const staticItems = useMemo<PaletteAction[]>(() => {
     const isHealthcare = tenant?.sector === "healthcare";
@@ -265,19 +266,20 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
       });
     }
 
-    const sectorItems = getSectorNavigation(tenant?.sector, can, hasModule).flatMap((g) => g.items);
-    for (const n of sectorItems) {
+    // Every screen the acting role may open (ADR-006 phase 5).
+    for (const n of roleScreens ?? []) {
+      const Icon = iconFor(n.icon);
       list.push({
-        id: `nav-${n.to}`,
+        id: `nav-${n.id}`,
         label: n.label,
-        hint: n.to === "/" ? "صحيفة اليوم" : n.to.replace("/", ""),
+        hint: n.path === "/" ? "صحيفة اليوم" : n.path.replace("/", ""),
         group: "nav",
-        icon: <n.icon className="size-4 text-muted-foreground" />,
-        run: () => nav(n.to === "/" ? "/" : n.to),
+        icon: <Icon className="size-4 text-muted-foreground" />,
+        run: () => nav(n.path),
       });
     }
     return list;
-  }, [can, hasModule, nav, tenant?.sector]);
+  }, [can, hasModule, nav, tenant?.sector, roleScreens]);
 
   // Combine static and live search results
   const allResults = useMemo<PaletteAction[]>(() => {

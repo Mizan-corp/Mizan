@@ -20,7 +20,15 @@
     "jv_cash_calls_psc"
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "oil_gas.oil",
+      "path": "/oil",
+      "label": "عمليات البترول والغاز",
+      "icon": "Flame",
+      "permission": "operations"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

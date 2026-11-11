@@ -43,7 +43,15 @@
     }
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "logistics.logistics",
+      "path": "/logistics",
+      "label": "الشحن والأسطول",
+      "icon": "Truck",
+      "permission": "operations"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

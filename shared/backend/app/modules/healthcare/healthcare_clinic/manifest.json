@@ -85,7 +85,15 @@
       "name_en": "Patients"
     }
   ],
-  "screens": [],
+  "screens": [
+    {
+      "id": "healthcare_clinic.clinic",
+      "path": "/clinic",
+      "label": "العيادات والمستشفيات",
+      "icon": "Stethoscope",
+      "permission": "customers"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

@@ -316,3 +316,59 @@ async def test_new_workspaces_get_their_activitys_demo_data():
             await db.execute(delete(Tenant).where(Tenant.id.in_(created)))
             await db.commit()
         await engine.dispose()
+
+
+def test_menus_point_at_declared_screens_and_permissions():
+    """Role screens (ADR-006 phase 5): every menu entry, home and dashboard widget an activity
+    arranges is something a module declares, guarded by a declared permission."""
+    from app.catalog import activities
+    from app.framework.loader import manifest_index
+    from app.framework.screens import catalogue
+
+    screens, widgets = catalogue()
+    declared = {p["id"] if isinstance(p, dict) else p for m in manifest_index().values() for p in m.get("permissions", [])}
+
+    def perms_ok(perm, where):
+        for p in (perm or "").split("|"):
+            assert not p or p in declared, f"{where}: permission '{p}' isn't declared"
+
+    paths = {}
+    for sid, s in screens.items():
+        assert sid.startswith(s["module"] + "."), sid
+        assert s["path"].startswith("/") and s.get("label") and s.get("icon"), sid
+        assert paths.setdefault(s["path"], sid) == sid, f"{s['path']} declared twice"
+        perms_ok(s.get("permission"), sid)
+    for wid, w in widgets.items():
+        assert wid.startswith(w["module"] + ".") and w.get("label"), wid
+        perms_ok(w.get("permission"), wid)
+
+    assert activities()["general"]["menu"], "general's menu is everyone's default"
+    for aid, activity in activities().items():
+        layouts = [activity, *activity.get("roles", {}).values()]
+        for layout in layouts:
+            for group in layout.get("menu", []):
+                assert group.get("id") and group.get("label") and group.get("items"), f"{aid}: {group}"
+                for item in group["items"]:
+                    assert item["screen"] in screens, f"{aid}: unknown screen {item['screen']}"
+                    perms_ok(item.get("permission"), f"{aid}/{item['screen']}")
+            for entry in layout.get("dashboard", []):
+                wid = entry if isinstance(entry, str) else entry.get("id")
+                assert wid in widgets, f"{aid}: unknown widget {wid}"
+                assert isinstance(entry, str) or entry.get("size") in (None, "s", "m", "l"), f"{aid}: {entry}"
+            if layout.get("home_screen"):
+                assert layout["home_screen"] in screens, f"{aid}: unknown home {layout['home_screen']}"
+
+
+def test_frontend_definitions_match_the_manifests():
+    """A module's index.ts has its manifest's status, and renders every widget it declares."""
+    from app.framework import scaffold
+
+    frontend = REPO / "system" / "frontend" / "src" / "modules"
+    for folder, m in scaffold.manifests():
+        index = frontend / m.get("activity", "") / folder.name / "index.ts"
+        if m.get("kind", "business") != "business" or not index.exists():
+            continue
+        source = index.read_text(encoding="utf-8")
+        assert f'status: "{m.get("status", "active")}"' in source, f"{index}: status"
+        for w in m.get("widgets") or []:
+            assert f'"{w["id"]}"' in source, f"{index}: no component for widget {w['id']}"

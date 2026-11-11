@@ -16,5 +16,68 @@
   "terms": {},
   "positions": [],
   "roles": {},
-  "settings": {}
+  "settings": {},
+  "menu": [
+    {
+      "id": "hotel_ops",
+      "label": "الغرف والتسكين (PMS)",
+      "items": [
+        {
+          "screen": "hospitality.hospitality",
+          "label": "خريطة الغرف والتسكين"
+        },
+        {
+          "screen": "hospitality.hospitality_guests"
+        },
+        {
+          "screen": "hospitality.hospitality_housekeeping"
+        },
+        {
+          "screen": "restaurant.restaurant_tables",
+          "label": "مطاعم وبوفيه الفندق",
+          "icon": "Utensils"
+        }
+      ]
+    },
+    {
+      "id": "hotel_finance",
+      "label": "المالية والتدقيق الليلي",
+      "items": [
+        {
+          "screen": "pos.sales",
+          "label": "فواتير الإقامة والخدمات"
+        },
+        {
+          "screen": "finance.customers",
+          "label": "شركات السياحة والحجوزات"
+        },
+        {
+          "screen": "finance.finance",
+          "label": "الخزائن والتدقيق الليلي"
+        },
+        {
+          "screen": "core.reports",
+          "label": "تقارير نسب الإشغال و RevPAR"
+        }
+      ]
+    },
+    {
+      "id": "hotel_admin",
+      "label": "فريق الفندق والإدارة",
+      "items": [
+        {
+          "screen": "hr.hr",
+          "label": "طاقم الاستقبال والخدمة"
+        },
+        {
+          "screen": "pos.shifts",
+          "label": "ورديات الاستقبال والخدمة"
+        },
+        {
+          "screen": "core.settings",
+          "label": "إعدادات أسعار الغرف والمواسم"
+        }
+      ]
+    }
+  ]
 }

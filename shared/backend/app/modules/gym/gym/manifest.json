@@ -25,7 +25,36 @@
     "gym:frontdesk"
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "gym.gym",
+      "path": "/gym",
+      "label": "الجيم واللياقة البدنية",
+      "icon": "Dumbbell",
+      "permission": "customers"
+    },
+    {
+      "id": "gym.gym_access",
+      "path": "/gym?tab=access",
+      "label": "بوابات الدخول اللحظية",
+      "icon": "ShieldCheck",
+      "permission": "customers"
+    },
+    {
+      "id": "gym.gym_members",
+      "path": "/gym?tab=members",
+      "label": "سجلات الأعضاء والاشتراكات",
+      "icon": "Users",
+      "permission": "customers"
+    },
+    {
+      "id": "gym.gym_pt",
+      "path": "/gym?tab=pt",
+      "label": "حصص التدريب الخاص (PT)",
+      "icon": "Clock",
+      "permission": "customers"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

@@ -73,7 +73,7 @@ function WorkspaceHome() {
   return <Navigate to={signInPath()} replace />;
 }
 import { useModulesStore } from "@app/stores/modules";
-import { NAV_ITEMS } from "@app/lib/nav";
+import { useRoleScreens } from "@app/lib/nav";
 import { signInPath, useTenantNav } from "@app/lib/tenant";
 import { Button } from "@/components/kit/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/kit/empty";
@@ -89,6 +89,7 @@ function Guard({ perm, module, children }: { perm: string; module?: string; chil
   const { token, user, can } = useAuth();
   const hasModule = useModulesStore((s) => s.hasModule);
   const { tenantTo } = useTenantNav();
+  const roleScreens = useRoleScreens();
 
   if (!token || !user) return <Navigate to={tenantTo("/login")} replace />;
   if (module && !hasModule(module)) {
@@ -112,7 +113,7 @@ function Guard({ perm, module, children }: { perm: string; module?: string; chil
     );
   }
   if (perm && !can(perm)) {
-    const fallback = NAV_ITEMS.find((n) => (!n.perm || can(n.perm)) && (!n.module || hasModule(n.module)));
+    const fallback = roleScreens.data?.screens[0] ? { to: roleScreens.data.home || roleScreens.data.screens[0].path, label: roleScreens.data.screens[0].label } : undefined;
     return (
       <Empty className="mx-auto mt-16 max-w-md border border-dashed">
         <EmptyHeader>

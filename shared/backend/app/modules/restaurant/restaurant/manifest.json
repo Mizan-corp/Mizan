@@ -59,7 +59,22 @@
     }
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "restaurant.restaurant_kitchen",
+      "path": "/restaurant/kitchen",
+      "label": "شاشة المطبخ (KDS)",
+      "icon": "ChefHat",
+      "permission": "pos"
+    },
+    {
+      "id": "restaurant.restaurant_tables",
+      "path": "/restaurant/tables",
+      "label": "إدارة الطاولات والصالة",
+      "icon": "LayoutGrid",
+      "permission": "pos"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

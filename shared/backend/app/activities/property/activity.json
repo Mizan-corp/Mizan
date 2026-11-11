@@ -16,5 +16,59 @@
   "terms": {},
   "positions": [],
   "roles": {},
-  "settings": {}
+  "settings": {},
+  "menu": [
+    {
+      "id": "properties",
+      "label": "إدارة العقارات والوحدات",
+      "items": [
+        {
+          "screen": "real_estate.rec",
+          "label": "لوحة الأبراج والوحدات العقارية"
+        },
+        {
+          "screen": "real_estate.rec_leases"
+        },
+        {
+          "screen": "real_estate.rec_maintenance"
+        },
+        {
+          "screen": "finance.customers",
+          "label": "دليل المستأجرين وسجلاتهم"
+        }
+      ]
+    },
+    {
+      "id": "rec_finance",
+      "label": "المالية وحسابات الملاك",
+      "items": [
+        {
+          "screen": "finance.finance",
+          "label": "الخزينة وحافظة شيكات الإيجار"
+        },
+        {
+          "screen": "finance.suppliers",
+          "label": "شركات صيانة المصاعد والمرافق"
+        },
+        {
+          "screen": "core.reports",
+          "label": "كشوف حسابات الملاك وصافي الإيراد"
+        }
+      ]
+    },
+    {
+      "id": "rec_admin",
+      "label": "الإدارة والنظام",
+      "items": [
+        {
+          "screen": "hr.hr",
+          "label": "فريق الإشراف والتحصيل"
+        },
+        {
+          "screen": "core.settings",
+          "label": "إعدادات العقارات والعمولات"
+        }
+      ]
+    }
+  ]
 }

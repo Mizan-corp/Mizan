@@ -29,7 +29,29 @@
       "permission": "phm.view"
     }
   ],
-  "screens": [],
+  "screens": [
+    {
+      "id": "pharma_manufacturing.phm",
+      "path": "/phm",
+      "label": "التصنيع الدوائي (cGMP)",
+      "icon": "FlaskConical",
+      "permission": "operations"
+    },
+    {
+      "id": "pharma_manufacturing.phm_bom",
+      "path": "/phm?tab=bom",
+      "label": "شجرة المنتج والخامات (BOM)",
+      "icon": "Boxes",
+      "permission": "operations"
+    },
+    {
+      "id": "pharma_manufacturing.phm_mrp",
+      "path": "/phm?tab=mrp",
+      "label": "تخطيط متطلبات المواد (MRP)",
+      "icon": "ArrowLeftRight",
+      "permission": "operations"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

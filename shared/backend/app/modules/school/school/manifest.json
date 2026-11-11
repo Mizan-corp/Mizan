@@ -59,7 +59,36 @@
     }
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "school.school_students",
+      "path": "/school/students",
+      "label": "شؤون الطلاب والأقساط",
+      "icon": "GraduationCap",
+      "permission": "customers"
+    },
+    {
+      "id": "school.school_students_admissions",
+      "path": "/school/students?tab=admissions",
+      "label": "طلبات الالتحاق والقبول",
+      "icon": "Users",
+      "permission": "customers"
+    },
+    {
+      "id": "school.school_students_buses",
+      "path": "/school/students?tab=buses",
+      "label": "حافلات النقل وخطوط السير",
+      "icon": "Truck",
+      "permission": "customers"
+    },
+    {
+      "id": "school.school_students_fees",
+      "path": "/school/students?tab=fees",
+      "label": "جدول الأقساط والمصروفات",
+      "icon": "Receipt",
+      "permission": "finance"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

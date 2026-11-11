@@ -26,7 +26,29 @@
     "hotel:housekeeper"
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "hospitality.hospitality",
+      "path": "/hospitality",
+      "label": "الفنادق والضيافة (PMS)",
+      "icon": "Hotel",
+      "permission": "operations"
+    },
+    {
+      "id": "hospitality.hospitality_guests",
+      "path": "/hospitality?tab=guests",
+      "label": "سجلات النزلاء والفواتير (Folio)",
+      "icon": "Users",
+      "permission": "operations"
+    },
+    {
+      "id": "hospitality.hospitality_housekeeping",
+      "path": "/hospitality?tab=housekeeping",
+      "label": "التدبير المنزلي والنظافة",
+      "icon": "Bed",
+      "permission": "operations"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

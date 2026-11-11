@@ -18,7 +18,15 @@
     "public_tenders_procurement"
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "government.gov",
+      "path": "/gov",
+      "label": "القطاع الحكومي والمنظمات",
+      "icon": "Building",
+      "permission": "operations"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

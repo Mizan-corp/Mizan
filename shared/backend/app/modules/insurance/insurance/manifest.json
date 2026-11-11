@@ -18,7 +18,15 @@
     "fraud_detection_scoring"
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "insurance.ins",
+      "path": "/ins",
+      "label": "التأمين وإدارة المطالبات",
+      "icon": "Shield",
+      "permission": "finance"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

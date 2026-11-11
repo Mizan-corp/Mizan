@@ -17,5 +17,77 @@
   "terms": {},
   "positions": [],
   "roles": {},
-  "settings": {}
+  "settings": {},
+  "menu": [
+    {
+      "id": "contracting",
+      "label": "المقايسات والمشاريع (BOQ)",
+      "items": [
+        {
+          "screen": "construction.cst",
+          "label": "لوحة المشاريع والمقايسات"
+        },
+        {
+          "screen": "construction.cst_boq"
+        },
+        {
+          "screen": "construction.cst_invoices"
+        },
+        {
+          "screen": "construction.cst_subcontractors"
+        }
+      ]
+    },
+    {
+      "id": "site_assets",
+      "label": "الموقع والمعدات والمخزن",
+      "items": [
+        {
+          "screen": "inventory.inventory",
+          "label": "مخزن الموقع ومواد البناء",
+          "icon": "Warehouse"
+        },
+        {
+          "screen": "inventory.purchases",
+          "label": "توريدات الحديد والإسمنت والمواد"
+        }
+      ]
+    },
+    {
+      "id": "cst_finance",
+      "label": "المالية وتكاليف المشاريع",
+      "items": [
+        {
+          "screen": "finance.customers",
+          "label": "الملاك وجهات الإسناد"
+        },
+        {
+          "screen": "finance.suppliers",
+          "label": "موردو المواد ومقاولو الباطن"
+        },
+        {
+          "screen": "finance.finance",
+          "label": "العهد الموقعية والخزينة"
+        },
+        {
+          "screen": "core.reports",
+          "label": "تقارير ربحية المشاريع والتدفقات"
+        }
+      ]
+    },
+    {
+      "id": "cst_staff",
+      "label": "المهندسون وفريق التنفيذ",
+      "items": [
+        {
+          "screen": "hr.hr",
+          "label": "مهندسو المواقع والعمالة"
+        },
+        {
+          "screen": "core.settings",
+          "label": "إعدادات تكويد المشاريع"
+        }
+      ]
+    }
+  ]
 }

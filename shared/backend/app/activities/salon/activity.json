@@ -18,5 +18,65 @@
   "terms": {},
   "positions": [],
   "roles": {},
-  "settings": {}
+  "settings": {},
+  "menu": [
+    {
+      "id": "beauty",
+      "label": "الصالون وحجز المواعيد",
+      "items": [
+        {
+          "screen": "salon.salon",
+          "label": "أجندة المواعيد وجدول الخدمة"
+        },
+        {
+          "screen": "pos.pos",
+          "label": "كاشير الصالون وبيع المنتجات"
+        },
+        {
+          "screen": "pos.sales",
+          "label": "فواتير الخدمات والصبغات"
+        },
+        {
+          "screen": "finance.customers",
+          "label": "سجلات العميلات وتفضيلات الخدمة"
+        }
+      ]
+    },
+    {
+      "id": "salon_stock",
+      "label": "المستحضرات والمستهلكات",
+      "items": [
+        {
+          "screen": "inventory.products",
+          "label": "مستحضرات التجميل والعناية"
+        },
+        {
+          "screen": "inventory.inventory",
+          "label": "مخزون الصبغات والشامبوهات"
+        }
+      ]
+    },
+    {
+      "id": "salon_staff",
+      "label": "المصففون والعمولات",
+      "items": [
+        {
+          "screen": "hr.hr",
+          "label": "المصففون وأخصائيو التجميل"
+        },
+        {
+          "screen": "pos.shifts",
+          "label": "ورديات العمل"
+        },
+        {
+          "screen": "finance.finance",
+          "label": "الخزينة والعمولات اليومية"
+        },
+        {
+          "screen": "core.settings",
+          "label": "إعدادات باقات الصالون"
+        }
+      ]
+    }
+  ]
 }

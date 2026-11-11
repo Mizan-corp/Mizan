@@ -49,7 +49,15 @@
     }
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "pharmacy.pharmacy",
+      "path": "/pharmacy",
+      "label": "الصيدلية والروشتات",
+      "icon": "Pill",
+      "permission": "pos"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

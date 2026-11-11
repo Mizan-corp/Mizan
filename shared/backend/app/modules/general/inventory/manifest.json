@@ -52,8 +52,52 @@
       "name_en": "Inventory and products"
     }
   ],
-  "screens": [],
-  "widgets": [],
+  "screens": [
+    {
+      "id": "inventory.inventory",
+      "path": "/inventory",
+      "label": "المخزون والتقييم",
+      "icon": "Boxes",
+      "permission": "inventory"
+    },
+    {
+      "id": "inventory.operations",
+      "path": "/operations",
+      "label": "العمليات المخزنية",
+      "icon": "ArrowLeftRight",
+      "permission": "operations"
+    },
+    {
+      "id": "inventory.products",
+      "path": "/products",
+      "label": "المنتجات",
+      "icon": "Package",
+      "permission": "inventory"
+    },
+    {
+      "id": "inventory.purchases",
+      "path": "/purchases",
+      "label": "المشتريات والتوريد",
+      "icon": "Truck",
+      "permission": "purchases"
+    }
+  ],
+  "widgets": [
+    {
+      "id": "inventory.low_stock_count",
+      "label": "الأصناف تحت حد الطلب",
+      "label_en": "Items below reorder level",
+      "permission": "inventory|purchases",
+      "size": "s"
+    },
+    {
+      "id": "inventory.low_stock",
+      "label": "النواقص العاجلة",
+      "label_en": "Urgent shortages",
+      "permission": "inventory|purchases",
+      "size": "m"
+    }
+  ],
   "variants": [
     "standard",
     "pharmacy"

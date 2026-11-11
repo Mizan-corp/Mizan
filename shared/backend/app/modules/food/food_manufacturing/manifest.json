@@ -28,7 +28,29 @@
       "permission": "fod.view"
     }
   ],
-  "screens": [],
+  "screens": [
+    {
+      "id": "food_manufacturing.fod",
+      "path": "/fod",
+      "label": "الصناعات الغذائية (HACCP)",
+      "icon": "Utensils",
+      "permission": "operations"
+    },
+    {
+      "id": "food_manufacturing.fod_bom",
+      "path": "/fod?tab=bom",
+      "label": "شجرة المنتج والخامات (BOM)",
+      "icon": "Boxes",
+      "permission": "operations"
+    },
+    {
+      "id": "food_manufacturing.fod_mrp",
+      "path": "/fod?tab=mrp",
+      "label": "تخطيط متطلبات المواد (MRP)",
+      "icon": "ArrowLeftRight",
+      "permission": "operations"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

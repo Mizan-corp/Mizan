@@ -19,5 +19,86 @@
   "terms": {},
   "positions": [],
   "roles": {},
-  "settings": {}
+  "settings": {},
+  "menu": [
+    {
+      "id": "dining",
+      "label": "الصالة والتشغيل الفندقي",
+      "items": [
+        {
+          "screen": "restaurant.restaurant_tables"
+        },
+        {
+          "screen": "restaurant.restaurant_kitchen"
+        },
+        {
+          "screen": "pos.pos",
+          "label": "نقطة بيع المطعم والطلبات"
+        },
+        {
+          "screen": "pos.sales",
+          "label": "فواتير الطلبات والضيافة"
+        }
+      ]
+    },
+    {
+      "id": "kitchen_stock",
+      "label": "المطبخ والمخزون الغذائي",
+      "items": [
+        {
+          "screen": "inventory.products",
+          "label": "قائمة المأكولات والمشروبات (Menu)",
+          "icon": "Utensils"
+        },
+        {
+          "screen": "inventory.inventory",
+          "label": "المكونات والمخزون الغذائي"
+        },
+        {
+          "screen": "inventory.purchases",
+          "label": "توريدات الأغذية والخضار"
+        }
+      ]
+    },
+    {
+      "id": "dining_finance",
+      "label": "المالية وحسابات العملاء",
+      "items": [
+        {
+          "screen": "finance.customers",
+          "label": "حسابات عملاء الشركات والولاء"
+        },
+        {
+          "screen": "finance.suppliers",
+          "label": "موردو اللحوم والأغذية"
+        },
+        {
+          "screen": "finance.finance",
+          "label": "الخزينة والمالية اليومية"
+        },
+        {
+          "screen": "core.reports",
+          "label": "تقارير المبيعات وهدر المطبخ"
+        }
+      ]
+    },
+    {
+      "id": "dining_staff",
+      "label": "الكادر والإدارة",
+      "items": [
+        {
+          "screen": "hr.hr",
+          "label": "الشيفات وطاقم الخدمة"
+        },
+        {
+          "screen": "pos.shifts",
+          "label": "ورديات العمل"
+        },
+        {
+          "screen": "core.settings",
+          "label": "إعدادات المطعم"
+        }
+      ]
+    }
+  ]
 }

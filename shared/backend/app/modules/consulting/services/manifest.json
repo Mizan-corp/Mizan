@@ -35,7 +35,15 @@
     }
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "services.services",
+      "path": "/services",
+      "label": "الخدمات والاستشارات",
+      "icon": "Briefcase",
+      "permission": "customers"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

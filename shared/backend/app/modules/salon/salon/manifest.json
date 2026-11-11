@@ -26,7 +26,15 @@
     "salon:cashier"
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "salon.salon",
+      "path": "/salon",
+      "label": "الصالون والتجميل والسبا",
+      "icon": "Scissors",
+      "permission": "pos"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

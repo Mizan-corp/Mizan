@@ -1,5 +1,4 @@
 import logging
-import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -319,3 +318,19 @@ async def storage(refresh: bool = False, db: AsyncSession = Depends(get_db), use
     out = await usage(db, user.tenant_id, refresh=refresh)
     await db.commit()
     return out
+
+
+
+@router.get("/screens")
+async def my_screens(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
+    """The acting role's home, menu and dashboard, and every screen it may open (ADR-006 phase 5)."""
+    from app.framework.activation import get_active_modules
+    from app.framework.hooks import workspace_activity
+    from app.framework.screens import resolve
+
+    acting = getattr(user, "acting_role", None)
+    layout = {}
+    if acting:
+        layout = await db.scalar(text("SELECT layout FROM sys_roles WHERE id = :r"), {"r": acting["id"]}) or {}
+    return resolve(layout, await workspace_activity(db), acting["code"] if acting else None,
+                   getattr(user, "effective_permissions", frozenset()), await get_active_modules(db))

@@ -1,15 +1,18 @@
+import { lazy } from "react";
 import type { ModuleDefinition } from "@app/framework/types";
 
-// Batches and expiry (FEFO): what this module provides to the app (docs/MODULE_STANDARD.md). Screens are
-// still registered in App.tsx and lib/nav.ts until the framework renders them (ADR-006 phase 5).
+// Batches and expiry (FEFO): what this module provides to the app (docs/MODULE_STANDARD.md). Routes are
+// registered in App.tsx; menus come from the manifest's "screens" and widgets render by id
+// on the role's dashboard (ADR-006 phase 5).
 const definition: ModuleDefinition = {
   id: "batches",
   activity: "pharmacy",
   kind: "business",
-  status: "planned",
+  status: "active",
   screens: {},
-  widgets: {},
-  nav: [],
+  widgets: {
+    "batches.expiring_soon": lazy(() => import("./widgets").then((m) => ({ default: m.ExpiringSoon }))),
+  },
 };
 
 export default definition;

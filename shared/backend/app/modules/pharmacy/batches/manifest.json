@@ -15,8 +15,11 @@
   "screens": [],
   "widgets": [
     {
-      "id": "expiring_soon",
-      "name": "تشغيلات قاربت على الانتهاء"
+      "id": "batches.expiring_soon",
+      "label": "تشغيلات منتهية أو قاربت على الانتهاء",
+      "label_en": "Expired and expiring batches",
+      "permission": "inventory|pos",
+      "size": "m"
     }
   ],
   "variants": [

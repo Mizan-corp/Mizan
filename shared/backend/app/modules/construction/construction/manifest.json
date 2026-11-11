@@ -16,7 +16,36 @@
     "hr"
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "construction.cst",
+      "path": "/cst",
+      "label": "المقاولات العامة والإنشاءات",
+      "icon": "HardHat",
+      "permission": "operations"
+    },
+    {
+      "id": "construction.cst_boq",
+      "path": "/cst?tab=boq",
+      "label": "جداول الكميات وبنود التكلفة",
+      "icon": "Boxes",
+      "permission": "operations"
+    },
+    {
+      "id": "construction.cst_invoices",
+      "path": "/cst?tab=invoices",
+      "label": "المستخلصات الجارية والختامية",
+      "icon": "Receipt",
+      "permission": "operations"
+    },
+    {
+      "id": "construction.cst_subcontractors",
+      "path": "/cst?tab=subcontractors",
+      "label": "مقاولو الباطن وحصر الأعمال",
+      "icon": "Users",
+      "permission": "operations"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

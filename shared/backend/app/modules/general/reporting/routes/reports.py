@@ -18,6 +18,13 @@ async def daily_sales(target_date: date = Query(default_factory=date.today), war
     return await report_service.daily_sales(db, target_date, warehouse_id=warehouse_id)
 
 
+@router.get("/sales/trend")
+async def sales_trend(days: int = Query(14, ge=1, le=92), warehouse_id: str | None = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Net sales per day, oldest first (the dashboard's trend widget)."""
+    await verify_warehouse_access(db, current_user, uuid.UUID(warehouse_id) if warehouse_id else None)
+    return await report_service.sales_trend(db, days, warehouse_id=warehouse_id)
+
+
 @router.get("/sales/monthly")
 async def monthly_sales(year: int, month: int, warehouse_id: str | None = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
     await verify_warehouse_access(db, current_user, uuid.UUID(warehouse_id) if warehouse_id else None)

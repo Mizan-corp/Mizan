@@ -2888,6 +2888,10 @@ MIGRATIONS = [
         CREATE POLICY tenant_isolation ON storage_usage
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    # Each role's screens (ADR-006 phase 5): home, menu and dashboard, edited in the builder.
+    ("v66_role_layouts", """
+        ALTER TABLE sys_roles ADD COLUMN IF NOT EXISTS layout jsonb NOT NULL DEFAULT '{}'::jsonb;
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

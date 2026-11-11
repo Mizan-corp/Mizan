@@ -43,7 +43,15 @@
     }
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "ecommerce.ecommerce",
+      "path": "/ecommerce",
+      "label": "المتجر الإلكتروني",
+      "icon": "Globe",
+      "permission": "sales"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

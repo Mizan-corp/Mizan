@@ -15,7 +15,15 @@
     "finance"
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "agriculture.agr",
+      "path": "/agr",
+      "label": "الزراعة وإدارة المزارع",
+      "icon": "Tractor",
+      "permission": "operations"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

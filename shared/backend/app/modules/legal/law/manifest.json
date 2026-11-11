@@ -24,7 +24,15 @@
     "law:associate"
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "law.law",
+      "path": "/law",
+      "label": "المحاماة والقضايا",
+      "icon": "Scale",
+      "permission": "customers"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

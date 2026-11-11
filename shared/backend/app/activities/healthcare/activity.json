@@ -18,5 +18,108 @@
   "terms": {},
   "positions": [],
   "roles": {},
-  "settings": {}
+  "settings": {},
+  "menu": [
+    {
+      "id": "clinical",
+      "label": "العيادات والتشغيل الطبي",
+      "items": [
+        {
+          "screen": "healthcare_clinic.clinic",
+          "label": "لوحة التحكم الطبية",
+          "permission": ""
+        },
+        {
+          "screen": "core.clinic_appointments"
+        },
+        {
+          "screen": "core.clinic_patients"
+        },
+        {
+          "screen": "core.clinic_emr"
+        },
+        {
+          "screen": "core.clinic_rx_labs"
+        },
+        {
+          "screen": "core.clinic_labs"
+        },
+        {
+          "screen": "core.clinic_beds"
+        }
+      ]
+    },
+    {
+      "id": "pharmacy_supplies",
+      "label": "الصيدلية والمستلزمات الطبية",
+      "items": [
+        {
+          "screen": "pharmacy.pharmacy",
+          "label": "صيدلية وصرف الأدوية"
+        },
+        {
+          "screen": "inventory.inventory",
+          "label": "المخزون والمستلزمات الطبية"
+        },
+        {
+          "screen": "inventory.purchases",
+          "label": "طلبيات وتوريد الأدوية"
+        }
+      ]
+    },
+    {
+      "id": "medical_finance",
+      "label": "المالية والفوترة الطبية",
+      "items": [
+        {
+          "screen": "core.clinic_billing"
+        },
+        {
+          "screen": "core.clinic_claims"
+        },
+        {
+          "screen": "finance.customers",
+          "label": "حسابات المرضى والتعاقدات"
+        },
+        {
+          "screen": "finance.suppliers",
+          "label": "شركات الأدوية والموردين"
+        },
+        {
+          "screen": "finance.finance",
+          "label": "الخزائن والإيرادات الطبية"
+        },
+        {
+          "screen": "core.reports",
+          "label": "التقارير الطبية والمالية"
+        }
+      ]
+    },
+    {
+      "id": "medical_staff",
+      "label": "الكادر الطبي والإدارة",
+      "items": [
+        {
+          "screen": "hr.hr",
+          "label": "الأطباء وهيئة التمريض"
+        },
+        {
+          "screen": "pos.shifts",
+          "label": "نوبتجيات ومناوبات الكادر"
+        },
+        {
+          "screen": "core.modules",
+          "label": "سوق الوحدات الطبية"
+        },
+        {
+          "screen": "core.users",
+          "label": "المستخدمون وصلاحيات النظام"
+        },
+        {
+          "screen": "core.settings",
+          "label": "إعدادات العيادات والمجمع"
+        }
+      ]
+    }
+  ]
 }

@@ -42,6 +42,41 @@ async def daily_sales(db: AsyncSession, target_date: date, warehouse_id: str | N
     return {"date": str(target_date), "total_sales": row.total_sales, "total_items": row.total_items, "invoice_count": row.invoice_count}
 
 
+async def sales_trend(db: AsyncSession, days: int, warehouse_id: str | None = None):
+    """Net confirmed sales per day for the last `days` days, oldest first (zero days included)."""
+    import uuid as _uuid
+    today = date.today()
+    first = today - timedelta(days=days - 1)
+    inner = (
+        select(
+            func.date(Sale.created_at).label("day"),
+            Sale.id,
+            Sale.discount_amount,
+            func.sum(SaleItem.qty * SaleItem.unit_price - SaleItem.discount).label("items_net"),
+        )
+        .join(SaleItem, Sale.id == SaleItem.sale_id)
+        .where(Sale.created_at >= datetime(first.year, first.month, first.day), Sale.status == "confirmed")
+        .group_by(func.date(Sale.created_at), Sale.id, Sale.discount_amount)
+    )
+    if warehouse_id:
+        try:
+            inner = inner.where(Sale.warehouse_id == _uuid.UUID(warehouse_id))
+        except ValueError:
+            pass
+    sub = inner.subquery()
+    rows = (await db.execute(
+        select(sub.c.day, func.sum(sub.c.items_net - func.coalesce(sub.c.discount_amount, 0)), func.count())
+        .group_by(sub.c.day)
+    )).all()
+    by_day = {r[0]: (r[1] or 0, r[2]) for r in rows}
+    out = []
+    for i in range(days):
+        d = first + timedelta(days=i)
+        total, count = by_day.get(d, (0, 0))
+        out.append({"date": str(d), "total_sales": total, "invoice_count": count})
+    return out
+
+
 async def monthly_sales(db: AsyncSession, year: int, month: int, warehouse_id: str | None = None):
     import calendar
     import uuid as _uuid

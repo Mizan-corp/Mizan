@@ -18,7 +18,15 @@
     "concessions_kds_sync"
   ],
   "permissions": [],
-  "screens": [],
+  "screens": [
+    {
+      "id": "events.ent",
+      "path": "/ent",
+      "label": "الترفيه والفعاليات والملاهي",
+      "icon": "Ticket",
+      "permission": "operations"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"

@@ -17,5 +17,57 @@
   "terms": {},
   "positions": [],
   "roles": {},
-  "settings": {}
+  "settings": {},
+  "menu": [
+    {
+      "id": "fsm",
+      "label": "الصيانة والعمل الميداني",
+      "items": [
+        {
+          "screen": "field_service.field_service",
+          "label": "أوامر الشغل وبلاغات الأعطال"
+        },
+        {
+          "screen": "finance.customers",
+          "label": "سجلات العملاء ومواقع التركيب"
+        },
+        {
+          "screen": "pos.sales",
+          "label": "فواتير الصيانة والزيارات"
+        }
+      ]
+    },
+    {
+      "id": "fsm_parts",
+      "label": "قطع الغيار والمخزن المتنقل",
+      "items": [
+        {
+          "screen": "inventory.products",
+          "label": "كتالوج قطع الغيار والمعدات"
+        },
+        {
+          "screen": "inventory.inventory",
+          "label": "مخزون المستودع وسيارة الفني"
+        }
+      ]
+    },
+    {
+      "id": "fsm_admin",
+      "label": "الفنيون والإدارة",
+      "items": [
+        {
+          "screen": "hr.hr",
+          "label": "الفنيون وفرق الصيانة"
+        },
+        {
+          "screen": "finance.finance",
+          "label": "الخزينة وتحصيل الفنيين الميداني"
+        },
+        {
+          "screen": "core.settings",
+          "label": "إعدادات أنواع الأعطال والصيانة"
+        }
+      ]
+    }
+  ]
 }
