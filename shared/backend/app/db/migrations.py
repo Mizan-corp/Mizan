@@ -2766,6 +2766,35 @@ MIGRATIONS = [
         DROP INDEX IF EXISTS uq_position_code_tenant;
         CREATE UNIQUE INDEX IF NOT EXISTS uq_org_positions_workspace ON org_positions (tenant_id, code) WHERE tenant_id IS NOT NULL;
     """),
+    # Fields variants and workspaces add to shared records (ADR-006 phase 4): their values in an
+    # `extra` JSON column; a workspace's own fields and its changes in workspace_fields.
+    ("v60_record_fields", """
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS extra jsonb NOT NULL DEFAULT '{}'::jsonb;
+        ALTER TABLE sales ADD COLUMN IF NOT EXISTS extra jsonb NOT NULL DEFAULT '{}'::jsonb;
+        ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS extra jsonb NOT NULL DEFAULT '{}'::jsonb;
+        ALTER TABLE customers ADD COLUMN IF NOT EXISTS extra jsonb NOT NULL DEFAULT '{}'::jsonb;
+        ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS extra jsonb NOT NULL DEFAULT '{}'::jsonb;
+        ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS extra jsonb NOT NULL DEFAULT '{}'::jsonb;
+        CREATE TABLE IF NOT EXISTS workspace_fields (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+                DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+            record varchar(32) NOT NULL,
+            key varchar(48) NOT NULL,
+            definition jsonb NOT NULL DEFAULT '{}'::jsonb,
+            position integer NOT NULL DEFAULT 0,
+            hidden boolean NOT NULL DEFAULT false,
+            created_at timestamptz DEFAULT now(),
+            CONSTRAINT uq_workspace_fields_key UNIQUE (tenant_id, record, key)
+        );
+        CREATE INDEX IF NOT EXISTS ix_workspace_fields_tenant_id ON workspace_fields (tenant_id);
+        ALTER TABLE workspace_fields ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE workspace_fields FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON workspace_fields;
+        CREATE POLICY tenant_isolation ON workspace_fields
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        CREATE INDEX IF NOT EXISTS ix_products_extra ON products USING gin (extra);
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

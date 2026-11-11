@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import Boolean, DateTime, Numeric, String, Text, func, text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.platform.tenancy.context import TenantScoped
@@ -14,6 +14,8 @@ class Customer(TenantScoped, Base):
     __tablename__ = "customers"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # Values of the fields variants and the workspace add (app/framework/fields.py).
+    extra: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -28,6 +30,8 @@ class Supplier(TenantScoped, Base):
     __tablename__ = "suppliers"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # Values of the fields variants and the workspace add (app/framework/fields.py).
+    extra: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)

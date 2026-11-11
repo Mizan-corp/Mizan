@@ -3,9 +3,9 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func, text
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.platform.tenancy.context import TenantScoped
@@ -41,6 +41,8 @@ class PurchaseOrderItem(TenantScoped, Base):
     __tablename__ = "purchase_order_items"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # Values of the fields variants and the workspace add (app/framework/fields.py).
+    extra: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     po_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("purchase_orders.id", ondelete="CASCADE"))
     product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id", ondelete="RESTRICT"))
     qty_ordered: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)

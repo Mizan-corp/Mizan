@@ -2,18 +2,66 @@
   "id": "pharmacy",
   "module": "inventory",
   "status": "planned",
-  "description": "Batches and expiry dates, first-expiry-first-out.",
+  "description": "Drugs: scientific name, form and strength on each product; stock kept in batches with expiry dates, first-expiry-first-out; expired batches can't be sold.",
   "screens": {},
   "fields": {
-    "stock": [
-      "batch",
-      "expiry"
+    "product": [
+      {
+        "key": "scientific_name",
+        "label": "الاسم العلمي",
+        "label_en": "Scientific name",
+        "type": "text",
+        "searchable": true
+      },
+      {
+        "key": "dosage_form",
+        "label": "الشكل الدوائي",
+        "label_en": "Dosage form",
+        "type": "select",
+        "options": [
+          "أقراص",
+          "كبسولات",
+          "شراب",
+          "حقن",
+          "مرهم",
+          "قطرة",
+          "بخاخ",
+          "لبوس",
+          "أكياس",
+          "أخرى"
+        ]
+      },
+      {
+        "key": "strength",
+        "label": "التركيز",
+        "label_en": "Strength",
+        "type": "text"
+      },
+      {
+        "key": "requires_prescription",
+        "label": "يُصرف بروشتة",
+        "label_en": "Prescription required",
+        "type": "boolean"
+      },
+      {
+        "key": "is_controlled",
+        "label": "مادة مراقبة (جدول)",
+        "label_en": "Controlled substance",
+        "type": "boolean"
+      }
     ]
   },
-  "uses": [],
-  "terms": {},
+  "uses": [
+    "batches"
+  ],
+  "terms": {
+    "item": "دواء",
+    "items": "أدوية"
+  },
   "settings": {
-    "fefo": true
+    "fefo": true,
+    "batches_required": true,
+    "expiry_warning_days": 90
   },
   "permissions": [],
   "templates": {},

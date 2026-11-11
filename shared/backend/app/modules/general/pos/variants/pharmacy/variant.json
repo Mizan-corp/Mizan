@@ -7,13 +7,57 @@
     "checkout": "drug_counter"
   },
   "fields": {
+    "sale": [
+      {
+        "key": "rx_number",
+        "label": "رقم الروشتة",
+        "label_en": "Prescription no.",
+        "type": "text"
+      },
+      {
+        "key": "doctor_name",
+        "label": "الطبيب المعالج",
+        "label_en": "Prescriber",
+        "type": "text"
+      },
+      {
+        "key": "doctor_license",
+        "label": "رقم ترخيص الطبيب",
+        "label_en": "Prescriber licence",
+        "type": "text"
+      },
+      {
+        "key": "patient_name",
+        "label": "اسم المريض",
+        "label_en": "Patient",
+        "type": "text"
+      },
+      {
+        "key": "patient_national_id",
+        "label": "الرقم القومي للمريض",
+        "label_en": "Patient national ID",
+        "type": "text"
+      }
+    ],
     "sale_line": [
-      "batch",
-      "expiry",
-      "prescription_number"
+      {
+        "key": "batch_number",
+        "label": "التشغيلة",
+        "label_en": "Batch",
+        "type": "text",
+        "readonly": true
+      },
+      {
+        "key": "expiry_date",
+        "label": "الصلاحية",
+        "label_en": "Expiry",
+        "type": "date",
+        "readonly": true
+      }
     ]
   },
   "uses": [
+    "batches",
     "pharmacy"
   ],
   "terms": {
@@ -21,7 +65,8 @@
     "customer": "مريض"
   },
   "settings": {
-    "sell_unit": "strip_or_box"
+    "sell_unit": "strip_or_box",
+    "prescription_check": true
   },
   "permissions": [
     "pos.dispense_controlled"
