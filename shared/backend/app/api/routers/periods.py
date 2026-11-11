@@ -24,6 +24,10 @@ async def ensure_period_table(db: AsyncSession):
     global _initialized
     if _initialized:
         return
+    # Requests run as the workspace role, which can't run DDL (#112): only create it if missing.
+    if await db.scalar(text("SELECT to_regclass('public.accounting_periods')")) is not None:
+        _initialized = True
+        return
     await db.execute(text("""
         CREATE TABLE IF NOT EXISTS accounting_periods (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

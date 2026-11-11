@@ -2361,6 +2361,26 @@ MIGRATIONS = [
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
             WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    # Workspace isolation (#112): requests bound to a workspace run as mizan_app (SET LOCAL ROLE,
+    # app/core/tenancy.py), which cannot bypass RLS, unlike the login role (Neon's owner, or a
+    # local superuser). It gets the login role's data rights, now and for tables made later.
+    ("v48b_rls_app_role", """
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mizan_app') THEN
+                CREATE ROLE mizan_app NOLOGIN NOBYPASSRLS;
+            END IF;
+        END $$;
+        DO $$ BEGIN
+            EXECUTE format('GRANT mizan_app TO %I', current_user);
+        END $$;
+        GRANT USAGE ON SCHEMA public TO mizan_app;
+        GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES ON ALL TABLES IN SCHEMA public TO mizan_app;
+        GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO mizan_app;
+        GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO mizan_app;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES ON TABLES TO mizan_app;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO mizan_app;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO mizan_app;
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

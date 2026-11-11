@@ -2,6 +2,7 @@
 demo-data wipe, offline license verification and schema migrations.
 """
 import logging
+import secrets
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -168,19 +169,25 @@ async def run_platform_migrations(
     is_authorized = False
     current_user = None
 
-    if admin_secret and admin_secret in (settings.SECRET_KEY, "mizan-emergency-migration-key"):
+    # Platform staff or the deployment's own secret only: a workspace admin must not run platform
+    # migrations or seed another workspace (#112).
+    if admin_secret and secrets.compare_digest(admin_secret, settings.SECRET_KEY):
         is_authorized = True
     else:
         try:
             current_user = await get_current_user(request=request, db=db)
-            if current_user and (current_user.role in ("admin", "superadmin") or getattr(current_user, "is_superadmin", False)):
+            if current_user and getattr(current_user, "is_superadmin", False):
                 is_authorized = True
         except Exception as err:
             logger.warning("Auth check during migration: %s", err)
 
     if not is_authorized:
-        raise HTTPException(status_code=403, detail="Admin permissions or valid migration secret required")
+        raise HTTPException(status_code=403, detail="Platform admin or valid migration secret required")
 
+    # DDL runs as the login role, not the workspace role a signed-in request switches to.
+    from app.core.tenancy import unbind_tenant
+
+    await unbind_tenant(db)
     from app.db.migrations import apply_migrations
     applied = await apply_migrations(db)
 

@@ -30,9 +30,9 @@ async def get_or_create_period(db: AsyncSession, month: str) -> str:
 
 async def get_period_status(db: AsyncSession, month: str) -> str | None:
     """Get status of a payroll period."""
-    return await db.execute(
+    return (await db.execute(
         text("SELECT status FROM hr_payroll_periods WHERE month=:m"), {"m": month}
-    ).scalar_one_or_none()
+    )).scalar_one_or_none()
 
 
 async def load_hr_settings(db: AsyncSession) -> dict:

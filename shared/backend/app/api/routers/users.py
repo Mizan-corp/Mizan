@@ -55,14 +55,15 @@ async def update_my_settings(data: dict[str, Any], db: AsyncSession = Depends(ge
 
 
 @router.get("")
-async def list_users(db: AsyncSession = Depends(get_db), _=Depends(require_perm("users"))):
+async def list_users(db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("users"))):
+    # Explicit workspace filter on top of RLS (#112); password hashes never leave the server.
     rows = await db.execute(text("""
         SELECT u.*, w.name as default_warehouse_name
         FROM users u
         LEFT JOIN warehouses w ON w.id = u.default_warehouse_id
-        WHERE u.is_active = true ORDER BY u.full_name
-    """))
-    return [dict(r._mapping) for r in rows.fetchall()]
+        WHERE u.is_active = true AND u.tenant_id = :t ORDER BY u.full_name
+    """), {"t": current_user.tenant_id})
+    return [{k: v for k, v in dict(r._mapping).items() if k != "password_hash"} for r in rows.fetchall()]
 
 
 @router.post("", response_model=UserOut)

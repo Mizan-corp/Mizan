@@ -11,6 +11,9 @@ The context is set by `get_current_user` from the authenticated user, or
 explicitly by public routes (storefront) after resolving their tenant.
 Scripts and migrations run with no context and see everything.
 """
+import logging
+import os
+import time
 import uuid
 from contextvars import ContextVar
 
@@ -36,6 +39,35 @@ class TenantScoped:
 
 _tenancy_events_installed = False
 
+# While a workspace is bound, every transaction runs as this role (SET LOCAL ROLE), which has no
+# BYPASSRLS: the connection's login role may bypass RLS (Neon's owner, a local superuser), and
+# then RLS would not isolate raw SQL at all (#112). Transaction-local, so it is safe behind
+# PgBouncer in transaction mode. Scripts and migrations (no workspace bound) keep the login role.
+APP_ROLE = os.environ.get("MIZAN_DB_APP_ROLE", "mizan_app")
+_role_ready: bool = False
+_role_checked_at: float = 0.0
+
+
+def restrict_to_app_role(connection) -> None:
+    """Run the rest of this transaction as APP_ROLE (sync connection; called in a transaction)."""
+    global _role_ready, _role_checked_at
+    if not APP_ROLE:
+        return
+    from sqlalchemy import text
+
+    if not _role_ready and time.monotonic() - _role_checked_at > 60:
+        _role_checked_at = time.monotonic()
+        _role_ready = bool(connection.execute(text(
+            "SELECT CASE WHEN EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :r)"
+            " THEN pg_has_role(current_user, :r, 'MEMBER') ELSE false END"
+        ), {"r": APP_ROLE}).scalar())
+        if not _role_ready:
+            logging.getLogger("mizan.tenancy").critical(
+                "Database role %r is missing or not granted to the login role: workspace isolation "
+                "relies on RLS, which this login role may bypass. Apply the migrations (#112).", APP_ROLE)
+    if _role_ready:
+        connection.exec_driver_sql(f'SET LOCAL ROLE "{APP_ROLE}"')
+
 
 def install_tenancy_events() -> None:
     """Attach global scoping listeners to the sync Session class (all sessions).
@@ -56,6 +88,7 @@ def install_tenancy_events() -> None:
                 text("SELECT set_config('app.tenant_id', :t, true)"),
                 {"t": str(tid)},
             )
+            restrict_to_app_role(connection)
 
     @event.listens_for(Session, "do_orm_execute")
     def _scope_statements(execute_state):
@@ -106,6 +139,8 @@ async def bind_tenant(db, tid: uuid.UUID | None) -> None:
     current_tenant_id.set(tid)
     if tid is not None:
         await db.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tid)})
+        conn = await db.connection()
+        await conn.run_sync(restrict_to_app_role)
 
 
 async def unbind_tenant(db) -> None:
@@ -114,5 +149,6 @@ async def unbind_tenant(db) -> None:
     try:
         await db.execute(text("RESET app.tenant_id"))
         await db.execute(text("RESET app.bypass"))
+        await db.execute(text("RESET ROLE"))
     except Exception:
         pass  # connection already gone
