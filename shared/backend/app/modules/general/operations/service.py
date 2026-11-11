@@ -8,9 +8,9 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.general.inventory.models.product import Product
-from app.modules.general.inventory.models.stock import MovementType, StockMovement
+from app.modules.general.inventory.models.stock import MovementType
 from app.modules.general.inventory.models.warehouse import Warehouse
-from app.modules.general.inventory.services.stock import get_balance
+from app.modules.general.inventory.services.stock import apply_movement, get_balance
 from app.modules.general.operations.schemas import DispatchRequest, GoodsReceiptRequest, OperationItem, StockRequestRequest
 from app.platform.archive.models import ArchivedDocument, DocType
 from app.platform.audit.service import log as audit_log
@@ -54,9 +54,16 @@ async def dispatch(db: AsyncSession, data: DispatchRequest, user) -> dict:
         balance = await get_balance(db, item.product_id, data.from_warehouse_id, for_update=True)
         if balance < item.qty:
             raise HTTPException(400, f"رصيد غير كافٍ للمنتج {prod.name} — المتاح {balance}")
-        for warehouse_id, kind in ((data.from_warehouse_id, MovementType.transfer_out), (data.to_warehouse_id, MovementType.transfer_in)):
-            db.add(StockMovement(product_id=item.product_id, warehouse_id=warehouse_id, movement_type=kind, qty=item.qty,
-                                 ref_id=ref_id, ref_type="dispatch", note=item.note or data.notes, created_by=user.id))
+        # Stock really moves now (it used to record the movements but not the balances).
+        _, taken = await apply_movement(db, product_id=item.product_id, warehouse_id=data.from_warehouse_id,
+                                        movement_type=MovementType.transfer_out, qty=item.qty, ref_id=ref_id,
+                                        ref_type="dispatch", note=item.note or data.notes, created_by=user.id)
+        # The same batches arrive at the other branch.
+        for lot in taken or [None]:
+            await apply_movement(db, product_id=item.product_id, warehouse_id=data.to_warehouse_id,
+                                 movement_type=MovementType.transfer_in, qty=lot["qty"] if lot else item.qty,
+                                 ref_id=ref_id, ref_type="dispatch", note=item.note or data.notes,
+                                 created_by=user.id, lot=lot)
         total_qty += item.qty
         items_detail.append({"product_id": str(item.product_id), "name": prod.name, "qty": float(item.qty)})
     _archive(db, DocType.dispatch_order, doc_number, total_qty,
@@ -75,9 +82,10 @@ async def receive_goods(db: AsyncSession, data: GoodsReceiptRequest, user) -> di
     total_cost, items_detail = Decimal("0"), []
     for item in data.items:
         prod = products[item.product_id]
-        db.add(StockMovement(product_id=item.product_id, warehouse_id=data.warehouse_id, movement_type=MovementType.purchase,
-                             qty=item.qty, unit_cost=item.unit_cost, ref_id=ref_id, ref_type="goods_receipt",
-                             note=data.notes, created_by=user.id))
+        lot = {k: getattr(item, k) for k in ("batch_number", "expiry_date") if getattr(item, k, None)} or None
+        await apply_movement(db, product_id=item.product_id, warehouse_id=data.warehouse_id,
+                             movement_type=MovementType.purchase, qty=item.qty, unit_cost=item.unit_cost,
+                             ref_id=ref_id, ref_type="goods_receipt", note=data.notes, created_by=user.id, lot=lot)
         total_cost += item.qty * item.unit_cost
         items_detail.append({"product_id": str(item.product_id), "name": prod.name, "qty": float(item.qty),
                              "unit_cost": float(item.unit_cost)})

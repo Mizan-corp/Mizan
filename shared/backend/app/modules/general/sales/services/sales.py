@@ -9,9 +9,9 @@ from sqlalchemy.orm import selectinload
 from app.core.exceptions import BusinessError
 from app.modules.general.sales.models.sale import Sale, SaleItem, SaleStatus
 from app.modules.general.pos.models import DrawerTransaction, DrawerTxType, Shift
-from app.modules.general.inventory.models.stock import MovementType, StockMovement
+from app.modules.general.inventory.models.stock import MovementType
 from app.modules.general.inventory.schemas.stock import StockMovementCreate
-from app.modules.general.inventory.services.stock import _update_stock_balance, get_balance, record_movement
+from app.modules.general.inventory.services.stock import get_balance, record_movement
 
 
 async def _invoice_number(db) -> str:
@@ -125,20 +125,8 @@ async def confirm_quotation(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.
                 prod_name = prod.scalar() or str(item.product_id)
                 raise BusinessError(f"المخزون غير كافي لـ {prod_name}")
 
-    movements = [
-        StockMovement(
-            product_id=item.product_id, warehouse_id=sale.warehouse_id,
-            movement_type=MovementType.sale, qty=item.qty,
-            unit_cost=item.unit_cost, unit_price=item.unit_price,
-            created_by=user_id, ref_id=sale.id, ref_type="sale", sale_id=sale.id,
-        )
-        for item in sorted_items
-    ]
-    db.add_all(movements)
-
-    # Update maintained stock balances for each movement
-    for mv in movements:
-        await _update_stock_balance(db, mv.product_id, mv.warehouse_id, -mv.qty)
+    for item in sorted_items:
+        await _take_stock(db, item, sale.warehouse_id, sale.id, user_id)
 
     sale.status = SaleStatus.confirmed
     sale.invoice_number = await _invoice_number(db)
@@ -270,20 +258,8 @@ async def confirm_draft_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid
                 prod_name = prod.scalar() or str(item.product_id)
                 raise BusinessError(f"المخزون غير كافي لـ {prod_name}")
 
-    movements = [
-        StockMovement(
-            product_id=item.product_id, warehouse_id=sale.warehouse_id,
-            movement_type=MovementType.sale, qty=item.qty,
-            unit_cost=item.unit_cost, unit_price=item.unit_price,
-            created_by=user_id, ref_id=sale.id, ref_type="sale", sale_id=sale.id,
-        )
-        for item in sorted_items
-    ]
-    db.add_all(movements)
-
-    # Update maintained stock balances for each movement
-    for mv in movements:
-        await _update_stock_balance(db, mv.product_id, mv.warehouse_id, -mv.qty)
+    for item in sorted_items:
+        await _take_stock(db, item, sale.warehouse_id, sale.id, user_id)
 
     new_inv = await _invoice_number(db)
     sale.status = SaleStatus.confirmed
@@ -294,6 +270,25 @@ async def confirm_draft_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid
     await db.commit()
     await db.refresh(sale)
     return sale
+
+
+async def _take_stock(db: AsyncSession, item, warehouse_id, sale_id, user_id) -> list:
+    """A sale line leaves stock through the one stock path (apply_movement). The batches it came
+    from (if the workspace tracks batches) are kept on the line's extra values."""
+    from app.modules.general.inventory.services.stock import apply_movement
+
+    _, lots = await apply_movement(
+        db, product_id=item.product_id, warehouse_id=warehouse_id, movement_type=MovementType.sale,
+        qty=item.qty, unit_cost=item.unit_cost, unit_price=item.unit_price, created_by=user_id,
+        ref_id=sale_id, ref_type="sale", sale_id=sale_id,
+    )
+    if lots and hasattr(item, "extra"):
+        first = lots[0]
+        item.extra = {**(item.extra or {}), "batch_number": first.get("batch_number"),
+                      "expiry_date": first.get("expiry_date"),
+                      **({"batches": [{"batch_number": x.get("batch_number"), "expiry_date": x.get("expiry_date"),
+                                       "qty": float(x["qty"])} for x in lots]} if len(lots) > 1 else {})}
+    return lots
 
 
 async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
@@ -388,7 +383,6 @@ async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
     gross_total = Decimal("0")
     total_discount = Decimal("0")
     sale_items: list[SaleItem] = []
-    stock_movements: list = []
     for item in sorted_items:
         si = SaleItem(
             sale_id=sale.id,
@@ -402,26 +396,11 @@ async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
         gross_total += Decimal(str(item.qty)) * Decimal(str(item.unit_price))
         total_discount += Decimal(str(item.discount))
 
-        mv = StockMovement(
-            product_id=item.product_id,
-            warehouse_id=data.warehouse_id,
-            movement_type=MovementType.sale,
-            qty=item.qty,
-            unit_cost=item.unit_cost,
-            unit_price=item.unit_price,
-            created_by=cashier_id,
-            ref_id=sale.id,
-            ref_type="sale",
-            sale_id=sale.id,
-        )
-        stock_movements.append(mv)
 
     db.add_all(sale_items)
-    db.add_all(stock_movements)
-
-    # Update maintained stock balances for each movement
-    for mv in stock_movements:
-        await _update_stock_balance(db, mv.product_id, mv.warehouse_id, -mv.qty)
+    await db.flush()
+    for si in sale_items:
+        await _take_stock(db, si, data.warehouse_id, sale.id, cashier_id)
 
     net_total = gross_total - total_discount - Decimal(str(data.discount_amount))
     sale.total = Decimal(str(gross_total))
@@ -630,14 +609,18 @@ async def cancel_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID) 
     items = (await db.execute(
         select(SaleItem).where(SaleItem.sale_id == sale_id)
     )).scalars().all()
+    from app.modules.general.inventory.services.stock import apply_movement
+
     for item in items:
-        await db.execute(sqlt("""
-            INSERT INTO stock_movements (id, product_id, warehouse_id, movement_type, qty, unit_cost, unit_price, ref_id, ref_type, sale_id, created_by)
-            VALUES (gen_random_uuid(), :pid, :wid, 'return_in', :qty, :cost, :price, :sid, 'sale_cancel', :sid, :uid)
-        """), {"pid": item.product_id, "wid": sale.warehouse_id, "qty": item.qty,
-               "cost": item.unit_cost, "price": item.unit_price, "sid": str(sale_id), "uid": str(user_id)})
-        # Update maintained stock balance (return_in increases stock)
-        await _update_stock_balance(db, item.product_id, sale.warehouse_id, item.qty)
+        extra = item.extra or {}
+        # Back into the batches the line was taken from (pharmacies), else plain stock.
+        lots = extra.get("batches") or ([{"batch_number": extra["batch_number"], "expiry_date": extra.get("expiry_date"),
+                                          "qty": item.qty}] if extra.get("batch_number") else [None])
+        for lot in lots:
+            await apply_movement(db, product_id=item.product_id, warehouse_id=sale.warehouse_id,
+                                 movement_type=MovementType.return_in, qty=lot["qty"] if lot else item.qty,
+                                 unit_cost=item.unit_cost, unit_price=item.unit_price, ref_id=sale_id,
+                                 ref_type="sale_cancel", sale_id=sale_id, created_by=user_id, lot=lot)
 
     # Restore wallet balances for wallet-based drawer transactions before deleting them
     wallet_txns = (await db.execute(

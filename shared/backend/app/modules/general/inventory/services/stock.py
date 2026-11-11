@@ -53,45 +53,53 @@ async def _update_stock_balance(db: AsyncSession, product_id: uuid.UUID, warehou
     """), {"pid": product_id, "wid": warehouse_id, "delta": delta})
 
 
-async def record_movement(db: AsyncSession, data, created_by: uuid.UUID, ref_id=None, ref_type=None,
-                          sale_id: uuid.UUID = None, purchase_id: uuid.UUID = None) -> StockMovement:
-    """Record a stock movement and update maintained balances atomically."""
+IN_TYPES = ("opening_stock", "purchase", "return_in", "adjustment_in", "transfer_in")
+
+
+def is_inbound(movement_type) -> bool:
+    return str(movement_type).split(".")[-1] in IN_TYPES
+
+
+async def apply_movement(db: AsyncSession, *, product_id, warehouse_id, movement_type, qty, unit_cost=None,
+                         unit_price=None, created_by=None, ref_id=None, ref_type=None, sale_id=None,
+                         purchase_id=None, note=None, lot: dict | None = None) -> tuple[StockMovement, list]:
+    """The one way stock changes: the movement, its balance, and the inventory variant's rules
+    (batches: a pharmacy receives stock into a batch and takes it out by first expiry, ADR-006
+    phase 4). `lot` carries batch details for stock coming in. Returns the movement and the
+    batches it was taken from or put into (empty when the workspace doesn't track batches)."""
     mv = StockMovement(
-        product_id=data.product_id,
-        warehouse_id=data.warehouse_id,
-        movement_type=data.movement_type,
-        qty=data.qty,
-        unit_cost=data.unit_cost,
-        unit_price=data.unit_price,
-        note=data.note,
-        created_by=created_by,
-        ref_id=ref_id,
-        ref_type=ref_type,
-        sale_id=sale_id,
-        purchase_id=purchase_id,
+        product_id=product_id, warehouse_id=warehouse_id, movement_type=movement_type, qty=qty,
+        unit_cost=unit_cost, unit_price=unit_price, note=note, created_by=created_by,
+        ref_id=ref_id, ref_type=ref_type, sale_id=sale_id, purchase_id=purchase_id,
     )
     db.add(mv)
-
-    # Determine if this movement increases or decreases stock
-    mt = str(data.movement_type).split('.')[-1]
-    is_in = mt in ("opening_stock", "purchase", "return_in", "adjustment_in", "transfer_in")
-    delta = data.qty if is_in else -data.qty
-
-    # Update maintained balance atomically
-    await _update_stock_balance(db, data.product_id, data.warehouse_id, delta)
-
-    # Mark product as tracked in this specific warehouse when stock is recorded
-    if is_in:
+    inbound = is_inbound(movement_type)
+    await _update_stock_balance(db, product_id, warehouse_id, qty if inbound else -qty)
+    if inbound:
+        # Mark the product as tracked in this warehouse (and the company view) once stock arrives.
         await db.execute(text("""
             INSERT INTO warehouse_product_status (warehouse_id, product_id, status)
             VALUES (:wid, :pid, 'tracked')
             ON CONFLICT (warehouse_id, product_id) DO UPDATE SET status = 'tracked'
-        """), {"wid": data.warehouse_id, "pid": data.product_id})
-        # Also promote global product status so it shows as tracked in company view
-        await db.execute(text("""
-            UPDATE products SET stock_status = 'tracked' WHERE id = :pid AND stock_status = 'untracked'
-        """), {"pid": data.product_id})
+        """), {"wid": warehouse_id, "pid": product_id})
+        await db.execute(text("UPDATE products SET stock_status = 'tracked' WHERE id = :pid AND stock_status = 'untracked'"),
+                         {"pid": product_id})
+    from app.framework.hooks import emit
 
+    await db.flush()
+    results = await emit("inventory.after_movement", db, movement=mv, inbound=inbound, lot=lot)
+    return mv, (results[0] or []) if results else []
+
+
+async def record_movement(db: AsyncSession, data, created_by: uuid.UUID, ref_id=None, ref_type=None,
+                          sale_id: uuid.UUID = None, purchase_id: uuid.UUID = None) -> StockMovement:
+    """Record a stock movement (see apply_movement)."""
+    lot = {k: getattr(data, k) for k in ("batch_number", "expiry_date") if getattr(data, k, None)} or None
+    mv, _ = await apply_movement(
+        db, product_id=data.product_id, warehouse_id=data.warehouse_id, movement_type=data.movement_type,
+        qty=data.qty, unit_cost=data.unit_cost, unit_price=data.unit_price, note=data.note, created_by=created_by,
+        ref_id=ref_id, ref_type=ref_type, sale_id=sale_id, purchase_id=purchase_id, lot=lot,
+    )
     return mv
 
 

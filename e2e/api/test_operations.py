@@ -2,10 +2,15 @@
 from helpers import uid
 
 from conftest import (admin_api, owner_api, product, supplier, customer,
-                      wh, reg)  # noqa: F401
+                      wh, reg, db)  # noqa: F401
 
 
-def test_dispatch_receipt_request_flow(owner_api, reg, wh, product):
+def _qty(db, product_id, warehouse_id) -> float:
+    row = db.one("SELECT qty FROM stock_balances WHERE product_id = %s AND warehouse_id = %s", (product_id, warehouse_id))
+    return float(row[0]) if row else 0.0
+
+
+def test_dispatch_receipt_request_flow(owner_api, reg, wh, product, db):
     # second warehouse so dispatch/stock-request have distinct endpoints
     twh = owner_api.ok(owner_api.post("/stock/warehouses", json={
         "code": f"E2E-WH-{uid('w')}", "name": f"E2E-WH-{uid('w')}", "warehouse_type": "warehouse"}))
@@ -16,16 +21,21 @@ def test_dispatch_receipt_request_flow(owner_api, reg, wh, product):
         "product_id": product["id"], "warehouse_id": wh["id"],
         "movement_type": "opening_stock", "qty": "10", "unit_cost": "70"}))
     assert mv.get("qty") or mv.get("id")
+    source = _qty(db, product["id"], wh["id"])
 
     dispatch = owner_api.ok(owner_api.post("/operations/dispatch", json={
         "from_warehouse_id": wh["id"], "to_warehouse_id": twh["id"],
         "items": [{"product_id": product["id"], "qty": 2, "unit_cost": "70"}]}))
     assert dispatch["doc_type"] == "dispatch_order" and dispatch.get("doc_number")
+    # Stock really moves between branches (it used to record the movements only).
+    assert _qty(db, product["id"], wh["id"]) == source - 2
+    assert _qty(db, product["id"], twh["id"]) == 2
 
     gr = owner_api.ok(owner_api.post("/operations/goods-receipt", json={
         "warehouse_id": twh["id"], "supplier_name": "e2e",
         "items": [{"product_id": product["id"], "qty": 2, "unit_cost": "70"}]}))
     assert gr["doc_type"] == "goods_receipt" and gr.get("doc_number")
+    assert _qty(db, product["id"], twh["id"]) == 4  # received goods are in stock
 
     sr = owner_api.ok(owner_api.post("/operations/stock-request", json={
         "from_warehouse_id": wh["id"], "to_warehouse_id": twh["id"],
