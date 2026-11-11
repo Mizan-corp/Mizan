@@ -274,6 +274,62 @@ class DB:
                     self.conn.rollback()
         self.conn.commit()
 
+    def sweep(self, tenant_id: str, since) -> dict[str, int]:
+        """Delete everything created in the e2e workspace since the session started (#111),
+        whatever the tests forgot to register. Rows that block a delete through a foreign key go
+        first when they were created during the run (or carry no date); older rows pointing at
+        test data get that reference cleared instead, so seed data survives. Returns what is
+        still left, per table."""
+        cols, dated = {}, set()
+        for table, column, nullable, dtype in self.q("""
+            SELECT table_name, column_name, is_nullable = 'YES', data_type FROM information_schema.columns
+            WHERE table_schema = 'public'"""):
+            cols.setdefault(table, {})[column] = nullable
+            if column == "created_at" and dtype.startswith("timestamp"):
+                dated.add(table)
+        # Foreign keys that block a delete (no action / restrict), single column.
+        blocking = self.q("""
+            SELECT c.conrelid::regclass::text, a.attname, c.confrelid::regclass::text, af.attname
+            FROM pg_constraint c
+            JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+            JOIN pg_attribute af ON af.attrelid = c.confrelid AND af.attnum = c.confkey[1]
+            WHERE c.contype = 'f' AND c.confdeltype IN ('a', 'r') AND array_length(c.conkey, 1) = 1""")
+        children: dict[str, list[tuple]] = {}
+        for child, col, parent, pcol in blocking:
+            children.setdefault(parent, []).append((child, col, pcol))
+
+        def delete(cur, table, where, params, stack):
+            for child, col, pcol in children.get(table, []):
+                sub = f"{col} IN (SELECT {pcol} FROM {table} WHERE {where})"
+                if child in stack or child == table:
+                    if cols.get(child, {}).get(col):
+                        cur.execute(f"UPDATE {child} SET {col} = NULL WHERE {sub}", params)
+                    continue
+                if child in dated and cols[child].get(col):
+                    cur.execute(f"UPDATE {child} SET {col} = NULL WHERE {sub} AND created_at < %(since)s", params)
+                delete(cur, child, sub, params, stack | {table})
+            cur.execute(f"DELETE FROM {table} WHERE {where}", params)
+
+        targets = sorted(t for t in dated if "tenant_id" in cols[t])
+        where = "tenant_id = %(t)s AND created_at >= %(since)s"
+        params = {"t": tenant_id, "since": since}
+        for _ in range(3):  # a later table can unblock an earlier one
+            for table in targets:
+                with self.conn.cursor() as cur:
+                    try:
+                        cur.execute(f"SELECT 1 FROM {table} WHERE {where} LIMIT 1", params)
+                        if cur.fetchone():
+                            delete(cur, table, where, params, frozenset())
+                        self.conn.commit()
+                    except Exception:
+                        self.conn.rollback()
+        left = {}
+        for table in targets:
+            n = self.one(f"SELECT count(*) FROM {table} WHERE tenant_id = %(t)s AND created_at >= %(since)s", params)[0]
+            if n:
+                left[table] = n
+        return left
+
     def barcode_is_present(self, barcode: str) -> bool:
         row = self.one(
             "SELECT COUNT(*) FROM product_barcodes WHERE barcode = %s", (barcode,)

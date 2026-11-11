@@ -104,9 +104,15 @@ def cashier_api(admin_api: Api, reg: Registry) -> Api:
 
 
 @pytest.fixture(autouse=True, scope="session")
-def _cleanup(db: DB, reg: Registry):
+def _cleanup(db: DB, reg: Registry, admin_api: Api):
+    """Registered rows are deleted, then anything else the run created in the e2e workspace;
+    the session fails if test data is still left (#111)."""
+    started = db.one("SELECT now()")[0]
+    tenant = admin_api.ok(admin_api.get("/auth/me"))["tenant_id"]
     yield
     db.cleanup(reg)
+    left = db.sweep(tenant, started)
+    assert not left, f"e2e left test data behind: {left}"
 
 
 # --------------------------------------------------------------------------

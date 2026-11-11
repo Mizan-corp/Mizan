@@ -5,8 +5,7 @@ from conftest import admin_api, reg  # noqa: F401
 
 
 def test_login_and_me(admin_api):
-    body = admin_api.ok(admin_api.post("/auth/login",
-                                       json={"username": "ammar", "password": "changeme"}))
+    body = Api().login("ammar", "changeme")  # waits out the sign-in rate limit, like every login
     assert body["token_type"] == "bearer"
     assert body["username"] == "ammar"
     assert "access_token" in body and len(body["access_token"]) > 20
