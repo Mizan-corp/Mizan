@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.platform.tenancy.context import TenantScoped
@@ -65,13 +66,19 @@ class PharmacyPrescription(TenantScoped, Base):
     insurance_covered: Mapped[float] = mapped_column(Float, default=0.0)
     status: Mapped[str] = mapped_column(String(32), default="dispensed")  # dispensed, pending, cancelled
     dispensed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Dispensed through a sale (the POS pharmacy variant, ADR-006 phase 4).
+    sale_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("sales.id", ondelete="SET NULL"), nullable=True, index=True)
+    patient_national_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class PharmacyControlledLog(TenantScoped, Base):
     __tablename__ = "pharmacy_controlled_logs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    drug_id: Mapped[str] = mapped_column(String(36), ForeignKey("pharmacy_drugs.id"), index=True)
+    drug_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("pharmacy_drugs.id"), index=True, nullable=True)
+    # The drug as a product, and the sale that dispensed it (ADR-006 phase 4).
+    product_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id", ondelete="SET NULL"), nullable=True, index=True)
+    sale_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("sales.id", ondelete="SET NULL"), nullable=True, index=True)
     batch_number: Mapped[str] = mapped_column(String(64))
     patient_name: Mapped[str] = mapped_column(String(128))
     patient_national_id: Mapped[str] = mapped_column(String(32))

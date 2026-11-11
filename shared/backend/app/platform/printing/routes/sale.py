@@ -12,6 +12,36 @@ from app.dependencies import get_print_user
 from . import _make_pdf, ar_egp, ar_num, fmt_date, fmt_dt, get_settings, h, router, top_band, wrap
 
 
+async def _field_labels(db: AsyncSession) -> tuple[dict, dict]:
+    """Labels of the workspace's sale-line and sale fields (ADR-006 phase 4): what to print."""
+    from app.framework.fields import fields_for
+    from app.framework.hooks import workspace_activity
+
+    activity = await workspace_activity(db)
+    return ({f["key"]: f for f in await fields_for(db, "sale_line", activity)},
+            {f["key"]: f for f in await fields_for(db, "sale", activity)})
+
+
+def _extra_text(extra, fields: dict) -> str:
+    """'Batch: B1 · Expiry: 2027-07-30' from a record's extra values, in field order."""
+    if isinstance(extra, str):
+        import json
+
+        extra = json.loads(extra or "{}")
+    parts = []
+    for key, field in fields.items():
+        value = (extra or {}).get(key)
+        if value in (None, "", False):
+            continue
+        shown = "نعم" if value is True else (fmt_date(value) if field.get("type") == "date" else value)
+        parts.append(f"{h(field.get('label') or key)}: {h(str(shown))}")
+    return " · ".join(parts)
+
+
+def _sub(text_: str) -> str:
+    return f'<div style="font-size:8.5px;color:#6b7280;margin-top:1px">{text_}</div>' if text_ else ""
+
+
 @router.get("/sale/{sale_id}", response_class=HTMLResponse)
 async def print_sale(sale_id: uuid.UUID,
                      db: AsyncSession = Depends(get_db), _=Depends(get_print_user)):
@@ -42,6 +72,8 @@ async def print_sale(sale_id: uuid.UUID,
         WHERE si.sale_id = :id ORDER BY si.id
     """), {"id": sale_id})
     items = [dict(r._mapping) for r in items_row.fetchall()]
+    line_fields, sale_fields = await _field_labels(db)
+    sale_extra = _extra_text(sale.get("extra"), sale_fields)
 
     is_q = sale['status'] == 'quotation'
     is_return = sale['status'] == 'returned'
@@ -65,7 +97,7 @@ async def print_sale(sale_id: uuid.UUID,
             line = float(it['qty']) * float(it['unit_price']) - float(it.get('discount',0))
             rows_html += f"""<tr>
               <td style="color:#9ca3af;font-size:9px;text-align:center;white-space:nowrap">{idx}</td>
-              <td><div class="td-name">{h(it['product_name'])}</div></td>
+              <td><div class="td-name">{h(it['product_name'])}</div>{_sub(_extra_text(it.get('extra'), line_fields))}</td>
               <td style="text-align:center;white-space:nowrap;color:#374151">{ar_egp(float(it['unit_price']))}</td>
               <td style="text-align:center;white-space:nowrap;color:#374151">{ar_num(float(it['qty']), 0)}</td>
               <td style="text-align:center;white-space:nowrap;color:#6b7280">{h(it.get('unit',''))}</td>
@@ -158,7 +190,7 @@ async def print_sale(sale_id: uuid.UUID,
         line = float(it['qty']) * float(it['unit_price']) - float(it.get('discount',0))
         rows_html += f"""<tr>
           <td style="color:#9ca3af;font-size:9px;text-align:center;white-space:nowrap">{idx}</td>
-          <td><div class="td-name">{h(it['product_name'])}</div></td>
+          <td><div class="td-name">{h(it['product_name'])}</div>{_sub(_extra_text(it.get('extra'), line_fields))}</td>
           <td style="text-align:center;white-space:nowrap;color:#374151">{ar_egp(float(it['unit_price']))}</td>
           <td style="text-align:center;white-space:nowrap;color:#374151">{ar_num(float(it['qty']), 0)}</td>
           <td style="text-align:center;white-space:nowrap;color:#6b7280">{h(it.get('unit',''))}</td>
@@ -178,6 +210,7 @@ async def print_sale(sale_id: uuid.UUID,
         <div class="party-label">{'عرض سعر لـ' if is_q else 'فاتورة إلى'}</div>
         <div class="party-name">{customer_name}</div>
         {f'<div class="party-detail">{customer_detail}</div>' if customer_detail else ''}
+        {f'<div class="party-detail">{sale_extra}</div>' if sale_extra else ''}
       </td>
       <td style="width:42%;padding:6px 10px;border:1px solid #ccc;border-right:none;vertical-align:top">
         <div class="party-label">صادرة من</div>

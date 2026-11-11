@@ -1,8 +1,8 @@
 {
   "id": "pharmacy",
   "module": "pos",
-  "status": "planned",
-  "description": "Drug counter: search by scientific name, batch by expiry (FEFO), prescription required for flagged drugs.",
+  "status": "active",
+  "description": "Dispensing is a sale: search by scientific name; batches first-expiry-first-out; prescription-only drugs need the prescriber and patient, controlled drugs also the patient's national ID; the prescription and the controlled-drug log are recorded against the sale; the receipt shows batch and expiry.",
   "screens": {
     "checkout": "drug_counter"
   },
@@ -72,7 +72,7 @@
     "pos.dispense_controlled"
   ],
   "templates": {
-    "receipt": "shows batch and expiry"
+    "receipt": "sale lines show their batch and expiry; the header shows the prescription"
   },
   "widgets": [
     "expiring_this_month"

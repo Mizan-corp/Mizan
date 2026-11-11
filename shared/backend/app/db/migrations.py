@@ -2838,6 +2838,18 @@ MIGRATIONS = [
         CREATE POLICY tenant_isolation ON batches_lot_movements
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    # The POS pharmacy variant dispenses through sales (ADR-006 phase 4d): prescriptions and the
+    # controlled-drug log point at the sale and the drug's product.
+    ("v62_dispensing_through_sales", """
+        ALTER TABLE pharmacy_prescriptions ADD COLUMN IF NOT EXISTS sale_id uuid REFERENCES sales(id) ON DELETE SET NULL;
+        ALTER TABLE pharmacy_prescriptions ADD COLUMN IF NOT EXISTS patient_national_id varchar(32);
+        CREATE INDEX IF NOT EXISTS ix_pharmacy_prescriptions_sale_id ON pharmacy_prescriptions (sale_id);
+        ALTER TABLE pharmacy_controlled_logs ALTER COLUMN drug_id DROP NOT NULL;
+        ALTER TABLE pharmacy_controlled_logs ADD COLUMN IF NOT EXISTS product_id uuid REFERENCES products(id) ON DELETE SET NULL;
+        ALTER TABLE pharmacy_controlled_logs ADD COLUMN IF NOT EXISTS sale_id uuid REFERENCES sales(id) ON DELETE SET NULL;
+        CREATE INDEX IF NOT EXISTS ix_pharmacy_controlled_logs_product_id ON pharmacy_controlled_logs (product_id);
+        CREATE INDEX IF NOT EXISTS ix_pharmacy_controlled_logs_sale_id ON pharmacy_controlled_logs (sale_id);
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

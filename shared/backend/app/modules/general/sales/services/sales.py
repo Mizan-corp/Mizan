@@ -11,6 +11,7 @@ from app.modules.general.sales.models.sale import Sale, SaleItem, SaleStatus
 from app.modules.general.pos.models import DrawerTransaction, DrawerTxType, Shift
 from app.modules.general.inventory.models.stock import MovementType
 from app.modules.general.inventory.schemas.stock import StockMovementCreate
+from app.framework.hooks import emit
 from app.modules.general.inventory.services.stock import get_balance, record_movement
 
 
@@ -125,8 +126,10 @@ async def confirm_quotation(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.
                 prod_name = prod.scalar() or str(item.product_id)
                 raise BusinessError(f"المخزون غير كافي لـ {prod_name}")
 
+    await emit("pos.before_confirm", db, sale=sale, lines=sorted_items)
     for item in sorted_items:
         await _take_stock(db, item, sale.warehouse_id, sale.id, user_id)
+    await emit("pos.after_confirm", db, sale=sale, lines=sorted_items)
 
     sale.status = SaleStatus.confirmed
     sale.invoice_number = await _invoice_number(db)
@@ -258,8 +261,10 @@ async def confirm_draft_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid
                 prod_name = prod.scalar() or str(item.product_id)
                 raise BusinessError(f"المخزون غير كافي لـ {prod_name}")
 
+    await emit("pos.before_confirm", db, sale=sale, lines=sorted_items)
     for item in sorted_items:
         await _take_stock(db, item, sale.warehouse_id, sale.id, user_id)
+    await emit("pos.after_confirm", db, sale=sale, lines=sorted_items)
 
     new_inv = await _invoice_number(db)
     sale.status = SaleStatus.confirmed
@@ -426,8 +431,11 @@ async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
 
     db.add_all(sale_items)
     await db.flush()
+    # The activity's sale rules (ADR-006 phase 4): e.g. a pharmacy's prescription checks.
+    await emit("pos.before_confirm", db, sale=sale, lines=sale_items)
     for si in sale_items:
         await _take_stock(db, si, data.warehouse_id, sale.id, cashier_id)
+    await emit("pos.after_confirm", db, sale=sale, lines=sale_items)
 
     net_total = gross_total - total_discount - Decimal(str(data.discount_amount))
     sale.total = Decimal(str(gross_total))

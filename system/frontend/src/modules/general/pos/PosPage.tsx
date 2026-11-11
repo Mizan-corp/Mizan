@@ -41,17 +41,21 @@ import { useBranch } from "@app/components/AppShell";
 import { useBarcodeScanner } from "./hooks/useBarcodeScanner";
 import { ThermalReceiptSettingsModal } from "./components/ThermalReceiptSettingsModal";
 import { PosKeyboardShortcutsModal } from "./components/PosKeyboardShortcutsModal";
+import { DrugInfo, PrescriptionPanel, prescriptionNeeds } from "./variants/pharmacy";
+import { useWorkspaceProfile, variantOf } from "@app/lib/workspace";
 
 interface Warehouse { id: string; name: string }
 interface Product {
   id: string; name: string; barcode: string | null; code: string | null; unit: string;
   retail_price: string; wholesale_price: string; image_url: string | null;
+  /** Values of the activity's product fields (a drug's scientific name, prescription flags…). */
+  extra?: Record<string, unknown>;
 }
 interface Customer { id: string; name: string; balance: string; credit_limit: string | null }
 interface Wallet { id: string; name: string; type: string }
 interface CartItem { product: Product; qty: number; discount: string }
 interface SplitPart { method: string; amount: string; wallet_id: string }
-interface SaleResult { id: string; invoice_number: string }
+interface SaleResult { id: string; invoice_number: string; extra?: Record<string, unknown> }
 interface HeldBill { id: string; cart: CartItem[]; mode: "retail" | "wholesale"; at: string }
 
 const HELD_KEY = "mizan.held_bills";
@@ -61,6 +65,7 @@ function buildSaleBody(args: {
   warehouseId: string; shiftId: string | null; mode: "retail" | "wholesale";
   customerId: string; cart: CartItem[]; isCredit: boolean; cashInput: string;
   split: SplitPart[]; walletId: string; paidSoFar: { toString: () => string }; total: { toString: () => string };
+  extra?: Record<string, string>;
 }) {
   const payments = args.split.length
     ? [
@@ -90,6 +95,8 @@ function buildSaleBody(args: {
     wallet_id: !args.isCredit && !payments && args.walletId ? args.walletId : null,
     paid_amount: Number(args.paidSoFar.toString()),
     payments,
+    // The sale's own fields (a pharmacy's prescription), only those filled in.
+    extra: Object.fromEntries(Object.entries(args.extra ?? {}).filter(([, v]) => v?.trim())),
   };
 }
 
@@ -114,6 +121,11 @@ export default function PosPage() {
   const barcodeRef = useRef<HTMLInputElement>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const { toast } = useToast();
+  // The activity's POS variant (ADR-006 phase 4): a pharmacy shows drug details and asks for the
+  // prescription when the cart needs one.
+  const profile = useWorkspaceProfile();
+  const pharmacy = variantOf(profile.data, "pos") === "pharmacy";
+  const [rx, setRx] = useState<Record<string, string>>({});
 
   const { branchId, branchName } = useBranch();
   const wh = useQuery({ queryKey: ["warehouses"], queryFn: () => api.get<Warehouse[]>("/stock/warehouses") });
@@ -201,6 +213,9 @@ export default function PosPage() {
     enabled: !payOpen && !resumeOpen && !confirmClear && !hardwareModalOpen && !shortcutsModalOpen,
   });
 
+  const rxNeeds = pharmacy ? prescriptionNeeds(cart.map((i) => i.product)) : { rx: [], controlled: [], required: [] };
+  const rxMissing = rxNeeds.required.some((k) => !rx[k]?.trim());
+
   const unitPrice = (p: Product) => D(mode === "wholesale" ? p.wholesale_price : p.retail_price);
   const total = useMemo(
     () => cart.reduce((s, i) => s.plus(unitPrice(i.product).times(i.qty).minus(D(i.discount))), D(0)),
@@ -259,7 +274,7 @@ export default function PosPage() {
       } else if (e.key === "F2") {
         e.preventDefault();
         if (payOpen) {
-          if (!checkout.isPending && (!isCredit || customerId)) {
+          if (!checkout.isPending && (!isCredit || customerId) && !rxMissing) {
             checkout.mutate();
           }
         } else {
@@ -305,12 +320,12 @@ export default function PosPage() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [cart, payOpen, resumeOpen, confirmClear, hardwareModalOpen, shortcutsModalOpen, shiftMissing, shift.isLoading, total, isCredit, customerId]);
+  }, [cart, payOpen, resumeOpen, confirmClear, hardwareModalOpen, shortcutsModalOpen, shiftMissing, shift.isLoading, total, isCredit, customerId, rxMissing]);
 
   const body = () =>
     buildSaleBody({
       warehouseId, shiftId: shift.data?.id ?? null, mode, customerId, cart,
-      isCredit, cashInput, split, walletId, paidSoFar, total,
+      isCredit, cashInput, split, walletId, paidSoFar, total, extra: pharmacy ? rx : undefined,
     });
 
   const checkout = useMutation({
@@ -329,7 +344,7 @@ export default function PosPage() {
       sound.success();
       setSaleDone(r);
       setCart([]); setPayOpen(false); setCashInput(""); setSplit([]);
-      setIsCredit(false); setCustomerId(""); setWalletId("");
+      setIsCredit(false); setCustomerId(""); setWalletId(""); setRx({});
       toast("success", `تم البيع — فاتورة ${r.invoice_number}`);
       qc.invalidateQueries({ queryKey: ["sales"] });
       qc.invalidateQueries({ queryKey: ["report"] });
@@ -504,7 +519,7 @@ export default function PosPage() {
                   <InputGroupInput
                     ref={barcodeRef}
                     autoFocus
-                    placeholder="امسح الباركود أو ابحث بالاسم / الكود... [F1]"
+                    placeholder={pharmacy ? "امسح الباركود أو ابحث بالاسم التجاري / العلمي... [F1]" : "امسح الباركود أو ابحث بالاسم / الكود... [F1]"}
                     aria-label="بحث أو باركود"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -597,6 +612,7 @@ export default function PosPage() {
                         <span className="line-clamp-2 min-h-9 text-xs font-bold leading-tight group-hover:text-primary transition-colors">
                           {p.name}
                         </span>
+                        {pharmacy && <DrugInfo product={p} compact />}
                         <div className="mt-auto flex items-baseline justify-between gap-1 pt-1 border-t border-border/40">
                           <span className="num font-mono text-sm font-extrabold text-foreground">
                             {money(currentPrice)} <span className="text-[10px] font-sans text-muted-foreground font-normal">ج.م</span>
@@ -688,6 +704,7 @@ export default function PosPage() {
                       <li key={i.product.id} className="group flex items-center justify-between gap-2 py-2 text-xs">
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-bold text-foreground">{i.product.name}</p>
+                          {pharmacy && <DrugInfo product={i.product} compact />}
                           <div className="flex items-center gap-2 mt-0.5 font-mono text-[11px] text-muted-foreground">
                             <span className="num">{money(price)} ج.م</span>
                             <span>×</span>
@@ -1126,13 +1143,17 @@ export default function PosPage() {
             </div>
           )}
 
+          {pharmacy && (
+            <PrescriptionPanel fields={profile.data?.fields.sale ?? []} value={rx} onChange={setRx} needs={rxNeeds} />
+          )}
+
           {checkout.isError && <ErrorBox message={(checkout.error as Error).message} />}
 
           {/* Action triggers - Sticky pinned at bottom */}
           <div className="sticky bottom-0 -mx-5 -mb-4 mt-2 flex gap-2 border-t border-border/80 bg-card/95 px-5 py-3.5 backdrop-blur shadow-lg">
             <Button
               className="tactile-btn flex-1 h-11 text-sm font-bold shadow-md"
-              disabled={checkout.isPending || (isCredit && !customerId)}
+              disabled={checkout.isPending || (isCredit && !customerId) || rxMissing}
               onClick={() => checkout.mutate()}
             >
               {checkout.isPending ? <Spinner /> : <span>تأكيد وطباعة الفاتورة [F2]</span>}
@@ -1287,6 +1308,11 @@ export default function PosPage() {
             <p className="num font-mono text-2xl font-black text-foreground mt-0.5 tracking-tight">
               {saleDone?.invoice_number}
             </p>
+            {typeof saleDone?.extra?.rx_number === "string" && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                روشتة <span className="num font-mono font-bold text-foreground">{saleDone.extra.rx_number}</span>
+              </p>
+            )}
           </div>
           <div className="flex gap-2 justify-center pt-2">
             <Button
