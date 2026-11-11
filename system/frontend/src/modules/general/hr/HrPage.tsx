@@ -5,7 +5,6 @@ import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
 import { D, date as fmtDate, money, moneyEGP } from "@/lib/format";
 import { Badge, Button, Empty, ErrorBox, Input, Modal, Select, Spinner } from "@/components/ui";
-import { BiometricDevicesManager } from "./components/BiometricDevicesManager";
 
 interface Employee { id: string; emp_code: string | null; name: string; position: string | null; monthly_salary: string; is_active: boolean }
 interface Attendance { id: string; employee_id: string; work_date: string; check_in: string | null; check_out: string | null; status: string }
@@ -21,7 +20,6 @@ export default function HrPage() {
           { k: "employees", l: "الموظفون" },
           { k: "attendance", l: "الحضور" },
           { k: "advances", l: "السلف" },
-          { k: "sync", l: "المزامنة والجهاز" },
         ].map((t) => (
           <button
             key={t.k}
@@ -35,7 +33,6 @@ export default function HrPage() {
       {tab === "employees" && <EmployeesTab />}
       {tab === "attendance" && <AttendanceTab />}
       {tab === "advances" && <AdvancesTab />}
-      {tab === "sync" && <BiometricDevicesManager />}
     </div>
   );
 }

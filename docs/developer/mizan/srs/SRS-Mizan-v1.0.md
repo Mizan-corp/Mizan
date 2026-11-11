@@ -891,7 +891,7 @@ These apply across all business activities and deployment modes. Jurisdiction-sp
 | Neon PostgreSQL | asyncpg + PgBouncer | Pooled URL in Vercel env |
 | Vercel | Git push to master (backend) / CLI deploy (frontend) | Frontend is CLI-only |
 | WhatsApp Cloud API | Meta Cloud API (v17+) | Background worker dispatch |
-| ZKTeco SDK | TCP/IP on port 4370 | `zk_attendance` module |
+| ZKTeco SDK | — | Removed (#110): device attendance sync was dropped; another approach will replace it |
 | ETA (Egyptian Tax Authority) | REST API (TBD) | `eta_einvoice` module — not built |
 | Fawry | REST API (TBD) | Payment — not built |
 | Paymob | REST API (TBD) | Payment — not built |

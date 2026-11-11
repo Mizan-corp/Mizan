@@ -2,12 +2,11 @@
 import asyncio
 import json
 import uuid
-from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, date
+from datetime import date
 from functools import partial
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
-from sqlalchemy import select, text
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
@@ -516,100 +515,3 @@ async def attendance_report(month: str, db: AsyncSession = Depends(get_db), _=De
     html = ReportGenerator.generate_attendance_report(report_rows, month)
     from fastapi.responses import HTMLResponse
     return HTMLResponse(content=html)
-
-
-# ── ZK Device Sync ────────────────────────────────────────────────────────────
-
-@router.get("/sync-log")
-async def get_sync_log(db: AsyncSession = Depends(get_db), _=Depends(require_perm("payroll"))):
-    rows = (await db.execute(text(
-        "SELECT id, synced_at, status, fetched, added, updated, message FROM hr_sync_log ORDER BY synced_at DESC LIMIT 50"
-    ))).fetchall()
-    return [{"id": str(r[0]), "synced_at": r[1], "status": r[2], "fetched": r[3],
-             "added": r[4], "updated": r[5], "message": r[6]} for r in rows]
-
-
-@router.post("/attendance/from-device")
-async def attendance_from_device(data: dict, db: AsyncSession = Depends(get_db), _=Depends(require_perm("payroll"))):
-    """Accept a single attendance record pushed by an on-site ZKTeco sync agent."""
-    uid = str(data.get('emp_id', ''))
-    from datetime import date as _date
-    from datetime import datetime as _dt
-    check_in_raw = data.get('check_in')
-    check_out_raw = data.get('check_out')
-    date_str = str(check_in_raw or '')[:10]
-    try:
-        work_date = _date.fromisoformat(date_str)
-    except ValueError:
-        return {"action": "skipped", "reason": f"invalid date {date_str}"}
-    check_in = _dt.fromisoformat(check_in_raw).replace(tzinfo=None) if check_in_raw else None
-    check_out = _dt.fromisoformat(check_out_raw).replace(tzinfo=None) if check_out_raw else None
-
-    emp_id = await employees_service.employee_by_code(db, uid)
-    if not emp_id:
-        return {"action": "skipped", "reason": f"unknown uid {uid}"}
-    action = await employees_service.record_device_punch(db, emp_id, work_date, check_in, check_out)
-    await db.commit()
-    return {"action": action, "reason": "manually edited"} if action == "skipped" else {"action": action}
-
-
-_zk_executor = ThreadPoolExecutor(max_workers=1)
-
-
-def _zk_fetch(host: str, port: int, timeout: int):
-    """Blocking ZK device call — runs in thread pool."""
-    from zk import ZK
-    zk = ZK(host, port=port, timeout=timeout, force_udp=False, ommit_ping=False)
-    conn = zk.connect()
-    conn.disable_device()
-    punches = conn.get_attendance()
-    conn.enable_device()
-    conn.disconnect()
-    return punches
-
-
-@router.post("/sync-device")
-async def sync_device(db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("payroll"))):
-    """Trigger sync from ZK device — only works if backend can reach the device directly."""
-    settings = {r[0]: r[1] for r in (await db.execute(text("SELECT key, value FROM hr_settings"))).fetchall()}
-    host = settings.get("device_host")
-    port = int(settings.get("device_port", 4370))
-    timeout = int(settings.get("device_timeout", 5))
-    if not host:
-        raise HTTPException(400, "ZK device host not configured — set device_host in hr_settings")
-
-    try:
-        punches = await asyncio.get_event_loop().run_in_executor(
-            _zk_executor, _zk_fetch, host, port, timeout
-        )
-    except Exception as e:
-        await db.execute(text(
-            "INSERT INTO hr_sync_log (status, message) VALUES ('failure', :m)"
-        ), {"m": str(e)})
-        await db.commit()
-        raise HTTPException(502, f"Device connection failed: {e}") from e
-
-    from collections import defaultdict
-    groups: dict = defaultdict(list)
-    for p in punches:
-        dt = p.timestamp
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=UTC)
-        groups[(str(p.user_id), dt.date())].append(dt)
-
-    code_map = await employees_service.employee_codes(db)
-    added = updated = 0
-    for (uid, work_date), times in groups.items():
-        emp_id = code_map.get(uid)
-        if not emp_id:
-            continue
-        times.sort()
-        action = await employees_service.record_device_punch(db, emp_id, work_date, times[0], times[-1] if len(times) > 1 else None)
-        added += action == "added"
-        updated += action == "updated"
-
-    await db.execute(text(
-        "INSERT INTO hr_sync_log (status, fetched, added, updated) VALUES ('success',:f,:a,:u)"
-    ), {"f": len(punches), "a": added, "u": updated})
-    await db.commit()
-    return {"fetched": len(punches), "added": added, "updated": updated}

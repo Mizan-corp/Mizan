@@ -83,10 +83,10 @@ const MODULE_NODES: ModuleNode[] = [
   {
     id: "hr",
     nameAr: "الموارد البشرية والرواتب",
-    nameEn: "HR & Biometric Payroll",
+    nameEn: "HR & Payroll",
     icon: Users,
-    descriptionAr: "مزامنة أجهزة البصمة ZKTeco، احتساب الرواتب والبدلات، وتوزيع الورديات.",
-    descriptionEn: "ZKTeco biometric integration, automatic shifts calculation, and compliant payroll.",
+    descriptionAr: "ملفات الموظفين والحضور واستيراده من ملفات CSV، واحتساب الرواتب والبدلات وتوزيع الورديات.",
+    descriptionEn: "Employee records, attendance with CSV import, shift planning and compliant payroll.",
     badgeAr: "شؤون الموظفين",
     badgeEn: "Workforce",
     color: "#C58A35",

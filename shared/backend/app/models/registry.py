@@ -82,7 +82,6 @@ def load_all_models() -> None:
     import app.modules.general.storefront.models
     import app.integrations.pos_hardware.models
     import app.platform.automation_worker.models
-    import app.integrations.zk_attendance.models
     import app.platform.core.models
     import app.modules.general.inventory.models
     import app.modules.general.pos.models

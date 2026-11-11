@@ -11,7 +11,6 @@ import {
   Store,
   Printer,
   Cpu,
-  Fingerprint,
   UtensilsCrossed,
   Pill,
   Stethoscope,
@@ -181,14 +180,6 @@ const ALL_SYSTEM_APPS: AppTile[] = [
     to: "/operations",
     icon: Cpu,
     color: "from-purple-600 to-indigo-700",
-  },
-  {
-    id: "zk_attendance",
-    label: "أجهزة البصمة والدوام",
-    labelEn: "Biometrics & Sync",
-    to: "/hr",
-    icon: Fingerprint,
-    color: "from-emerald-500 to-green-600",
   },
 ];
 

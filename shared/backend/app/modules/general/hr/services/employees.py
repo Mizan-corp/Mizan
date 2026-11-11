@@ -59,29 +59,3 @@ async def save_attendance(db: AsyncSession, employee_id, work_date: date, check_
         SET check_in = EXCLUDED.check_in, check_out = EXCLUDED.check_out, status = EXCLUDED.status, notes = EXCLUDED.notes
     """), {"eid": employee_id, "dt": work_date, "ci": _at(check_in, work_date), "co": _at(check_out, work_date),
            "st": status, "notes": notes or ""})
-
-
-async def record_device_punch(db: AsyncSession, employee_id, work_date: date, check_in, check_out) -> str:
-    """A day from the attendance device: added, updated, or skipped when the day was edited by hand."""
-    existing = (await db.execute(text("SELECT id, edited FROM hr_attendance WHERE employee_id = :e AND work_date = :d"),
-                                 {"e": employee_id, "d": work_date})).fetchone()
-    if existing:
-        if existing[1]:
-            return "skipped"
-        await db.execute(text("UPDATE hr_attendance SET check_in = :ci, check_out = :co WHERE id = :id"),
-                         {"ci": check_in, "co": check_out, "id": existing[0]})
-        return "updated"
-    await db.execute(text(
-        "INSERT INTO hr_attendance (employee_id, work_date, check_in, check_out, status) VALUES (:e, :d, :ci, :co, 'present')"
-    ), {"e": employee_id, "d": work_date, "ci": check_in, "co": check_out})
-    return "added"
-
-
-async def employee_codes(db: AsyncSession) -> dict[str, uuid.UUID]:
-    """Device user id (emp_code) -> employee id."""
-    rows = (await db.execute(text("SELECT id, emp_code FROM hr_employees WHERE emp_code IS NOT NULL"))).fetchall()
-    return {str(r[1]): r[0] for r in rows}
-
-
-async def employee_by_code(db: AsyncSession, code: str):
-    return (await db.execute(text("SELECT id FROM hr_employees WHERE emp_code = :c"), {"c": code})).scalar()

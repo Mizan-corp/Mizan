@@ -1,5 +1,5 @@
 """hr module: settings, employees, shifts, attendance, advances, import-csv,
-sync-log, from-device; payroll flow (calculate -> submit -> approve -> pay),
+payroll flow (calculate -> submit -> approve -> pay),
 breakdown, monthly report, employee report."""
 from datetime import datetime
 
@@ -73,7 +73,7 @@ def test_hr_employees_crud_and_attendance(owner_api, reg):
     assert any(x.get("employee_id") == e["id"] for x in rows)
 
     for rep in ("/hr/attendance/report", "/hr/payroll/report/monthly"):
-        r = owner_api.get(rep, params={"month": _now_month()})
+        r = owner_api.get(rep, params={"month": _now_month(), "token": _print_token(owner_api)})
         assert r.status_code == 200, rep
 
 
@@ -87,17 +87,13 @@ def test_hr_advances(owner_api, reg):
     assert isinstance(rows, list)
 
 
-def test_hr_import_csv_and_device(owner_api):
-    for method, path, body in (
-        ("post", "/hr/attendance/import-csv", None),
-        ("post", "/hr/attendance/from-device", {}),
-        ("post", "/hr/sync-device", {}),
-    ):
-        r = getattr(owner_api, method)(path, json=body)
-        # 502 is a valid outcome when no ZK device is reachable on the LAN
-        assert r.status_code in (200, 400, 422, 502), r.text[:200]
-    r = owner_api.get("/hr/sync-log")
-    assert r.status_code in (200, 400), r.text[:200]
+def test_hr_import_csv_and_no_device_sync(owner_api):
+    r = owner_api.post("/hr/attendance/import-csv", json=None)
+    assert r.status_code in (200, 400, 422), r.text[:200]
+    # Device attendance sync was removed (#110): attendance comes from entry and CSV import.
+    for method, path in (("post", "/hr/attendance/from-device"), ("post", "/hr/sync-device"), ("get", "/hr/sync-log"),
+                         ("get", "/modules/zk_attendance/devices")):
+        assert getattr(owner_api, method)(path).status_code in (404, 405), path
 
 
 def test_payroll_full_flow(owner_api, reg):
@@ -140,9 +136,14 @@ def test_payroll_full_flow(owner_api, reg):
         assert r.status_code in (200, 400, 409), r.text[:200]
 
 
+def _print_token(api) -> str:
+    """Reports open in a browser tab with a short-lived print token, as the app does."""
+    return api.ok(api.post("/auth/print-token", json={}))["token"]
+
+
 def test_payroll_reports(owner_api, reg):
     e = _employee(owner_api, reg)
-    r = owner_api.get(f"/hr/payroll/report/employee/{e['id']}", params={"month": _now_month()})
+    r = owner_api.get(f"/hr/payroll/report/employee/{e['id']}", params={"month": _now_month(), "token": _print_token(owner_api)})
     assert r.status_code == 200
 
 def test_salary_change_is_audited_and_unknown_employee_is_404(owner_api, reg, db):
@@ -156,14 +157,3 @@ def test_salary_change_is_audited_and_unknown_employee_is_404(owner_api, reg, db
     assert r.status_code == 404, r.text[:200]
 
 
-def test_device_push_adds_then_updates(owner_api, reg, db):
-    e = _employee(owner_api, reg)
-    code = "E2E" + uid("z")[-6:]
-    db.exec(f"UPDATE hr_employees SET emp_code = '{code}' WHERE id = '{e['id']}'")
-    day = datetime.now().strftime("%Y-%m-%d")
-    first = owner_api.ok(owner_api.post("/hr/attendance/from-device", json={"emp_id": code, "check_in": f"{day}T08:00:00"}))
-    second = owner_api.ok(owner_api.post("/hr/attendance/from-device", json={
-        "emp_id": code, "check_in": f"{day}T08:00:00", "check_out": f"{day}T16:00:00"}))
-    assert (first["action"], second["action"]) == ("added", "updated")
-    unknown = owner_api.ok(owner_api.post("/hr/attendance/from-device", json={"emp_id": "nobody-e2e", "check_in": f"{day}T08:00:00"}))
-    assert unknown["action"] == "skipped"

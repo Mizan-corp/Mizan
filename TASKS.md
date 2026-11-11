@@ -15,7 +15,7 @@ Current as of 2026-11-09. **Open work is tracked in [GitHub issues](https://gith
 - [x] **In-App Notification Center & Alerts Hub** — TopNav bell popover, live unread badges, automated system alert triggers (storefront web orders, low stock, trial expiry), filter pills, and read/unread state management (Screens 202–205).
 - [x] **POS Hardware & Thermal Receipt Module (`pos_hardware`)** — Global continuous barcode listener (`useBarcodeScanner`), 80mm & 58mm ESC/POS thermal printing with Egyptian Tax/ZATCA QR format, and F1–F10 velocity shortcuts modal (Screens 206–209).
 - [x] **Background Automation & Cron Worker Module (`automation_worker`)** — Standalone scheduled job worker with CLI support (`python manage.py cron`), midnight shift auto-close with Z-Reports, subscription enforcement, and daily metrics digest (Screens 210–211).
-- [x] **HR Biometric Attendance & Device Sync Module (`zk_attendance`)** — ZKTeco network device manager (port 4370), live ping latency testing, automated punch-to-attendance harmonization, and CSV offline import (Screens 212–213).
+- [x] ~~**HR Biometric Attendance & Device Sync Module (`zk_attendance`)**~~ — removed 2026-11-11 (#110): device sync overwrote hand-entered attendance; another approach will replace it. CSV import stays in HR.
 - [x] **Internationalization & Directional Engine (`i18n`)** — Global bilingual switcher (`EN` / `عربي`) with real-time `<html dir="ltr">` / `<html dir="rtl">` layout inversion and complete translation store (Screens 214–215).
 
 ---

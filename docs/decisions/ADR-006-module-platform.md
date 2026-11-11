@@ -289,7 +289,7 @@ system/frontend/src/
 |---|---|---|
 | `api/routers/*` + the empty shells `core sales inventory purchases finance pos hr contacts` | `modules/general/<area>` | The real code is in `api/routers` |
 | `i18n`, `automation_worker` | `platform/` | Engines, not business modules |
-| `whatsapp_gateway`, `zk_attendance`, `pos_hardware` | `integrations/` | Connectors |
+| `whatsapp_gateway`, `pos_hardware` | `integrations/` | Connectors (`zk_attendance` removed, #110) |
 | `retail-pos`, `restaurant-pos`, `gym-pos`, `gym_fitness` | deleted; become POS variants / activity defaults | Manifest-only stubs |
 | `kitchen_display` | part of `modules/restaurant/restaurant` | Part of the restaurant |
 | `healthcare_clinic` | `modules/clinic/clinic` | One layout |
