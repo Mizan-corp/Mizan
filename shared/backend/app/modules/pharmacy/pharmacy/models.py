@@ -29,6 +29,9 @@ class PharmacyDrug(TenantScoped, Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    # The product this drug became (v63, ADR-006 phase 4e); the table is kept read-only.
+    product_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id", ondelete="SET NULL"), nullable=True)
+
     batches = relationship("PharmacyBatch", back_populates="drug", cascade="all, delete-orphan")
 
 

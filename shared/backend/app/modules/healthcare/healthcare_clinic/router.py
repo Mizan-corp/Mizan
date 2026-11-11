@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from datetime import date, datetime, UTC
 from decimal import Decimal
@@ -9,7 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.framework.activation import require_module
@@ -91,6 +92,7 @@ async def require_clinic_billing(current_user: User = Depends(get_current_user))
     return current_user
 
 
+logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/clinic",
     tags=["Healthcare & Clinic ERP"],
@@ -1024,51 +1026,35 @@ async def dispense_prescription(
 
     unit_price = 45.0  # default medication price
 
-    # FEFO Inventory Stock Deduction via Pharmacy Module
+    # Stock leaves through the one stock path (ADR-006 phase 4): the drug is a product (matched by
+    # trade or scientific name); in a pharmacy-tracking workspace its batches go first-expiry-first-out.
     try:
-        from app.modules.pharmacy.pharmacy.models import PharmacyBatch, PharmacyDrug, PharmacyPrescription
+        from app.modules.general.inventory.models.stock import MovementType
+        from app.modules.general.inventory.services.stock import apply_movement, get_balance
+        from app.modules.pharmacy.pharmacy.models import PharmacyPrescription
 
-        today_str = date.today().isoformat()
-        drug = (await db.execute(
-            select(PharmacyDrug).where(
-                PharmacyDrug.tenant_id == tenant_id,
-                or_(
-                    PharmacyDrug.trade_name.ilike(f"%{rx.medication_name}%"),
-                    PharmacyDrug.scientific_name.ilike(f"%{rx.medication_name}%"),
-                ),
-            )
-        )).scalars().first()
-
-        if drug:
-            unit_price = float(drug.unit_price) if drug.unit_price > 0 else 45.0
-            batch = (await db.execute(
-                select(PharmacyBatch).where(
-                    PharmacyBatch.drug_id == drug.id,
-                    PharmacyBatch.quantity_on_hand >= qty_dispensed,
-                    PharmacyBatch.expiry_date >= today_str,
-                ).order_by(PharmacyBatch.expiry_date.asc()).limit(1)
-            )).scalar_one_or_none()
-
-            if batch:
-                batch.quantity_on_hand -= qty_dispensed
-                pharm_rx = PharmacyPrescription(
-                    tenant_id=tenant_id,
-                    rx_number=f"PH-RX-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}",
-                    patient_name=rx.patient_name,
-                    patient_phone="",
-                    doctor_name=rx.doctor_name,
-                    doctor_license="MED-LIC-AUTO",
-                    diagnosis="صرف عيادات خارجية",
-                    insurance_company="",
-                    copay_percentage=0.0,
-                    total_amount=round(unit_price * qty_dispensed, 2),
-                    patient_paid=round(unit_price * qty_dispensed, 2),
-                    insurance_covered=0.0,
-                    status="dispensed",
-                )
-                db.add(pharm_rx)
+        product = (await db.execute(text("""
+            SELECT id, retail_price FROM products
+            WHERE is_active AND (name ILIKE :m OR extra->>'scientific_name' ILIKE :m) ORDER BY name LIMIT 1
+        """), {"m": f"%{rx.medication_name}%"})).first()
+        warehouse = await db.scalar(text("SELECT id FROM warehouses WHERE is_active ORDER BY created_at LIMIT 1"))
+        if product and warehouse:
+            unit_price = float(product.retail_price) if product.retail_price and product.retail_price > 0 else 45.0
+            if await get_balance(db, product.id, warehouse, for_update=True) >= qty_dispensed:
+                async with db.begin_nested():  # no valid batch: dispensing still records, stock untouched
+                    await apply_movement(db, product_id=product.id, warehouse_id=warehouse, movement_type=MovementType.sale,
+                                         qty=qty_dispensed, unit_price=unit_price, created_by=current_user.id,
+                                         ref_type="clinic_dispense", note=f"صرف روشتة عيادة: {rx.medication_name}")
+            db.add(PharmacyPrescription(
+                tenant_id=tenant_id,
+                rx_number=f"PH-RX-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}",
+                patient_name=rx.patient_name, patient_phone="", doctor_name=rx.doctor_name,
+                doctor_license="MED-LIC-AUTO", diagnosis="صرف عيادات خارجية", insurance_company="",
+                copay_percentage=0.0, total_amount=round(unit_price * qty_dispensed, 2),
+                patient_paid=round(unit_price * qty_dispensed, 2), insurance_covered=0.0, status="dispensed",
+            ))
     except Exception:
-        pass
+        logger.warning("Clinic dispense: stock not deducted for %s", rx.medication_name, exc_info=True)
 
     # Create medication invoice
     total_med_cost = round(unit_price * qty_dispensed, 2)

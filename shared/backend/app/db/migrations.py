@@ -2850,6 +2850,9 @@ MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS ix_pharmacy_controlled_logs_product_id ON pharmacy_controlled_logs (product_id);
         CREATE INDEX IF NOT EXISTS ix_pharmacy_controlled_logs_sale_id ON pharmacy_controlled_logs (sale_id);
     """),
+    # The pharmacy's own drugs and batches join the ERP: products, stock and batches (ADR-006
+    # phase 4e); see the module's migrate.py.
+    ("v63_pharmacy_joins_the_erp", "python:app.modules.pharmacy.pharmacy.migrate:migrate"),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

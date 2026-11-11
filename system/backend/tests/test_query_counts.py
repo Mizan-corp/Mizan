@@ -94,8 +94,14 @@ async def test_shift_list_query_count_is_constant():
 
 
 async def test_drug_list_query_count_is_constant():
-    from app.modules.pharmacy.pharmacy.models import PharmacyBatch, PharmacyDrug
+    """The formulary (products with drug fields, their sellable stock and nearest expiry) is one
+    query however many drugs and batches there are (ADR-006 phase 4e)."""
+    from datetime import date, timedelta
+
+    from app.modules.general.inventory.models.product import Product
+    from app.modules.pharmacy.batches.models import Lot
     from app.modules.pharmacy.pharmacy.router import list_drugs
+    from sqlalchemy import text as sqltext
 
     async with AsyncSessionLocal() as s:
         tid, user = await _workspace(s)
@@ -104,32 +110,28 @@ async def test_drug_list_query_count_is_constant():
             async with AsyncSessionLocal() as s:
                 await bind_tenant(s, tid)
                 with count_queries() as seen:
-                    out = await list_drugs(q=None, controlled_only=False, db=s, _user=user)
+                    out = await list_drugs(search=None, db=s, _=user)
                 return len(seen), out
 
-        await listed()  # the module seeds its demo catalogue on first use
         few, out = await listed()
-
         async with AsyncSessionLocal() as s:
             await bind_tenant(s, tid)
+            wh = await s.scalar(sqltext("INSERT INTO warehouses (id, tenant_id, code, name, is_active) VALUES (gen_random_uuid(), :t, 'QC', 'QC', true) RETURNING id"), {"t": tid})
             for i in range(6):
-                drug = PharmacyDrug(tenant_id=tid, code=f"QC-{i}", trade_name=f"دواء {i}", scientific_name="Mizanolum",
-                                    dosage_form="tab", strength="10mg", unit_price=10.0)
-                s.add(drug)
+                product = Product(tenant_id=tid, name=f"دواء {i}", unit="عدد", retail_price=10, wholesale_price=10, cost_price=5,
+                                  is_active=True, extra={"scientific_name": "Mizanolum", "requires_prescription": i % 2 == 0})
+                s.add(product)
                 await s.flush()
-                for qty in (3, 4):
-                    s.add(PharmacyBatch(tenant_id=tid, drug_id=drug.id, batch_number=f"B{i}{qty}", expiry_date="2030-01-01",
-                                        quantity_on_hand=qty))
-            s.add(PharmacyDrug(tenant_id=tid, code="QC-ONE", trade_name="بلا بدائل", scientific_name="Unicum",
-                               dosage_form="tab", strength="1", unit_price=1.0))
+                for n, qty in enumerate((3, 4)):
+                    s.add(Lot(tenant_id=tid, product_id=product.id, warehouse_id=wh, batch_number=f"B{i}{n}",
+                              expiry_date=date.today() + timedelta(days=30 * (n + 1)), qty=qty))
             await s.commit()
 
         many, out_many = await listed()
-        assert len(out_many) == len(out) + 7
+        assert len(out_many) == len(out) + 6
         assert many == few, f"{few} queries for {len(out)} drugs, {many} for {len(out_many)}"
-        ours = {d["code"]: d for d in out_many if d["code"].startswith("QC-")}
-        assert all(ours[f"QC-{i}"]["total_stock"] == 7 for i in range(6))
-        assert all(ours[f"QC-{i}"]["alternatives_count"] == 5 for i in range(6))
-        assert ours["QC-ONE"]["alternatives_count"] == 0 and ours["QC-ONE"]["total_stock"] == 0
+        ours = [d for d in out_many if d["scientific_name"] == "Mizanolum"]
+        assert all(float(d["sellable_qty"]) == 7 for d in ours)
+        assert all(d["nearest_expiry"] == date.today() + timedelta(days=30) for d in ours)
     finally:
         await _drop(tid)
