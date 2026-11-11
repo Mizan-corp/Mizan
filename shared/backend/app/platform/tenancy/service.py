@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.catalog import canonical_activity, canonical_modules
 from app.framework.activation import SECTOR_TO_PRESET, set_active_modules
 from app.platform.billing.plans import PLANS_CONFIG, get_plan_limits
-from app.catalog.sectors import PALETTE_HUES, SECTOR_PRIMARY_MODULES, SECTORS, TRIAL_DAYS
+from app.catalog.sectors import PALETTE_HUES, SECTORS, TRIAL_DAYS
 from app.platform.tenancy.context import bind_tenant
 from app.platform.auth.models.owner import OwnerAccount
 from app.platform.tenancy.models import Tenant
@@ -76,7 +76,10 @@ async def create_workspace(
         raise HTTPException(status_code=422, detail="Unknown plan")
 
     features = features or []
-    modules = canonical_modules(SECTOR_PRIMARY_MODULES.get(sector, ["pos", "inventory", "finance"]) + features)
+    # general's defaults + the activity's, plus chosen extras the activity allows (ADR-006 D2).
+    from app.framework.composition import base_modules, installable
+
+    modules = canonical_modules(base_modules(sector) + [f for f in canonical_modules(features) if installable(f, sector)[0]])
     tenant = Tenant(
         id=uuid.uuid4(),
         name=name.strip(),

@@ -26,6 +26,11 @@ export interface ModuleManifest {
   badge?: string | null;
   target_business_types?: string[];
   settings_schema?: SettingField[];
+  /** ADR-006 D2: whether this workspace's activity allows adding it, and why not. */
+  installable?: boolean;
+  not_installable_reason?: string;
+  /** Part of what the activity starts with. */
+  in_base?: boolean;
 }
 
 export interface BusinessPreset {

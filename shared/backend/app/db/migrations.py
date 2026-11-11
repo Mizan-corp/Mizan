@@ -2853,6 +2853,27 @@ MIGRATIONS = [
     # The pharmacy's own drugs and batches join the ERP: products, stock and batches (ADR-006
     # phase 4e); see the module's migrate.py.
     ("v63_pharmacy_joins_the_erp", "python:app.modules.pharmacy.pharmacy.migrate:migrate"),
+    # Removing a module (ADR-006 D2): its data kept hidden 30 days, or deleted after an export.
+    ("v64_module_retention", """
+        CREATE TABLE IF NOT EXISTS module_retention (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+                DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+            module_id varchar(64) NOT NULL,
+            mode varchar(16) NOT NULL,
+            removed_at timestamptz DEFAULT now(),
+            purge_after timestamptz,
+            export bytea,
+            removed_by uuid
+        );
+        CREATE INDEX IF NOT EXISTS ix_module_retention_module_id ON module_retention (module_id);
+        CREATE INDEX IF NOT EXISTS ix_module_retention_tenant_id ON module_retention (tenant_id);
+        ALTER TABLE module_retention ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE module_retention FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON module_retention;
+        CREATE POLICY tenant_isolation ON module_retention
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

@@ -12,7 +12,6 @@ import {
   ArrowRight,
   Boxes,
   Briefcase,
-  Check,
   ChefHat,
   ExternalLink,
   GraduationCap,
@@ -22,7 +21,6 @@ import {
   Settings2,
   ShieldCheck,
   ShoppingCart,
-  Sparkles,
   Stethoscope,
   Store,
   UtensilsCrossed,
@@ -34,8 +32,11 @@ import { Button, buttonVariants } from "@/components/kit/button";
 import { Card } from "@/components/kit/card";
 import { Input, Modal, useToast } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { api, downloadExport } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
+import { UninstallDialog } from "./UninstallDialog";
 import { sound } from "@/lib/sound";
-import { useModulesStore, type ModuleManifest, type BusinessPreset } from "@app/stores/modules";
+import { useModulesStore, type ModuleManifest } from "@app/stores/modules";
 
 const ICON_MAP: Record<string, any> = {
   Layers,
@@ -62,7 +63,6 @@ export default function ModulesPage() {
     families,
     isLoading,
     fetchModules,
-    applyPreset,
     toggleModule,
     fetchModuleSettings,
     saveModuleSettings,
@@ -70,8 +70,12 @@ export default function ModulesPage() {
 
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
-  const [applyingPreset, setApplyingPreset] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<ModuleManifest | null>(null);
+  const retention = useQuery({
+    queryKey: ["module-retention"],
+    queryFn: () => api.get<{ id: string; module_id: string; mode: "kept" | "deleted"; purge_after: string | null; removed_at: string; has_export: boolean }[]>("/modules/retention"),
+  });
   const [selectedForSettings, setSelectedForSettings] = useState<ModuleManifest | null>(null);
   const [settingsValues, setSettingsValues] = useState<Record<string, any>>({});
   const [isLoadingSettings, setIsLoadingSettings] = useState(false);
@@ -80,28 +84,23 @@ export default function ModulesPage() {
 
   const activePresetObj = presets.find((p) => p.id === activePreset);
 
-  async function handleApplyPreset(preset: BusinessPreset) {
-    if (preset.id === activePreset) return;
-    try {
-      setApplyingPreset(preset.id);
-      const ok = await applyPreset(preset.id);
-      if (ok) {
-        toast("success", `تم تفعيل حزمة «${preset.name}» وتحديث القوائم بنجاح`);
-      }
-    } finally {
-      setApplyingPreset(null);
-    }
-  }
-
   async function handleToggle(mod: ModuleManifest) {
     if (mod.is_core) return;
+    if (mod.is_installed) {
+      setRemoving(mod);  // removal: preview, typed delete, keep or delete the data (ADR-006 D2)
+      return;
+    }
+    if (mod.installable === false) {
+      toast("error", mod.not_installable_reason || "هذه الوحدة لا تناسب نشاط منشأتك");
+      return;
+    }
     try {
       setTogglingId(mod.id);
       const nextState = !mod.is_installed;
       await toggleModule(mod.id, nextState);
       toast(
         "success",
-        nextState ? `تم تثبيت وتفعيل وحدة «${mod.name}»` : `تم تعطيل وحدة «${mod.name}»`,
+        nextState ? `تم تثبيت وتفعيل وحدة «${mod.name}»` : `تمت إزالة وحدة «${mod.name}»`,
       );
     } catch (e: any) {
       toast("error", e.message || "فشل تغيير حالة الوحدة");
@@ -194,101 +193,6 @@ export default function ModulesPage() {
         </div>
       </div>
 
-      {/* Section 1: Business Presets (1-Click Verticals) */}
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
-              <Sparkles className="size-5 text-amber-500" />
-              حزم الأنشطة الجاهزة (Business Profiles)
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              اختر طبيعة منشأتك لتطبيق حزمة الأدوات والقوائم والواجهات المناسبة لها تلقائياً
-            </p>
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {presets.map((preset) => {
-            const Icon = ICON_MAP[preset.icon] ?? Store;
-            const isActive = preset.id === activePreset;
-            const isPending = applyingPreset === preset.id;
-
-            return (
-              <Card
-                key={preset.id}
-                className={`relative flex flex-col justify-between overflow-hidden p-5 transition-all ${
-                  isActive
-                    ? "border-primary ring-2 ring-primary/20 bg-primary/5 dark:bg-primary/10"
-                    : "hover:border-primary/50 hover:shadow-md"
-                }`}
-              >
-                {isActive && (
-                  <span className="absolute top-0 end-0 rounded-bl-xl bg-primary px-3 py-1 text-[10px] font-bold text-primary-foreground shadow-xs">
-                    الحزمة النشطة
-                  </span>
-                )}
-
-                <div>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`flex size-11 items-center justify-center rounded-xl ${
-                        isActive
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-foreground"
-                      }`}
-                    >
-                      <Icon className="size-5" />
-                    </span>
-                    <div>
-                      <h3 className="font-bold text-sm text-foreground">{preset.name}</h3>
-                      <p className="text-[10px] font-medium text-muted-foreground">{preset.name_en}</p>
-                    </div>
-                  </div>
-
-                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                    {preset.description}
-                  </p>
-
-                  <div className="mt-4 flex flex-wrap gap-1.5">
-                    {preset.modules.map((m) => {
-                      const modInfo = catalog.find((c) => c.id === m);
-                      return (
-                        <span
-                          key={m}
-                          className="rounded-md bg-secondary/80 px-2 py-0.5 text-[10px] font-medium text-secondary-foreground"
-                        >
-                          {modInfo?.name.split(" ")[0] ?? m}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="mt-5 pt-3 border-t border-border/50">
-                  <Button
-                    onClick={() => handleApplyPreset(preset)}
-                    disabled={isActive || isPending}
-                    variant={isActive ? "outline" : "default"}
-                    className="w-full h-9 text-xs font-bold gap-1.5"
-                  >
-                    {isPending ? (
-                      <RefreshCw className="size-3.5 animate-spin" />
-                    ) : isActive ? (
-                      <>
-                        <Check className="size-3.5 text-primary" />
-                        الحزمة مفعلة حالياً
-                      </>
-                    ) : (
-                      "تطبيق هذه الحزمة"
-                    )}
-                  </Button>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      </section>
 
       {/* Live Industry Quick Links if Restaurant or School is Active */}
       {activeModules.includes("restaurant") && (
@@ -457,8 +361,9 @@ export default function ModulesPage() {
                     ) : (
                       <button
                         onClick={() => handleToggle(mod)}
-                        disabled={isToggling}
-                        aria-label={isInstalled ? "تعطيل الوحدة" : "تفعيل الوحدة"}
+                        disabled={isToggling || (!isInstalled && mod.installable === false)}
+                        title={!isInstalled && mod.installable === false ? mod.not_installable_reason : undefined}
+                        aria-label={isInstalled ? "إزالة الوحدة" : "تثبيت الوحدة"}
                         className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                           isInstalled ? "bg-primary" : "bg-muted"
                         }`}
@@ -475,6 +380,9 @@ export default function ModulesPage() {
                   <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
                     {mod.description}
                   </p>
+                  {!isInstalled && mod.installable === false && (
+                    <p className="mt-2 text-[11px] text-muted-foreground/80">{mod.not_installable_reason}</p>
+                  )}
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-border/40 flex items-center justify-between text-[10px] text-muted-foreground">
@@ -671,6 +579,45 @@ export default function ModulesPage() {
         )}
       </Modal>
 
+      <UninstallDialog
+        module={removing}
+        onClose={() => setRemoving(null)}
+        onDone={(message) => {
+          setRemoving(null);
+          toast("success", message);
+          fetchModules();
+          retention.refetch();
+        }}
+      />
+
+      {!!retention.data?.length && (
+        <section className="flex flex-col gap-2" aria-label="وحدات أُزيلت">
+          <h2 className="text-sm font-bold text-foreground">وحدات أُزيلت</h2>
+          <ul className="divide-y divide-line rounded-xl border border-line text-xs">
+            {retention.data.map((r) => {
+              const name = catalog.find((m) => m.id === r.module_id)?.name ?? r.module_id;
+              return (
+                <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
+                  <span className="font-bold">{name}</span>
+                  {r.mode === "kept" ? (
+                    <span className="text-muted-foreground">بياناتها محفوظة حتى <span className="num">{r.purge_after?.slice(0, 10)}</span> — ثبّتها لاستعادتها</span>
+                  ) : (
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      حُذفت بياناتها
+                      {r.has_export && (
+                        <button type="button" className="font-semibold text-primary hover:underline"
+                          onClick={() => downloadExport(`/modules/retention/${r.id}/export`, {}, `${r.module_id}-data.json.gz`)}>
+                          تنزيل النسخة
+                        </button>
+                      )}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

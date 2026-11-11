@@ -51,9 +51,17 @@ async def list_modules(
     combined = _catalog()
 
     catalog_list = []
+    from app.framework.composition import base_modules, installable
+    from app.framework.hooks import workspace_activity
+
+    activity = await workspace_activity(db)
+    base = set(base_modules(activity))
     for m in combined.values():
         d = asdict(m)
         d["is_installed"] = m.id in active_mods
+        # ADR-006 D2: what this workspace may add, and what its activity starts with.
+        d["installable"], d["not_installable_reason"] = installable(m.id, activity)
+        d["in_base"] = m.id in base
         catalog_list.append(d)
 
     presets_list = [asdict(p) for p in BUSINESS_PRESETS.values()]
@@ -107,6 +115,11 @@ async def save_module_settings_endpoint(
         raise HTTPException(status_code=404, detail="الوحدة المطلوبة غير مسجلة")
 
 
+class UninstallRequest(BaseModel):
+    confirm: str
+    data: str = "keep"  # keep (hidden 30 days) or delete (now, after an export)
+
+
 @router.post("/{module_id}/toggle")
 async def toggle_module(
     module_id: str,
@@ -114,60 +127,98 @@ async def toggle_module(
     db: AsyncSession = Depends(get_db),
     _=Depends(require_perm("settings")),
 ):
-    """Enable or disable a specific module."""
-    # The same catalogue the module centre lists: discovered modules can be enabled too.
+    """Add a module (with its dependencies) if the workspace's activity allows it. Removing one
+    goes through the uninstall flow (preview, typed `delete`, keep or delete its data)."""
+    from app.framework.composition import installable, restore_on_install
+    from app.framework.hooks import workspace_activity
+
     module_id = canonical_module(module_id)
-    catalog = _catalog()
-    if module_id not in catalog:
+    if module_id not in _catalog():
         raise HTTPException(status_code=404, detail="الوحدة المطلوبة غير موجودة في الدليل")
-
-    if module_id == "core" and not data.enabled:
-        raise HTTPException(status_code=400, detail="لا يمكن تعطيل النواة الأساسية للنظام")
-
-    active = set(await get_active_modules(db))
-
-    if data.enabled:
-        active.add(module_id)
-        # Add dependencies
-        manifest = catalog[module_id]
-        for dep in manifest.dependencies:
-            active.add(dep)
-    else:
-        # Check if other active modules depend on this one
-        dependent = [
-            m.name
-            for m in catalog.values()
-            if m.id in active and module_id in m.dependencies and m.id != module_id
-        ]
-        if dependent:
-            raise HTTPException(
-                status_code=400,
-                detail=f"لا يمكن تعطيل هذه الوحدة لأن الوحدات التالية تعتمد عليها: {', '.join(dependent)}",
-            )
-        active.discard(module_id)
-
-    await set_active_modules(db, list(active))
+    if not data.enabled:
+        raise HTTPException(status_code=409, detail="إزالة الوحدة تتم من «إزالة الوحدة» بعد مراجعة ما سيتأثر")
+    activity = await workspace_activity(db)
+    ok, reason = installable(module_id, activity)
+    if not ok:
+        raise HTTPException(status_code=403, detail=reason)
+    active = list(await get_active_modules(db))
+    added = [module_id] + [d for d in _catalog()[module_id].dependencies if d not in active]
+    for mid in added:
+        ok, reason = installable(mid, activity)
+        if not ok:
+            raise HTTPException(status_code=403, detail=f"{_catalog().get(mid).name if mid in _catalog() else mid}: {reason}")
+    restored = [mid for mid in added if await restore_on_install(db, mid)]
+    await set_active_modules(db, list(dict.fromkeys(active + added)))
     return {
-        "detail": "تم تحديث حالة الوحدة بنجاح",
-        "active_modules": list(active),
+        "detail": "تم تثبيت الوحدة" + (" واستعادة بياناتها المحفوظة" if restored else ""),
+        "active_modules": await get_active_modules(db),
+        "restored": restored,
     }
+
+
+@router.get("/{module_id}/uninstall-preview")
+async def uninstall_preview(module_id: str, db: AsyncSession = Depends(get_db), _=Depends(require_perm("settings"))):
+    """What removing the module takes with it: modules that need it, its data, roles using it."""
+    from app.framework.composition import uninstall_preview as preview
+    from app.framework.hooks import workspace_activity
+
+    module_id = canonical_module(module_id)
+    active = await get_active_modules(db)
+    if module_id not in active:
+        raise HTTPException(status_code=404, detail="الوحدة غير مثبتة")
+    if module_id == "core":
+        raise HTTPException(status_code=400, detail="لا يمكن إزالة النواة الأساسية للنظام")
+    return await preview(db, module_id, active, await workspace_activity(db))
+
+
+@router.post("/{module_id}/uninstall")
+async def uninstall_module(module_id: str, data: UninstallRequest, db: AsyncSession = Depends(get_db),
+                           user=Depends(require_perm("settings"))):
+    """Remove a module after the owner typed `delete`: its data kept 30 days or deleted now."""
+    from app.framework.composition import uninstall
+    from app.platform.audit.service import log as audit_log
+    from app.platform.tenancy.models import Tenant
+
+    if data.confirm.strip().lower() != "delete":
+        raise HTTPException(status_code=422, detail="اكتب delete للتأكيد")
+    if data.data not in ("keep", "delete"):
+        raise HTTPException(status_code=422, detail="اختر الاحتفاظ بالبيانات أو حذفها")
+    tenant = await db.get(Tenant, user.tenant_id)
+    result = await uninstall(db, tenant, canonical_module(module_id), data.data, user.id)
+    await audit_log(db, "module", "uninstall", user.id, user.full_name, None,
+                    {"removed": result["removed"], "data": data.data}, f"إزالة وحدة {module_id}")
+    await db.commit()
+    return {**result, "active_modules": await get_active_modules(db)}
+
+
+@router.get("/retention")
+async def retention(db: AsyncSession = Depends(get_db), _=Depends(require_perm("settings"))):
+    """Removed modules: data kept until a date (reinstalling restores it), or deleted with an export."""
+    from sqlalchemy import text as sqltext
+
+    rows = (await db.execute(sqltext("""
+        SELECT id, module_id, mode, removed_at, purge_after, export IS NOT NULL AS has_export
+        FROM module_retention WHERE mode IN ('kept', 'deleted') ORDER BY removed_at DESC
+    """))).mappings().all()
+    return [dict(r) for r in rows]
+
+
+@router.get("/retention/{retention_id}/export")
+async def retention_export(retention_id: str, db: AsyncSession = Depends(get_db), _=Depends(require_perm("settings"))):
+    """The export taken before deleting a module's data (gzip JSON)."""
+    from fastapi.responses import Response
+    from sqlalchemy import text as sqltext
+
+    row = (await db.execute(sqltext("SELECT module_id, export FROM module_retention WHERE id = CAST(:i AS uuid)"),
+                            {"i": retention_id})).first()
+    if not row or not row.export:
+        raise HTTPException(status_code=404, detail="لا توجد نسخة")
+    return Response(content=row.export, media_type="application/gzip",
+                    headers={"Content-Disposition": f'attachment; filename="{row.module_id}-data.json.gz"'})
 
 
 @router.post("/presets/apply")
-async def apply_preset(
-    data: ApplyPresetRequest,
-    db: AsyncSession = Depends(get_db),
-    _=Depends(require_perm("settings")),
-):
-    """Apply a business collection preset (Retail, Restaurant, School, Services)."""
-    preset = BUSINESS_PRESETS.get(data.preset_id)
-    if not preset:
-        raise HTTPException(status_code=404, detail="حزمة النشاط المطلوبة غير مسجلة")
-
-    await set_active_modules(db, preset.modules, preset_id=data.preset_id)
-    return {
-        "detail": f"تم تطبيق حزمة «{preset.name}» بنجاح",
-        "active_preset": data.preset_id,
-        "active_modules": preset.modules,
-    }
-
+async def apply_preset(_=Depends(require_perm("settings"))):
+    """Retired: a workspace has one activity, and its modules follow it (ADR-006 D2). Changing
+    activity is a guided conversion done with the Mizan team."""
+    raise HTTPException(status_code=410, detail="تغيير نشاط المنشأة يتم عبر فريق ميزان؛ ثبّت الوحدات المناسبة من الدليل")

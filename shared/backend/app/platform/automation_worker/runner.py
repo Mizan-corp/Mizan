@@ -181,6 +181,14 @@ async def cleanup_system_stale_data(db: AsyncSession) -> dict[str, Any]:
     }
 
 
+async def purge_removed_module_data(db: AsyncSession) -> dict[str, Any]:
+    """Removed modules whose 30 days of kept data are over: their data is deleted (ADR-006 D2)."""
+    from app.framework.composition import purge_due
+
+    purged = await purge_due(db)
+    return {"message": f"حُذفت بيانات {purged} وحدة أزيلت منذ أكثر من 30 يومًا", "items_processed": purged}
+
+
 JOB_REGISTRY = {
     "auto_close_shifts": {
         "title": "إغلاق الورديات التلقائي منتصف الليل",
@@ -209,6 +217,13 @@ JOB_REGISTRY = {
         "description": "أرشفة وتنظيف سجلات المهام المؤقتة وجلسات المصادقة القديمة",
         "cron": "0 3 * * 0",
         "handler": cleanup_system_stale_data,
+    },
+    "purge_removed_module_data": {
+        "title": "حذف بيانات الوحدات المزالة بعد 30 يومًا",
+        "title_en": "Purge data of modules removed 30+ days ago",
+        "description": "عند إزالة وحدة مع الاحتفاظ ببياناتها تبقى مخفية 30 يومًا ثم تُحذف",
+        "cron": "30 3 * * *",
+        "handler": purge_removed_module_data,
     },
 }
 
