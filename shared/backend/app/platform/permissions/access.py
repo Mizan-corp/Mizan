@@ -91,6 +91,10 @@ async def roles_of(db: AsyncSession, user_id) -> list[dict]:
 
 async def load_acting(db: AsyncSession, user) -> None:
     """Set user.acting_role, user.assigned_roles and user.effective_permissions for this request."""
+    # Standard roles hold every permission modules declare (admin) or their defaults; sync them
+    # before the first check in this process, so a newly declared permission (e.g. `designer`)
+    # reaches them at once rather than after something else happens to sync. Once per process.
+    await ensure_standard_roles()
     roles = await roles_of(db, user.id)
     acting = next((r for r in roles if r["id"] == getattr(user, "active_role_id", None)), roles[0] if roles else None)
     user.assigned_roles = roles

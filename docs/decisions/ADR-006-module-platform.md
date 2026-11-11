@@ -601,7 +601,9 @@ and a builder covering role layouts, custom fields, form layouts and a dashboard
 - **Fixed on the way**: the shared `Input`/`Select` dropped their styling whenever a page passed a
   `className` (price and phone inputs rendered unstyled); the API client failed on 204 responses
   labelled JSON (every "reset"/"delete" reported an error); batches' frontend definition was still
-  "planned"; healthcare's clinic screens were attributed to `core`.
+  "planned"; healthcare's clinic screens were attributed to `core`; standard roles only picked up a
+  newly declared permission once something happened to sync them (in production the owner was
+  refused the builder), so they now sync before the first permission check in each process.
 - **Known gaps**: sale and sale-line forms (POS) don't use form layouts; layouts can't be copied between roles; activities don't yet
   declare per-role defaults (`roles` is empty everywhere, so a cashier starts from the activity's
   menu filtered by permissions).
