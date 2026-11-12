@@ -261,7 +261,7 @@ async def generate_system_alerts(
             Notification.type == "low_stock",
             Notification.created_at >= cutoff,
         )
-        if not (await db.execute(existing_stmt)).scalar_one_or_none():
+        if not (await db.execute(existing_stmt.limit(1))).scalars().first():
             sample_names = "، ".join([p.name for p in low_stock_prods[:3]])
             db.add(Notification(
                 id=uuid.uuid4(),
@@ -290,7 +290,7 @@ async def generate_system_alerts(
                 Notification.type == "storefront_order",
                 Notification.created_at >= cutoff,
             )
-            if not (await db.execute(existing_order_notif)).scalar_one_or_none():
+            if not (await db.execute(existing_order_notif.limit(1))).scalars().first():
                 db.add(Notification(
                     id=uuid.uuid4(),
                     tenant_id=current_user.tenant_id,
@@ -344,7 +344,7 @@ async def generate_system_alerts(
                 Notification.type == "billing_alert",
                 Notification.created_at >= cutoff,
             )
-            if not (await db.execute(existing_trial_notif)).scalar_one_or_none():
+            if not (await db.execute(existing_trial_notif.limit(1))).scalars().first():
                 db.add(Notification(
                     id=uuid.uuid4(),
                     tenant_id=current_user.tenant_id,
