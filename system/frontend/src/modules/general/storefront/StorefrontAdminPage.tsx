@@ -31,6 +31,7 @@ import { formatCurrency } from "@/lib/format";
 import { Button } from "@/components/kit/button";
 import { Input } from "@/components/kit/input";
 import { Badge } from "@/components/kit/badge";
+import { Switch } from "@/components/kit/switch";
 import {
   Dialog,
   DialogContent,
@@ -97,6 +98,8 @@ interface StoreConfigData {
   allow_dine_in: boolean;
   social_instagram: string | null;
   social_facebook: string | null;
+  /** Open (public) or closed (private: the shop 404s, checkout refuses, tracking still works). */
+  is_active?: boolean;
 }
 
 interface CouponItem {
@@ -240,6 +243,22 @@ export default function StorefrontAdminPage() {
     }
   }
 
+  const [togglingOpen, setTogglingOpen] = useState(false);
+  /** Open or close the shop right away (#96). */
+  async function setShopOpen(open: boolean) {
+    if (!config) return;
+    setTogglingOpen(true);
+    try {
+      await api.put("/modules/storefront/config", { ...config, is_active: open });
+      setConfig({ ...config, is_active: open });
+      toast.success(open ? "المتجر مفتوح الآن للعملاء" : "أُغلق المتجر: لن يظهر للعملاء ولن يستقبل طلبات جديدة");
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "تعذر تغيير حالة المتجر");
+    } finally {
+      setTogglingOpen(false);
+    }
+  }
+
   async function handleSaveConfig(e: React.FormEvent) {
     e.preventDefault();
     setSavingConfig(true);
@@ -295,9 +314,11 @@ export default function StorefrontAdminPage() {
             <h1 className="text-xl font-black text-foreground">
               المتجر الإلكتروني وإدارة الطلبات (Tenant Storefront)
             </h1>
-            <Badge variant="outline" className="text-[10px] text-primary border-primary/30">
-              أونلاين 24/7
-            </Badge>
+            {config?.is_active === false ? (
+              <Badge variant="warning" className="text-[10px]">مغلق</Badge>
+            ) : (
+              <Badge variant="outline" className="text-[10px] text-primary border-primary/30">مفتوح</Badge>
+            )}
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
             الكتالوج العام، طلبات العملاء أونلاين، بوابات الدفع، وإعدادات العلامة التجارية لمساحة العمل «{tenant?.name}».
@@ -632,6 +653,33 @@ export default function StorefrontAdminPage() {
       {/* TAB 2: Visual Store Customizer */}
       {activeTab === "customizer" && (
         <form onSubmit={handleSaveConfig} className="space-y-6 max-w-4xl">
+          {config && (
+            <div
+              className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4 shadow-xs ${
+                config.is_active === false ? "border-warning/40 bg-warning/8" : "border-border bg-card"
+              }`}
+            >
+              <div>
+                <p className="text-sm font-bold text-foreground">
+                  {config.is_active === false ? "المتجر مغلق" : "المتجر مفتوح"}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {config.is_active === false
+                    ? "لا يظهر للعملاء ولا يستقبل طلبات جديدة. تتبّع الطلبات السابقة يعمل كالمعتاد."
+                    : "يظهر للعملاء على رابط المتجر ويستقبل الطلبات."}
+                </p>
+              </div>
+              <label className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                <span>{config.is_active === false ? "مغلق" : "مفتوح"}</span>
+                <Switch
+                  checked={config.is_active !== false}
+                  disabled={!canManage || togglingOpen}
+                  onCheckedChange={(v) => setShopOpen(v)}
+                  aria-label="فتح المتجر للعملاء"
+                />
+              </label>
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Storefront Identity */}
             <div className="p-4 rounded-xl border border-border bg-card space-y-3.5 shadow-xs">
