@@ -6,16 +6,16 @@
       "destination": "https://mizan-co-owner.vercel.app/owner/"
     },
     {
-      "source": "/owner/:path*",
-      "destination": "https://mizan-co-owner.vercel.app/owner/:path*"
+      "source": "/owner/(.*)",
+      "destination": "https://mizan-co-owner.vercel.app/owner/$1"
     },
     {
       "source": "/admin",
       "destination": "https://mizan-co-admin.vercel.app/admin/"
     },
     {
-      "source": "/admin/:path*",
-      "destination": "https://mizan-co-admin.vercel.app/admin/:path*"
+      "source": "/admin/(.*)",
+      "destination": "https://mizan-co-admin.vercel.app/admin/$1"
     },
     {
       "source": "/(.*)",
