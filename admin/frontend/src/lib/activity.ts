@@ -31,6 +31,8 @@ export function describe(a: ActivityItem): Part[] {
       return ["Deleted ", { workspace: s("name") || "a workspace", id: null }];
     case "invoice_marked_paid":
       return [`Marked invoice ${s("invoice")} paid (${money(Number(d.amount_egp))}) for `, ws];
+    case "invoice_checked_with_paymob":
+      return [`Checked invoice ${s("invoice")} with Paymob (${s("status")}) for `, ws];
     case "invoice_paid_online":
       return [`${planLabel(s("plan"))} paid online via Paymob (${money(Number(d.amount_egp))}, ${s("invoice")}) by `, ws];
     case "invoice_refunded_online":

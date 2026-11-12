@@ -50,7 +50,8 @@ async def billing_overview(
         "invoices": [
             {"ref": i.invoice_ref, "tenant_id": str(i.tenant_id), "tenant_name": names.get(i.tenant_id),
              "plan": i.plan, "plan_name": plan_name(i.plan), "cycle": i.billing_cycle, "amount_egp": i.amount_egp,
-             "method": i.payment_method, "status": i.status, "created_at": iso(i.created_at), "paid_at": iso(i.paid_at)}
+             "method": i.payment_method,
+             "paymob": (i.payment_gateway_ref or "").startswith("paymob-order:"), "status": i.status, "created_at": iso(i.created_at), "paid_at": iso(i.paid_at)}
             for i in invoices
         ],
     }
@@ -79,6 +80,23 @@ async def mark_invoice_paid(
     await record(db, admin, "invoice_marked_paid", tenant_id=invoice.tenant_id, request=request,
                  invoice=ref, plan=invoice.plan, amount_egp=invoice.amount_egp, reference=body.reference)
     return {"ok": True}
+
+
+@router.post("/invoices/{ref}/check-paymob")
+async def check_paymob(ref: str, request: Request, db: AsyncSession = Depends(get_db),
+                       admin: User = Depends(require_superadmin)):
+    """Ask Paymob about a pending invoice whose callback never came, and apply the answer (#67)."""
+    from app.integrations.paymob.reconcile import reconcile_invoice
+
+    invoice = (await db.execute(select(BillingInvoice).where(BillingInvoice.invoice_ref == ref))).scalar_one_or_none()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    result = await reconcile_invoice(db, invoice)
+    if not result.get("checked"):
+        raise HTTPException(status_code=409, detail=result.get("reason") or "Couldn't check with Paymob")
+    await record(db, admin, "invoice_checked_with_paymob", tenant_id=invoice.tenant_id, request=request,
+                 invoice=ref, status=result["status"], transactions=result["transactions"])
+    return result
 
 
 @router.get("/invoices/{ref}/receipt.pdf")

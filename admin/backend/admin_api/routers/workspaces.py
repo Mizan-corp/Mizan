@@ -161,7 +161,8 @@ async def get_workspace(
         "branches": [{"id": str(w.id), "name": w.name, "is_active": w.is_active} for w in branches],
         "invoices": [
             {"ref": i.invoice_ref, "plan": i.plan, "cycle": i.billing_cycle, "amount_egp": i.amount_egp,
-             "status": i.status, "method": i.payment_method, "created_at": iso(i.created_at), "paid_at": iso(i.paid_at)}
+             "status": i.status, "method": i.payment_method,
+             "paymob": (i.payment_gateway_ref or "").startswith("paymob-order:"), "created_at": iso(i.created_at), "paid_at": iso(i.paid_at)}
             for i in invoices
         ],
         "activity": await recent_activity(db, limit=20, tenant_id=t.id),

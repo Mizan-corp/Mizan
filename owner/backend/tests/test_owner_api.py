@@ -443,3 +443,49 @@ async def test_owners_delete_only_unpaid_trials():
         h = await login(c, owner2)
         assert (await c.delete(f"/account/workspaces/{trial.id}", headers=h, params={"confirm": trial.name})).status_code == 204
         assert (await c.get(f"/account/workspaces/{trial.id}", headers=h)).status_code == 404
+
+
+async def test_pending_invoices_are_checked_with_paymob(monkeypatch):
+    """#67: a payment whose callback never came is found through Paymob's inquiry API and applied
+    once, as the callback would have."""
+    from sqlalchemy import select, text
+
+    from app.integrations.paymob import reconcile
+    from app.platform.billing.models import BillingInvoice
+
+    owner, tenant, _ = await make_owner()
+    async with client() as c:
+        inv = (await c.post(f"/account/workspaces/{tenant.id}/checkout", headers=await login(c, owner),
+                            json={"plan": "pro", "cycle": "monthly"})).json()["invoice"]
+    paid = txn(inv["ref"], round(inv["amount_egp"] * 100), uuid.uuid4().int % 10**9)
+    asked = []
+    monkeypatch.setattr(reconcile, "_order_transactions", lambda order_id: asked.append(order_id) or [paid])
+
+    async with AsyncSessionLocal() as db:
+        await db.execute(text("SELECT set_config('app.bypass', 'on', false)"))
+        invoice = await db.scalar(select(BillingInvoice).where(BillingInvoice.invoice_ref == inv["ref"]))
+        monkeypatch.setattr(settings, "PAYMOB_API_KEY", "")
+        assert (await reconcile.reconcile_invoice(db, invoice))["checked"] is False
+        monkeypatch.setattr(settings, "PAYMOB_API_KEY", "api_key_test")
+        first = await reconcile.reconcile_invoice(db, invoice)
+        again = await reconcile.reconcile_invoice(db, invoice)
+        await db.execute(text("SELECT set_config('app.bypass', '', false)"))
+    assert asked == ["42"]
+    assert first == {"checked": True, "transactions": 1, "applied": 1, "status": "paid"}
+    assert again["checked"] is False  # paid now: nothing to ask
+
+    # The callback arriving late is a duplicate, not a second payment.
+    async with client() as c:
+        late = await c.post(f"/account/paymob/callback?hmac={sign(paid)}", json={"type": "TRANSACTION", "obj": paid})
+        assert late.json().get("duplicate") is True
+
+
+async def test_the_scheduler_needs_the_cron_secret(monkeypatch):
+    monkeypatch.setattr(settings, "PAYMOB_API_KEY", "")
+    async with client() as c:
+        monkeypatch.setattr(settings, "CRON_SECRET", "")
+        assert (await c.post("/account/cron/paymob-reconcile", headers={"X-Cron-Secret": ""})).status_code == 403
+        monkeypatch.setattr(settings, "CRON_SECRET", "s3cret")
+        assert (await c.post("/account/cron/paymob-reconcile", headers={"X-Cron-Secret": "wrong"})).status_code == 403
+        r = await c.post("/account/cron/paymob-reconcile", headers={"X-Cron-Secret": "s3cret"})
+        assert r.status_code == 200 and r.json()["items_processed"] == 0

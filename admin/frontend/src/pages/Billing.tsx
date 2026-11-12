@@ -129,6 +129,18 @@ function ReceiptButton({ invoiceRef }: { invoiceRef: string }) {
   );
 }
 
+/** Ask Paymob about a pending invoice whose callback never came (#67). */
+function CheckPaymobButton({ invoiceRef }: { invoiceRef: string }) {
+  const check = useAction(actions.checkPaymob, {
+    success: (_, r) => (r.status === "paid" ? `${invoiceRef} is paid: activated` : `Paymob has no payment for ${invoiceRef} yet`),
+  });
+  return (
+    <Button size="sm" busy={check.isPending} onClick={() => check.mutateAsync(invoiceRef).catch((e) => toast.error(errorText(e)))}>
+      Check with Paymob
+    </Button>
+  );
+}
+
 export function InvoiceTable({ invoices, showWorkspace }: { invoices: Invoice[]; showWorkspace?: boolean }) {
   const [paying, setPaying] = useState<Invoice | null>(null);
   if (!invoices.length) return <Empty title="No invoices yet.">Invoices appear when a workspace starts a checkout.</Empty>;
@@ -157,9 +169,12 @@ export function InvoiceTable({ invoices, showWorkspace }: { invoices: Invoice[];
             </Td>
             <Td className="text-right">
               {i.status === "pending" && (
-                <Button size="sm" onClick={() => setPaying(i)}>
-                  Mark paid
-                </Button>
+                <div className="flex justify-end gap-2">
+                  {i.paymob && <CheckPaymobButton invoiceRef={i.ref} />}
+                  <Button size="sm" onClick={() => setPaying(i)}>
+                    Mark paid
+                  </Button>
+                </div>
               )}
               {i.status === "paid" && <ReceiptButton invoiceRef={i.ref} />}
             </Td>

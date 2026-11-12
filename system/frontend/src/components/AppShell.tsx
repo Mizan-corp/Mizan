@@ -568,10 +568,12 @@ function AppTopbar({ onOpenMenu, onOpenSearch }: { onOpenMenu: () => void; onOpe
                 <span>اللغة ({locale === "ar" ? "العربية" : "English"})</span>
               </DropdownMenuItem>
 
-              <DropdownMenuItem onClick={() => { sound.click(); setAutomationOpen(true); }}>
-                <Cpu className="size-4 text-indigo-500" />
-                <span>جدولة الأتمتة (Cron Worker)</span>
-              </DropdownMenuItem>
+              {user?.is_superadmin && (
+                <DropdownMenuItem onClick={() => { sound.click(); setAutomationOpen(true); }}>
+                  <Cpu className="size-4 text-indigo-500" />
+                  <span>جدولة الأتمتة (Cron Worker)</span>
+                </DropdownMenuItem>
+              )}
 
               {user?.is_owner && !IS_ON_PREMISE && (
                 <DropdownMenuItem render={<a href={appUrl("owner", "/")} />}>

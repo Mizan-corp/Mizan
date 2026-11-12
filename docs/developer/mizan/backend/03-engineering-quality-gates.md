@@ -63,7 +63,7 @@ GPT model: gpt-6
 
 ### 6. Background Jobs, Events, and Integrations
 - All async tasks (payroll, ZK sync, WhatsApp dispatch, shift auto-close) must be **retryable and idempotent**
-- Use `python manage.py cron` for the automation worker
+- Use `python manage.py cron` for the automation worker locally; in the cloud `.github/workflows/jobs.yml` calls `POST /modules/automation/cron/{job}` with `CRON_SECRET`
 - Midnight shift auto-close is a background job, not a user action
 - WhatsApp dispatch is queued for the worker (not blocking request flow)
 - Background jobs must handle: duplicate execution, partial failure, retry with backoff

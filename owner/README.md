@@ -82,11 +82,13 @@ Two flows, chosen with `PAYMOB_FLOW` on the `mizan-owner-api` Vercel project:
 | `PAYMOB_SECRET_KEY`, `PAYMOB_PUBLIC_KEY` | intention | `egy_sk_…`, `egy_pk_…` (test or live) |
 | `PAYMOB_INTEGRATION_IDS` | intention | Comma-separated integration ids |
 | `PAYMOB_FLOW` | — | `intention` or `accept` |
-| `PAYMOB_API_KEY` | accept | The dashboard's API key (same for test and live) |
+| `PAYMOB_API_KEY` | both | The dashboard's API key (same for test and live): the accept flow, and checking pending invoices with Paymob (also on `mizan-admin-api`) |
 | `PAYMOB_CARD_INTEGRATION_ID`, `PAYMOB_WALLET_INTEGRATION_ID` | accept | One integration per method |
 | `PAYMOB_IFRAME_ID` | accept | Mizan's card page, from `python owner/paymob/upload.py` |
 | `PAYMOB_TEST_OWNERS` | both | While set (comma-separated logins), only these owners may pay: for running production against Paymob's test mode. The panel shows a test-mode note to them |
 | `PAYMOB_BASE_URL` | both | Optional; defaults to `https://accept.paymob.com` |
+| `CRON_SECRET` | both | Shared with the scheduler (`.github/workflows/jobs.yml`, GitHub secret of the same name) and `mizan-system-api` |
+| `MIZAN_COMPANY_DETAILS` | both | Optional: Mizan's legal details on receipts, lines separated by `\|` |
 | `OWNER_API_URL` / `OWNER_APP_URL` | both | Public URLs for the callback and the return page (already set) |
 
 Callbacks: the intention flow passes `notification_url` = `OWNER_API_URL/account/paymob/callback`
@@ -118,3 +120,12 @@ online payment isn't available.
   `lib/open.ts` (open a workspace).
 - Tests: `backend/tests/` (sign-in scopes, isolation between owners, checkout, every
   callback case). `python manage.py test backend` runs them.
+
+### When the callback doesn't come (#67)
+
+Every Paymob transaction goes through `app/integrations/paymob/reconcile.py:apply_transaction`,
+recorded once per transaction and state. Each hour the scheduler calls
+`POST /account/cron/paymob-reconcile` (header `X-Cron-Secret`): Paymob invoices pending for
+15 minutes to 48 hours are looked up with Paymob's inquiry API (`PAYMOB_API_KEY`) and applied
+the same way. In the admin panel, **Check with Paymob** on a pending invoice does the same for
+one invoice. A late callback after that is a duplicate and changes nothing.

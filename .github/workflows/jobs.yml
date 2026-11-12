@@ -1,0 +1,54 @@
+# Scheduled platform jobs in the cloud (the APIs are serverless, so nothing runs on its own).
+# Each call is authenticated by the CRON_SECRET secret, also set on mizan-system-api and
+# mizan-owner-api. Job list: app/platform/automation_worker/runner.py (JOB_REGISTRY).
+name: Jobs
+
+on:
+  schedule:
+    - cron: "15 * * * *"   # hourly: Paymob invoices whose callback never came (#67)
+    - cron: "0 */6 * * *"  # trials and subscriptions ending
+    - cron: "0 22 * * *"   # nightly (00:00 Cairo): shifts, digest, module data, storage
+    - cron: "0 1 * * 0"    # weekly: stale data
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "One job (e.g. paymob_reconcile, measure_storage); empty runs the hourly one"
+        required: false
+
+permissions: {}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      SYSTEM_API: https://api.allmizan.live/api
+      OWNER_API: https://owner-api.allmizan.live/api
+    steps:
+      - name: Pick the jobs
+        id: pick
+        run: |
+          case "${{ github.event.schedule }}" in
+            "15 * * * *")  jobs="paymob_reconcile" ;;
+            "0 */6 * * *") jobs="enforce_subscription_expiry" ;;
+            "0 22 * * *")  jobs="auto_close_shifts generate_daily_metrics_digest purge_removed_module_data measure_storage" ;;
+            "0 1 * * 0")   jobs="cleanup_system_stale_data" ;;
+            *)             jobs="${{ inputs.job || 'paymob_reconcile' }}" ;;
+          esac
+          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+
+      - name: Run
+        run: |
+          failed=0
+          for job in ${{ steps.pick.outputs.jobs }}; do
+            if [ "$job" = paymob_reconcile ]; then
+              url="$OWNER_API/account/cron/paymob-reconcile"
+            else
+              url="$SYSTEM_API/modules/automation/cron/$job"
+            fi
+            code=$(curl -s -o out.json -w "%{http_code}" -X POST "$url" -H "X-Cron-Secret: $CRON_SECRET" --max-time 290)
+            echo "$job → $code $(head -c 300 out.json)"
+            [ "$code" = 200 ] || failed=1
+          done
+          exit $failed

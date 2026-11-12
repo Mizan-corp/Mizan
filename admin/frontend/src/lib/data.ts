@@ -63,6 +63,8 @@ export interface Invoice {
   amount_egp: number;
   status: string;
   method: string;
+  /** Started as a Paymob checkout: it can be checked with Paymob (#67). */
+  paymob?: boolean;
   created_at: string;
   paid_at: string | null;
   tenant_id?: string;
@@ -235,6 +237,8 @@ export const actions = {
   impersonate: (id: string) =>
     api.post<{ access_token: string; slug: string | null; as_user: string }>(`/admoon/tenants/${id}/impersonate`),
   create: (v: Record<string, unknown>) => api.post<{ id: string; slug: string }>("/admoon/tenants", v),
+  checkPaymob: (ref: string) =>
+    api.post<{ checked: boolean; transactions: number; applied: number; status: string }>(`/admoon/billing/invoices/${encodeURIComponent(ref)}/check-paymob`),
   markPaid: (v: { ref: string; reference?: string; note?: string }) =>
     api.post(`/admoon/billing/invoices/${encodeURIComponent(v.ref)}/mark-paid`, { reference: v.reference, note: v.note }),
   extendLicence: (v: { id: string; days: number; reason?: string }) =>

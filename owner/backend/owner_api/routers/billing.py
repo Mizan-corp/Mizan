@@ -5,20 +5,19 @@ import logging
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select, update
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.platform.billing.plans import PLANS_CONFIG
 from app.db.base import get_db
 from app.platform.billing.models import BillingInvoice
-from app.platform.auth.models.owner import OwnerAccount, PaymentTransaction
-from app.platform.tenancy.models import PlatformAuditLog, Tenant
+from app.platform.auth.models.owner import OwnerAccount
+from app.platform.tenancy.models import Tenant
 from app.integrations.paymob import service as paymob
 from app.platform.auth.services.owners import _bearer, bypass_rls, get_current_owner, owned_workspace
-from app.platform.billing.services.subscriptions import PAID_PLANS, activate_invoice, new_invoice
+from app.platform.billing.services.subscriptions import PAID_PLANS, new_invoice
 from owner_api.common import invoice_out
 
 logger = logging.getLogger("mizan.owner.billing")
@@ -145,19 +144,6 @@ async def invoice_receipt(ref: str, db: AsyncSession = Depends(get_db), owner: O
 # ─── Paymob callback ───────────────────────────────────────────────────────
 
 
-async def _invoice_for(db: AsyncSession, obj: dict) -> BillingInvoice | None:
-    order = obj.get("order") or {}
-    refs = [order.get("merchant_order_id"), obj.get("special_reference"),
-            ((obj.get("payment_key_claims") or {}).get("extra") or {}).get("invoice_ref")]
-    for ref in filter(None, refs):
-        inv = await db.scalar(select(BillingInvoice).where(BillingInvoice.invoice_ref == str(ref)))
-        if inv:
-            return inv
-    if order.get("id"):
-        return await db.scalar(select(BillingInvoice).where(BillingInvoice.payment_gateway_ref == f"paymob-order:{order['id']}"))
-    return None
-
-
 @router.post("/paymob/callback")
 async def paymob_callback(request: Request, db: AsyncSession = Depends(get_db)):
     """Paymob's transaction-processed callback. Verified by HMAC, applied once."""
@@ -173,47 +159,22 @@ async def paymob_callback(request: Request, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=403, detail="Invalid signature")
 
     await bypass_rls(db)
-    state = paymob.transaction_state(obj)
-    inv = await _invoice_for(db, obj)
-    amount_cents = int(obj.get("amount_cents") or 0)
-    stored = await db.scalar(
-        insert(PaymentTransaction)
-        .values(
-            id=uuid.uuid4(), provider="paymob", event_key=f"paymob:{obj.get('id')}:{state}",
-            provider_txn_id=str(obj.get("id")), invoice_id=inv.id if inv else None, state=state,
-            amount_cents=amount_cents, currency=str(obj.get("currency") or ""), raw=obj,
-        )
-        .on_conflict_do_nothing(index_elements=["event_key"])
-        .returning(PaymentTransaction.id)
-    )
-    if stored is None:
-        return {"ok": True, "duplicate": True}
-    if inv is None:
-        logger.warning("Paymob txn %s matches no invoice", obj.get("id"))
-        await db.commit()
-        return {"ok": True, "matched": False}
+    from app.integrations.paymob.reconcile import apply_transaction
 
-    action = None
-    if state == "paid":
-        expected = round(inv.amount_egp * 100)
-        if amount_cents != expected or (obj.get("currency") or "EGP") != "EGP":
-            logger.error("Paymob txn %s amount %s %s ≠ invoice %s (%s)", obj.get("id"), amount_cents,
-                         obj.get("currency"), inv.invoice_ref, expected)
-            inv.notes = f"{inv.notes or ''}\nPaymob txn {obj.get('id')} paid {amount_cents / 100} {obj.get('currency')}, expected {expected / 100}".strip()
-        elif inv.status != "paid":
-            # A late payment on an abandoned checkout still counts.
-            await activate_invoice(db, inv, reference=f"paymob:{obj.get('id')}")
-            action = "invoice_paid_online"
-    elif state in ("refunded", "voided") and inv.status == "paid":
-        inv.status = "refunded"
-        action = "invoice_refunded_online"
+    return await apply_transaction(db, obj, source="callback")
 
-    if action:
-        tenant_name = await db.scalar(select(Tenant.name).where(Tenant.id == inv.tenant_id))
-        db.add(PlatformAuditLog(
-            tenant_id=inv.tenant_id, action=action,
-            details={"invoice": inv.invoice_ref, "amount_egp": inv.amount_egp, "plan": inv.plan,
-                     "transaction": str(obj.get("id")), "workspace_name": tenant_name},
-        ))
-    await db.commit()
-    return {"ok": True, "state": state}
+
+@router.post("/cron/paymob-reconcile")
+async def paymob_reconcile(x_cron_secret: str | None = Header(default=None), db: AsyncSession = Depends(get_db)):
+    """For the scheduler (.github/workflows/jobs.yml, CRON_SECRET): pending Paymob invoices whose
+    callback never came are checked with Paymob and applied like a callback (#67). Runs here,
+    where the Paymob keys are."""
+    import hmac
+
+    from app.core.config import settings
+    from app.integrations.paymob.reconcile import reconcile_pending
+
+    if not settings.CRON_SECRET or not hmac.compare_digest(x_cron_secret or "", settings.CRON_SECRET):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    await bypass_rls(db)
+    return await reconcile_pending(db)

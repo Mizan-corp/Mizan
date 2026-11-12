@@ -61,6 +61,9 @@ def _is_exempt(path: str) -> bool:
     rel = _script_rel_path(path)
     if rel.startswith("/storefront/") or rel.startswith("/store/"):
         return True
+    # The scheduler (no browser, no cookies); authenticated by CRON_SECRET in a header.
+    if rel.startswith(("/modules/automation/cron/", "/account/cron/")):
+        return True
     return rel in CSRF_EXEMPT_SUFFIXES
 
 

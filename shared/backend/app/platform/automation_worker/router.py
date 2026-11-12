@@ -1,18 +1,17 @@
 """API Router for Background Automation & Cron Worker."""
 from __future__ import annotations
 
-import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_superadmin
 from app.platform.auth.models.user import User
-from app.platform.automation_worker.models import AutomationJobLog, AutomationSchedule
+from app.platform.automation_worker.models import AutomationJobLog
 from app.platform.automation_worker.runner import JOB_REGISTRY, run_all_jobs, run_job
 
 router = APIRouter(prefix="/modules/automation", tags=["automation-worker"])
@@ -63,13 +62,29 @@ async def list_automation_jobs(
     return output
 
 
+@router.post("/cron/{job_name}")
+async def scheduled_job(job_name: str, x_cron_secret: str | None = Header(default=None),
+                        db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
+    """Run a platform job for the scheduler (.github/workflows/jobs.yml), authenticated by
+    CRON_SECRET. No workspace is bound: each job goes through every workspace itself."""
+    import hmac
+
+    from app.core.config import settings
+
+    if not settings.CRON_SECRET or not hmac.compare_digest(x_cron_secret or "", settings.CRON_SECRET):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if job_name not in JOB_REGISTRY:
+        raise HTTPException(status_code=404, detail=f"Job '{job_name}' not found.")
+    return await run_job(job_name, db)
+
+
 @router.post("/run/{job_name}")
 async def trigger_job(
     job_name: str,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_superadmin),
 ) -> dict[str, Any]:
-    """Manually trigger an automation background job by name."""
+    """Run a job now. Platform staff only: the jobs act on every workspace."""
     if job_name not in JOB_REGISTRY:
         raise HTTPException(status_code=404, detail=f"Job '{job_name}' not found.")
 
@@ -80,7 +95,7 @@ async def trigger_job(
 @router.post("/run-all")
 async def trigger_all_jobs(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_superadmin),
 ) -> dict[str, Any]:
     """Execute all registered automation worker tasks immediately."""
     results = await run_all_jobs(db)

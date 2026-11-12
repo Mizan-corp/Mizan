@@ -66,6 +66,8 @@ class Settings(BaseSettings):
     # Mizan's own details on the receipts it issues to owners (#69): lines such as the legal
     # name, commercial registration, tax number and address, separated by "|". Optional.
     MIZAN_COMPANY_DETAILS: str = ""
+    # The scheduler (.github/workflows/jobs.yml) runs platform jobs with this shared secret.
+    CRON_SECRET: str = ""
     # ⚠️ CORS_ORIGINS must NOT contain wildcard ("*") when credentials are enabled
 
     @property
