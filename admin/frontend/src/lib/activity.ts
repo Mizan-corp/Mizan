@@ -45,6 +45,18 @@ export function describe(a: ActivityItem): Part[] {
       return ["Issued an offline licence key for ", ws];
     case "upgrade_request_dismissed":
       return [`Dismissed an upgrade request to ${planLabel(s("plan"))} from `, ws];
+    case "owner_password_reset":
+      return [`Reset the password of owner @${s("owner")}`];
+    case "owner_disabled":
+      return [`Disabled owner @${s("owner")}`];
+    case "owner_enabled":
+      return [`Enabled owner @${s("owner")}`];
+    case "workspace_owner_changed":
+      return ["Gave ", ws, ` to owner @${s("owner")}`, d.previous_owner ? ` (was @${s("previous_owner")})` : ""];
+    case "owners_merged":
+      return [`Merged owner @${s("merged")} into @${s("owner")} (${plural(Number(d.workspaces), "workspace")})`];
+    case "owner_deleted":
+      return [`Deleted owner account @${s("owner")}`];
     case "platform_access_granted":
       return [`Gave ${s("user")} access to the admin panel`];
     case "platform_access_revoked":

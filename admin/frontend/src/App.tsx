@@ -11,6 +11,7 @@ const Overview = lazy(() => import("@app/pages/Overview"));
 const Workspaces = lazy(() => import("@app/pages/Workspaces"));
 const WorkspaceDetail = lazy(() => import("@app/pages/WorkspaceDetail"));
 const Billing = lazy(() => import("@app/pages/Billing"));
+const Owners = lazy(() => import("@app/pages/Owners"));
 const Activity = lazy(() => import("@app/pages/Activity"));
 const Team = lazy(() => import("@app/pages/Team"));
 const System = lazy(() => import("@app/pages/System"));
@@ -48,6 +49,7 @@ export default function App() {
           <Route index element={<Overview />} />
           <Route path="workspaces" element={<Workspaces />} />
           <Route path="workspaces/:id" element={<WorkspaceDetail />} />
+          <Route path="owners" element={<Owners />} />
           <Route path="billing" element={<Billing />} />
           <Route path="activity" element={<Activity />} />
           <Route path="team" element={<Team />} />

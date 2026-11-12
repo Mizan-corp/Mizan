@@ -143,6 +143,8 @@ async def get_workspace(
             "system_path": f"/c/{t.slug}" if t.slug else None,
         },
         "owner": {"id": str(owner.id), "username": owner.username, "full_name": owner.full_name} if owner else None,
+        # The owner account (#73): who signs in to the owner panel and pays for this workspace.
+        "owner_account": await _owner_account(db, t.owner_account_id),
         "stats": {
             "users": len(users),
             "branches": len(branches),
@@ -450,6 +452,16 @@ async def set_modules(
     await record(db, admin, "tenant_modules_updated", tenant_id=t.id, request=request,
                  added=sorted(after - before), removed=sorted(before - after))
     return {"ok": True, "active_modules": t.active_modules}
+
+
+async def _owner_account(db: AsyncSession, owner_id) -> dict | None:
+    if not owner_id:
+        return None
+    o = await db.get(OwnerAccount, owner_id)
+    if o is None:
+        return None
+    return {"id": str(o.id), "login": o.login, "full_name": o.full_name, "email": o.email, "phone": o.phone,
+            "is_active": o.is_active, "last_login_at": iso(o.last_login_at)}
 
 
 # ─── Open as owner ─────────────────────────────────────────────────────────

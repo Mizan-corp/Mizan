@@ -5,7 +5,7 @@ import { ExternalLink, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { openWithSession, openWorkspaceWithSession } from "@/lib/handoff";
 import { workspaceUrl } from "@/lib/urls";
-import { actions, type Module, useAction, useModules, useWorkspace, type WorkspaceDetail as Detail } from "@app/lib/data";
+import { actions, type Module, useAction, useModules, useOwners, useWorkspace, type WorkspaceDetail as Detail } from "@app/lib/data";
 import { ago, categoryLabel, date, dateTime, errorText, moduleLabel, modeLabel, money, num, PLANS, planLabel, plural, pulse, sectorLabel, trialText } from "@app/lib/format";
 import {
   ActivityList,
@@ -65,7 +65,22 @@ function Summary({ d }: { d: Detail }) {
           <dl className="divide-y divide-line-soft">
             <Row label="Business type">{sectorLabel(w.sector)}</Row>
             <Row label="Size">{{ small: "One branch", medium: "2–3 branches", large: "4 or more branches" }[w.scale] ?? w.scale}</Row>
-            <Row label="Owner">
+            <Row label="Owner account">
+              {d.owner_account ? (
+                <>
+                  <span className="bidi">{d.owner_account.full_name}</span> <span className="code text-mute">@{d.owner_account.login}</span>
+                  {!d.owner_account.is_active && <Badge tone="bad" className="ms-2">Disabled</Badge>}
+                  <div className="text-xs text-mute">
+                    {[d.owner_account.email, d.owner_account.phone].filter(Boolean).join(" · ") || "No contact details"}
+                    {" · "}last sign-in {d.owner_account.last_login_at ? ago(d.owner_account.last_login_at) : "never"}
+                  </div>
+                </>
+              ) : (
+                "—"
+              )}
+              <ChangeOwner tenantId={w.id} />
+            </Row>
+            <Row label="Signs in as">
               {d.owner ? (
                 <>
                   <span className="bidi">{d.owner.full_name}</span> <span className="code text-mute">@{d.owner.username}</span>
@@ -500,6 +515,32 @@ function LicenceTab({ d }: { d: Detail }) {
 }
 
 // ─── Page ──────────────────────────────────────────────────────────────────
+
+/** Give the workspace to another owner account (#73). */
+function ChangeOwner({ tenantId }: { tenantId: string }) {
+  const [open, setOpen] = useState(false);
+  const [login, setLogin] = useState("");
+  const owners = useOwners({ q: login.trim() || undefined });
+  const move = useAction(actions.moveWorkspace, { success: () => "Owner changed", then: () => setOpen(false) });
+  const target = (owners.data?.items ?? []).find((o) => o.login === login.trim().toLowerCase());
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="mt-1 block text-xs text-ox hover:underline">Change owner…</button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Give this workspace to another owner"
+             description="The new owner sees it in their panel and pays for it. The previous owner loses access to it from their panel.">
+        <Field label="The new owner's username">
+          <Input value={login} onChange={(e) => setLogin(e.target.value)} className="code" autoFocus />
+        </Field>
+        <p className="mt-2 text-sm text-mute">{target ? `${target.full_name} · ${target.workspace_count} workspace(s)` : login.trim() ? "No owner with that username." : ""}</p>
+        {move.isError && <ErrorNote>{errorText(move.error)}</ErrorNote>}
+        <ModalActions>
+          <Button variant="primary" disabled={!target} busy={move.isPending} onClick={() => move.mutate({ owner_id: target!.id, tenant_id: tenantId })}>Change owner</Button>
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+        </ModalActions>
+      </Modal>
+    </>
+  );
+}
 
 export default function WorkspaceDetail() {
   const { id = "" } = useParams();

@@ -69,9 +69,27 @@ export interface Invoice {
   tenant_name?: string | null;
 }
 
+export interface OwnerRow {
+  id: string;
+  login: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  is_active: boolean;
+  last_login_at: string | null;
+  created_at: string;
+  workspace_count: number;
+  paid_egp: number;
+}
+export interface OwnerDetail extends OwnerRow {
+  workspaces: { id: string; name: string; slug: string | null; plan: string; status: string; deployment_mode: string }[];
+}
+
 export interface WorkspaceDetail {
   workspace: WorkspaceSummary & { scale: string; active_modules: string[]; limits: Record<string, unknown>; system_path: string | null };
   owner: { id: string; username: string; full_name: string } | null;
+  /** The owner account (#73): signs in to the owner panel and pays. */
+  owner_account: Pick<OwnerRow, "id" | "login" | "full_name" | "email" | "phone" | "is_active" | "last_login_at"> | null;
   stats: { users: number; branches: number; products: number; sales: number; sales_volume_egp: number; last_sale_at: string | null };
   users: { id: string; username: string; full_name: string; role: string; is_active: boolean; created_at: string }[];
   branches: { id: string; name: string; is_active: boolean }[];
@@ -154,6 +172,15 @@ export const useActivity = (filters: { action?: string; tenant_id?: string }) =>
     queryFn: () => api.get<{ items: ActivityItem[]; next_before: string | null }>("/admoon/activity", { limit: 100, ...filters }),
   });
 
+export const useOwners = (filters: { q?: string; without_workspaces?: boolean }) =>
+  useQuery({
+    queryKey: ["owners", filters],
+    queryFn: () => api.get<{ items: OwnerRow[] }>("/admoon/owners", { q: filters.q || undefined, without_workspaces: filters.without_workspaces ? "true" : undefined }),
+  });
+
+export const useOwner = (id: string | null) =>
+  useQuery({ queryKey: ["owner", id], queryFn: () => api.get<OwnerDetail>(`/admoon/owners/${id}`), enabled: !!id });
+
 export const useTeam = () => useQuery({ queryKey: ["team"], queryFn: () => api.get<{ items: Person[]; me: string }>("/admoon/team") });
 
 export const useSystem = () =>
@@ -188,6 +215,12 @@ export function useAction<TVars, TResult = unknown>(
 }
 
 export const actions = {
+  resetOwnerPassword: (id: string) => api.post<{ password: string }>(`/admoon/owners/${id}/reset-password`),
+  setOwnerActive: (v: { id: string; active: boolean }) => api.post<OwnerRow>(`/admoon/owners/${v.id}/active`, { active: v.active }),
+  moveWorkspace: (v: { owner_id: string; tenant_id: string }) =>
+    api.post<OwnerDetail>(`/admoon/owners/${v.owner_id}/workspaces`, { tenant_id: v.tenant_id }),
+  mergeOwner: (v: { id: string; into: string }) => api.post<OwnerDetail>(`/admoon/owners/${v.id}/merge`, { into: v.into }),
+  deleteOwner: (id: string) => api.del(`/admoon/owners/${id}`),
   setStatus: (v: { id: string; status: "active" | "suspended"; reason?: string }) =>
     api.post(`/admoon/tenants/${v.id}/status`, { status: v.status, reason: v.reason }),
   setPlan: (v: { id: string; plan: string; reason?: string }) =>

@@ -115,6 +115,7 @@ jobs:
           pip install -q ./shared/backend -r shared/backend/requirements-dev.txt
           (cd system/backend && python -m pytest tests/ -q --no-header)
           (cd owner/backend && python -m pytest tests/ -q --no-header)
+          (cd admin/backend && python -m pytest tests/ -q --no-header)
 
       - name: Debug container logs on failure
         if: failure()

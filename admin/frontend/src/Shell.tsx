@@ -1,6 +1,6 @@
 import { useState, type ComponentType } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Activity, Building2, CreditCard, Gauge, LogOut, Menu, ServerCog, Users } from "lucide-react";
+import { Activity, Building2, Contact, CreditCard, Gauge, LogOut, Menu, ServerCog, Users } from "lucide-react";
 import { MizanLogo } from "@/components/MizanLogo";
 import { Avatar, AvatarFallback } from "@/components/kit/avatar";
 import { Button } from "@/components/kit/button";
@@ -25,6 +25,7 @@ function Sidebar({ onNavigate, primary }: { onNavigate?: () => void; primary?: b
       items: [
         { to: "/", label: "Overview", icon: Gauge, end: true, count: overview.data?.attention.length },
         { to: "/workspaces", label: "Workspaces", icon: Building2 },
+        { to: "/owners", label: "Owners", icon: Contact },
         { to: "/billing", label: "Billing", icon: CreditCard, count: billing.data?.summary.pending_count },
         { to: "/activity", label: "Activity", icon: Activity },
       ],
@@ -115,6 +116,7 @@ function Sidebar({ onNavigate, primary }: { onNavigate?: () => void; primary?: b
 const TITLES: [RegExp, string][] = [
   [/^\/$/, "Overview"],
   [/^\/workspaces/, "Workspaces"],
+  [/^\/owners/, "Owners"],
   [/^\/billing/, "Billing"],
   [/^\/activity/, "Activity"],
   [/^\/team/, "Team"],
