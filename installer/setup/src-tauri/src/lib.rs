@@ -10,6 +10,11 @@ mod install;
 mod licence;
 mod platform;
 
+// A release build must embed its screens (feature custom-protocol): without it Tauri loads the
+// dev server (devUrl, http://localhost:5180) and the window shows "Could not connect to localhost".
+#[cfg(all(dev, not(debug_assertions)))]
+compile_error!("release build without the custom-protocol feature: build with `--features custom-protocol`");
+
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::path::PathBuf;

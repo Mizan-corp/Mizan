@@ -1,6 +1,6 @@
 [package]
 name = "mizan-setup"
-version = "1.0.0"
+version = "1.0.1"
 description = "Mizan Setup: installs single-device and LAN Mizan"
 edition = "2021"
 publish = false
@@ -32,3 +32,9 @@ lto = true
 opt-level = "s"
 panic = "abort"
 strip = true
+
+[features]
+# Embed the setup screens (frontendDist) instead of loading them from the dev server
+# (devUrl, http://localhost:5180). `tauri build` turns this on by itself; build.py uses plain
+# `cargo build`, so it must ask for it, or the installer opens on "Could not connect to localhost".
+custom-protocol = ["tauri/custom-protocol"]

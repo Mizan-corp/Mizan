@@ -797,7 +797,7 @@ export const DOC_SECTIONS: DocSection[] = [
               codeBlock: {
                 language: "bash",
                 filename: "terminal",
-                code: "chmod +x MizanSetup-1.0.0-linux\n./MizanSetup-1.0.0-linux",
+                code: "chmod +x MizanSetup-1.0.1-linux\n./MizanSetup-1.0.1-linux",
               },
             },
             {

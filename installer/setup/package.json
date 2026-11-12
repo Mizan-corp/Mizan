@@ -1,7 +1,7 @@
 {
   "name": "@mizan/setup",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "Mizan Setup: the guided installer for single-device and LAN Mizan (ADR-005).",
   "scripts": {

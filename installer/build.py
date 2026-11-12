@@ -194,7 +194,7 @@ def package_setup(target: str) -> Path:
     npm = "npm.cmd" if os.name == "nt" else "npm"
     run([npm, "run", "build"], cwd=setup)
     cargo = shutil.which("cargo") or str(Path.home() / ".cargo" / "bin" / "cargo")
-    run([cargo, "build", "--release"], cwd=setup / "src-tauri")
+    run([cargo, "build", "--release", "--features", "custom-protocol"], cwd=setup / "src-tauri")
     exe = setup / "src-tauri" / "target" / "release" / ("mizan-setup.exe" if target == "windows" else "mizan-setup")
     payload = DIST / f"payload-{VERSION}-{target}.zip"
     if not payload.exists():
