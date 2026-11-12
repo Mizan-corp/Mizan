@@ -161,14 +161,36 @@ def backup_now(cfg: Config) -> Path:
 
 
 def launch_apply(cfg: Config, staged: Path, backup: Path) -> None:
+    """Start the release's own apply-update, detached. It waits for this process to end first:
+    on Windows a running mizan-server.exe keeps its program folder from being moved."""
     exe = staged / "server" / f"mizan-server{EXE}"
-    cmd = [str(exe), "--data-dir", str(cfg.data), "apply-update", "--from", str(staged), "--backup", str(backup)]
+    cmd = [str(exe), "--data-dir", str(cfg.data), "apply-update", "--from", str(staged), "--backup", str(backup),
+           "--wait-pid", str(os.getpid())]
     log = open(cfg.data / "logs" / "update.log", "a", encoding="utf-8")  # noqa: SIM115 (the child keeps it)
     if IS_WINDOWS:
         flags = 0x00000008 | 0x00000200 | 0x08000000  # DETACHED_PROCESS | NEW_PROCESS_GROUP | NO_WINDOW
         subprocess.Popen(cmd, stdout=log, stderr=log, stdin=subprocess.DEVNULL, creationflags=flags, close_fds=True)
     else:
         subprocess.Popen(cmd, stdout=log, stderr=log, stdin=subprocess.DEVNULL, start_new_session=True, close_fds=True)
+
+
+def wait_for_exit(pid: int, timeout: float = 120) -> None:
+    """Until process `pid` has ended (or `timeout`)."""
+    if IS_WINDOWS:
+        import ctypes
+
+        handle = ctypes.windll.kernel32.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
+        if handle:
+            ctypes.windll.kernel32.WaitForSingleObject(handle, int(timeout * 1000))
+            ctypes.windll.kernel32.CloseHandle(handle)
+        return
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            return
+        time.sleep(0.5)
 
 
 def _record(outcome: dict) -> None:

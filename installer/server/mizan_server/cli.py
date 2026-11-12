@@ -265,6 +265,10 @@ def cmd_update(a) -> int:
     before = (state.read_state().get("last_update") or {}).get("at")
     update.launch_apply(cfg, staged, backup)
     print("… Updating (the service restarts). Log: " + str(cfg.data / "logs" / "update.log"))
+    if update.IS_WINDOWS:
+        # This program runs from the folder being replaced: leave so it can be moved.
+        print("Check the result in a few minutes with: mizan-server status")
+        return 0
     deadline = time.time() + 20 * 60
     while time.time() < deadline:
         time.sleep(3)
@@ -285,6 +289,8 @@ def cmd_apply_update(a) -> int:
 
     cfg = Config.load(Path(a.data_dir) if a.data_dir else None)
     _app_env(cfg)
+    if a.wait_pid:
+        update.wait_for_exit(a.wait_pid)
     return 0 if update.apply(cfg, Path(a.source), Path(a.backup)) else 1
 
 
@@ -427,6 +433,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = sub.add_parser("apply-update", help=argparse.SUPPRESS)
     ap.add_argument("--from", dest="source", required=True)
     ap.add_argument("--backup", required=True)
+    ap.add_argument("--wait-pid", type=int, default=0)
     ap.set_defaults(func=cmd_apply_update)
 
     sub.add_parser("version").set_defaults(func=lambda a: print(version()) or 0)

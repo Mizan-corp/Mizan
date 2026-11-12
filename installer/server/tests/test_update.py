@@ -176,3 +176,15 @@ def test_installs_without_a_service_are_updated_in_place(tmp_path, fakes, monkey
     assert update.apply(cfg, staged, tmp_path / "b.dump") is True
     assert (cfg.install / "VERSION").read_text() == "1.1.0"
     assert not {"start", "stop"} & set(fakes["service"])  # never started or stopped
+
+
+def test_apply_waits_for_the_command_that_started_it():
+    import subprocess
+    import sys
+    import time
+
+    proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(1.2)"])
+    started = time.time()
+    update.wait_for_exit(proc.pid, timeout=10)
+    proc.wait()
+    assert 0.8 < time.time() - started < 8

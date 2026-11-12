@@ -171,6 +171,17 @@ def check_update(env: dict, base: str, home: Path, install_dir: Path, tmp: Path)
     log = home / "logs" / "update.log"
     if r.returncode != 0:
         raise SystemExit(f"update failed ({r.returncode}):\n{log.read_text(encoding='utf-8', errors='replace')[-3000:] if log.exists() else ''}")
+    # On Windows the command hands over and returns at once: wait for the outcome.
+    deadline = time.time() + 900
+    while time.time() < deadline:
+        last = (json.loads(state_file.read_text(encoding="utf-8")) if state_file.exists() else {}).get("last_update") or {}
+        if last.get("to") == newer:
+            break
+        time.sleep(3)
+    else:
+        raise SystemExit("update: no outcome after 15 minutes")
+    if not last.get("ok"):
+        raise SystemExit(f"update failed: {last.get('error')}\n{log.read_text(encoding='utf-8', errors='replace')[-3000:] if log.exists() else ''}")
     if (install_dir / "VERSION").read_text(encoding="utf-8").strip() != newer:
         raise SystemExit("update: the program folder wasn't replaced")
 
