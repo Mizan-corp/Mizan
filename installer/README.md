@@ -4,8 +4,8 @@ Everything that installs and runs Mizan on a client's own computer
 ([ADR-005](../docs/decisions/ADR-005-deployment-modes.md)). One licence key decides
 the workspace and the mode; the same installer handles both modes on Windows and Linux.
 
-**Current release: v1.0.0** in [ammar0xff/mizan-releases](https://github.com/ammar0xff/mizan-releases/releases/latest)
-(`MizanSetup-1.0.0-windows.exe`, `MizanSetup-1.0.0-linux`, `mizan-setup-1.0.0-linux-x86_64.run`).
+**Current release: v1.0.2** in [ammar0xff/mizan-releases](https://github.com/ammar0xff/mizan-releases/releases/latest)
+(`MizanSetup-1.0.2-windows.exe`, `MizanSetup-1.0.2-linux`, `mizan-setup-1.0.2-linux-x86_64.run`, and the update payloads `payload-1.0.2-*.zip`).
 User-facing guide: the website's docs, [running on site](https://mizan-co.vercel.app/docs/deploy/modes).
 
 | Part | What it is |
