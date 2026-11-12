@@ -33,7 +33,7 @@ each step ships, is tested and deployed before the next.
 12. ADR-006 phase 9 (#107): changing a workspace's activity.
 
 **P4 — On-site installs (as customers need them)**
-13. #89 updates first, then #90 backups, #88 LAN, #93 Windows signing, #92 device limits, #91 own database.
+13. Done 2026-11-12: #89 updates, #90 local backups, #92 device limits, #88 in-app network page. Waiting: #88 checks on real tills (owner), #93 Windows signing (deferred), #117 encrypted cloud backup (deferred), #91 own database (designed in ADR-009, not built).
 
 **Ongoing** — #84 warnings and unused imports, #83 old docs, #80/#82 tests, #97 vitest workers, #96, #61, healthcare extras (#42–#45).
 

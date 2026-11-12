@@ -166,5 +166,5 @@ Decisions made while building it:
 - **Windows-safe names.** A module folder named `prn` (a reserved device name) broke checkouts
   on Windows; folders must be valid on Windows (`AGENTS.md`).
 
-Updates for installed servers (#89) are built: signed release offers in check-ins, `mizan-server update` with backup and roll-back (installer/README.md, "Updating"). Not yet: encrypted cloud backup (#90), device limits
+Updates for installed servers (#89) are built: signed release offers in check-ins, `mizan-server update` with backup and roll-back (installer/README.md, "Updating"). Bring your own database: designed in ADR-009 (#91), not built. Not yet: encrypted cloud backup (#117), device limits
 (#92), Windows code signing and a manual Windows GUI pass (#93).
