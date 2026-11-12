@@ -21,7 +21,7 @@ import json
 import os
 import secrets
 import sys
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
 IS_WINDOWS = os.name == "nt"
@@ -102,6 +102,8 @@ class Config:
     run_as: str | None = None  # Linux system user for a root install
     # Testing only: verify licences with this public key instead of production's.
     licence_public_key: str = ""
+    # Every backup is also copied here when set: a USB drive, another disk, a network share (#90).
+    backup_copy_to: str = ""
 
     @property
     def data(self) -> Path:
@@ -150,7 +152,10 @@ class Config:
         candidates.append((data_dir or default_data_dir()) / "config.json")
         for path in candidates:
             if path.exists():
-                return cls(**json.loads(path.read_text(encoding="utf-8")))
+                saved = json.loads(path.read_text(encoding="utf-8"))
+                # Keys a newer version added are ignored, so a rolled-back version still starts.
+                known = {f.name for f in fields(cls)}
+                return cls(**{k: v for k, v in saved.items() if k in known})
         raise FileNotFoundError("Mizan isn't installed here (no config.json). Run `mizan-server install`.")
 
     def app_environment(self) -> dict[str, str]:

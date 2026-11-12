@@ -143,6 +143,9 @@ def cmd_status(a) -> int:
         from app.onprem import state
 
         st = state.read_state()
+        info["backup_copy_to"] = cfg.backup_copy_to or None
+        if st.get("backup_copy_error"):
+            info["backup_copy_error"] = st["backup_copy_error"]
         info["update_available"] = (st.get("update_available") or {}).get("version")
         info["last_update"] = st.get("last_update")
     except Exception:
@@ -285,6 +288,36 @@ def cmd_apply_update(a) -> int:
     return 0 if update.apply(cfg, Path(a.source), Path(a.backup)) else 1
 
 
+def cmd_backup_to(a) -> int:
+    """Where every backup is also copied (#90): a USB drive, another disk or a network share."""
+    cfg = Config.load(Path(a.data_dir) if a.data_dir else None)
+    if a.off:
+        cfg.backup_copy_to = ""
+        cfg.save()
+        print("✔ Backups are kept only in " + str(cfg.data / "backups"))
+        return 0
+    if not a.path:
+        print(cfg.backup_copy_to or "(not set)")
+        return 0
+    target = Path(a.path).expanduser().resolve()
+    try:
+        target.mkdir(parents=True, exist_ok=True)
+        probe = target / ".mizan-write-test"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+    except OSError as e:
+        print(f"✘ Can't write to {target}: {e}", file=sys.stderr)
+        return 1
+    cfg.backup_copy_to = str(target)
+    cfg.save()
+    if cfg.run_as:
+        import subprocess
+
+        subprocess.run(["chown", f"{cfg.run_as}:{cfg.run_as}", str(target)], check=False)
+    print(f"✔ Every backup is now also copied to {target} (the newest 14 kept there).")
+    return 0
+
+
 def cmd_uninstall(a) -> int:
     if not a.yes:
         print("Add --yes to confirm." + (" This also DELETES all data." if a.delete_data else " Data is kept."), file=sys.stderr)
@@ -371,6 +404,10 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--to", help="also copy the backup to this folder")
     b.set_defaults(func=cmd_backup)
     sub.add_parser("backups", help="list backups").set_defaults(func=cmd_backup)
+    bt = sub.add_parser("backup-to", help="also copy every backup to a folder (USB, network share); --off to stop")
+    bt.add_argument("path", nargs="?")
+    bt.add_argument("--off", action="store_true")
+    bt.set_defaults(func=cmd_backup_to)
     r = sub.add_parser("restore", help="restore a backup (the current data is backed up first)")
     r.add_argument("file")
     r.set_defaults(func=cmd_backup)

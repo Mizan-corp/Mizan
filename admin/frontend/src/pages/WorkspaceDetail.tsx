@@ -484,7 +484,12 @@ function LicenceTab({ d }: { d: Detail }) {
                   {i.update_to && <Badge tone="warn" className="ms-2">{i.update_to} available</Badge>}
                 </Td>
                 <Td className="text-ink-2">{ago(i.last_seen_at)}</Td>
-                <Td className="text-ink-2">{i.last_backup_at ? ago(i.last_backup_at) : "Never"}</Td>
+                <Td className="text-ink-2">
+                  {i.last_backup_at ? ago(i.last_backup_at) : "Never"}
+                  {(!i.last_backup_at || Date.now() - new Date(i.last_backup_at).getTime() > 3 * 86_400_000) && (
+                    <Badge tone="warn" className="ms-2">Stale</Badge>
+                  )}
+                </Td>
                 <Td className="text-ink-2">{date(i.first_seen_at)}</Td>
               </tr>
             ))}

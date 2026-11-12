@@ -388,6 +388,12 @@ function Storage({ id }: { id: string }) {
   );
 }
 
+/** Each computer backs up daily (#90): older than 3 days, or never, needs a look. */
+function BackupAge({ at }: { at: string | null | undefined }) {
+  const stale = !at || Date.now() - new Date(at).getTime() > 3 * 86_400_000;
+  return <span className={stale ? "text-warn" : undefined}>{at ? `آخر نسخة احتياطية ${ago(at)}` : "لم تُسجَّل نسخة احتياطية بعد"}</span>;
+}
+
 /** A computer running a copy of the licence (#92): the owner can move the licence to it. */
 function MoveLicence({ workspaceId, installationId, hostname }: { workspaceId: string; installationId: string; hostname: string | null }) {
   const [open, setOpen] = useState(false);
@@ -565,6 +571,7 @@ export default function Workspace() {
                     </span>
                     <span className="flex shrink-0 flex-col items-end gap-1 text-xs text-mute">
                       <span>آخر اتصال {ago(i.last_seen_at)}</span>
+                      <BackupAge at={i.last_backup_at} />
                       {i.licensed ? (
                         installations.length > 1 && <Badge tone="ok">عليه الترخيص</Badge>
                       ) : (

@@ -61,6 +61,7 @@ mizan-server status [--json]
 mizan-server start | stop | restart
 mizan-server licence show | set "MZN1.…" | check-in
 mizan-server backup [--to /media/usb] | backups | restore <file>   # restore backs up first
+mizan-server backup-to E:\MizanBackups | /mnt/share/mizan | --off   # also copy every backup there
 mizan-server update [--check] [--yes] [--force]                    # newest release (below)
 mizan-server uninstall --yes [--delete-data]
 ```
