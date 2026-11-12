@@ -58,7 +58,7 @@ export function UninstallDialog({ module, onClose, onDone }: {
           ) : (
             <>
               <div className="flex gap-2 rounded-lg border border-warning/40 bg-warning/5 p-3">
-                <AlertTriangle size={18} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+                <AlertTriangle size={18} className="mt-0.5 shrink-0 text-warning-ink" aria-hidden />
                 <ul className="flex flex-col gap-1">
                   <li>ستُزال: <strong>{p.removed.map((m) => m.name).join("، ")}</strong></li>
                   {rows > 0 && <li>بياناتها: <span className="num font-bold">{rows}</span> سجل في {p.data.length} جدول</li>}

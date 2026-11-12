@@ -76,7 +76,7 @@ export function OnPremLicenceBanner() {
   return (
     <div
       className={`no-print flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 border-b px-4 py-2.5 text-sm font-medium ${
-        severe ? "border-destructive/30 bg-destructive/15 text-destructive" : "border-warning/30 bg-warning/15 text-foreground"
+        severe ? "border-destructive/30 bg-destructive/15 text-destructive-ink" : "border-warning/30 bg-warning/15 text-foreground"
       }`}
     >
       <span>{message}</span>

@@ -712,7 +712,7 @@ export default function LogisticsFleetPage() {
                         ? "border-emerald-500/40 text-emerald-500 bg-emerald-500/10 text-xs"
                         : veh.status === "on_trip"
                         ? "border-blue-500/40 text-blue-500 bg-blue-500/10 text-xs"
-                        : "border-destructive/40 text-destructive bg-destructive/10 text-xs"
+                        : "border-destructive/40 text-destructive-ink bg-destructive/10 text-xs"
                     }
                   >
                     {veh.status === "available" ? "جاهزة للتحميل" : veh.status === "on_trip" ? "في رحلة" : "صيانة"}
@@ -876,7 +876,7 @@ export default function LogisticsFleetPage() {
             <Card className="p-5 border-border/50">
               <div className="flex items-center justify-between pb-3 border-b border-border/40">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-destructive" />
+                  <AlertTriangle className="w-5 h-5 text-destructive-ink" />
                   <h3 className="font-bold text-sm">مطالبات البضائع والتلفيات</h3>
                 </div>
                 <Badge variant="outline" className="font-mono text-xs">

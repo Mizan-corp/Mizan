@@ -18,7 +18,7 @@ export function ExpiringSoon() {
     <PanelCard
       label={<>تشغيلات منتهية أو تنتهي خلال ٩٠ يوماً {rows.length > 0 && <span className="num font-mono text-muted-foreground">({rows.length})</span>}</>}
       icon={CalendarClock}
-      iconClassName={expired > 0 ? "text-destructive" : "text-amber-500"}
+      iconClassName={expired > 0 ? "text-destructive-ink" : "text-amber-500"}
       action={
         <Button variant="ghost" size="sm" nativeButton={false} render={<Link to={tenantTo("/pharmacy?tab=batches")} />} className="text-xs text-muted-foreground hover:text-foreground">
           كل التشغيلات ←
@@ -44,7 +44,7 @@ export function ExpiringSoon() {
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-0.5">
                   <span className="num font-mono text-[11px] text-muted-foreground" dir="ltr">{b.expiry_date}</span>
-                  <span className={`text-[10px] font-bold ${b.days_left < 0 ? "text-destructive" : "text-amber-600 dark:text-amber-400"}`}>
+                  <span className={`text-[10px] font-bold ${b.days_left < 0 ? "text-destructive-ink" : "text-amber-600 dark:text-amber-400"}`}>
                     {b.days_left < 0 ? "منتهية" : b.days_left === 0 ? "تنتهي اليوم" : `بعد ${b.days_left} يوم`}
                   </span>
                 </div>

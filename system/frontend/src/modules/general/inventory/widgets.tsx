@@ -28,7 +28,7 @@ export function LowStockCount() {
       {low.isLoading ? (
         <Skeleton className="h-8 w-20" />
       ) : low.isError ? (
-        <span className="text-xs text-destructive">تعذر التحميل</span>
+        <span className="text-xs text-destructive-ink">تعذر التحميل</span>
       ) : (
         <div className="flex items-baseline gap-1.5">
           <span className={`num font-mono text-3xl font-black tracking-tight ${count > 0 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>
@@ -78,7 +78,7 @@ export function LowStock() {
                   <p className="mt-0.5 text-[10px] text-muted-foreground">وحدة القياس: {p.unit}</p>
                 </div>
                 <div className="text-end">
-                  <span className="num font-mono text-xs font-black text-destructive"><Num value={p.current_qty} /></span>
+                  <span className="num font-mono text-xs font-black text-destructive-ink"><Num value={p.current_qty} /></span>
                   <span className="ms-1 text-[10px] text-muted-foreground">{p.unit}</span>
                 </div>
               </li>

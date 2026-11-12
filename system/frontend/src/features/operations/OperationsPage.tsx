@@ -151,7 +151,7 @@ function DispatchForm() {
       <Lines lines={lines} setLines={setLines} showCost={false} />
       <Input placeholder="ملاحظات" value={notes} onChange={(e) => setNotes(e.target.value)} />
       {run.isError && <ErrorBox message={(run.error as Error).message} />}
-      {run.isSuccess && <Card className="border-success/40 bg-success/10 p-3 text-sm text-success">تم إنشاء إذن الصرف بنجاح</Card>}
+      {run.isSuccess && <Card className="border-success/40 bg-success/10 p-3 text-sm text-success-ink">تم إنشاء إذن الصرف بنجاح</Card>}
       <Button
         className="w-full"
         disabled={run.isPending || !lines.length || lines.some((l) => !l.qty) || isSameWarehouse || warehouses.length < 2}
@@ -208,7 +208,7 @@ function ReceiptForm() {
       <Lines lines={lines} setLines={setLines} showCost />
       <Input placeholder="ملاحظات" value={notes} onChange={(e) => setNotes(e.target.value)} />
       {run.isError && <ErrorBox message={(run.error as Error).message} />}
-      {run.isSuccess && <Card className="border-success/40 bg-success/10 p-3 text-sm text-success">تم تسجيل الاستلام بنجاح</Card>}
+      {run.isSuccess && <Card className="border-success/40 bg-success/10 p-3 text-sm text-success-ink">تم تسجيل الاستلام بنجاح</Card>}
       <Button className="w-full" disabled={run.isPending || !lines.length || lines.some((l) => !l.qty) || !effectiveWh} onClick={() => run.mutate()}>
         {run.isPending ? <Spinner /> : "تسجيل الاستلام"}
       </Button>
@@ -269,7 +269,7 @@ function RequestForm() {
       <Lines lines={lines} setLines={setLines} showCost={false} />
       <Input placeholder="ملاحظات" value={notes} onChange={(e) => setNotes(e.target.value)} />
       {run.isError && <ErrorBox message={(run.error as Error).message} />}
-      {run.isSuccess && <Card className="border-success/40 bg-success/10 p-3 text-sm text-success">تم إرسال الطلب بنجاح</Card>}
+      {run.isSuccess && <Card className="border-success/40 bg-success/10 p-3 text-sm text-success-ink">تم إرسال الطلب بنجاح</Card>}
       <Button
         className="w-full"
         disabled={run.isPending || !lines.length || lines.some((l) => !l.qty) || isSameWarehouse || warehouses.length < 2}

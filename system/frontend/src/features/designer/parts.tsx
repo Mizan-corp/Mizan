@@ -14,7 +14,7 @@ function IconButton({ label, onClick, disabled, children, danger }: {
       disabled={disabled}
       className={cn(
         "inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-30",
-        danger && "hover:bg-destructive/10 hover:text-destructive",
+        danger && "hover:bg-destructive/10 hover:text-destructive-ink",
       )}
     >
       {children}

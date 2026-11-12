@@ -75,7 +75,7 @@ export default function PatientsTab() {
                 <div className="num text-[11px] text-muted-foreground mt-0.5">{pat.date_of_birth} ({pat.gender})</div>
               </TableCell>
               <TableCell>
-                <div className="text-xs text-destructive font-medium flex items-center gap-1">
+                <div className="text-xs text-destructive-ink font-medium flex items-center gap-1">
                   <AlertCircle className="size-3 shrink-0" />
                   {pat.allergies}
                 </div>

@@ -403,7 +403,7 @@ export default function RestaurantTablesPage() {
                     </div>
 
                     <div className="text-end">
-                      <span className="num font-mono text-xs font-bold text-destructive">
+                      <span className="num font-mono text-xs font-bold text-destructive-ink">
                         ⏱ {ticket.elapsed_minutes} دقيقة
                       </span>
                       <p className="text-[10px] text-muted-foreground">{ticket.waiter}</p>
@@ -952,7 +952,7 @@ export default function RestaurantTablesPage() {
                       type="button"
                       variant="outline"
                       disabled={isUpdatingTable}
-                      className="h-9 text-xs font-semibold gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10"
+                      className="h-9 text-xs font-semibold gap-1.5 border-destructive/40 text-destructive-ink hover:bg-destructive/10"
                       onClick={async () => {
                         setIsUpdatingTable(true);
                         try {

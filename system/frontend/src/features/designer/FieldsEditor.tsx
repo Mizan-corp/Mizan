@@ -149,7 +149,7 @@ export function FieldsEditor({ record }: { record: string }) {
                 <label htmlFor="fld-key" className="mb-1.5 block text-xs font-semibold">المفتاح (بالإنجليزية) *</label>
                 <Input id="fld-key" dir="ltr" className="font-mono" value={d.key} disabled={!!editing!.existing} placeholder="warranty_months"
                        onChange={(e) => setEditing({ ...editing!, draft: { ...d, key: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_") } })} />
-                {keyTaken && <p className="mt-1 text-xs text-destructive">هذا المفتاح مستخدم.</p>}
+                {keyTaken && <p className="mt-1 text-xs text-destructive-ink">هذا المفتاح مستخدم.</p>}
               </div>
               <div>
                 <label htmlFor="fld-type" className="mb-1.5 block text-xs font-semibold">النوع</label>

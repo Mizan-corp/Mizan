@@ -283,7 +283,7 @@ function AdvancesTab() {
               {advList.slice(0, 60).map((a) => (
                 <tr key={a.id} className="border-b border-line/60 last:border-0 hover:bg-secondary/10 transition-colors">
                   <td className="p-3 font-bold">{nameOf(a.employee_id)}</td>
-                  <td className="num p-3 font-bold text-warning">{money(a.amount)}</td>
+                  <td className="num p-3 font-bold text-warning-ink">{money(a.amount)}</td>
                   <td className="p-3 text-xs text-muted">{fmtDate(a.date)}</td>
                   <td className="p-3 text-muted">{a.note ?? "—"}</td>
                 </tr>

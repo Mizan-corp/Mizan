@@ -358,7 +358,7 @@ export function NotificationCenter() {
                       <button
                         onClick={() => deleteMutation.mutate(n.id)}
                         title="حذف التنبيه"
-                        className="text-muted-foreground hover:text-destructive p-1 rounded hover:bg-muted transition"
+                        className="text-muted-foreground hover:text-destructive-ink p-1 rounded hover:bg-muted transition"
                       >
                         <Trash2 className="size-3" />
                       </button>

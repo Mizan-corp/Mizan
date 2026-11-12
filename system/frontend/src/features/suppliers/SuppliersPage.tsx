@@ -140,7 +140,7 @@ export default function SuppliersPage() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Card className="p-4">
           <p className="text-[11px] font-medium text-muted-foreground">إجمالي الالتزامات للموردين</p>
-          <p className="num mt-1 text-xl font-bold tracking-tight text-destructive">
+          <p className="num mt-1 text-xl font-bold tracking-tight text-destructive-ink">
             {moneyEGP(totalPayables)}
           </p>
           <p className="mt-1 text-[10px] text-muted-foreground/80">مبالغ مستحقة السداد للشركات</p>
@@ -249,7 +249,7 @@ export default function SuppliersPage() {
                       </TableCell>
 
                       <TableCell className="num p-3 font-bold">
-                        <span className={isDue ? "text-destructive" : "text-muted-foreground"}>
+                        <span className={isDue ? "text-destructive-ink" : "text-muted-foreground"}>
                           {moneyEGP(s.balance)}
                         </span>
                       </TableCell>
@@ -380,7 +380,7 @@ export default function SuppliersPage() {
         >
           <div className="rounded-xl border border-border/80 bg-muted/30 p-3 text-xs">
             <span className="text-muted-foreground">الرصيد القائم الحالي: </span>
-            <strong className="num text-sm font-bold text-destructive">
+            <strong className="num text-sm font-bold text-destructive-ink">
               {moneyEGP(txFor?.balance ?? 0)}
             </strong>
           </div>
@@ -470,7 +470,7 @@ export default function SuppliersPage() {
                       <TableCell className="num p-3 font-bold text-emerald-600 dark:text-emerald-400">
                         {l.debit ? moneyEGP(l.debit) : "—"}
                       </TableCell>
-                      <TableCell className="num p-3 font-bold text-destructive">
+                      <TableCell className="num p-3 font-bold text-destructive-ink">
                         {l.credit ? moneyEGP(l.credit) : "—"}
                       </TableCell>
                     </TableRow>

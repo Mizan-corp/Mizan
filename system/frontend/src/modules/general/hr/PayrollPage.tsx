@@ -160,9 +160,9 @@ export default function PayrollPage() {
                 <tr key={e.id} className="border-b border-line/60 last:border-0 hover:bg-elevated">
                   <td className="p-3 font-semibold">{e.employee_name}</td>
                   <td className="num p-3">{money(e.base_salary)}</td>
-                  <td className="num p-3 text-success">{money(e.bonuses)}</td>
+                  <td className="num p-3 text-success-ink">{money(e.bonuses)}</td>
                   <td className="num p-3 text-danger">{money(e.deductions)}</td>
-                  <td className="num p-3 text-warning">{money(e.advances)}</td>
+                  <td className="num p-3 text-warning-ink">{money(e.advances)}</td>
                   <td className="num p-3 font-black text-brand">{money(e.net_salary)}</td>
                   <td className="p-3">
                     <button

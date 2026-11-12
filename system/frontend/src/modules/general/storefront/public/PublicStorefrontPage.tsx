@@ -672,7 +672,7 @@ export default function PublicStorefrontPage() {
 
                           <button
                             onClick={() => updateQuantity(item.product.id, -item.quantity)}
-                            className="text-muted-foreground hover:text-destructive p-1"
+                            className="text-muted-foreground hover:text-destructive-ink p-1"
                           >
                             <Trash2 className="size-3.5" />
                           </button>
@@ -736,7 +736,7 @@ export default function PublicStorefrontPage() {
                     {appliedCoupon ? (
                       <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs text-emerald-700 dark:text-emerald-300 font-bold">
                         <span>تم تفعيل الكود «{appliedCoupon.code}» (-{formatCurrency(appliedCoupon.discount_amount)})</span>
-                        <button onClick={() => setAppliedCoupon(null)} className="text-destructive hover:underline text-[10px]">
+                        <button onClick={() => setAppliedCoupon(null)} className="text-destructive-ink hover:underline text-[10px]">
                           إزالة
                         </button>
                       </div>

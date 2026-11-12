@@ -588,7 +588,7 @@ export default function WmsWarehousePage() {
                           size="sm"
                           variant="outline"
                           onClick={() => handleEmptyBin(bin.id)}
-                          className="text-xs h-7 px-2 border-border/60 text-destructive hover:bg-destructive/10"
+                          className="text-xs h-7 px-2 border-border/60 text-destructive-ink hover:bg-destructive/10"
                         >
                           تفريغ الموقع
                         </Button>

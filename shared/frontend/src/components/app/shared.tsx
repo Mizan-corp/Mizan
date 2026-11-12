@@ -74,7 +74,7 @@ export function StatCard({
             "flex size-7 items-center justify-center rounded-lg bg-muted text-muted-foreground",
             tone === 'success' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
             tone === 'warning' && 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
-            tone === 'destructive' && 'bg-destructive/15 text-destructive'
+            tone === 'destructive' && 'bg-destructive/15 text-destructive-ink'
           )}>
             <Icon className="size-3.5" aria-hidden />
           </div>
@@ -133,7 +133,7 @@ export function ListState({
       <Empty className="border border-dashed">
         <EmptyHeader>
           <EmptyMedia variant="icon">
-            <AlertTriangle className="text-destructive" />
+            <AlertTriangle className="text-destructive-ink" />
           </EmptyMedia>
           <EmptyTitle>تعذّر تحميل البيانات</EmptyTitle>
           <EmptyDescription>حدث خطأ أثناء الاتصال بالخادم. تحقق من الاتصال ثم أعد المحاولة.</EmptyDescription>
@@ -298,9 +298,9 @@ const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'destructive' | 'in
 }
 
 const STATUS_PILL: Record<string, string> = {
-  success: 'bg-success/15 text-success',
-  warning: 'bg-warning/20 text-warning',
-  destructive: 'bg-destructive/15 text-destructive',
+  success: 'bg-success/15 text-success-ink',
+  warning: 'bg-warning/20 text-warning-ink',
+  destructive: 'bg-destructive/15 text-destructive-ink',
   info: 'bg-chart-4/15 text-chart-4',
   secondary: 'bg-muted text-muted-foreground',
   outline: 'border border-border text-muted-foreground',
@@ -346,9 +346,9 @@ export function KpiTile({
             <span
               className={cn(
                 'grid size-10 place-items-center rounded-lg',
-                tone === 'success' && 'bg-success/15 text-success',
-                tone === 'warning' && 'bg-warning/20 text-warning',
-                tone === 'destructive' && 'bg-destructive/12 text-destructive',
+                tone === 'success' && 'bg-success/15 text-success-ink',
+                tone === 'warning' && 'bg-warning/20 text-warning-ink',
+                tone === 'destructive' && 'bg-destructive/12 text-destructive-ink',
                 tone === 'info' && 'bg-chart-4/15 text-chart-4',
               )}
             >
@@ -370,7 +370,7 @@ export function Delta({ percent }: { percent: number | null }) {
   if (percent === null || !Number.isFinite(percent)) return null
   const up = percent >= 0
   return (
-    <span className={cn('inline-flex items-center gap-1 text-xs font-semibold', up ? 'text-success' : 'text-destructive')}>
+    <span className={cn('inline-flex items-center gap-1 text-xs font-semibold', up ? 'text-success-ink' : 'text-destructive-ink')}>
       {up ? <TrendingUp className="size-3.5" aria-hidden /> : <TrendingDown className="size-3.5" aria-hidden />}
       <span className="num">{up ? '+' : ''}{percent.toFixed(0)}%</span>
     </span>

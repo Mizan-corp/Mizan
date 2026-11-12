@@ -443,7 +443,7 @@ export default function PosPage() {
           </span>
           <span className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition cursor-pointer" onClick={() => (cart.length ? handleHoldBill() : setResumeOpen(true))}>
             <Kbd>F4</Kbd> {cart.length ? "تعليق" : "استئناف"}
-            {held.length > 0 && <span className="num size-4 rounded-full bg-warning/20 text-warning text-[10px] font-black grid place-items-center">{held.length}</span>}
+            {held.length > 0 && <span className="num size-4 rounded-full bg-warning/20 text-warning-ink text-[10px] font-black grid place-items-center">{held.length}</span>}
           </span>
           <span className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition cursor-pointer" onClick={() => { sound.click(); setMode(m => m === "retail" ? "wholesale" : "retail"); }}>
             <Kbd>F8</Kbd> {mode === "retail" ? "تجزئة" : "جملة"}
@@ -650,7 +650,7 @@ export default function PosPage() {
                   {held.length > 0 && (
                     <button
                       onClick={() => { sound.click(); setResumeOpen(true); }}
-                      className="tactile-btn flex items-center gap-1 rounded-md border border-warning/40 bg-warning/10 px-2 py-1 text-xs font-bold text-warning hover:bg-warning/20"
+                      className="tactile-btn flex items-center gap-1 rounded-md border border-warning/40 bg-warning/10 px-2 py-1 text-xs font-bold text-warning-ink hover:bg-warning/20"
                       title="استئناف الفواتير المعلقة [F4]"
                     >
                       <Pause size={12} />
@@ -660,7 +660,7 @@ export default function PosPage() {
                   {cart.length > 0 && (
                     <button
                       onClick={() => { sound.click(); setConfirmClear(true); }}
-                      className="tactile-btn flex items-center justify-center rounded-md border border-line p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
+                      className="tactile-btn flex items-center justify-center rounded-md border border-line p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-ink hover:border-destructive/30"
                       title="تفريغ السلة [F9]"
                     >
                       <Trash2 size={14} />
@@ -755,7 +755,7 @@ export default function PosPage() {
                               sound.click();
                               setCart((c) => c.filter((_, j) => j !== idx));
                             }}
-                            className="tactile-btn size-7.5 rounded-md flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:scale-95 transition-all"
+                            className="tactile-btn size-7.5 rounded-md flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive-ink active:scale-95 transition-all"
                             aria-label="حذف الصنف"
                           >
                             <X size={14} />
@@ -959,7 +959,7 @@ export default function PosPage() {
               )}
 
               {creditWarning && (
-                <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-2.5 text-xs font-bold text-destructive">
+                <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-2.5 text-xs font-bold text-destructive-ink">
                   <TriangleAlert className="size-4 shrink-0" />
                   <span>تحذير: إجمالي المديونية يتجاوز سقف الائتمان المسموح لهذا العميل</span>
                 </div>
@@ -1053,7 +1053,7 @@ export default function PosPage() {
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-bold text-muted-foreground">حالة السداد:</span>
                   {remaining.gt(0) ? (
-                    <span className="inline-flex items-center gap-1 font-bold text-warning font-mono">
+                    <span className="inline-flex items-center gap-1 font-bold text-warning-ink font-mono">
                       <span>المتبقي للدفع:</span>
                       <span className="num font-mono text-sm">{money(remaining)} ج.م</span>
                     </span>
@@ -1132,7 +1132,7 @@ export default function PosPage() {
                     <button
                       type="button"
                       onClick={() => { sound.click(); setSplit((s) => s.filter((_, j) => j !== i)); }}
-                      className="rounded p-1 text-destructive hover:bg-destructive/10"
+                      className="rounded p-1 text-destructive-ink hover:bg-destructive/10"
                       aria-label="حذف الدفعة"
                     >
                       <X size={14} />
@@ -1226,7 +1226,7 @@ export default function PosPage() {
                       sound.click();
                       persistHeld(held.filter((x) => x.id !== b.id));
                     }}
-                    className="p-1 text-muted-foreground hover:text-destructive"
+                    className="p-1 text-muted-foreground hover:text-destructive-ink"
                     aria-label="حذف الفاتورة المعلقة"
                   >
                     <X size={14} />
@@ -1253,10 +1253,10 @@ export default function PosPage() {
                         {s.status === "conflict" ? "تعارض — تحتاج مراجعة" : "محفوظة محلياً على الجهاز"}
                       </p>
                       <p className="num text-[11px] text-muted-foreground font-mono">{new Date(s.savedAt).toLocaleString("ar-EG")}</p>
-                      {s.error && <p className="text-[11px] text-destructive mt-0.5">{s.error}</p>}
+                      {s.error && <p className="text-[11px] text-destructive-ink mt-0.5">{s.error}</p>}
                     </div>
                     {s.status === "conflict" && (
-                      <Button variant="ghost" className="text-destructive text-xs py-1 px-2" onClick={async () => { await removeSale(s.id); refreshQueue(); }}>
+                      <Button variant="ghost" className="text-destructive-ink text-xs py-1 px-2" onClick={async () => { await removeSale(s.id); refreshQueue(); }}>
                         تجاهل
                       </Button>
                     )}

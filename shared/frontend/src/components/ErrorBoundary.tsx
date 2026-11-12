@@ -48,7 +48,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex min-h-svh w-full items-center justify-center bg-background px-4 py-12 text-foreground font-sans">
           <div className="relative mx-auto w-full max-w-lg rounded-2xl border border-line bg-card p-6 shadow-xl text-center md:p-8">
-            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-destructive/10 text-destructive mb-4">
+            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-destructive/10 text-destructive-ink mb-4">
               <AlertTriangle className="size-7" />
             </div>
 
@@ -60,7 +60,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </p>
 
             {import.meta.env.DEV && this.state.error && (
-              <details className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-start text-xs font-mono text-destructive">
+              <details className="mt-4 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-start text-xs font-mono text-destructive-ink">
                 <summary className="cursor-pointer font-bold select-none">تفاصيل الخطأ (بيئة التطوير)</summary>
                 <p className="mt-2 whitespace-pre-wrap break-words">{this.state.error.toString()}</p>
                 {this.state.errorInfo && (

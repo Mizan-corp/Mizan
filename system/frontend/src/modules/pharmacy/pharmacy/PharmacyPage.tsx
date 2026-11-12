@@ -59,7 +59,7 @@ function ExpiryCell({ date, days }: { date: string | null; days?: number | null 
   // Whole calendar days, like the server's (expiry_date - CURRENT_DATE).
   const today = new Date().toISOString().slice(0, 10);
   const left = days ?? Math.round((Date.parse(date) - Date.parse(today)) / 86_400_000);
-  const tone = left < 0 ? "text-destructive font-bold" : left <= 90 ? "text-warning font-bold" : "";
+  const tone = left < 0 ? "text-destructive-ink font-bold" : left <= 90 ? "text-warning-ink font-bold" : "";
   return (
     <span className={`num ${tone}`}>
       {date}
@@ -198,7 +198,7 @@ function Formulary() {
                     <td className="hidden p-3 md:table-cell" dir="ltr">{d.scientific_name ?? "—"}</td>
                     <td className="p-3">
                       <span className="num font-bold">{Number(d.sellable_qty)}</span>
-                      {blocked > 0 && <span className="num ms-1 text-xs text-destructive">(+{blocked} منتهي/محجوز)</span>}
+                      {blocked > 0 && <span className="num ms-1 text-xs text-destructive-ink">(+{blocked} منتهي/محجوز)</span>}
                     </td>
                     <td className="hidden p-3 sm:table-cell"><ExpiryCell date={d.nearest_expiry} /></td>
                     <td className="num hidden p-3 sm:table-cell">{money(d.unit_price)}</td>

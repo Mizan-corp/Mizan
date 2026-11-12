@@ -127,7 +127,7 @@ export default function DashboardPage() {
         </div>
       ) : screens.isError ? (
         <div className="precision-surface flex flex-col items-center gap-3 rounded-2xl p-8 text-center">
-          <p className="text-sm text-destructive">تعذر تحميل لوحة التحكم.</p>
+          <p className="text-sm text-destructive-ink">تعذر تحميل لوحة التحكم.</p>
           <Button variant="outline" size="sm" onClick={() => screens.refetch()}>إعادة المحاولة</Button>
         </div>
       ) : widgets.length === 0 ? (

@@ -28,7 +28,7 @@ export default function BedsTab() {
           <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-medium">
             <span className="size-2 rounded-full bg-emerald-500" /> شاغر متاح
           </span>
-          <span className="flex items-center gap-1.5 text-destructive font-medium">
+          <span className="flex items-center gap-1.5 text-destructive-ink font-medium">
             <span className="size-2 rounded-full bg-destructive" /> مشغول
           </span>
           <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-medium">
@@ -55,7 +55,7 @@ export default function BedsTab() {
                 variant="outline"
                 className={
                   b.status === "occupied"
-                    ? "border-destructive/40 text-destructive bg-destructive/10 text-xs"
+                    ? "border-destructive/40 text-destructive-ink bg-destructive/10 text-xs"
                     : b.status === "available"
                     ? "border-emerald-600/40 text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 text-xs"
                     : "border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10 text-xs"
@@ -98,7 +98,7 @@ export default function BedsTab() {
                   size="sm"
                   variant="outline"
                   onClick={() => handleDischargeBed(b.id)}
-                  className="w-full text-xs h-7 border-destructive/30 text-destructive hover:bg-destructive/10"
+                  className="w-full text-xs h-7 border-destructive/30 text-destructive-ink hover:bg-destructive/10"
                 >
                   إخلاء السرير للتعقيم
                 </Button>

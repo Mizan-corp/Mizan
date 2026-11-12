@@ -115,7 +115,7 @@ export default function ShiftsPage() {
       ) : (
         <Card className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="flex items-center gap-2 font-bold text-success"><Clock size={18} /> وردية مفتوحة</p>
+            <p className="flex items-center gap-2 font-bold text-success-ink"><Clock size={18} /> وردية مفتوحة</p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => openPrintDoc(`/print/shift/${shift.id}`)}>
                 <Printer size={16} /> تقرير الوردية

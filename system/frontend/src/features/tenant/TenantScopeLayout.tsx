@@ -100,7 +100,7 @@ export default function TenantScopeLayout() {
     return (
       <div className="grid min-h-screen place-items-center bg-background text-foreground p-4">
         <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-sm space-y-4">
-          <div className="mx-auto grid size-12 place-items-center rounded-xl bg-destructive/10 text-destructive">
+          <div className="mx-auto grid size-12 place-items-center rounded-xl bg-destructive/10 text-destructive-ink">
             <AlertCircle className="size-6" />
           </div>
           <h1 className="text-base font-bold text-foreground">تعذر العثور على المنشأة</h1>

@@ -135,7 +135,7 @@ export function SchoolTuitionReceiptModal({
             )}
             <div className="flex justify-between border-t border-border pt-1.5 font-bold">
               <span>المتبقي المستحق على الطالب:</span>
-              <span className={`num font-mono text-sm ${data.new_balance_due > 0 ? "text-destructive" : "text-emerald-600"}`}>
+              <span className={`num font-mono text-sm ${data.new_balance_due > 0 ? "text-destructive-ink" : "text-emerald-600"}`}>
                 {data.new_balance_due > 0 ? moneyEGP(data.new_balance_due) : "خالص بالكامل (0.00 ج.م)"}
               </span>
             </div>

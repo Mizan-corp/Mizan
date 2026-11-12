@@ -261,7 +261,7 @@ export function ErrorBox({ message, onRetry }: { message: string; onRetry?: () =
     <motion.div
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex items-center justify-between gap-4 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive"
+      className="flex items-center justify-between gap-4 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive-ink"
       role="alert"
     >
       <span className="flex items-center gap-2"><XCircle size={16} className="shrink-0" /> {message}</span>
@@ -317,9 +317,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               role="status"
               className={`pointer-events-auto flex max-w-md items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-medium shadow-xl backdrop-blur-md cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99] ${
                 t.kind === "success"
-                  ? "border-success/30 bg-success/15 text-success dark:bg-success/20"
+                  ? "border-success/30 bg-success/15 text-success-ink dark:bg-success/20"
                   : t.kind === "error"
-                    ? "border-destructive/30 bg-destructive/15 text-destructive dark:bg-destructive/20"
+                    ? "border-destructive/30 bg-destructive/15 text-destructive-ink dark:bg-destructive/20"
                     : "border-border/80 bg-popover/95 text-popover-foreground"
               }`}
             >

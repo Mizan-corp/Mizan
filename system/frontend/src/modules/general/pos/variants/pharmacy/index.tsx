@@ -39,11 +39,11 @@ export function DrugInfo({ product, compact = false }: { product: DrugProduct; c
     <span className="flex flex-wrap items-center gap-1 text-[10px] leading-tight text-muted-foreground">
       {detail && <span dir="auto" className="truncate">{String(detail)}</span>}
       {isControlled(product) ? (
-        <span className="inline-flex items-center gap-0.5 rounded bg-destructive/10 px-1 font-bold text-destructive">
+        <span className="inline-flex items-center gap-0.5 rounded bg-destructive/10 px-1 font-bold text-destructive-ink">
           <ShieldAlert size={10} aria-hidden /> مراقب
         </span>
       ) : isRx(product) ? (
-        <span className="inline-flex items-center gap-0.5 rounded bg-warning/15 px-1 font-bold text-warning">
+        <span className="inline-flex items-center gap-0.5 rounded bg-warning/15 px-1 font-bold text-warning-ink">
           <FileText size={10} aria-hidden /> روشتة
         </span>
       ) : null}
@@ -71,8 +71,8 @@ export function PrescriptionPanel({
       className={`rounded-xl border p-3 ${missing.length ? "border-warning/50 bg-warning/5" : "border-line bg-secondary/20"}`}
     >
       <div className="mb-2 flex items-start gap-2 text-xs">
-        {needs.controlled.length ? <ShieldAlert size={16} className="mt-0.5 shrink-0 text-destructive" aria-hidden />
-          : <FileText size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden />}
+        {needs.controlled.length ? <ShieldAlert size={16} className="mt-0.5 shrink-0 text-destructive-ink" aria-hidden />
+          : <FileText size={16} className="mt-0.5 shrink-0 text-warning-ink" aria-hidden />}
         <p className="leading-relaxed">
           <strong className="font-bold">{needs.controlled.length ? "أدوية مراقبة" : "أدوية تُصرف بروشتة"}:</strong>{" "}
           {(needs.controlled.length ? needs.controlled : needs.rx).join("، ")}
@@ -85,7 +85,7 @@ export function PrescriptionPanel({
           return (
             <div key={f.key}>
               <label htmlFor={id} className="mb-0.5 block text-[11px] font-medium text-muted-foreground">
-                {f.label ?? f.key}{required && <span className="text-destructive"> *</span>}
+                {f.label ?? f.key}{required && <span className="text-destructive-ink"> *</span>}
               </label>
               <Input
                 id={id}
@@ -100,7 +100,7 @@ export function PrescriptionPanel({
         })}
       </div>
       {missing.length > 0 && (
-        <p className="mt-2 text-[11px] text-warning" role="status">
+        <p className="mt-2 text-[11px] text-warning-ink" role="status">
           مطلوب قبل التأكيد: {fields.filter((f) => missing.includes(f.key)).map((f) => f.label ?? f.key).join("، ")}
         </p>
       )}

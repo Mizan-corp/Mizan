@@ -227,7 +227,7 @@ export default function SalesPage() {
                     <div className="flex flex-col">
                       <Money value={Number(inv.total)} className="font-medium" />
                       {inv.is_credit && inv.status !== "cancelled" && (
-                        <span className="text-xs text-warning">
+                        <span className="text-xs text-warning-ink">
                           متبقي <Money value={Number(inv.total) - Number(inv.paid_amount)} currency={false} />
                         </span>
                       )}
@@ -298,7 +298,7 @@ export default function SalesPage() {
               <Skeleton className="h-40 w-full" />
             </div>
           ) : detail.isError ? (
-            <p className="p-4 text-sm text-destructive">{(detail.error as Error).message}</p>
+            <p className="p-4 text-sm text-destructive-ink">{(detail.error as Error).message}</p>
           ) : d && (
             <div className="flex flex-col gap-4 p-4">
               <div className="grid grid-cols-3 gap-2">
@@ -359,7 +359,7 @@ export default function SalesPage() {
                       </div>
                     ))}
                   </div>
-                  {partialReturn.isError && <p className="mt-2 text-sm text-destructive">{(partialReturn.error as Error).message}</p>}
+                  {partialReturn.isError && <p className="mt-2 text-sm text-destructive-ink">{(partialReturn.error as Error).message}</p>}
                   <Button
                     variant="outline"
                     className="mt-3 w-full"
@@ -409,7 +409,7 @@ export default function SalesPage() {
                 )}
               </div>
               {(cancelSale.isError || fullReturn.isError || partialReturn.isError) && (
-                <p className="text-sm text-destructive">
+                <p className="text-sm text-destructive-ink">
                   {((cancelSale.error ?? fullReturn.error ?? partialReturn.error) as Error).message}
                 </p>
               )}

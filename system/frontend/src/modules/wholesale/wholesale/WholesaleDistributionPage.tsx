@@ -373,7 +373,7 @@ export default function WholesaleDistributionPage() {
             <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground font-mono">
               <span>نسبة الإشغال: {summary?.credit_utilization_percent || 0}%</span>
               <span>•</span>
-              <span className="text-destructive font-semibold">
+              <span className="text-destructive-ink font-semibold">
                 {summary?.blocked_distributors_count || 0} عملاء محظورين
               </span>
             </div>
@@ -632,7 +632,7 @@ export default function WholesaleDistributionPage() {
                       <span
                         className={
                           item.total_exposure > item.approved_credit_limit
-                            ? "text-destructive"
+                            ? "text-destructive-ink"
                             : "text-foreground"
                         }
                       >
@@ -643,7 +643,7 @@ export default function WholesaleDistributionPage() {
                       <span
                         className={
                           item.oldest_overdue_days > item.max_allowed_overdue_days
-                            ? "text-destructive font-bold"
+                            ? "text-destructive-ink font-bold"
                             : "text-muted-foreground"
                         }
                       >
@@ -653,7 +653,7 @@ export default function WholesaleDistributionPage() {
                     <TableCell className="text-center">
                       {item.is_blocked ? (
                         <div className="flex flex-col items-center">
-                          <Badge variant="outline" className="border-destructive/40 text-destructive bg-destructive/10 text-xs">
+                          <Badge variant="outline" className="border-destructive/40 text-destructive-ink bg-destructive/10 text-xs">
                             محظور بيعياً
                           </Badge>
                           {item.block_reason && (
@@ -679,7 +679,7 @@ export default function WholesaleDistributionPage() {
                         className={`text-xs gap-1.5 ${
                           item.is_blocked
                             ? "border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10"
-                            : "border-destructive/40 text-destructive hover:bg-destructive/10"
+                            : "border-destructive/40 text-destructive-ink hover:bg-destructive/10"
                         }`}
                       >
                         {item.is_blocked ? (

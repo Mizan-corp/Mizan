@@ -51,7 +51,7 @@ export function TrialBanner() {
 
   if (ms <= 0) {
     return (
-      <div role="status" className="no-print flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-destructive/30 bg-destructive/15 px-4 py-2.5 text-sm text-destructive font-medium">
+      <div role="status" className="no-print flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-destructive/30 bg-destructive/15 px-4 py-2.5 text-sm text-destructive-ink font-medium">
         <span className="font-bold flex items-center gap-1.5">
           <span aria-hidden>⚠️</span>
           <span>

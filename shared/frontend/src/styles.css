@@ -47,6 +47,11 @@
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-destructive: var(--destructive);
+  /* Status colours as text on their own pale tint (badges, notes): darkened in light themes so
+     they reach 4.5:1 (WCAG AA, #26); unchanged in dark themes. */
+  --color-success-ink: color-mix(in srgb, var(--success) var(--status-ink), black);
+  --color-warning-ink: color-mix(in srgb, var(--warning) var(--status-ink), black);
+  --color-destructive-ink: color-mix(in srgb, var(--destructive) var(--status-ink), black);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -876,4 +881,10 @@ html.lenis, html.lenis body {
   will-change: transform, opacity;
 }
 
-
+/* See --color-*-ink above (#26). */
+:root {
+  --status-ink: 55%;
+}
+.dark {
+  --status-ink: 100%;
+}

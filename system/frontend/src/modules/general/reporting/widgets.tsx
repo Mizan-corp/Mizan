@@ -21,7 +21,7 @@ export function SalesToday() {
       footer={
         <>
           {delta !== null && (
-            <span className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-bold ${delta >= 0 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-destructive/10 text-destructive"}`}>
+            <span className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-bold ${delta >= 0 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-destructive/10 text-destructive-ink"}`}>
               {delta >= 0 ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
               {Math.abs(delta).toFixed(1)}% عن أمس
             </span>
@@ -35,7 +35,7 @@ export function SalesToday() {
       {daily.isLoading ? (
         <Skeleton className="h-8 w-32" />
       ) : daily.isError ? (
-        <span className="text-xs text-destructive">تعذر التحميل</span>
+        <span className="text-xs text-destructive-ink">تعذر التحميل</span>
       ) : (
         <div className="flex items-baseline gap-1.5">
           <span className="num font-mono text-3xl font-black tracking-tight text-foreground">{formatNumber(total)}</span>
@@ -57,7 +57,7 @@ export function SalesMonth() {
       {monthly.isLoading ? (
         <Skeleton className="h-8 w-32" />
       ) : monthly.isError ? (
-        <span className="text-xs text-destructive">تعذر التحميل</span>
+        <span className="text-xs text-destructive-ink">تعذر التحميل</span>
       ) : (
         <span className="num font-mono text-3xl font-black tracking-tight text-foreground">
           <Money value={Number(monthly.data?.total_sales ?? 0)} />
@@ -110,7 +110,7 @@ export function SalesTrend() {
         {trend.isLoading ? (
           <Skeleton className="h-20 w-full" />
         ) : trend.isError ? (
-          <p className="py-6 text-center text-xs text-destructive">تعذر تحميل المنحنى</p>
+          <p className="py-6 text-center text-xs text-destructive-ink">تعذر تحميل المنحنى</p>
         ) : (
           <Sparkline data={values} className="h-20 w-full" />
         )}

@@ -559,7 +559,7 @@ function DetailedLedgerTab({ wid }: { wid: string }) {
                       <span
                         className={`num text-sm font-black ${
                           r.status === "out_of_stock"
-                            ? "text-destructive"
+                            ? "text-destructive-ink"
                             : r.status === "low_stock"
                             ? "text-amber-600 dark:text-amber-400"
                             : "text-foreground"
@@ -726,7 +726,7 @@ function LowStockAlertsTab({ wid }: { wid: string }) {
                   <TableCell className="p-3 font-semibold text-foreground">
                     {r.product_name}
                   </TableCell>
-                  <TableCell className="num p-3 text-center font-bold text-destructive">
+                  <TableCell className="num p-3 text-center font-bold text-destructive-ink">
                     {fq(r.current_qty)}
                   </TableCell>
                   <TableCell className="p-3 text-muted-foreground">{r.unit}</TableCell>

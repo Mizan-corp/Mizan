@@ -538,7 +538,7 @@ export default function ServicesConsultingPage() {
                     <TableCell className="font-bold text-foreground text-xs">{d.client_name}</TableCell>
                     <TableCell className="text-xs font-semibold text-primary">{d.filing_type}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{d.period}</TableCell>
-                    <TableCell className="num text-xs font-bold text-destructive">{d.due_date}</TableCell>
+                    <TableCell className="num text-xs font-bold text-destructive-ink">{d.due_date}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{d.assigned_to}</TableCell>
                     <TableCell>
                       <Badge
@@ -950,7 +950,7 @@ export default function ServicesConsultingPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">تاريخ الاستحقاق:</span>
-                <strong className="text-destructive font-mono">{selectedDeadline.due_date}</strong>
+                <strong className="text-destructive-ink font-mono">{selectedDeadline.due_date}</strong>
               </div>
             </div>
 

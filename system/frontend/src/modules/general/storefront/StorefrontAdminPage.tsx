@@ -499,7 +499,7 @@ export default function StorefrontAdminPage() {
                   preparing: { label: "قيد التجهيز", color: "bg-indigo-500/10 text-indigo-500 border-indigo-500/20" },
                   out_for_delivery: { label: "جاري التوصيل", color: "bg-purple-500/10 text-purple-500 border-purple-500/20" },
                   completed: { label: "تم التسليم", color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
-                  cancelled: { label: "ملغي", color: "bg-destructive/10 text-destructive border-destructive/20" },
+                  cancelled: { label: "ملغي", color: "bg-destructive/10 text-destructive-ink border-destructive/20" },
                 };
                 const currentStatus = statusStyles[o.status] || { label: o.status, color: "bg-muted text-muted-foreground" };
 
@@ -610,7 +610,7 @@ export default function StorefrontAdminPage() {
                           variant="outline"
                           onClick={() => handleUpdateOrderStatus(o.id, "cancelled")}
                           disabled={isUpdating}
-                          className="h-7 text-[11px] text-destructive hover:bg-destructive/10"
+                          className="h-7 text-[11px] text-destructive-ink hover:bg-destructive/10"
                         >
                           <XCircle className="size-3" />
                         </Button>
