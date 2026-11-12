@@ -1,8 +1,8 @@
 """FastAPI Router for Housekeeping & Cleaning Operations."""
 from datetime import datetime
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, update
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db

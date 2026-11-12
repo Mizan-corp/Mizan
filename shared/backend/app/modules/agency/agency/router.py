@@ -1,7 +1,6 @@
 """API Router for Creative, Media & Translation Agency module (AGE-01..10)."""
 from __future__ import annotations
 
-import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException

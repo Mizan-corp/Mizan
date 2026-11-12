@@ -1,5 +1,4 @@
 """Pydantic schemas for Banquet & Events module."""
-from typing import Optional
 from pydantic import BaseModel
 
 

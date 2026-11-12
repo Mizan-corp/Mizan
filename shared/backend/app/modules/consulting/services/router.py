@@ -1,8 +1,6 @@
 """API router for Consulting & Professional Services module (CON-01..08)."""
 from __future__ import annotations
 
-import uuid
-from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.framework.activation import require_module

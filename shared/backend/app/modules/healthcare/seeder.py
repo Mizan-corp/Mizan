@@ -21,8 +21,7 @@ from app.modules.healthcare.models import (
     PatientVitalRecord, PatientAllergyRecord, ClinicalEncounter,
     InpatientAdmission, HospitalWard, HospitalBed, MedicationAdminRecord,
     LabTestItem, LabSpecimenOrder, RadiologyStudyOrder,
-    MedicationProduct, MedicationDispenseRecord,
-    EmergencyCase, SurgicalCase, PatientInvoice, InsuranceClaimRecord,
+    MedicationProduct, EmergencyCase, SurgicalCase, PatientInvoice, InsuranceClaimRecord,
     MedicalSupplyItem, HealthcareCostCenter, ClinicalCredentialRecord,
     BiomedicalDevice, PatientPortalRequest, TeleconsultationSession,
     HealthcareAlert, HealthcareDailyMetric

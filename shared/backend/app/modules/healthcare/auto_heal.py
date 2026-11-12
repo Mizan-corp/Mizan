@@ -4,7 +4,6 @@ Ensures healthcare tables and seed data exist seamlessly in cloud serverless
 environments where upfront DDL is bypassed during lambda cold-start.
 """
 import logging
-from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger("mizan.healthcare.auto_heal")

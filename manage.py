@@ -805,7 +805,7 @@ def _lint() -> None:
     if not VENV.exists():
         need("ruff", "Run `python manage.py setup` or `pip install ruff`.")
     run([*ruff, "check", "shared/backend", "system/backend", "website/backend", "owner/backend", "admin/backend",
-         "--select", "E9,F63,F7,F82,F821,F601"])
+         "--select", "E9,F63,F7,F82,F821,F601,F401,F841"])
     ok("ruff")
     _need_node_modules()
     for a in APPS.values():

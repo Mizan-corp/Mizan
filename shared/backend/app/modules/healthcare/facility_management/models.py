@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, DateTime, func, JSON
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, func, JSON
 from app.db.base import Base
 from app.platform.tenancy.context import TenantScoped
 

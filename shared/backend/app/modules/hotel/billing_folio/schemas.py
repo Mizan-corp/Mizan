@@ -1,5 +1,4 @@
 """Pydantic schemas for Hotel Guest Folio module."""
-from typing import Optional
 from pydantic import BaseModel
 
 

@@ -1,7 +1,6 @@
 """Database models for Healthcare & Clinic/Hospital ERP module (HLT-01..12)."""
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import datetime
 

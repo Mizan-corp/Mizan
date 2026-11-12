@@ -17,8 +17,8 @@ from datetime import datetime, date
 from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import (
-    Boolean, Column, Date, DateTime, Enum, ForeignKey, Integer,
-    String, Table, Text, UniqueConstraint, func, text, Index
+    Boolean, Date, DateTime, ForeignKey, Integer,
+    String, Text, UniqueConstraint, func, text, Index
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship

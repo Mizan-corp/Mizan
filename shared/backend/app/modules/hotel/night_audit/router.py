@@ -1,7 +1,6 @@
 """FastAPI Router for Hotel Night Audit & Financial Reconciliations."""
 from datetime import datetime
-from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 

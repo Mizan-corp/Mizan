@@ -61,7 +61,7 @@ jobs:
           done
 
       - name: Lint
-        run: pip install ruff && ruff check shared/backend system/backend website/backend owner/backend admin/backend --select E9,F63,F7,F82,F821,F601
+        run: pip install ruff && ruff check shared/backend system/backend website/backend owner/backend admin/backend --select E9,F63,F7,F82,F821,F601,F401,F841
 
   ci-e2e:
     name: E2E (live API)

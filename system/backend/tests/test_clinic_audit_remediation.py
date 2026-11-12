@@ -28,16 +28,9 @@ from app.platform.auth.models.user import User
 from app.modules.general.inventory.models.warehouse import Warehouse
 from app.modules.general.sales.models.sale import Sale
 from app.modules.healthcare.healthcare_clinic.models import (
-    ClinicAppointment,
-    ClinicEncounter,
     ClinicInpatientBed,
-    ClinicInsuranceClaim,
-    ClinicInvoice,
-    ClinicLabOrder,
-    ClinicPatient,
-    ClinicPrescription,
 )
-from app.modules.pharmacy.pharmacy.models import PharmacyBatch, PharmacyDrug
+from app.modules.pharmacy.pharmacy.models import PharmacyDrug
 from tests.conftest import give_roles
 
 pytestmark = pytest.mark.skipif(

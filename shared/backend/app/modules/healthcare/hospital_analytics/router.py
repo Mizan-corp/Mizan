@@ -1,12 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from datetime import date
 from typing import Dict, Any
 
 from app.db.base import get_db
 from app.dependencies import get_current_user
-from .models import HealthcareDailyMetric
 
 router = APIRouter(prefix="/healthcare/analytics", tags=["Healthcare - Analytics (HLT-24)"])
 

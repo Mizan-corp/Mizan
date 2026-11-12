@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, List, Optional
+from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db

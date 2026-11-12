@@ -1,7 +1,6 @@
 """API Router for Healthcare & Clinic/Hospital ERP module (HLT-01..12)."""
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from datetime import date, datetime, UTC
@@ -10,7 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlalchemy import func, or_, select, text, update
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.framework.activation import require_module

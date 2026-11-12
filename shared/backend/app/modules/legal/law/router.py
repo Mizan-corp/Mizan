@@ -1,7 +1,6 @@
 """API Router for Law Firm & Legal Practice ERP module (LAW-01..09)."""
 from __future__ import annotations
 
-import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import csv
 import io
-import uuid
 from datetime import date as _date
 from datetime import datetime as _dt
 from typing import Any
