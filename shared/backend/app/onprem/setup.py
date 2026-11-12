@@ -45,8 +45,11 @@ async def build_schema(workspace_id: uuid.UUID, workspace_name: str) -> list[str
             script = "\n".join(ln for ln in BASELINE.read_text(encoding="utf-8").splitlines() if not ln.startswith("\\"))
             raw = await conn.get_raw_connection()
             await raw.driver_connection.execute(script)
-            # pg_dump empties search_path for its session; put it back for what follows.
+            # pg_dump's session settings stay on this pooled connection: put them back for what
+            # follows. row_security = off makes every query that RLS would filter fail for the
+            # workspace role (mizan_app, #112), so on-site installs couldn't create their workspace.
             await conn.execute(text("SET search_path TO public"))
+            await conn.execute(text("RESET row_security"))
         await conn.run_sync(Base.metadata.create_all)
         await conn.execute(text("ALTER TYPE doc_type_enum ADD VALUE IF NOT EXISTS 'safe_deposit'"))
         # Our workspace first, so the foundation step doesn't add a default one.
