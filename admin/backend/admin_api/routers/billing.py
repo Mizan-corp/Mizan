@@ -92,6 +92,30 @@ async def mark_invoice_paid(
     return {"ok": True}
 
 
+@router.get("/invoices/{ref}/receipt.pdf")
+async def invoice_receipt(ref: str, db: AsyncSession = Depends(get_db), _: User = Depends(require_superadmin)):
+    """A paid invoice's receipt, as the owner downloads it (#69)."""
+    from fastapi.responses import Response
+
+    from app.platform.auth.models.owner import OwnerAccount
+    from app.platform.billing.receipt import receipt_pdf
+    from app.platform.tenancy.models import Tenant
+
+    row = (await db.execute(
+        select(BillingInvoice, Tenant, OwnerAccount).join(Tenant, Tenant.id == BillingInvoice.tenant_id)
+        .outerjoin(OwnerAccount, OwnerAccount.id == Tenant.owner_account_id)
+        .where(BillingInvoice.invoice_ref == ref)
+    )).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    invoice, tenant, owner = row
+    if invoice.status != "paid":
+        raise HTTPException(status_code=409, detail="Receipts exist for paid invoices only")
+    pdf = await receipt_pdf(invoice, tenant.name, (owner.full_name or owner.login) if owner else None)
+    return Response(pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="Mizan-receipt-{invoice.invoice_ref}.pdf"'})
+
+
 @router.post("/requests/{request_id}/dismiss")
 async def dismiss_request(
     request_id: uuid.UUID,

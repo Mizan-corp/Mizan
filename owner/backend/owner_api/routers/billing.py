@@ -121,6 +121,27 @@ async def invoice(ref: str, db: AsyncSession = Depends(get_db), owner: OwnerAcco
     return invoice_out(row[0], row[1])
 
 
+@router.get("/invoices/{ref}/receipt.pdf")
+async def invoice_receipt(ref: str, db: AsyncSession = Depends(get_db), owner: OwnerAccount = Depends(get_current_owner)):
+    """A paid invoice's receipt as PDF (#69)."""
+    from fastapi.responses import Response
+
+    from app.platform.billing.receipt import receipt_pdf
+
+    row = (await db.execute(
+        select(BillingInvoice, Tenant).join(Tenant, Tenant.id == BillingInvoice.tenant_id)
+        .where(BillingInvoice.invoice_ref == ref, Tenant.owner_account_id == owner.id)
+    )).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
+    invoice, tenant = row
+    if invoice.status != "paid":
+        raise HTTPException(status_code=409, detail="الإيصال متاح بعد سداد الفاتورة")
+    pdf = await receipt_pdf(invoice, tenant.name, owner.full_name or owner.login)
+    return Response(pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="Mizan-receipt-{invoice.invoice_ref}.pdf"'})
+
+
 # ─── Paymob callback ───────────────────────────────────────────────────────
 
 

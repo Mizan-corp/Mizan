@@ -32,4 +32,4 @@ include = ["app*"]
 exclude = ["*.frontend*"]
 
 [tool.setuptools.package-data]
-"*" = ["*.json", "*.sql", "*.html", "*.md"]
+"*" = ["*.json", "*.sql", "*.html", "*.md", "*.ttf", "*.txt"]

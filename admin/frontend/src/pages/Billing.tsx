@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { Download } from "lucide-react";
+import { toast } from "sonner";
+import { downloadExport } from "@/lib/api";
 import { actions, type Invoice, useAction, useBilling } from "@app/lib/data";
 import { ago, date, errorText, money, num, planLabel } from "@app/lib/format";
 import {
@@ -108,6 +111,26 @@ export function MarkPaidDialog({
   );
 }
 
+/** The receipt the owner downloads for a paid invoice (#69). */
+function ReceiptButton({ invoiceRef }: { invoiceRef: string }) {
+  const [busy, setBusy] = useState(false);
+  async function download() {
+    setBusy(true);
+    try {
+      await downloadExport(`/admoon/billing/invoices/${encodeURIComponent(invoiceRef)}/receipt.pdf`, undefined, `Mizan-receipt-${invoiceRef}.pdf`);
+    } catch (e) {
+      toast.error(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Button size="sm" onClick={download} busy={busy} aria-label={`Download receipt ${invoiceRef}`}>
+      {!busy && <Download />} Receipt
+    </Button>
+  );
+}
+
 export function InvoiceTable({ invoices, showWorkspace }: { invoices: Invoice[]; showWorkspace?: boolean }) {
   const [paying, setPaying] = useState<Invoice | null>(null);
   if (!invoices.length) return <Empty title="No invoices yet.">Invoices appear when a workspace starts a checkout.</Empty>;
@@ -140,6 +163,7 @@ export function InvoiceTable({ invoices, showWorkspace }: { invoices: Invoice[];
                   Mark paid
                 </Button>
               )}
+              {i.status === "paid" && <ReceiptButton invoiceRef={i.ref} />}
             </Td>
           </tr>
         ))}

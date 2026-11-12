@@ -1,7 +1,31 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { Download } from "lucide-react";
+import { toast } from "sonner";
+import { downloadExport } from "@/lib/api";
 import { type Invoice, useInvoices } from "@app/lib/data";
-import { date, INVOICE_STATUS, METHOD_LABEL, money, planLabel } from "@app/lib/format";
-import { Badge, Empty, LoadError, PageHeader, PageSkeleton, Panel, Money } from "@app/ui";
+import { date, errorText, INVOICE_STATUS, METHOD_LABEL, money, planLabel } from "@app/lib/format";
+import { Badge, Button, Empty, LoadError, PageHeader, PageSkeleton, Panel, Money } from "@app/ui";
+
+/** A paid invoice's PDF receipt (#69). */
+function ReceiptButton({ invoiceRef }: { invoiceRef: string }) {
+  const [busy, setBusy] = useState(false);
+  async function download() {
+    setBusy(true);
+    try {
+      await downloadExport(`/account/invoices/${encodeURIComponent(invoiceRef)}/receipt.pdf`, undefined, `Mizan-receipt-${invoiceRef}.pdf`);
+    } catch (e) {
+      toast.error(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Button size="sm" onClick={download} busy={busy} aria-label={`تنزيل إيصال ${invoiceRef}`}>
+      {!busy && <Download />} الإيصال
+    </Button>
+  );
+}
 
 export function InvoiceTable({ invoices, showWorkspace }: { invoices: Invoice[]; showWorkspace?: boolean }) {
   if (!invoices.length) return <Empty title="لا توجد فواتير بعد.">تظهر الفاتورة هنا عند الاشتراك أو التجديد.</Empty>;
@@ -16,6 +40,7 @@ export function InvoiceTable({ invoices, showWorkspace }: { invoices: Invoice[];
             <th className="px-5 py-3 text-start font-semibold">المدة</th>
             <th className="px-5 py-3 text-start font-semibold">المبلغ</th>
             <th className="px-5 py-3 text-start font-semibold">الحالة</th>
+            <th className="px-5 py-3"><span className="sr-only">الإيصال</span></th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line-soft">
@@ -45,6 +70,7 @@ export function InvoiceTable({ invoices, showWorkspace }: { invoices: Invoice[];
                   <Badge tone={s.tone}>{s.label}</Badge>
                   <div className="mt-0.5 text-xs text-mute">{i.paid_at ? date(i.paid_at) : METHOD_LABEL[i.method] ?? i.method}</div>
                 </td>
+                <td className="px-5 py-3.5 text-end">{i.status === "paid" && <ReceiptButton invoiceRef={i.ref} />}</td>
               </tr>
             );
           })}

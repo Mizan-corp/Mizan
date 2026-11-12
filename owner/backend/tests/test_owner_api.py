@@ -387,3 +387,23 @@ async def test_accept_checkout_calls(monkeypatch):
 
     with pytest.raises(paymob.PaymobError):
         await REAL_CREATE_CHECKOUT(invoice, tenant, owner, method="wallet", wallet_number="123")
+
+
+async def test_paid_invoices_have_a_pdf_receipt():
+    """#69: a receipt for paid invoices only, for their owner only."""
+    owner, tenant, _ = await make_owner()
+    other, _, _ = await make_owner()
+    async with client() as c:
+        h = await login(c, owner)
+        inv = (await c.post(f"/account/workspaces/{tenant.id}/checkout", headers=h, json={"plan": "pro", "cycle": "monthly"})).json()["invoice"]
+        ref, cents = inv["ref"], round(inv["amount_egp"] * 100)
+        assert (await c.get(f"/account/invoices/{ref}/receipt.pdf", headers=h)).status_code == 409  # not paid yet
+
+        paid = txn(ref, cents, uuid.uuid4().int % 10**9)
+        assert (await c.post(f"/account/paymob/callback?hmac={sign(paid)}", json={"type": "TRANSACTION", "obj": paid})).json()["state"] == "paid"
+
+        r = await c.get(f"/account/invoices/{ref}/receipt.pdf", headers=h)
+        assert r.status_code == 200, r.text
+        assert r.headers["content-type"] == "application/pdf" and r.content.startswith(b"%PDF")
+        assert f"Mizan-receipt-{ref}.pdf" in r.headers["content-disposition"]
+        assert (await c.get(f"/account/invoices/{ref}/receipt.pdf", headers=await login(c, other))).status_code == 404
