@@ -163,6 +163,55 @@ async def workspace_detail(tenant_id: uuid.UUID, db: AsyncSession = Depends(get_
     }
 
 
+class WorkspaceSettings(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=128)
+    slug: str | None = Field(default=None, min_length=3, max_length=48)
+
+
+@router.patch("/{tenant_id}")
+async def update_workspace(tenant_id: uuid.UUID, data: WorkspaceSettings, db: AsyncSession = Depends(get_db),
+                           owner: OwnerAccount = Depends(get_current_owner)):
+    """Rename a workspace, or change its URL name, which is also its address
+    (<slug>.allmizan.live): links and bookmarks to the old address stop working (#74)."""
+    from app.platform.tenancy.service import check_slug
+
+    t = await owned_workspace(db, owner, tenant_id)
+    if data.name is not None:
+        t.name = data.name.strip()
+    if data.slug is not None and data.slug != t.slug:
+        slug = data.slug.strip().lower()
+        try:
+            check_slug(slug)
+        except HTTPException as e:
+            reserved = "reserved" in str(e.detail)
+            raise HTTPException(422, "هذا الاسم محجوز لميزان؛ اختر غيره." if reserved else
+                                "الرابط من 3 إلى 48 حرفًا إنجليزيًا صغيرًا أو رقمًا أو شرطة (-)، ولا يبدأ أو ينتهي بشرطة.") from None
+        if await db.scalar(select(Tenant.id).where(Tenant.slug == slug, Tenant.id != t.id)):
+            raise HTTPException(status_code=409, detail="هذا الرابط مستخدم لمساحة عمل أخرى. اختر غيره.")
+        t.slug = slug
+    await db.commit()
+    return await workspace_detail(tenant_id, db, owner)
+
+
+@router.delete("/{tenant_id}", status_code=204)
+async def delete_workspace(tenant_id: uuid.UUID, confirm: str, db: AsyncSession = Depends(get_db),
+                           owner: OwnerAccount = Depends(get_current_owner)):
+    """Delete a trial workspace that was never paid for (#74): everything in it goes, files too.
+    Paid workspaces are closed through support, so nothing paid for is lost by a mistake."""
+    from app.framework.files import purge_workspace
+
+    t = await owned_workspace(db, owner, tenant_id)
+    if confirm != t.name:
+        raise HTTPException(status_code=400, detail="اكتب اسم مساحة العمل كما هو للتأكيد")
+    paid = await db.scalar(select(func.count()).select_from(BillingInvoice)
+                           .where(BillingInvoice.tenant_id == t.id, BillingInvoice.status == "paid"))
+    if paid or t.plan != "trial":
+        raise HTTPException(status_code=409, detail="مساحات العمل المدفوعة تُغلق عن طريق الدعم، حتى لا يضيع ما دفعت مقابله.")
+    await db.delete(t)
+    await db.commit()
+    await purge_workspace(tenant_id)
+
+
 @router.get("/{tenant_id}/storage")
 async def workspace_storage(tenant_id: uuid.UUID, refresh: bool = False, db: AsyncSession = Depends(get_db),
                             owner: OwnerAccount = Depends(get_current_owner)):

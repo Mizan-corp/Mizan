@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { type FormEvent, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowUpLeft, Check, ChevronRight, CreditCard, FlaskConical, ShieldCheck, Smartphone } from "lucide-react";
 import {
   actions,
@@ -7,6 +7,7 @@ import {
   type Owner,
   type PaymentMethod,
   type Plan,
+  useAction,
   useMe,
   usePlans,
   useStorage,
@@ -16,7 +17,8 @@ import {
 import { useOpenWorkspace } from "@app/lib/open";
 import { ago, date, errorText, LICENCE_STATUS, MODE, money, paidState, planLabel, sectorLabel, trialState } from "@app/lib/format";
 import { cn } from "@/lib/utils";
-import { appUrl } from "@/lib/urls";
+import { toast } from "sonner";
+import { appUrl, workspaceUrl } from "@/lib/urls";
 import { Badge, Button, ErrorNote, Field, Input, LoadError, Meter, Modal, ModalActions, PageSkeleton, Panel, Money } from "@app/ui";
 import { PlanBadge } from "@app/pages/Workspaces";
 import { DownloadButton } from "@app/DownloadDialog";
@@ -386,6 +388,92 @@ function Storage({ id }: { id: string }) {
   );
 }
 
+/** Name, address and deletion (#74). The URL name is the workspace's address. */
+function Settings({ w, staff }: { w: WorkspaceT; staff: number }) {
+  const navigate = useNavigate();
+  const [name, setName] = useState(w.name);
+  const [slug, setSlug] = useState(w.slug ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [typed, setTyped] = useState("");
+  const save = useAction(actions.updateWorkspace);
+  const remove = useAction(actions.deleteWorkspace);
+  const { open, opening } = useOpenWorkspace();
+  const slugChanged = !!w.slug && slug !== w.slug;
+  const dirty = name.trim() !== w.name || slugChanged;
+  const isTrial = w.plan === "trial";
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    save.mutateAsync({ id: w.id, name: name.trim() !== w.name ? name.trim() : undefined, slug: slugChanged ? slug : undefined })
+      .then(() => toast.success("تم الحفظ"), (err) => setError(errorText(err)));
+  }
+
+  return (
+    <Panel title="إعدادات مساحة العمل">
+      <form onSubmit={submit} className="grid max-w-lg gap-4">
+        <Field label="اسم مساحة العمل">
+          <Input value={name} onChange={(e) => setName(e.target.value)} required minLength={2} maxLength={128} />
+        </Field>
+        {w.slug && (
+          <Field
+            label="الرابط"
+            hint={slugChanged
+              ? <span className="text-warn">الرابط القديم وأي إشارات مرجعية إليه ستتوقف. أخبر فريقك بالرابط الجديد.</span>
+              : <span className="code" dir="ltr">{workspaceUrl(slug || "…").replace(/^https?:\/\//, "").replace(/\/$/, "")}</span>}
+          >
+            <Input value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                   dir="ltr" className="code text-start" minLength={3} maxLength={48} required />
+          </Field>
+        )}
+        {error && <ErrorNote>{error}</ErrorNote>}
+        <div>
+          <Button type="submit" variant="primary" busy={save.isPending} disabled={!dirty}>حفظ</Button>
+        </div>
+      </form>
+
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line-soft pt-5">
+        <p className="text-sm text-ink-2">
+          {staff} {staff === 1 ? "مستخدم" : "مستخدمين"} في مساحة العمل. تُدار الحسابات والصلاحيات من داخل النظام.
+        </p>
+        {w.deployment_mode === "cloud_saas" && (
+          <Button size="sm" busy={opening === w.id} disabled={w.status === "suspended"} onClick={() => open(w, "/users")}>
+            إدارة الموظفين
+          </Button>
+        )}
+      </div>
+
+      <div className="mt-6 border-t border-line-soft pt-5">
+        <h3 className="text-sm font-semibold text-ink">حذف مساحة العمل</h3>
+        {isTrial ? (
+          <>
+            <p className="mt-1 text-[13px] text-mute">يحذف كل بياناتها وملفاتها نهائيًا، ولا يمكن التراجع.</p>
+            <Button size="sm" variant="danger" className="mt-3" onClick={() => { setTyped(""); setDeleting(true); }}>
+              حذف مساحة العمل
+            </Button>
+          </>
+        ) : (
+          <p className="mt-1 text-[13px] text-mute">مساحات العمل المدفوعة تُغلق عن طريق الدعم، حتى لا يضيع ما دفعت مقابله.</p>
+        )}
+      </div>
+
+      <Modal open={deleting} onClose={() => setDeleting(false)} title="حذف مساحة العمل نهائيًا"
+             description={<>اكتب اسمها <b className="text-ink">{w.name}</b> للتأكيد.</>}>
+        <Input value={typed} onChange={(e) => setTyped(e.target.value)} aria-label="اسم مساحة العمل للتأكيد" autoFocus />
+        {remove.isError && <ErrorNote>{errorText(remove.error)}</ErrorNote>}
+        <ModalActions>
+          <Button variant="danger" busy={remove.isPending} disabled={typed !== w.name}
+                  onClick={() => remove.mutateAsync({ id: w.id, confirm: typed }).then(() => { toast.success("حُذفت مساحة العمل"); navigate("/"); })}>
+            حذف نهائيًا
+          </Button>
+          <Button onClick={() => setDeleting(false)}>إلغاء</Button>
+        </ModalActions>
+      </Modal>
+    </Panel>
+  );
+}
+
 export default function Workspace() {
   const { id = "" } = useParams();
   const q = useWorkspace(id);
@@ -473,6 +561,8 @@ export default function Workspace() {
       <Panel title="فواتير مساحة العمل" flush>
         <InvoiceTable invoices={invoices as Invoice[]} />
       </Panel>
+
+      <Settings key={`${w.name}|${w.slug}`} w={w} staff={quotas.users.used} />
     </div>
   );
 }

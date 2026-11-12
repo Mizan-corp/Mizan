@@ -407,3 +407,39 @@ async def test_paid_invoices_have_a_pdf_receipt():
         assert r.headers["content-type"] == "application/pdf" and r.content.startswith(b"%PDF")
         assert f"Mizan-receipt-{ref}.pdf" in r.headers["content-disposition"]
         assert (await c.get(f"/account/invoices/{ref}/receipt.pdf", headers=await login(c, other))).status_code == 404
+
+
+async def test_owners_rename_and_readdress_their_workspaces():
+    """#74: name and URL name (the workspace's address), with the sign-up rules."""
+    owner, tenant, _ = await make_owner()
+    _, other_ws, _ = await make_owner()
+    async with client() as c:
+        h = await login(c, owner)
+        new_slug = f"renamed-{uuid.uuid4().hex[:6]}"
+        r = await c.patch(f"/account/workspaces/{tenant.id}", headers=h, json={"name": "اسم جديد", "slug": new_slug})
+        assert r.status_code == 200, r.text
+        assert r.json()["workspace"]["name"] == "اسم جديد" and r.json()["workspace"]["slug"] == new_slug
+        for slug, code in (("admin", 422), ("-bad-", 422), ("ab", 422), (other_ws.slug, 409)):
+            r = await c.patch(f"/account/workspaces/{tenant.id}", headers=h, json={"slug": slug})
+            assert r.status_code == code, (slug, r.text)
+        # Someone else's workspace isn't found.
+        assert (await c.patch(f"/account/workspaces/{other_ws.id}", headers=h, json={"name": "x" * 3})).status_code == 404
+
+
+async def test_owners_delete_only_unpaid_trials():
+    owner, tenant, _ = await make_owner()
+    async with client() as c:
+        h = await login(c, owner)
+        assert (await c.delete(f"/account/workspaces/{tenant.id}", headers=h, params={"confirm": "wrong"})).status_code == 400
+
+        # A workspace with a paid invoice goes through support.
+        inv = (await c.post(f"/account/workspaces/{tenant.id}/checkout", headers=h, json={"plan": "pro", "cycle": "monthly"})).json()["invoice"]
+        paid = txn(inv["ref"], round(inv["amount_egp"] * 100), uuid.uuid4().int % 10**9)
+        await c.post(f"/account/paymob/callback?hmac={sign(paid)}", json={"type": "TRANSACTION", "obj": paid})
+        assert (await c.delete(f"/account/workspaces/{tenant.id}", headers=h, params={"confirm": tenant.name})).status_code == 409
+
+    owner2, trial, _ = await make_owner()
+    async with client() as c:
+        h = await login(c, owner2)
+        assert (await c.delete(f"/account/workspaces/{trial.id}", headers=h, params={"confirm": trial.name})).status_code == 204
+        assert (await c.get(f"/account/workspaces/{trial.id}", headers=h)).status_code == 404

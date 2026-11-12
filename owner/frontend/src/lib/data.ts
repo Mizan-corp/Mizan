@@ -179,4 +179,8 @@ export const actions = {
       wallet_number: v.wallet_number,
     }),
   invoice: (ref: string) => api.get<Invoice>(`/account/invoices/${encodeURIComponent(ref)}`),
+  updateWorkspace: (v: { id: string; name?: string; slug?: string }) =>
+    api.patch<WorkspaceDetail>(`/account/workspaces/${v.id}`, { name: v.name, slug: v.slug }),
+  deleteWorkspace: (v: { id: string; confirm: string }) =>
+    api.del(`/account/workspaces/${v.id}?confirm=${encodeURIComponent(v.confirm)}`),
 };
