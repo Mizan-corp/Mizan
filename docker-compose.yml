@@ -107,6 +107,7 @@ services:
       dockerfile: admin/backend/Dockerfile
     restart: unless-stopped
     environment:
+      MIZAN_INSTALLERS: ${MIZAN_INSTALLERS:-}
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/inventory_db
       # Same key on every service: a token issued by one is valid on the others.
       SECRET_KEY: ${SECRET_KEY:-local-dev-only-secret-key-change-me-0123456789abcdef}
@@ -140,6 +141,7 @@ services:
       dockerfile: owner/backend/Dockerfile
     restart: unless-stopped
     environment:
+      MIZAN_INSTALLERS: ${MIZAN_INSTALLERS:-}
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/inventory_db
       # Same key on every service: a token issued by one is valid on the others.
       SECRET_KEY: ${SECRET_KEY:-local-dev-only-secret-key-change-me-0123456789abcdef}

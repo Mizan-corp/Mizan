@@ -810,6 +810,8 @@ def _test_backend() -> None:
     for app in ("system", "owner", "admin"):
         step(f"Backend tests ({app}/backend/tests)")
         run([python_bin(), "-m", "pytest", "-q", "--no-header"], cwd=ROOT / app / "backend", env=_backend_env())
+    step("Installed-server engine tests (installer/server/tests)")
+    run([python_bin(), "-m", "pytest", "-q", "--no-header"], cwd=ROOT / "installer" / "server")
 
 
 def _test_e2e() -> None:

@@ -46,6 +46,9 @@ async def status():
         "installation_id": str(state.installation_id()),
         "last_check_in_at": st.get("last_check_in_at"),
         "app_version": checkin.APP_VERSION,
+        # Updates (#89): a newer release Mizan offered, and how the last update went.
+        "update_available": (st.get("update_available") or {}).get("version"),
+        "last_update": st.get("last_update"),
         "ca_certificate": _ca_path() is not None,
     }
 

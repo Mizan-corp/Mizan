@@ -478,7 +478,10 @@ function LicenceTab({ d }: { d: Detail }) {
                   <div className="code text-[11px] text-mute">{i.last_ip ?? ""}</div>
                 </Td>
                 <Td className="text-ink-2">{i.os ?? "—"}</Td>
-                <Td className="code text-[13px]">{i.app_version ?? "—"}</Td>
+                <Td className="code text-[13px]">
+                  {i.app_version ?? "—"}
+                  {i.update_to && <Badge tone="warn" className="ms-2">{i.update_to} available</Badge>}
+                </Td>
                 <Td className="text-ink-2">{ago(i.last_seen_at)}</Td>
                 <Td className="text-ink-2">{i.last_backup_at ? ago(i.last_backup_at) : "Never"}</Td>
                 <Td className="text-ink-2">{date(i.first_seen_at)}</Td>

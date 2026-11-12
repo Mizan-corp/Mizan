@@ -1,7 +1,7 @@
 # ADR-005: Deployment Modes (Single Device, LAN, Bring Your Own Database)
 
 ## Status
-Accepted (2026-11-09). Phases 1 (foundation) and 2 (installers) implemented; phases 3–4 and updates tracked in GitHub issues.
+Accepted (2026-11-09). Phases 1 (foundation) and 2 (installers and updates, #89) implemented; phases 3–4 tracked in GitHub issues.
 
 ## Context
 The website promised offline desktop and LAN versions, but every workspace ran in our
@@ -166,5 +166,5 @@ Decisions made while building it:
 - **Windows-safe names.** A module folder named `prn` (a reserved device name) broke checkouts
   on Windows; folders must be valid on Windows (`AGENTS.md`).
 
-Not yet: updates for installed servers (#89), encrypted cloud backup (#90), device limits
+Updates for installed servers (#89) are built: signed release offers in check-ins, `mizan-server update` with backup and roll-back (installer/README.md, "Updating"). Not yet: encrypted cloud backup (#90), device limits
 (#92), Windows code signing and a manual Windows GUI pass (#93).

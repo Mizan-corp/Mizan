@@ -534,6 +534,11 @@ export default function Workspace() {
                     <span className="min-w-0">
                       <span className="code text-ink">{i.hostname ?? "جهاز"}</span>
                       <span className="text-xs text-mute"> · {i.os ?? "—"}{i.app_version && ` · v${i.app_version}`}</span>
+                      {i.update_to && (
+                        <span className="mt-0.5 block text-xs text-warn">
+                          يتوفر الإصدار {i.update_to}: من هذا الجهاز شغّل <span className="code" dir="ltr">mizan-server update</span> كمسؤول. يأخذ نسخة احتياطية أولًا ويرجع تلقائيًا لو فشل.
+                        </span>
+                      )}
                     </span>
                     <span className="shrink-0 text-xs text-mute">آخر اتصال {ago(i.last_seen_at)}</span>
                   </li>

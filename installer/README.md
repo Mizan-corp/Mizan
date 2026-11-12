@@ -61,8 +61,32 @@ mizan-server status [--json]
 mizan-server start | stop | restart
 mizan-server licence show | set "MZN1.…" | check-in
 mizan-server backup [--to /media/usb] | backups | restore <file>   # restore backs up first
+mizan-server update [--check] [--yes] [--force]                    # newest release (below)
 mizan-server uninstall --yes [--delete-data]
 ```
+
+## Updating
+
+Every check-in (6-hourly, when online) tells Mizan Cloud the installed version; when a newer
+release is published for the platform, the reply carries it **signed with the licence key**
+(prefix `MZR1`, so it can't pass as a licence). The owner and admin panels show "1.2.0 available"
+next to that computer. On the server, as an administrator:
+
+```bash
+mizan-server update            # uses the last check-in's offer;  --check asks Mizan Cloud now
+```
+
+It verifies the offer and refuses while a till shift is open (`--force` to override), downloads
+the release payload and checks its SHA-256, backs up the database, then unpacks the release
+under `<data>/updates/<version>` and lets *that* version's `mizan-server apply-update` do the
+switch: stop the service, move the program folder to `<program>.previous`, copy the new one in
+(keeping the desktop app), run the migrations, start and wait for it to answer. Any failure
+restores the previous folder (and the database backup if migrations had started) and starts
+the old version again. Log: `<data>/logs/update.log`; outcome in `mizan-server status`
+(`last_update`). Tested end to end by `ci_smoke.py` on Windows and Linux.
+
+The single-device app window (`Mizan.exe` / `mizan-app`) isn't in the payload and is kept; it's
+only the window, the server inside is what updates.
 
 ## Building
 
@@ -93,7 +117,10 @@ gh run download <run id> --dir dist && cd dist && mv */* . && sha256sum MizanSet
 gh release create v1.0.0 MizanSetup-* mizan-setup-* SHA256SUMS.txt --repo ammar0xff/mizan-releases --title "Mizan v1.0.0"
 ```
 
-Then point the owner panel at them (v1.0.0 is already set): `MIZAN_INSTALLERS` on the owner API (production), e.g.
+Then point the owner panel at them: `MIZAN_INSTALLERS` on the owner API (production) and the admin
+API (it shows which installs are behind). For updates (#89) each platform also needs
+`"payload_url"` (the release's `payload-<version>-<platform>.zip`) and `"payload_sha256"` (from
+`SHA256SUMS.txt`); without them nothing is offered. E.g.
 `{"windows": {"url": "https://github.com/ammar0xff/mizan-releases/releases/download/v1.0.0/MizanSetup-1.0.0-windows.exe", "version": "1.0.0", "size_mb": 150}, "linux": {…}}`
 (see `shared/backend/app/platform/updates/releases.py`), and redeploy it.
 

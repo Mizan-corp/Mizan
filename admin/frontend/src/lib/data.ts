@@ -103,6 +103,7 @@ export interface WorkspaceDetail {
     hostname: string | null;
     os: string | null;
     app_version: string | null;
+    update_to?: string | null;
     last_ip: string | null;
     first_seen_at: string | null;
     last_seen_at: string | null;

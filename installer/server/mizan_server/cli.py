@@ -139,6 +139,14 @@ def cmd_status(a) -> int:
 
     latest = list_backups(cfg)
     info["last_backup"] = latest[0].name if latest else None
+    try:
+        from app.onprem import state
+
+        st = state.read_state()
+        info["update_available"] = (st.get("update_available") or {}).get("version")
+        info["last_update"] = st.get("last_update")
+    except Exception:
+        pass
     if a.json:
         print(json.dumps(info, ensure_ascii=False, indent=2))
     else:
@@ -201,6 +209,80 @@ def cmd_backup(a) -> int:
     path = run_backup(cfg, Path(a.to) if a.to else None)
     print(f"✔ {path}")
     return 0
+
+
+def cmd_update(a) -> int:
+    """Update to the release Mizan Cloud offered (see update.py)."""
+    import asyncio
+    import time
+
+    from mizan_server import update
+
+    cfg = Config.load(Path(a.data_dir) if a.data_dir else None)
+    _app_env(cfg)
+    from app.onprem import checkin, state
+
+    if a.check:
+        result = asyncio.run(checkin.check_in_once())
+        if not result.get("ok"):
+            print(f"✘ Couldn't reach Mizan Cloud ({result.get('reason')}).", file=sys.stderr)
+            return 1
+    try:
+        release = update.offered_release()
+    except update.UpdateError as e:
+        print(f"✘ {e}", file=sys.stderr)
+        return 1
+    if not release:
+        print(f"✔ Up to date ({version()})." + ("" if a.check else " Add --check to ask Mizan Cloud now."))
+        return 0
+    print(f"Mizan {release['version']} is available (installed: {version()}).")
+    if release.get("notes"):
+        print(release["notes"])
+    if a.check_only:
+        return 0
+    shifts = update.open_shifts(cfg)
+    if shifts and not a.force:
+        print(f"✘ {shifts} till shift(s) are open. Close them first, or add --force to update anyway.", file=sys.stderr)
+        return 3
+    if not a.yes:
+        if not sys.stdin.isatty():
+            print("Add --yes to confirm.", file=sys.stderr)
+            return 2
+        answer = input("Mizan stops for a few minutes while it updates. Continue? [y/N] ").strip().lower()
+        if answer not in ("y", "yes", "نعم"):
+            return 2
+    try:
+        archive = update.download(cfg, release)
+        staged = update.stage(cfg, archive, release)
+    except (update.UpdateError, OSError) as e:
+        print(f"✘ {e}", file=sys.stderr)
+        return 1
+    backup = update.backup_now(cfg)
+    print(f"✔ Backed up the database: {backup.name}")
+    before = (state.read_state().get("last_update") or {}).get("at")
+    update.launch_apply(cfg, staged, backup)
+    print("… Updating (the service restarts). Log: " + str(cfg.data / "logs" / "update.log"))
+    deadline = time.time() + 20 * 60
+    while time.time() < deadline:
+        time.sleep(3)
+        last = state.read_state().get("last_update") or {}
+        if last.get("at") and last.get("at") != before:
+            if last.get("ok"):
+                print(f"✔ Updated to {last.get('to')}.")
+                return 0
+            print(f"✘ The update didn't go through; {last.get('from')} is running again. {last.get('error') or ''}", file=sys.stderr)
+            return 1
+    print("… Still updating; check later with: mizan-server status", file=sys.stderr)
+    return 1
+
+
+def cmd_apply_update(a) -> int:
+    """Internal: run from the unpacked release, replaces the installed program (update.py)."""
+    from mizan_server import update
+
+    cfg = Config.load(Path(a.data_dir) if a.data_dir else None)
+    _app_env(cfg)
+    return 0 if update.apply(cfg, Path(a.source), Path(a.backup)) else 1
 
 
 def cmd_uninstall(a) -> int:
@@ -298,6 +380,17 @@ def main(argv: list[str] | None = None) -> int:
     u.add_argument("--yes", action="store_true")
     u.add_argument("--json", action="store_true")
     u.set_defaults(func=cmd_uninstall)
+
+    up = sub.add_parser("update", help="update to the newest release (backs up first, rolls back on failure)")
+    up.add_argument("--check", action="store_true", help="ask Mizan Cloud now instead of using the last check-in")
+    up.add_argument("--check-only", action="store_true", help="only say whether an update is available")
+    up.add_argument("--yes", action="store_true", help="don't ask for confirmation")
+    up.add_argument("--force", action="store_true", help="update even while till shifts are open")
+    up.set_defaults(func=cmd_update)
+    ap = sub.add_parser("apply-update", help=argparse.SUPPRESS)
+    ap.add_argument("--from", dest="source", required=True)
+    ap.add_argument("--backup", required=True)
+    ap.set_defaults(func=cmd_apply_update)
 
     sub.add_parser("version").set_defaults(func=lambda a: print(version()) or 0)
 

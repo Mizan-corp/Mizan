@@ -119,7 +119,8 @@ def control(cfg: Config, action: str) -> bool:
         if not winsw.exists():
             return False
         r = subprocess.run([str(winsw), action], capture_output=True, text=True, encoding="utf-8", errors="replace")
-        return r.returncode == 0 and ("Stopped" not in r.stdout if action == "status" else True)
+        # WinSW 2 prints Started, Stopped or NonExistent (no service installed).
+        return r.returncode == 0 and ("Started" in r.stdout if action == "status" else True)
     if not shutil.which("systemctl"):
         return False
     user = os.geteuid() != 0

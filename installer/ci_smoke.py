@@ -134,6 +134,69 @@ def check(name: str, cmd: list[str], env: dict, base: str, home: Path, server: P
         subprocess.run([str(pg_ctl), "stop", "-D", str(home / "pg"), "-m", "fast"], capture_output=True)
 
 
+def signed_release(release: dict) -> str:
+    """A release offer as Mizan Cloud signs it (licence key, release prefix MZR1)."""
+    body = f"MZR1.{b64(json.dumps(release, separators=(',', ':')).encode())}"
+    return f"{body}.{b64(KEY.sign(body.encode()))}"
+
+
+def check_update(env: dict, base: str, home: Path, install_dir: Path, tmp: Path) -> None:
+    """#89: offer a release one version newer (this build with a bumped VERSION), update to it
+    with `mizan-server update --yes`, then run the new version: healthy, sign-in, version shown."""
+    import hashlib
+    import zipfile
+
+    print("\n▸ update: to a newer release", flush=True)
+    current = (install_dir / "VERSION").read_text(encoding="utf-8").strip()
+    parts = current.split("-")[0].split(".")
+    newer = ".".join([*parts[:-1], str(int(parts[-1]) + 1)])
+    archive = tmp / f"payload-{newer}.zip"
+    payload = BUILD / "payload"
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as z:
+        for f in sorted(payload.rglob("*")):
+            if f.is_file() and f.name != "VERSION":
+                z.write(f, f.relative_to(payload).as_posix())
+        z.writestr("VERSION", newer)
+    release = {"version": newer, "platform": "windows" if WINDOWS else "linux", "url": archive.as_uri(),
+               "sha256": hashlib.sha256(archive.read_bytes()).hexdigest(), "notes": "smoke test"}
+    state_file = home / "mizan" / "state.json"
+    state = json.loads(state_file.read_text(encoding="utf-8")) if state_file.exists() else {}
+    state["update_available"] = {"version": newer, "release": signed_release(release)}
+    state_file.write_text(json.dumps(state), encoding="utf-8")
+
+    server = install_dir / "server" / f"mizan-server{EXE}"
+    r = subprocess.run([str(server), "update", "--yes"], env=env, text=True, encoding="utf-8", errors="replace",
+                       capture_output=True, timeout=1200)
+    print(r.stdout[-3000:], r.stderr[-3000:], sep="\n")
+    log = home / "logs" / "update.log"
+    if r.returncode != 0:
+        raise SystemExit(f"update failed ({r.returncode}):\n{log.read_text(encoding='utf-8', errors='replace')[-3000:] if log.exists() else ''}")
+    if (install_dir / "VERSION").read_text(encoding="utf-8").strip() != newer:
+        raise SystemExit("update: the program folder wasn't replaced")
+
+    run_log = home / "run-updated.log"
+    with open(run_log, "w") as out:
+        proc = subprocess.Popen([str(server), "run"], env=env, stdout=out, stderr=subprocess.STDOUT)
+    try:
+        wait_healthy(base, proc, run_log)
+        status, body = request(f"{base}/api/auth/login", {"username": "owner", "password": PASSWORD})
+        if status != 200:
+            raise SystemExit(f"update: sign-in after the update failed ({status}): {body[:300]!r}")
+        st = json.loads(subprocess.run([str(server), "status", "--json"], env=env, text=True, encoding="utf-8",
+                                       errors="replace", capture_output=True).stdout)
+        if st.get("version") != newer or not (st.get("last_update") or {}).get("ok"):
+            raise SystemExit(f"update: status doesn't show the update: {st}")
+        print(f"✔ update: {current} → {newer}, healthy, sign-in, data kept", flush=True)
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(30)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        pg_ctl = install_dir / "pgsql" / "bin" / f"pg_ctl{EXE}"
+        subprocess.run([str(pg_ctl), "stop", "-D", str(home / "pg"), "-m", "fast"], capture_output=True)
+
+
 def main() -> int:
     tmp = Path(tempfile.mkdtemp(prefix="mizan-smoke-"))
     common = ["--admin-username", "owner", "--no-service", "--app-env", "development",
@@ -154,6 +217,7 @@ def main() -> int:
     env = {**os.environ, "MIZAN_HOME": str(home), "MIZAN_INSTALL_DIR": str(install_dir), "MIZAN_ADMIN_PASSWORD": PASSWORD}
     check("LAN (MizanSetup)", [str(setup), "install", "--licence", licence("lan"), "--port", "8543", *common],
           env, "https://127.0.0.1:8543", home, install_dir / "server" / f"mizan-server{EXE}", lan=True)
+    check_update(env, "https://127.0.0.1:8543", home, install_dir, tmp)
 
     print("\n✔ Smoke test passed")
     return 0

@@ -143,6 +143,7 @@ jobs:
           (cd system/backend && python -m pytest tests/ -q --no-header)
           (cd owner/backend && python -m pytest tests/ -q --no-header)
           (cd admin/backend && python -m pytest tests/ -q --no-header)
+          (cd installer/server && python -m pytest -q --no-header)
 
       - name: Debug container logs on failure
         if: failure()

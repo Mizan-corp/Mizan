@@ -25,7 +25,7 @@ from app.platform.billing.services.plan_gating import get_tenant_limits_and_usag
 from app.platform.billing.services.subscriptions import paid_until
 from app.platform.tenancy.service import create_workspace
 from app.platform.licensing.keys import LicenceError
-from app.platform.updates.releases import published_installers
+from app.platform.updates.releases import latest_for, published_installers
 from app.platform.licensing.models import Installation, Licence
 from app.platform.licensing.services.licences import get_licence, is_on_premise, issue_key
 from app.platform.licensing.services.licences import status as licence_status
@@ -250,6 +250,8 @@ def installation_out(i: Installation) -> dict:
         "hostname": i.hostname,
         "os": i.os,
         "app_version": i.app_version,
+        # A newer release for its platform (#89): updated with `mizan-server update` on that computer.
+        "update_to": latest_for(i.os, i.app_version),
         "first_seen_at": iso(i.first_seen_at),
         "last_seen_at": iso(i.last_seen_at),
         "last_backup_at": iso(i.last_backup_at),

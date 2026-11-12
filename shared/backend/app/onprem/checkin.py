@@ -49,6 +49,7 @@ async def check_in_once() -> dict:
         state.update_state(last_check_in_error=str(e)[:200], last_check_in_attempt_at=now)
         return {"ok": False, "reason": "offline"}
 
+    _remember_update(answer.get("update"))
     if answer.get("status") == "revoked":
         state.update_state(revoked=True, last_check_in_at=now, last_check_in_error=None)
     elif answer.get("licence_key"):
@@ -58,6 +59,31 @@ async def check_in_once() -> dict:
             logger.warning("Check-in returned an unusable key: %s", e)
         state.update_state(last_check_in_at=now, last_check_in_error=None)
     return {"ok": True, "status": answer.get("status")}
+
+
+def verified_release(signed: str) -> dict:
+    """A release offer's contents, after checking Mizan signed it (LicenceError otherwise)."""
+    release = licensing.verify(signed, prefix=licensing.RELEASE_PREFIX)
+    if not {"version", "platform", "url", "sha256"} <= release.keys():
+        raise licensing.LicenceError("Incomplete release offer")
+    return release
+
+
+def _remember_update(offer: dict | None) -> None:
+    """Keep a genuine, newer release offer for `mizan-server update` (#89); forget it otherwise."""
+    from app.platform.updates.releases import is_newer
+
+    release = None
+    if offer and offer.get("release"):
+        try:
+            release = verified_release(offer["release"])
+        except licensing.LicenceError as e:
+            logger.warning("Ignored an update offer: %s", e)
+    if release and is_newer(release["version"], APP_VERSION):
+        state.update_state(update_available={"version": release["version"], "release": offer["release"],
+                                             "notes": release.get("notes") or ""})
+    else:
+        state.update_state(update_available=None)
 
 
 async def run_forever() -> None:

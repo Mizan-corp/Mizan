@@ -152,7 +152,7 @@ fn headless(args: &[String]) -> i32 {
     }
 }
 
-const SERVER_COMMANDS: &[&str] = &["install", "status", "start", "stop", "restart", "licence", "backup", "backups", "restore", "uninstall", "version"];
+const SERVER_COMMANDS: &[&str] = &["install", "status", "start", "stop", "restart", "licence", "backup", "backups", "restore", "update", "uninstall", "version"];
 
 pub fn run() {
     let args: Vec<String> = std::env::args().skip(1).collect();

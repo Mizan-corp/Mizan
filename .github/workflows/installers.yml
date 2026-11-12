@@ -73,7 +73,7 @@ jobs:
       - name: Build
         run: python installer/build.py
 
-      - name: Smoke test (install, run, sign in · single device and LAN)
+      - name: Smoke test (install, run, sign in · single device and LAN · update to a newer release)
         run: python installer/ci_smoke.py
 
       - uses: actions/upload-artifact@v4
@@ -82,6 +82,7 @@ jobs:
           path: |
             installer/build/dist/MizanSetup-*
             installer/build/dist/mizan-setup-*.run
+            installer/build/dist/payload-*.zip
           if-no-files-found: error
           retention-days: 14
 
@@ -104,6 +105,8 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           if [ -z "$GH_TOKEN" ]; then echo "::warning::RELEASES_TOKEN isn't set: publish by hand"; exit 0; fi
+          # payload-<version>-<platform>.zip: what installed servers update from (#89). Its SHA-256
+          # goes into MIZAN_INSTALLERS (payload_url, payload_sha256) on the owner API.
           cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
           gh release create "$TAG" * --repo ammar0xff/mizan-releases --title "Mizan $TAG" \
             --notes "Mizan Setup $TAG for Windows and Linux. Download it from your owner panel together with your licence file."

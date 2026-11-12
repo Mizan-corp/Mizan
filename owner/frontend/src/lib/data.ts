@@ -47,6 +47,8 @@ export interface Installation {
   hostname: string | null;
   os: string | null;
   app_version: string | null;
+  /** A newer release for this computer's system (#89). */
+  update_to?: string | null;
   first_seen_at: string | null;
   last_seen_at: string | null;
   last_backup_at: string | null;

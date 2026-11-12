@@ -121,7 +121,7 @@ async def test_check_in_records_the_install_and_renews_the_key():
             await db.execute(text("UPDATE licences SET revoked_at = now() WHERE tenant_id = :t"), {"t": w["id"]})
             await db.commit()
         r = await c.post("/installations/check-in", json={"licence_key": key, "installation_id": str(install)})
-        assert r.json() == {"status": "revoked", "valid_until": r.json()["valid_until"], "licence_key": None}
+        assert r.json() == {"status": "revoked", "valid_until": r.json()["valid_until"], "licence_key": None, "update": None}
 
         # Forged keys are refused.
         assert (await c.post("/installations/check-in", json={"licence_key": key[:-4] + "AAAA", "installation_id": str(install)})).status_code == 401
@@ -197,3 +197,64 @@ def test_published_installers(monkeypatch):
     # The same setup installs both modes on both platforms.
     for mode in ("desktop", "lan"):
         assert [i["platform"] for i in published_installers(mode)] == ["windows", "linux"]
+
+
+# ─── Updates for installed servers (#89) ───────────────────────────────────
+
+RELEASES = ('{"windows": {"url": "https://x/MizanSetup-1.2.0-windows.exe", "version": "1.2.0",'
+            ' "payload_url": "https://x/payload-1.2.0-windows.zip", "payload_sha256": "AB" ,"notes": "Faster reports"},'
+            ' "linux": {"url": "https://x/MizanSetup-1.2.0-linux", "version": "1.2.0"}}')
+
+
+def test_release_offers_are_signed_and_never_pass_as_licences(monkeypatch):
+    from app.platform.updates.releases import update_offer
+
+    monkeypatch.setenv("MIZAN_INSTALLERS", RELEASES)
+    offer = update_offer("Windows 11", "1.0.1")
+    assert offer["version"] == "1.2.0"
+    release = licensing.verify(offer["release"], prefix=licensing.RELEASE_PREFIX)
+    assert release == {"version": "1.2.0", "platform": "windows", "url": "https://x/payload-1.2.0-windows.zip",
+                       "sha256": "ab", "notes": "Faster reports"}
+    with pytest.raises(licensing.LicenceError):
+        licensing.verify(offer["release"])  # not a licence
+    tampered = offer["release"].replace(offer["release"].split(".")[1], licensing._b64e(b'{"version":"9.9.9"}'))
+    with pytest.raises(licensing.LicenceError):
+        licensing.verify(tampered, prefix=licensing.RELEASE_PREFIX)
+    # Up to date, no payload published for the platform, or an unknown system: nothing offered.
+    assert update_offer("Windows 10", "1.2.0") is None
+    assert update_offer("Linux 6.8", "1.0.0") is None
+    assert update_offer(None, "1.0.0") is None
+
+
+async def test_check_in_offers_newer_releases(monkeypatch):
+    monkeypatch.setenv("MIZAN_INSTALLERS", RELEASES)
+    owner, _, _ = await make_owner()
+    async with client() as c:
+        h = await login(c, owner)
+        w = await new_on_prem(c, h)
+        key = (await c.get(f"/account/workspaces/{w['id']}/download", headers=h)).json()["licence_key"]
+        body = {"licence_key": key, "installation_id": str(uuid.uuid4()), "os": "Windows 11", "app_version": "1.0.1"}
+        offer = (await c.post("/installations/check-in", json=body)).json()["update"]
+        assert offer["version"] == "1.2.0"
+        # The owner panel says which computer is behind.
+        detail = (await c.get(f"/account/workspaces/{w['id']}", headers=h)).json()
+        assert [i["update_to"] for i in detail["installations"]] == ["1.2.0"]
+        current = (await c.post("/installations/check-in", json={**body, "app_version": "1.2.0"})).json()
+        assert current["update"] is None
+
+
+def test_the_install_keeps_only_genuine_newer_offers(monkeypatch, tmp_path):
+    from app.onprem import checkin, state
+    from app.platform.updates.releases import update_offer
+
+    monkeypatch.setattr(settings, "MIZAN_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(checkin, "APP_VERSION", "1.0.1")
+    monkeypatch.setenv("MIZAN_INSTALLERS", RELEASES)
+    offer = update_offer("Windows 11", "1.0.1")
+    checkin._remember_update(offer)
+    assert state.read_state()["update_available"]["version"] == "1.2.0"
+    forged = {"version": "1.3.0", "release": offer["release"][:-6] + "AAAAAA"}
+    checkin._remember_update(forged)
+    assert state.read_state()["update_available"] is None
+    checkin._remember_update(None)  # up to date
+    assert state.read_state()["update_available"] is None

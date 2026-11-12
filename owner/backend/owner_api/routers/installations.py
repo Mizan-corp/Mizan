@@ -69,4 +69,8 @@ async def check_in(data: CheckIn, request: Request, db: AsyncSession = Depends(g
     if state != "revoked":
         key, _ = await issue_key(db, tenant)
     await db.commit()
-    return {"status": state, "valid_until": lic.valid_until.isoformat(), "licence_key": key}
+    from app.platform.updates.releases import update_offer
+
+    return {"status": state, "valid_until": lic.valid_until.isoformat(), "licence_key": key,
+            # A newer release for this install's platform, signed (#89); None when up to date.
+            "update": update_offer(data.os, data.app_version) if state != "revoked" else None}

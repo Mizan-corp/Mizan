@@ -66,15 +66,20 @@ def can_sign() -> bool:
         return False
 
 
-def sign(payload: dict) -> str:
-    body = f"{PREFIX}.{_b64e(json.dumps(payload, separators=(',', ':'), ensure_ascii=False).encode())}"
+# Release offers for installed servers (#89) are signed with the same key under their own prefix,
+# so a release can never pass as a licence or the other way round.
+RELEASE_PREFIX = "MZR1"
+
+
+def sign(payload: dict, prefix: str = PREFIX) -> str:
+    body = f"{prefix}.{_b64e(json.dumps(payload, separators=(',', ':'), ensure_ascii=False).encode())}"
     return f"{body}.{_b64e(_signing_key().sign(body.encode()))}"
 
 
-def verify(key: str) -> dict:
+def verify(key: str, prefix: str = PREFIX) -> dict:
     """The payload of a genuine key (expired or not); LicenceError otherwise."""
     parts = (key or "").strip().split(".")
-    if len(parts) != 3 or parts[0] != PREFIX:
+    if len(parts) != 3 or parts[0] != prefix:
         raise LicenceError("Not a Mizan licence key")
     body, signature = f"{parts[0]}.{parts[1]}", parts[2]
     try:
