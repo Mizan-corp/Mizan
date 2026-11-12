@@ -424,8 +424,8 @@ export default function WmsWarehousePage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center justify-between border-b border-border/50">
-        <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 border-b border-border/50">
+        <div className="flex max-w-full min-w-0 items-center gap-1 overflow-x-auto [&>button]:shrink-0 [&>button]:whitespace-nowrap">
           <button
             onClick={() => {
               sound.click();
@@ -480,7 +480,7 @@ export default function WmsWarehousePage() {
           </button>
         </div>
 
-        <div className="relative w-64 pb-2">
+        <div className="relative w-full pb-2 sm:w-64">
           <Search className="w-4 h-4 absolute right-3 top-2.5 text-muted-foreground" />
           <Input
             placeholder="بحث برقم الموقع، الباليتة، أو الصنف..."
