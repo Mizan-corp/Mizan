@@ -29,6 +29,12 @@ each step ships, is tested and deployed before the next.
    done; the restaurant start is parked in a git stash. Phase 5 leftovers (POS form layouts,
    copying layouts between roles) belong to the global work.
 
+**P1b — The developer platform (owner, 2026-11-12: a whole product, not on hold)**
+ADR-007: milestone 1 = the portal at dev.allmizan.live, the docs, and private declarative
+modules (.mzm packages: entities, screens, scopes, extension API, webhooks; SDK and CLI). Code
+modules run in sandboxed containers once Mizan moves to its own cluster; marketplace and paid
+modules are milestone 2 (#105, paid needs #65).
+
 **P3 — Platform for outside developers**
 10. ADR-006 phase 6 (#104): ADR-007, isolation runtime, scopes, SDK and CLI; a docs-only developer site can start here.
 11. ADR-006 phase 7 (#105): developer portal and marketplace (needs #65).
