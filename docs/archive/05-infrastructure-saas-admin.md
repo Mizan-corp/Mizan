@@ -1,3 +1,5 @@
+> **Archived (2026-11-12): historical, not current.** This describes the earlier "Admoon" control plane and billing. Today: the admin panel (`admin/README.md`), the owner panel and Paymob billing (`owner/README.md`), and the decisions in `docs/decisions/` (ADR-003 separate apps, ADR-004 owner accounts and payments, ADR-005 deployment modes, ADR-008 one domain).
+
 # Mizan — Infrastructure, SaaS Admin Panel & Hosting
 Source: ChatGPT Main chat, messages [2–31], Nov 2026
 GPT models: gpt-6, gpt-6-mini

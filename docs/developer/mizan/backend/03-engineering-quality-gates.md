@@ -134,7 +134,7 @@ GPT model: gpt-6
 
 ### 16. Maintainability and Engineering Discipline
 - No business logic in routers — belongs in services
-- Fat routers are technical debt: `hr.py` (1024 lines), `admoon.py` (1183 lines)
+- Fat routers are technical debt: `modules/general/hr/routes/hr.py`
 - Function-scope imports to avoid circular imports
 - `AGENTS.md` is the non-negotiable contract for all agents
 - No new color values outside `DESIGN_SYSTEM.md`

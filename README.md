@@ -205,7 +205,7 @@ callback activates it. Nothing inside a workspace can change its plan. See
 ### The admin panel
 
 A separate English app on its own domain, for the Mizan team only. It opens on **Needs you**
-(ended trials, unpaid invoices, upgrade requests) and covers every workspace (plan, trial,
+(ended trials, unpaid invoices, renewals due) and covers every workspace (plan, trial,
 modules, people, suspend, open as owner, delete), billing with manual payment confirmation,
 the team's access, live system health, and an activity log of every change. Every number
 comes from the database. See [`admin/README.md`](admin/README.md).

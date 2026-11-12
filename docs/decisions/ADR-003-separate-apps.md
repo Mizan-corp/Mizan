@@ -1,5 +1,7 @@
 # ADR-003: Separate System, Website and Admin Products
 
+> Naming note (2026-11-12): "Admoon" here is today's admin panel (`admin/`); its API routes keep the `/admoon` prefix.
+
 ## Status
 Accepted (2026-11-09)
 

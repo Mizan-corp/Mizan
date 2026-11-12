@@ -1,3 +1,5 @@
+> **Historical audit (kept as a record).** It describes the system before the separate apps (ADR-003), owner accounts and Paymob (ADR-004) and the module platform (ADR-006); "Admoon" is today's admin panel. Many findings have since been fixed: see the closed GitHub issues.
+
 # MIZAN ERP — FULL-SYSTEM QUALITY ASSURANCE & DEFECT HUNT AUDIT REPORT
 
 **Audit Date:** November 8, 2026  

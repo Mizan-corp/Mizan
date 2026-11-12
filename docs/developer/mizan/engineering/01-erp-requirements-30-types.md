@@ -627,7 +627,7 @@ Build these as reusable modules or services where appropriate; activate them onl
 | Supplier Portal | Purchase orders, invoices, delivery schedules | Wholesale, Manufacturing, Construction |
 | Mobile Operations | Offline data capture, barcode scanning, field workflows | Logistics, 3PL, Agriculture, Field Service |
 
-These complement shared platform foundations such as RBAC, HR and payroll, finance, parties, POS, exports, and Admoon.
+These complement shared platform foundations such as RBAC, HR and payroll, finance, parties, POS, exports, and the admin panel.
 
 ---
 

@@ -31,8 +31,8 @@ SaaS infrastructure, admin panel, hosting, deployment — all four modes.
 
 | File | Contents |
 |---|---|
-| `05-infrastructure-saas-admin.md` | Four deployment modes (Desktop/LAN/BYOD/SaaS), hardware guide, cluster architecture, Admoon, licensing, SaaS lifecycle |
-| `07-saas-admin-panel-master-prompt.md` | Full Admoon master prompt — 21 sections including all four deployment modes, license management, cross-mode visibility |
+| ~~`05-infrastructure-saas-admin.md`~~ | Archived in `docs/archive/` (earlier Admoon design). Deployment modes today: ADR-005 |
+| ~~`07-saas-admin-panel-master-prompt.md`~~ | Archived in `docs/archive/`. The admin panel today: `admin/README.md` |
 | `11-system-requirements-srs.md` | Platform source notes — deployment modes, licensing, tenant isolation, hardware, cluster stack |
 
 ---
@@ -42,7 +42,7 @@ Formal, consolidated system requirements.
 
 | File | Contents |
 |---|---|
-| `SRS-Mizan-v1.0.md` | Full SRS — activity-aware modules, tenant customization, four deployment modes, licensing, Admoon support, acceptance criteria |
+| `SRS-Mizan-v1.0.md` | Full SRS — activity-aware modules, tenant customization, four deployment modes, licensing, admin-panel support, acceptance criteria |
 
 ---
 
@@ -73,4 +73,4 @@ Architecture, standards, requirements, learning roadmap.
 **Open priorities:**
 - ⚠️ Fawry/Paymob payment wiring (blocking monetization)
 - ⚠️ ETA e-Invoicing module
-- ⚠️ Split fat routers (hr.py 1024 lines, admoon.py 1183 lines)
+- ⚠️ Split fat routers (`modules/general/hr/routes/hr.py`)

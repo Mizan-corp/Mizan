@@ -1,3 +1,5 @@
+> **Archived (2026-11-12): historical, not current.** This describes the earlier "Admoon" control plane and billing. Today: the admin panel (`admin/README.md`), the owner panel and Paymob billing (`owner/README.md`), and the decisions in `docs/decisions/` (ADR-003 separate apps, ADR-004 owner accounts and payments, ADR-005 deployment modes, ADR-008 one domain).
+
 # Mizan — SaaS Admin Panel Master Prompt (Admoon)
 Source: ChatGPT Main chat, message [3], Nov 2026 (gpt-6)
 This is the full master prompt for building the multi-tenant SaaS administration panel.

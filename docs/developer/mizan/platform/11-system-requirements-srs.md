@@ -33,7 +33,7 @@ Requirements are split into MVP (build now) and Later (design for now, build lat
 | SYS-013 | Support dedicated database or infrastructure isolation for selected tenants | Later |
 | SYS-014 | Provide controlled platform upgrades and rollback | MVP |
 | SYS-015 | Issue signed licenses for tenants in every deployment mode | MVP |
-| SYS-016 | Let Admoon technically manage and support tenants in every deployment mode | MVP |
+| SYS-016 | Let the admin panel technically manage and support tenants in every deployment mode | MVP |
 | SYS-017 | Show activity-specific screenshot previews in module selection | MVP |
 
 > **Critical:** Tenant isolation must be enforced in the application AND data-access layer, not just by hiding tenants in UI. Authentication alone does NOT guarantee isolation.
@@ -66,7 +66,7 @@ Requirements are split into MVP (build now) and Later (design for now, build lat
 | Bring-your-own database | Frontend hosted anywhere; database on the tenant's VPS, Firebase, Neon, or Supabase |
 | Fully managed SaaS | Platform hosts and operates the application and database |
 
-Every mode supports license issuance. Admoon supports technical management and support across all modes.
+Every mode supports license issuance. The admin panel supports technical management and support across all modes.
 
 ### Deployment Profiles
 
@@ -197,7 +197,7 @@ Realistic build order:
 - **Redis** — shared cache, sessions, job queue
 - **Shared file storage** — all app servers access the same files
 
-> "You write the ERP; Kubernetes manages where and how its components run. Rancher gives you a dashboard to manage infrastructure. Admoon is your ERP's own admin panel — these are two separate management systems."
+> "You write the ERP; Kubernetes manages where and how its components run. Rancher gives you a dashboard to manage infrastructure. The admin panel is your ERP's own admin panel — these are two separate management systems."
 
 ---
 

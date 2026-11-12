@@ -32,7 +32,7 @@
 This SRS defines the complete functional, non-functional, interface, data, security, and deployment requirements for **ميزان (Mizan)** — a modular, multi-tenant SaaS ERP platform built for Arabic-speaking markets, initially targeting Egyptian building-materials merchants.
 
 ### 1.2 Scope
-Mizan is a single platform that serves up to 30 business types through a shared core and activatable industry-specific modules. Each business (tenant) operates in complete data isolation. The platform supports four deployment modes: Standalone Desktop, LAN Server, Bring-Your-Own-Database, and Fully Managed SaaS. All modes are supported by a central license system and managed through Admoon.
+Mizan is a single platform that serves up to 30 business types through a shared core and activatable industry-specific modules. Each business (tenant) operates in complete data isolation. The platform supports four deployment modes: Standalone Desktop, LAN Server, Bring-Your-Own-Database, and Fully Managed SaaS. All modes are supported by a central license system and managed through the admin panel.
 
 ### 1.3 Definitions
 
@@ -43,7 +43,7 @@ Mizan is a single platform that serves up to 30 business types through a shared 
 | Business Activity | The industry type selected during onboarding (e.g., retail, restaurant, pharmacy). Drives the default module set, UI layout, and integrations |
 | Activity Profile | A pre-configured bundle of modules, settings, and UI behaviors mapped to a Business Activity |
 | Self-configuration | A module's ability to adapt its UI, defaults, and feature flags automatically based on the active Business Activity without manual setup |
-| Admoon | The super-admin control plane for managing all tenants across all deployment modes |
+| Admin panel | The super-admin control plane for managing all tenants across all deployment modes |
 | TenantScoped | Any database table that carries `tenant_id` and is isolated by RLS |
 | RLS | PostgreSQL Row-Level Security — enforces tenant isolation at DB level |
 | ORM filter | SQLAlchemy global query filter that injects `tenant_id == ctx` |
@@ -84,7 +84,7 @@ Mizan replaces disconnected business tools (spreadsheets, paper ledgers, standal
 - HR and payroll (biometric attendance)
 - SaaS onboarding, trial management, subscription
 - Tenant-branded storefronts
-- Platform administration (Admoon)
+- Platform administration (the admin panel)
 - Background automation (shift close, ZK sync, WhatsApp)
 
 ### 2.3 User Characteristics
@@ -95,8 +95,8 @@ Mizan replaces disconnected business tools (spreadsheets, paper ledgers, standal
 | Branch manager | Medium — reports, shifts | Dashboard, reports |
 | Accountant | Medium — invoices, periods | Finance, sales, purchasing |
 | HR manager | Medium — payroll, attendance | HR module |
-| Business owner | Low — overview | Dashboard, Admoon (own tenant) |
-| Platform super-admin | High | Admoon control plane |
+| Business owner | Low — overview | Dashboard, the owner panel |
+| Platform super-admin | High | admin panel |
 | Developer | High | API, migrations |
 
 ### 2.4 Operating Environment
@@ -205,17 +205,17 @@ All four deployment modes use a unified license system:
 | Requirement | Detail |
 |---|---|
 | License format | Cryptographically signed JWT: tenant ID, mode, plan, expiry, feature flags |
-| Standalone Desktop | License embedded in app bundle; validated offline; re-validates against Admoon on internet availability |
-| LAN Server | License validated against server hardware fingerprint; heartbeat to Admoon every 7 days; 14-day offline grace period |
+| Standalone Desktop | License embedded in app bundle; validated offline; re-validates against Mizan Cloud on internet availability |
+| LAN Server | License validated against server hardware fingerprint; heartbeat to Mizan Cloud every 7 days; 14-day offline grace period |
 | BYOD | License validated against database endpoint fingerprint; periodic online check |
-| Fully Managed SaaS | License enforced server-side by Admoon; no client-side validation needed |
-| License issuance | Admoon control plane issues all license keys |
-| License revocation | Admoon can revoke; LAN/Desktop honor revocation on next heartbeat |
+| Fully Managed SaaS | License enforced server-side by the admin panel; no client-side validation needed |
+| License issuance | admin panel issues all license keys |
+| License revocation | The admin panel can revoke; LAN/Desktop honor revocation on next heartbeat |
 | Trial | 14-day trial for all modes; full feature access during trial |
 
-### 2b.5 Admoon Across Deployment Modes
+### 2b.5 The admin panel Across Deployment Modes
 
-Admoon must support technical management and support for tenants across all four modes:
+The admin panel must support technical management and support for tenants across all four modes:
 
 | Capability | SaaS | BYOD | LAN | Desktop |
 |---|---|---|---|---|
@@ -230,7 +230,7 @@ Admoon must support technical management and support for tenants across all four
 **Tenant Deployment Agent** (required for LAN and BYOD modes):
 - Lightweight process installed on tenant's server
 - Handles: health reporting, update application, backup execution, migration runs, metric collection, log shipping, license heartbeat
-- Communicates with Admoon over HTTPS (outbound-only from tenant server)
+- Communicates with the admin panel over HTTPS (outbound-only from tenant server)
 - Supports offline operation with queued sync on reconnect
 - Signed update packages for fully offline environments
 
@@ -265,7 +265,7 @@ Admoon must support technical management and support for tenants across all four
 - Configures store settings, brand hue, modules
 - Subscribes to plans; views MRR
 
-**Platform Super-Admin (Admoon)**
+**Platform Super-Admin (the admin panel)**
 - Provisions tenants
 - Monitors all tenants
 - Impersonates tenant admins for support
@@ -698,7 +698,7 @@ For these modules, acceptance requires the stated workflow, tenant-scoped permis
 | PLAT-09 | Per-tenant brand hue | Must | Onboarding wizard writes `--brand-hue`; applied in CSS |
 | PLAT-10 | Tenant deletion cascades | Must | Deleting tenant cascades to ALL business tables including users |
 
-### 6.2 Admoon Control Plane (ADMN)
+### 6.2 the admin panel Control Plane (ADMN)
 
 | ID | Requirement | Priority | Acceptance Criteria |
 |---|---|---|---|
@@ -721,22 +721,22 @@ For these modules, acceptance requires the stated workflow, tenant-scoped permis
 | DEPL-04 | BYOD connection wizard | Must | UI wizard to configure external DB connection (PostgreSQL/Neon/Supabase/Firebase) and validate connection |
 | DEPL-05 | Migration between deployment modes | Must | Export/import tool preserves all tenant data; documented migration path for each mode transition |
 | DEPL-06 | Deployment Agent for LAN and BYOD | Must | Lightweight agent installed on tenant server; handles health, updates, backups, migrations, log shipping |
-| DEPL-07 | Agent outbound-only HTTPS communication | Must | Agent connects to Admoon; Admoon never connects inbound to tenant network |
-| DEPL-08 | Offline operation with queued sync | Must | LAN/Desktop modes work without internet; queue syncs to Admoon when connectivity restored |
+| DEPL-07 | Agent outbound-only HTTPS communication | Must | Agent connects to the admin panel; the admin panel never connects inbound to tenant network |
+| DEPL-08 | Offline operation with queued sync | Must | LAN/Desktop modes work without internet; queue syncs to the admin panel when connectivity restored |
 
 ### 6.2c License Management (LIC)
 
 | ID | Requirement | Priority | Acceptance Criteria |
 |---|---|---|---|
-| LIC-01 | License issuance from Admoon | Must | Admoon issues signed license JWT for every tenant regardless of deployment mode |
+| LIC-01 | License issuance from the admin panel | Must | The admin panel issues signed license JWT for every tenant regardless of deployment mode |
 | LIC-02 | License format | Must | Signed JWT: tenant ID, deployment mode, plan, expiry, feature flags |
 | LIC-03 | Standalone Desktop license | Must | License embedded in app bundle; validates offline; re-validates on internet availability |
 | LIC-04 | LAN Server license | Must | Validated against server hardware fingerprint; heartbeat every 7 days; 14-day offline grace |
 | LIC-05 | BYOD license | Must | Validated against database endpoint fingerprint; periodic online check |
 | LIC-06 | SaaS license | Must | Enforced server-side; no client-side validation |
-| LIC-07 | License revocation | Must | Admoon can revoke any license; LAN/Desktop honor revocation on next heartbeat |
+| LIC-07 | License revocation | Must | The admin panel can revoke any license; LAN/Desktop honor revocation on next heartbeat |
 | LIC-08 | Trial for all modes | Must | 14-day full-feature trial for every deployment mode |
-| LIC-09 | Admoon cross-mode visibility | Must | Admoon shows health, metrics, and status for all tenants across all four deployment modes |
+| LIC-09 | The admin panel cross-mode visibility | Must | The admin panel shows health, metrics, and status for all tenants across all four deployment modes |
 
 ### 6.3 Background Automation (AUTO)
 
@@ -984,7 +984,7 @@ RLS only binds roles without BYPASSRLS, so while a workspace is bound every tran
 | SEC-22 | Background jobs carry tenant identity and authorization context |
 | SEC-23 | File storage paths are tenant-scoped and access-controlled |
 | SEC-24 | Automated tests must attempt cross-tenant access and verify denial |
-| SEC-25 | Admoon impersonation is logged in AuditLog; time-limited |
+| SEC-25 | The admin panel impersonation is logged in AuditLog; time-limited |
 
 ### 10.4 Audit Trail
 
@@ -1029,7 +1029,7 @@ RLS only binds roles without BYPASSRLS, so while a workspace is bound every tran
 
 - Distributed as a Docker Compose bundle or native installer package
 - Includes: application container, PostgreSQL, Redis, background worker, reverse proxy (Caddy/Nginx)
-- Deployment Agent installed alongside; connects outbound to Admoon
+- Deployment Agent installed alongside; connects outbound to the admin panel
 - License validated against server hardware fingerprint; 14-day offline grace period
 - Backups: local automated + optional SFTP/NAS off-site
 
@@ -1040,13 +1040,13 @@ RLS only binds roles without BYPASSRLS, so while a workspace is bound every tran
 - No network dependency for daily operation
 - License embedded in bundle; re-validates when internet available
 - Single-user; no multi-branch; no concurrent users
-- Distribution: direct download from Admoon or signed package store
+- Distribution: direct download from the admin panel or signed package store
 
 ### 11.5 BYOD Deployment
 
 - Tenant provides: database connection string (PostgreSQL/Neon/Supabase/Firebase)
 - Mizan provides: backend application Docker image + connection wizard
-- Deployment Agent optional but recommended for Admoon visibility
+- Deployment Agent optional but recommended for the admin panel visibility
 - License validated against database endpoint fingerprint
 - Frontend: hosted by tenant or on Mizan CDN pointing to tenant database
 
@@ -1088,7 +1088,7 @@ E2E_API_BASE=… E2E_DATABASE_URL=… .venv/bin/pytest -q   # 107 tests — must
 - `/shifts/current` returns 200 + null when no shift is open (not 404)
 - `/stock/valuation` returns a totals object, not rows
 - Standalone Desktop mode is single-user only; no concurrent users
-- LAN Server license requires periodic internet heartbeat (14-day grace); fully airgapped deployments must request an extended offline license from Admoon
+- LAN Server license requires periodic internet heartbeat (14-day grace); fully airgapped deployments must request an extended offline license from the admin panel
 - BYOD mode with Firebase requires a separate NoSQL-aware backend adapter (Firebase is not a relational DB equivalent)
 
 ### 12.2 Assumptions
@@ -1163,7 +1163,7 @@ A feature is complete when ALL of the following pass:
 - [ ] All four modes can run the same ERP feature set (within plan limits)
 
 ### Licensing
-- [ ] Admoon issues a valid license for every new tenant regardless of deployment mode
+- [ ] the admin panel issues a valid license for every new tenant regardless of deployment mode
 - [ ] LAN/Desktop mode operates normally for 14 days without internet; shows warning at day 10
-- [ ] Revoking a license in Admoon prevents the tenant from logging in within one heartbeat cycle
+- [ ] Revoking a license in the admin panel prevents the tenant from logging in within one heartbeat cycle
 - [ ] Trial period works identically across all four deployment modes
