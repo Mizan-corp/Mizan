@@ -1,6 +1,6 @@
 [package]
 name = "mizan-setup"
-version = "1.0.1"
+version = "1.0.2"
 description = "Mizan Setup: installs single-device and LAN Mizan"
 edition = "2021"
 publish = false
