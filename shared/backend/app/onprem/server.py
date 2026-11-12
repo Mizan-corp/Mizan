@@ -49,6 +49,7 @@ async def status():
         # Updates (#89): a newer release Mizan offered, and how the last update went.
         "update_available": (st.get("update_available") or {}).get("version"),
         "last_update": st.get("last_update"),
+        "other_device": bool(st.get("other_device")),
         "ca_certificate": _ca_path() is not None,
     }
 

@@ -188,6 +188,7 @@ async def _licence_block(db: AsyncSession, t: Tenant) -> dict:
         "installations": [
             {"id": str(i.id), "hostname": i.hostname, "os": i.os, "app_version": i.app_version, "last_ip": i.last_ip,
              "update_to": latest_for(i.os, i.app_version),
+             "licensed": lic is not None and lic.bound_installation_id == i.id,
              "first_seen_at": iso(i.first_seen_at), "last_seen_at": iso(i.last_seen_at), "last_backup_at": iso(i.last_backup_at)}
             for i in installs
         ],

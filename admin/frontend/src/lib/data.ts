@@ -104,6 +104,7 @@ export interface WorkspaceDetail {
     os: string | null;
     app_version: string | null;
     update_to?: string | null;
+    licensed?: boolean;
     last_ip: string | null;
     first_seen_at: string | null;
     last_seen_at: string | null;

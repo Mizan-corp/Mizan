@@ -2932,6 +2932,15 @@ MIGRATIONS = [
         CREATE POLICY tenant_isolation ON workspace_files
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    # #92: a licence runs on one computer (a single-device install, or a LAN's server): the
+    # first that checks in. Others using a copy are flagged and get no renewed key; the owner
+    # can move the licence. Existing licences bind to their first-seen install.
+    ("v68_licence_device", """
+        ALTER TABLE licences ADD COLUMN IF NOT EXISTS bound_installation_id uuid;
+        UPDATE licences l SET bound_installation_id = (
+            SELECT i.id FROM installations i WHERE i.licence_id = l.id ORDER BY i.first_seen_at, i.id LIMIT 1
+        ) WHERE l.bound_installation_id IS NULL;
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

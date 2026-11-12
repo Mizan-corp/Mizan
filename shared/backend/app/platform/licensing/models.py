@@ -21,6 +21,8 @@ class Licence(Base):
     mode: Mapped[str] = mapped_column(String(16), nullable=False)  # desktop | lan
     valid_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # The computer it runs on (#92): the first install that checks in; the owner can move it.
+    bound_installation_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

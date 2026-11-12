@@ -156,7 +156,7 @@ async def workspace_detail(tenant_id: uuid.UUID, db: AsyncSession = Depends(get_
     return {
         "workspace": summary(t, users=usage["usage"]["current_users"], last_sale=last_sale,
                              until=await paid_until(db, t.id), lic=lic, installs=list(installs)),
-        "installations": [installation_out(i) for i in installs],
+        "installations": [installation_out(i, lic) for i in installs],
         "quotas": usage["quotas"],
         "is_read_only": usage["is_read_only"],
         "invoices": [invoice_out(i, t) for i in invoices if i.status != "cancelled"],
@@ -243,9 +243,11 @@ async def open_workspace(tenant_id: uuid.UUID, db: AsyncSession = Depends(get_db
     return {"access_token": auth_service.issue_token(user)["access_token"], "slug": t.slug, "username": user.username}
 
 
-def installation_out(i: Installation) -> dict:
+def installation_out(i: Installation, lic=None) -> dict:
     return {
         "id": str(i.id),
+        # #92: the computer the licence runs on; others run a copy that isn't renewed.
+        "licensed": lic is not None and lic.bound_installation_id == i.id,
         "mode": i.mode,
         "hostname": i.hostname,
         "os": i.os,
@@ -256,6 +258,21 @@ def installation_out(i: Installation) -> dict:
         "last_seen_at": iso(i.last_seen_at),
         "last_backup_at": iso(i.last_backup_at),
     }
+
+
+@router.post("/{tenant_id}/installations/{installation_id}/licence")
+async def move_licence(tenant_id: uuid.UUID, installation_id: uuid.UUID, db: AsyncSession = Depends(get_db),
+                       owner: OwnerAccount = Depends(get_current_owner)):
+    """Move the licence to this computer (e.g. a new PC replaces the old one, #92). The other
+    computer stops getting renewed keys from its next check-in."""
+    t = await owned_workspace(db, owner, tenant_id)
+    lic = await get_licence(db, t.id)
+    inst = await db.scalar(select(Installation).where(Installation.id == installation_id, Installation.tenant_id == t.id))
+    if lic is None or inst is None:
+        raise HTTPException(status_code=404, detail="الجهاز غير موجود")
+    lic.bound_installation_id = inst.id
+    await db.commit()
+    return await workspace_detail(tenant_id, db, owner)
 
 
 @router.get("/{tenant_id}/download")

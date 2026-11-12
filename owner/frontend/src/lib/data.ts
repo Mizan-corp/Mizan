@@ -49,6 +49,8 @@ export interface Installation {
   app_version: string | null;
   /** A newer release for this computer's system (#89). */
   update_to?: string | null;
+  /** The computer the licence runs on (#92). */
+  licensed?: boolean;
   first_seen_at: string | null;
   last_seen_at: string | null;
   last_backup_at: string | null;
@@ -183,6 +185,8 @@ export const actions = {
   invoice: (ref: string) => api.get<Invoice>(`/account/invoices/${encodeURIComponent(ref)}`),
   updateWorkspace: (v: { id: string; name?: string; slug?: string }) =>
     api.patch<WorkspaceDetail>(`/account/workspaces/${v.id}`, { name: v.name, slug: v.slug }),
+  moveLicence: (v: { id: string; installation: string }) =>
+    api.post<WorkspaceDetail>(`/account/workspaces/${v.id}/installations/${v.installation}/licence`),
   deleteWorkspace: (v: { id: string; confirm: string }) =>
     api.del(`/account/workspaces/${v.id}?confirm=${encodeURIComponent(v.confirm)}`),
 };

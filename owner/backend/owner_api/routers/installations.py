@@ -64,13 +64,20 @@ async def check_in(data: CheckIn, request: Request, db: AsyncSession = Depends(g
     if data.last_backup_at:
         inst.last_backup_at = data.last_backup_at
 
+    # #92: the licence runs on the first computer that checks in; a copy elsewhere is flagged and
+    # gets no renewed key (so it stops when its key expires) until the owner moves the licence.
+    if lic.bound_installation_id is None:
+        lic.bound_installation_id = inst.id
+    this_computer = lic.bound_installation_id == inst.id
+
     state = status(lic, now)
     key = None
-    if state != "revoked":
+    if state != "revoked" and this_computer:
         key, _ = await issue_key(db, tenant)
     await db.commit()
     from app.platform.updates.releases import update_offer
 
     return {"status": state, "valid_until": lic.valid_until.isoformat(), "licence_key": key,
+            "device": "licensed" if this_computer else "other",
             # A newer release for this install's platform, signed (#89); None when up to date.
             "update": update_offer(data.os, data.app_version) if state != "revoked" else None}

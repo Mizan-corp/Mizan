@@ -388,6 +388,29 @@ function Storage({ id }: { id: string }) {
   );
 }
 
+/** A computer running a copy of the licence (#92): the owner can move the licence to it. */
+function MoveLicence({ workspaceId, installationId, hostname }: { workspaceId: string; installationId: string; hostname: string | null }) {
+  const [open, setOpen] = useState(false);
+  const move = useAction(actions.moveLicence);
+  return (
+    <>
+      <span className="text-warn">نسخة على جهاز آخر · لن تتجدد</span>
+      <button type="button" className="text-ox hover:underline" onClick={() => setOpen(true)}>نقل الترخيص إلى هذا الجهاز</button>
+      <Modal open={open} onClose={() => setOpen(false)} title="نقل الترخيص"
+             description={<>يعمل الترخيص على جهاز واحد. بعد النقل يعمل على <span className="code">{hostname ?? "هذا الجهاز"}</span>، ويتوقف تجديده على الجهاز الحالي.</>}>
+        {move.isError && <ErrorNote>{errorText(move.error)}</ErrorNote>}
+        <ModalActions>
+          <Button variant="primary" busy={move.isPending}
+                  onClick={() => move.mutateAsync({ id: workspaceId, installation: installationId }).then(() => { toast.success("نُقل الترخيص"); setOpen(false); })}>
+            نقل الترخيص
+          </Button>
+          <Button onClick={() => setOpen(false)}>إلغاء</Button>
+        </ModalActions>
+      </Modal>
+    </>
+  );
+}
+
 /** Name, address and deletion (#74). The URL name is the workspace's address. */
 function Settings({ w, staff }: { w: WorkspaceT; staff: number }) {
   const navigate = useNavigate();
@@ -540,7 +563,14 @@ export default function Workspace() {
                         </span>
                       )}
                     </span>
-                    <span className="shrink-0 text-xs text-mute">آخر اتصال {ago(i.last_seen_at)}</span>
+                    <span className="flex shrink-0 flex-col items-end gap-1 text-xs text-mute">
+                      <span>آخر اتصال {ago(i.last_seen_at)}</span>
+                      {i.licensed ? (
+                        installations.length > 1 && <Badge tone="ok">عليه الترخيص</Badge>
+                      ) : (
+                        <MoveLicence workspaceId={w.id} installationId={i.id} hostname={i.hostname} />
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>

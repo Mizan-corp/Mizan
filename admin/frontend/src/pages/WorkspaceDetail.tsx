@@ -476,6 +476,7 @@ function LicenceTab({ d }: { d: Detail }) {
                 <Td>
                   <div className="code text-[13px] text-ink">{i.hostname ?? "—"}</div>
                   <div className="code text-[11px] text-mute">{i.last_ip ?? ""}</div>
+                  {i.licensed === false && <Badge tone="bad" className="mt-1">Copy: not renewed</Badge>}
                 </Td>
                 <Td className="text-ink-2">{i.os ?? "—"}</Td>
                 <Td className="code text-[13px]">

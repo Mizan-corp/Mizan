@@ -121,7 +121,7 @@ async def test_check_in_records_the_install_and_renews_the_key():
             await db.execute(text("UPDATE licences SET revoked_at = now() WHERE tenant_id = :t"), {"t": w["id"]})
             await db.commit()
         r = await c.post("/installations/check-in", json={"licence_key": key, "installation_id": str(install)})
-        assert r.json() == {"status": "revoked", "valid_until": r.json()["valid_until"], "licence_key": None, "update": None}
+        assert r.json() == {"status": "revoked", "valid_until": r.json()["valid_until"], "licence_key": None, "update": None, "device": "licensed"}
 
         # Forged keys are refused.
         assert (await c.post("/installations/check-in", json={"licence_key": key[:-4] + "AAAA", "installation_id": str(install)})).status_code == 401
@@ -258,3 +258,31 @@ def test_the_install_keeps_only_genuine_newer_offers(monkeypatch, tmp_path):
     assert state.read_state()["update_available"] is None
     checkin._remember_update(None)  # up to date
     assert state.read_state()["update_available"] is None
+
+
+async def test_a_licence_runs_on_one_computer_and_can_be_moved():
+    """#92: the first computer to check in holds the licence; a copy elsewhere gets no renewed key."""
+    owner, _, _ = await make_owner()
+    async with client() as c:
+        h = await login(c, owner)
+        w = await new_on_prem(c, h, mode="desktop")
+        key = (await c.get(f"/account/workspaces/{w['id']}/download", headers=h)).json()["licence_key"]
+        first, copy = uuid.uuid4(), uuid.uuid4()
+
+        a = (await c.post("/installations/check-in", json={"licence_key": key, "installation_id": str(first), "hostname": "office"})).json()
+        assert a["device"] == "licensed" and a["licence_key"]
+        b = (await c.post("/installations/check-in", json={"licence_key": key, "installation_id": str(copy), "hostname": "home"})).json()
+        assert b["device"] == "other" and b["licence_key"] is None
+
+        detail = (await c.get(f"/account/workspaces/{w['id']}", headers=h)).json()
+        assert {i["hostname"]: i["licensed"] for i in detail["installations"]} == {"office": True, "home": False}
+
+        # The owner moves it to the new computer: now the old one is the copy.
+        moved = (await c.post(f"/account/workspaces/{w['id']}/installations/{copy}/licence", headers=h)).json()
+        assert {i["hostname"]: i["licensed"] for i in moved["installations"]} == {"office": False, "home": True}
+        assert (await c.post("/installations/check-in", json={"licence_key": key, "installation_id": str(copy)})).json()["licence_key"]
+        assert (await c.post("/installations/check-in", json={"licence_key": key, "installation_id": str(first)})).json()["device"] == "other"
+
+        other_owner, _, _ = await make_owner()
+        h2 = await login(c, other_owner)
+        assert (await c.post(f"/account/workspaces/{w['id']}/installations/{first}/licence", headers=h2)).status_code == 404

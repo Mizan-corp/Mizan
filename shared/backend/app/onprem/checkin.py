@@ -50,6 +50,8 @@ async def check_in_once() -> dict:
         return {"ok": False, "reason": "offline"}
 
     _remember_update(answer.get("update"))
+    # #92: another computer holds this licence; this copy gets no renewals.
+    state.update_state(other_device=answer.get("device") == "other")
     if answer.get("status") == "revoked":
         state.update_state(revoked=True, last_check_in_at=now, last_check_in_error=None)
     elif answer.get("licence_key"):

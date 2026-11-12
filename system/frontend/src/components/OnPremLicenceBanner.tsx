@@ -13,6 +13,8 @@ interface OnPremStatus {
   workspace: string | null;
   licence: { status: "active" | "expired" | "revoked" | "missing" | "invalid"; valid_until: string | null; days_left: number | null };
   last_check_in_at: string | null;
+  /** #92: Mizan says this licence belongs to another computer (this copy won't be renewed). */
+  other_device?: boolean;
 }
 
 const WARN_DAYS = 14;
@@ -35,10 +37,13 @@ export function OnPremLicenceBanner() {
   const { status, days_left, valid_until } = q.data.licence;
   const isAdmin = user?.role === "admin";
   const until = valid_until ? new Intl.DateTimeFormat("ar-EG-u-nu-latn", { dateStyle: "long" }).format(new Date(valid_until)) : "";
-  if (status === "active" && (days_left ?? 0) > WARN_DAYS) return null;
+  const otherDevice = !!q.data.other_device;
+  if (status === "active" && (days_left ?? 0) > WARN_DAYS && !otherDevice) return null;
 
   const message =
-    status === "active"
+    otherDevice && status === "active"
+      ? `هذا الترخيص مسجَّل على جهاز آخر، فلن يتجدد على هذا الجهاز ويتوقف في ${until}. لنقله إلى هذا الجهاز: لوحة المالك ← مساحة العمل ← الترخيص والأجهزة.`
+      : status === "active"
       ? `ينتهي ترخيص ميزان على هذا الجهاز في ${until} (بعد ${days_left} يوم). جدّد الاشتراك من لوحة المالك.`
       : status === "expired"
         ? "انتهى ترخيص ميزان على هذا الجهاز: البيانات للعرض فقط حتى تجدّد الاشتراك أو تدخل مفتاحًا جديدًا."
@@ -72,7 +77,7 @@ export function OnPremLicenceBanner() {
     }
   }
 
-  const severe = status !== "active";
+  const severe = status !== "active" || otherDevice;
   return (
     <div
       className={`no-print flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 border-b px-4 py-2.5 text-sm font-medium ${
