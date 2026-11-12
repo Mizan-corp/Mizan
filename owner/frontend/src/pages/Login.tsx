@@ -9,7 +9,7 @@ import { useSearchParams } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { MizanLogo } from "@/components/MizanLogo";
 import { openWithSession } from "@/lib/handoff";
-import { appUrl, workspaceUrl } from "@/lib/urls";
+import { appUrl, safeInternalPath, workspaceUrl } from "@/lib/urls";
 import { Button, ErrorNote, Field, Input } from "@app/ui";
 
 const SYSTEM_API = ((import.meta.env.VITE_SYSTEM_API_URL as string | undefined) ?? "/system-api").replace(/\/+$/, "");
@@ -17,9 +17,7 @@ const SYSTEM_API = ((import.meta.env.VITE_SYSTEM_API_URL as string | undefined) 
 interface LoginResult { access_token?: string; employee_workspace?: string; admin_panel?: boolean }
 
 /** Only paths inside the owner panel may be returned to. */
-function safeNext(raw: string | null): string {
-  return raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : "/";
-}
+const safeNext = (raw: string | null) => safeInternalPath(raw);
 
 async function signIn(login: string, password: string): Promise<LoginResult> {
   let res: Response;

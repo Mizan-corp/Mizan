@@ -1,10 +1,10 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { openWithSession, takeHandedOffSession } from "@/lib/handoff";
-import { appUrl } from "@/lib/urls";
+import { appUrl, safeInternalPath } from "@/lib/urls";
 import { clearOwnerSession, saveOwnerSession } from "@app/lib/ownerSession";
 
-const safePath = (raw: string | null) => (raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : "/");
+const safePath = (raw: string | null) => safeInternalPath(raw);
 
 // Read once at load: the handoff is consumed from the address bar on first read.
 const handedOff = window.location.pathname === "/session" ? takeHandedOffSession() : null;

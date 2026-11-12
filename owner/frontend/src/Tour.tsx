@@ -73,6 +73,20 @@ function steps(w: Workspace): Step[] {
 const PAD = 8;
 const CARD_W = 360;
 
+type Box = Pick<DOMRect, "top" | "bottom" | "left" | "width">;
+
+/** Where the card goes: under the spotlight, above it when there's no room, centred when the
+ * step's target isn't on the page (missing or hidden). */
+export function cardPlacement(rect: Box | null, vw: number, vh: number, cardH: number): { top: number; left: number; width: number } {
+  const width = Math.min(CARD_W, vw - 24);
+  if (!rect) return { top: Math.max(12, vh / 2 - cardH / 2), left: vw / 2 - width / 2, width };
+  const below = rect.bottom + PAD + 12 + cardH < vh;
+  const top = below ? rect.bottom + PAD + 12 : Math.max(12, rect.top - PAD - 12 - cardH);
+  const center = rect.left + rect.width / 2;
+  const left = Math.min(Math.max(12, center - width / 2), vw - width - 12);
+  return { top, left, width };
+}
+
 export default function Tour({ workspace, onOpenWorkspace, onDone }: { workspace: Workspace; onOpenWorkspace: () => void; onDone: () => void }) {
   const qc = useQueryClient();
   const list = steps(workspace);
@@ -139,20 +153,9 @@ export default function Tour({ workspace, onOpenWorkspace, onDone }: { workspace
     return () => window.removeEventListener("keydown", onKey);
   }, [finish, i, last]);
 
-  // Place the card under the spotlight, or above it when there's no room.
   const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
   const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-  const width = Math.min(CARD_W, vw - 24);
-  let style: React.CSSProperties;
-  if (rect) {
-    const below = rect.bottom + PAD + 12 + cardH < vh;
-    const top = below ? rect.bottom + PAD + 12 : Math.max(12, rect.top - PAD - 12 - cardH);
-    const center = rect.left + rect.width / 2;
-    const left = Math.min(Math.max(12, center - width / 2), vw - width - 12);
-    style = { top, left, width };
-  } else {
-    style = { top: Math.max(12, vh / 2 - cardH / 2), left: vw / 2 - width / 2, width };
-  }
+  const style: React.CSSProperties = cardPlacement(rect, vw, vh, cardH);
 
   return createPortal(
     <div className="fixed inset-0 z-[60]" dir="rtl" role="dialog" aria-modal="true" aria-labelledby="tour-title">

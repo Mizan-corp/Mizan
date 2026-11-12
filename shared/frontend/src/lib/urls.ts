@@ -37,3 +37,17 @@ export function workspaceUrl(slug: string, path = "/"): string {
 export function appUrl(app: AppKind, path = "/"): string {
   return `${APP_URLS[app]}${path.startsWith("/") ? path : `/${path}`}`;
 }
+
+/** A `next`/return path that stays on this site: "/…" only. Rejects "//host", "/\host" (browsers
+ * read it as "//host"), absolute URLs, and anything that would resolve to another host. */
+export function safeInternalPath(raw: string | null | undefined, fallback = "/"): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return fallback;
+  if (/[\u0000-\u001f\u007f]/.test(raw)) return fallback;
+  try {
+    const url = new URL(raw, "http://mizan.invalid");
+    if (url.host !== "mizan.invalid") return fallback;
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return fallback;
+  }
+}
