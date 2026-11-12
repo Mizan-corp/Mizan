@@ -63,3 +63,8 @@ def test_reauthenticate(admin_api):
                                        json={"username": "ammar", "password": "changeme"}))
     assert body["username"] == "ammar"
     assert "user_id" in body
+
+def test_me_says_whether_the_user_is_the_owner(cashier_api):
+    """#76: the app offers the owner panel only to the workspace owner's own user."""
+    me = cashier_api.ok(cashier_api.get("/auth/me"))
+    assert me["is_owner"] is False

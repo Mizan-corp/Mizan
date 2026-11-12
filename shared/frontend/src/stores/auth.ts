@@ -10,6 +10,8 @@ export interface User {
   permissions: string[];
   is_manager: boolean;
   is_superadmin?: boolean;
+  /** The workspace owner's own user: the app offers the owner panel (#76). */
+  is_owner?: boolean;
   tenant_id?: string | null;
   default_warehouse_id: string | null;
   /** The role the user acts as now; `permissions` are this role's (ADR-006 phase 3). */

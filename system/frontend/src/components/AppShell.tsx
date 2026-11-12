@@ -5,6 +5,7 @@ import {
   Building2,
   Clock,
   LogOut,
+  Briefcase,
   Menu,
   Search,
   Settings,
@@ -20,6 +21,8 @@ import {
 import { api, signOutSession } from "@/lib/api";
 import { iconFor, useRoleScreens } from "@app/lib/nav";
 import { HOST_WORKSPACE } from "@app/lib/tenant";
+import { IS_ON_PREMISE } from "@app/lib/deployment";
+import { appUrl } from "@/lib/urls";
 import { SECTOR_BADGES } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 import { type RoleRef, useAuth } from "@/stores/auth";
@@ -569,6 +572,13 @@ function AppTopbar({ onOpenMenu, onOpenSearch }: { onOpenMenu: () => void; onOpe
                 <Cpu className="size-4 text-indigo-500" />
                 <span>جدولة الأتمتة (Cron Worker)</span>
               </DropdownMenuItem>
+
+              {user?.is_owner && !IS_ON_PREMISE && (
+                <DropdownMenuItem render={<a href={appUrl("owner", "/")} />}>
+                  <Briefcase className="size-4 text-primary" />
+                  <span>لوحة المالك: الاشتراكات ومساحات العمل</span>
+                </DropdownMenuItem>
+              )}
 
               <div className="h-px bg-border/60 my-1" />
 

@@ -101,6 +101,8 @@ async def me(current_user: User = Depends(get_current_user), db: AsyncSession = 
         "roles": roles,
         "is_manager": bool(user.is_manager) if user.is_manager is not None else False,
         "is_superadmin": bool(user.is_superadmin),
+        # The workspace owner's own user (ADR-004): the app links to the owner panel (#76).
+        "is_owner": user.owner_account_id is not None,
         "default_warehouse_id": str(user.default_warehouse_id) if user.default_warehouse_id else None,
         "tenant": tenant_info,
     }
