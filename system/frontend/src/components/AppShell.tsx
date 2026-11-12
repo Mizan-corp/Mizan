@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { api, signOutSession } from "@/lib/api";
 import { iconFor, useRoleScreens } from "@app/lib/nav";
+import { HOST_WORKSPACE } from "@app/lib/tenant";
 import { SECTOR_BADGES } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 import { type RoleRef, useAuth } from "@/stores/auth";
@@ -138,7 +139,7 @@ function AppSidebar({ onNavigate }: { onNavigate?: () => void }) {
               </span>
             ) : null}
           </div>
-          <span className="truncate text-xs text-sidebar-foreground/60">{tenant?.slug ? `/${tenant.slug}` : "مساحة العمل"}</span>
+          <span className="truncate text-xs text-sidebar-foreground/60">{tenant?.slug ? (HOST_WORKSPACE ? window.location.host : `/${tenant.slug}`) : "مساحة العمل"}</span>
         </div>
       </Link>
       <nav aria-label="القائمة الرئيسية" className="flex-1 overflow-y-auto px-3 py-4">
