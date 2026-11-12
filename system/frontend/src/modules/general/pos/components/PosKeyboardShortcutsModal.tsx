@@ -35,6 +35,24 @@ export function PosKeyboardShortcutsModal({ isOpen, onClose }: PosKeyboardShortc
       icon: <RotateCcw className="h-4 w-4 text-blue-400" />,
     },
     {
+      key: "+ / -",
+      title: "زيادة أو تقليل الكمية",
+      description: "على السطر المحدد في السلة (آخر صنف مُسح، أو اختره بالنقر أو بالسهمين ↑ ↓). Delete يحذفه",
+      icon: <ShoppingBag className="h-4 w-4 text-primary" />,
+    },
+    {
+      key: "F7",
+      title: "إعادة طباعة آخر إيصال",
+      description: "طباعة إيصال آخر فاتورة تمت في هذه الجلسة مرة أخرى",
+      icon: <Printer className="h-4 w-4 text-primary" />,
+    },
+    {
+      key: "?",
+      title: "عرض هذه القائمة",
+      description: "قائمة اختصارات لوحة المفاتيح",
+      icon: <Keyboard className="h-4 w-4 text-primary" />,
+    },
+    {
       key: "F8",
       title: "التبديل بين قطاعي / جملة",
       description: "تغيير تسعير السلة فورياً بين سعر البيع العادي وسعر الجملة",

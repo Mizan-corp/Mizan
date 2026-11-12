@@ -112,6 +112,10 @@ export default function PosPage() {
   const [cashInput, setCashInput] = useState("");
   const [walletId, setWalletId] = useState("");
   const [saleDone, setSaleDone] = useState<SaleResult | null>(null);
+  // The last completed sale, for F7 (reprint) after its dialog is closed (#60).
+  const [lastSale, setLastSale] = useState<SaleResult | null>(null);
+  // The cart line that + / - / Delete act on: the last one scanned unless the cashier picks another (#60).
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [held, setHeld] = useState<HeldBill[]>(() => {
     try { return JSON.parse(localStorage.getItem(HELD_KEY) ?? localStorage.getItem(LEGACY_HELD_KEY) ?? "[]"); } catch { return []; }
   });
@@ -173,6 +177,7 @@ export default function PosPage() {
 
   function addToCart(p: Product) {
     sound.scan();
+    setSelectedId(p.id);
     setCart((c) => {
       const i = c.findIndex((x) => x.product.id === p.id);
       if (i >= 0) {
@@ -266,6 +271,33 @@ export default function PosPage() {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement)?.tagName;
       const typing = tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA";
+      // Cart keys work from the (empty) scan box too, so the cashier never has to leave it;
+      // a scan or a typed search is never taken over.
+      const scanBoxEmpty = e.target === barcodeRef.current && !barcodeRef.current?.value;
+      const dialogOpen = payOpen || resumeOpen || confirmClear || hardwareModalOpen || shortcutsModalOpen || !!saleDone;
+      const cartKeys = (!typing || scanBoxEmpty) && !dialogOpen && !e.ctrlKey && !e.metaKey && !e.altKey;
+      const picked = cart.findIndex((x) => x.product.id === selectedId);
+      const sel = picked >= 0 ? picked : cart.length - 1;
+
+      if (cartKeys && sel >= 0 && (e.key === "+" || e.key === "-" || e.key === "Delete" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        e.preventDefault();
+        sound.click();
+        if (e.key === "+") setCart((c) => c.map((x, j) => (j === sel ? { ...x, qty: x.qty + 1 } : x)));
+        else if (e.key === "-") setCart((c) => c.map((x, j) => (j === sel ? { ...x, qty: Math.max(1, x.qty - 1) } : x)));
+        else if (e.key === "Delete") {
+          setCart((c) => c.filter((_, j) => j !== sel));
+          setSelectedId(cart[sel + 1]?.product.id ?? cart[sel - 1]?.product.id ?? null);
+        } else {
+          const next = Math.min(cart.length - 1, Math.max(0, sel + (e.key === "ArrowDown" ? 1 : -1)));
+          setSelectedId(cart[next].product.id);
+        }
+        return;
+      }
+      if (cartKeys && e.key === "?") {
+        e.preventDefault();
+        setShortcutsModalOpen(true);
+        return;
+      }
 
       if (e.key === "F1") {
         e.preventDefault();
@@ -292,6 +324,14 @@ export default function PosPage() {
         } else if (held.length) {
           sound.click();
           setResumeOpen(true);
+        }
+      } else if (e.key === "F7") {
+        e.preventDefault();
+        if (lastSale) {
+          sound.click();
+          openPrintDoc(`/print/sale/${lastSale.id}`);
+        } else {
+          toast("info", "لا توجد فاتورة سابقة في هذه الجلسة لإعادة طباعتها");
         }
       } else if (e.key === "F8") {
         e.preventDefault();
@@ -320,7 +360,7 @@ export default function PosPage() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [cart, payOpen, resumeOpen, confirmClear, hardwareModalOpen, shortcutsModalOpen, shiftMissing, shift.isLoading, total, isCredit, customerId, rxMissing]);
+  }, [cart, payOpen, resumeOpen, confirmClear, hardwareModalOpen, shortcutsModalOpen, shiftMissing, shift.isLoading, total, isCredit, customerId, rxMissing, selectedId, lastSale, saleDone]);
 
   const body = () =>
     buildSaleBody({
@@ -343,6 +383,7 @@ export default function PosPage() {
     onSuccess: (r) => {
       sound.success();
       setSaleDone(r);
+      setLastSale(r);
       setCart([]); setPayOpen(false); setCashInput(""); setSplit([]);
       setIsCredit(false); setCustomerId(""); setWalletId(""); setRx({});
       toast("success", `تم البيع — فاتورة ${r.invoice_number}`);
@@ -445,6 +486,12 @@ export default function PosPage() {
             <Kbd>F4</Kbd> {cart.length ? "تعليق" : "استئناف"}
             {held.length > 0 && <span className="num size-4 rounded-full bg-warning/20 text-warning-ink text-[10px] font-black grid place-items-center">{held.length}</span>}
           </span>
+          <span className="inline-flex items-center gap-1 text-muted-foreground" title="على السطر المحدد في السلة؛ ↑ ↓ لتغييره، Delete لحذفه">
+            <Kbd>+</Kbd><Kbd>-</Kbd> الكمية
+          </span>
+          <span className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition cursor-pointer" onClick={() => lastSale && openPrintDoc(`/print/sale/${lastSale.id}`)}>
+            <Kbd>F7</Kbd> آخر إيصال
+          </span>
           <span className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition cursor-pointer" onClick={() => { sound.click(); setMode(m => m === "retail" ? "wholesale" : "retail"); }}>
             <Kbd>F8</Kbd> {mode === "retail" ? "تجزئة" : "جملة"}
           </span>
@@ -487,7 +534,7 @@ export default function PosPage() {
           ) : (
             <button
               onClick={() => { sound.click(); setOpenShiftFor(wh.data?.find((w) => w.id === warehouseId) ?? null); }}
-              className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-500/25 transition"
+              className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 pointer-coarse:min-h-11 pointer-coarse:px-4 text-[11px] font-bold text-amber-800 dark:text-amber-400 hover:bg-amber-500/25 transition"
             >
               وردية مغلقة — فتح الآن
             </button>
@@ -506,8 +553,8 @@ export default function PosPage() {
 
       {/* Main split grid: Catalog & Fast Scanner on Left / Mechanical Receipt on Right */}
       <div className="pos-layout-grid">
-        {/* ── Catalog & Barcode Engine ── */}
-        <div className="min-w-0 space-y-3">
+        {/* ── Catalog & Barcode Engine ── (columns follow this column's width, not the window's: #59) */}
+        <div className="@container min-w-0 space-y-3">
           {/* Scanner search control card */}
           <div className="precision-surface rounded-xl p-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -515,7 +562,7 @@ export default function PosPage() {
                 onSubmit={(e) => { e.preventDefault(); scanBarcode(search.trim()); }}
                 className="flex min-w-[260px] flex-1 items-center gap-2"
               >
-                <InputGroup className="h-10 flex-1 bg-background border-line focus-within:border-primary">
+                <InputGroup className="h-10 pointer-coarse:h-12 flex-1 bg-background border-line focus-within:border-primary">
                   <InputGroupInput
                     ref={barcodeRef}
                     autoFocus
@@ -535,7 +582,7 @@ export default function PosPage() {
               </form>
 
               {/* Wholesale / Retail toggle segmented */}
-              <div className="flex h-10 overflow-hidden rounded-lg border border-line bg-secondary/50 p-0.5">
+              <div className="flex h-10 pointer-coarse:h-12 overflow-hidden rounded-lg border border-line bg-secondary/50 p-0.5">
                 {(["retail", "wholesale"] as const).map((m) => (
                   <button
                     key={m}
@@ -556,7 +603,7 @@ export default function PosPage() {
 
           {/* Products grid */}
           {products.isLoading ? (
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4" aria-busy="true" aria-label="جارٍ التحميل">
+            <div className="grid grid-cols-2 gap-2.5 @sm:grid-cols-3 @xl:grid-cols-4" aria-busy="true" aria-label="جارٍ التحميل">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="flex flex-col gap-2 rounded-xl border border-line p-3">
                   <Skeleton className="aspect-square w-full rounded-lg" />
@@ -574,7 +621,7 @@ export default function PosPage() {
               <p className="text-xs text-muted-foreground mt-1">تأكد من رقم الباركود أو ابحث باسم المنتج</p>
             </div>
           ) : (
-            <Stagger className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4" key={search}>
+            <Stagger className="grid grid-cols-2 gap-2.5 @sm:grid-cols-3 @xl:grid-cols-4" key={search}>
               {products.data!.items.map((p) => {
                 const currentPrice = mode === "wholesale" ? p.wholesale_price : p.retail_price;
                 const inCart = cart.find((i) => i.product.id === p.id);
@@ -660,7 +707,7 @@ export default function PosPage() {
                   {cart.length > 0 && (
                     <button
                       onClick={() => { sound.click(); setConfirmClear(true); }}
-                      className="tactile-btn flex items-center justify-center rounded-md border border-line p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-ink hover:border-destructive/30"
+                      className="tactile-btn flex items-center justify-center rounded-md border border-line p-1 pointer-coarse:size-11 text-muted-foreground hover:bg-destructive/10 hover:text-destructive-ink hover:border-destructive/30"
                       title="تفريغ السلة [F9]"
                     >
                       <Trash2 size={14} />
@@ -677,7 +724,7 @@ export default function PosPage() {
                   <span className="font-bold text-amber-700 dark:text-amber-400">الوردية مغلقة لهذا الفرع</span>
                   <button
                     onClick={() => { sound.click(); setOpenShiftFor(wh.data?.find((w) => w.id === warehouseId) ?? null); }}
-                    className="tactile-btn rounded bg-amber-600 px-2 py-0.5 text-xs font-bold text-white shadow-sm"
+                    className="tactile-btn rounded bg-amber-600 px-2 py-0.5 pointer-coarse:min-h-11 pointer-coarse:px-4 text-xs font-bold text-white shadow-sm"
                   >
                     فتح وردية
                   </button>
@@ -700,8 +747,14 @@ export default function PosPage() {
                   {cart.map((i, idx) => {
                     const price = unitPrice(i.product);
                     const lineTotal = price.times(i.qty).minus(D(i.discount || "0"));
+                    const selected = (cart.some((x) => x.product.id === selectedId) ? selectedId : cart[cart.length - 1]?.product.id) === i.product.id;
                     return (
-                      <li key={i.product.id} className="group flex items-center justify-between gap-2 py-2 text-xs">
+                      <li
+                        key={i.product.id}
+                        aria-current={selected ? "true" : undefined}
+                        onClick={() => setSelectedId(i.product.id)}
+                        className={`group -mx-1.5 flex items-center justify-between gap-2 rounded-md px-1.5 py-2 text-xs transition-colors ${selected ? "bg-primary/6 ring-1 ring-primary/25" : ""}`}
+                      >
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-bold text-foreground">{i.product.name}</p>
                           {pharmacy && <DrugInfo product={i.product} compact />}
@@ -726,7 +779,7 @@ export default function PosPage() {
                                 sound.click();
                                 setCart((c) => c.map((x, j) => (j === idx ? { ...x, qty: Math.max(1, x.qty - 1) } : x)));
                               }}
-                              className="tactile-btn size-7.5 rounded-md flex items-center justify-center hover:bg-card text-muted-foreground hover:text-foreground active:scale-95 transition-all"
+                              className="tactile-btn size-7.5 pointer-coarse:size-11 rounded-md flex items-center justify-center hover:bg-card text-muted-foreground hover:text-foreground active:scale-95 transition-all"
                               aria-label="تقليل الكمية"
                             >
                               <Minus size={13} />
@@ -738,7 +791,7 @@ export default function PosPage() {
                                 sound.click();
                                 setCart((c) => c.map((x, j) => (j === idx ? { ...x, qty: x.qty + 1 } : x)));
                               }}
-                              className="tactile-btn size-7.5 rounded-md flex items-center justify-center hover:bg-card text-muted-foreground hover:text-foreground active:scale-95 transition-all"
+                              className="tactile-btn size-7.5 pointer-coarse:size-11 rounded-md flex items-center justify-center hover:bg-card text-muted-foreground hover:text-foreground active:scale-95 transition-all"
                               aria-label="زيادة الكمية"
                             >
                               <Plus size={13} />
@@ -755,7 +808,7 @@ export default function PosPage() {
                               sound.click();
                               setCart((c) => c.filter((_, j) => j !== idx));
                             }}
-                            className="tactile-btn size-7.5 rounded-md flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive-ink active:scale-95 transition-all"
+                            className="tactile-btn size-7.5 pointer-coarse:size-11 rounded-md flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive-ink active:scale-95 transition-all"
                             aria-label="حذف الصنف"
                           >
                             <X size={14} />
@@ -810,7 +863,7 @@ export default function PosPage() {
                         setSplit([]);
                         setPayOpen(true);
                       }}
-                      className="tactile-btn num flex-1 rounded border border-line bg-secondary/50 py-1 text-center font-mono text-[11px] font-bold hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition"
+                      className="tactile-btn num flex-1 rounded border border-line bg-secondary/50 py-1 pointer-coarse:min-h-11 text-center font-mono text-[11px] font-bold hover:bg-primary/10 hover:border-primary/40 hover:text-primary transition"
                     >
                       {val}
                     </button>
@@ -823,7 +876,7 @@ export default function PosPage() {
                       setSplit([]);
                       setPayOpen(true);
                     }}
-                    className="tactile-btn flex-1 rounded border border-line bg-secondary/50 py-1 text-center text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition"
+                    className="tactile-btn flex-1 rounded border border-line bg-secondary/50 py-1 pointer-coarse:min-h-11 text-center text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition"
                   >
                     بالضبط
                   </button>
@@ -834,7 +887,7 @@ export default function PosPage() {
               <div className="flex gap-2 pt-1">
                 <Button
                   variant="outline"
-                  className="tactile-btn text-xs px-3"
+                  className="tactile-btn text-xs px-3 pointer-coarse:h-12"
                   disabled={!cart.length}
                   onClick={handleHoldBill}
                   title="تعليق الفاتورة [F4]"
@@ -845,7 +898,7 @@ export default function PosPage() {
                 </Button>
 
                 <Button
-                  className="tactile-btn flex-1 font-bold py-2.5 text-sm shadow-md"
+                  className="tactile-btn flex-1 font-bold py-2.5 text-sm shadow-md pointer-coarse:h-12"
                   disabled={!cart.length || shiftMissing || shift.isLoading}
                   onClick={() => openPaymentModal(false)}
                 >
@@ -868,7 +921,7 @@ export default function PosPage() {
           {cart.length > 0 && (
             <Button
               variant="outline"
-              className="tactile-btn h-10 px-3 text-xs"
+              className="tactile-btn h-10 pointer-coarse:h-12 px-3 text-xs"
               onClick={handleHoldBill}
               title="تعليق الفاتورة"
             >
@@ -877,7 +930,7 @@ export default function PosPage() {
             </Button>
           )}
           <Button
-            className="tactile-btn h-10 px-4 font-bold text-sm shadow-md"
+            className="tactile-btn h-10 pointer-coarse:h-12 px-4 font-bold text-sm shadow-md"
             disabled={!cart.length || shiftMissing || shift.isLoading}
             onClick={() => openPaymentModal(false)}
           >
