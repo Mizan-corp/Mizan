@@ -26,6 +26,7 @@ import datetime
 import json
 import os
 import platform
+import re
 import shutil
 import signal
 import subprocess
@@ -160,7 +161,37 @@ def stamp() -> str:
     return datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
+NODE_MAJOR = 22  # .nvmrc; vitest and the builds fail on older Node (#97)
+
+
+def _node_major(node: str) -> int:
+    try:
+        out = subprocess.run([node, "--version"], capture_output=True, text=True, timeout=10).stdout
+        return int(out.strip().lstrip("v").split(".")[0])
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return 0
+
+
+def ensure_node() -> None:
+    """Use Node 22+: the one on PATH, else one installed with nvm (put first on PATH), else stop."""
+    node = shutil.which("node")
+    if node and _node_major(node) >= NODE_MAJOR:
+        return
+    nvm_dir = Path(os.environ.get("NVM_DIR", Path.home() / ".nvm")) / "versions" / "node"
+    candidates = sorted(nvm_dir.glob("v*/bin/node"), key=lambda p: [int(x) for x in re.findall(r"\d+", p.parent.parent.name)],
+                        reverse=True) if nvm_dir.is_dir() else []
+    for candidate in candidates:
+        if _node_major(str(candidate)) >= NODE_MAJOR:
+            os.environ["PATH"] = f"{candidate.parent}{os.pathsep}{os.environ.get('PATH', '')}"
+            info(f"Using Node {candidate.parent.parent.name} from nvm (the default node is older than {NODE_MAJOR}).")
+            return
+    found = f"found Node {_node_major(node)}" if node else "Node isn't installed"
+    die(f"Node {NODE_MAJOR}+ is needed ({found}). Install it from https://nodejs.org or run `nvm install {NODE_MAJOR}`.")
+
+
 def need(tool: str, hint: str) -> None:
+    if tool in ("npm", "npx", "node"):
+        ensure_node()
     if not shutil.which(tool):
         die(f"`{tool}` not found. {hint}")
 

@@ -16,5 +16,8 @@
     "dev:admin": "npm run dev -w admin/frontend",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
