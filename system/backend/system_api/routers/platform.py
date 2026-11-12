@@ -3,10 +3,9 @@ demo-data wipe, offline license verification and schema migrations.
 """
 import logging
 import secrets
-import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,30 +13,12 @@ from app.core.config import settings
 from app.platform.tenancy.context import current_tenant_id
 from app.db.base import get_db
 from app.dependencies import get_current_user
-from app.platform.tenancy.models import Subscription, Tenant
+from app.platform.tenancy.models import Tenant
 from app.platform.auth.models.user import User
 
 logger = logging.getLogger("mizan.platform")
 
 router = APIRouter(prefix="/platform", tags=["platform"])
-
-
-class SubscribeRequest(BaseModel):
-    plan: str
-    contact_phone: str | None = Field(default=None, max_length=32)
-
-
-@router.post("/subscribe-request")
-async def subscribe_request(data: SubscribeRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    tid = current_tenant_id.get()
-    if tid is None:
-        raise HTTPException(status_code=403, detail="لا يوجد مساحة عمل مرتبطة")
-    sub = Subscription(id=uuid.uuid4(), tenant_id=tid, plan=data.plan,
-                       status="requested", contact_phone=data.contact_phone)
-    db.add(sub)
-    await db.commit()
-    return {"status": "requested", "plan": data.plan,
-            "message": "وصلنا طلبك — فريق المبيعات هيتواصل معاك لتفعيل الخطة"}
 
 
 @router.get("/me/tenant")

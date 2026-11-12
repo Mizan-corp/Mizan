@@ -18,7 +18,6 @@ export interface ActivityItem {
 export type AttentionItem =
   | { kind: "trial_expired" | "trial_ending" | "paid_ended" | "paid_ending"; tenant_id: string; tenant_name: string; days: number; at: string }
   | { kind: "invoice_pending"; tenant_id: string; tenant_name: string | null; ref: string; amount_egp: number; plan: string; at: string }
-  | { kind: "upgrade_request"; tenant_id: string; tenant_name: string | null; request_id: string; plan: string; phone: string | null; at: string };
 
 export interface Revenue {
   mrr_egp: number;
@@ -70,16 +69,6 @@ export interface Invoice {
   tenant_name?: string | null;
 }
 
-export interface UpgradeRequest {
-  id: string;
-  plan: string;
-  status: string;
-  phone: string | null;
-  created_at: string;
-  tenant_id?: string;
-  tenant_name?: string | null;
-}
-
 export interface WorkspaceDetail {
   workspace: WorkspaceSummary & { scale: string; active_modules: string[]; limits: Record<string, unknown>; system_path: string | null };
   owner: { id: string; username: string; full_name: string } | null;
@@ -87,7 +76,6 @@ export interface WorkspaceDetail {
   users: { id: string; username: string; full_name: string; role: string; is_active: boolean; created_at: string }[];
   branches: { id: string; name: string; is_active: boolean }[];
   invoices: Invoice[];
-  requests: UpgradeRequest[];
   activity: ActivityItem[];
   licence: { id: string; mode: string; status: "active" | "expired" | "revoked"; valid_until: string; revoked_at: string | null } | null;
   installations: {
@@ -112,7 +100,6 @@ export interface Module {
 export interface Billing {
   summary: Revenue & { pending_count: number; pending_egp: number; collected_this_month_egp: number };
   invoices: Invoice[];
-  requests: UpgradeRequest[];
 }
 
 export interface Person {
@@ -222,7 +209,6 @@ export const actions = {
   revokeLicence: (v: { id: string; revoked: boolean; reason?: string }) =>
     api.post(`/admoon/tenants/${v.id}/licence/revoke`, { revoked: v.revoked, reason: v.reason }),
   licenceKey: (id: string) => api.post<{ licence_key: string; valid_until: string }>(`/admoon/tenants/${id}/licence/key`),
-  dismissRequest: (id: string) => api.post(`/admoon/billing/requests/${id}/dismiss`),
   grant: (userId: string) => api.post("/admoon/team", { user_id: userId }),
   revoke: (userId: string) => api.del(`/admoon/team/${userId}`),
 };

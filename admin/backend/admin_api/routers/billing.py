@@ -1,5 +1,5 @@
-"""Billing: invoices, upgrade requests and revenue across all workspaces."""
-import uuid
+"""Billing: invoices and revenue across all workspaces. (Upgrade requests were retired in #70:
+subscribing happens in the owner panel.)"""
 from datetime import UTC, datetime
 from typing import Literal
 
@@ -12,7 +12,6 @@ from admin_api.common import iso, record, tenant_names
 from app.db.base import get_db
 from app.dependencies import require_superadmin
 from app.platform.billing.models import BillingInvoice
-from app.platform.tenancy.models import Subscription
 from app.platform.auth.models.user import User
 from app.platform.billing.services.subscriptions import activate_invoice, plan_name, revenue_breakdown
 
@@ -39,11 +38,7 @@ async def billing_overview(
     if status:
         stmt = stmt.where(BillingInvoice.status == status)
     invoices = (await db.execute(stmt)).scalars().all()
-    requests = (await db.execute(
-        select(Subscription).where(Subscription.status == "requested")
-        .order_by(Subscription.created_at.desc()).limit(100)
-    )).scalars().all()
-    names = await tenant_names(db, {i.tenant_id for i in invoices} | {r.tenant_id for r in requests})
+    names = await tenant_names(db, {i.tenant_id for i in invoices})
 
     return {
         "summary": {
@@ -57,12 +52,6 @@ async def billing_overview(
              "plan": i.plan, "plan_name": plan_name(i.plan), "cycle": i.billing_cycle, "amount_egp": i.amount_egp,
              "method": i.payment_method, "status": i.status, "created_at": iso(i.created_at), "paid_at": iso(i.paid_at)}
             for i in invoices
-        ],
-        "requests": [
-            {"id": str(r.id), "tenant_id": str(r.tenant_id), "tenant_name": names.get(r.tenant_id),
-             "plan": r.plan, "plan_name": plan_name(r.plan), "status": r.status, "phone": r.contact_phone,
-             "created_at": iso(r.created_at)}
-            for r in requests
         ],
     }
 
@@ -114,19 +103,3 @@ async def invoice_receipt(ref: str, db: AsyncSession = Depends(get_db), _: User 
     pdf = await receipt_pdf(invoice, tenant.name, (owner.full_name or owner.login) if owner else None)
     return Response(pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f'attachment; filename="Mizan-receipt-{invoice.invoice_ref}.pdf"'})
-
-
-@router.post("/requests/{request_id}/dismiss")
-async def dismiss_request(
-    request_id: uuid.UUID,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_superadmin),
-):
-    sub = await db.get(Subscription, request_id)
-    if not sub:
-        raise HTTPException(status_code=404, detail="Request not found")
-    sub.status = "dismissed"
-    await db.commit()
-    await record(db, admin, "upgrade_request_dismissed", tenant_id=sub.tenant_id, request=request, plan=sub.plan)
-    return {"ok": True}

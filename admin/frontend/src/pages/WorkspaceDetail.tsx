@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { openWithSession, openWorkspaceWithSession } from "@/lib/handoff";
 import { workspaceUrl } from "@/lib/urls";
 import { actions, type Module, useAction, useModules, useWorkspace, type WorkspaceDetail as Detail } from "@app/lib/data";
-import { ago, categoryLabel, date, dateTime, errorText, moduleLabel, modeLabel, money, num, PLANS, planLabel, plural, pulse, REQUEST_STATUS, sectorLabel, trialText } from "@app/lib/format";
+import { ago, categoryLabel, date, dateTime, errorText, moduleLabel, modeLabel, money, num, PLANS, planLabel, plural, pulse, sectorLabel, trialText } from "@app/lib/format";
 import {
   ActivityList,
   Badge,
@@ -161,22 +161,6 @@ function PlanTab({ d }: { d: Detail }) {
         <InvoiceTable invoices={d.invoices.map((i) => ({ ...i, tenant_id: w.id, tenant_name: w.name }))} />
       </Panel>
 
-      {d.requests.length > 0 && (
-        <Panel title="Upgrade requests" flush>
-          <Table head={["Wants", "Phone", "Status", "Asked"]}>
-            {d.requests.map((r) => (
-              <tr key={r.id}>
-                <Td>{planLabel(r.plan)}</Td>
-                <Td className="code">{r.phone ?? "—"}</Td>
-                <Td>
-                  <Badge tone={REQUEST_STATUS[r.status]?.tone ?? "mute"}>{REQUEST_STATUS[r.status]?.label ?? r.status}</Badge>
-                </Td>
-                <Td className="text-ink-2">{ago(r.created_at)}</Td>
-              </tr>
-            ))}
-          </Table>
-        </Panel>
-      )}
 
       <Confirm
         open={confirming}

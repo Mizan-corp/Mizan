@@ -24,7 +24,7 @@ from app.dependencies import require_superadmin
 from app.platform.billing.models import BillingInvoice
 from app.modules.general.inventory.models.product import Product
 from app.modules.general.sales.models.sale import Sale
-from app.platform.tenancy.models import Subscription, Tenant
+from app.platform.tenancy.models import Tenant
 from app.platform.auth.models.user import User
 from app.modules.general.inventory.models.warehouse import Warehouse
 from app.platform.auth.services import auth as auth_service
@@ -132,9 +132,6 @@ async def get_workspace(
     invoices = (await db.execute(
         select(BillingInvoice).where(BillingInvoice.tenant_id == t.id).order_by(BillingInvoice.created_at.desc()).limit(20)
     )).scalars().all()
-    requests = (await db.execute(
-        select(Subscription).where(Subscription.tenant_id == t.id).order_by(Subscription.created_at.desc()).limit(20)
-    )).scalars().all()
     owner = next((u for u in users if u.role == "admin"), users[0] if users else None)
 
     return {
@@ -164,10 +161,6 @@ async def get_workspace(
             {"ref": i.invoice_ref, "plan": i.plan, "cycle": i.billing_cycle, "amount_egp": i.amount_egp,
              "status": i.status, "method": i.payment_method, "created_at": iso(i.created_at), "paid_at": iso(i.paid_at)}
             for i in invoices
-        ],
-        "requests": [
-            {"id": str(r.id), "plan": r.plan, "status": r.status, "phone": r.contact_phone, "created_at": iso(r.created_at)}
-            for r in requests
         ],
         "activity": await recent_activity(db, limit=20, tenant_id=t.id),
         **await _licence_block(db, t),

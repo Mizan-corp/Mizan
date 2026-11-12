@@ -111,13 +111,6 @@ export function moduleLabel(m: { id: string; name: string; name_en: string }): s
   return inParens ? inParens[1] : m.id;
 }
 
-export const REQUEST_STATUS: Record<string, { label: string; tone: Tone }> = {
-  requested: { label: "Waiting for you", tone: "warn" },
-  checkout_initiated: { label: "Checkout started", tone: "info" },
-  active: { label: "Done", tone: "ok" },
-  dismissed: { label: "Dismissed", tone: "mute" },
-};
-
 export const MODES: Record<string, { label: string; short: string }> = {
   cloud_saas: { label: "Cloud", short: "Cloud" },
   desktop: { label: "Single device", short: "Desktop" },

@@ -4,7 +4,7 @@ import { CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/stores/auth";
 import { actions, type AttentionItem, useAction, useOverview } from "@app/lib/data";
 import { ago, date, money, num, plural, planLabel, sectorLabel } from "@app/lib/format";
-import { ActivityList, Badge, Button, Confirm, Figures, LoadError, PageHeader, PageSkeleton, Panel, WorkspaceLink } from "@app/ui";
+import { ActivityList, Badge, Button, Figures, LoadError, PageHeader, PageSkeleton, Panel, WorkspaceLink } from "@app/ui";
 import { MarkPaidDialog } from "@app/pages/Billing";
 
 function greeting() {
@@ -15,7 +15,6 @@ function greeting() {
 const KIND: Record<AttentionItem["kind"], { label: string; tone: "bad" | "warn" | "info" | "ox" }> = {
   trial_expired: { label: "Trial ended", tone: "bad" },
   invoice_pending: { label: "Unpaid", tone: "warn" },
-  upgrade_request: { label: "Upgrade", tone: "ox" },
   trial_ending: { label: "Trial ending", tone: "info" },
   paid_ended: { label: "Read-only", tone: "bad" },
   paid_ending: { label: "Renewal due", tone: "warn" },
@@ -24,9 +23,7 @@ const KIND: Record<AttentionItem["kind"], { label: string; tone: "bad" | "warn" 
 function AttentionRow({ item }: { item: AttentionItem }) {
   const navigate = useNavigate();
   const extend = useAction(actions.extendTrial, { success: (v) => `Trial extended by ${v.days} days` });
-  const dismiss = useAction(actions.dismissRequest, { success: () => "Request dismissed" });
   const [paying, setPaying] = useState(false);
-  const [dismissing, setDismissing] = useState(false);
   const name = <WorkspaceLink id={item.tenant_id} name={item.tenant_name ?? "Unknown workspace"} />;
 
   let sentence;
@@ -79,38 +76,6 @@ function AttentionRow({ item }: { item: AttentionItem }) {
             Mark paid
           </Button>
           <MarkPaidDialog open={paying} onClose={() => setPaying(false)} invoiceRef={item.ref} amount={item.amount_egp} />
-        </>
-      );
-      break;
-    case "upgrade_request":
-      sentence = (
-        <>
-          {name} asked to upgrade to {planLabel(item.plan)}
-          {item.phone && (
-            <>
-              {" "}
-              — call <span className="code">{item.phone}</span>
-            </>
-          )}
-          .
-        </>
-      );
-      action = (
-        <>
-          <Button size="sm" variant="ghost" onClick={() => setDismissing(true)}>
-            Dismiss
-          </Button>
-          <Button size="sm" onClick={() => navigate(`/workspaces/${item.tenant_id}?tab=plan`)}>
-            Change plan
-          </Button>
-          <Confirm
-            open={dismissing}
-            onClose={() => setDismissing(false)}
-            title="Dismiss this request?"
-            body="It disappears from this list. The workspace keeps its current plan."
-            confirmLabel="Dismiss request"
-            onConfirm={() => dismiss.mutateAsync(item.request_id)}
-          />
         </>
       );
       break;
@@ -201,7 +166,7 @@ export default function Overview() {
         ) : (
           <div className="flex items-center gap-3 px-4 py-6 text-sm text-ink-2">
             <CheckCircle2 className="size-5 text-ok" />
-            No ended trials, unpaid invoices or upgrade requests. Trials ending within 7 days will show up here.
+            No ended trials or unpaid invoices. Trials ending within 7 days will show up here.
           </div>
         )}
       </Panel>

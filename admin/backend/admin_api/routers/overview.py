@@ -10,7 +10,7 @@ from admin_api.routers.activity import recent_activity
 from app.db.base import get_db
 from app.dependencies import require_superadmin
 from app.platform.billing.models import BillingInvoice
-from app.platform.tenancy.models import Subscription, Tenant
+from app.platform.tenancy.models import Tenant
 from app.platform.auth.models.user import User
 from app.platform.billing.services.subscriptions import PAID_PLANS, revenue_breakdown
 
@@ -51,15 +51,10 @@ async def overview(db: AsyncSession = Depends(get_db), _: User = Depends(require
     # Open Paymob checkouts settle themselves; only manual invoices need a person.
     pending = (await db.execute(select(BillingInvoice).where(BillingInvoice.status == "pending", BillingInvoice.payment_method != "paymob")
                                 .order_by(BillingInvoice.created_at))).scalars().all()
-    requests = (await db.execute(select(Subscription).where(Subscription.status == "requested")
-                                 .order_by(Subscription.created_at))).scalars().all()
-    names = await tenant_names(db, {i.tenant_id for i in pending} | {r.tenant_id for r in requests})
+    names = await tenant_names(db, {i.tenant_id for i in pending})
     attention += [{"kind": "invoice_pending", "tenant_id": str(i.tenant_id), "tenant_name": names.get(i.tenant_id),
                    "ref": i.invoice_ref, "amount_egp": i.amount_egp, "plan": i.plan,
                    "at": iso(i.created_at)} for i in pending]
-    attention += [{"kind": "upgrade_request", "tenant_id": str(r.tenant_id), "tenant_name": names.get(r.tenant_id),
-                   "request_id": str(r.id), "plan": r.plan, "phone": r.contact_phone,
-                   "at": iso(r.created_at)} for r in requests]
 
     ending = (await db.execute(select(Tenant).where(on_trial, Tenant.trial_ends_at >= now,
                                                     Tenant.trial_ends_at < now + timedelta(days=7))

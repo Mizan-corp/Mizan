@@ -7,7 +7,6 @@ import { ago, date, errorText, money, num, planLabel } from "@app/lib/format";
 import {
   Badge,
   Button,
-  Confirm,
   Empty,
   ErrorNote,
   Field,
@@ -21,7 +20,6 @@ import {
   Panel,
   Segmented,
   Table,
-  Tabs,
   Td,
   Textarea,
   WorkspaceLink,
@@ -174,19 +172,16 @@ export function InvoiceTable({ invoices, showWorkspace }: { invoices: Invoice[];
 }
 
 export default function Billing() {
-  const [tab, setTab] = useState<"invoices" | "requests">("invoices");
   const [status, setStatus] = useState<"all" | "pending" | "paid" | "failed">("all");
   const q = useBilling(status === "all" ? undefined : status);
-  const dismiss = useAction(actions.dismissRequest, { success: () => "Request dismissed" });
-  const [dismissing, setDismissing] = useState<string | null>(null);
 
   if (q.isPending) return <PageSkeleton />;
   if (q.isError) return <LoadError error={q.error} retry={() => q.refetch()} />;
-  const { summary, invoices, requests } = q.data;
+  const { summary, invoices } = q.data;
 
   return (
     <>
-      <PageHeader title="Billing" description="Invoices from checkouts and upgrade requests from workspace owners." />
+      <PageHeader title="Billing" description="Invoices from owners' checkouts, and payments marked by hand." />
       <Figures
         items={[
           { label: "Monthly revenue", value: money(summary.mrr_egp), hint: "From paid invoices; yearly plans ÷ 12" },
@@ -197,67 +192,24 @@ export default function Billing() {
       />
 
       <div className="mt-7">
-        <Tabs
-          value={tab}
-          onChange={setTab}
-          items={[
-            { value: "invoices", label: "Invoices", count: summary.pending_count || undefined },
-            { value: "requests", label: "Upgrade requests", count: requests.length || undefined },
-          ]}
-        />
-        {tab === "invoices" ? (
-          <Panel
-            flush
-            title={
-              <Segmented
-                value={status}
-                onChange={setStatus}
-                items={[
-                  { value: "all", label: "All" },
-                  { value: "pending", label: "Unpaid" },
-                  { value: "paid", label: "Paid" },
-                  { value: "failed", label: "Failed" },
-                ]}
-              />
-            }
-          >
-            <InvoiceTable invoices={invoices} showWorkspace />
-          </Panel>
-        ) : (
-          <Panel flush>
-            {requests.length ? (
-              <Table head={["Workspace", "Wants", "Phone", "Asked", ""]}>
-                {requests.map((r) => (
-                  <tr key={r.id}>
-                    <Td>
-                      <WorkspaceLink id={r.tenant_id ?? null} name={r.tenant_name ?? "Deleted workspace"} />
-                    </Td>
-                    <Td>{planLabel(r.plan)}</Td>
-                    <Td className="code">{r.phone ?? "—"}</Td>
-                    <Td className="text-ink-2">{ago(r.created_at)}</Td>
-                    <Td className="text-right">
-                      <Button size="sm" variant="ghost" onClick={() => setDismissing(r.id)}>
-                        Dismiss
-                      </Button>
-                    </Td>
-                  </tr>
-                ))}
-              </Table>
-            ) : (
-              <Empty title="No open upgrade requests.">Owners ask to upgrade from the pricing page inside the app.</Empty>
-            )}
-          </Panel>
-        )}
+        <Panel
+          flush
+          title={
+            <Segmented
+              value={status}
+              onChange={setStatus}
+              items={[
+                { value: "all", label: "All" },
+                { value: "pending", label: "Unpaid" },
+                { value: "paid", label: "Paid" },
+                { value: "failed", label: "Failed" },
+              ]}
+            />
+          }
+        >
+          <InvoiceTable invoices={invoices} showWorkspace />
+        </Panel>
       </div>
-
-      <Confirm
-        open={!!dismissing}
-        onClose={() => setDismissing(null)}
-        title="Dismiss this request?"
-        body="It disappears from this list. The workspace keeps its current plan."
-        confirmLabel="Dismiss request"
-        onConfirm={() => dismiss.mutateAsync(dismissing!)}
-      />
     </>
   );
 }
