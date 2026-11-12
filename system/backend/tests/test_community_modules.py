@@ -8,7 +8,7 @@ from fastapi import HTTPException
 
 import main  # noqa: F401
 from app.framework import package as mzm
-from tests.test_community_packages import MANIFEST, VISIT, developer, files
+from tests.test_community_packages import MANIFEST, developer, files
 
 pytestmark = pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="needs the database")
 
