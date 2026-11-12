@@ -286,3 +286,16 @@ async def test_a_licence_runs_on_one_computer_and_can_be_moved():
         other_owner, _, _ = await make_owner()
         h2 = await login(c, other_owner)
         assert (await c.post(f"/account/workspaces/{w['id']}/installations/{first}/licence", headers=h2)).status_code == 404
+
+
+async def test_the_server_says_how_tills_reach_it(monkeypatch):
+    """#88: Settings → devices on the network."""
+    from app.onprem import server
+
+    monkeypatch.setattr(settings, "MIZAN_MODE", "lan")
+    monkeypatch.setattr(server, "_lan_addresses", lambda: ["192.168.1.20"])
+    lan = await server.network(None)
+    assert lan["mdns"] == "mizan.local" and lan["addresses"] == ["192.168.1.20"] and lan["hostname"]
+    monkeypatch.setattr(settings, "MIZAN_MODE", "desktop")
+    single = await server.network(None)
+    assert single["mode"] == "desktop" and single["addresses"] == [] and single["mdns"] is None

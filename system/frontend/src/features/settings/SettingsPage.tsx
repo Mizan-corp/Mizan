@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { IS_ON_PREMISE } from "@app/lib/deployment";
+import { NetworkDevices } from "./NetworkDevices";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Paintbrush,
@@ -11,6 +13,7 @@ import {
   Eye,
   Trash2,
   Lock,
+  Wifi,
 } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
@@ -60,7 +63,7 @@ export default function SettingsPage() {
   const [dirty, setDirty] = useState(false);
   const [uform, setUform] = useState<UserSettings>({});
   const [udirty, setUdirty] = useState(false);
-  const [activeTab, setActiveTab] = useState<"branding" | "store" | "personal">("branding");
+  const [activeTab, setActiveTab] = useState<"branding" | "store" | "personal" | "devices">("branding");
 
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
@@ -262,6 +265,20 @@ export default function SettingsPage() {
           <UserIcon className="h-4 w-4" />
           <span>إعداداتي الشخصية</span>
         </button>
+
+        {IS_ON_PREMISE && (
+          <button
+            onClick={() => setActiveTab("devices")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+              activeTab === "devices"
+                ? "bg-[#651E2C] text-[#FAF6F0] shadow-sm"
+                : "text-[#77716E] hover:text-[#262321] hover:bg-[#FFFFFF]"
+            }`}
+          >
+            <Wifi className="h-4 w-4" />
+            <span>الأجهزة على الشبكة</span>
+          </button>
+        )}
       </div>
 
       {uploadError && <ErrorBox message={uploadError} />}
@@ -730,6 +747,8 @@ export default function SettingsPage() {
       )}
 
       {/* ── TAB 2: STORE & BILLING SETTINGS ── */}
+      {activeTab === "devices" && IS_ON_PREMISE && <NetworkDevices />}
+
       {activeTab === "store" && (
         <div className="space-y-6">
           <Card className="p-6 bg-[#FFFFFF] border border-[#DECFC0] rounded-2xl space-y-4">

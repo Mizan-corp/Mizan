@@ -138,3 +138,33 @@ def build_server_app(api: FastAPI) -> FastAPI:
         return FileResponse(web_dir / "index.html", headers={"Cache-Control": "no-cache"})
 
     return root
+
+def _lan_addresses() -> list[str]:
+    """This computer's IPv4 addresses on local networks (best effort)."""
+    import socket
+
+    found: set[str] = set()
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            found.add(info[4][0])
+    except OSError:
+        pass
+    try:  # the address used to reach other networks
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("10.255.255.255", 1))
+            found.add(s.getsockname()[0])
+    except OSError:
+        pass
+    return sorted(a for a in found if not a.startswith("127."))
+
+
+@router.get("/network")
+async def network(_: User = Depends(get_current_user)):
+    """How tills reach this server (#88): its name and addresses. The app adds the port it's
+    served on (the browser knows it)."""
+    import socket
+
+    lan = settings.MIZAN_MODE == "lan"
+    return {"mode": settings.MIZAN_MODE, "hostname": socket.gethostname(),
+            "mdns": "mizan.local" if lan else None, "addresses": _lan_addresses() if lan else [],
+            "ca_certificate": _ca_path() is not None}
