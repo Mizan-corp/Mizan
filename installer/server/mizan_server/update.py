@@ -266,6 +266,9 @@ def apply(cfg: Config, staged: Path, backup: Path) -> bool:
         for item in previous.iterdir():  # e.g. the desktop app, which the payload doesn't carry
             if not (cfg.install / item.name).exists():
                 (shutil.copytree if item.is_dir() else shutil.copy2)(item, cfg.install / item.name)
+        if IS_WINDOWS:
+            # As the installer does: PostgreSQL must be able to read its new programs.
+            postgres.grant_windows_access(cfg)
         postgres.start(cfg)
         migrated = True
         _migrate(cfg)
