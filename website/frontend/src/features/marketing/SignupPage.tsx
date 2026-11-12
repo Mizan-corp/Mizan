@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   User as UserIcon,
@@ -15,6 +15,8 @@ import { sound } from "@/lib/sound";
 import { MizanLogo } from "@/components/MizanLogo";
 import { useTranslation } from "@/i18n";
 import { appUrl } from "@/lib/urls";
+import { openWithSession } from "@/lib/handoff";
+import { useOwner } from "@app/lib/ownerSession";
 
 export default function SignupPage() {
   const { locale, dir, toggleLocale } = useTranslation();
@@ -38,6 +40,12 @@ export default function SignupPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  // A signed-in owner adds workspaces and picks plans in their panel, not by signing up again (#79).
+  const owner = useOwner();
+  useEffect(() => {
+    if (owner) openWithSession("owner", "/", owner.token);
+  }, [owner]);
 
   const setSignupDraft = () => useAuth.setState({});
 

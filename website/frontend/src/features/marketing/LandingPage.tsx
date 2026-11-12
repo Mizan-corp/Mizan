@@ -25,9 +25,12 @@ import { MizanMagnetic } from "@/components/motion/MizanMagnetic";
 import { PLANS } from "@/lib/plans";
 import { useTranslation } from "@/i18n";
 import { assetUrl } from "@/lib/utils";
+import { useOwner } from "@app/lib/ownerSession";
 
 export default function LandingPage() {
   const { locale } = useTranslation();
+  // Signed-in owners: the start buttons lead to their panel (/signup sends them there, #79).
+  const signedIn = !!useOwner();
   const isAr = locale === "ar";
   const shouldReduceMotion = useReducedMotion();
 
@@ -196,7 +199,7 @@ export default function LandingPage() {
                       render={<Link to="/signup" />}
                       nativeButton={false}
                     >
-                      <span>{isAr ? "اكتشف ميزان" : "Start Free Trial"}</span>
+                      <span>{signedIn ? (isAr ? "العودة إلى لوحتك" : "Back to your panel") : isAr ? "اكتشف ميزان" : "Start Free Trial"}</span>
                       {isAr ? (
                         <ArrowLeft className="h-4 w-4 ms-2" />
                       ) : (
@@ -726,6 +729,10 @@ export default function LandingPage() {
                           ? isAr
                             ? "تواصل مع فريق المبيعات"
                             : "Contact Enterprise Sales"
+                          : signedIn
+                          ? isAr
+                            ? "اختر الباقة من لوحتك"
+                            : "Choose it in your panel"
                           : isAr
                           ? "ابدأ تجربة مجانية (14 يوماً)"
                           : "Start 14-Day Free Trial"}
@@ -822,7 +829,7 @@ export default function LandingPage() {
                 render={<Link to="/signup" />}
                 nativeButton={false}
               >
-                <span>{isAr ? "ابدأ تجربتك المجانية الآن" : "Start Your Free Trial"}</span>
+                <span>{signedIn ? (isAr ? "العودة إلى لوحتك" : "Back to your panel") : isAr ? "ابدأ تجربتك المجانية الآن" : "Start Your Free Trial"}</span>
                 {isAr ? <ArrowLeft className="h-4 w-4 ms-2" /> : <ArrowRight className="h-4 w-4 ms-2" />}
               </Button>
             </div>
