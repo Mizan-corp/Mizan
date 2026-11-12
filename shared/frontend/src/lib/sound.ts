@@ -161,6 +161,32 @@ export const sound = {
     }
   },
 
+  /** Two falling triangle tones: "check this" (e.g. more in the cart than in stock), softer than error(). */
+  warning() {
+    if (isSoundMuted()) return;
+    const ac = getAudioContext();
+    if (!ac) return;
+
+    try {
+      const now = ac.currentTime;
+      [[660, 0], [494, 0.16]].forEach(([freq, at]) => {
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(freq, now + at);
+        gain.gain.setValueAtTime(0.0001, now + at);
+        gain.gain.exponentialRampToValueAtTime(0.12, now + at + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + at + 0.14);
+        osc.connect(gain);
+        gain.connect(ac.destination);
+        osc.start(now + at);
+        osc.stop(now + at + 0.15);
+      });
+    } catch {
+      // Audio suppression fallback
+    }
+  },
+
   /** Soft muted blip for holding / parking bills */
   hold() {
     if (isSoundMuted()) return;

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { CheckCircle2, Info, Inbox, X, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, Inbox, X, XCircle } from "lucide-react";
 import * as React from "react";
 import {
   createContext, useCallback, useContext, useEffect, useState,
@@ -276,7 +276,7 @@ export function ErrorBox({ message, onRetry }: { message: string; onRetry?: () =
 
 /* ── Toasts ─────────────────────────────────────────────── */
 
-type ToastKind = "success" | "error" | "info";
+type ToastKind = "success" | "error" | "warning" | "info";
 interface Toast { id: number; kind: ToastKind; message: string }
 
 const ToastCtx = createContext<{ toast: (kind: ToastKind, message: string) => void }>({ toast: () => {} });
@@ -289,6 +289,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       sound.success();
     } else if (kind === "error") {
       sound.error();
+    } else if (kind === "warning") {
+      sound.warning();
     } else {
       sound.click();
     }
@@ -320,10 +322,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   ? "border-success/30 bg-success/15 text-success-ink dark:bg-success/20"
                   : t.kind === "error"
                     ? "border-destructive/30 bg-destructive/15 text-destructive-ink dark:bg-destructive/20"
-                    : "border-border/80 bg-popover/95 text-popover-foreground"
+                    : t.kind === "warning"
+                      ? "border-warning/40 bg-warning/15 text-warning-ink dark:bg-warning/20"
+                      : "border-border/80 bg-popover/95 text-popover-foreground"
               }`}
             >
-              {t.kind === "success" ? <CheckCircle2 size={16} className="shrink-0" /> : t.kind === "error" ? <XCircle size={16} className="shrink-0" /> : <Info size={16} className="shrink-0" />}
+              {t.kind === "success" ? <CheckCircle2 size={16} className="shrink-0" /> : t.kind === "error" ? <XCircle size={16} className="shrink-0" /> : t.kind === "warning" ? <AlertTriangle size={16} className="shrink-0" /> : <Info size={16} className="shrink-0" />}
               <span className="flex-1 leading-snug">{t.message}</span>
               <button
                 type="button"

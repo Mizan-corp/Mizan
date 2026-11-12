@@ -48,6 +48,8 @@ interface Warehouse { id: string; name: string }
 interface Product {
   id: string; name: string; barcode: string | null; code: string | null; unit: string;
   retail_price: string; wholesale_price: string; image_url: string | null;
+  /** The branch's stock (from /products with warehouse_id); undefined when not known. */
+  current_qty?: string | number | null;
   /** Values of the activity's product fields (a drug's scientific name, prescription flags…). */
   extra?: Record<string, unknown>;
 }
@@ -175,9 +177,16 @@ export default function PosPage() {
   const customer = customers.data?.find((c) => c.id === customerId) ?? null;
   const shiftMissing = shift.data === null;
 
-  /** Adds a product; `qty` is 1, or a weight from a scale label (retail, up to 3 decimals). */
-  function addToCart(p: Product, qty = 1) {
-    sound.scan();
+  /** Adds a product; `qty` is 1, or a weight from a scale label (retail, up to 3 decimals).
+   * `available`: the branch's stock, when known; going over it plays a warning (#61). */
+  function addToCart(p: Product, qty = 1, available?: number | null) {
+    const inCart = cart.find((x) => x.product.id === p.id)?.qty ?? 0;
+    const stock = available ?? (p.current_qty != null ? Number(p.current_qty) : null);
+    if (stock != null && Number.isFinite(stock) && inCart + qty > stock) {
+      toast("warning", stock > 0 ? `المتاح من «${p.name}» ${stock} ${p.unit} فقط في هذا الفرع` : `«${p.name}» غير متوفر في مخزون هذا الفرع`);
+    } else {
+      sound.scan();
+    }
     setSelectedId(p.id);
     setCart((c) => {
       const i = c.findIndex((x) => x.product.id === p.id);
@@ -194,9 +203,10 @@ export default function PosPage() {
     if (!code) return;
     try {
       // A barcode, or (retail) a weighing-scale label with the weight in it.
-      const r = await api.get<{ product: Product; qty: string }>(`/pos/scan/${encodeURIComponent(code)}`);
+      const r = await api.get<{ product: Product; qty: string; available: string | null }>(
+        `/pos/scan/${encodeURIComponent(code)}`, { warehouse_id: warehouseId || undefined });
       if (r?.product) {
-        addToCart(r.product, Number(r.qty) || 1);
+        addToCart(r.product, Number(r.qty) || 1, r.available != null ? Number(r.available) : null);
       } else {
         sound.error();
       }
