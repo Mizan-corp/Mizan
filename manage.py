@@ -9,7 +9,7 @@ manage.py — one command line for the whole Mizan monorepo.
     python manage.py db     migrate [--production] | backup | restore <file> | backups | reset | baseline | export | psql
     python manage.py dev    [system|website|owner|admin|all]       run frontends (default: all)
     python manage.py build  [system|website|owner|admin|all]       type-check and build frontends
-    python manage.py test   [unit|backend|e2e|all]           run test suites (default: unit + backend)
+    python manage.py test   [unit|backend|e2e|browser|all]   run test suites (default: unit + backend)
     python manage.py lint                                   ruff + TypeScript
     python manage.py check                                  lint + unit/backend tests + builds
     python manage.py vercel status | redeploy <project> | domains
@@ -821,9 +821,28 @@ def _test_e2e() -> None:
         env={"E2E_API_BASE": f"http://localhost:{SYSTEM.api_port}", "E2E_DATABASE_URL": DB_URL_HOST})
 
 
+def _test_browser() -> None:
+    """Browser flows across the four apps (e2e/browser): needs the stack and the dev servers."""
+    import urllib.request
+
+    require_db()
+    down = []
+    for app in APPS.values():
+        try:
+            urllib.request.urlopen(f"http://localhost:{app.dev_port}", timeout=5)
+        except OSError:
+            down.append(app.name)
+    if down:
+        die(f"Dev servers not running ({', '.join(down)}). Start them: python manage.py dev")
+    step("Browser end-to-end flows (e2e/browser)")
+    run([python_bin(), "-m", "playwright", "install", "chromium"], cwd=ROOT / "e2e")
+    run([python_bin(), "-m", "pytest", "-q", "--no-header", "browser"], cwd=ROOT / "e2e",
+        env={"E2E_BROWSER": "1", "E2E_API_BASE": f"http://localhost:{SYSTEM.api_port}", "E2E_DATABASE_URL": DB_URL_HOST})
+
+
 def cmd_test(opts: argparse.Namespace) -> None:
     """Run test suites."""
-    suites = {"unit": [_test_unit], "backend": [_test_backend], "e2e": [_test_e2e],
+    suites = {"unit": [_test_unit], "backend": [_test_backend], "e2e": [_test_e2e], "browser": [_test_browser],
               "all": [_test_unit, _test_backend, _test_e2e], None: [_test_unit, _test_backend]}[opts.suite]
     for suite in suites:
         suite()
@@ -1043,7 +1062,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("app", nargs="?", default="all", choices=APP_CHOICES)
 
     p = add("test", cmd_test, "Run tests: unit, backend, e2e or all (default: unit + backend)")
-    p.add_argument("suite", nargs="?", default=None, choices=["unit", "backend", "e2e", "all"])
+    p.add_argument("suite", nargs="?", default=None, choices=["unit", "backend", "e2e", "browser", "all"])
     add("lint", cmd_lint, "ruff (Python) + TypeScript for all three apps")
     add("check", cmd_check, "Lint, unit and backend tests, and builds (CI minus e2e)")
 

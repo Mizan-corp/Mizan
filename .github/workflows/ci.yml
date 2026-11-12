@@ -107,6 +107,33 @@ jobs:
           E2E_DATABASE_URL: postgresql://postgres:postgres@localhost:5433/inventory_db
         run: python -m pytest -q --no-header
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Start the four dev servers (browser flows)
+        run: |
+          npm ci
+          for w in system website admin owner; do
+            nohup npm run dev -w $w/frontend > /tmp/dev_$w.log 2>&1 &
+          done
+          for port in 5173 5174 5175 5176; do
+            for i in $(seq 1 60); do curl -s -o /dev/null http://localhost:$port && break; sleep 2; done
+            curl -s -o /dev/null http://localhost:$port
+          done
+
+      - name: Browser flows (#80)
+        working-directory: e2e
+        env:
+          E2E_BROWSER: "1"
+          E2E_API_BASE: http://localhost:8000
+          E2E_DATABASE_URL: postgresql://postgres:postgres@localhost:5433/inventory_db
+        run: |
+          python -m playwright install --with-deps chromium
+          python -m pytest -q --no-header browser
+
       - name: Unit smoke test
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5433/inventory_db
@@ -119,7 +146,9 @@ jobs:
 
       - name: Debug container logs on failure
         if: failure()
-        run: docker compose logs
+        run: |
+          docker compose logs
+          tail -n 40 /tmp/dev_*.log || true
 
   ci-manage:
     name: Manage script check

@@ -316,6 +316,7 @@ cron    [--job NAME]
 ```bash
 python manage.py test            # frontend unit tests + backend tests
 python manage.py test e2e        # live API suite against the local stack (~3 min)
+python manage.py test browser    # browser flows across the four apps (needs `python manage.py dev`)
 python manage.py check           # lint + tests + builds
 ```
 
