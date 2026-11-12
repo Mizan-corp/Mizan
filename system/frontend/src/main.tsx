@@ -23,7 +23,9 @@ const queryClient = new QueryClient({
 });
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
-  navigator.serviceWorker.register("./sw.js").catch(() => {});
+  // From the app's base, not the page: workspace pages live under /c/<slug>/ (#115).
+  const base = import.meta.env.BASE_URL;
+  navigator.serviceWorker.register(`${base}sw.js`, { scope: base }).catch(() => {});
 }
 
 /** Sign in with a session handed off by the website (onboarding) or admin (impersonation). */

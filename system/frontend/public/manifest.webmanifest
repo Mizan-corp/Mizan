@@ -1,14 +1,14 @@
 {
-  "name": "فيندورا — نظام إدارة المتاجر",
-  "short_name": "فيندورا",
-  "description": "نظام إدارة متاجر ومخازن متعدد الفروع",
+  "name": "ميزان — نظام إدارة الأعمال",
+  "short_name": "ميزان",
+  "description": "نظام ميزان لإدارة المبيعات والمخزون والحسابات والفريق",
   "dir": "rtl",
   "lang": "ar",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#171412",
-  "theme_color": "#b45309",
+  "background_color": "#FAF6F0",
+  "theme_color": "#35151D",
   "icons": [
     {
       "src": "icon.svg",
