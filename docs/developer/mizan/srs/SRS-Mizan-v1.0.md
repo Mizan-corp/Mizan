@@ -208,8 +208,8 @@ All four deployment modes use a unified license system:
 | Standalone Desktop | License embedded in app bundle; validated offline; re-validates against Mizan Cloud on internet availability |
 | LAN Server | License validated against server hardware fingerprint; heartbeat to Mizan Cloud every 7 days; 14-day offline grace period |
 | BYOD | License validated against database endpoint fingerprint; periodic online check |
-| Fully Managed SaaS | License enforced server-side by the admin panel; no client-side validation needed |
-| License issuance | admin panel issues all license keys |
+| Fully Managed SaaS | License enforced server-side by Mizan Cloud; no client-side validation needed |
+| License issuance | The admin panel issues all license keys |
 | License revocation | The admin panel can revoke; LAN/Desktop honor revocation on next heartbeat |
 | Trial | 14-day trial for all modes; full feature access during trial |
 
