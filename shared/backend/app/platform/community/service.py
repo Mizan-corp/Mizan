@@ -270,3 +270,29 @@ async def uninstall(db: AsyncSession, module_id: str, delete_records: bool = Fal
     else:
         row.status = "removed"
     await db.commit()
+
+
+def summary(package, installed_row: CommunityModule | None = None) -> dict:
+    """What the owner sees before installing: in plain words, with any new scopes marked."""
+    from app.framework.manifest import SCOPES
+
+    m = package.manifest
+    before = set(installed_row.scopes or []) if installed_row and installed_row.status == "active" else set()
+    hook = (m.get("webhooks") or {}).get("url")
+    return {
+        "id": m["id"], "name": m.get("name"), "name_en": m.get("name_en"), "version": m["version"],
+        "developer": package.developer, "description": m.get("description") or "", "icon": m.get("icon"),
+        "entities": [{"id": k, "name": e.get("name"), "fields": len(e.get("fields") or [])} for k, e in package.entities.items()],
+        "permissions": m.get("permissions") or [],
+        "scopes": [{"id": s, "text": SCOPES[s][0], "text_en": SCOPES[s][1], "new": bool(before) and s not in before}
+                   for s in m.get("scopes") or []],
+        "sends_to": hook.split("/")[2] if hook else None,
+        "installed_version": installed_row.version if installed_row and installed_row.status == "active" else None,
+    }
+
+
+def installed_out(row: CommunityModule) -> dict:
+    return {"id": row.module_id, "name": row.manifest.get("name"), "version": row.version, "developer": row.developer,
+            "icon": row.manifest.get("icon"), "description": row.manifest.get("description") or "",
+            "entities": [{"id": k, "name": e.get("name")} for k, e in (row.entities or {}).items()],
+            "scopes": row.scopes or [], "installed_at": row.installed_at.isoformat() if row.installed_at else None}

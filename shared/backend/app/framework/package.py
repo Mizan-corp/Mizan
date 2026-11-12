@@ -25,7 +25,7 @@ from app.framework.manifest import community_manifest_problems, entity_problems
 
 FORMAT = 1
 CERT_PREFIX = "MZD1"
-MAX_BYTES = 10 * 1024 * 1024
+MAX_BYTES = 4 * 1024 * 1024  # Vercel functions accept request bodies up to 4.5 MB
 MAX_FILES = 200
 ALLOWED = (".json", ".png", ".svg", ".webp", ".jpg", ".md", ".txt")
 TOP = ("manifest.json", "SIGNATURE", "README.md", "CHANGELOG.md")

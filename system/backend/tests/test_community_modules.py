@@ -110,3 +110,68 @@ async def test_install_records_and_permissions():
             await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
             await db.execute(text("DELETE FROM tenants WHERE id = :t"), {"t": tid})
             await db.commit()
+
+
+async def test_installing_from_a_file_over_http():
+    """Inspect → approve scopes → install → menu → uninstall, as the module centre does it;
+    a cashier can't install."""
+    import json as _json
+
+    from httpx import ASGITransport, AsyncClient
+    from sqlalchemy import text
+
+    from app.db.base import AsyncSessionLocal
+    from app.platform.auth.models.user import User
+    from app.platform.auth.security import create_access_token, hash_password
+    from app.platform.permissions.access import set_access
+    from app.platform.tenancy.context import bind_tenant, current_tenant_id
+    from app.platform.tenancy.models import Tenant
+
+    tid = uuid.uuid4()
+    tokens = {}
+    async with AsyncSessionLocal() as db:
+        db.add(Tenant(id=tid, name=f"Install {tid.hex[:6]}", slug=f"inst-{tid.hex[:8]}", status="active"))
+        await db.commit()
+    try:
+        async with AsyncSessionLocal() as db:
+            await bind_tenant(db, tid)
+            for role in ("admin", "cashier"):
+                u = User(id=uuid.uuid4(), tenant_id=tid, username=f"{role}-{tid.hex[:6]}", full_name=role, role=role,
+                         password_hash=hash_password("x"))
+                db.add(u)
+                await db.flush()
+                await set_access(db, u, role)
+                tokens[role] = create_access_token({"sub": str(u.id), "tid": str(tid)})
+            await db.commit()
+        current_tenant_id.set(None)
+
+        key, cert = developer()
+        data = mzm.build(files(), key, cert)
+        upload = {"file": ("acme.visits-1.0.0.mzm", data, "application/zip")}
+        admin = {"Authorization": f"Bearer {tokens['admin']}"}
+        async with AsyncClient(transport=ASGITransport(app=main.app), base_url="http://test") as c:
+            assert (await c.post("/community/packages/inspect", files=upload,
+                                 headers={"Authorization": f"Bearer {tokens['cashier']}"})).status_code == 403
+            bad = await c.post("/community/packages/inspect", files={"file": ("x.mzm", b"nope", "application/zip")}, headers=admin)
+            assert bad.status_code == 422 and "تعذر قبول الحزمة" in bad.json()["detail"]
+            info = (await c.post("/community/packages/inspect", files=upload, headers=admin)).json()
+            assert info["id"] == "acme.visits" and info["developer"] == "acme" and info["sends_to"] == "acme.example"
+            assert [s["text"] for s in info["scopes"]] == ["قراءة العملاء", "عند تأكيد فاتورة بيع"]
+
+            r = await c.post("/community/packages/install", files=upload, data={"approved_scopes": "[]"}, headers=admin)
+            assert r.status_code == 409
+            r = await c.post("/community/packages/install", files=upload, headers=admin,
+                             data={"approved_scopes": _json.dumps([s["id"] for s in info["scopes"]])})
+            assert r.status_code == 200, r.text
+            assert [m["id"] for m in (await c.get("/community/modules", headers=admin)).json()["items"]] == ["acme.visits"]
+            screens = (await c.get("/settings/screens", headers=admin)).json()
+            assert any(g["id"] == "community" for g in screens["menu"])
+
+            assert (await c.delete("/community/modules/acme.visits", headers=admin)).status_code == 204
+            assert (await c.get("/community/modules", headers=admin)).json()["items"] == []
+    finally:
+        current_tenant_id.set(None)
+        async with AsyncSessionLocal() as db:
+            await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
+            await db.execute(text("DELETE FROM tenants WHERE id = :t"), {"t": tid})
+            await db.commit()

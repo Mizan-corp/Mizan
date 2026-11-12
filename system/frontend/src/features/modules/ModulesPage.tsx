@@ -28,6 +28,7 @@ import {
   Blocks,
 } from "lucide-react";
 import { Badge } from "@/components/kit/badge";
+import { CommunityModules } from "@app/platform/community/components/CommunityModules";
 import { Button, buttonVariants } from "@/components/kit/button";
 import { Card } from "@/components/kit/card";
 import { Input, Modal, useToast } from "@/components/ui";
@@ -589,6 +590,8 @@ export default function ModulesPage() {
           retention.refetch();
         }}
       />
+
+      <CommunityModules />
 
       {!!retention.data?.length && (
         <section className="flex flex-col gap-2" aria-label="وحدات أُزيلت">

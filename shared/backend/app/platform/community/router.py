@@ -5,15 +5,66 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, Query
+import json
+
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_perm
 from app.platform.auth.models.user import User
 from app.platform.community import service
 
 router = APIRouter(prefix="/community", tags=["Community modules"])
+
+
+async def _read_package(file: UploadFile):
+    from app.framework import package as mzm
+
+    data = await file.read(mzm.MAX_BYTES + 1)
+    try:
+        return mzm.verify(data)
+    except mzm.PackageError as e:
+        raise HTTPException(422, f"تعذر قبول الحزمة: {e}") from None
+
+
+async def _installed_row(db: AsyncSession, module_id: str):
+    from sqlalchemy import select
+
+    from app.platform.community.models import CommunityModule
+
+    return await db.scalar(select(CommunityModule).where(CommunityModule.module_id == module_id))
+
+
+@router.get("/modules")
+async def installed_modules(db: AsyncSession = Depends(get_db), _: User = Depends(require_perm("community.manage"))):
+    return {"items": [service.installed_out(m) for m in await service.installed(db)]}
+
+
+@router.post("/packages/inspect")
+async def inspect_package(file: UploadFile = File(...), db: AsyncSession = Depends(get_db),
+                          _: User = Depends(require_perm("community.manage"))):
+    """Verify a .mzm and say what it would add and may access (nothing is installed)."""
+    pkg = await _read_package(file)
+    return service.summary(pkg, await _installed_row(db, pkg.manifest["id"]))
+
+
+@router.post("/packages/install")
+async def install_package(file: UploadFile = File(...), approved_scopes: str = Form("[]"),
+                          db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("community.manage"))):
+    pkg = await _read_package(file)
+    try:
+        approved = json.loads(approved_scopes)
+    except ValueError:
+        raise HTTPException(422, "approved_scopes must be a JSON list") from None
+    row = await service.install(db, pkg, user.id, approved if isinstance(approved, list) else [])
+    return service.installed_out(row)
+
+
+@router.delete("/modules/{module_id}", status_code=204)
+async def uninstall_module(module_id: str, delete_records: bool = False, db: AsyncSession = Depends(get_db),
+                           _: User = Depends(require_perm("community.manage"))):
+    await service.uninstall(db, module_id, delete_records=delete_records)
 
 
 @router.get("/menu")
