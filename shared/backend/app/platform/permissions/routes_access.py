@@ -41,8 +41,10 @@ def _out(r: dict) -> dict:
 
 
 @router.get("/permissions")
-async def list_permissions(_=Depends(require_perm("users"))):
-    return access.declared_permissions()
+async def list_permissions(db: AsyncSession = Depends(get_db), _=Depends(require_perm("users"))):
+    from app.platform.community.service import workspace_permissions
+
+    return access.declared_permissions() + await workspace_permissions(db)
 
 
 @router.get("/roles")
@@ -50,8 +52,11 @@ async def list_roles(db: AsyncSession = Depends(get_db), _=Depends(require_perm(
     return [_out(r) for r in await access.available_roles(db)]
 
 
-def _check_grants(grants: list[str], user) -> list[str]:
-    unknown = set(grants) - set(access.all_permissions())
+async def _check_grants(db: AsyncSession, grants: list[str], user) -> list[str]:
+    from app.platform.community.service import workspace_permissions
+
+    known = set(access.all_permissions()) | {p["id"] for p in await workspace_permissions(db)}
+    unknown = set(grants) - known
     if unknown:
         raise HTTPException(400, f"صلاحيات غير معروفة: {', '.join(sorted(unknown))}")
     access.ensure_within(user, grants)
@@ -60,7 +65,7 @@ def _check_grants(grants: list[str], user) -> list[str]:
 
 @router.post("/roles", status_code=201)
 async def create_role(data: RoleIn, db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("users"))):
-    grants = _check_grants(data.grants, user)
+    grants = await _check_grants(db, data.grants, user)
     code = "ws-" + (re.sub(r"[^a-z0-9]+", "-", data.name.lower()).strip("-")[:40] or "role") + "-" + uuid.uuid4().hex[:6]
     row = (await db.execute(text("""
         INSERT INTO sys_roles (id, tenant_id, code, name, name_en, is_system, is_clinical, grants)
@@ -87,7 +92,7 @@ async def update_role(role_id: uuid.UUID, data: RoleUpdate, db: AsyncSession = D
     role = await _workspace_role(db, role_id)
     access.ensure_within(user, role["grants"] or [])  # can't take over a role above your own
     if data.grants is not None:
-        role["grants"] = _check_grants(data.grants, user)
+        role["grants"] = await _check_grants(db, data.grants, user)
     if data.name is not None:
         role["name"] = data.name.strip()
     await db.execute(text("UPDATE sys_roles SET name = :n, grants = CAST(:g AS jsonb), updated_at = now() WHERE id = :id"),

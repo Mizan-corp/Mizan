@@ -99,7 +99,14 @@ async def load_acting(db: AsyncSession, user) -> None:
     acting = next((r for r in roles if r["id"] == getattr(user, "active_role_id", None)), roles[0] if roles else None)
     user.assigned_roles = roles
     user.acting_role = acting
-    user.effective_permissions = frozenset(acting["grants"] or []) if acting else frozenset()
+    granted = set(acting["grants"] or []) if acting else set()
+    if acting and acting.get("code") == "admin" and acting.get("tenant_id") is None:
+        # The standard admin holds every permission declared in the workspace: the community
+        # modules installed in it declare their own (ADR-007).
+        from app.platform.community.service import workspace_permissions
+
+        granted |= {p["id"] for p in await workspace_permissions(db)}
+    user.effective_permissions = frozenset(granted)
 
 
 def can(user, *perms: str) -> bool:

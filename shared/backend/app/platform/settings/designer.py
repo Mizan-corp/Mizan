@@ -51,10 +51,19 @@ async def my_screens(db: AsyncSession = Depends(get_db), user: User = Depends(ge
     from app.framework.hooks import workspace_activity
     from app.framework.screens import resolve
 
+    from app.platform.community.service import menu_items
+
     acting = getattr(user, "acting_role", None)
     layout = await layouts.get(db, "role", str(acting["id"])) if acting else {}
-    return resolve(layout, await workspace_activity(db), acting["code"] if acting else None,
-                   getattr(user, "effective_permissions", frozenset()), await get_active_modules(db))
+    out = resolve(layout, await workspace_activity(db), acting["code"] if acting else None,
+                  getattr(user, "effective_permissions", frozenset()), await get_active_modules(db))
+    # Community modules' screens (ADR-007) in a group of their own.
+    community = await menu_items(db, user)
+    if community:
+        items = [{k: c[k] for k in ("id", "path", "label", "icon")} for c in community]
+        out["menu"].append({"id": "community", "label": "وحدات إضافية", "items": items})
+        out["screens"] += [{**i, "module": c["module"]} for i, c in zip(items, community, strict=True)]
+    return out
 
 
 @router.get("/forms/{record}")

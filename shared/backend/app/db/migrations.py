@@ -2941,6 +2941,48 @@ MIGRATIONS = [
             SELECT i.id FROM installations i WHERE i.licence_id = l.id ORDER BY i.first_seen_at, i.id LIMIT 1
         ) WHERE l.bound_installation_id IS NULL;
     """),
+    # ADR-007: community modules installed in a workspace, and their records.
+    ("v69_community_modules", """
+        CREATE TABLE IF NOT EXISTS community_modules (
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+                DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+            module_id varchar(80) NOT NULL,
+            version varchar(32) NOT NULL,
+            developer varchar(32) NOT NULL,
+            manifest jsonb NOT NULL,
+            entities jsonb NOT NULL DEFAULT '{}'::jsonb,
+            scopes jsonb NOT NULL DEFAULT '[]'::jsonb,
+            package_sha256 varchar(64),
+            status varchar(16) NOT NULL DEFAULT 'active',
+            installed_by uuid,
+            installed_at timestamptz DEFAULT now(),
+            updated_at timestamptz DEFAULT now(),
+            PRIMARY KEY (tenant_id, module_id)
+        );
+        CREATE TABLE IF NOT EXISTS ext_records (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+                DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+            module_id varchar(80) NOT NULL,
+            entity varchar(48) NOT NULL,
+            data jsonb NOT NULL DEFAULT '{}'::jsonb,
+            created_by uuid,
+            created_at timestamptz DEFAULT now(),
+            updated_at timestamptz DEFAULT now(),
+            deleted_at timestamptz
+        );
+        CREATE INDEX IF NOT EXISTS ix_ext_records_list ON ext_records (tenant_id, module_id, entity, created_at DESC);
+        ALTER TABLE community_modules ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE community_modules FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON community_modules;
+        CREATE POLICY tenant_isolation ON community_modules
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        ALTER TABLE ext_records ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE ext_records FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON ext_records;
+        CREATE POLICY tenant_isolation ON ext_records
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

@@ -1,0 +1,26 @@
+{
+  "id": "community",
+  "name": "وحدات المطورين",
+  "name_en": "Community modules",
+  "activity": "general",
+  "kind": "platform",
+  "status": "active",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "وحدات مجتمع المطورين المثبتة من ملف (.mzm): سجلاتها وشاشاتها وصلاحياتها (ADR-007).",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [
+    {
+      "id": "community.manage",
+      "name": "تثبيت وإزالة وحدات المطورين",
+      "name_en": "Install and remove community modules"
+    }
+  ],
+  "screens": [],
+  "widgets": [],
+  "srs": [],
+  "settings_schema": [],
+  "is_core": true
+}

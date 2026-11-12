@@ -39,6 +39,7 @@ def load_all_models() -> None:
     import app.modules.general.sales.models.sale_payment
     import app.models.schema_migration
     import app.platform.settings.models
+    import app.platform.community.models
     import app.framework.fields  # workspace_fields
     import app.framework.layouts  # workspace_layouts
     import app.framework.files  # workspace_files
