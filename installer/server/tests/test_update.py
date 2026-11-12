@@ -183,8 +183,10 @@ def test_apply_waits_for_the_command_that_started_it():
     import sys
     import time
 
+    import threading
+
     proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(1.2)"])
+    threading.Thread(target=proc.wait, daemon=True).start()  # reaped, as the shell does for the CLI
     started = time.time()
     update.wait_for_exit(proc.pid, timeout=10)
-    proc.wait()
     assert 0.8 < time.time() - started < 8
