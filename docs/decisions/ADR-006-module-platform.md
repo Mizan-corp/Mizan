@@ -608,6 +608,30 @@ and a builder covering role layouts, custom fields, form layouts and a dashboard
   declare per-role defaults (`roles` is empty everywhere, so a cashier starts from the activity's
   menu filtered by permissions).
 
+## Phase 8 implementation notes (2026-11-12, #106)
+
+Phase 8 goes activity by activity; each gets its menu and dashboard, per-role layouts, its
+variants made real, and demo data that shows them.
+
+**Retail (done)**
+- **Layouts** (`activities/retail/activity.json`): a supermarket-worded menu, the dashboard, and
+  the first per-role layouts (`roles`): the cashier gets the till, their invoices, shift and
+  customers, with shift status, today's takings and recent sales on the dashboard; the
+  storekeeper stock, products, transfers, receiving and suppliers; the accountant the treasury,
+  customers, suppliers, sales, shifts, stock valuation and reports. Managers and admins get the
+  activity's layout. Terms: an item is a «صنف».
+- **POS retail variant (active): weighing-scale labels.** Scanning goes through
+  `GET /pos/scan/{code}` (POS module, `service.scan`): a product barcode adds one; otherwise
+  `emit("pos.scan")` lets the variant read the code. The retail variant decodes EAN-13 labels in
+  the restricted range (prefixes 20–29): item code (the product's `scale_code`, a field the
+  variant adds to products), then the weight in grams, or the price in piastres
+  (`pos.scale_barcode`: `prefixes`, `item_digits`, `value` = weight|price). The cart takes
+  fractional quantities (kg, three decimals); sales and stock already stored them.
+- **Demo data**: retail's catalogue carries realistic prices (a catalogue item may be
+  `(name, price)`; activities without a catalogue use retail's), packaged goods are sold by the
+  piece, and a fresh counter (fruit, vegetables, cheese, meat) is sold by weight with scale codes.
+- Tests: `system/backend/tests/test_retail.py`.
+
 ## Decision log (review of 2026-11-10)
 Answers as given by the owner; *italics* = how this ADR applies them.
 

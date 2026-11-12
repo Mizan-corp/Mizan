@@ -1,15 +1,42 @@
 {
   "id": "retail",
   "module": "pos",
-  "status": "planned",
-  "description": "Fast-scan checkout: barcode first, F-keys.",
+  "status": "active",
+  "description": "Supermarkets and shops: barcode-first checkout with F-keys, and weighing-scale labels (EAN-13 starting with 2: item code and weight or price) for fruit, vegetables, cheese and meat.",
   "screens": {
     "checkout": "retail_checkout"
   },
-  "fields": {},
+  "fields": {
+    "product": [
+      {
+        "key": "scale_code",
+        "label": "كود الميزان (PLU)",
+        "label_en": "Scale code (PLU)",
+        "type": "text",
+        "searchable": true
+      }
+    ]
+  },
   "uses": [],
   "terms": {},
-  "settings": {},
+  "settings": {
+    "scale_barcode": {
+      "prefixes": [
+        "20",
+        "21",
+        "22",
+        "23",
+        "24",
+        "25",
+        "26",
+        "27",
+        "28",
+        "29"
+      ],
+      "item_digits": 5,
+      "value": "weight"
+    }
+  },
   "permissions": [],
   "templates": {},
   "widgets": []

@@ -31,10 +31,16 @@ async def seed_catalog(db, ctx) -> None:
         for j in range(ctx.n_products // len(ctx.catalog) + 1):
             if len(products) >= ctx.n_products:
                 break
-            base_name = items[j % len(items)]
+            item = items[j % len(items)]
+            # An item is a name, or (name, retail price) when the activity knows realistic prices.
+            base_name, price = (item, None) if isinstance(item, str) else item
             variant = ["", " — جودة أولى", " (عرض خاص)", " — سوق محلي", " — استيراد"][len(products) % 5]
-            cost = Decimal(rng.randrange(15, 900))
-            retail = (cost * Decimal("1.35")).quantize(Decimal("0.25"))
+            if price is not None:
+                retail = (Decimal(str(price)) * Decimal(str(1 + (len(products) % 5) * 0.05))).quantize(Decimal("0.25"))
+                cost = (retail / Decimal("1.25")).quantize(Decimal("0.25"))
+            else:
+                cost = Decimal(rng.randrange(15, 900))
+                retail = (cost * Decimal("1.35")).quantize(Decimal("0.25"))
             products.append(Product(
                 id=ctx.new_id(), subcategory_id=sub.id, name=base_name + variant,
                 code=f"P{len(products)+1:04d}", barcode=f"62{rng.randrange(10**11, 10**12)}",

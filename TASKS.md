@@ -20,7 +20,7 @@ each step ships, is tested and deployed before the next.
 
 **P2 — The product customers use daily**
 7. Quick cross-cutting fixes: #26 badge contrast, #27 focus rings, #28 tables on small screens, #59/#60 POS touch and keyboard.
-8. ETA e-invoicing and e-receipts (legally required in Egypt).
+8. ETA e-invoicing and e-receipts (legally required in Egypt). **Deferred (2026-11-12)**: no ETA test credentials yet; e-invoice signing (local signer helper vs cloud signing provider) to be decided. E-receipts are the likely first part.
 9. ADR-006 phase 8 (#106), activity by activity, each with per-role default layouts, its POS
    variant and demo data: general/retail → restaurant → pharmacy (fold `drug_master`/`prescriptions`,
    insurance co-pay) → healthcare (with #113 clinical access, #36, #39, #46, #48) → wholesale →

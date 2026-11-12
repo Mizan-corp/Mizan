@@ -61,7 +61,8 @@ def test_a_role_layout_changes_what_the_role_sees(admin_api, cashier_api):
     finally:
         admin_api.delete(f"/settings/designer/roles/{cashier_role}")
     back = cashier_api.ok(cashier_api.get("/settings/screens"))
-    assert back["custom"] is False and len(back["menu"]) > 1
+    # Back to the activity's layout for the role (retail's cashier layout, not the custom one).
+    assert back["custom"] is False and back["menu"] != seen["menu"]
 
 
 @pytest.mark.parametrize("bad, message", [
@@ -98,7 +99,8 @@ def test_custom_fields_forms_and_reports(admin_api, subcategory, reg):
         saved = admin_api.ok(admin_api.put("/settings/designer/forms/product", json={
             "sections": [{"id": "main", "label": "الأساسي", "fields": [*main, key]}], "hidden": ["barcode"]}))
         assert saved["custom"] is True
-        assert [f["key"] for f in saved["sections"][0]["fields"]][-1] == key
+        # In the order given; fields the layout doesn't mention (a variant's) follow.
+        assert [f["key"] for f in saved["sections"][0]["fields"]][:len(main) + 1] == [*main, key]
         assert "barcode" in [f["key"] for f in saved["hidden"]]
         # A basic field can't be hidden.
         r = admin_api.put("/settings/designer/forms/product", json={

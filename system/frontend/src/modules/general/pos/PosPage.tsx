@@ -175,26 +175,28 @@ export default function PosPage() {
   const customer = customers.data?.find((c) => c.id === customerId) ?? null;
   const shiftMissing = shift.data === null;
 
-  function addToCart(p: Product) {
+  /** Adds a product; `qty` is 1, or a weight from a scale label (retail, up to 3 decimals). */
+  function addToCart(p: Product, qty = 1) {
     sound.scan();
     setSelectedId(p.id);
     setCart((c) => {
       const i = c.findIndex((x) => x.product.id === p.id);
       if (i >= 0) {
         const next = [...c];
-        next[i] = { ...next[i], qty: next[i].qty + 1 };
+        next[i] = { ...next[i], qty: Math.round((next[i].qty + qty) * 1000) / 1000 };
         return next;
       }
-      return [...c, { product: p, qty: 1, discount: "0" }];
+      return [...c, { product: p, qty, discount: "0" }];
     });
   }
 
   async function scanBarcode(code: string) {
     if (!code) return;
     try {
-      const p = await api.get<Product>(`/products/barcode/${encodeURIComponent(code)}`);
-      if (p) {
-        addToCart(p);
+      // A barcode, or (retail) a weighing-scale label with the weight in it.
+      const r = await api.get<{ product: Product; qty: string }>(`/pos/scan/${encodeURIComponent(code)}`);
+      if (r?.product) {
+        addToCart(r.product, Number(r.qty) || 1);
       } else {
         sound.error();
       }
@@ -829,7 +831,13 @@ export default function PosPage() {
               {/* Calculations ledger breakdown */}
               <div className="space-y-1 text-xs">
                 <div className="flex justify-between text-muted-foreground">
-                  <span>المجموع الجزئي ({cart.reduce((s, i) => s + i.qty, 0)} قطعة)</span>
+                  <span>
+                    المجموع الجزئي (
+                    {cart.every((i) => Number.isInteger(i.qty))
+                      ? `${cart.reduce((s, i) => s + i.qty, 0)} قطعة`
+                      : `${cart.length} ${cart.length === 1 ? "صنف" : "أصناف"}`}
+                    )
+                  </span>
                   <span className="num font-mono">{money(subtotalBeforeDiscount)} ج.م</span>
                 </div>
                 {totalDiscount.gt(0) && (

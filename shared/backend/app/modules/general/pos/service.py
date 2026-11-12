@@ -496,3 +496,24 @@ async def delete_drawer_transaction(db: AsyncSession, tx_id: uuid.UUID, current_
 
     await db.execute(sqlt("DELETE FROM drawer_transactions WHERE id=:id"), {"id": tx_id})
     await db.commit()
+
+
+# ─── Scanning (ADR-006 phase 8) ────────────────────────────────────────────────────────────────
+
+async def scan(db: AsyncSession, code: str) -> dict:
+    """What a scanned code adds to the cart: {"product", "qty", "scale"}.
+
+    A product's barcode (or one of its extra barcodes) adds one. Otherwise the workspace's POS
+    variant may read the code (`pos.scan`): the retail variant decodes weighing-scale labels."""
+    from app.framework.hooks import emit
+    from app.modules.general.inventory.services.products import get_product_by_barcode
+
+    code = code.strip()
+    try:
+        return {"product": await get_product_by_barcode(db, code), "qty": Decimal(1), "scale": None}
+    except NotFoundError:
+        pass
+    for found in await emit("pos.scan", db, code=code):
+        if found:
+            return found
+    raise NotFoundError("لا يوجد صنف بهذا الباركود")
