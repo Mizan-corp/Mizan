@@ -33,7 +33,7 @@ export function SignOut() {
   useEffect(() => {
     clearOwnerSession();
     if (new URLSearchParams(window.location.search).get("to") === "login") {
-      window.location.replace(appUrl("system", "/login"));
+      window.location.replace(appUrl("owner", "/login"));
     } else {
       navigate("/", { replace: true });
     }

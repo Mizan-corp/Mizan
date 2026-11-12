@@ -1,12 +1,31 @@
 import { useLocation, Link, type LinkProps } from "react-router-dom";
 import { lastWorkspaceSlug, useAuth } from "@/stores/auth";
 import { IS_ON_PREMISE } from "@app/lib/deployment";
+import { WORKSPACE_DOMAIN } from "@/lib/urls";
+
+/** Names that are never a workspace's subdomain (ADR-008). */
+export const RESERVED_SUBDOMAINS = new Set([
+  "www", "dev", "api", "owner-api", "web-api", "admin-api", "app", "admin", "owner", "mail", "docs", "status", "help", "support", "blog",
+  "static", "assets", "cdn",
+]);
+
+/** The workspace this address belongs to: `<slug>.<VITE_WORKSPACE_DOMAIN>` (ADR-008), else null. */
+export function workspaceFromHost(hostname: string = window.location.hostname): string | null {
+  const host = hostname.toLowerCase();
+  if (!WORKSPACE_DOMAIN || !host.endsWith(`.${WORKSPACE_DOMAIN}`)) return null;
+  const sub = host.slice(0, -(WORKSPACE_DOMAIN.length + 1));
+  return sub && !sub.includes(".") && !RESERVED_SUBDOMAINS.has(sub) ? sub : null;
+}
+
+/** Set when the app is open on a workspace's own address: every route is that workspace's. */
+export const HOST_WORKSPACE = workspaceFromHost();
 
 /**
  * Where a signed-out user signs in. On the cloud, /login is the owners' page, so employees go
  * back to the last workspace used on this device (#78). On site, /login is the workspace's own.
  */
 export function signInPath(): string {
+  if (HOST_WORKSPACE) return "/login";
   const slug = IS_ON_PREMISE ? null : lastWorkspaceSlug();
   return slug ? `/c/${slug}/login` : "/login";
 }
@@ -88,6 +107,10 @@ export function parseTenantFromLocation(
   pathname: string = window.location.pathname,
   hostname: string = window.location.hostname
 ): TenantRouteInfo {
+  // 0. The workspace's own address on the configured domain (ADR-008).
+  const fromHost = workspaceFromHost(hostname);
+  if (fromHost) return { slug: fromHost, root: "", isSubdomain: true };
+
   // 1. Check Subdomain (e.g. monset-gym.mizan.app or monset-gym.localhost)
   // Only treat as a tenant subdomain on the app's own domains, not on hosting
   // preview URLs (vercel.app, netlify.app, ...) where the first label is a

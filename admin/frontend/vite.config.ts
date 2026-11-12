@@ -7,8 +7,13 @@ import { fileURLToPath } from "node:url";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
 
+  // Served under a path on the one domain (ADR-008, e.g. /owner/): the files go in a folder of
+  // that name, so the same build works on the project's own address and behind the main domain.
+  const base = env.VITE_BASE || process.env.VITE_BASE || "/";
+  const folder = base.replace(/^\/+|\/+$/g, "");
+
   return {
-    base: env.VITE_BASE || process.env.VITE_BASE || "/",
+    base,
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
@@ -17,6 +22,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
+      outDir: folder ? `dist/${folder}` : "dist",
+      emptyOutDir: true,
       rollupOptions: {
         output: {
           manualChunks: {

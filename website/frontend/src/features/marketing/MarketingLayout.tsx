@@ -259,7 +259,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
             ) : (
               <div className="flex items-center gap-2 sm:gap-3">
                 <a
-                  href={appUrl("system", "/login")}
+                  href={appUrl("owner", "/login")}
                   className="hidden sm:inline-flex px-3 py-1.5 text-xs sm:text-sm font-medium text-[#55504D] hover:text-[#262321] transition-colors"
                 >
                   {isAr ? "تسجيل الدخول" : "Sign In"}
@@ -349,7 +349,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
                   ) : (
                     <>
                       <a
-                        href={appUrl("system", "/login")}
+                        href={appUrl("owner", "/login")}
                         className="flex min-h-[44px] items-center justify-center rounded-full border border-[#DECFC0] bg-white text-xs font-semibold text-[#262321] hover:bg-[#EFE4D6]"
                       >
                         {isAr ? "تسجيل الدخول للمنظومة" : "Sign In to Mizan"}

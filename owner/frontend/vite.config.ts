@@ -7,8 +7,13 @@ import { fileURLToPath } from "node:url";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
 
+  // Served under a path on the one domain (ADR-008, e.g. /owner/): the files go in a folder of
+  // that name, so the same build works on the project's own address and behind the main domain.
+  const base = env.VITE_BASE || process.env.VITE_BASE || "/";
+  const folder = base.replace(/^\/+|\/+$/g, "");
+
   return {
-    base: env.VITE_BASE || process.env.VITE_BASE || "/",
+    base,
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
@@ -17,6 +22,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
+      outDir: folder ? `dist/${folder}` : "dist",
+      emptyOutDir: true,
       rollupOptions: {
         output: {
           manualChunks: {
@@ -33,6 +40,12 @@ export default defineConfig(({ mode }) => {
       port: 5176,
       strictPort: true,
       proxy: {
+        // Owner sign-in is served by the system API (/account/login).
+        "/system-api": {
+          target: "http://localhost:8000",
+          changeOrigin: true,
+          rewrite: (p) => p.replace(/^\/system-api/, ""),
+        },
         "/api": {
           target: "http://localhost:8003",
           changeOrigin: true,

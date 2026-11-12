@@ -330,6 +330,9 @@ async def update_workspace(
         changes["name"] = [t.name, data.name.strip()]
         t.name = data.name.strip()
     if data.slug and data.slug != t.slug:
+        from app.platform.tenancy.service import check_slug
+
+        check_slug(data.slug)
         if await db.scalar(select(Tenant.id).where(Tenant.slug == data.slug, Tenant.id != t.id)):
             raise HTTPException(status_code=409, detail="Another workspace already uses this URL name")
         changes["slug"] = [t.slug, data.slug]

@@ -62,7 +62,7 @@ function steps(w: Workspace): Step[] {
       body: (
         <>
           من الآن، سجّل الدخول من{" "}
-          <span className="code text-[12px] text-ink">{appUrl("system", "/login").replace(/^https?:\/\//, "")}</span> لتصل إلى هنا
+          <span className="code text-[12px] text-ink">{appUrl("website", "/login").replace(/^https?:\/\//, "")}</span> لتصل إلى هنا
           مباشرة. يمكنك إعادة هذه الجولة من صفحة <b>حسابي</b>.
         </>
       ),

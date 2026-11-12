@@ -43,7 +43,7 @@ function Sidebar({ onNavigate, primary }: { onNavigate?: () => void; primary?: b
       <NavLink to="/" onClick={onNavigate} className="flex h-16 items-center gap-3 border-b border-sidebar-border px-5 transition hover:bg-sidebar-accent/50">
         <span className="flex size-9 items-center justify-center rounded-lg border border-sidebar-border/30 bg-sidebar-primary/20 p-1">
           {/* The drawer copy can't use <MizanLogo>: its SVG gradient ids would resolve to the hidden rail. */}
-          {primary ? <MizanLogo size="sm" variant="icon" theme="dark" /> : <img src="/icon.svg" alt="" className="size-6" />}
+          {primary ? <MizanLogo size="sm" variant="icon" theme="dark" /> : <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" className="size-6" />}
         </span>
         <div className="flex min-w-0 flex-col leading-tight">
           <span className="truncate font-bold">Mizan</span>
@@ -104,8 +104,8 @@ function Sidebar({ onNavigate, primary }: { onNavigate?: () => void; primary?: b
             <LogOut className="size-4" />
           </button>
         </div>
-        <a href={appUrl("system", "/")} className="mt-1 block px-2 text-[10px] text-sidebar-foreground/50 hover:text-sidebar-foreground">
-          Go to the Mizan app ↗
+        <a href={appUrl("website", "/")} className="mt-1 block px-2 text-[10px] text-sidebar-foreground/50 hover:text-sidebar-foreground">
+          Go to the Mizan website ↗
         </a>
       </div>
     </div>
@@ -146,7 +146,7 @@ export default function Shell() {
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu">
               <Menu className="size-4" />
             </Button>
-            <img src="/icon.svg" alt="Mizan" className="size-8 lg:hidden" />
+            <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="Mizan" className="size-8 lg:hidden" />
             <span className="text-sm font-semibold text-foreground">{section}</span>
           </div>
           <div className="flex h-9 items-center gap-2 rounded-lg px-2">

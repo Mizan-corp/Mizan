@@ -94,7 +94,7 @@ A workspace runs in one of these, chosen when it's created:
 
 | Mode | Where the data lives | How it's reached |
 |---|---|---|
-| Cloud | Neon (the platform database); uploaded files in Vercel Blob (store `mizan-files`) | Vercel: the system app and API |
+| Cloud | Neon (the platform database); uploaded files in Vercel Blob (store `mizan-files`) | `allmizan.live` (website, `/owner`, `/admin`) and `<workspace>.allmizan.live` (ERP), on Vercel (ADR-008) |
 | Single device | A private PostgreSQL 16 on the computer | `http://127.0.0.1:47800`, in a Mizan app window |
 | LAN | A private PostgreSQL 16 on the shop's server | `https://mizan.local` (mDNS) or the server's address, HTTPS with the install's own CA |
 | Bring your own database | The owner's PostgreSQL | Planned (#91) |

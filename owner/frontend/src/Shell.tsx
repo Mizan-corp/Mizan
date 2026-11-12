@@ -24,7 +24,7 @@ function Sidebar({ onNavigate, tour }: { onNavigate?: () => void; tour?: boolean
       <NavLink to="/" onClick={onNavigate} className="flex h-16 items-center gap-3 border-b border-sidebar-border px-5 transition hover:bg-sidebar-accent/50">
         <span className="flex size-9 items-center justify-center rounded-lg border border-sidebar-border/30 bg-sidebar-primary/20 p-1">
           {/* The drawer copy can't use <MizanLogo>: its SVG gradient ids would resolve to the hidden rail. */}
-          {tour ? <MizanLogo size="sm" variant="icon" theme="dark" /> : <img src="/icon.svg" alt="" className="size-6" />}
+          {tour ? <MizanLogo size="sm" variant="icon" theme="dark" /> : <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" className="size-6" />}
         </span>
         <div className="flex min-w-0 flex-col leading-tight">
           <span className="truncate font-bold">ميزان</span>
@@ -109,7 +109,7 @@ export default function Shell() {
               <Menu className="size-4" />
             </Button>
             {/* An <img>, not <MizanLogo>: its SVG gradient ids would point into the hidden side rail. */}
-            <img src="/icon.svg" alt="ميزان" className="size-8 lg:hidden" />
+            <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="ميزان" className="size-8 lg:hidden" />
             <span className="text-sm font-semibold text-foreground">{section}</span>
           </div>
           <div className="flex items-center gap-2">

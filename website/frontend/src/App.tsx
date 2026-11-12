@@ -36,9 +36,9 @@ function Page({ children }: { children: ReactNode }) {
   );
 }
 
-/** Owners sign in on the app's /login (it opens the owner panel); staff use their workspace's page. */
-function ToSystemLogin() {
-  window.location.replace(appUrl("system", "/login"));
+/** Owners sign in on the owner panel (ADR-008); staff use their workspace's page. */
+function ToOwnerLogin() {
+  window.location.replace(appUrl("owner", "/login"));
   return null;
 }
 
@@ -66,7 +66,7 @@ export default function App() {
 
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/onboarding" element={<OnboardingWizard />} />
-      <Route path="/login" element={<ToSystemLogin />} />
+      <Route path="/login" element={<ToOwnerLogin />} />
       <Route path="/session" element={<AdoptSession />} />
       <Route path="/signout" element={<SignOut />} />
 

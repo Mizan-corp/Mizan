@@ -8,11 +8,13 @@ import Shell from "@app/components/AppShell";
 import LoginPage from "@app/features/auth/LoginPage";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/kit/button";
-import { RESERVED_ROOT_PATHS } from "@app/lib/tenant";
+import { HOST_WORKSPACE, RESERVED_ROOT_PATHS } from "@app/lib/tenant";
 import { appUrl } from "@/lib/urls";
 
 export default function TenantScopeLayout() {
-  const { tenantSlug } = useParams<{ tenantSlug: string }>();
+  const params = useParams<{ tenantSlug: string }>();
+  // On a workspace's own address the slug comes from the host (ADR-008).
+  const tenantSlug = HOST_WORKSPACE ?? params.tenantSlug;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,7 +24,7 @@ export default function TenantScopeLayout() {
   const setTenant = useAuth((s) => s.setTenant);
 
   // If path matched /:tenantSlug but it's actually a reserved platform slug, let outer routes handle it
-  if (tenantSlug && RESERVED_ROOT_PATHS.has(tenantSlug.toLowerCase())) {
+  if (!HOST_WORKSPACE && tenantSlug && RESERVED_ROOT_PATHS.has(tenantSlug.toLowerCase())) {
     return <Navigate to={`/${tenantSlug}`} replace />;
   }
 

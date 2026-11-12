@@ -22,6 +22,24 @@ from app.platform.auth.models.user import User
 from app.framework.demo import seed_workspace
 
 
+# A workspace's URL name is also its subdomain (<slug>.allmizan.live, ADR-008): a DNS label that
+# isn't one of the platform's own names.
+RESERVED_SLUGS = frozenset({
+    "www", "dev", "api", "owner-api", "web-api", "admin-api", "app", "admin", "owner", "mail", "docs", "status", "help", "support", "blog",
+    "static", "assets", "cdn", "c", "login", "signup", "store", "storefront", "billing", "account",
+})
+SLUG_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,46}[a-z0-9])$")
+
+
+def check_slug(slug: str) -> str:
+    """A URL name a workspace may take (422 otherwise)."""
+    if not SLUG_LABEL.match(slug or ""):
+        raise HTTPException(422, "The URL name must be 3–48 lowercase letters, digits or hyphens, not starting or ending with a hyphen")
+    if slug in RESERVED_SLUGS:
+        raise HTTPException(422, "This URL name is reserved; choose another")
+    return slug
+
+
 def slugify(name: str) -> str:
     ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii").lower()
     slug = re.sub(r"[^a-z0-9]+", "-", ascii_name).strip("-")[:40]
@@ -31,6 +49,10 @@ def slugify(name: str) -> str:
 async def unique_slug(db: AsyncSession, wanted: str | None, name: str) -> str:
     """`wanted` must be free (409 otherwise); without it, derive one from the name."""
     slug = (wanted or "").strip("-") or slugify(name)
+    if wanted:
+        check_slug(slug)
+    elif slug in RESERVED_SLUGS:
+        slug = f"{slug}-workspace"
     base, n = slug, 1
     while await db.scalar(select(Tenant.id).where(Tenant.slug == slug)):
         if wanted:

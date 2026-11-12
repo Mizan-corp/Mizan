@@ -3,8 +3,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ExternalLink, LogIn } from "lucide-react";
 import { toast } from "sonner";
-import { openWithSession } from "@/lib/handoff";
-import { appUrl } from "@/lib/urls";
+import { openWithSession, openWorkspaceWithSession } from "@/lib/handoff";
+import { workspaceUrl } from "@/lib/urls";
 import { actions, type Module, useAction, useModules, useWorkspace, type WorkspaceDetail as Detail } from "@app/lib/data";
 import { ago, categoryLabel, date, dateTime, errorText, moduleLabel, modeLabel, money, num, PLANS, planLabel, plural, pulse, REQUEST_STATUS, sectorLabel, trialText } from "@app/lib/format";
 import {
@@ -349,7 +349,7 @@ function SettingsTab({ d }: { d: Detail }) {
           <Field label="Name">
             <Input value={name} onChange={(e) => setName(e.target.value)} className="bidi" minLength={2} required />
           </Field>
-          <Field label="URL name" hint={<span className="code">{appUrl("system", `/c/${slug || "…"}`)}</span>}>
+          <Field label="URL name" hint={<span className="code">{workspaceUrl(slug || "…").replace(/\/$/, "")}</span>}>
             <Input value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase())} pattern="[a-z0-9\-]{3,48}" className="code" required />
           </Field>
           {slug !== w.slug && (
@@ -537,7 +537,8 @@ export default function WorkspaceDetail() {
     try {
       const r = await actions.impersonate(w.id);
       toast.success(`Opening as ${r.as_user}`);
-      openWithSession("system", r.slug ? `/c/${r.slug}` : "/", r.access_token);
+      if (r.slug) openWorkspaceWithSession(r.slug, "/", r.access_token);
+      else openWithSession("system", "/", r.access_token);
     } catch (e) {
       toast.error(errorText(e));
       setOpening(false);
@@ -559,7 +560,7 @@ export default function WorkspaceDetail() {
             <PlanCell w={w} />
             {w.deployment_mode !== "cloud_saas" && <Badge tone="info">{modeLabel(w.deployment_mode)}</Badge>}
             {w.slug && (
-              <a href={appUrl("system", `/c/${w.slug}`)} target="_blank" rel="noreferrer" className="code inline-flex items-center gap-1 text-[13px] text-mute hover:text-ox">
+              <a href={workspaceUrl(w.slug)} target="_blank" rel="noreferrer" className="code inline-flex items-center gap-1 text-[13px] text-mute hover:text-ox">
                 /c/{w.slug} <ExternalLink className="size-3" />
               </a>
             )}

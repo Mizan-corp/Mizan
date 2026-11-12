@@ -24,7 +24,8 @@ class Settings(BaseSettings):
         "https://mizan-co-owner.vercel.app",
     ]
     # Vercel deployment URLs of this team's Mizan projects (previews, per-commit URLs).
-    CORS_ORIGIN_REGEX: str = r"^https:\/\/mizan(-[a-z0-9]+)*-ammar0xfs-projects\.vercel\.app$"
+    # Vercel preview deployments, and the one domain with its workspace subdomains (ADR-008).
+    CORS_ORIGIN_REGEX: str = r"^https:\/\/(mizan(-[a-z0-9]+)*-ammar0xfs-projects\.vercel\.app|([a-z0-9-]+\.)?allmizan\.live)$"
     IS_PRODUCTION: bool = False
 
     # Owner panel: public addresses used in payment redirects and callbacks.

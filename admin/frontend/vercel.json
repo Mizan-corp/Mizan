@@ -2,8 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "source": "/admin/(.*)",
+      "destination": "/admin/index.html"
     }
   ],
   "headers": [
@@ -37,7 +37,7 @@
       ]
     },
     {
-      "source": "/assets/(.*)",
+      "source": "/admin/assets/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -48,5 +48,12 @@
   ],
   "git": {
     "deploymentEnabled": false
-  }
+  },
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/admin/",
+      "permanent": false
+    }
+  ]
 }

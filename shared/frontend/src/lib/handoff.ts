@@ -6,12 +6,17 @@
  * Fragments are never sent to servers or logged in access logs, and the system
  * app strips it from the address bar immediately on load.
  */
-import { appUrl, type AppKind } from "@/lib/urls";
+import { appUrl, workspaceUrl, type AppKind } from "@/lib/urls";
 
 const KEY = "session";
 
 export function openWithSession(app: AppKind, path: string, token: string): void {
   window.location.assign(`${appUrl(app, path)}#${KEY}=${encodeURIComponent(token)}`);
+}
+
+/** Open a workspace (its own address, ADR-008) already signed in. */
+export function openWorkspaceWithSession(slug: string, path: string, token: string): void {
+  window.location.assign(`${workspaceUrl(slug, path)}#${KEY}=${encodeURIComponent(token)}`);
 }
 
 /** Read and remove a handed-off token from the current URL, if present. */

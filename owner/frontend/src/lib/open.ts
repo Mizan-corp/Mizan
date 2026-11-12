@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { openWithSession } from "@/lib/handoff";
-import { appUrl } from "@/lib/urls";
+import { openWithSession, openWorkspaceWithSession } from "@/lib/handoff";
+import { workspaceUrl } from "@/lib/urls";
 import { actions, type Workspace } from "@app/lib/data";
 import { errorText } from "@app/lib/format";
 
 /** Where a workspace's staff sign in (they never use the owner panel). */
-export const staffLoginUrl = (slug: string) => appUrl("system", `/c/${slug}/login`);
+export const staffLoginUrl = (slug: string) => workspaceUrl(slug, "/login");
 
 /** Open a workspace in the app, signed in as the owner. */
 export function useOpenWorkspace() {
@@ -15,7 +15,8 @@ export function useOpenWorkspace() {
     setOpening(w.id);
     try {
       const r = await actions.open(w.id);
-      openWithSession("system", r.slug ? `/c/${r.slug}` : "/", r.access_token);
+      if (r.slug) openWorkspaceWithSession(r.slug, "/", r.access_token);
+      else openWithSession("system", "/", r.access_token);
     } catch (e) {
       toast.error(errorText(e));
       setOpening(null);

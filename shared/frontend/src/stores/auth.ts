@@ -70,8 +70,11 @@ interface AuthState {
   can: (perm: string) => boolean;
 }
 
-const KEY = "mizan.session";
-const LEGACY_KEY = "vendora.session";
+// Per app: on one domain (ADR-008) the website, owner and admin panels share browser storage.
+// The ERP keeps the original key, so its users stay signed in.
+const APP = (import.meta.env.VITE_APP_KIND as string | undefined) ?? "system";
+const KEY = APP === "system" ? "mizan.session" : `mizan.session.${APP}`;
+const LEGACY_KEY = APP === "system" ? "vendora.session" : KEY;
 const TENANT_KEY = "mizan.tenant";
 const LEGACY_TENANT_KEY = "vendora.tenant";
 // Kept after sign-out, so a signed-out employee is sent back to their workspace's sign-in page

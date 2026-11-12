@@ -15,8 +15,8 @@ import { sound } from "@/lib/sound";
 import { MizanLogo } from "@/components/MizanLogo";
 import { useTranslation } from "@/i18n";
 import { appUrl } from "@/lib/urls";
-import { openWithSession } from "@/lib/handoff";
 import { IS_ON_PREMISE } from "@app/lib/deployment";
+import { HOST_WORKSPACE } from "@app/lib/tenant";
 import { LanCertificateHelp } from "@app/components/LanCertificateHelp";
 
 const auth = () => useAuth.getState();
@@ -33,16 +33,6 @@ export interface LoginPageProps {
   tenant?: TenantInfo | null;
   tenantSlug?: string;
   onSuccess?: () => void;
-  /**
-   * The app's /login, without a workspace: business owners sign in here and
-   * land in the owner panel. Employees use their workspace's page instead.
-   */
-  owner?: boolean;
-}
-
-/** Only same-site paths may be passed back to the owner panel. */
-function safeNext(raw: string | null): string {
-  return raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : "/";
 }
 
 export default function LoginPage(props: LoginPageProps = {}) {
@@ -58,8 +48,8 @@ export default function LoginPage(props: LoginPageProps = {}) {
   const isAr = locale === "ar";
 
   const authTenant = useAuth((s) => s.tenant);
-  const currentTenant = props.owner ? null : props.tenant || authTenant;
-  const rawSlug = props.owner ? undefined : props.tenantSlug || currentTenant?.slug;
+  const currentTenant = props.tenant || authTenant;
+  const rawSlug = props.tenantSlug || HOST_WORKSPACE || currentTenant?.slug;
   const targetSlug = rawSlug && rawSlug !== "undefined" && rawSlug !== "null" ? rawSlug : undefined;
 
   const loginCfg = currentTenant?.login_config;
@@ -73,44 +63,12 @@ export default function LoginPage(props: LoginPageProps = {}) {
   const showPoweredBy = loginCfg?.show_powered_by !== false;
   const isCustomPortal = Boolean(targetSlug || currentTenant);
 
-  async function submitOwner() {
-    const r = await api.post<{ access_token?: string; employee_workspace?: string; admin_panel?: boolean }>("/account/login", {
-      login: username.trim(),
-      password,
-    });
-    if (r.admin_panel) {
-      // Platform staff: their sign-in is the admin panel's.
-      window.location.assign(appUrl("admin", "/"));
-      return;
-    }
-    if (r.employee_workspace) {
-      // An employee account: its sign-in page is the workspace's own.
-      navigate(`/c/${r.employee_workspace}/login`, {
-        state: {
-          username: username.trim(),
-          notice: isAr
-            ? "هذا حساب موظف. سجّل الدخول من صفحة مساحة العمل الخاصة بك (هذه الصفحة)، واحفظ رابطها."
-            : "This is an employee account. Sign in on your workspace's page (this one), and bookmark it.",
-        },
-      });
-      return;
-    }
-    sound.success();
-    const next = safeNext(new URLSearchParams(location.search).get("next"));
-    // Through the website, so it knows the owner is signed in, then on to the owner panel.
-    openWithSession("website", `/session?next=${encodeURIComponent(next)}`, r.access_token!);
-  }
-
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
       sound.click();
-      if (props.owner) {
-        await submitOwner();
-        return;
-      }
       const r = await api.post<LoginResponse>("/auth/login", {
         username,
         password,
@@ -131,7 +89,9 @@ export default function LoginPage(props: LoginPageProps = {}) {
       if (props.onSuccess) {
         props.onSuccess();
       } else {
-        const prefix = targetSlug
+        const prefix = HOST_WORKSPACE
+          ? "/"
+          : targetSlug
           ? location.pathname.startsWith("/c/")
             ? `/c/${targetSlug}`
             : `/${targetSlug}`
@@ -276,13 +236,9 @@ export default function LoginPage(props: LoginPageProps = {}) {
                 : (isAr ? "تسجيل الدخول" : "Sign In to Mizan")}
             </h1>
             <p className="text-xs sm:text-sm text-[#77716E]">
-              {props.owner
-                ? isAr
-                  ? "لأصحاب المنشآت: مساحات عملك واشتراكاتك وفواتيرك في مكان واحد."
-                  : "For business owners: your workspaces, subscriptions and invoices in one place."
-                : isAr
-                  ? "أدخل بيانات حسابك للوصول إلى لوحة التحكم ومساحة العمل الخاصة بك."
-                  : "Enter your credentials to access your enterprise dashboard."}
+              {isAr
+                ? "أدخل بيانات حسابك للوصول إلى لوحة التحكم ومساحة العمل الخاصة بك."
+                : "Enter your credentials to access your enterprise dashboard."}
             </p>
           </div>
 

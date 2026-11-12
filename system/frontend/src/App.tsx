@@ -75,7 +75,8 @@ function WorkspaceHome() {
 }
 import { useModulesStore } from "@app/stores/modules";
 import { useRoleScreens } from "@app/lib/nav";
-import { signInPath, useTenantNav } from "@app/lib/tenant";
+import { HOST_WORKSPACE, signInPath, useTenantNav } from "@app/lib/tenant";
+import { appUrl } from "@/lib/urls";
 import { Button } from "@/components/kit/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/kit/empty";
 import Shell from "@app/components/AppShell";
@@ -205,12 +206,31 @@ function renderErpChildRoutes(includeIndex: boolean = true) {
   );
 }
 
+/** Cloud, no workspace in the address: owners sign in on the owner panel (ADR-008). */
+function ToOwnerSignIn() {
+  window.location.replace(appUrl("owner", `/login${window.location.search}`));
+  return null;
+}
+
 export default function App() {
+  if (HOST_WORKSPACE) {
+    // The workspace's own address (<slug>.allmizan.live): every route is that workspace's.
+    return (
+      <Routes>
+        <Route path="/store/:tenantSlug" element={<Page><PublicStorefrontPage /></Page>} />
+        <Route path="/c/:tenantSlug/*" element={<Navigate to="/" replace />} />
+        <Route path="/" element={<Page><TenantScopeLayout /></Page>}>
+          {renderErpChildRoutes()}
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
+  }
   return (
     <Routes>
-      {/* Cloud: owners sign in here (it opens the owner panel); employees use /c/<workspace>/login.
+      {/* Cloud: owners sign in on the owner panel; employees use their workspace's page.
           On-premise there are no owner accounts: /login is the workspace's own sign-in. */}
-      <Route path="/login" element={<LoginPage owner={!IS_ON_PREMISE} />} />
+      <Route path="/login" element={IS_ON_PREMISE ? <LoginPage /> : <ToOwnerSignIn />} />
 
       {/* Public Customer-Facing Storefront Routes */}
       <Route path="/store/:tenantSlug" element={<Page><PublicStorefrontPage /></Page>} />
