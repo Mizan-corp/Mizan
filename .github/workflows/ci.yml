@@ -61,7 +61,7 @@ jobs:
           done
 
       - name: Lint
-        run: pip install ruff && ruff check shared/backend system/backend website/backend owner/backend admin/backend --select E9,F63,F7,F82,F821,F601,F401,F841
+        run: pip install ruff && ruff check shared/backend system/backend website/backend owner/backend admin/backend sdk/python --select E9,F63,F7,F82,F821,F601,F401,F841
 
   ci-e2e:
     name: E2E (live API)
@@ -144,6 +144,7 @@ jobs:
           (cd owner/backend && python -m pytest tests/ -q --no-header)
           (cd admin/backend && python -m pytest tests/ -q --no-header)
           (cd installer/server && python -m pytest -q --no-header)
+          (cd sdk/python && python -m pytest -q --no-header)
 
       - name: Debug container logs on failure
         if: failure()

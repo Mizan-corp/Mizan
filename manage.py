@@ -812,6 +812,8 @@ def _test_backend() -> None:
         run([python_bin(), "-m", "pytest", "-q", "--no-header"], cwd=ROOT / app / "backend", env=_backend_env())
     step("Installed-server engine tests (installer/server/tests)")
     run([python_bin(), "-m", "pytest", "-q", "--no-header"], cwd=ROOT / "installer" / "server")
+    step("SDK tests (sdk/python/tests)")
+    run([python_bin(), "-m", "pytest", "-q", "--no-header"], cwd=ROOT / "sdk" / "python")
 
 
 def _test_e2e() -> None:
@@ -856,7 +858,7 @@ def _lint() -> None:
     ruff = [python_bin(), "-m", "ruff"] if VENV.exists() else ["ruff"]
     if not VENV.exists():
         need("ruff", "Run `python manage.py setup` or `pip install ruff`.")
-    run([*ruff, "check", "shared/backend", "system/backend", "website/backend", "owner/backend", "admin/backend",
+    run([*ruff, "check", "shared/backend", "system/backend", "website/backend", "owner/backend", "admin/backend", "sdk/python",
          "--select", "E9,F63,F7,F82,F821,F601,F401,F841"])
     ok("ruff")
     _need_node_modules()

@@ -106,3 +106,26 @@ def test_uncertified_keys_and_unsafe_files_are_refused():
             mzm.build({**files(), bad: b"x"}, key, cert)
     with pytest.raises(mzm.PackageError, match="isn't a Mizan module package"):
         mzm.verify(b"not a zip")
+
+
+def test_the_sdk_ships_the_platforms_validator_and_its_packages_verify(tmp_path):
+    """mizan-sdk (sdk/python) must check modules exactly as the platform does, and the packages
+    `mizan package` builds must pass the platform's verification."""
+    import sys
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[3]
+    platform_copy = (repo / "shared/backend/app/framework/manifest.py").read_text()
+    assert (repo / "sdk/python/mizan_sdk/manifest.py").read_text() == platform_copy, \
+        "sdk/python/mizan_sdk/manifest.py is out of date: copy shared/backend/app/framework/manifest.py over it"
+
+    sys.path.insert(0, str(repo / "sdk/python"))
+    try:
+        from mizan_sdk.cli import starter
+        from mizan_sdk.package import build as sdk_build
+    finally:
+        sys.path.pop(0)
+    files_ = {rel: json.dumps(body, ensure_ascii=False).encode() for rel, body in starter("acme.notes").items()}
+    key, cert = developer()
+    pkg = mzm.verify(sdk_build(files_, key, cert))
+    assert pkg.manifest["id"] == "acme.notes" and set(pkg.entities) == {"item"}
