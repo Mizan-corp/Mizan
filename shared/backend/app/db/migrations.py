@@ -2993,6 +2993,32 @@ MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS ix_community_modules_token ON community_modules (api_token_hash)
             WHERE api_token_hash IS NOT NULL;
     """),
+    # ADR-007 D4: webhooks to community modules' servers, kept until delivered or given up.
+    ("v71_community_webhooks", """
+        CREATE TABLE IF NOT EXISTS community_webhook_deliveries (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+                DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+            module_id varchar(80) NOT NULL,
+            event varchar(48) NOT NULL,
+            payload jsonb NOT NULL,
+            status varchar(16) NOT NULL DEFAULT 'pending',
+            attempts integer NOT NULL DEFAULT 0,
+            next_attempt_at timestamptz DEFAULT now(),
+            last_status_code integer,
+            last_error text,
+            created_at timestamptz DEFAULT now(),
+            delivered_at timestamptz
+        );
+        CREATE INDEX IF NOT EXISTS ix_community_webhooks_due ON community_webhook_deliveries (next_attempt_at)
+            WHERE status = 'pending';
+        CREATE INDEX IF NOT EXISTS ix_community_webhooks_module ON community_webhook_deliveries (tenant_id, module_id, created_at DESC);
+        ALTER TABLE community_webhook_deliveries ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE community_webhook_deliveries FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON community_webhook_deliveries;
+        CREATE POLICY tenant_isolation ON community_webhook_deliveries
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

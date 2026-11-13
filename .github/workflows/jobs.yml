@@ -30,7 +30,7 @@ jobs:
         id: pick
         run: |
           case "${{ github.event.schedule }}" in
-            "15 * * * *")  jobs="paymob_reconcile" ;;
+            "15 * * * *")  jobs="paymob_reconcile community_webhooks" ;;
             "0 */6 * * *") jobs="enforce_subscription_expiry" ;;
             "0 22 * * *")  jobs="auto_close_shifts generate_daily_metrics_digest purge_removed_module_data measure_storage" ;;
             "0 1 * * 0")   jobs="cleanup_system_stale_data" ;;

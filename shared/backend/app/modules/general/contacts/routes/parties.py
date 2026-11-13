@@ -51,9 +51,14 @@ async def list_customers(search: str | None = None, limit: int = Query(200, le=1
 async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("customers"))):
     payload = data.model_dump()
     payload["extra"] = await _clean_extra(db, payload.get("extra"))
+    from app.platform.community.events import deliver_soon, publish
+
     c = Customer(**payload)
     db.add(c)
+    await db.flush()
+    hooks = await publish(db, "customer.created", {"id": str(c.id), "name": c.name, "phone": c.phone})
     await db.commit()
+    deliver_soon(hooks)
     await db.refresh(c)
     return c
 

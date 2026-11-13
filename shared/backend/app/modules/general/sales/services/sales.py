@@ -15,6 +15,36 @@ from app.framework.hooks import emit
 from app.modules.general.inventory.services.stock import get_balance, record_movement
 
 
+async def _sale_event(db, event: str, sale, lines, **extra) -> list:
+    """Webhooks for community modules subscribed to sales (ADR-007), recorded with the change."""
+    from app.platform.community.events import publish
+
+    status = getattr(sale.status, "value", sale.status)
+    if event == "sale.confirmed" and status != "confirmed":
+        return []
+    data = {"id": str(sale.id), "invoice_number": sale.invoice_number,
+            "customer_id": str(sale.customer_id) if sale.customer_id else None,
+            "branch_id": str(sale.warehouse_id) if sale.warehouse_id else None,
+            "total": str(sale.total) if sale.total is not None else None,
+            "net_total": str(sale.net_total) if sale.net_total is not None else None,
+            "is_credit": bool(sale.is_credit),
+            "lines": [{"product_id": str(i.product_id), "qty": str(i.qty), "unit_price": str(i.unit_price),
+                       "discount": str(getattr(i, "discount", 0) or 0)} for i in lines]}
+    if "returned" in extra:
+        ret = extra.pop("returned")
+        data["return"] = {"id": str(ret.id), "invoice_number": ret.invoice_number,
+                          "total": str(ret.net_total if ret.net_total is not None else ret.total)}
+    if "returned_total" in extra:
+        data["return"] = {"total": str(extra.pop("returned_total"))}
+    return await publish(db, event, data)
+
+
+def _send(ids: list) -> None:
+    from app.platform.community.events import deliver_soon
+
+    deliver_soon(ids)
+
+
 async def _invoice_number(db) -> str:
     from sqlalchemy import text
     seq = (await db.execute(text("SELECT nextval('invoice_seq')"))).scalar()
@@ -197,7 +227,9 @@ async def confirm_quotation(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.
             ))
         sale.paid_amount = sale.net_total
 
+    _hooks = await _sale_event(db, "sale.confirmed", sale, sorted_items)
     await db.commit()
+    _send(_hooks)
     await db.refresh(sale)
     return sale
 
@@ -272,7 +304,9 @@ async def confirm_draft_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid
     db.add(ArchivedDocument(doc_number=new_inv, doc_type=DocType.sale_invoice,
                             ref_id=sale.id, created_by=user_id,
                             metadata_={"items_count": len(sale.items)}))
+    _hooks = await _sale_event(db, "sale.confirmed", sale, sorted_items)
     await db.commit()
+    _send(_hooks)
     await db.refresh(sale)
     return sale
 
@@ -508,7 +542,9 @@ async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
                             amount=Decimal(str(net_total)), ref_id=sale.id, created_by=cashier_id,
                             metadata_={"items_count": len(data.items), "mode": str(data.sale_mode)}))
 
+    _hooks = await _sale_event(db, "sale.confirmed", sale, sale_items)
     await db.commit()
+    _send(_hooks)
     result = await db.execute(select(Sale).options(selectinload(Sale.items)).where(Sale.id == sale.id))
     return result.scalar_one()
 
@@ -610,7 +646,9 @@ async def return_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID) 
             "UPDATE customers SET balance = GREATEST(COALESCE(balance,0) - :amt, 0) WHERE id = :cid"
         ), {"amt": Decimal(str(actual_credit)), "cid": sale.customer_id})
 
+    _hooks = await _sale_event(db, "sale.returned", sale, [], returned_total=total)
     await db.commit()
+    _send(_hooks)
     return {"detail": "Returned", "invoice_number": sale.invoice_number, "amount": total}
 
 
@@ -805,7 +843,9 @@ async def partial_return_sale(db: AsyncSession, sale_id: uuid.UUID, data: dict, 
     db.add(ArchivedDocument(doc_number=ret.invoice_number, doc_type=DocType.sale_invoice,
                              amount=total, ref_id=ret.id, created_by=current_user_id,
                              metadata_={"original_invoice": orig.invoice_number, "type": "partial_return"}))
+    _hooks = await _sale_event(db, "sale.returned", orig, [], returned=ret)
     await db.commit()
+    _send(_hooks)
     return {"doc_number": ret.invoice_number, "sale_id": str(ret.id), "total": float(total), "original": orig.invoice_number}
 
 

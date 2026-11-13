@@ -278,7 +278,12 @@ async def update_product(
     for k, v in payload.items():
         setattr(p, k, v)
     await audit_log(db, "product", "update", current_user.id, current_user.full_name, product_id, data.model_dump(mode="json", exclude_none=True), "تعديل المنتج")
+    from app.platform.community.events import deliver_soon, publish
+
+    hooks = await publish(db, "product.updated", {"id": str(p.id), "code": p.code, "name": p.name,
+                                                  "retail_price": str(p.retail_price), "is_active": p.is_active})
     await db.commit()
+    deliver_soon(hooks)
     await db.refresh(p)
     return p
 

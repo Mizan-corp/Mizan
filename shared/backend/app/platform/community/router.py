@@ -69,6 +69,12 @@ async def module_token(module_id: str, db: AsyncSession = Depends(get_db),
     return await service.issue_token(db, module_id)
 
 
+@community.get("/modules/{module_id}/deliveries")
+async def module_deliveries(module_id: str, db: AsyncSession = Depends(get_db),
+                            _: User = Depends(require_perm("community.manage"))):
+    return {"items": await service.deliveries(db, module_id)}
+
+
 @community.delete("/modules/{module_id}", status_code=204)
 async def uninstall_module(module_id: str, delete_records: bool = False, db: AsyncSession = Depends(get_db),
                            _: User = Depends(require_perm("community.manage"))):

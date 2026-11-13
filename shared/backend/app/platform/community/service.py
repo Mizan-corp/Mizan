@@ -213,10 +213,16 @@ async def get_record(db: AsyncSession, module: CommunityModule, entity: dict, re
 
 
 async def create_record(db: AsyncSession, module: CommunityModule, entity: dict, values: dict, user_id) -> ExtRecord:
+    from app.platform.community.events import deliver_soon, publish
+
     r = ExtRecord(module_id=module.module_id, entity=entity["id"], data=await clean(db, module, entity, values),
                   created_by=user_id)
     db.add(r)
+    await db.flush()
+    hooks = await publish(db, "record.created", {"entity": entity["id"], "id": str(r.id), "data": r.data},
+                          only_module=module.module_id)
     await db.commit()
+    deliver_soon(hooks)
     await db.refresh(r)
     return r
 
@@ -224,9 +230,14 @@ async def create_record(db: AsyncSession, module: CommunityModule, entity: dict,
 async def update_record(db: AsyncSession, module: CommunityModule, entity: dict, r: ExtRecord, values: dict) -> ExtRecord:
     merged = {**r.data, **await clean(db, module, entity, values, partial=True)}
     await clean(db, module, entity, merged)  # still complete
+    from app.platform.community.events import deliver_soon, publish
+
     r.data = merged
     r.updated_at = datetime.now(UTC)
+    hooks = await publish(db, "record.updated", {"entity": entity["id"], "id": str(r.id), "data": merged},
+                          only_module=module.module_id)
     await db.commit()
+    deliver_soon(hooks)
     await db.refresh(r)
     return r
 
@@ -253,6 +264,10 @@ async def install(db: AsyncSession, package, user_id, approved_scopes: list[str]
     row.version, row.developer = package.manifest["version"], package.developer
     row.manifest, row.entities, row.scopes = package.manifest, package.entities, asked
     row.package_sha256, row.status, row.installed_by = package.sha256, "active", user_id
+    if (package.manifest.get("webhooks") or {}).get("url") and not row.webhook_secret:
+        import secrets
+
+        row.webhook_secret = secrets.token_urlsafe(32)  # its webhooks are signed from the start
     if row.installed_at is not None:  # an update: its records stay
         row.updated_at = datetime.now(UTC)
     await db.commit()
@@ -325,3 +340,15 @@ async def issue_token(db: AsyncSession, module_id: str) -> dict:
     row.token_created_at = datetime.now(UTC)
     await db.commit()
     return {"token": token, "webhook_secret": row.webhook_secret, "created_at": row.token_created_at.isoformat()}
+
+
+async def deliveries(db: AsyncSession, module_id: str, limit: int = 50) -> list[dict]:
+    """The module's latest webhooks, for the owner and the developer."""
+    from app.platform.community.models import WebhookDelivery
+
+    rows = (await db.execute(select(WebhookDelivery).where(WebhookDelivery.module_id == module_id)
+                             .order_by(WebhookDelivery.created_at.desc()).limit(limit))).scalars()
+    return [{"id": str(d.id), "event": d.event, "status": d.status, "attempts": d.attempts,
+             "last_status_code": d.last_status_code, "last_error": d.last_error,
+             "created_at": d.created_at.isoformat() if d.created_at else None,
+             "delivered_at": d.delivered_at.isoformat() if d.delivered_at else None} for d in rows]

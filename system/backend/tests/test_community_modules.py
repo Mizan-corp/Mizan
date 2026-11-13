@@ -243,3 +243,83 @@ async def test_the_extension_api_is_scoped_and_isolated():
             await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
             await db.execute(text("DELETE FROM tenants WHERE id = ANY(:t)"), {"t": tenants})
             await db.commit()
+
+
+async def test_webhooks_are_signed_retried_and_given_up(monkeypatch):
+    """ADR-007 D4: recorded with the change, signed, retried with backoff, then given up."""
+    import hashlib
+    import hmac
+    import json as _json
+
+    from sqlalchemy import text
+
+    from app.db.base import AsyncSessionLocal
+    from app.platform.community import events, service
+    from app.platform.community.models import WebhookDelivery
+    from app.platform.tenancy.context import bind_tenant, current_tenant_id
+    from app.platform.tenancy.models import Tenant
+
+    sent: list[tuple[str, bytes, dict]] = []
+    answer = {"code": 200}
+    monkeypatch.setattr(events, "deliver_soon", lambda ids: None)  # the test delivers explicitly
+    monkeypatch.setattr(events, "safe_url", lambda url: True)
+    monkeypatch.setattr(events, "_post", lambda url, body, headers: sent.append((url, body, headers)) or answer["code"])
+
+    key, cert = developer()
+    pkg = mzm.verify(mzm.build(files(), key, cert))
+    tid = uuid.uuid4()
+    async with AsyncSessionLocal() as db:
+        db.add(Tenant(id=tid, name=f"Hooks {tid.hex[:6]}", slug=f"hooks-{tid.hex[:8]}", status="active"))
+        await db.commit()
+    try:
+        async with AsyncSessionLocal() as db:
+            await bind_tenant(db, tid)
+            row = await service.install(db, pkg, None, approved_scopes=pkg.manifest["scopes"])
+            secret = row.webhook_secret
+            assert secret  # signed from the start
+            assert await events.publish(db, "customer.created", {"id": "x"}) == []  # not subscribed
+            ids = await events.publish(db, "sale.confirmed", {"id": "s1", "invoice_number": "INV-1"})
+            await db.commit()
+        current_tenant_id.set(None)
+
+        await events.deliver_due(ids=ids)
+        url, body, headers = sent[-1]
+        assert url == "https://acme.example/mizan" and headers["Mizan-Event"] == "sale.confirmed"
+        expected = "sha256=" + hmac.new(secret.encode(), headers["Mizan-Timestamp"].encode() + b"." + body, hashlib.sha256).hexdigest()
+        assert headers["Mizan-Signature"] == expected
+        payload = _json.loads(body)
+        assert payload["data"]["invoice_number"] == "INV-1" and payload["workspace"]["id"] == str(tid)
+
+        # A failing receiver: retried later, then given up.
+        async with AsyncSessionLocal() as db:
+            await bind_tenant(db, tid)
+            ids = await events.publish(db, "record.created", {"entity": "visit", "id": "r1"}, only_module="acme.visits")
+            await db.commit()
+        current_tenant_id.set(None)
+        answer["code"] = 500
+        await events.deliver_due(ids=ids)
+        async with AsyncSessionLocal() as db:
+            await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
+            d = await db.get(WebhookDelivery, ids[0])
+            assert d.status == "pending" and d.attempts == 1 and d.last_status_code == 500
+            d.attempts = len(events.BACKOFF)  # the last chance
+            await db.commit()
+        await events.deliver_due(ids=ids)
+        async with AsyncSessionLocal() as db:
+            await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
+            assert (await db.get(WebhookDelivery, ids[0])).status == "failed"
+    finally:
+        current_tenant_id.set(None)
+        async with AsyncSessionLocal() as db:
+            await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
+            await db.execute(text("DELETE FROM tenants WHERE id = :t"), {"t": tid})
+            await db.commit()
+
+
+def test_webhook_addresses_must_be_public_https():
+    from app.platform.community.events import safe_url
+
+    assert not safe_url("http://example.com/hook")
+    assert not safe_url("https://127.0.0.1/hook")
+    assert not safe_url("https://localhost/hook")
+    assert not safe_url("https://10.0.0.5/hook")

@@ -197,6 +197,13 @@ async def measure_storage(db: AsyncSession) -> dict[str, Any]:
     return {"message": f"قيست مساحة التخزين لـ {n} منشأة", "items_processed": n}
 
 
+async def community_webhooks(db: AsyncSession) -> dict[str, Any]:
+    """Webhooks to community modules' servers that are due a retry (ADR-007)."""
+    from app.platform.community.events import deliver_due
+
+    return await deliver_due()
+
+
 JOB_REGISTRY = {
     "auto_close_shifts": {
         "title": "إغلاق الورديات التلقائي منتصف الليل",
@@ -232,6 +239,13 @@ JOB_REGISTRY = {
         "description": "عند إزالة وحدة مع الاحتفاظ ببياناتها تبقى مخفية 30 يومًا ثم تُحذف",
         "cron": "30 3 * * *",
         "handler": purge_removed_module_data,
+    },
+    "community_webhooks": {
+        "title": "إعادة محاولة إشعارات وحدات المطورين",
+        "title_en": "Retry community module webhooks",
+        "description": "إرسال إشعارات وحدات المطورين التي لم تصل بعد، مع مهلة متزايدة حتى يوم كامل",
+        "cron": "15 * * * *",
+        "handler": community_webhooks,
     },
     "measure_storage": {
         "title": "قياس مساحة التخزين لكل منشأة",

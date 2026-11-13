@@ -4,7 +4,7 @@
  */
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Blocks, Copy, FileUp, KeyRound, ShieldCheck, Trash2 } from "lucide-react";
+import { Bell, Blocks, Copy, FileUp, KeyRound, ShieldCheck, Trash2 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
 import { Badge } from "@/components/kit/badge";
@@ -16,6 +16,41 @@ interface Summary {
   entities: { id: string; name: string; fields: number }[]; scopes: Scope[];
   permissions: { id: string; name: string }[]; sends_to: string | null; installed_version: string | null;
 }
+interface Delivery { id: string; event: string; status: "pending" | "delivered" | "failed"; attempts: number; last_status_code: number | null; last_error: string | null; created_at: string }
+const DELIVERY: Record<Delivery["status"], { label: string; variant: "success" | "warning" | "destructive" }> = {
+  delivered: { label: "وصل", variant: "success" },
+  pending: { label: "يُعاد إرساله", variant: "warning" },
+  failed: { label: "لم يصل", variant: "destructive" },
+};
+
+function Deliveries({ moduleId }: { moduleId: string }) {
+  const q = useQuery({
+    queryKey: ["community-deliveries", moduleId],
+    queryFn: () => api.get<{ items: Delivery[] }>(`/community/modules/${encodeURIComponent(moduleId)}/deliveries`),
+  });
+  if (q.isPending) return <div className="flex justify-center p-6"><Spinner /></div>;
+  const items = q.data?.items ?? [];
+  if (!items.length) return <p className="text-sm text-muted-foreground">لم تُرسل إشعارات بعد.</p>;
+  const when = new Intl.DateTimeFormat("ar-EG-u-nu-latn", { dateStyle: "short", timeStyle: "short" });
+  return (
+    <ul className="max-h-96 divide-y divide-line overflow-y-auto rounded-lg border border-line text-xs">
+      {items.map((d) => (
+        <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 p-2.5">
+          <span className="code" dir="ltr">{d.event}</span>
+          <span className="text-muted-foreground">{when.format(new Date(d.created_at))}</span>
+          <span className="flex items-center gap-1.5">
+            <Badge variant={DELIVERY[d.status].variant}>{DELIVERY[d.status].label}</Badge>
+            {d.attempts > 1 && <span className="text-muted-foreground">({d.attempts} محاولات)</span>}
+          </span>
+          {d.status !== "delivered" && (d.last_error || d.last_status_code) && (
+            <span className="w-full text-muted-foreground" dir="ltr">{d.last_status_code ? `HTTP ${d.last_status_code}` : d.last_error}</span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 interface Installed { id: string; name: string; version: string; developer: string; description: string; entities: { id: string; name: string }[] }
 
 /** "حقل واحد", "حقلان", "3 حقول", "11 حقلًا". */
@@ -36,6 +71,7 @@ export function CommunityModules() {
   const [agreed, setAgreed] = useState(false);
   const [removing, setRemoving] = useState<Installed | null>(null);
   const [tokenFor, setTokenFor] = useState<Installed | null>(null);
+  const [logFor, setLogFor] = useState<Installed | null>(null);
   const [secret, setSecret] = useState<{ token: string; webhook_secret: string } | null>(null);
   const manage = can("community.manage");
 
@@ -130,6 +166,7 @@ export function CommunityModules() {
                 <Button size="sm" variant="ghost" onClick={() => { setSecret(null); setTokenFor(m); }} aria-label={`رمز الربط لـ ${m.name}`}>
                   <KeyRound /> رمز الربط
                 </Button>
+                <Button size="sm" variant="ghost" onClick={() => setLogFor(m)} aria-label={`إشعارات ${m.name}`}><Bell /> الإشعارات</Button>
                 <Button size="sm" variant="ghost" onClick={() => setRemoving(m)} aria-label={`إزالة ${m.name}`}><Trash2 /> إزالة</Button>
               </span>
             </li>
@@ -217,6 +254,10 @@ export function CommunityModules() {
             )}
           </div>
         )}
+      </Modal>
+
+      <Modal open={!!logFor} onClose={() => setLogFor(null)} title={logFor ? `إشعارات «${logFor.name}» إلى خادم المطور` : ""} wide>
+        {logFor && <Deliveries moduleId={logFor.id} />}
       </Modal>
 
       <Modal open={!!removing} onClose={() => setRemoving(null)} title={removing ? `إزالة «${removing.name}»` : ""}>
