@@ -1,0 +1,8 @@
+[Unit]
+Description=Back up Mizan's database (deploy/server/backup.sh)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/srv/mizan/backup.sh

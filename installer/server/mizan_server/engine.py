@@ -144,7 +144,7 @@ def install(
             host, http_port, tls = "0.0.0.0", preferred if postgres.port_free(preferred, "0.0.0.0") else postgres.free_port(8443), True
         cfg = Config(mode=mode, install_dir=str(root), data_dir=str(data), http_host=host, http_port=http_port, tls=tls,
                      db_port=postgres.free_port(55432), db_password=secrets.token_urlsafe(24), run_as=run_as,
-                     app_env=app_env, cloud_url=cloud_url or "https://mizan-co-owner-api.vercel.app/api",
+                     app_env=app_env, cloud_url=cloud_url or "https://owner-api.allmizan.live/api",
                      licence_public_key=licence_public_key)
     for sub in ("logs", "backups", "uploads", "mizan", "tls"):
         (cfg.data / sub).mkdir(parents=True, exist_ok=True)

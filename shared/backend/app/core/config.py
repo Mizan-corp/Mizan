@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     MIZAN_LICENCE: str = ""
     MIZAN_WEB_DIR: str = ""
     MIZAN_DATA_DIR: str = "./mizan-data"
-    MIZAN_CLOUD_URL: str = "https://mizan-co-owner-api.vercel.app/api"
+    MIZAN_CLOUD_URL: str = "https://owner-api.allmizan.live/api"
     # Mizan's own details on the receipts it issues to owners (#69): lines such as the legal
     # name, commercial registration, tax number and address, separated by "|". Optional.
     MIZAN_COMPANY_DETAILS: str = ""

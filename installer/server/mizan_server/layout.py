@@ -97,7 +97,7 @@ class Config:
     secret_key: str = field(default_factory=lambda: secrets.token_hex(32))
     db_user: str = "mizan"
     db_name: str = "mizan"
-    cloud_url: str = "https://mizan-co-owner-api.vercel.app/api"
+    cloud_url: str = "https://owner-api.allmizan.live/api"
     app_env: str = "production"
     run_as: str | None = None  # Linux system user for a root install
     # Testing only: verify licences with this public key instead of production's.

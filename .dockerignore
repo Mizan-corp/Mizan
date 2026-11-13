@@ -12,10 +12,11 @@
 **/tests
 **/uploads
 **/backups
-**/updates
+system/backend/updates
 **/.vercel
 docs
 e2e
 scripts
 data
 *.log
+!**/frontend/.env.production

@@ -1,0 +1,74 @@
+# Mizan production on the self-hosted server (deploy/server/README.md).
+# Lives in /srv/mizan with mizan.env (secrets) and .env (MIZAN_TAG, the running commit).
+# Nothing is published to the internet: Cloudflare's tunnel is the only way in.
+name: mizan
+
+x-logging: &logging
+  driver: json-file
+  options: {max-size: 10m, max-file: "3"}
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    env_file: mizan.env
+    environment:
+      POSTGRES_DB: mizan
+      POSTGRES_USER: mizan
+      PGDATA: /var/lib/postgresql/data/pgdata
+    command: >-
+      postgres -c shared_buffers=64MB -c effective_cache_size=256MB -c work_mem=4MB
+      -c maintenance_work_mem=32MB -c max_connections=40 -c max_wal_size=512MB
+    volumes:
+      - /srv/data/mizan/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "mizan", "-d", "mizan"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    stop_grace_period: 1m
+    mem_limit: 300m
+    logging: *logging
+
+  api:
+    image: ghcr.io/ammar0xff/mizan-api:${MIZAN_TAG:?set MIZAN_TAG in .env}
+    restart: unless-stopped
+    env_file: mizan.env
+    environment:
+      APP_ENV: production
+      MIZAN_BEHIND_CLOUDFLARE: "1"
+      UPLOAD_DIR: /data/uploads
+      OWNER_API_URL: https://owner-api.allmizan.live/api
+      OWNER_APP_URL: https://allmizan.live/owner
+      CORS_ORIGINS: '["https://allmizan.live", "https://dev.allmizan.live"]'
+    volumes:
+      - /srv/data/mizan/uploads:/data/uploads
+    ports:
+      - "127.0.0.1:18000:8000"   # checks from the host only
+    depends_on:
+      postgres: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 120s
+    mem_limit: 700m
+    logging: *logging
+
+  web:
+    image: ghcr.io/ammar0xff/mizan-web:${MIZAN_TAG}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18080:8080"
+    mem_limit: 64m
+    logging: *logging
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    env_file: mizan.env   # TUNNEL_TOKEN
+    depends_on: [api, web]
+    mem_limit: 96m
+    logging: *logging
+    profiles: [tunnel]    # started once the tunnel exists: docker compose --profile tunnel up -d

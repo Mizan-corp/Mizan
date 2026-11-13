@@ -1,0 +1,46 @@
+# syntax=docker/dockerfile:1
+# The four Mizan APIs in one image and one process (deploy/server/asgi.py), for the self-hosted
+# server. Build from the repo root:  docker build -f deploy/server/Dockerfile.api .
+
+FROM python:3.12-slim-bookworm AS builder
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1
+WORKDIR /build
+RUN apt-get update --fix-missing && \
+    apt-get install -y --no-install-recommends gcc g++ libpq-dev libffi-dev && \
+    rm -rf /var/lib/apt/lists/*
+# Only the dependencies (the kernel's code comes from /shared below), so this layer and the
+# libraries layer change only with pyproject.toml: a release ships just the code layers.
+COPY shared/backend/pyproject.toml /build/pyproject.toml
+RUN python -c "import tomllib; print('\n'.join(tomllib.load(open('/build/pyproject.toml', 'rb'))['project']['dependencies']))" > /build/requirements.txt && \
+    pip install --prefix=/install --no-cache-dir -r /build/requirements.txt
+
+FROM python:3.12-slim-bookworm
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONPATH=/shared \
+    MIZAN_BACKENDS=/srv/mizan \
+    UPLOAD_DIR=/data/uploads
+RUN apt-get update --fix-missing && \
+    apt-get install -y --no-install-recommends \
+      libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
+      libcairo2 libgdk-pixbuf-2.0-0 shared-mime-info fonts-noto-core \
+      postgresql-client && \
+    rm -rf /var/lib/apt/lists/*
+COPY --from=builder /install/ /usr/local/
+RUN addgroup --system --gid 10001 mizan && adduser --system --uid 10001 --ingroup mizan mizan && \
+    mkdir -p /data/uploads && chown -R mizan:mizan /data
+# Code last: these small layers are all a release changes.
+COPY shared/backend/app /shared/app
+COPY manage.py /srv/mizan/manage.py
+COPY system/backend /srv/mizan/system/backend
+COPY website/backend /srv/mizan/website/backend
+COPY owner/backend /srv/mizan/owner/backend
+COPY admin/backend /srv/mizan/admin/backend
+COPY deploy/server/asgi.py /srv/mizan/asgi.py
+USER mizan
+WORKDIR /srv/mizan
+EXPOSE 8000
+# One worker: the box has 2 GB. --proxy-headers: the client's address comes from Cloudflare.
+CMD ["uvicorn", "asgi:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", \
+     "--proxy-headers", "--forwarded-allow-ips", "*", "--timeout-keep-alive", "30"]

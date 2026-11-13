@@ -215,9 +215,9 @@ def compose(*args: str, **kw) -> subprocess.CompletedProcess:
     return run([*COMPOSE, *args], **kw)
 
 
-def psql(sql: str, *, database: str = DB_NAME, check: bool = False) -> subprocess.CompletedProcess:
+def psql(sql: str, *, database: str = DB_NAME, check: bool = False, echo_errors: bool = False) -> subprocess.CompletedProcess:
     return compose("exec", "-T", DB_SERVICE, "psql", "-U", DB_USER, "-d", database, "-v", "ON_ERROR_STOP=0",
-                   input_text=sql, check=check)
+                   *(["--echo-errors"] if echo_errors else []), input_text=sql, check=check)
 
 
 def pg_dump(*extra: str) -> str:
@@ -283,15 +283,19 @@ def _migration_list():
 
 
 def _apply(sql: str, split: Callable[[str], list[str]]) -> bool:
-    """Run statement by statement so one failure never silently aborts the rest."""
-    success = True
-    for stmt in split(sql):
-        r = psql(_PREAMBLE + stmt + ";")
-        errors = [ln for ln in r.stderr.splitlines()
-                  if "ERROR" in ln and "already exists" not in ln and "does not exist" not in ln]
-        if errors or r.returncode != 0:
+    """Run statement by statement, in one psql session (autocommit, ON_ERROR_STOP=0), so one
+    failure never silently aborts the rest; --echo-errors names the failed statement."""
+    stmts = split(sql)
+    if not stmts:
+        return True
+    r = psql(_PREAMBLE + "".join(f"{stmt};\n" for stmt in stmts), echo_errors=True)
+    lines = r.stderr.splitlines()
+    success = r.returncode == 0
+    for i, ln in enumerate(lines):
+        if "ERROR" in ln and "already exists" not in ln and "does not exist" not in ln:
             success = False
-            warn(f"   {errors[0] if errors else r.returncode}: {stmt.strip()[:90]}")
+            failed = next((x for x in lines[i + 1:] if x.startswith("STATEMENT:")), "").removeprefix("STATEMENT:")
+            warn(f"   {ln.strip()[:160]}{': ' + failed.strip()[:90] if failed else ''}")
     return success
 
 
@@ -376,8 +380,17 @@ def _production_url() -> str:
     return url.replace("&channel_binding=require", "").replace("?channel_binding=require&", "?")
 
 
+def _psql_command(url: str) -> list[str]:
+    """psql through Docker, or the local client where there's no Docker (the self-hosted
+    server's migration job, deploy/server)."""
+    if shutil.which("docker"):
+        return ["docker", "run", "--rm", "-i", "--network", "host", PG_IMAGE, "psql", url]
+    need("psql", "Install Docker, or the PostgreSQL client (psql).")
+    return ["psql", url]
+
+
 def _prod_psql(url: str, sql: str, *, single_transaction: bool = False) -> subprocess.CompletedProcess:
-    args = ["docker", "run", "--rm", "-i", "--network", "host", PG_IMAGE, "psql", url, "-v", "ON_ERROR_STOP=1", "-At"]
+    args = [*_psql_command(url), "-v", "ON_ERROR_STOP=1", "-At"]
     if single_transaction:
         args.append("--single-transaction")
     return run(args, input_text=sql, check=False)
@@ -454,7 +467,6 @@ def _backup_production(url: str) -> Path:
 def migrate_production(opts: argparse.Namespace) -> None:
     """Backup, then apply pending migrations to production in order, each in one transaction.
     Run it BEFORE deploying code that needs them (migrations stay backward compatible)."""
-    need("docker", "Install Docker: https://docs.docker.com/get-docker/")
     _, migrations, _ = _migration_list()
     url = _production_url()
     host = url.split("@", 1)[-1].split("/", 1)[0]
@@ -663,8 +675,9 @@ def _decode_sql(raw: bytes) -> str:
 
 def cmd_db(opts: argparse.Namespace) -> None:
     """Migrations, backups and the baseline schema."""
-    need("docker", "Install Docker: https://docs.docker.com/get-docker/")
     action = opts.action
+    if not (action == "migrate" and getattr(opts, "production", False)):
+        need("docker", "Install Docker: https://docs.docker.com/get-docker/")
     if action == "migrate":
         migrate_production(opts) if getattr(opts, "production", False) else migrate()
     elif action == "backup":

@@ -38,6 +38,11 @@ class RateLimiter:
 
     def _get_client_key(self, request: Request) -> str:
         """Extract client identifier - handles proxies via X-Forwarded-For."""
+        # Behind Cloudflare (the self-hosted server, reachable only through its tunnel) the
+        # client's address is CF-Connecting-IP; X-Forwarded-For's first entry can be forged there.
+        cf = request.headers.get("CF-Connecting-IP") if os.environ.get("MIZAN_BEHIND_CLOUDFLARE") else None
+        if cf:
+            return f"rl:{cf.strip()}"
         # Check X-Forwarded-For first (set by nginx/load balancer)
         xff = request.headers.get("X-Forwarded-For")
         if xff:
