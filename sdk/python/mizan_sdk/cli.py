@@ -3,6 +3,7 @@
   mizan login                         sign in with a CLI token from the developer portal
   mizan module new acme.visits        a starter module in ./acme.visits
   mizan theme new acme.sunrise        a starter theme pack (colours, fonts, radius, motion)
+  mizan activity new acme.laundry     a starter business activity: modules, variants, theme, menus
   mizan check [folder]                what Mizan would refuse, before you package
   mizan keys new --team acme          a signing key, certified by Mizan for your team
   mizan package [folder]              a signed .mzm for owners to install from file
@@ -99,6 +100,80 @@ def cmd_theme_new(a) -> int:
     (folder / "README.md").write_text(f"# {a.id}\n\nA Mizan theme pack. Fonts go in assets/ and are listed in fonts.files.\n"
                                       "Docs: https://dev.allmizan.live/docs/themes\n", encoding="utf-8")
     print(f"✔ Created {folder}. Edit manifest.json, then `mizan check {folder}` and `mizan package {folder}`.")
+    return 0
+
+
+def activity_starter(activity_id: str) -> dict[str, dict]:
+    """A small, complete activity (ADR-010 D2): Mizan's modules it builds on, one module of its own,
+    how it adapts the POS, its theme, menus, a position and demo records."""
+    from mizan_sdk.themes import MIZAN
+
+    dev, name = activity_id.split(".", 1)
+    orders = f"{dev}.{name}_orders"[:80]
+    theme_id = f"{dev}.{name}_fresh"
+    light = {**MIZAN["colors"]["light"], "primary": "oklch(0.48 0.09 200)", "ring": "oklch(0.48 0.09 200)",
+             "sidebar": "oklch(0.24 0.05 200)", "sidebar-primary": "oklch(0.7 0.1 195)", "sidebar-accent": "oklch(0.3 0.05 200)",
+             "accent": "oklch(0.94 0.03 195)", "accent-foreground": "oklch(0.3 0.06 200)"}
+    menu = [{"id": "orders", "label": "الطلبات", "items": [{"screen": f"{orders}/order", "label": "طلبات العملاء"},
+                                                           {"screen": "pos.pos", "label": "الكاشير"},
+                                                           {"screen": "pos.sales", "label": "الفواتير"}]}]
+    return {
+        "manifest.json": {
+            "id": activity_id, "name": "نشاطي", "name_en": name.replace("_", " ").title(), "version": "0.1.0",
+            "kind": "activity", "family": "services", "icon": "Store", "description": "وصف قصير للنشاط ولمن هو.",
+            "modules": ["pos", "inventory", "sales", "finance", "hr", orders], "optional": [],
+            "terms": {"item": "قطعة"}, "home": "/pos", "theme": theme_id, "settings": {},
+            "positions": [{"code": "counter_clerk", "name": "موظف الاستقبال", "name_en": "Counter clerk",
+                           "suggested_roles": ["cashier"]}],
+            "menu": menu, "dashboard": ["pos.recent_sales"],
+            "roles": {"cashier": {"home": "pos.pos", "menu": menu, "dashboard": ["pos.recent_sales"]}},
+        },
+        f"modules/{orders}/manifest.json": {
+            "id": orders, "name": "الطلبات", "name_en": "Orders", "version": "0.1.0", "kind": "community", "icon": "ClipboardList",
+            "entities": ["order"], "scopes": ["customers:read"],
+            "menu": [{"entity": "order", "label": "طلبات العملاء", "icon": "ClipboardList"}],
+        },
+        f"modules/{orders}/entities/order.json": {
+            "id": "order", "name": "طلب", "name_en": "Order", "title": "customer",
+            "fields": [
+                {"key": "customer", "type": "reference", "to": "customers", "label": "العميل", "required": True},
+                {"key": "received", "type": "date", "label": "تاريخ الاستلام"},
+                {"key": "ready_on", "type": "date", "label": "موعد التسليم"},
+                {"key": "pieces", "type": "number", "label": "عدد القطع"},
+                {"key": "price", "type": "money", "label": "السعر"},
+                {"key": "state", "type": "select", "label": "الحالة", "options": ["جديد", "جاهز", "سُلّم"]},
+            ],
+            "list": ["customer", "received", "ready_on", "state"],
+        },
+        "variants/pos/variant.json": {
+            "module": "pos", "description": "يضيف موعد الاستلام إلى فاتورة البيع.",
+            "fields": {"sale": [{"key": "pickup_date", "label": "موعد الاستلام", "label_en": "Pickup date", "type": "date"}]},
+            "terms": {"item": "قطعة"},
+        },
+        "themes/fresh/theme.json": {**MIZAN, "id": theme_id, "name": "منعش", "name_en": "Fresh", "version": "0.1.0",
+                                    "description": "أزرق مخضر هادئ.", "colors": {"light": light, "dark": MIZAN["colors"]["dark"]},
+                                    "fonts": {"body": "Manrope"}},
+        "seed/orders.json": {"module": orders, "entity": "order",
+                             "records": [{"received": "2026-11-01", "ready_on": "2026-11-03", "pieces": 5, "price": "120.00",
+                                          "state": "جديد"}]},
+    }
+
+
+def cmd_activity_new(a) -> int:
+    if not MODULE_ID.match(a.id):
+        print("✘ The id is '<developer>.<activity>' in lower case, e.g. acme.laundry", file=sys.stderr)
+        return 2
+    folder = Path(a.dir or a.id)
+    if folder.exists() and any(folder.iterdir()):
+        print(f"✘ {folder} isn't empty", file=sys.stderr)
+        return 1
+    for rel, body in activity_starter(a.id).items():
+        path = folder / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(body, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (folder / "README.md").write_text(f"# {a.id}\n\nA Mizan business activity. Docs: https://dev.allmizan.live/docs/activities\n",
+                                      encoding="utf-8")
+    print(f"✔ Created {folder}: manifest.json, modules/, variants/, themes/, seed/. Next: `mizan check {folder}`.")
     return 0
 
 
@@ -234,6 +309,9 @@ def cmd_package(a) -> int:
     manifest = json.loads(files["manifest.json"])
     out = Path(a.out or f"{manifest['id']}-{manifest['version']}.mzm")
     out.write_bytes(data)
+    if manifest.get("kind") == "activity":
+        print(f"✔ {out} ({len(data) // 1024 + 1} KB), a signed activity package.")
+        return 0
     where = ("Themes (المظاهر) → Install a theme from file" if manifest.get("kind") == "theme"
              else "Developer modules (وحدات المطورين) → Install from file")
     print(f"✔ {out} ({len(data) // 1024 + 1} KB). Owners install it from the app's module centre: {where}.")
@@ -264,7 +342,13 @@ def main(argv: list[str] | None = None) -> int:
     tn.add_argument("--dir", help="folder (default: the id)")
     tn.set_defaults(func=cmd_theme_new)
 
-    check = sub.add_parser("check", help="check a module or theme against Mizan's rules")
+    activity = sub.add_parser("activity", help="create business activities").add_subparsers(dest="action", required=True)
+    an = activity.add_parser("new", help="a starter activity")
+    an.add_argument("id", help="<developer>.<activity>, e.g. acme.laundry")
+    an.add_argument("--dir", help="folder (default: the id)")
+    an.set_defaults(func=cmd_activity_new)
+
+    check = sub.add_parser("check", help="check a module, theme or activity against Mizan's rules")
     check.add_argument("dir", nargs="?", default=".")
     check.set_defaults(func=cmd_check)
 

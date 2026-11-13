@@ -100,3 +100,24 @@ def test_theme_new_check_package(home, capsys):
     with zipfile.ZipFile(home / "acme.sunrise-0.1.0.mzm") as z:
         assert {"manifest.json", "assets/sunrise.woff2", "SIGNATURE"} <= set(z.namelist())
     assert "Themes" in capsys.readouterr().out
+
+
+def test_activity_new_check_package(home, capsys):
+    assert main(["activity", "new", "acme.laundry"]) == 0
+    assert main(["check", "acme.laundry"]) == 0, capsys.readouterr().out
+    folder = home / "acme.laundry"
+    assert {p.relative_to(folder).parts[0] for p in folder.rglob("*")} >= {"manifest.json", "modules", "variants", "themes", "seed"}
+    variant = folder / "variants" / "pos" / "variant.json"
+    v = json.loads(variant.read_text())
+    v["hooks"] = "rules.py"  # no code in a package's variant
+    variant.write_text(json.dumps(v))
+    assert main(["check", "acme.laundry"]) == 1
+    assert "'hooks' isn't allowed" in capsys.readouterr().out
+    del v["hooks"]
+    variant.write_text(json.dumps(v))
+    assert main(["keys", "new"]) == 0
+    (home / ".mizan" / "default.cert").write_text("MZD1.x.y")
+    assert main(["package", "acme.laundry"]) == 0
+    with zipfile.ZipFile(home / "acme.laundry-0.1.0.mzm") as z:
+        names = set(z.namelist())
+    assert "modules/acme.laundry_orders/entities/order.json" in names and "themes/fresh/theme.json" in names

@@ -124,7 +124,15 @@ A theme is a folder with `theme.json`:
     appearance dialog keeps only device choices (dark mode, layout, density). Printed invoices use
     the theme's brand colour (as hex) unless the workspace set a print colour.
   - SDK: `mizan theme new`, `check` and `package` for themes; docs article "Theme packs".
-- **Step 3**: activity packages (to do).
+- **Step 3 (2026-11-13)**: activity packages. `activity_package_problems()` (shared with the CLI)
+  checks the layout file by file (manifest, `modules/<team>.<module>/` community modules,
+  `variants/<module>/variant.json` with fields, terms and settings only, `themes/`, `seed/`), and,
+  given Mizan's catalogue (`package.known_catalogue()`: modules, screens, widgets, the records a
+  variant may extend, Mizan's themes), every reference. Module and theme packages can't carry
+  activity folders. `mizan activity new` makes a small complete activity; `check` and `package`
+  handle it. Developer docs: "Business activities"; the developer home leads with it.
+  **Not yet**: running a developer's activity in a workspace (with #107, changing a workspace's
+  activity): uploads are refused with that explanation; its modules and themes install on their own.
 
 ## Consequences
 

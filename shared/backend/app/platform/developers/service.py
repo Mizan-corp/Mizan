@@ -310,6 +310,8 @@ async def verify_upload(file, db: AsyncSession, kind: str):
     if await key_revoked(db, pkg.key_id):  # ADR-007 D5
         raise HTTPException(422, "تعذر قبول الحزمة: مفتاح توقيع المطور أُلغي")
     if pkg.kind != kind:
-        raise HTTPException(422, "هذه الحزمة مظهر؛ ثبّتها من قسم المظاهر" if pkg.kind == "theme"
-                            else "هذه الحزمة وحدة؛ ثبّتها من قسم وحدات المطورين")
+        raise HTTPException(422, {
+            "theme": "هذه الحزمة مظهر؛ ثبّتها من قسم المظاهر",
+            "activity": "هذه الحزمة نشاط تجاري كامل؛ تشغيل الأنشطة من المطورين يأتي مع تغيير نشاط المنشأة",
+        }.get(pkg.kind, "هذه الحزمة وحدة؛ ثبّتها من قسم وحدات المطورين"))
     return pkg

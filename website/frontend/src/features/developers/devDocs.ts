@@ -30,6 +30,37 @@ const THEME = `{
   "motion": "reduced"
 }`;
 
+const ACTIVITY_LAYOUT = `acme.laundry/
+  manifest.json          kind "activity": family, modules, menus, roles, terms, theme
+  modules/
+    acme.laundry_orders/ its own modules (manifest.json + entities/)
+  variants/
+    pos/variant.json     how it adapts Mizan's POS: extra fields, terms, settings
+  themes/
+    fresh/theme.json     its themes
+  seed/orders.json       demo records`;
+
+const ACTIVITY_MANIFEST = `{
+  "id": "acme.laundry",
+  "name": "مغسلة",
+  "name_en": "Laundry",
+  "version": "1.0.0",
+  "kind": "activity",
+  "family": "services",
+  "modules": ["pos", "inventory", "sales", "finance", "hr", "acme.laundry_orders"],
+  "optional": [],
+  "terms": {"item": "قطعة"},
+  "home": "/pos",
+  "theme": "acme.laundry_fresh",
+  "positions": [{"code": "counter_clerk", "name": "موظف الاستقبال", "name_en": "Counter clerk", "suggested_roles": ["cashier"]}],
+  "menu": [{"id": "orders", "label": "الطلبات", "items": [
+    {"screen": "acme.laundry_orders/order", "label": "طلبات العملاء"},
+    {"screen": "pos.pos", "label": "الكاشير"}
+  ]}],
+  "dashboard": ["pos.recent_sales"],
+  "roles": {"cashier": {"home": "pos.pos", "menu": [], "dashboard": ["pos.recent_sales"]}}
+}`;
+
 const AR: DocSection[] = [
   {
     id: "start",
@@ -109,15 +140,15 @@ const AR: DocSection[] = [
   },
   {
     id: "build",
-    title: "بناء الوحدة",
-    titleEn: "Building a module",
+    title: "البناء",
+    titleEn: "Building",
     items: [
       {
         slug: "manifest",
         title: "ملف التعريف manifest.json",
         titleEn: "The manifest",
         description: "معرّف الوحدة وإصدارها وكياناتها وصلاحياتها وقائمتها ونطاقاتها.",
-        category: "بناء الوحدة",
+        category: "البناء",
         lastUpdated: UPDATED,
         content: {
           overview: "يقع في جذر الحزمة. هذه كل حقوله؛ ما ليس هنا مرفوض.",
@@ -169,7 +200,7 @@ const AR: DocSection[] = [
         title: "الكيانات والشاشات",
         titleEn: "Entities and screens",
         description: "الحقول وأنواعها، الربط بسجلات المنشأة، أعمدة القائمة وأقسام النموذج.",
-        category: "بناء الوحدة",
+        category: "البناء",
         lastUpdated: UPDATED,
         content: {
           overview:
@@ -218,7 +249,7 @@ const AR: DocSection[] = [
         title: "النطاقات (ما تصل إليه الوحدة)",
         titleEn: "Scopes",
         description: "ما يوافق عليه صاحب المنشأة قبل التثبيت، وما يسمح به كل نطاق.",
-        category: "بناء الوحدة",
+        category: "البناء",
         lastUpdated: UPDATED,
         content: {
           overview:
@@ -245,7 +276,7 @@ const AR: DocSection[] = [
         title: "حزم المظاهر",
         titleEn: "Theme packs",
         description: "ألوان وخطوط وحواف وظلال وحركة لمساحة عمل كاملة.",
-        category: "بناء الوحدة",
+        category: "البناء",
         lastUpdated: UPDATED,
         content: {
           overview:
@@ -266,6 +297,29 @@ const AR: DocSection[] = [
               callout: { type: "tip", text: "تطبيق ميزان عربي غالبًا: اختر خطوطًا فيها الحروف العربية، وإلا ظهر النص العربي بالخط الافتراضي." },
             },
             { id: "ship", title: "توزيع المظهر", body: "mizan check و mizan package كما للوحدات؛ ويثبّته صاحب المنشأة من مركز الوحدات ← المظاهر ← تثبيت مظهر من ملف، ثم يختاره. التثبيت لا يغيّر المظهر الحالي. وللأنشطة أيضًا مظاهرها الخاصة (activities/<activity>/themes/)." },
+          ],
+        },
+      },
+      {
+        slug: "activities",
+        title: "الأنشطة التجارية",
+        titleEn: "Business activities",
+        description: "نشاط كامل لميزان: وحدات وتكييفات وقوائم وأدوار ومظاهر وبيانات تجريبية.",
+        category: "البناء",
+        lastUpdated: UPDATED,
+        content: {
+          overview:
+            "كل منشأة في ميزان تعمل على نشاط: تجزئة، صيدلية، مطعم… يحدد النشاط الوحدات التي تحصل عليها المنشأة، وكيف تتكيف مع المهنة، ومصطلحاتها، وقوائم كل دور ولوحته، ووظائفها، ومظهرها، وبياناتها التجريبية. أنشطة ميزان نفسها مبنية بهذه الطريقة تمامًا، مجلد لكل نشاط، وتستطيع بناء نشاط لمهنة لا يغطيها ميزان بعد بالإطار نفسه.",
+          sections: [
+            { id: "layout", title: "الهيكل", body: "أنشئ واحدًا بالأمر mizan activity new acme.laundry: نشاط صغير مكتمل تبدأ منه.", codeBlock: { language: "text", code: ACTIVITY_LAYOUT } },
+            { id: "manifest", title: "manifest.json", body: "", codeBlock: { language: "json", filename: "manifest.json", code: ACTIVITY_MANIFEST } },
+            {
+              id: "rules",
+              title: "ما يحتويه",
+              body:
+                "• family: general أو commerce أو food_hospitality أو health أو education أو services أو logistics أو industry أو projects أو institutions.\n• modules و optional: وحدات ميزان (pos و inventory و sales و finance و hr …) ووحداته الخاصة (<الفريق>.<الوحدة>، كل منها وحدة مطور في modules/).\n• menu و dashboard و roles: مجموعات قوائم من الشاشات. شاشات ميزان بالصيغة <الوحدة>.<الشاشة> (pos.pos و inventory.products)، وشاشات كياناتك <الوحدة>/<الكيان>. اللوحات تذكر عناصرها (pos.recent_sales). و roles تعطي كل دور (cashier …) شاشته الرئيسية وقائمته ولوحته.\n• terms: مصطلحات المهنة (\"item\": \"قطعة\").\n• positions: المسميات الوظيفية والأدوار المقترحة لها.\n• theme: أحد مظاهره (themes/) أو مظاهر ميزان.\n• variants/<الوحدة>/variant.json: حقول إضافية على سجلات ميزان (fields.sale و fields.product …) ومصطلحات وإعدادات افتراضية.\n• seed/*.json: سجلات تجريبية لكياناته.\n\nيتحقق mizan check من الشكل، ويتحقق ميزان من كل مرجع (الوحدات والشاشات واللوحات والسجلات والمظاهر) عند استلام الحزمة.",
+              callout: { type: "note", text: "حزم الأنشطة وصفية مثل وحدات المطورين: لا كود في التكييفات بعد (أنشطة ميزان تضيف قواعدها في hooks.py). تشغيل نشاط مطور في منشأة يأتي مع تغيير نشاط المنشأة؛ وحتى ذلك الحين ابنِه وتحقق منه، وتُثبَّت وحداته ومظاهره كلٌّ على حدة." },
+            },
           ],
         },
       },
@@ -443,6 +497,7 @@ mizan whoami                      # حسابك وفرقك
 mizan logout
 mizan module new acme.visits      # وحدة من القالب
 mizan theme new acme.sunrise      # حزمة مظهر من مظهر ميزان
+mizan activity new acme.laundry   # نشاط تجاري كامل
 mizan check [folder]              # نفس فحص المنصة
 mizan keys new [--team acme] [--name laptop]
 mizan package [folder] [--key ...] [--certificate ...] [--out ...]`,

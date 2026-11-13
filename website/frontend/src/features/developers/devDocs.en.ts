@@ -70,6 +70,37 @@ const THEME = `{
   "motion": "reduced"
 }`;
 
+const ACTIVITY_LAYOUT = `acme.laundry/
+  manifest.json          kind "activity": family, modules, menus, roles, terms, theme
+  modules/
+    acme.laundry_orders/ its own modules (manifest.json + entities/)
+  variants/
+    pos/variant.json     how it adapts Mizan's POS: extra fields, terms, settings
+  themes/
+    fresh/theme.json     its themes
+  seed/orders.json       demo records`;
+
+const ACTIVITY_MANIFEST = `{
+  "id": "acme.laundry",
+  "name": "مغسلة",
+  "name_en": "Laundry",
+  "version": "1.0.0",
+  "kind": "activity",
+  "family": "services",
+  "modules": ["pos", "inventory", "sales", "finance", "hr", "acme.laundry_orders"],
+  "optional": [],
+  "terms": {"item": "قطعة"},
+  "home": "/pos",
+  "theme": "acme.laundry_fresh",
+  "positions": [{"code": "counter_clerk", "name": "موظف الاستقبال", "name_en": "Counter clerk", "suggested_roles": ["cashier"]}],
+  "menu": [{"id": "orders", "label": "الطلبات", "items": [
+    {"screen": "acme.laundry_orders/order", "label": "طلبات العملاء"},
+    {"screen": "pos.pos", "label": "الكاشير"}
+  ]}],
+  "dashboard": ["pos.recent_sales"],
+  "roles": {"cashier": {"home": "pos.pos", "menu": [], "dashboard": ["pos.recent_sales"]}}
+}`;
+
 export const EN: DocSection[] = [
   {
     id: "start",
@@ -150,15 +181,15 @@ export const EN: DocSection[] = [
   },
   {
     id: "build",
-    title: "Building a module",
-    titleEn: "Building a module",
+    title: "Building",
+    titleEn: "Building",
     items: [
       {
         slug: "manifest",
         title: "The manifest (manifest.json)",
         titleEn: "The manifest",
         description: "The module's id, version, entities, permissions, menu and scopes.",
-        category: "Building a module",
+        category: "Building",
         lastUpdated: UPDATED,
         content: {
           overview: "At the root of the package. These are all its fields; anything else is refused.",
@@ -184,7 +215,7 @@ export const EN: DocSection[] = [
         title: "Entities and screens",
         titleEn: "Entities and screens",
         description: "Fields and their types, references to the business's records, list columns and form sections.",
-        category: "Building a module",
+        category: "Building",
         lastUpdated: UPDATED,
         content: {
           overview:
@@ -211,7 +242,7 @@ export const EN: DocSection[] = [
         title: "Scopes (what a module can access)",
         titleEn: "Scopes",
         description: "What the business owner approves before installing, and what each scope allows.",
-        category: "Building a module",
+        category: "Building",
         lastUpdated: UPDATED,
         content: {
           overview:
@@ -238,7 +269,7 @@ export const EN: DocSection[] = [
         title: "Theme packs",
         titleEn: "Theme packs",
         description: "Colours, fonts, corners, shadows and motion for a whole workspace.",
-        category: "Building a module",
+        category: "Building",
         lastUpdated: UPDATED,
         content: {
           overview:
@@ -259,6 +290,29 @@ export const EN: DocSection[] = [
               callout: { type: "tip", text: "Mizan's app is mostly Arabic: pick fonts with Arabic letters, or Arabic text falls back to the default font." },
             },
             { id: "ship", title: "Shipping a theme", body: "mizan check and mizan package work as for modules; the owner installs it from the module centre → المظاهر (themes) → install a theme from file, and chooses it. Installing doesn't change the current theme. Activities can also ship themes of their own (activities/<activity>/themes/)." },
+          ],
+        },
+      },
+      {
+        slug: "activities",
+        title: "Business activities",
+        titleEn: "Business activities",
+        description: "A whole line of business for Mizan: modules, adaptations, menus, roles, themes and demo data.",
+        category: "Building",
+        lastUpdated: UPDATED,
+        content: {
+          overview:
+            "Every business Mizan serves runs on an activity: retail, pharmacy, restaurant… An activity decides which modules a workspace gets, how they're adapted to the trade, its words, menus and dashboards for each role, its positions, its look and its demo data. Mizan's own activities are built exactly this way, one folder each, and you can build one for a trade Mizan doesn't cover yet with the same framework.",
+          sections: [
+            { id: "layout", title: "The layout", body: "Create one with mizan activity new acme.laundry: a small, complete activity to start from.", codeBlock: { language: "text", code: ACTIVITY_LAYOUT } },
+            { id: "manifest", title: "manifest.json", body: "", codeBlock: { language: "json", filename: "manifest.json", code: ACTIVITY_MANIFEST } },
+            {
+              id: "rules",
+              title: "What goes in it",
+              body:
+                "• family: general, commerce, food_hospitality, health, education, services, logistics, industry, projects or institutions.\n• modules and optional: Mizan's modules (pos, inventory, sales, finance, hr, …) and its own (<team>.<module>, each a community module in modules/).\n• menu, dashboard, roles: menu groups of screens. Mizan's screens are <module>.<screen> (pos.pos, inventory.products); your entities' screens are <module>/<entity>. Dashboards list widgets (pos.recent_sales). roles gives a role (cashier, …) its own home, menu and dashboard.\n• terms: the trade's words (\"item\": \"قطعة\").\n• positions: job titles and the roles they suggest.\n• theme: one of its themes (themes/) or Mizan's.\n• variants/<module>/variant.json: extra fields on Mizan's records (fields.sale, fields.product…), terms and settings defaults.\n• seed/*.json: demo records for its own entities.\n\nmizan check verifies the shape; Mizan checks every reference (modules, screens, widgets, records, themes) when it receives the package.",
+              callout: { type: "note", text: "Activity packages are declarative, like community modules: no code in variants yet (Mizan's own activities add rules in hooks.py). Running a developer's activity in a workspace comes with changing a workspace's activity; until then, build and validate it, and its modules and themes install on their own." },
+            },
           ],
         },
       },
@@ -424,6 +478,7 @@ mizan whoami                      # your account and teams
 mizan logout
 mizan module new acme.visits      # a module from the template
 mizan theme new acme.sunrise      # a theme pack from Mizan's own
+mizan activity new acme.laundry   # a whole business activity
 mizan check [folder]              # the platform's own checks
 mizan keys new [--team acme] [--name laptop]
 mizan package [folder] [--key ...] [--certificate ...] [--out ...]`,

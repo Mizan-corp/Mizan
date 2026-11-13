@@ -360,3 +360,207 @@ def theme_problems(t: dict, package: bool = False) -> list[str]:
         if key in t and t[key] not in allowed:
             p.append(f"{key} must be one of {', '.join(allowed)}")
     return p
+
+
+# ── Activity packages (ADR-010 D2) ───────────────────────────────────────────────
+# A whole business activity, in the layout of activities/<activity>/, declarative: its definition
+# (manifest.json, kind "activity"), its own community modules (modules/<id>/), how it adapts
+# Mizan's modules (variants/<module>/variant.json: fields, terms, settings), its themes
+# (themes/<theme>/theme.json) and demo records (seed/*.json). `known` (the platform's catalogue:
+# {"modules": {...}, "screens": {...}, "widgets": {...}, "records": {...}, "themes": {...}})
+# checks references to Mizan's own parts; the CLI checks without it.
+
+FAMILIES = ("general", "commerce", "food_hospitality", "health", "education", "services", "logistics", "industry",
+            "projects", "institutions")
+ACTIVITY_KEYS = {"id", "name", "name_en", "version", "kind", "family", "description", "icon", "modules", "optional",
+                 "terms", "home", "theme", "settings", "positions", "menu", "dashboard", "roles"}
+VARIANT_KEYS = {"module", "description", "fields", "terms", "settings"}
+VARIANT_FIELD_TYPES = ("text", "number", "date", "boolean", "select")
+ROLE_CODE = re.compile(r"^[a-z][a-z0-9_]{1,31}$")
+BUILT_IN_SCREEN = re.compile(r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$")  # pos.pos
+OWN_SCREEN = re.compile(r"^([a-z][a-z0-9_]{1,31}\.[a-z][a-z0-9_]{1,47})/([a-z][a-z0-9_]{0,47})$")  # acme.orders/order
+ACTIVITY_FILE = re.compile(
+    r"^(manifest\.json|README\.md|CHANGELOG\.md"
+    r"|modules/[a-z][a-z0-9_]{1,31}\.[a-z][a-z0-9_]{1,47}/(manifest\.json|README\.md|entities/[a-z][a-z0-9_]{0,47}\.json)"
+    r"|variants/[a-z][a-z0-9_]*/variant\.json"
+    r"|themes/[a-z][a-z0-9_]{0,47}/(theme\.json|assets/[A-Za-z0-9_.-]+\.(woff2|woff|ttf|otf|png|svg|webp|jpg))"
+    r"|seed/[a-z][a-z0-9_]{0,47}\.json|i18n/[a-z]{2}\.json|assets/[A-Za-z0-9_.-]+\.(png|svg|webp|jpg))$")
+
+
+def _menu_problems(where: str, menu, screen_ok) -> list[str]:
+    p: list[str] = []
+    if not isinstance(menu, list):
+        return [f"{where} must be a list of groups"]
+    for g in menu:
+        if not isinstance(g, dict) or not KEY.match(str(g.get("id", ""))) or not _text(g.get("label"), 64):
+            p.append(f"{where}: each group needs an id and a label")
+            continue
+        for item in g.get("items") or []:
+            screen = item.get("screen") if isinstance(item, dict) else None
+            if not isinstance(screen, str) or not screen_ok(screen):
+                p.append(f"{where}: unknown screen {screen!r}")
+    return p
+
+
+def activity_package_problems(files: dict[str, bytes], known: dict | None = None) -> list[str]:
+    """What's wrong with an activity package's files ({path: bytes}); [] when it's fine."""
+    import json as _json
+
+    p: list[str] = []
+    for name in files:
+        if not ACTIVITY_FILE.match(name):
+            p.append(f"An activity package can't contain {name}")
+
+    def load(name: str):
+        try:
+            return _json.loads(files[name])
+        except (ValueError, KeyError) as e:
+            p.append(f"{name}: invalid JSON ({e})")
+            return None
+
+    m = load("manifest.json") if "manifest.json" in files else None
+    if not isinstance(m, dict):
+        return p + ["manifest.json must be an activity's definition"]
+    aid = m.get("id")
+    if not isinstance(aid, str) or not MODULE_ID.match(aid):
+        p.append("id must be '<developer>.<activity>' in lower case, e.g. acme.laundry")
+        aid = "x.x"
+    dev = aid.split(".")[0]
+    for k in ("name", "name_en"):
+        if not _text(m.get(k)):
+            p.append(f"{k} is required (1–128 characters)")
+    if not isinstance(m.get("version"), str) or not VERSION.match(m["version"]):
+        p.append("version must be MAJOR.MINOR.PATCH, e.g. 1.0.0")
+    if m.get("kind") != "activity":
+        p.append("kind must be 'activity'")
+    if m.get("family") not in FAMILIES:
+        p.append(f"family must be one of {', '.join(FAMILIES)}")
+    for k in sorted(set(m) - ACTIVITY_KEYS):
+        p.append(f"'{k}' isn't an activity field")
+
+    # Its own modules: community modules under modules/<id>/.
+    own: dict[str, dict] = {}
+    for mid in sorted({n.split("/")[1] for n in files if n.startswith("modules/")}):
+        manifest = load(f"modules/{mid}/manifest.json") if f"modules/{mid}/manifest.json" in files else None
+        if manifest is None:
+            p.append(f"modules/{mid}/manifest.json is missing")
+            continue
+        entities = {n.rsplit("/", 1)[1][:-5]: load(n) for n in files if n.startswith(f"modules/{mid}/entities/")}
+        p += [f"modules/{mid}: {x}" for x in community_manifest_problems(manifest, set(entities))]
+        scopes = set(manifest.get("scopes") or []) if isinstance(manifest, dict) else set()
+        for name, e in entities.items():
+            p += [f"modules/{mid}: {x}" for x in entity_problems(e, set(entities), scopes)]
+        if isinstance(manifest, dict) and manifest.get("id") != mid:
+            p.append(f"modules/{mid}/manifest.json has id {manifest.get('id')!r}")
+        if not mid.startswith(dev + "."):
+            p.append(f"modules/{mid}: an activity's modules are named {dev}.…")
+        own[mid] = {"entities": {k: v for k, v in entities.items() if isinstance(v, dict)}}
+
+    builtin = (known or {}).get("modules")
+
+    def module_ok(mid) -> bool:
+        return mid in own or (builtin is None and isinstance(mid, str) and bool(KEY.match(mid))) or (builtin is not None and mid in builtin)
+
+    for key in ("modules", "optional"):
+        ids = m.get(key, [] if key == "optional" else None)
+        if not isinstance(ids, list) or (key == "modules" and not ids):
+            p.append(f"{key} must be a list of module ids" + (" (at least one)" if key == "modules" else ""))
+            continue
+        for mid in ids:
+            if not module_ok(mid):
+                p.append(f"{key}: unknown module {mid!r}")
+    for mid in own:
+        if mid not in (m.get("modules") or []) + (m.get("optional") or []):
+            p.append(f"modules/{mid} isn't listed in 'modules' or 'optional'")
+
+    screens = (known or {}).get("screens")
+
+    def screen_ok(ref: str) -> bool:
+        if (own_ref := OWN_SCREEN.match(ref)):
+            return own_ref.group(2) in own.get(own_ref.group(1), {}).get("entities", {})
+        return bool(BUILT_IN_SCREEN.match(ref)) and (screens is None or ref in screens)
+
+    widgets = (known or {}).get("widgets")
+    for where, block in [("", m), *[(f"roles.{code}.", r) for code, r in (m.get("roles") or {}).items()
+                                    if isinstance(r, dict)]]:
+        if "menu" in block:
+            p += _menu_problems(f"{where}menu", block["menu"], screen_ok)
+        for w in block.get("dashboard") or []:
+            wid = w if isinstance(w, str) else (w.get("id") if isinstance(w, dict) else None)
+            if not isinstance(wid, str) or (widgets is not None and wid not in widgets):
+                p.append(f"{where}dashboard: unknown widget {wid!r}")
+        home = block.get("home")
+        if home is not None and not (isinstance(home, str) and (home.startswith("/") or screen_ok(home))):
+            p.append(f"{where}home must be a path (/pos) or a screen")
+    roles = m.get("roles", {})
+    if not isinstance(roles, dict) or not all(ROLE_CODE.match(str(c)) and isinstance(r, dict) for c, r in roles.items()):
+        p.append("roles: {role code: {home, menu, dashboard}}")
+    terms = m.get("terms", {})
+    if not isinstance(terms, dict) or not all(KEY.match(str(k)) and _text(v, 64) for k, v in terms.items()):
+        p.append("terms: {word: its name in this activity}, e.g. {\"item\": \"قطعة\"}")
+    if not isinstance(m.get("settings", {}), dict):
+        p.append("settings must be an object of '<module>.<setting>' defaults")
+    for pos in m.get("positions", []) if isinstance(m.get("positions", []), list) else [None]:
+        if not (isinstance(pos, dict) and ROLE_CODE.match(str(pos.get("code", ""))) and _text(pos.get("name"))
+                and _text(pos.get("name_en"))):
+            p.append("positions: each is {code, name, name_en, suggested_roles}")
+
+    # How it adapts Mizan's modules: variants/<module>/variant.json (no code yet).
+    records = (known or {}).get("records")
+    for name in sorted(n for n in files if n.startswith("variants/")):
+        module = name.split("/")[1]
+        v = load(name)
+        if not isinstance(v, dict):
+            continue
+        if module in own or not module_ok(module):
+            p.append(f"{name}: a variant adapts one of Mizan's modules the activity uses")
+        if v.get("module", module) != module:
+            p.append(f"{name}: module must be {module!r}")
+        for k in sorted(set(v) - VARIANT_KEYS):
+            p.append(f"{name}: '{k}' isn't allowed (a package's variant has fields, terms and settings)")
+        for record, fields in (v.get("fields") or {}).items() if isinstance(v.get("fields") or {}, dict) else []:
+            if records is not None and record not in records.get(module, set()):
+                p.append(f"{name}: {module} has no record {record!r} to add fields to")
+            for f in fields if isinstance(fields, list) else [None]:
+                ok = (isinstance(f, dict) and KEY.match(str(f.get("key", ""))) and _text(f.get("label"))
+                      and f.get("type", "text") in VARIANT_FIELD_TYPES
+                      and (f.get("type") != "select" or (isinstance(f.get("options"), list) and f["options"])))
+                if not ok:
+                    p.append(f"{name}: fields.{record}: each is {{key, label, type ({', '.join(VARIANT_FIELD_TYPES)})}}")
+
+    # Its themes.
+    own_themes = set()
+    for tname in sorted({n.split("/")[1] for n in files if n.startswith("themes/")}):
+        t = load(f"themes/{tname}/theme.json") if f"themes/{tname}/theme.json" in files else None
+        if not isinstance(t, dict):
+            p.append(f"themes/{tname}/theme.json is missing")
+            continue
+        p += [f"themes/{tname}: {x}" for x in theme_problems(t, package=True)]
+        if not str(t.get("id", "")).startswith(dev + "."):
+            p.append(f"themes/{tname}: an activity's themes are named {dev}.…")
+        for f in (t.get("fonts") or {}).get("files") or []:
+            if isinstance(f, dict) and f"themes/{tname}/{f.get('src')}" not in files:
+                p.append(f"themes/{tname}: {f.get('src')} isn't in the package")
+        own_themes.add(t.get("id"))
+    theme = m.get("theme")
+    mizan_themes = (known or {}).get("themes")
+    if theme is not None and theme not in own_themes and (mizan_themes is None or theme not in mizan_themes):
+        if mizan_themes is not None or not (isinstance(theme, str) and THEME_ID.match(theme)):
+            p.append(f"theme: {theme!r} is neither one of its themes nor Mizan's")
+
+    # Demo records for its own entities.
+    for name in sorted(n for n in files if n.startswith("seed/")):
+        s = load(name)
+        if not isinstance(s, dict) or not isinstance(s.get("records"), list) or len(s["records"]) > 500:
+            p.append(f"{name}: {{module, entity, records: [up to 500]}}")
+            continue
+        entity = own.get(s.get("module"), {}).get("entities", {}).get(s.get("entity"))
+        if entity is None:
+            p.append(f"{name}: {s.get('module')}/{s.get('entity')} isn't one of its entities")
+            continue
+        keys = {f.get("key") for f in entity.get("fields") or [] if isinstance(f, dict)}
+        for r in s["records"]:
+            if not isinstance(r, dict) or set(r) - keys:
+                p.append(f"{name}: records may only use {s['entity']}'s fields")
+                break
+    return p

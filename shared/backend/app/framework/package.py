@@ -21,7 +21,12 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 
-from app.framework.manifest import community_manifest_problems, entity_problems, theme_problems
+from app.framework.manifest import (
+    activity_package_problems,
+    community_manifest_problems,
+    entity_problems,
+    theme_problems,
+)
 
 FORMAT = 1
 CERT_PREFIX = "MZD1"
@@ -30,6 +35,7 @@ MAX_FILES = 200
 ALLOWED = (".json", ".png", ".svg", ".webp", ".jpg", ".md", ".txt", ".woff2", ".woff", ".ttf", ".otf")
 TOP = ("manifest.json", "SIGNATURE", "README.md", "CHANGELOG.md")
 FOLDERS = ("entities", "i18n", "assets")
+ACTIVITY_FOLDERS = ("modules", "variants", "themes", "seed")  # activity packages only (ADR-010 D2)
 
 
 class PackageError(Exception):
@@ -56,8 +62,8 @@ def _check_path(name: str) -> None:
     if len(path.parts) == 1:
         if name not in TOP:
             raise PackageError(f"Unexpected file at the top of the package: {name}")
-    elif path.parts[0] not in FOLDERS or path.suffix.lower() not in ALLOWED:
-        raise PackageError(f"Files a declarative module can't contain: {name}")
+    elif path.parts[0] not in FOLDERS + ACTIVITY_FOLDERS or path.suffix.lower() not in ALLOWED:
+        raise PackageError(f"Files a declarative package can't contain: {name}")
 
 
 @dataclass
@@ -71,7 +77,7 @@ class Package:
 
     @property
     def kind(self) -> str:
-        """"community" (a module) or "theme" (ADR-010 D3)."""
+        """"community" (a module), "theme" (ADR-010 D3) or "activity" (ADR-010 D2)."""
         return self.manifest.get("kind", "community")
 
 
@@ -144,6 +150,15 @@ def parse(files: dict[str, bytes]) -> Package:
                     if n.startswith("entities/") and n.endswith(".json")}
     except (KeyError, ValueError) as e:
         raise PackageError(f"Invalid JSON in the package: {e}") from None
+    kind = manifest.get("kind") if isinstance(manifest, dict) else None
+    if kind == "activity":
+        problems = activity_package_problems(files, known_catalogue())
+        if problems:
+            raise PackageError("; ".join(problems[:12]))
+        return Package(manifest=manifest, entities={}, files=files)
+    stray = [n for n in files if n.split("/")[0] in ACTIVITY_FOLDERS]
+    if stray:
+        raise PackageError(f"Only an activity package holds {stray[0].split('/')[0]}/ ({stray[0]})")
     if isinstance(manifest, dict) and manifest.get("kind") == "theme":
         # A theme package: its manifest is the theme; besides it only assets (fonts, previews).
         problems = theme_problems(manifest, package=True)
@@ -192,3 +207,29 @@ def certify(developer: str, key_id: str, public_key: bytes) -> str:
 
     return keys.sign({"developer": developer, "key_id": key_id, "public_key": _b64e(public_key),
                       "issued_at": datetime.now(UTC).isoformat()}, prefix=CERT_PREFIX)
+
+
+def known_catalogue() -> dict:
+    """Mizan's own parts an activity package may refer to: modules, screens, widgets, the records
+    their variants may add fields to, and Mizan's themes."""
+    from app.framework.loader import manifest_index
+
+    index = manifest_index()
+    business = {mid: m for mid, m in index.items() if m.get("kind", "business") == "business" and m.get("status") != "planned"}
+    screens = {s["id"] for m in business.values() for s in m.get("screens") or [] if isinstance(s, dict)}
+    widgets = {w["id"] for m in business.values() for w in m.get("widgets") or [] if isinstance(w, dict)}
+    # Records that take extra fields: those the module's forms declare, and those Mizan's own
+    # activities already extend through its variants (POS sales).
+    from app.framework.variants import all_variants
+
+    records = {mid: set((m.get("forms") or {}).keys()) for mid, m in business.items()}
+    for mid, variants in all_variants().items():
+        for v in variants.values():
+            records.setdefault(mid, set()).update((v.get("fields") or {}).keys())
+    try:
+        from app.platform.themes.service import file_themes
+
+        themes = {t for t, v in file_themes().items() if v["source"] == "mizan"}
+    except Exception:  # noqa: BLE001 (themes engine unavailable: don't block verification)
+        themes = None
+    return {"modules": set(business), "screens": screens, "widgets": widgets, "records": records, "themes": themes}

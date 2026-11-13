@@ -9,13 +9,13 @@ import json
 import zipfile
 from pathlib import Path, PurePosixPath
 
-from mizan_sdk.manifest import community_manifest_problems, entity_problems, theme_problems
+from mizan_sdk.manifest import activity_package_problems, community_manifest_problems, entity_problems, theme_problems
 
 FORMAT = 1
 MAX_BYTES = 4 * 1024 * 1024
 ALLOWED = (".json", ".png", ".svg", ".webp", ".jpg", ".md", ".txt", ".woff2", ".woff", ".ttf", ".otf")
 TOP = ("manifest.json", "README.md", "CHANGELOG.md")
-FOLDERS = ("entities", "i18n", "assets")
+FOLDERS = ("entities", "i18n", "assets", "modules", "variants", "themes", "seed")  # the last four: activities
 
 
 class PackageError(Exception):
@@ -27,7 +27,8 @@ def _b64e(raw: bytes) -> str:
 
 
 def module_files(folder: Path) -> dict[str, bytes]:
-    """The files of a module folder that go into its package (others are ignored)."""
+    """The files of a module, theme or activity folder that go into its package (others, such as
+    __pycache__ or .git, are ignored)."""
     files: dict[str, bytes] = {}
     for path in sorted(folder.rglob("*")):
         if not path.is_file() or path.is_symlink():
@@ -35,7 +36,7 @@ def module_files(folder: Path) -> dict[str, bytes]:
         rel = PurePosixPath(path.relative_to(folder).as_posix())
         if len(rel.parts) == 1 and rel.name in TOP:
             files[str(rel)] = path.read_bytes()
-        elif rel.parts[0] in FOLDERS and rel.suffix.lower() in ALLOWED:
+        elif rel.parts[0] in FOLDERS and rel.suffix.lower() in ALLOWED and not any(x.startswith(".") for x in rel.parts):
             files[str(rel)] = path.read_bytes()
     if "manifest.json" not in files:
         raise PackageError(f"No manifest.json in {folder}")
@@ -50,6 +51,11 @@ def problems(files: dict[str, bytes]) -> list[str]:
                     if n.startswith("entities/") and n.endswith(".json")}
     except ValueError as e:
         return [f"Invalid JSON: {e}"]
+    if isinstance(manifest, dict) and manifest.get("kind") == "activity":  # a whole activity (ADR-010 D2)
+        return activity_package_problems(files)
+    stray = [n for n in files if n.split("/")[0] in ("modules", "variants", "themes", "seed")]
+    if stray:
+        return [f"Only an activity holds {stray[0].split('/')[0]}/ ({stray[0]})"]
     if isinstance(manifest, dict) and manifest.get("kind") == "theme":  # a theme package (ADR-010 D3)
         found = theme_problems(manifest, package=True)
         found += [f"A theme package holds no {n}" for n in files if n.startswith(("entities/", "i18n/"))]

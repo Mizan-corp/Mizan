@@ -8,10 +8,10 @@ import { devPath } from "./paths";
 
 const CODE = `pip install https://dev.allmizan.live/sdk/${SDK_WHEEL}
 mizan login
-mizan module new acme.visits
-mizan check acme.visits
+mizan activity new acme.laundry
+mizan check acme.laundry
 mizan keys new --team acme
-mizan package acme.visits`;
+mizan package acme.laundry`;
 
 export default function DevHome() {
   const { t, dir } = useDevI18n();
@@ -34,14 +34,17 @@ export default function DevHome() {
           <div className="space-y-5">
             <h1 className="font-display text-4xl leading-tight tracking-tight sm:text-5xl">{t("Build on Mizan", "ابنِ على ميزان")}</h1>
             <p className="max-w-xl text-sm leading-relaxed text-[#77716E] sm:text-base">
-              {t("Modules that add new records and screens to businesses running Mizan, and connect to your server for whatever else they need. Owners install them into their workspace after approving everything they can access.",
-                 "وحدات تضيف سجلات وشاشات جديدة لمنشآت ميزان، وتتصل بخادمك لتفعل ما تحتاجه أعمالها. تُثبَّت في مساحة العمل بموافقة صاحبها على كل ما تصل إليه.")}
+              {t("Build a whole business activity with the framework Mizan's own are built on: its modules, how it adapts Mizan's POS, stock and sales, its menus and roles, its look and its demo data. Or build single modules and theme packs that businesses install after approving what they can access.",
+                 "ابنِ نشاطًا تجاريًا كاملًا بالإطار الذي بُنيت به أنشطة ميزان نفسها: وحداته، وكيف يكيّف نقطة البيع والمخزون والمبيعات، وقوائمه وأدواره، ومظهره وبياناته التجريبية. أو ابنِ وحدات ومظاهر مفردة تُثبّتها المنشآت بعد موافقتها على ما تصل إليه.")}
             </p>
             <div className="flex flex-wrap gap-3">
               <Link to={devPath("/signup")} className="inline-flex items-center gap-2 rounded-full bg-[#651E2C] px-5 py-2.5 text-sm font-bold text-white shadow-xs hover:bg-[#521723]">
                 {t("Create a developer account", "أنشئ حساب مطور")} <ArrowRight className="size-4 rtl:-scale-x-100" />
               </Link>
-              <Link to={devPath("/docs/quickstart")} className="inline-flex items-center rounded-full border border-[#E7D6C1] bg-white px-5 py-2.5 text-sm font-bold text-[#651E2C] hover:border-[#651E2C]">
+              <Link to={devPath("/docs/activities")} className="inline-flex items-center rounded-full border border-[#E7D6C1] bg-white px-5 py-2.5 text-sm font-bold text-[#651E2C] hover:border-[#651E2C]">
+                {t("Build an activity", "ابنِ نشاطًا")}
+              </Link>
+              <Link to={devPath("/docs/quickstart")} className="inline-flex items-center rounded-full px-3 py-2.5 text-sm font-bold text-[#651E2C] hover:underline">
                 {t("Quickstart", "البدء السريع")}
               </Link>
             </div>

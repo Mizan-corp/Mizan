@@ -48,8 +48,8 @@ themes/, seed), so a developer can build a full Mizan business activity with the
 point Mizan advertises to developers. 1. Done 2026-11-13: all 30 activities moved (149 modules,
 5 variants now owned by their activity), backend and screens. 2. Done 2026-11-13: theme packs
 (Mizan's six, activities', signed packages from file; one theme per workspace, chosen by its
-admin; `mizan theme new`); paid themes with the marketplace. 3. Activity packages in the CLI (declarative until code modules run in
-containers); installing them with #107.
+admin; `mizan theme new`); paid themes with the marketplace. 3. Done 2026-11-13: activity packages
+(`mizan activity new`, checked against Mizan's catalogue); running them in a workspace with #107.
 
 **P3 — Platform for outside developers**
 10. ADR-006 phase 6 (#104): ADR-007 milestone 1 done (see P1b); the isolation runtime for code modules waits for the own cluster.
