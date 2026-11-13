@@ -46,7 +46,14 @@ function SiteLink({ to, ...rest }: { to: string } & Omit<ComponentProps<"a">, "h
  * Plans & checkout. The website renders it inside its marketing layout for
  * visitors; the system app renders it inside the app shell for upgrades.
  */
-export default function PricingPage({ layout: Layout = PlainLayout }: { layout?: ComponentType<{ children: ReactNode }> }) {
+export default function PricingPage({
+  layout: Layout = PlainLayout,
+  ownerPanel = null,
+}: {
+  layout?: ComponentType<{ children: ReactNode }>;
+  /** On the website, for a signed-in owner (#79): opens a path of the owner panel with their session. */
+  ownerPanel?: ((path: string) => void) | null;
+}) {
   const { user, tenant } = useAuth();
   const navigate = useNavigate();
   const { locale } = useTranslation();
@@ -73,6 +80,11 @@ export default function PricingPage({ layout: Layout = PlainLayout }: { layout?:
   }, [user, tenant]);
 
   function handlePlanClick(p: Plan) {
+    if (!user && ownerPanel) {
+      // A signed-in owner chooses the workspace, then pays in the owner panel.
+      ownerPanel(p.id === "trial" ? "/" : `/?plan=${p.id}&cycle=${billingCycle}`);
+      return;
+    }
     if (!user) {
       if (APP_KIND === "website") navigate("/signup");
       else window.location.assign(appUrl("website", "/signup"));
@@ -400,6 +412,10 @@ export default function PricingPage({ layout: Layout = PlainLayout }: { layout?:
                           ? isAr
                             ? "ترقية واشتراك فوري"
                             : "Upgrade & Subscribe"
+                          : ownerPanel
+                          ? isAr
+                            ? "اختر الباقة من لوحتك"
+                            : "Choose it in your panel"
                           : isAr
                           ? "ابدأ الفترة التجريبية"
                           : "Start 14-Day Free Trial"}
@@ -556,15 +572,26 @@ export default function PricingPage({ layout: Layout = PlainLayout }: { layout?:
                 >
                   {isAr ? "حجز جلسة استشارية مع مهندس حلول" : "Book Enterprise Architecture Session"}
                 </Button>
-                <Button
-                  render={<SiteLink to="/signup" />}
-                  nativeButton={false}
-                  size="lg"
-                  variant="outline"
-                  className="border-[#E7D6C1]/30 bg-transparent text-[#F5EBDD] hover:bg-white/10 rounded-full px-6 py-2.5 text-xs font-bold"
-                >
-                  {isAr ? "تجربة مجانية فورية" : "Start 14-Day Free Trial"}
-                </Button>
+                {ownerPanel ? (
+                  <Button
+                    onClick={() => ownerPanel("/")}
+                    size="lg"
+                    variant="outline"
+                    className="border-[#E7D6C1]/30 bg-transparent text-[#F5EBDD] hover:bg-white/10 rounded-full px-6 py-2.5 text-xs font-bold"
+                  >
+                    {isAr ? "العودة إلى لوحتك" : "Back to your panel"}
+                  </Button>
+                ) : (
+                  <Button
+                    render={<SiteLink to="/signup" />}
+                    nativeButton={false}
+                    size="lg"
+                    variant="outline"
+                    className="border-[#E7D6C1]/30 bg-transparent text-[#F5EBDD] hover:bg-white/10 rounded-full px-6 py-2.5 text-xs font-bold"
+                  >
+                    {isAr ? "تجربة مجانية فورية" : "Start 14-Day Free Trial"}
+                  </Button>
+                )}
               </div>
             </div>
           </div>

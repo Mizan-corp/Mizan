@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowUpLeft, Cloud, Copy, Monitor, Network, Plus, Users } from "lucide-react";
 import { toast } from "sonner";
@@ -26,7 +26,7 @@ export function PlanBadge({ w }: { w: Pick<Workspace, "plan" | "trial_days_left"
   return <Badge tone={t.tone}>{t.text}</Badge>;
 }
 
-function WorkspaceCard({ w, first, onOpen, opening }: { w: Workspace; first: boolean; onOpen: () => void; opening: boolean }) {
+function WorkspaceCard({ w, first, onOpen, opening, planQuery = "" }: { w: Workspace; first: boolean; onOpen: () => void; opening: boolean; planQuery?: string }) {
   const trialEnded = (w.plan === "trial" && (w.trial_days_left ?? 0) < 0) || !!paidState(w.paid_until)?.ended;
   const onPrem = w.deployment_mode !== "cloud_saas";
   return (
@@ -113,7 +113,7 @@ function WorkspaceCard({ w, first, onOpen, opening }: { w: Workspace; first: boo
             افتح النظام <ArrowUpLeft />
           </Button>
         )}
-        <Link to={`/workspaces/${w.id}`} className="flex-1">
+        <Link to={`/workspaces/${w.id}${planQuery}`} className="flex-1">
           <Button className="w-full" variant={trialEnded ? "primary" : "secondary"}>
             {w.plan === "trial" ? "اشترك" : "الاشتراك والفواتير"}
           </Button>
@@ -224,6 +224,14 @@ export default function Workspaces() {
   const [params, setParams] = useSearchParams();
   const [creating, setCreating] = useState(false);
   const { open, opening } = useOpenWorkspace();
+  const navigate = useNavigate();
+  // From the website's pricing page (#79): ?plan=…&cycle=… goes to that workspace's plans.
+  const wanted = params.get("plan");
+  const planQuery = wanted ? `?plan=${encodeURIComponent(wanted)}${params.get("cycle") ? `&cycle=${encodeURIComponent(params.get("cycle")!)}` : ""}` : "";
+  const only = q.data?.items.length === 1 ? q.data.items[0] : null;
+  useEffect(() => {
+    if (wanted && only) navigate(`/workspaces/${only.id}${planQuery}`, { replace: true });
+  }, [wanted, only, planQuery, navigate]);
 
   if (q.isPending) return <PageSkeleton />;
   if (q.isError) return <LoadError error={q.error} retry={() => q.refetch()} />;
@@ -245,10 +253,15 @@ export default function Workspaces() {
         }
       />
 
+      {wanted && items.length > 1 && (
+        <p className="mb-4 rounded-lg bg-wine-soft px-4 py-3 text-sm text-ink-2">
+          اختر مساحة العمل التي تريد لها باقة {planLabel(wanted)}، ثم «الاشتراك والفواتير».
+        </p>
+      )}
       {items.length ? (
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           {items.map((w, i) => (
-            <WorkspaceCard key={w.id} w={w} first={i === 0} onOpen={() => open(w)} opening={opening === w.id} />
+            <WorkspaceCard key={w.id} w={w} first={i === 0} onOpen={() => open(w)} opening={opening === w.id} planQuery={planQuery} />
           ))}
         </div>
       ) : (

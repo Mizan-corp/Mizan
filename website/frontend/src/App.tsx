@@ -6,6 +6,8 @@ import OnboardingWizard from "@app/features/marketing/OnboardingWizard";
 import { MarketingLayout } from "@app/features/marketing/MarketingLayout";
 import { AdoptSession, SignOut } from "@app/features/session/SessionRoutes";
 import PricingPage from "@/features/billing/PricingPage";
+import { openWithSession } from "@/lib/handoff";
+import { useOwner } from "@app/lib/ownerSession";
 import { appUrl } from "@/lib/urls";
 import { DEV_HOST } from "@app/features/developers/paths";
 
@@ -61,7 +63,7 @@ export default function App() {
       <Route path="/features/details" element={<Page><FeatureDetailPage /></Page>} />
       <Route path="/features/:slug" element={<Page><FeatureDetailPage /></Page>} />
       <Route path="/industries" element={<Page><IndustriesPage /></Page>} />
-      <Route path="/pricing" element={<Page><PricingPage layout={MarketingLayout} /></Page>} />
+      <Route path="/pricing" element={<Page><WebsitePricing /></Page>} />
       <Route path="/about" element={<Page><AboutPage /></Page>} />
       <Route path="/contact" element={<Page><ContactPage /></Page>} />
       <Route path="/blog" element={<Page><BlogPage /></Page>} />
@@ -85,4 +87,10 @@ export default function App() {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
+}
+
+/** The pricing page, aware of a signed-in owner (#79): plan buttons open their panel. */
+function WebsitePricing() {
+  const owner = useOwner();
+  return <PricingPage layout={MarketingLayout} ownerPanel={owner ? (path) => openWithSession("owner", path, owner.token) : null} />;
 }

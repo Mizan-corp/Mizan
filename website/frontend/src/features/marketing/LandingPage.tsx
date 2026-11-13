@@ -26,11 +26,15 @@ import { PLANS } from "@/lib/plans";
 import { useTranslation } from "@/i18n";
 import { assetUrl } from "@/lib/utils";
 import { useOwner } from "@app/lib/ownerSession";
+import { openWithSession } from "@/lib/handoff";
 
 export default function LandingPage() {
   const { locale } = useTranslation();
   // Signed-in owners: the start buttons lead to their panel (/signup sends them there, #79).
-  const signedIn = !!useOwner();
+  const owner = useOwner();
+  const signedIn = !!owner;
+  /** For a signed-in owner the calls to action open their panel (#79). */
+  const toPanel = (path = "/") => owner && openWithSession("owner", path, owner.token);
   const isAr = locale === "ar";
   const shouldReduceMotion = useReducedMotion();
 
@@ -196,8 +200,8 @@ export default function LandingPage() {
                     <Button
                       size="lg"
                       className="w-full sm:w-auto justify-center bg-[#651E2C] text-[#FAF6F0] hover:bg-[#521723] rounded-full px-7 py-3.5 text-sm sm:text-base font-medium shadow-lg hover:shadow-xl hover:scale-105 transition-all"
-                      render={<Link to="/signup" />}
-                      nativeButton={false}
+                      render={signedIn ? <button type="button" onClick={() => toPanel()} /> : <Link to="/signup" />}
+                      nativeButton={signedIn}
                     >
                       <span>{signedIn ? (isAr ? "العودة إلى لوحتك" : "Back to your panel") : isAr ? "اكتشف ميزان" : "Start Free Trial"}</span>
                       {isAr ? (
@@ -721,9 +725,13 @@ export default function LandingPage() {
                             : "bg-[#EFE4D6] text-[#262321] hover:bg-[#E7D6C1]"
                         }`}
                         render={
-                          <Link to={plan.id === "enterprise" ? "/contact" : "/signup"} />
+                          signedIn && plan.id !== "enterprise" ? (
+                            <button type="button" onClick={() => toPanel(`/?plan=${plan.id}`)} />
+                          ) : (
+                            <Link to={plan.id === "enterprise" ? "/contact" : "/signup"} />
+                          )
                         }
-                        nativeButton={false}
+                        nativeButton={signedIn && plan.id !== "enterprise"}
                       >
                         {plan.id === "enterprise"
                           ? isAr
@@ -826,8 +834,8 @@ export default function LandingPage() {
               <Button
                 size="lg"
                 className="bg-[#651E2C] text-[#FAF6F0] hover:bg-[#521723] rounded-full px-8 py-4 text-sm font-semibold shadow-xl hover:scale-105 transition-all"
-                render={<Link to="/signup" />}
-                nativeButton={false}
+                render={signedIn ? <button type="button" onClick={() => toPanel()} /> : <Link to="/signup" />}
+                nativeButton={signedIn}
               >
                 <span>{signedIn ? (isAr ? "العودة إلى لوحتك" : "Back to your panel") : isAr ? "ابدأ تجربتك المجانية الآن" : "Start Your Free Trial"}</span>
                 {isAr ? <ArrowLeft className="h-4 w-4 ms-2" /> : <ArrowRight className="h-4 w-4 ms-2" />}
