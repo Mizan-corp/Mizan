@@ -105,6 +105,20 @@ the invoice paid. Starting a new checkout abandons the previous unpaid one. With
 keys, or for owners outside `PAYMOB_TEST_OWNERS`, checkout answers 503 and the panel says
 online payment isn't available.
 
+**Changing plan (#68)**, in `app.platform.billing.services.subscriptions` (`checkout_quote`,
+`new_invoice`, `activate_invoice`, `apply_due_plan_changes`). The panel shows the quote
+(`GET /account/workspaces/{id}/checkout/quote?plan=&cycle=`) before sending the owner to Paymob.
+
+| Choice | Starts | Price | Unused paid time |
+|---|---|---|---|
+| No paid time left (trial, lapsed) | now | the plan's | — |
+| Same plan (renewal) | when the paid time ends | the plan's | kept (the new period follows it) |
+| Dearer plan (upgrade) | now | the plan's, in full | becomes extra days on the new plan at its daily rate; the old periods end at payment |
+| Cheaper plan (downgrade) | when the paid time ends | the plan's | kept: the workspace stays on the dearer plan until then |
+
+A plan paid ahead switches when its period starts: the subscriptions job
+(`enforce_subscription_expiry`, every 6 hours) runs `apply_due_plan_changes` first.
+
 ## Code
 
 - `backend/owner_api/routers/`: `account` (profile, password, tour), `workspaces`

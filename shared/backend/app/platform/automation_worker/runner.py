@@ -93,6 +93,11 @@ async def enforce_subscription_expiry(db: AsyncSession) -> dict[str, Any]:
         db.add(notification)
         processed_count += 1
 
+    # Plans paid ahead that start now (a downgrade after the dearer period, #68).
+    from app.platform.billing.services.subscriptions import apply_due_plan_changes
+
+    processed_count += await apply_due_plan_changes(db)
+
     # Paid periods that ended (#66): read-only from the end date itself; this marks and tells them.
     paid = (await db.execute(select(Tenant).where(
         Tenant.status == "active", Tenant.plan != "trial",

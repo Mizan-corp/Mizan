@@ -247,6 +247,83 @@ async def test_checkout_and_callback():
         assert first["invoice"]["ref"] not in refs and refs[second["invoice"]["ref"]] == "pending"
 
 
+async def test_plan_changes_mid_period():
+    """#68: upgrades start now with the unused paid time as extra days; downgrades start when the
+    paid time ends; the owner sees both before paying."""
+    from datetime import datetime, timedelta
+
+    from sqlalchemy import select, text
+
+    from app.platform.billing.models import BillingInvoice
+    from app.platform.billing.services.subscriptions import apply_due_plan_changes, monthly_price
+
+    owner, tenant, _ = await make_owner()
+    base = uuid.uuid4().int % 10**9
+
+    def day(iso: str):
+        return datetime.fromisoformat(iso.replace("Z", "+00:00"))
+
+    async with client() as c:
+        h = await login(c, owner)
+
+        async def buy(plan: str, n: int) -> dict:
+            r = await c.post(f"/account/workspaces/{tenant.id}/checkout", headers=h, json={"plan": plan, "cycle": "monthly"})
+            inv = r.json()["invoice"]
+            obj = txn(inv["ref"], round(inv["amount_egp"] * 100), base + n)
+            ok = await c.post(f"/account/paymob/callback?hmac={sign(obj)}", json={"type": "TRANSACTION", "obj": obj})
+            assert ok.json()["state"] == "paid", ok.text
+            return (await c.get(f"/account/invoices/{inv['ref']}", headers=h)).json()
+
+        async def quote(plan: str) -> dict:
+            r = await c.get(f"/account/workspaces/{tenant.id}/checkout/quote", headers=h, params={"plan": plan, "cycle": "monthly"})
+            assert r.status_code == 200, r.text
+            return r.json()
+
+        async def workspace() -> dict:
+            return (await c.get(f"/account/workspaces/{tenant.id}", headers=h)).json()["workspace"]
+
+        # From the trial: a new subscription, starting now.
+        q = await quote("starter")
+        assert q["kind"] == "new" and q["credit_days"] == 0
+        starter = await buy("starter", 1)
+        assert (await workspace())["plan"] == "starter"
+
+        # Upgrade: starts now, full price, the unused starter time as extra days.
+        q = await quote("pro")
+        assert q["kind"] == "upgrade" and q["amount_egp"] == monthly_price("pro")
+        assert q["credit_egp"] > monthly_price("starter") * 0.95  # almost all of it is unused
+        assert q["credit_days"] == int(q["credit_egp"] // (monthly_price("pro") / 30)) > 0
+        pro = await buy("pro", 2)
+        assert (day(pro["period_end"]) - day(pro["period_start"])).days == 30 + q["credit_days"]
+        ws = await workspace()
+        assert ws["plan"] == "pro" and ws["paid_until"] == pro["period_end"]
+        # The credited starter period ended when the upgrade was paid.
+        assert day((await c.get(f"/account/invoices/{starter['ref']}", headers=h)).json()["period_end"]) <= day(pro["period_start"]) + timedelta(minutes=5)
+
+        # Downgrade: paid now, starts when the pro time ends; the workspace keeps pro until then.
+        q = await quote("starter")
+        assert q["kind"] == "downgrade" and q["period_start"] == pro["period_end"]
+        down = await buy("starter", 3)
+        assert down["period_start"] == pro["period_end"]
+        ws = await workspace()
+        assert ws["plan"] == "pro" and ws["paid_until"] == down["period_end"]
+        assert (await quote("starter"))["kind"] == "downgrade" and (await quote("pro"))["kind"] == "renewal"
+
+    # Time passes: the pro period is over; the subscriptions job moves the workspace to starter.
+    async with AsyncSessionLocal() as db:
+        await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
+        rows = (await db.execute(select(BillingInvoice).where(BillingInvoice.tenant_id == tenant.id, BillingInvoice.status == "paid"))).scalars().all()
+        shift = day(down["period_start"]) - datetime.now(day(down["period_start"]).tzinfo) + timedelta(hours=1)
+        for inv in rows:
+            inv.period_start -= shift
+            inv.period_end -= shift
+        await db.flush()
+        assert await apply_due_plan_changes(db) >= 1
+        t = await db.get(Tenant, tenant.id)
+        assert t.plan == "starter" and t.status == "active"
+        await db.rollback()
+
+
 async def test_checkout_is_refused_without_paymob(monkeypatch):
     monkeypatch.setattr(settings, "PAYMOB_SECRET_KEY", "")
     owner, tenant, _ = await make_owner()

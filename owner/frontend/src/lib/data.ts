@@ -153,6 +153,28 @@ export const usePlans = () =>
 
 export const useInvoices = () => useQuery({ queryKey: ["invoices"], queryFn: () => api.get<{ items: Invoice[] }>("/account/invoices") });
 
+/** What paying for a plan now costs and when it runs (#68): shown before sending the owner to Paymob. */
+export interface CheckoutQuote {
+  /** new: starts now · renewal/downgrade: starts when the paid time ends · upgrade: starts now, unused paid time as extra days */
+  kind: "new" | "renewal" | "upgrade" | "downgrade";
+  plan: string;
+  cycle: "monthly" | "annual";
+  amount_egp: number;
+  period_start: string;
+  period_end: string;
+  credit_egp: number;
+  credit_days: number;
+  current_plan: string;
+  current_paid_until: string | null;
+}
+
+export const useCheckoutQuote = (id: string, plan: string, cycle: "monthly" | "annual") =>
+  useQuery({
+    queryKey: ["quote", id, plan, cycle],
+    queryFn: () => api.get<CheckoutQuote>(`/account/workspaces/${id}/checkout/quote`, { plan, cycle }),
+    staleTime: 0,
+  });
+
 // ─── Mutations ─────────────────────────────────────────────────────────────
 
 /** A mutation that refreshes the panel's data when it succeeds. */

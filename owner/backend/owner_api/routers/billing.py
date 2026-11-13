@@ -17,7 +17,7 @@ from app.platform.auth.models.owner import OwnerAccount
 from app.platform.tenancy.models import Tenant
 from app.integrations.paymob import service as paymob
 from app.platform.auth.services.owners import _bearer, bypass_rls, get_current_owner, owned_workspace
-from app.platform.billing.services.subscriptions import PAID_PLANS, new_invoice
+from app.platform.billing.services.subscriptions import PAID_PLANS, checkout_quote, new_invoice
 from owner_api.common import invoice_out
 
 logger = logging.getLogger("mizan.owner.billing")
@@ -53,6 +53,21 @@ class CheckoutRequest(BaseModel):
     cycle: Literal["monthly", "annual"] = "monthly"
     method: Literal["card", "wallet"] | None = None
     wallet_number: str | None = None
+
+
+@router.get("/workspaces/{tenant_id}/checkout/quote")
+async def checkout_quote_route(
+    tenant_id: uuid.UUID,
+    plan: str,
+    cycle: Literal["monthly", "annual"] = "monthly",
+    db: AsyncSession = Depends(get_db),
+    owner: OwnerAccount = Depends(get_current_owner),
+):
+    """What a checkout for this plan would charge and when it would run (#68), shown before paying."""
+    if plan not in PAID_PLANS:
+        raise HTTPException(status_code=422, detail="باقة غير معروفة")
+    t = await owned_workspace(db, owner, tenant_id)
+    return await checkout_quote(db, t, plan=plan, cycle=cycle)
 
 
 @router.post("/workspaces/{tenant_id}/checkout")

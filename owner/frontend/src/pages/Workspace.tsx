@@ -8,6 +8,7 @@ import {
   type PaymentMethod,
   type Plan,
   useAction,
+  useCheckoutQuote,
   useMe,
   usePlans,
   useStorage,
@@ -63,6 +64,30 @@ function CurrentPlan({ w }: { w: WorkspaceT }) {
   );
 }
 
+/** When the paid plan runs, in words: the owner reads this before paying (#68). */
+function QuoteNote({ id, plan, cycle }: { id: string; plan: string; cycle: "monthly" | "annual" }) {
+  const q = useCheckoutQuote(id, plan, cycle);
+  if (q.isPending) return <p className="mt-2 text-[13px] text-mute">نحسب موعد بدء الاشتراك…</p>;
+  if (q.isError || !q.data) return <ErrorNote>{errorText(q.error)}</ErrorNote>;
+  const d = q.data;
+  const target = planLabel(d.plan);
+  const current = planLabel(d.current_plan);
+  let text: string;
+  if (d.kind === "upgrade") {
+    text = `تنتقل إلى باقة ${target} فور الدفع، وتستمر حتى ${date(d.period_end)}.`;
+    if (d.credit_days > 0) {
+      text += ` يشمل ذلك ${d.credit_days} يومًا إضافيًا مقابل ما تبقى من فترتك المدفوعة في باقة ${current} (${money(d.credit_egp)}).`;
+    }
+  } else if (d.kind === "downgrade") {
+    text = `تبقى على باقة ${current} حتى ${date(d.period_start)}، ثم تبدأ باقة ${target} وتستمر حتى ${date(d.period_end)}.`;
+  } else if (d.kind === "renewal") {
+    text = `تبدأ الفترة الجديدة عند انتهاء الحالية: من ${date(d.period_start)} إلى ${date(d.period_end)}.`;
+  } else {
+    text = `يبدأ الاشتراك فور الدفع ويستمر حتى ${date(d.period_end)}.`;
+  }
+  return <p className="mt-2 text-[13px] leading-relaxed text-ink-2">{text}</p>;
+}
+
 function PayDialog({
   open,
   onClose,
@@ -90,6 +115,7 @@ function PayDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const amount = cycle === "annual" ? plan.price_annual_egp : plan.price_monthly_egp;
+  const quote = useCheckoutQuote(workspace.id, plan.id, cycle);
   const walletOk = /^(?:\+?20|0020)?0?1[0125]\d{8}$/.test(wallet.replace(/[\s-]/g, ""));
   const ready = phone.trim().length >= 6 && (method !== "wallet" || walletOk);
 
@@ -135,6 +161,7 @@ function PayDialog({
         <span className="text-sm text-ink-2">{cycle === "annual" ? "اشتراك سنوي" : "اشتراك شهري"}</span>
         <Money value={amount} className="text-xl font-bold text-ink" />
       </div>
+      <QuoteNote id={workspace.id} plan={plan.id} cycle={cycle} />
       {choices.length > 0 && (
         <fieldset className="mt-4">
           <legend className="mb-2 text-sm font-semibold text-ink">طريقة الدفع</legend>
@@ -210,7 +237,7 @@ function PayDialog({
       </p>
       {error && <ErrorNote>{error}</ErrorNote>}
       <ModalActions>
-        <Button variant="primary" busy={busy} onClick={pay} disabled={!ready}>
+        <Button variant="primary" busy={busy} onClick={pay} disabled={!ready || quote.isPending}>
           {method === "wallet" ? <Smartphone /> : <CreditCard />} ادفع {money(amount)}
         </Button>
         <Button variant="ghost" onClick={onClose}>
