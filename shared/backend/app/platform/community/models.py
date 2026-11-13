@@ -28,7 +28,7 @@ class CommunityModule(TenantScoped, Base):
     entities: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     scopes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
     package_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")  # active | removed
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="active", server_default="active")  # active | removed
     installed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     # ADR-007 D4: the module's server calls /ext/v1 with a token (only its SHA-256 is kept) and
     # verifies webhooks with this secret.
@@ -42,7 +42,8 @@ class CommunityModule(TenantScoped, Base):
 class ExtRecord(TenantScoped, Base):
     __tablename__ = "ext_records"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,
+                                          server_default=text("gen_random_uuid()"))
     module_id: Mapped[str] = mapped_column(String(80), nullable=False)
     entity: Mapped[str] = mapped_column(String(48), nullable=False)
     data: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
@@ -56,12 +57,13 @@ class WebhookDelivery(TenantScoped, Base):
     """A webhook to a community module's server (events.py): retried until delivered or given up."""
     __tablename__ = "community_webhook_deliveries"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,
+                                          server_default=text("gen_random_uuid()"))
     module_id: Mapped[str] = mapped_column(String(80), nullable=False)
     event: Mapped[str] = mapped_column(String(48), nullable=False)
     payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")  # pending|delivered|failed
-    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending", server_default="pending")  # pending|delivered|failed
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     next_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     last_status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)

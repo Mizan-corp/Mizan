@@ -1,5 +1,6 @@
 """The developer portal (ADR-007 D5): developers, their teams, signing keys and CLI tokens.
-Platform rows (no workspace); migration v72. A team's handle is the <developer> part of the ids
+Platform rows (no workspace); migration v72. The models declare the migration's database defaults
+too, so tables made by create_all (CI containers, on-site setup) behave the same. A team's handle is the <developer> part of the ids
 of the modules it signs (`acme` signs `acme.visits`)."""
 from __future__ import annotations
 
@@ -17,7 +18,8 @@ class DeveloperUser(Base):
     """A person on the developer portal (separate from owner accounts; one person can have both)."""
     __tablename__ = "developer_users"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,
+                                          server_default=text("gen_random_uuid()"))
     email: Mapped[str] = mapped_column(String(254), unique=True, nullable=False)  # lower-cased; the login
     full_name: Mapped[str] = mapped_column(String(128), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(256), nullable=False)
@@ -30,7 +32,8 @@ class DeveloperUser(Base):
 class DeveloperTeam(Base):
     __tablename__ = "developer_teams"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,
+                                          server_default=text("gen_random_uuid()"))
     handle: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("developer_users.id", ondelete="SET NULL"))
@@ -42,7 +45,7 @@ class DeveloperTeamMember(Base):
 
     team_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("developer_teams.id", ondelete="CASCADE"), primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("developer_users.id", ondelete="CASCADE"), primary_key=True)
-    role: Mapped[str] = mapped_column(String(16), nullable=False, default="member")  # owner | member
+    role: Mapped[str] = mapped_column(String(16), nullable=False, default="member", server_default="member")  # owner | member
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -50,7 +53,8 @@ class DeveloperKey(Base):
     """A team's signing key: its public half and the certificate Mizan issued for it (MZD1)."""
     __tablename__ = "developer_keys"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,
+                                          server_default=text("gen_random_uuid()"))
     team_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("developer_teams.id", ondelete="CASCADE"), nullable=False)
     key_id: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -65,7 +69,8 @@ class DeveloperCliToken(Base):
     """A token for the `mizan` CLI (`mizan login`); only its SHA-256 is kept."""
     __tablename__ = "developer_cli_tokens"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,
+                                          server_default=text("gen_random_uuid()"))
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("developer_users.id", ondelete="CASCADE"), nullable=False)
     name: Mapped[str] = mapped_column(String(64), nullable=False)
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
