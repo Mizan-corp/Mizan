@@ -62,3 +62,33 @@ async def test_no_workspace_bound_keeps_the_login_role():
     async with AsyncSessionLocal() as session:
         role = await session.scalar(text("SELECT current_user"))
         assert role != "mizan_app"  # scripts and migrations still run DDL as the owner
+
+
+async def test_migrate_grants_mizan_app_on_tables_any_role_made():
+    """Production's tables moved from Neon: default privileges named Neon's roles, so tables the new
+    login role made (v74, v75) had no grants for mizan_app. Every migrate now grants them again."""
+    from app.db.migrations import grant_app_role
+
+    role, table = f"mz_owner_{uuid.uuid4().hex[:6]}", f"mz_t_{uuid.uuid4().hex[:6]}"
+    can = text("SELECT has_table_privilege('mizan_app', :t, 'SELECT')")
+    async with AsyncSessionLocal() as db:
+        await db.execute(text(f"CREATE ROLE {role} NOLOGIN"))
+        await db.execute(text(f"GRANT CREATE, USAGE ON SCHEMA public TO {role}"))
+        await db.execute(text(f"SET ROLE {role}"))
+        await db.execute(text(f"CREATE TABLE {table} (id int)"))
+        await db.execute(text("RESET ROLE"))
+        await db.commit()
+        try:
+            assert await db.scalar(can, {"t": f"public.{table}"}) is False
+            await grant_app_role(db)
+            assert await db.scalar(can, {"t": f"public.{table}"}) is True
+            missing = (await db.execute(text(
+                "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+                "WHERE n.nspname = 'public' AND c.relkind = 'r' AND NOT has_table_privilege('mizan_app', c.oid, 'SELECT')"))).scalars().all()
+            assert missing == []
+        finally:
+            await db.execute(text(f"DROP TABLE IF EXISTS {table}"))
+            await db.execute(text(f"REVOKE ALL ON SCHEMA public FROM {role}"))
+            await db.execute(text(f"DROP OWNED BY {role}"))
+            await db.execute(text(f"DROP ROLE IF EXISTS {role}"))
+            await db.commit()

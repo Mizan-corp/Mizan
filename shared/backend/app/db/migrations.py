@@ -3156,6 +3156,33 @@ MIGRATIONS = [
     """),
 ]
 
+# mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables
+# made by the role that set them, so after the move from Neon (ADR-011) tables the new login role
+# made had no grants and workspace requests got "permission denied" on them.
+APP_ROLE_GRANTS = """
+    GRANT USAGE ON SCHEMA public TO mizan_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES ON ALL TABLES IN SCHEMA public TO mizan_app;
+    GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO mizan_app;
+    GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO mizan_app;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES ON TABLES TO mizan_app;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO mizan_app;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO mizan_app;
+"""
+
+
+async def grant_app_role(session: AsyncSession) -> None:
+    if not await session.scalar(text("SELECT 1 FROM pg_roles WHERE rolname = 'mizan_app'")):
+        return
+    for stmt in split_statements(APP_ROLE_GRANTS):
+        if stmt.strip():
+            try:
+                async with session.begin_nested():
+                    await session.execute(text(stmt.strip()))
+            except Exception as e:
+                logger.warning(f"Granting mizan_app: {e}")
+    await session.commit()
+
+
 async def apply_migrations(session: AsyncSession) -> List[str]:
     """Apply all pending migrations asynchronously using SQLAlchemy.
     Statement-by-statement execution wrapped in savepoints for total resilience.
@@ -3220,4 +3247,5 @@ async def apply_migrations(session: AsyncSession) -> List[str]:
         applied_now.append(mid)
         logger.info(f"Successfully applied migration {mid}")
 
+    await grant_app_role(session)
     return applied_now
