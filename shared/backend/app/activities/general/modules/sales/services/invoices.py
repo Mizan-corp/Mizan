@@ -54,7 +54,8 @@ async def _render_invoice_html(db: AsyncSession, invoice_id: uuid.UUID, tenant_i
     store_phone = ""
     store_address = ""
     logo_url = ""
-    primary_color = "#0f766e"  # Teal / emerald default
+    primary_color = "#0f766e"  # Teal default, when nothing else applies
+    explicit_color = False
     tax_id = ""
 
     # Check store settings
@@ -72,6 +73,7 @@ async def _render_invoice_html(db: AsyncSession, invoice_id: uuid.UUID, tenant_i
             tax_id = r.value
         elif r.key == "primary_color" and r.value:
             primary_color = r.value
+            explicit_color = True
 
     # Check tenant palette if available
     if tenant_id:
@@ -80,16 +82,13 @@ async def _render_invoice_html(db: AsyncSession, invoice_id: uuid.UUID, tenant_i
         if t_row:
             if t_row.name:
                 store_name = t_row.name
-            if t_row.palette and isinstance(t_row.palette, dict) and t_row.palette.get("name"):
-                pal = t_row.palette.get("name")
-                if pal == "indigo":
-                    primary_color = "#4f46e5"
-                elif pal == "blue":
-                    primary_color = "#2563eb"
-                elif pal == "violet":
-                    primary_color = "#7c3aed"
-                elif pal == "emerald":
-                    primary_color = "#059669"
+        # The workspace theme's brand colour, unless the workspace set a print colour (ADR-010 D3).
+        if not explicit_color:
+            from app.platform.tenancy.models import Tenant
+            from app.platform.themes.service import print_color
+
+            tenant = await db.get(Tenant, tenant_id)
+            primary_color = (await print_color(db, tenant) if tenant else None) or primary_color
 
     # Compute calculations
     gross_total = float(sale.get("total") or 0)

@@ -9,11 +9,11 @@ import json
 import zipfile
 from pathlib import Path, PurePosixPath
 
-from mizan_sdk.manifest import community_manifest_problems, entity_problems
+from mizan_sdk.manifest import community_manifest_problems, entity_problems, theme_problems
 
 FORMAT = 1
 MAX_BYTES = 4 * 1024 * 1024
-ALLOWED = (".json", ".png", ".svg", ".webp", ".jpg", ".md", ".txt")
+ALLOWED = (".json", ".png", ".svg", ".webp", ".jpg", ".md", ".txt", ".woff2", ".woff", ".ttf", ".otf")
 TOP = ("manifest.json", "README.md", "CHANGELOG.md")
 FOLDERS = ("entities", "i18n", "assets")
 
@@ -43,13 +43,18 @@ def module_files(folder: Path) -> dict[str, bytes]:
 
 
 def problems(files: dict[str, bytes]) -> list[str]:
-    """Everything Mizan would refuse in these files; [] when the module is fine."""
+    """Everything Mizan would refuse in these files (a module or a theme); [] when it's fine."""
     try:
         manifest = json.loads(files["manifest.json"])
         entities = {PurePosixPath(n).stem: json.loads(b) for n, b in files.items()
                     if n.startswith("entities/") and n.endswith(".json")}
     except ValueError as e:
         return [f"Invalid JSON: {e}"]
+    if isinstance(manifest, dict) and manifest.get("kind") == "theme":  # a theme package (ADR-010 D3)
+        found = theme_problems(manifest, package=True)
+        found += [f"A theme package holds no {n}" for n in files if n.startswith(("entities/", "i18n/"))]
+        srcs = [f.get("src") for f in (manifest.get("fonts") or {}).get("files") or [] if isinstance(f, dict)]
+        return found + [f"fonts.files: {f} isn't in the folder" for f in srcs if f not in files]
     found = community_manifest_problems(manifest, set(entities))
     scopes = set(manifest.get("scopes") or []) if isinstance(manifest, dict) else set()
     for name, entity in entities.items():

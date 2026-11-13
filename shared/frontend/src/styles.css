@@ -888,3 +888,20 @@ html.lenis, html.lenis body {
 .dark {
   --status-ink: 100%;
 }
+
+/* ── Theme motion presets (ADR-010 D3: a workspace's theme pack sets data-motion) ── */
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 80ms !important;
+  scroll-behavior: auto !important;
+}
+html[data-motion="none"] *,
+html[data-motion="none"] *::before,
+html[data-motion="none"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}

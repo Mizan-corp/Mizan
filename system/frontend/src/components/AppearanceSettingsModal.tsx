@@ -1,13 +1,11 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/kit/dialog";
 import { Button } from "@/components/kit/button";
 import { Kbd } from "@/components/kit/kbd";
-import {
-  useUiStore,
-  THEME_PALETTES,
-  LAYOUT_MODES,
-} from "@/stores/ui";
+import { Link } from "react-router-dom";
+import { useUiStore, LAYOUT_MODES } from "@/stores/ui";
+import { useAuth } from "@/stores/auth";
 import { sound } from "@/lib/sound";
-import { Check, Moon, Sun, PanelLeft, Rows, AppWindow, Columns } from "lucide-react";
+import { Check, Moon, Sun, PanelLeft, Rows, AppWindow, Columns, Palette } from "lucide-react";
 
 export function AppearanceSettingsModal({
   open,
@@ -16,9 +14,9 @@ export function AppearanceSettingsModal({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const tenantTheme = useAuth((s) => s.tenant?.theme?.name);
+  const canManageThemes = useAuth((s) => s.can("themes.manage"));
   const {
-    palette,
-    setPalette,
     layoutMode,
     setLayoutMode,
     density,
@@ -37,7 +35,7 @@ export function AppearanceSettingsModal({
                 تخصيص المظهر وتخطيط النظام
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                اختر لوحة الألوان المناسبة لطبيعة نشاطك التجاري وطريقة عرض القوائم وكثافة الشاشة
+                الوضع الداكن وطريقة عرض القوائم وكثافة الشاشة على جهازك
               </DialogDescription>
             </div>
             <Kbd className="hidden sm:inline-flex">ESC</Kbd>
@@ -45,46 +43,23 @@ export function AppearanceSettingsModal({
         </DialogHeader>
 
         <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
-          {/* 1. Theme Palette Selector */}
-          <div>
-            <div className="flex items-center justify-between mb-2.5">
-              <label className="text-xs font-semibold text-foreground">
-                لوحة الألوان الأساسية (Color Palette)
-              </label>
-              <span className="text-[11px] text-muted-foreground">تدرجات لونية معتمدة وفق OKLCH</span>
+          {/* The workspace's theme is chosen by its admin for everyone (ADR-010 D3). */}
+          <div className="flex items-start justify-between gap-3 rounded-lg border border-border bg-muted/30 p-3">
+            <div className="flex items-start gap-2.5">
+              <Palette className="mt-0.5 size-4 shrink-0 text-primary" />
+              <div>
+                <p className="text-xs font-semibold text-foreground">مظهر المنشأة: {tenantTheme ?? "ميزان"}</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                  الألوان والخطوط واحدة لكل من في المنشأة، ويختارها مديرها. هنا تختار ما يخص جهازك فقط: الوضع الداكن والتخطيط والكثافة.
+                </p>
+              </div>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {THEME_PALETTES.map((p) => {
-                const isSelected = palette === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setPalette(p.id)}
-                    className={`flex flex-col text-start p-3 rounded-lg border transition-all relative ${
-                      isSelected
-                        ? "border-primary bg-primary/5 ring-1 ring-primary shadow-xs"
-                        : "border-border hover:border-foreground/20 hover:bg-muted/40"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="size-3.5 rounded-full border border-black/10 shrink-0"
-                          style={{ backgroundColor: p.swatch }}
-                        />
-                        <span className="text-xs font-bold text-foreground">{p.name}</span>
-                      </div>
-                      {isSelected && <Check className="size-4 text-primary shrink-0" />}
-                    </div>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      {p.description}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
+            {canManageThemes && (
+              <Link to="/modules#themes" onClick={() => onOpenChange(false)}
+                    className="inline-flex h-8 shrink-0 items-center rounded-md border border-input bg-card px-3 text-xs font-medium shadow-xs hover:bg-accent">
+                المظاهر
+              </Link>
+            )}
           </div>
 
           {/* 2. Layout Modes */}

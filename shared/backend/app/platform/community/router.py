@@ -19,17 +19,9 @@ community = APIRouter(prefix="/community", tags=["Community modules"])
 
 
 async def _read_package(file: UploadFile, db: AsyncSession):
-    from app.framework import package as mzm
-    from app.platform.developers.service import key_revoked
+    from app.platform.developers.service import verify_upload
 
-    data = await file.read(mzm.MAX_BYTES + 1)
-    try:
-        pkg = mzm.verify(data)
-    except mzm.PackageError as e:
-        raise HTTPException(422, f"تعذر قبول الحزمة: {e}") from None
-    if await key_revoked(db, pkg.key_id):  # ADR-007 D5: the developer's key was revoked in the portal
-        raise HTTPException(422, "تعذر قبول الحزمة: مفتاح توقيع المطور أُلغي")
-    return pkg
+    return await verify_upload(file, db, "community")
 
 
 async def _installed_row(db: AsyncSession, module_id: str):

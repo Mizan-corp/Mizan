@@ -10,6 +10,26 @@ import { DOCS_UPDATED as UPDATED, EXT_API as EXT, SDK_URL } from "./sdk";
 
 export { SDK_WHEEL } from "./sdk";
 
+const THEME = `{
+  "id": "acme.sunrise",
+  "name": "شروق",
+  "name_en": "Sunrise",
+  "version": "1.0.0",
+  "kind": "theme",
+  "description": "برتقالي دافئ وحواف دائرية وحركة هادئة.",
+  "colors": {
+    "light": {"background": "#FAF6F0", "foreground": "#262321", "primary": "oklch(0.55 0.17 40)", "...": "..."},
+    "dark":  {"background": "#270F16", "foreground": "#FAF6F0", "primary": "oklch(0.72 0.15 50)", "...": "..."}
+  },
+  "fonts": {
+    "body": "Sunrise Sans",
+    "files": [{"family": "Sunrise Sans", "src": "assets/sunrise-sans.woff2", "weight": "100 900"}]
+  },
+  "radius": "1.25rem",
+  "shadows": "raised",
+  "motion": "reduced"
+}`;
+
 const AR: DocSection[] = [
   {
     id: "start",
@@ -220,6 +240,35 @@ const AR: DocSection[] = [
           ],
         },
       },
+      {
+        slug: "themes",
+        title: "حزم المظاهر",
+        titleEn: "Theme packs",
+        description: "ألوان وخطوط وحواف وظلال وحركة لمساحة عمل كاملة.",
+        category: "بناء الوحدة",
+        lastUpdated: UPDATED,
+        content: {
+          overview:
+            "حزمة المظهر تغيّر شكل ميزان كله في مساحة عمل: ألوانه في الوضعين الفاتح والداكن، وخطوطه، واستدارة الحواف، والظلال، والحركة. يثبّتها مدير المنشأة ويجعلها مظهرها؛ فيراها كل من فيها، والمستندات المطبوعة كذلك. المظهر بلا كود ولا يصل إلى أي بيانات.",
+          sections: [
+            { id: "example", title: "manifest.json", body: "حزمة المظهر ملف manifest.json نوعه \"theme\"، وملفات خطوطه في assets/. ابدأ من مظهر ميزان نفسه بالأمر mizan theme new acme.sunrise.", codeBlock: { language: "json", filename: "manifest.json", code: THEME } },
+            {
+              id: "colors",
+              title: "الألوان",
+              body:
+                "colors.light و colors.dark تضبطان رموز التصميم في التطبيق. المطلوب: background و foreground و card و card-foreground و primary و primary-foreground و secondary و secondary-foreground و muted و muted-foreground و accent و accent-foreground و border و input و ring و sidebar و sidebar-foreground و sidebar-primary و sidebar-primary-foreground و sidebar-accent و sidebar-accent-foreground و sidebar-border و sidebar-ring. واختياريًا: popover و destructive و success و warning (ولكل منها -foreground) و chart-1 … chart-5.\n\nالقيم #hex أو rgb() أو oklch(). يجب أن يبقى النص مقروءًا: تباين 4.5 للنص على الخلفية وعلى البطاقة وعلى الشريط الجانبي، و3 للباقي. يخبرك mizan check بأي زوج لا يكفي.",
+            },
+            {
+              id: "fonts",
+              title: "الخطوط والحواف والظلال والحركة",
+              body:
+                "• fonts.body و fonts.display و fonts.mono: أسماء الخطوط. ضع ملفاتها في assets/ واذكرها في fonts.files ({family, src, weight: \"400\" أو مدى \"100 900\", style})؛ يقدّمها ميزان بنفسه فتعمل المظاهر على الخوادم المحلية دون إنترنت. خط بلا ملفات يجب أن يكون موجودًا على الجهاز.\n• radius: استدارة الحواف الأساسية، مثل 0.75rem.\n• shadows: flat أو soft أو raised.\n• motion: full أو reduced أو none (للكاشير المزدحم ولسهولة الوصول).\n• density: comfortable أو compact، افتراضي يستطيع كل مستخدم تغييره على جهازه.",
+              callout: { type: "tip", text: "تطبيق ميزان عربي غالبًا: اختر خطوطًا فيها الحروف العربية، وإلا ظهر النص العربي بالخط الافتراضي." },
+            },
+            { id: "ship", title: "توزيع المظهر", body: "mizan check و mizan package كما للوحدات؛ ويثبّته صاحب المنشأة من مركز الوحدات ← المظاهر ← تثبيت مظهر من ملف، ثم يختاره. التثبيت لا يغيّر المظهر الحالي. وللأنشطة أيضًا مظاهرها الخاصة (activities/<activity>/themes/)." },
+          ],
+        },
+      },
     ],
   },
   {
@@ -393,6 +442,7 @@ const AR: DocSection[] = [
 mizan whoami                      # حسابك وفرقك
 mizan logout
 mizan module new acme.visits      # وحدة من القالب
+mizan theme new acme.sunrise      # حزمة مظهر من مظهر ميزان
 mizan check [folder]              # نفس فحص المنصة
 mizan keys new [--team acme] [--name laptop]
 mizan package [folder] [--key ...] [--certificate ...] [--out ...]`,

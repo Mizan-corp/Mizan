@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/kit/badge";
 import { CommunityModules } from "@app/platform/community/components/CommunityModules";
+import { ThemesSection } from "@app/platform/themes/components/ThemesSection";
 import { Button, buttonVariants } from "@/components/kit/button";
 import { Card } from "@/components/kit/card";
 import { Input, Modal, useToast } from "@/components/ui";
@@ -590,6 +591,8 @@ export default function ModulesPage() {
           retention.refetch();
         }}
       />
+
+      <ThemesSection />
 
       <CommunityModules />
 

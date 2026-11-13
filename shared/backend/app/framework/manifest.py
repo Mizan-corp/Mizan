@@ -209,3 +209,154 @@ def entity_problems(e: dict, entity_ids: set[str], scopes: set[str]) -> list[str
                     if k not in known:
                         p.append(f"{where}: form field {k} isn't a field")
     return p
+
+
+# ── Theme packs (ADR-010 D3) ─────────────────────────────────────────────────────
+# A theme sets the app's design tokens (the CSS variables of shared/frontend/src/styles.css) for
+# light and dark, and picks fonts, corner radius, shadows and motion. Only these keys and strict
+# value formats are accepted, so a theme can't inject CSS or break layouts.
+
+THEME_REQUIRED = ("background", "foreground", "card", "card-foreground", "primary", "primary-foreground",
+                  "secondary", "secondary-foreground", "muted", "muted-foreground", "accent", "accent-foreground",
+                  "border", "input", "ring", "sidebar", "sidebar-foreground", "sidebar-primary",
+                  "sidebar-primary-foreground", "sidebar-accent", "sidebar-accent-foreground", "sidebar-border",
+                  "sidebar-ring")
+THEME_OPTIONAL = ("popover", "popover-foreground", "destructive", "destructive-foreground", "success",
+                  "success-foreground", "warning", "warning-foreground", "chart-1", "chart-2", "chart-3",
+                  "chart-4", "chart-5")
+THEME_TOKENS = THEME_REQUIRED + THEME_OPTIONAL
+THEME_SHADOWS = ("flat", "soft", "raised")
+THEME_MOTION = ("full", "reduced", "none")
+THEME_DENSITY = ("comfortable", "compact")
+FONT_FILE = re.compile(r"^assets/[A-Za-z0-9_.-]+\.(woff2|woff|ttf|otf)$")
+FONT_WEIGHT = re.compile(r"^[1-9]00( [1-9]00)?$")
+FONT_FAMILY = re.compile(r"^[A-Za-z0-9 \u0600-\u06FF-]{1,64}$")
+RADIUS = re.compile(r"^(0|\d(\.\d{1,3})?rem|\d{1,2}px)$")
+THEME_ID = re.compile(r"^[a-z][a-z0-9_]{1,31}(\.[a-z][a-z0-9_]{1,47})?$")  # mizan | <developer>.<theme>
+_HEX = re.compile(r"^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
+_NUM = r"-?\d+(\.\d+)?%?"
+_RGB = re.compile(rf"^rgba?\(\s*({_NUM})[\s,]+({_NUM})[\s,]+({_NUM})(\s*[,/]\s*{_NUM})?\s*\)$")
+_OKLCH = re.compile(rf"^oklch\(\s*({_NUM})\s+({_NUM})\s+({_NUM})(\s*/\s*{_NUM})?\s*\)$")
+# Text must stay readable on what it sits on (WCAG ratios): body text 4.5, the rest 3.
+CONTRAST = (("foreground", "background", 4.5), ("card-foreground", "card", 4.5),
+            ("sidebar-foreground", "sidebar", 4.5), ("primary-foreground", "primary", 3.0),
+            ("muted-foreground", "background", 3.0), ("secondary-foreground", "secondary", 3.0),
+            ("accent-foreground", "accent", 3.0))
+
+
+def _channel(v: str, scale: float) -> float:
+    return float(v[:-1]) / 100 * scale if v.endswith("%") else float(v)
+
+
+def color_rgb(value: str) -> tuple[float, float, float] | None:
+    """A token's colour as sRGB 0–1, or None when it isn't a colour the app accepts."""
+    import math
+
+    v = value.strip()
+    if m := _HEX.match(v):
+        h = m.group(1)
+        if len(h) == 3:
+            h = "".join(c * 2 for c in h)
+        return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))  # type: ignore[return-value]
+    if m := _RGB.match(v):
+        return tuple(min(1.0, max(0.0, _channel(m.group(i), 255) / 255)) for i in (1, 3, 5))  # type: ignore[return-value]
+    if m := _OKLCH.match(v):
+        lightness, chroma, hue = _channel(m.group(1), 1), _channel(m.group(3), 0.4), float(m.group(5).rstrip("%"))
+        a, b = chroma * math.cos(math.radians(hue)), chroma * math.sin(math.radians(hue))
+        lg = (lightness + 0.3963377774 * a + 0.2158037573 * b) ** 3
+        mg = (lightness - 0.1055613458 * a - 0.0638541728 * b) ** 3
+        sg = (lightness - 0.0894841775 * a - 1.2914855480 * b) ** 3
+        lin = (4.0767416621 * lg - 3.3077115913 * mg + 0.2309699292 * sg,
+               -1.2684380046 * lg + 2.6097574011 * mg - 0.3413193965 * sg,
+               -0.0041960863 * lg - 0.7034186147 * mg + 1.7076147010 * sg)
+        return tuple(min(1.0, max(0.0, c * 12.92 if c <= 0.0031308 else 1.055 * c ** (1 / 2.4) - 0.055))
+                     for c in (min(1.0, max(0.0, x)) for x in lin))  # type: ignore[return-value]
+    return None
+
+
+def _luminance(value: str) -> float | None:
+    rgb = color_rgb(value)
+    if rgb is None:
+        return None
+    lin = tuple(c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb)
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+def contrast(a: str, b: str) -> float | None:
+    la, lb = _luminance(a), _luminance(b)
+    if la is None or lb is None:
+        return None
+    hi, lo = max(la, lb), min(la, lb)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def theme_problems(t: dict, package: bool = False) -> list[str]:
+    """What's wrong with a theme (theme.json, or a theme package's manifest.json); [] when fine.
+    A package's id is '<developer>.<theme>'."""
+    p: list[str] = []
+    if not isinstance(t, dict):
+        return ["a theme must be a JSON object"]
+    tid = t.get("id")
+    if not isinstance(tid, str) or not THEME_ID.match(tid):
+        p.append("id must be lower-case letters, digits and _, e.g. acme.sunrise")
+    elif package and not MODULE_ID.match(tid):
+        p.append("a theme package's id is '<developer>.<theme>', e.g. acme.sunrise")
+    for k in ("name", "name_en"):
+        if not _text(t.get(k)):
+            p.append(f"{k} is required (1–128 characters)")
+    if not isinstance(t.get("version"), str) or not VERSION.match(t["version"]):
+        p.append("version must be MAJOR.MINOR.PATCH, e.g. 1.0.0")
+    if t.get("kind") != "theme":
+        p.append("kind must be 'theme'")
+    known = {"id", "name", "name_en", "version", "kind", "description", "colors", "fonts", "radius", "shadows",
+             "motion", "density", "preview"}
+    for k in sorted(set(t) - known):
+        p.append(f"'{k}' isn't a theme field")
+    colors = t.get("colors")
+    if not isinstance(colors, dict) or set(colors) != {"light", "dark"}:
+        p.append("colors must have 'light' and 'dark'")
+        colors = {}
+    for mode, tokens in colors.items():
+        if not isinstance(tokens, dict):
+            p.append(f"colors.{mode} must be an object")
+            continue
+        for k in THEME_REQUIRED:
+            if k not in tokens:
+                p.append(f"colors.{mode}: '{k}' is required")
+        for k, v in tokens.items():
+            if k not in THEME_TOKENS:
+                p.append(f"colors.{mode}: unknown token '{k}'")
+            elif not isinstance(v, str) or color_rgb(v) is None:
+                p.append(f"colors.{mode}.{k}: use #hex, rgb() or oklch()")
+        for fg, bg, minimum in CONTRAST:
+            if fg in tokens and bg in tokens:
+                ratio = contrast(str(tokens[fg]), str(tokens[bg]))
+                if ratio is not None and ratio < minimum:
+                    p.append(f"colors.{mode}: {fg} on {bg} has contrast {ratio:.1f}, needs {minimum}")
+    fonts = t.get("fonts", {})
+    if not isinstance(fonts, dict):
+        p.append("fonts must be an object")
+        fonts = {}
+    for k, v in fonts.items():
+        if k in ("body", "display", "mono"):
+            if not isinstance(v, str) or not FONT_FAMILY.match(v):
+                p.append(f"fonts.{k}: a font family name (letters, digits, spaces)")
+        elif k == "files":
+            # [{"family": "Sunrise Sans", "src": "assets/sunrise.woff2", "weight": "400", "style": "normal"}]
+            if not isinstance(v, list) or len(v) > 12:
+                p.append("fonts.files: a list of up to 12 font files")
+                continue
+            for f in v:
+                if not (isinstance(f, dict) and set(f) <= {"family", "src", "weight", "style"}
+                        and isinstance(f.get("family"), str) and FONT_FAMILY.match(f["family"])
+                        and isinstance(f.get("src"), str) and FONT_FILE.match(f["src"])
+                        and FONT_WEIGHT.match(str(f.get("weight", "400"))) and f.get("style", "normal") in ("normal", "italic")):
+                    p.append("fonts.files: each is {family, src: assets/….woff2, weight: 400 or 100 900, style}")
+        else:
+            p.append(f"fonts.{k} isn't known (body, display, mono, files)")
+    if "radius" in t and not (isinstance(t["radius"], str) and RADIUS.match(t["radius"])):
+        p.append("radius: e.g. 0.75rem or 8px")
+    for key, allowed in (("shadows", THEME_SHADOWS), ("motion", THEME_MOTION), ("density", THEME_DENSITY)):
+        if key in t and t[key] not in allowed:
+            p.append(f"{key} must be one of {', '.join(allowed)}")
+    return p

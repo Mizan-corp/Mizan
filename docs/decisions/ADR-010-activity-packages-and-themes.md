@@ -102,6 +102,30 @@ A theme is a folder with `theme.json`:
 3. Activity packages (D2): the CLI (`mizan activity new`, `check`, `package`), validation and
    verification; installing them with #107.
 
+## As built
+
+- **Step 1 (2026-11-13)**: all 30 activities moved (149 modules; pharmacy, restaurant, retail and
+  salon now own their POS variants, pharmacy its inventory one). Loader, variants, hooks,
+  scaffold, frontend registry (`@activities/…`), tests and docs follow the layout.
+- **Step 2 (2026-11-13)**: theme packs.
+  - Format and checks: `theme_problems()` in `app/framework/manifest.py` (so the CLI checks the
+    same way): required and optional tokens, `#hex` / `rgb()` / `oklch()` only, WCAG contrast
+    (4.5 for body text on background, card and sidebar; 3 for the rest), font families and files
+    (`fonts.files: [{family, src, weight, style}]`), radius, shadows, motion, density.
+  - Mizan's themes: `app/themes/<id>/theme.json`, today's six palettes extracted from the CSS so
+    their look is unchanged. Activities' themes: `activities/<activity>/themes/<id>/` (ids start
+    with the activity). Packages: `.mzm` with `kind: "theme"` (its manifest is the theme, fonts in
+    `assets/`), table `workspace_themes` (v73, RLS), installed from the module centre.
+  - Platform engine `app/platform/themes/`: `GET /themes/current` (everyone), `GET /themes`,
+    `PUT /themes/current`, packages inspect/install, `DELETE /themes/{id}` (permission
+    `themes.manage`), public font files. The workspace's theme is `tenants.palette["name"]`; the
+    resolve and `/auth/me` payloads carry the resolved theme, which `shared/frontend/src/lib/theme.ts`
+    turns into CSS variables, `@font-face`, radius, shadows and motion (`data-motion`). The
+    appearance dialog keeps only device choices (dark mode, layout, density). Printed invoices use
+    the theme's brand colour (as hex) unless the workspace set a print colour.
+  - SDK: `mizan theme new`, `check` and `package` for themes; docs article "Theme packs".
+- **Step 3**: activity packages (to do).
+
 ## Consequences
 
 - An activity is a unit a team can own, review, test, and later hand to a developer as a

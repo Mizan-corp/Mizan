@@ -77,3 +77,26 @@ def test_login_and_certified_keys(home, monkeypatch, capsys):
     method, path, token, body = calls[-1]
     assert (method, path, token) == ("POST", "/teams/acme/keys", "mzd_abc") and len(body["public_key"]) == 43
     assert main(["logout"]) == 0 and not (home / ".mizan" / "credentials.json").exists()
+
+
+def test_theme_new_check_package(home, capsys):
+    assert main(["theme", "new", "acme.sunrise"]) == 0
+    assert main(["check", "acme.sunrise"]) == 0
+    path = home / "acme.sunrise" / "manifest.json"
+    t = json.loads(path.read_text())
+    t["colors"]["light"]["foreground"] = "#F5F5F5"  # unreadable on a light background
+    t["fonts"] = {"body": "Sunrise", "files": [{"family": "Sunrise", "src": "assets/sunrise.woff2"}]}
+    path.write_text(json.dumps(t))
+    assert main(["check", "acme.sunrise"]) == 1
+    out = capsys.readouterr().out
+    assert "contrast" in out and "assets/sunrise.woff2 isn't in the folder" in out
+    t["colors"]["light"]["foreground"] = "#262321"
+    path.write_text(json.dumps(t))
+    (home / "acme.sunrise" / "assets" / "sunrise.woff2").write_bytes(b"wOF2")
+    assert main(["check", "acme.sunrise"]) == 0
+    assert main(["keys", "new"]) == 0
+    (home / ".mizan" / "default.cert").write_text("MZD1.x.y")
+    assert main(["package", "acme.sunrise"]) == 0
+    with zipfile.ZipFile(home / "acme.sunrise-0.1.0.mzm") as z:
+        assert {"manifest.json", "assets/sunrise.woff2", "SIGNATURE"} <= set(z.namelist())
+    assert "Themes" in capsys.readouterr().out

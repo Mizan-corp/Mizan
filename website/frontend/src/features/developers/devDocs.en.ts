@@ -50,6 +50,26 @@ const PAYLOAD = `{
            "lines": [{"product_id": "...", "qty": "1", "unit_price": "250.00", "discount": "0"}]}
 }`;
 
+const THEME = `{
+  "id": "acme.sunrise",
+  "name": "شروق",
+  "name_en": "Sunrise",
+  "version": "1.0.0",
+  "kind": "theme",
+  "description": "Warm orange, rounded corners, calm motion.",
+  "colors": {
+    "light": {"background": "#FAF6F0", "foreground": "#262321", "primary": "oklch(0.55 0.17 40)", "...": "..."},
+    "dark":  {"background": "#270F16", "foreground": "#FAF6F0", "primary": "oklch(0.72 0.15 50)", "...": "..."}
+  },
+  "fonts": {
+    "body": "Sunrise Sans",
+    "files": [{"family": "Sunrise Sans", "src": "assets/sunrise-sans.woff2", "weight": "100 900"}]
+  },
+  "radius": "1.25rem",
+  "shadows": "raised",
+  "motion": "reduced"
+}`;
+
 export const EN: DocSection[] = [
   {
     id: "start",
@@ -210,6 +230,35 @@ export const EN: DocSection[] = [
                 "• events:sale.confirmed: when a sale is confirmed\n• events:sale.returned: when a sale is returned (fully or partly)\n• events:customer.created: when a customer is added\n• events:product.updated: when a product changes\n\nrecord.created and record.updated (your module's records) need no scope.",
               callout: { type: "tip", text: "Ask for as little as you need: every extra scope is a reason for an owner to hesitate." },
             },
+          ],
+        },
+      },
+      {
+        slug: "themes",
+        title: "Theme packs",
+        titleEn: "Theme packs",
+        description: "Colours, fonts, corners, shadows and motion for a whole workspace.",
+        category: "Building a module",
+        lastUpdated: UPDATED,
+        content: {
+          overview:
+            "A theme pack changes how all of Mizan looks in a workspace: its colours in light and dark mode, its fonts, corner radius, shadows and motion. Its admin installs it and makes it the workspace's theme; everyone in the workspace sees it, printed documents included. A theme has no code and reaches no data.",
+          sections: [
+            { id: "example", title: "manifest.json", body: "A theme package is a manifest.json with kind \"theme\", plus its font files under assets/. Start from Mizan's own theme with mizan theme new acme.sunrise.", codeBlock: { language: "json", filename: "manifest.json", code: THEME } },
+            {
+              id: "colors",
+              title: "Colours",
+              body:
+                "colors.light and colors.dark set the app's design tokens. Required: background, foreground, card, card-foreground, primary, primary-foreground, secondary, secondary-foreground, muted, muted-foreground, accent, accent-foreground, border, input, ring, sidebar, sidebar-foreground, sidebar-primary, sidebar-primary-foreground, sidebar-accent, sidebar-accent-foreground, sidebar-border, sidebar-ring. Optional: popover, popover-foreground, destructive, success, warning (each with -foreground), chart-1 … chart-5.\n\nValues are #hex, rgb() or oklch(). Text must stay readable: foreground on background, card-foreground on card and sidebar-foreground on sidebar need a contrast of 4.5; the others 3. mizan check tells you which pair fails.",
+            },
+            {
+              id: "fonts",
+              title: "Fonts, corners, shadows and motion",
+              body:
+                "• fonts.body, fonts.display, fonts.mono: font family names. Ship the files in assets/ and list them in fonts.files ({family, src, weight: \"400\" or a range \"100 900\", style}); Mizan serves them itself, so themes work on on-site servers without internet. A family without files must be one the device has.\n• radius: the base corner radius, e.g. 0.75rem.\n• shadows: flat, soft or raised.\n• motion: full, reduced or none (for busy tills and accessibility).\n• density: comfortable or compact, a default each user can change on their device.",
+              callout: { type: "tip", text: "Mizan's app is mostly Arabic: pick fonts with Arabic letters, or Arabic text falls back to the default font." },
+            },
+            { id: "ship", title: "Shipping a theme", body: "mizan check and mizan package work as for modules; the owner installs it from the module centre → المظاهر (themes) → install a theme from file, and chooses it. Installing doesn't change the current theme. Activities can also ship themes of their own (activities/<activity>/themes/)." },
           ],
         },
       },
@@ -374,6 +423,7 @@ export const EN: DocSection[] = [
 mizan whoami                      # your account and teams
 mizan logout
 mizan module new acme.visits      # a module from the template
+mizan theme new acme.sunrise      # a theme pack from Mizan's own
 mizan check [folder]              # the platform's own checks
 mizan keys new [--team acme] [--name laptop]
 mizan package [folder] [--key ...] [--certificate ...] [--out ...]`,

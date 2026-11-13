@@ -21,13 +21,13 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 
-from app.framework.manifest import community_manifest_problems, entity_problems
+from app.framework.manifest import community_manifest_problems, entity_problems, theme_problems
 
 FORMAT = 1
 CERT_PREFIX = "MZD1"
 MAX_BYTES = 4 * 1024 * 1024  # Vercel functions accept request bodies up to 4.5 MB
 MAX_FILES = 200
-ALLOWED = (".json", ".png", ".svg", ".webp", ".jpg", ".md", ".txt")
+ALLOWED = (".json", ".png", ".svg", ".webp", ".jpg", ".md", ".txt", ".woff2", ".woff", ".ttf", ".otf")
 TOP = ("manifest.json", "SIGNATURE", "README.md", "CHANGELOG.md")
 FOLDERS = ("entities", "i18n", "assets")
 
@@ -68,6 +68,11 @@ class Package:
     developer: str = ""
     key_id: str = ""
     sha256: str = ""
+
+    @property
+    def kind(self) -> str:
+        """"community" (a module) or "theme" (ADR-010 D3)."""
+        return self.manifest.get("kind", "community")
 
 
 def read_unverified(data: bytes) -> tuple[dict[str, bytes], dict]:
@@ -139,6 +144,16 @@ def parse(files: dict[str, bytes]) -> Package:
                     if n.startswith("entities/") and n.endswith(".json")}
     except (KeyError, ValueError) as e:
         raise PackageError(f"Invalid JSON in the package: {e}") from None
+    if isinstance(manifest, dict) and manifest.get("kind") == "theme":
+        # A theme package: its manifest is the theme; besides it only assets (fonts, previews).
+        problems = theme_problems(manifest, package=True)
+        problems += [f"A theme package holds no {n}" for n in files if n.startswith(("entities/", "i18n/"))]
+        srcs = [f.get("src") for f in (manifest.get("fonts") or {}).get("files") or [] if isinstance(f, dict)]
+        missing = [f for f in srcs if f not in files]
+        problems += [f"fonts.files: {f} isn't in the package" for f in missing]
+        if problems:
+            raise PackageError("; ".join(problems[:12]))
+        return Package(manifest=manifest, entities={}, files=files)
     problems = community_manifest_problems(manifest, set(entities))
     scopes = set(manifest.get("scopes") or []) if isinstance(manifest, dict) else set()
     for name, entity in entities.items():

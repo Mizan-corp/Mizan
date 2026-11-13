@@ -295,3 +295,21 @@ async def revoke_cli_token(db: AsyncSession, user: DeveloperUser, token_id: uuid
         raise HTTPException(404, _("Token not found", "الرمز غير موجود"))
     t.revoked_at = t.revoked_at or datetime.now(UTC)
     await db.commit()
+
+
+async def verify_upload(file, db: AsyncSession, kind: str):
+    """A package uploaded to a workspace (a module or a theme): genuine, of the expected kind,
+    and not signed with a key revoked in the portal. Arabic messages: the workspace app is Arabic."""
+    from app.framework import package as mzm
+
+    data = await file.read(mzm.MAX_BYTES + 1)
+    try:
+        pkg = mzm.verify(data)
+    except mzm.PackageError as e:
+        raise HTTPException(422, f"تعذر قبول الحزمة: {e}") from None
+    if await key_revoked(db, pkg.key_id):  # ADR-007 D5
+        raise HTTPException(422, "تعذر قبول الحزمة: مفتاح توقيع المطور أُلغي")
+    if pkg.kind != kind:
+        raise HTTPException(422, "هذه الحزمة مظهر؛ ثبّتها من قسم المظاهر" if pkg.kind == "theme"
+                            else "هذه الحزمة وحدة؛ ثبّتها من قسم وحدات المطورين")
+    return pkg

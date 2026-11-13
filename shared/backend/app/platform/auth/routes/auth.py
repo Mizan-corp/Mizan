@@ -58,6 +58,7 @@ async def get_roles(_=Depends(get_current_user)):
 @router.get("/me")
 async def me(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     from app.platform.tenancy.models import Tenant
+    from app.platform.themes.service import resolved as workspace_theme
     user = await db.merge(current_user)
     await db.refresh(user)
 
@@ -76,6 +77,7 @@ async def me(current_user: User = Depends(get_current_user), db: AsyncSession = 
                 "sector": t.sector,
                 "business_type": t.business_type,
                 "palette": t.palette or {"name": "neutral", "hue": 0},
+                "theme": await workspace_theme(db, t),  # ADR-010 D3
                 "active_modules": t.active_modules or ["pos", "inventory"],
                 "deployment_mode": t.deployment_mode,
                 "tech_stack": t.tech_stack or {},

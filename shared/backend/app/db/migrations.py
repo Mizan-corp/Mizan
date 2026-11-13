@@ -3067,6 +3067,27 @@ MIGRATIONS = [
             revoked_at timestamptz
         );
     """),
+    # ADR-010 D3: theme packages installed in a workspace (Mizan's and activities' themes are files).
+    ("v73_workspace_themes", """
+        CREATE TABLE IF NOT EXISTS workspace_themes (
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+                DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+            theme_id varchar(80) NOT NULL,
+            version varchar(32) NOT NULL,
+            developer varchar(32) NOT NULL,
+            theme jsonb NOT NULL,
+            assets jsonb NOT NULL DEFAULT '{}'::jsonb,
+            package_sha256 varchar(64),
+            installed_by uuid,
+            installed_at timestamptz DEFAULT now(),
+            PRIMARY KEY (tenant_id, theme_id)
+        );
+        ALTER TABLE workspace_themes ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE workspace_themes FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON workspace_themes;
+        CREATE POLICY tenant_isolation ON workspace_themes
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

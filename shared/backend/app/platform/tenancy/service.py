@@ -102,6 +102,12 @@ async def create_workspace(
     from app.framework.composition import base_modules, installable
 
     modules = canonical_modules(base_modules(sector) + [f for f in canonical_modules(features) if installable(f, sector)[0]])
+    # The theme (ADR-010 D3): the one chosen at signup, else the activity's default, else Mizan's.
+    from app.framework.variants import activity as activity_def
+    from app.platform.themes.service import file_themes
+
+    if palette not in file_themes():
+        palette = activity_def(sector).get("theme") if activity_def(sector).get("theme") in file_themes() else "mizan"
     tenant = Tenant(
         id=uuid.uuid4(),
         name=name.strip(),

@@ -1,0 +1,26 @@
+{
+  "id": "themes",
+  "name": "المظاهر",
+  "name_en": "Themes",
+  "activity": "general",
+  "kind": "platform",
+  "status": "active",
+  "version": "0.1.0",
+  "icon": "Palette",
+  "description": "مظهر المنشأة: ألوان وخطوط وحركة، من ميزان ومن نشاطها ومن حزم المطورين الموقّعة (ADR-010).",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [
+    {
+      "id": "themes.manage",
+      "name": "اختيار مظهر المنشأة وتثبيت المظاهر",
+      "name_en": "Choose the workspace theme and install themes"
+    }
+  ],
+  "screens": [],
+  "widgets": [],
+  "srs": [],
+  "settings_schema": [],
+  "is_core": true
+}

@@ -8,6 +8,7 @@ from app.catalog.sectors import SECTOR_PRIMARY_MODULES, SECTOR_PRIMARY_ROUTES
 from app.db.base import get_db
 from app.platform.settings.models import StoreSetting
 from app.platform.tenancy.models import Tenant
+from app.platform.themes.service import resolved as workspace_theme
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 
@@ -82,6 +83,7 @@ async def resolve_tenant_slug(slug_or_domain: str, db: AsyncSession = Depends(ge
         "status": tenant.status,
         "plan": tenant.plan,
         "palette": tenant.palette,
+        "theme": await workspace_theme(db, tenant),
         "deployment_mode": tenant.deployment_mode,
         "active_modules": active_mods,
         "limits": tenant.limits,

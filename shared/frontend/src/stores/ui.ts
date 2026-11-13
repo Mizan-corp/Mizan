@@ -155,7 +155,8 @@ function applyAllDomPreferences(
   const root = document.documentElement;
   root.setAttribute("data-density", density);
   root.setAttribute("data-layout", layout);
-  root.setAttribute("data-theme", palette);
+  // A workspace's theme pack (lib/theme) owns data-theme while it's applied (ADR-010 D3).
+  if (!document.getElementById("mizan-theme")) root.setAttribute("data-theme", palette);
 
   if (themeMode === "dark") {
     root.classList.add("dark");

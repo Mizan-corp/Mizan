@@ -1,3 +1,4 @@
+import { applyTheme, type ThemePack } from "@/lib/theme";
 import { create } from "zustand";
 
 export type Role = "admin" | "manager" | "cashier" | "storekeeper" | "accountant" | "superadmin";
@@ -48,6 +49,8 @@ export interface TenantInfo {
   primary_route?: string | null;
   scale: string;
   palette: { name?: string; hue?: number };
+  /** The workspace's theme pack (ADR-010 D3), applied with lib/theme. */
+  theme?: ThemePack;
   features: string[];
   active_modules?: string[];
   plan: string;
@@ -117,12 +120,21 @@ function load(): { token: string | null; user: User | null } {
   return { token: null, user: null };
 }
 
+// The last workspace's theme straight away, before it's resolved again (no flash of the default).
+try {
+  const stored = JSON.parse(localStorage.getItem(TENANT_KEY) ?? "null") as TenantInfo | null;
+  if (stored?.theme) applyTheme(stored.theme);
+} catch {
+  /* nothing stored */
+}
+
 export const useAuth = create<AuthState>((set, get) => ({
   ...load(),
   tenant: null,
   setTenant: (tenant) => {
     set({ tenant });
     applyBrandHue(tenant?.palette?.hue);
+    applyTheme(tenant?.theme);
     if (tenant) {
       localStorage.setItem(TENANT_KEY, JSON.stringify(tenant));
       if (tenant.slug && tenant.slug !== "undefined" && tenant.slug !== "null") {

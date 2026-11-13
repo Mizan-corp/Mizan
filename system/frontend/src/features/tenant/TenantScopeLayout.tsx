@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useParams, Navigate } from "react-router-dom";
 import { api, ApiError } from "@/lib/api";
 import { useAuth, type TenantInfo } from "@/stores/auth";
-import { useUiStore, type ThemePalette } from "@/stores/ui";
 import { useModulesStore } from "@app/stores/modules";
 import Shell from "@app/components/AppShell";
 import LoginPage from "@app/features/auth/LoginPage";
@@ -55,10 +54,7 @@ export default function TenantScopeLayout() {
         );
         if (!isMounted) return;
 
-        setTenant(resolved);
-        if (resolved.palette?.name) {
-          useUiStore.getState().setPalette(resolved.palette.name as ThemePalette);
-        }
+        setTenant(resolved); // applies the workspace's theme too (ADR-010 D3)
         if (resolved.active_modules && Array.isArray(resolved.active_modules)) {
           const currentMods = useModulesStore.getState().activeModules;
           const merged = Array.from(new Set([...currentMods, ...resolved.active_modules]));

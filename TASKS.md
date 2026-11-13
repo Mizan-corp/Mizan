@@ -46,9 +46,9 @@ developers wait for the mail work (#71, #72).
 Every business activity is one folder (`activities/<id>/`: activity.json, modules/, variants/,
 themes/, seed), so a developer can build a full Mizan business activity with the framework: the
 point Mizan advertises to developers. 1. Done 2026-11-13: all 30 activities moved (149 modules,
-5 variants now owned by their activity), backend and screens. 2. Theme packs: free now (Mizan's,
-the activity's, signed packages from file), paid with the marketplace; one theme per workspace,
-chosen by its admin. 3. Activity packages in the CLI (declarative until code modules run in
+5 variants now owned by their activity), backend and screens. 2. Done 2026-11-13: theme packs
+(Mizan's six, activities', signed packages from file; one theme per workspace, chosen by its
+admin; `mizan theme new`); paid themes with the marketplace. 3. Activity packages in the CLI (declarative until code modules run in
 containers); installing them with #107.
 
 **P3 — Platform for outside developers**

@@ -2,6 +2,7 @@
 
   mizan login                         sign in with a CLI token from the developer portal
   mizan module new acme.visits        a starter module in ./acme.visits
+  mizan theme new acme.sunrise        a starter theme pack (colours, fonts, radius, motion)
   mizan check [folder]                what Mizan would refuse, before you package
   mizan keys new --team acme          a signing key, certified by Mizan for your team
   mizan package [folder]              a signed .mzm for owners to install from file
@@ -73,6 +74,31 @@ def cmd_new(a) -> int:
         path.write_text(json.dumps(body, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (folder / "README.md").write_text(f"# {a.id}\n\nA Mizan community module. Docs: https://dev.allmizan.live/docs\n", encoding="utf-8")
     print(f"✔ Created {folder}. Next: edit it, then `mizan check {folder}` and `mizan package {folder}`.")
+    return 0
+
+
+def theme_starter(theme_id: str) -> dict:
+    """Mizan's own theme as a starting point: change the colours, fonts, radius and motion."""
+    from mizan_sdk.themes import MIZAN
+
+    name = theme_id.split(".", 1)[1].replace("_", " ").title()
+    return {**MIZAN, "id": theme_id, "name": name, "name_en": name, "version": "0.1.0",
+            "description": "وصف قصير للمظهر.", "fonts": {"body": "Manrope"}}
+
+
+def cmd_theme_new(a) -> int:
+    if not MODULE_ID.match(a.id):
+        print("✘ The id is '<developer>.<theme>' in lower case, e.g. acme.sunrise", file=sys.stderr)
+        return 2
+    folder = Path(a.dir or a.id)
+    if folder.exists() and any(folder.iterdir()):
+        print(f"✘ {folder} isn't empty", file=sys.stderr)
+        return 1
+    (folder / "assets").mkdir(parents=True, exist_ok=True)
+    (folder / "manifest.json").write_text(json.dumps(theme_starter(a.id), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (folder / "README.md").write_text(f"# {a.id}\n\nA Mizan theme pack. Fonts go in assets/ and are listed in fonts.files.\n"
+                                      "Docs: https://dev.allmizan.live/docs/themes\n", encoding="utf-8")
+    print(f"✔ Created {folder}. Edit manifest.json, then `mizan check {folder}` and `mizan package {folder}`.")
     return 0
 
 
@@ -208,7 +234,9 @@ def cmd_package(a) -> int:
     manifest = json.loads(files["manifest.json"])
     out = Path(a.out or f"{manifest['id']}-{manifest['version']}.mzm")
     out.write_bytes(data)
-    print(f"✔ {out} ({len(data) // 1024 + 1} KB). Owners install it from the app's module centre: Developer modules (وحدات المطورين) → Install from file.")
+    where = ("Themes (المظاهر) → Install a theme from file" if manifest.get("kind") == "theme"
+             else "Developer modules (وحدات المطورين) → Install from file")
+    print(f"✔ {out} ({len(data) // 1024 + 1} KB). Owners install it from the app's module centre: {where}.")
     return 0
 
 
@@ -230,7 +258,13 @@ def main(argv: list[str] | None = None) -> int:
     new.add_argument("--dir", help="folder (default: the id)")
     new.set_defaults(func=cmd_new)
 
-    check = sub.add_parser("check", help="check a module against Mizan's rules")
+    theme = sub.add_parser("theme", help="create theme packs").add_subparsers(dest="action", required=True)
+    tn = theme.add_parser("new", help="a starter theme")
+    tn.add_argument("id", help="<developer>.<theme>, e.g. acme.sunrise")
+    tn.add_argument("--dir", help="folder (default: the id)")
+    tn.set_defaults(func=cmd_theme_new)
+
+    check = sub.add_parser("check", help="check a module or theme against Mizan's rules")
     check.add_argument("dir", nargs="?", default=".")
     check.set_defaults(func=cmd_check)
 
