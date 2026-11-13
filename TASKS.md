@@ -14,10 +14,12 @@ cross-cutting fixes (#26, #27, #28, #59, #60, #61); on-site updates, backups and
 1. #85 Manual security follow-ups that need the owner (rotate the Paymob key, revoke old tokens).
 
 **P1 — Getting paid and owner basics**
-2. #65 Paymob live (waiting on Paymob), then #68 plan changes. Built and released, to be checked
-   in production and closed: #67 reconciliation, #69 PDF receipts, #70 the old upgrade flow
-   retired, #73 owner accounts in admin, #74 workspace settings, #76 link to the owner panel,
-   #79 website sign-in state.
+2. #65 Paymob live (Paymob activating the live account, expected 2026-11-15): test payments
+   work end to end on production (callbacks repointed 2026-11-13); then swap in the live
+   integrations. Done 2026-11-13: #68 plan changes (upgrades credit unused time as days,
+   downgrades start at period end), and checked in production and closed: #69 receipts, #70,
+   #74, #76, #79. Waiting on an admin-panel check: #67 (the «check with Paymob» action), #73.
+   #118: ERP PDF downloads (sales invoice URL; WeasyPrint on serverless).
 3. Deferred until mail is set up: #71 owner password reset, #72 verified email and phone.
 
 **P2 — The product customers use daily**
