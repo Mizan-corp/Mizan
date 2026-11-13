@@ -4,7 +4,7 @@
  */
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Blocks, FileUp, ShieldCheck, Trash2 } from "lucide-react";
+import { Blocks, Copy, FileUp, KeyRound, ShieldCheck, Trash2 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
 import { Badge } from "@/components/kit/badge";
@@ -35,6 +35,8 @@ export function CommunityModules() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [agreed, setAgreed] = useState(false);
   const [removing, setRemoving] = useState<Installed | null>(null);
+  const [tokenFor, setTokenFor] = useState<Installed | null>(null);
+  const [secret, setSecret] = useState<{ token: string; webhook_secret: string } | null>(null);
   const manage = can("community.manage");
 
   const list = useQuery({
@@ -82,6 +84,12 @@ export function CommunityModules() {
     onError: (e) => toast("error", e instanceof ApiError ? e.message : "تعذر الإزالة"),
   });
 
+  const issue = useMutation({
+    mutationFn: (id: string) => api.post<{ token: string; webhook_secret: string }>(`/community/modules/${encodeURIComponent(id)}/token`),
+    onSuccess: (r) => setSecret(r),
+    onError: (e) => toast("error", e instanceof ApiError ? e.message : "تعذر إنشاء الرمز"),
+  });
+
   if (!manage) return null;
 
   function choose(f: File | undefined) {
@@ -118,7 +126,12 @@ export function CommunityModules() {
                   </p>
                 </div>
               </div>
-              <Button size="sm" variant="ghost" onClick={() => setRemoving(m)} aria-label={`إزالة ${m.name}`}><Trash2 /> إزالة</Button>
+              <span className="flex gap-1">
+                <Button size="sm" variant="ghost" onClick={() => { setSecret(null); setTokenFor(m); }} aria-label={`رمز الربط لـ ${m.name}`}>
+                  <KeyRound /> رمز الربط
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setRemoving(m)} aria-label={`إزالة ${m.name}`}><Trash2 /> إزالة</Button>
+              </span>
             </li>
           ))}
         </ul>
@@ -169,6 +182,39 @@ export function CommunityModules() {
               </Button>
               <Button variant="outline" onClick={() => { setSummary(null); setFile(null); }}>إلغاء</Button>
             </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal open={!!tokenFor} onClose={() => { setTokenFor(null); setSecret(null); }} title={tokenFor ? `رمز الربط لـ «${tokenFor.name}»` : ""}>
+        {tokenFor && (
+          <div className="space-y-4 text-sm">
+            {!secret ? (
+              <>
+                <p className="text-muted-foreground">
+                  يحتاجه خادم المطور ليصل إلى ما وافقت عليه في مساحة العمل هذه. إنشاء رمز جديد يوقف أي رمز سابق فورًا.
+                </p>
+                <Button disabled={issue.isPending} onClick={() => issue.mutate(tokenFor.id)}>
+                  {issue.isPending ? <Spinner /> : <KeyRound />} إنشاء رمز جديد
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-muted-foreground">انسخهما الآن وأعطهما لمطور الوحدة؛ لن يظهر الرمز مرة أخرى.</p>
+                {([["رمز الربط (API)", secret.token], ["سر توقيع الإشعارات (Webhooks)", secret.webhook_secret]] as const).map(([label, value]) => (
+                  <div key={label} className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+                    <div className="flex items-center gap-2">
+                      <code className="code min-w-0 flex-1 truncate rounded-md border border-line bg-muted/40 px-2 py-1.5 text-xs" dir="ltr">{value}</code>
+                      <Button size="icon-sm" variant="outline" aria-label={`انسخ ${label}`}
+                              onClick={() => navigator.clipboard?.writeText(value).then(() => toast("success", "نُسخ"))}>
+                        <Copy />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         )}
       </Modal>

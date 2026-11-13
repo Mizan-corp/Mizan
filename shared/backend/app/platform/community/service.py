@@ -264,6 +264,7 @@ async def uninstall(db: AsyncSession, module_id: str, delete_records: bool = Fal
     row = await db.scalar(select(CommunityModule).where(CommunityModule.module_id == module_id))
     if row is None:
         raise HTTPException(404, "الوحدة غير مثبتة")
+    row.api_token_hash = None  # its server's token stops working at once
     if delete_records:
         await db.execute(delete(ExtRecord).where(ExtRecord.module_id == module_id))
         await db.delete(row)
@@ -296,3 +297,31 @@ def installed_out(row: CommunityModule) -> dict:
             "icon": row.manifest.get("icon"), "description": row.manifest.get("description") or "",
             "entities": [{"id": k, "name": e.get("name")} for k, e in (row.entities or {}).items()],
             "scopes": row.scopes or [], "installed_at": row.installed_at.isoformat() if row.installed_at else None}
+
+
+# ── Tokens (ADR-007 D4) ──────────────────────────────────────────────────────────
+
+TOKEN_PREFIX = "mzx_"
+
+
+def token_hash(token: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+async def issue_token(db: AsyncSession, module_id: str) -> dict:
+    """A new token for the module's server (any earlier one stops working), and its webhook
+    secret (kept if it has one). Shown once."""
+    import secrets
+
+    row = await db.scalar(select(CommunityModule).where(CommunityModule.module_id == module_id,
+                                                        CommunityModule.status == "active"))
+    if row is None:
+        raise HTTPException(404, "الوحدة غير مثبتة")
+    token = TOKEN_PREFIX + secrets.token_urlsafe(32)
+    row.api_token_hash = token_hash(token)
+    row.webhook_secret = row.webhook_secret or secrets.token_urlsafe(32)
+    row.token_created_at = datetime.now(UTC)
+    await db.commit()
+    return {"token": token, "webhook_secret": row.webhook_secret, "created_at": row.token_created_at.isoformat()}

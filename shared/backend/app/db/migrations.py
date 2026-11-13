@@ -2983,6 +2983,16 @@ MIGRATIONS = [
         CREATE POLICY tenant_isolation ON ext_records
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    # ADR-007 D4: the token a community module's server calls /ext/v1 with (stored hashed), and the
+    # secret its webhooks are signed with.
+    ("v70_community_tokens", """
+        ALTER TABLE community_modules ADD COLUMN IF NOT EXISTS api_token_hash varchar(64);
+        ALTER TABLE community_modules ADD COLUMN IF NOT EXISTS webhook_secret varchar(64);
+        ALTER TABLE community_modules ADD COLUMN IF NOT EXISTS token_created_at timestamptz;
+        -- Looked up across workspaces by the hash of a random 32-byte token (no collisions).
+        CREATE INDEX IF NOT EXISTS ix_community_modules_token ON community_modules (api_token_hash)
+            WHERE api_token_hash IS NOT NULL;
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

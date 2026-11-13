@@ -64,6 +64,9 @@ def _is_exempt(path: str) -> bool:
     # The scheduler (no browser, no cookies); authenticated by CRON_SECRET in a header.
     if rel.startswith(("/modules/automation/cron/", "/account/cron/")):
         return True
+    # Community modules' servers (ADR-007): no browser, no cookies; a scoped bearer token.
+    if rel.startswith("/ext/v1/"):
+        return True
     return rel in CSRF_EXEMPT_SUFFIXES
 
 

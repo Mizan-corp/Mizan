@@ -15,7 +15,7 @@ from app.dependencies import get_current_user, require_perm
 from app.platform.auth.models.user import User
 from app.platform.community import service
 
-router = APIRouter(prefix="/community", tags=["Community modules"])
+community = APIRouter(prefix="/community", tags=["Community modules"])
 
 
 async def _read_package(file: UploadFile):
@@ -36,12 +36,12 @@ async def _installed_row(db: AsyncSession, module_id: str):
     return await db.scalar(select(CommunityModule).where(CommunityModule.module_id == module_id))
 
 
-@router.get("/modules")
+@community.get("/modules")
 async def installed_modules(db: AsyncSession = Depends(get_db), _: User = Depends(require_perm("community.manage"))):
     return {"items": [service.installed_out(m) for m in await service.installed(db)]}
 
 
-@router.post("/packages/inspect")
+@community.post("/packages/inspect")
 async def inspect_package(file: UploadFile = File(...), db: AsyncSession = Depends(get_db),
                           _: User = Depends(require_perm("community.manage"))):
     """Verify a .mzm and say what it would add and may access (nothing is installed)."""
@@ -49,7 +49,7 @@ async def inspect_package(file: UploadFile = File(...), db: AsyncSession = Depen
     return service.summary(pkg, await _installed_row(db, pkg.manifest["id"]))
 
 
-@router.post("/packages/install")
+@community.post("/packages/install")
 async def install_package(file: UploadFile = File(...), approved_scopes: str = Form("[]"),
                           db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("community.manage"))):
     pkg = await _read_package(file)
@@ -61,19 +61,27 @@ async def install_package(file: UploadFile = File(...), approved_scopes: str = F
     return service.installed_out(row)
 
 
-@router.delete("/modules/{module_id}", status_code=204)
+@community.post("/modules/{module_id}/token")
+async def module_token(module_id: str, db: AsyncSession = Depends(get_db),
+                       _: User = Depends(require_perm("community.manage"))):
+    """A new connection token for the module's server (the previous one stops working), and the
+    secret its webhooks are signed with. Shown once."""
+    return await service.issue_token(db, module_id)
+
+
+@community.delete("/modules/{module_id}", status_code=204)
 async def uninstall_module(module_id: str, delete_records: bool = False, db: AsyncSession = Depends(get_db),
                            _: User = Depends(require_perm("community.manage"))):
     await service.uninstall(db, module_id, delete_records=delete_records)
 
 
-@router.get("/menu")
+@community.get("/menu")
 async def menu(db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """The installed modules' screens this user may open."""
     return {"items": await service.menu_items(db, user)}
 
 
-@router.get("/{module_id}/{entity}")
+@community.get("/{module_id}/{entity}")
 async def entity_definition(module_id: str, entity: str, db: AsyncSession = Depends(get_db),
                             user: User = Depends(get_current_user)):
     m, e = await service.module_entity(db, user, module_id, entity)
@@ -87,28 +95,28 @@ async def entity_definition(module_id: str, entity: str, db: AsyncSession = Depe
             "title": next((i["label"] for i in m.manifest.get("menu") or [] if i.get("entity") == entity), None)}
 
 
-@router.get("/{module_id}/{entity}/options/{key}")
+@community.get("/{module_id}/{entity}/options/{key}")
 async def reference_options(module_id: str, entity: str, key: str, q: str | None = None,
                             db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     m, e = await service.module_entity(db, user, module_id, entity)
     return {"items": await service.reference_options(db, m, e, key, q)}
 
 
-@router.get("/{module_id}/{entity}/records")
+@community.get("/{module_id}/{entity}/records")
 async def list_records(module_id: str, entity: str, q: str | None = None, page: int = Query(1, ge=1),
                        db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     m, e = await service.module_entity(db, user, module_id, entity)
     return await service.list_records(db, m, e, q, page)
 
 
-@router.post("/{module_id}/{entity}/records", status_code=201)
+@community.post("/{module_id}/{entity}/records", status_code=201)
 async def create_record(module_id: str, entity: str, values: dict[str, Any] = Body(...),
                         db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     m, e = await service.module_entity(db, user, module_id, entity)
     return service.record_out(await service.create_record(db, m, e, values, user.id))
 
 
-@router.get("/{module_id}/{entity}/records/{record_id}")
+@community.get("/{module_id}/{entity}/records/{record_id}")
 async def get_record(module_id: str, entity: str, record_id: uuid.UUID, db: AsyncSession = Depends(get_db),
                      user: User = Depends(get_current_user)):
     m, e = await service.module_entity(db, user, module_id, entity)
@@ -116,7 +124,7 @@ async def get_record(module_id: str, entity: str, record_id: uuid.UUID, db: Asyn
     return {**r, "labels": await service.labels_for(db, m, e, [r])}
 
 
-@router.put("/{module_id}/{entity}/records/{record_id}")
+@community.put("/{module_id}/{entity}/records/{record_id}")
 async def update_record(module_id: str, entity: str, record_id: uuid.UUID, values: dict[str, Any] = Body(...),
                         db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     m, e = await service.module_entity(db, user, module_id, entity)
@@ -124,8 +132,16 @@ async def update_record(module_id: str, entity: str, record_id: uuid.UUID, value
     return service.record_out(await service.update_record(db, m, e, r, values))
 
 
-@router.delete("/{module_id}/{entity}/records/{record_id}", status_code=204)
+@community.delete("/{module_id}/{entity}/records/{record_id}", status_code=204)
 async def delete_record(module_id: str, entity: str, record_id: uuid.UUID, db: AsyncSession = Depends(get_db),
                         user: User = Depends(get_current_user)):
     m, e = await service.module_entity(db, user, module_id, entity)
     await service.delete_record(db, await service.get_record(db, m, e, record_id))
+
+
+# The module's routers: the app's screens (/community) and the API for modules' servers (/ext/v1).
+from app.platform.community.ext_api import ext  # noqa: E402
+
+router = APIRouter()
+router.include_router(community)
+router.include_router(ext)
