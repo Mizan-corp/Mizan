@@ -183,3 +183,54 @@ def _activate_frontend(module_dir: Path) -> None:
     index = frontend_dir(module_dir) / "index.ts"
     if index.exists():
         index.write_text(index.read_text(encoding="utf-8").replace('status: "planned"', 'status: "active"'), encoding="utf-8")
+
+
+def catalog_markdown() -> str:
+    """docs/MODULE_CATALOG.md, generated from the manifests (`manage.py module catalog`)."""
+    acts = {f.parent.name: json.loads(f.read_text(encoding="utf-8")) for f in sorted((APP_DIR / "activities").glob("*/activity.json"))}
+
+    def mods(folder: Path) -> list[dict]:
+        return [json.loads(m.read_text(encoding="utf-8")) for m in sorted(folder.glob("*/manifest.json"))]
+
+    def short(text: str) -> str:
+        text = (text or "").replace("|", "/").replace("\n", " ")
+        return text if len(text) <= 140 else text[:137].rsplit(" ", 1)[0] + "…"
+
+    def subdirs(folder: Path) -> list[str]:
+        return sorted(p.name for p in folder.iterdir() if p.is_dir() and p.name != "__pycache__") if folder.is_dir() else []
+
+    lines = ["# Mizan ERP — Module Catalog", "",
+             "Every module, generated from the manifests by `python manage.py module catalog` (a test fails when",
+             "it's out of date); ids are folder names. A business activity is one folder (ADR-010):",
+             "`shared/backend/app/activities/<activity>/modules/<module_id>/`, screens in",
+             "`system/frontend/src/activities/<activity>/modules/<module_id>/`, with the activity's variants of",
+             "other activities' modules in `activities/<activity>/variants/<module>/`.",
+             "Status: **active** (built, offered) or *planned* (laid out from the SRS, not offered yet).", ""]
+    for a in ["general"] + sorted(x for x in acts if x != "general"):
+        act = acts[a]
+        if act.get("legacy_of"):
+            continue
+        folder = APP_DIR / "activities" / a
+        lines += [f"## {act.get('name_en', a)} (`{a}`, {act.get('family')})", ""]
+        if act.get("description"):
+            lines += [act["description"], ""]
+        variants, themes = subdirs(folder / "variants"), subdirs(folder / "themes")
+        lines += ["Turns on: " + (", ".join(f"`{m}`" for m in act.get("modules", [])) or "—") + "."
+                  + (" Adapts: " + ", ".join(f"`{v}`" for v in variants) + "." if variants else "")
+                  + (" Themes: " + ", ".join(themes) + "." if themes else ""), ""]
+        ms = mods(folder / "modules")
+        if ms:
+            lines += ["| Module | Name | Status | What it does |", "|---|---|---|---|"]
+            for d in ms:
+                status = "**active**" if d.get("status", "active") == "active" else "*planned*"
+                lines.append(f"| `{d['id']}` | {d.get('name_en') or d.get('name')} | {status} | {short(d.get('description'))} |")
+            lines.append("")
+    for title, folder in (("Platform modules (`app/platform/`)", APP_DIR / "platform"),
+                          ("Connectors (`app/integrations/`)", APP_DIR / "integrations")):
+        lines += [f"## {title}", "", "| Module | Name | What it does |", "|---|---|---|"]
+        lines += [f"| `{d['id']}` | {d.get('name_en') or d.get('name')} | {short(d.get('description'))} |" for d in mods(folder)]
+        lines.append("")
+    lines += ["## From outside developers", "",
+              "Community modules, theme packs and whole activities from developers are installed per workspace",
+              "from signed packages (ADR-007, ADR-010); they aren't in this catalogue. See `dev.allmizan.live/docs`.", ""]
+    return "\n".join(lines)

@@ -7,18 +7,24 @@ and admin apps, and rebuilds all of them.
 
 - `app/factory.py`: `create_app(title, routers, …)` builds every API with the same
   middleware, CORS, CSRF, error handling and `/health`.
-- `app/core/`: config, tenancy (ORM filter + `before_flush` stamping + RLS GUC), security, the print engine (`printing/`),
-  RBAC/ABAC, plans and sectors.
-- `app/models/`, `app/schemas/`, `app/services/`, `app/db/` (engine, tracked migrations,
-  SQL in `db/sql/`).
-- `app/api/routers/`: the ERP endpoint library (mounted by the system API).
+- `app/core/`: config, errors, pagination, rate limiting. `app/dependencies.py`: the current
+  user and `require_perm`. `app/middleware.py`: CSRF.
+- `app/models/registry.py` (imports every model so the schema is complete), `app/db/` (engine,
+  ordered migrations in `db/migrations.py`, baseline schema, bootstrap).
+- `app/framework/`: the module runtime (loader, variants and hooks, screens, scaffold) and the
+  package format shared with the SDK (`manifest.py`, `package.py`).
+- `app/platform/`: the engines every workspace has (auth, permissions, tenancy, printing,
+  licensing, billing, notifications, …), the platform's modules (module centre, scheduler, i18n,
+  community modules, themes) and the developer portal's accounts (`developers`).
 - `app/activities/<activity>/`: one folder per business activity (ADR-010): its definition
   (`activity.json`, positions, seed), its modules (`modules/<id>/`: models, routers, manifests,
   print templates), its variants of other activities' modules (`variants/<module>/`) and its
   themes. A module's id comes from its `manifest.json`; folder names must be valid on Windows.
+- `app/themes/`: Mizan's theme packs. `app/catalog/`: families and legacy ids.
+  `app/integrations/`: connectors (Paymob, Fawry, InstaPay, WhatsApp, POS hardware, webhooks).
 - `app/onprem/`: server mode for on-site installs (`setup`, `server`, `licence`, `checkin`,
-  `state`). `app/core/licensing.py` signs and verifies licence keys; `app/services/licences.py`
-  creates and extends them; `app/core/releases.py` lists the published installers.
+  `state`). `app/platform/licensing/` signs and verifies licence keys, release offers and
+  developer certificates; `app/platform/updates/` lists the published installers.
 
 Services depend on it via `pyproject.toml` (`[tool.uv.sources] mizan-shared = { path = "../../shared/backend" }`);
 Docker images install it from the repo root build context.
@@ -26,8 +32,9 @@ Docker images install it from the repo root build context.
 ## `frontend/`: the kit (`@mizan/shared`, imported as `@/`)
 
 - `components/`: shadcn/ui kit, app primitives, motion, logo.
-- `lib/`: API client (`VITE_API_URL` per app), formatting, plans, cross-app URLs (`urls.ts`)
-  and session handoff (`handoff.ts`).
-- `stores/`: auth and UI stores. `i18n/`, `styles.css` (design tokens).
+- `lib/`: API client (`VITE_API_URL` per app), formatting, plans, cross-app URLs (`urls.ts`),
+  session handoff (`handoff.ts`) and theme packs (`theme.ts`: applies a workspace's theme).
+- `stores/`: auth (applies the workspace's theme) and UI (device choices: dark mode, layout,
+  density). `i18n/`, `styles.css` (design tokens, Mizan's default values).
 - `features/billing/PricingPage.tsx`: used by the website (marketing layout) and the system
   app (in-app upgrades).

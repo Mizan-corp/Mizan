@@ -13,6 +13,7 @@ manage.py — one command line for the whole Mizan monorepo.
     python manage.py lint                                   ruff + TypeScript
     python manage.py check                                  lint + unit/backend tests + builds
     python manage.py vercel status | redeploy <project> | domains
+    python manage.py module new <activity> <id> "<name>" | scaffold | check | catalog   modules
     python manage.py cron   [--job NAME]                    background jobs in the system API
 
 Add --yes to skip confirmations and --verbose to print every command.
@@ -1008,6 +1009,10 @@ def cmd_module(opts: argparse.Namespace) -> None:
             die(str(err))
         ok(f"Created {folder.relative_to(ROOT)} and its screens folder")
         return
+    if opts.action == "catalog":
+        (ROOT / "docs" / "MODULE_CATALOG.md").write_text(scaffold.catalog_markdown(), encoding="utf-8")
+        ok("docs/MODULE_CATALOG.md regenerated from the manifests")
+        return
     if opts.action == "scaffold":
         created = scaffold.scaffold_all()
         ok(f"{len(created)} missing pieces created" if created else "Every module already has the full layout")
@@ -1047,7 +1052,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--skip-python", action="store_true", help="Don't create the .venv for tests and lint")
     add("doctor", cmd_doctor, "Check tools, dependencies and stack health")
 
-    p = add("stack", cmd_stack, "Database + the three APIs: up, down, restart, status, logs, build, update, shell")
+    p = add("stack", cmd_stack, "Database + the four APIs: up, down, restart, status, logs, build, update, shell")
     p.add_argument("action", choices=["up", "down", "restart", "status", "logs", "build", "update", "shell"])
     p.add_argument("service", nargs="?", help="e.g. system-api, website-api, owner-api, admin-api, db")
     p.add_argument("--build", action="store_true", help="With `up`: rebuild images first")
@@ -1062,20 +1067,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = add("dev", cmd_dev, "Run frontend dev servers (default: all)")
     p.add_argument("app", nargs="?", default="all", choices=APP_CHOICES)
-    p = add("build", cmd_build, "Type-check and build frontends (default: all three)")
+    p = add("build", cmd_build, "Type-check and build frontends (default: all four)")
     p.add_argument("app", nargs="?", default="all", choices=APP_CHOICES)
 
-    p = add("test", cmd_test, "Run tests: unit, backend, e2e or all (default: unit + backend)")
+    p = add("test", cmd_test, "Run tests: unit, backend (incl. website, owner, admin, installer, SDK), e2e, browser or all (default: unit + backend)")
     p.add_argument("suite", nargs="?", default=None, choices=["unit", "backend", "e2e", "browser", "all"])
-    add("lint", cmd_lint, "ruff (Python) + TypeScript for all three apps")
+    add("lint", cmd_lint, "ruff (Python) + TypeScript for all four apps")
     add("check", cmd_check, "Lint, unit and backend tests, and builds (CI minus e2e)")
 
     p = add("vercel", cmd_vercel, "Vercel: status, domains, redeploy <project>")
     p.add_argument("action", choices=["status", "domains", "redeploy"])
     p.add_argument("project", nargs="?", help="With `redeploy`: e.g. mizan-system-api")
 
-    p = add("module", cmd_module, "Modules (docs/MODULE_STANDARD.md): new, scaffold (fill missing files), check")
-    p.add_argument("action", choices=["new", "scaffold", "check"])
+    p = add("module", cmd_module, "Modules (docs/MODULE_STANDARD.md): new, scaffold (fill missing files), check, catalog (docs/MODULE_CATALOG.md)")
+    p.add_argument("action", choices=["new", "scaffold", "check", "catalog"])
     p.add_argument("activity", nargs="?", help="With `new`: the home activity, e.g. pharmacy")
     p.add_argument("id", nargs="?", help="With `new`: the module id, e.g. drug_interactions")
     p.add_argument("name", nargs="?", help="With `new`: the Arabic name")

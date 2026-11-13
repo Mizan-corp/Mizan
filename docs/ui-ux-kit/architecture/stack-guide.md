@@ -64,7 +64,7 @@ export function cn(...inputs: ClassValue[]) {
 
 ## Design-token mapping
 
-Use `bg-background`, `text-foreground`, `bg-primary`, `text-primary-foreground`, `border-border`, `ring-ring`, and other semantic utilities. Do not hard-code raw palette colors in components. Keep CSS variables in `styles/globals.css`.
+Use `bg-background`, `text-foreground`, `bg-primary`, `text-primary-foreground`, `border-border`, `ring-ring`, and other semantic utilities. Do not hard-code raw palette colors in components. In Mizan the CSS variables live in `shared/frontend/src/styles.css`, and a workspace's theme pack sets them at runtime (`lib/theme.ts`).
 
 ## Server/client boundaries
 

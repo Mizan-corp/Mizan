@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted; milestone 1 built (2026-11-13, see "Milestone 1 as built"). Proposed 2026-11-12. Details ADR-006's "Isolation" section and phases 6–7 (#104, #105).
+Accepted; milestone 1 built (2026-11-13, see "Milestone 1 as built"). ADR-010 extends the same
+packages to theme packs and whole business activities. Proposed 2026-11-12. Details ADR-006's "Isolation" section and phases 6–7 (#104, #105).
 Owner's decisions (2026-11-12): Mizan will move from Vercel to its own cluster of servers
 later, so **containers are the long-term sandbox**; the first milestone is **the developer portal,
 the docs and private modules**.

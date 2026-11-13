@@ -5,8 +5,8 @@ invoices, and everything the team changes. English, super-admins only.
 
 | | Folder | Local | Production |
 |---|---|---|---|
-| Frontend | `frontend/` | `python manage.py dev admin` → http://localhost:5175 | https://mizan-co-admin.vercel.app |
-| API | `backend/` | `docker compose up admin-api` → :8002 | https://mizan-co-admin-api.vercel.app |
+| Frontend | `frontend/` | `python manage.py dev admin` → http://localhost:5175 | https://allmizan.live/admin |
+| API | `backend/` | `docker compose up admin-api` → :8002 | https://admin-api.allmizan.live/api |
 
 Sign in with a platform account. On a fresh database `python manage.py db migrate`
 creates `platform` / `changeme` (override with `MIZAN_PLATFORM_USERNAME` /

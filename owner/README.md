@@ -5,15 +5,14 @@ subscriptions, payments and invoices. Arabic, right-to-left.
 
 | | Folder | Local | Production |
 |---|---|---|---|
-| Frontend | `frontend/` | `python manage.py dev owner` → http://localhost:5176 | https://mizan-co-owner.vercel.app |
-| API | `backend/` | `docker compose up owner-api` → :8003 | https://mizan-co-owner-api.vercel.app |
+| Frontend | `frontend/` | `python manage.py dev owner` → http://localhost:5176 | https://allmizan.live/owner |
+| API | `backend/` | `docker compose up owner-api` → :8003 | https://owner-api.allmizan.live/api |
 
 ## Who signs in where
 
-- **Owners** sign in on the app's `/login` (https://mizan-co-app.vercel.app/login; the
-  website's "Sign in" goes there), which hands them to this panel. The panel has no sign-in
-  page: opening it signed out redirects to that `/login`, and `?next=` brings the owner back
-  to the page they wanted.
+- **Owners** sign in at https://allmizan.live/login (the website's "Sign in"), which forwards to
+  this panel's sign-in (`/owner/login`, ADR-008); `?next=` brings the owner back to the page
+  they wanted.
 - The website knows when an owner is signed in and then shows "Back to your panel" and
   "Sign out" instead of "Sign in" and "Get started". It keeps its own copy of the session
   (the apps are on separate domains): saved at signup, and by the app's `/login`, which
@@ -94,8 +93,8 @@ Two flows, chosen with `PAYMOB_FLOW` on the `mizan-owner-api` Vercel project:
 Callbacks: the intention flow passes `notification_url` = `OWNER_API_URL/account/paymob/callback`
 and `redirection_url` = `OWNER_APP_URL/payment/<invoice>` with each payment. The accept flow
 uses the integrations' settings instead: **processed callback** =
-`https://mizan-co-owner-api.vercel.app/api/account/paymob/callback`, **response callback** =
-`https://mizan-co-owner.vercel.app/payment` (the panel forwards to the invoice from
+`https://owner-api.allmizan.live/api/account/paymob/callback`, **response callback** =
+`https://allmizan.live/owner/payment` (the panel forwards to the invoice from
 `merchant_order_id`).
 
 How a payment goes: the owner picks a plan → `POST /account/workspaces/{id}/checkout`

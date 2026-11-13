@@ -54,39 +54,51 @@ of one shared kernel and one PostgreSQL database (see `docs/decisions/ADR-003-se
 
 | Folder | What it is | Frontend | Backend |
 |---|---|---|---|
-| `system/` | The ERP tenants use every day | `system/frontend` → mizan-co-app | `system/backend` → mizan-co-api |
-| `website/` | Landing, pricing, docs, signup, onboarding | `website/frontend` → mizan-co | `website/backend` → mizan-co-web-api |
-| `owner/` | The owner panel: an owner's workspaces, subscriptions, Paymob payments (Arabic) | `owner/frontend` → mizan-co-owner | `owner/backend` → mizan-co-owner-api |
-| `admin/` | The admin panel (English, Mizan team only) | `admin/frontend` → mizan-co-admin | `admin/backend` → mizan-co-admin-api |
+| `system/` | The ERP tenants use every day | `system/frontend` → `mizan-system` (`<workspace>.allmizan.live`) | `system/backend` → `mizan-system-api` (`api.allmizan.live`) |
+| `website/` | Landing, pricing, docs, signup, onboarding, the developer platform | `website/frontend` → `mizan-website` (`allmizan.live`, `dev.allmizan.live`) | `website/backend` → `mizan-website-api` (`web-api.allmizan.live`) |
+| `owner/` | The owner panel: an owner's workspaces, subscriptions, Paymob payments (Arabic) | `owner/frontend` → `mizan-owner` (`allmizan.live/owner`) | `owner/backend` → `mizan-owner-api` (`owner-api.allmizan.live`) |
+| `admin/` | The admin panel (English, Mizan team only) | `admin/frontend` → `mizan-admin` (`allmizan.live/admin`) | `admin/backend` → `mizan-admin-api` (`admin-api.allmizan.live`) |
 | `shared/` | Code every product uses | `shared/frontend` (design kit) | `shared/backend` (domain kernel) |
 | `installer/` | Single-device and LAN installs (ADR-005) | `installer/setup` (Mizan Setup, Tauri) | `installer/server` (mizan-server, PyInstaller) |
+| `sdk/` | `mizan-sdk` and the `mizan` CLI for outside developers (ADR-007, ADR-010) | — | `sdk/python` |
+
+The website app also serves the **developer platform** at `dev.allmizan.live` (under `/dev`
+elsewhere): its home, the developer portal and the developer docs, backed by the website API
+(ADR-007 D6).
 
 - `shared/backend/` — installable Python package `app` (`mizan-shared`):
   - `app/factory.py`: builds every service (middleware, CORS, CSRF, errors, health).
   - `core/`: the kernel: config, exceptions, pagination, rate limiting.
   - `models/registry.py` (imports every module's models so the schema is complete), `db/` (engine + tracked SQL migrations in `db/sql/`). Models and schemas live in their module or platform engine.
-  - `framework/`: the module runtime (the loader, the module template and scaffold).
+  - `framework/`: the module runtime (the loader, variants and hooks, the module template and
+    scaffold) and the package format shared with the CLI (`manifest.py`: community modules,
+    entities, themes and activity packages; `package.py`: `.mzm` build, sign, verify).
   - `platform/`: the engines every workspace has (auth, permissions, notifications, printing,
-    settings, billing, …) and the platform's modules (module centre, scheduler, i18n).
-  - `activities/<activity>/`: one folder per business activity (ADR-010): `activity.json`, `modules/<module>/` (every module, including the core ERP in `activities/general/modules/*`:
-    sales, pos, inventory, purchases, finance, hr, contacts, operations, reporting), built or
-    planned, in the standard structure (docs/MODULE_STANDARD.md).
-  - `activities/`, `catalog/`: activities and families as data; `integrations/`: connectors.
+    settings, billing, …), the platform's modules (module centre, scheduler, i18n, `community`
+    modules, `themes`) and the developer portal's accounts (`developers`).
+  - `activities/<activity>/`: one folder per business activity (ADR-010): `activity.json`,
+    `positions.json`, `seed.py`, `modules/<module>/` (every module, including the core ERP in
+    `activities/general/modules/*`: sales, pos, inventory, purchases, finance, hr, contacts,
+    operations, reporting), built or planned, in the standard structure (docs/MODULE_STANDARD.md),
+    `variants/<module>/` (how the activity adapts another activity's module) and `themes/`.
+  - `themes/<id>/theme.json`: Mizan's theme packs; `catalog/`: families and legacy ids;
+    `integrations/`: connectors.
 - `system/backend/`: `main.py` + `system_api/` (route list, tenant resolution, tenant-side platform endpoints).
-- `website/backend/`: `main.py` + `website_api/` (plans, self-serve signup).
+- `website/backend/`: `main.py` + `website_api/` (plans, self-serve signup, the developer portal's `/developers` API).
 - `owner/backend/`: `main.py` + `owner_api/` (account, workspaces, billing and the Paymob callback).
 - `admin/backend/`: `main.py` + `admin_api/` (one router per page: overview, workspaces, billing, activity, team, system).
 - `shared/backend/app/onprem/`: server mode for on-site installs (one address for app + API, licence gate, cloud check-in, first-install setup).
 - `installer/`: `server/mizan_server/` (install engine, service runner, CLI), `setup/` (the wizard, desktop app, headless installs), `build.py`, `stamp.py`, `ci_smoke.py`.
 - `shared/frontend/src/`: kit components, API client, auth/UI stores, i18n, styles, plans, pricing page, cross-app URLs and session handoff.
-- `system/frontend/src/`: app shell, ERP features, tenant routing, and `modules/` (industry screens).
-- `website/frontend/src/`: marketing pages and the docs portal.
+- `system/frontend/src/`: app shell, ERP features, tenant routing, `activities/<activity>/{modules,variants}/` (each activity's screens), `platform/` and `integrations/`.
+- `website/frontend/src/`: marketing pages, the user docs, and `features/developers/` (the developer platform: home, portal, developer docs; English by default).
+- `sdk/python/`: `mizan-sdk` (`mizan` CLI, `MizanClient` for `/ext/v1`, `verify_webhook`).
 - `owner/frontend/src/`: the owner panel pages and the welcome tour.
 - `admin/frontend/src/`: the admin panel pages.
 - `docs/`: System documentation, architecture decision records, and API specs.
 - `.agents/`: Antigravity engineering rules and procedural skills.
 
-Import aliases (frontends): `@/` is the shared kit, `@app/` is the current app, `@modules/` (system only) is the industry screens.
+Import aliases (frontends): `@/` is the shared kit, `@app/` is the current app, `@activities/` (system only) is the activities' screens.
 
 ## 3. Deployment Modes (ADR-005)
 
@@ -117,7 +129,7 @@ A workspace runs in one of these, chosen when it's created:
 - **One code base.** The on-site server is the same system API and app, switched by
   `MIZAN_MODE` and the app's `VITE_DEPLOYMENT=onprem` build; it holds exactly one workspace,
   created from the licence (same id, name, sector and modules as in the cloud).
-- **Licences** are Ed25519-signed (`MZN1.<payload>.<signature>`, `app.core.licensing`),
+- **Licences** are Ed25519-signed (`MZN1.<payload>.<signature>`, `app.platform.licensing`),
   verified offline against the public key built into the app, and extended by
   `activate_invoice` when the owner pays.
 - **Deploys** (#64): `.github/workflows/deploy.yml`. After CI passes on `master` it migrates the
@@ -126,7 +138,8 @@ A workspace runs in one of these, chosen when it's created:
   --archive=tgz`), and checks `/api/health`. Vercel's Git deploys are off (`"git":
   {"deploymentEnabled": false}` in each `vercel.json`), so code never goes live before its
   migrations; migrations must stay backward compatible. Re-run by hand: Actions → Deploy → Run
-  workflow. Secrets: `VERCEL_TOKEN`, `MIZAN_PROD_DATABASE_URL`. Free-plan limits: 100 deployments
+  workflow. Secrets: `VERCEL_TOKEN`, `MIZAN_PROD_DATABASE_URL`. Before deploying it builds the
+  `mizan-sdk` wheel into the website's `public/sdk/` (served at `dev.allmizan.live/sdk/`). Free-plan limits: 100 deployments
   and 5,000 uploaded files a day (8 deployments per push).
 - **Uploaded files** (logo and its PWA icons, sign-in cover, product images, purchase invoice
   images) go through one service, `app/framework/files.py` (#114). In the cloud it writes to
@@ -137,4 +150,31 @@ A workspace runs in one of these, chosen when it's created:
   counts real sizes, and deleting a workspace in the admin panel deletes its files.
 - **Platform tables** (`licences`, `installations`) live in the cloud database; nothing
   from the client's business data is sent to the cloud.
+
+## 4. The extension platform (ADR-007, ADR-010)
+
+Outside developers build on Mizan with the same framework Mizan's own activities use.
+
+| Package (`.mzm`, `kind`) | What it is | Where it installs |
+|---|---|---|
+| `community` | A declarative module: entities (records), screens drawn from them, permissions, menu items, scopes, webhooks | A workspace's module centre → وحدات المطورين; records in `ext_records`, installs in `community_modules` |
+| `theme` | A theme pack: design tokens for light and dark, fonts, radius, shadows, motion | The module centre → المظاهر; `workspace_themes`; the workspace's theme is `tenants.palette["name"]` |
+| `activity` | A whole business activity in the layout of `activities/<id>/`: its modules, variants (fields, terms, settings), themes, menus, roles, seed data | Validated and signed now; running it in a workspace comes with #107 |
+
+- **Signing**: packages are zips signed with a developer's Ed25519 key; Mizan certifies the key
+  (`MZD1` certificate) in the developer portal, so every install verifies packages offline. Cloud
+  installs also refuse keys revoked in the portal. Module ids start with the team's handle.
+- **Checks**: one validator (`app/framework/manifest.py`) for the platform and the CLI (the SDK
+  ships a byte copy, kept identical by a test); activity packages are also checked against
+  Mizan's catalogue (modules, screens, widgets, records, themes). Themes allow only known tokens,
+  safe colour formats and readable contrast.
+- **Servers**: an installed module's server calls `/ext/v1` with its installation token (`mzx_`,
+  only the scopes the owner approved, one workspace) and receives signed webhooks
+  (`Mizan-Signature`, retried for about a day by the hourly `community_webhooks` job).
+- **Developer portal** (`dev.allmizan.live`, website app + `/developers` on the website API):
+  developer accounts (separate from owners), teams, members, signing keys, CLI tokens (`mzd_`),
+  and the developer docs. It speaks English by default (`Accept-Language: ar` for Arabic).
+- **Themes at runtime**: the system app applies the workspace's theme (`shared/frontend/src/lib/theme.ts`):
+  tokens become CSS variables on `html[data-theme="workspace"]`, plus `@font-face`, radius,
+  shadows and `data-motion`. Printed invoices use its brand colour.
 

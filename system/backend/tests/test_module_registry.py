@@ -56,7 +56,7 @@ def test_one_catalogue_and_one_store_of_active_modules():
         if py.name == "migrations.py" or "__pycache__" in py.parts:
             continue
         text = py.read_text(encoding="utf-8")
-        assert "MODULE_CATALOG" not in text, py
+        assert not re.search(r"\bMODULE_CATALOG\b(?!\.md)", text), py  # the constant, not docs/MODULE_CATALOG.md
         assert '"installed_modules"' not in text, py
 
 
@@ -403,3 +403,10 @@ def test_frontend_definitions_match_the_manifests():
         assert f'status: "{m.get("status", "active")}"' in source, f"{index}: status"
         for w in m.get("widgets") or []:
             assert f'"{w["id"]}"' in source, f"{index}: no component for widget {w['id']}"
+
+
+def test_the_module_catalogue_is_current():
+    from app.framework.scaffold import catalog_markdown
+
+    current = (REPO / "docs" / "MODULE_CATALOG.md").read_text(encoding="utf-8")
+    assert current == catalog_markdown(), "docs/MODULE_CATALOG.md is out of date: run `python manage.py module catalog`"

@@ -1,1 +1,4 @@
-"""Scopes. The scopes a third-party module declares and the owner approves on install; capability tokens limited to them. Planned for ADR-006 phase 6."""
+"""Scopes. What declarative community modules may ask for is defined in `manifest.py` (`SCOPES`:
+data scopes and event scopes), approved by the owner at install and enforced by the extension API
+(`platform/community/ext_api.py`). Reserved here: capability tokens for code modules in containers
+(ADR-007, with the own cluster)."""

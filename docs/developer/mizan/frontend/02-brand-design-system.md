@@ -70,7 +70,9 @@ custom hues must preserve readable contrast and must not recolor status meanings
 | Success / warning / error / information | `#27835C` / `#C58A35` / `#C14E50` / `#557DA1` | Adjust through semantic tokens for contrast |
 
 Use the semantic CSS tokens in `styles.css`; these values define the brand palette,
-not permission to hardcode colors in components.
+not permission to hardcode colors in components. In the ERP they are the default theme pack
+(*mizan*): a workspace's admin may choose another theme, which sets the same tokens (ADR-010,
+`docs/DESIGN_SYSTEM.md`).
 
 ---
 

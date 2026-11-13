@@ -103,7 +103,7 @@ latency). Managed from the admin panel; set up from the owner panel.
   which production installs don't accept.
 
 ## Phase 1 — what's built
-- `app.core.licensing` (sign/verify), `app.services.licences` (create, extend, issue),
+- `app.platform.licensing.keys` (sign/verify; then `app.core.licensing`), `app.platform.licensing.services.licences` (create, extend, issue),
   migration `v48_licences_and_installations`, the hook in `activate_invoice`.
 - Owner API: workspaces have a mode; `GET /account/workspaces/{id}/download` (fresh key and
   published installers from `MIZAN_INSTALLERS`); `POST /installations/check-in`.

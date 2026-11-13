@@ -46,8 +46,8 @@ in `shared/backend/app/framework/module_template/`, and applied by
 | `migrations/README.md` | The module's own migrations, in order. | Until the per-module runner exists, migrations go in `app/db/migrations.py`. |
 | `templates/README.md` | Print templates, `templates/<category>/<name>.html`. | Rendered by the print engine (`platform/printing/engine.py`); a variant can replace one. |
 | `tests/README.md` | The module's tests. | Until collected here: `system/backend/tests/` and `e2e/`. |
-| `variants/<variant>/variant.json` | How the module works for one activity: screens, fields, uses, terms, settings, permissions, templates, widgets. | `standard` fits every activity; others are named after the activity (`pharmacy`). Business modules only. `"status": "planned"` until built (the module then runs `standard`). `fields`: `{"product": [{"key", "label", "type": text\|number\|date\|boolean\|select, "required", "options", "searchable", "readonly"}]}` on the records in `app/framework/fields.py` (stored in their `extra` JSON; workspaces can change and add fields). `uses`: modules the variant relies on (they can't be removed while it runs). |
-| `variants/<variant>/hooks.py` | Rules that variant adds: one function per extension point, `async def before_confirm(db, activity_id=None, **ctx)`. | Raise `HTTPException` to refuse; e.g. `pos/variants/pharmacy/hooks.py`. |
+| `variants/<variant>/variant.json` | How the module works for one activity. In the module only `<variant>` = `standard`, its own defaults for every activity. | Business modules only. An activity's variant is **not** in the module: it lives in that activity, `app/activities/<activity>/variants/<module_id>/variant.json` (ADR-010; the scaffold puts it there), with the same fields: screens, fields, uses, terms, settings, permissions, templates, widgets. `"status": "planned"` until built (the module then runs `standard`). `fields`: `{"product": [{"key", "label", "type": text\|number\|date\|boolean\|select, "required", "options", "searchable", "readonly"}]}` on the records in `app/framework/fields.py` (stored in their `extra` JSON; workspaces can change and add fields). `uses`: modules the variant relies on (they can't be removed while it runs). |
+| `variants/<variant>/hooks.py` (`standard` here; an activity's in `activities/<activity>/variants/<module_id>/hooks.py`) | Rules the variant adds: one function per extension point, `async def before_confirm(db, activity_id=None, **ctx)`. | Raise `HTTPException` to refuse; e.g. `activities/pharmacy/variants/pos/hooks.py`. |
 
 ### Larger modules
 
@@ -70,7 +70,7 @@ The general modules (the core ERP, always available) keep their historical URLs 
 | `api.ts` | The module's API calls (paths under `/modules/<module_id>`). |
 | `screens/README.md` | Full pages, one file each, `<Name>Page.tsx`. |
 | `components/README.md` | Parts used only by this module's screens; shared parts go in `@/components`. |
-| `variants/README.md` | `variants/<activity>/`: screens and components that replace or add to the module's for one activity. Business modules only. |
+| `variants/README.md` | Business modules only. Screens an activity adds to this module live in the activity: `src/activities/<activity>/variants/<module_id>/` (e.g. the pharmacy counter at `src/activities/pharmacy/variants/pos/`, imported as `@activities/pharmacy/variants/pos`). |
 
 Older modules keep some screens at the module root (`PosPage.tsx`) until they are reworked.
 
@@ -90,7 +90,7 @@ Older modules keep some screens at the module root (`PosPage.tsx`) until they ar
 | `screens` | | Pages the module offers: `[{"id": "<module>.<name>", "path": "/products", "label", "icon": "<lucide name>", "permission": "inventory\|purchases"}]`. Activities arrange them into menus (`activity.json` "menu"); a role only sees those its permissions allow (ADR-006 phase 5). |
 | `widgets` | | Dashboard widgets: `[{"id": "<module>.<name>", "label", "permission", "size": "s\|m\|l"}]`; each id is registered to a component in the module's `index.ts`. |
 | `forms` | | A record's form and its built-in fields, which the screen builder arranges with the workspace's custom fields: `{"product": {"label", "fields": [{"key", "label", "locked"?, "hidden"?}]}}` (`locked`: can't be hidden; `hidden`: off until the builder shows it). |
-| `variants` | business | Includes `standard`; one folder each under `variants/`. |
+| `variants` | business | Includes `standard` (in the module's `variants/standard/`) and each activity that adapts the module (in `app/activities/<activity>/variants/<module_id>/`). |
 | `srs` | | SRS requirement ids the module implements. |
 | `settings_schema` | | Per-workspace settings shown in the module centre. |
 
@@ -100,8 +100,17 @@ Older modules keep some screens at the module root (`PosPage.tsx`) until they ar
 python manage.py module new <activity> <module_id> "<Arabic name>" --name-en "<English>" [--kind ...]
 python manage.py module scaffold    # create any missing standard file (never overwrites)
 python manage.py module check       # fail if a module is missing part of the structure
+python manage.py module catalog     # regenerate docs/MODULE_CATALOG.md from the manifests
 ```
 
 `system/backend/tests/test_module_registry.py` enforces the structure: folder = id, home activity,
-unique ids, frontend mirrors backend, planned modules not offered, Windows-safe names, and that
-this document covers every file in the template.
+unique ids, frontend mirrors backend, planned modules not offered, Windows-safe names, activity
+folders holding only their known parts, activities' variants adapting real modules that list
+them, and that this document covers every file in the template.
+
+## Community modules (outside developers)
+
+Developers' modules are declarative, not in this structure: a `manifest.json` (`kind:
+"community"`) and `entities/*.json`, checked by `app/framework/manifest.py` and installed into
+one workspace from a signed `.mzm` (ADR-007). Theme packs and whole activities use the same
+package format (ADR-010). See the developer docs at `dev.allmizan.live/docs`.

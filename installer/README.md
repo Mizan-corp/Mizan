@@ -6,7 +6,7 @@ the workspace and the mode; the same installer handles both modes on Windows and
 
 **Current release: v1.0.2** in [ammar0xff/mizan-releases](https://github.com/ammar0xff/mizan-releases/releases/latest)
 (`MizanSetup-1.0.2-windows.exe`, `MizanSetup-1.0.2-linux`, `mizan-setup-1.0.2-linux-x86_64.run`, and the update payloads `payload-1.0.2-*.zip`).
-User-facing guide: the website's docs, [running on site](https://mizan-co.vercel.app/docs/deploy/modes).
+User-facing guide: the website's docs, [running on site](https://allmizan.live/docs/deploy/modes).
 
 | Part | What it is |
 |---|---|

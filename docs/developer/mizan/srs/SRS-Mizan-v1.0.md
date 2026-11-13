@@ -861,7 +861,7 @@ These apply across all business activities and deployment modes. Jurisdiction-sp
 
 ### 8.1 User Interface
 
-- **Web app:** Single Page Application at `mizan-co.vercel.app`
+- **Web app:** Single Page Application at `allmizan.live` (each workspace at `<workspace>.allmizan.live`, ADR-008)
 - **Framework:** React 19 + Vite + Tailwind v4 + shadcn/ui v4
 - **Direction:** RTL; `dir="rtl"` on document
 - **Typography:** IBM Plex Sans Arabic (Arabic), Manrope (English/UI)
@@ -871,7 +871,7 @@ These apply across all business activities and deployment modes. Jurisdiction-sp
 
 ### 8.2 API Interface
 
-- **Base URL:** `https://mizan-co-api.vercel.app/api`
+- **Base URL:** `https://api.allmizan.live/api`
 - **Protocol:** HTTPS only; REST JSON
 - **Auth:** JWT in httpOnly cookie; `X-CSRF-Token` header required (except `/auth/login`, `/platform/signup`, `/health`)
 - **Bearer fallback:** `Authorization: Bearer <token>` for programmatic access

@@ -1,6 +1,9 @@
-"""Community module packages (.mzm, ADR-007 D1/D5): build, sign and verify.
+"""Packages (.mzm): community modules (ADR-007 D1/D5), theme packs and activity packages (ADR-010):
+build, sign and verify. The manifest's "kind" says which ("community", "theme", "activity").
 
-A package is a zip of manifest.json, entities/*.json, optional i18n/ and assets/, and SIGNATURE:
+A module package is a zip of manifest.json, entities/*.json, optional i18n/ and assets/, and
+SIGNATURE (a theme's manifest is the theme, with fonts in assets/; an activity adds modules/,
+variants/, themes/ and seed/):
 
   {"format": 1, "module": "acme.visits", "version": "1.0.0",
    "files": {"manifest.json": "<sha256>", ...},

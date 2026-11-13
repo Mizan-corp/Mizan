@@ -1,36 +1,34 @@
 ---
 name: implement-module
-description: Procedure for scaffolding and implementing a new standalone business module in Mizan
+description: Procedure for scaffolding and implementing a new business module in Mizan
 ---
 
 # Implement Module Procedure
 
-When tasked with implementing a new module (e.g., `HLT-02`, `HLT-03`, `POS-02`):
+When tasked with implementing a new module (e.g. `HLT-02`, a planned module of an activity):
 
 1. **Requirements & Domain Inspection:**
-   - Read the relevant requirements in `docs/PRODUCT_REQUIREMENTS.md` and module-specific specs.
-   - Inspect existing peer modules in `shared/backend/app/modules/` to reuse common structures.
+   - Read the requirements (`docs/PRODUCT_REQUIREMENTS.md`, the SRS, the module's `README.md` if it is planned).
+   - Read `docs/MODULE_STANDARD.md` and inspect peer modules in `shared/backend/app/activities/<activity>/modules/`.
 
-2. **Scaffold Directory Structure:**
-   - Create `shared/backend/app/modules/<activity>/<module_name>/` (backend) and `system/frontend/src/modules/<activity>/<module_name>/` (screens):
-     - `backend/`: Routers, schemas, services, and models.
-     - `frontend/`: Types, mockData, components, and root `index.tsx`.
-     - `manifest.json`: Module metadata, permissions, and dependencies.
-     - `README.md`: Operational overview.
+2. **Scaffold with the project's tool:**
+   - `python manage.py module new <activity> <module_id> "<Arabic name>" --name-en "<English>"` creates the backend
+     (`activities/<activity>/modules/<id>/`: manifest.json, models, schemas, service, router, hooks, seed, README…)
+     and the screens folder (`system/frontend/src/activities/<activity>/modules/<id>/`: index.ts, api.ts, screens/, components/).
+     On a planned module it makes it active.
+   - `python manage.py module check` must pass.
 
-3. **Domain Models & Seed Data:**
-   - Define TypeScript interfaces in `frontend/types.ts`.
-   - Provide realistic localized Arabic mock data in `frontend/mockData.ts` for instant preview and offline resilience.
+3. **Data and rules:**
+   - Models are `TenantScoped`; add the migration (with RLS) to `app/db/migrations.py`; the model declares the same keys and defaults.
+   - Business logic in `service.py`; routes thin, with `require_perm` and permissions declared in the manifest.
+   - Another activity's adaptation goes in that activity's `variants/<module>/`, not here.
+   - Demo data in `seed.py` (marked `is_demo`).
 
-4. **Component Implementation:**
-   - Build focused, production-grade screens adhering to `docs/UI_UX_GUIDELINES.md` and `docs/DESIGN_SYSTEM.md`.
-   - Ensure complete states: Loading, Empty, Active, Error.
+4. **Screens:**
+   - Declare pages in the manifest's `screens` (menus come from activities' `activity.json`, never hand-typed), widgets in `widgets` and register them in `index.ts`.
+   - Follow `docs/UI_UX_GUIDELINES.md` and `docs/DESIGN_SYSTEM.md` (tokens only); every state: loading, empty, error, no-permission, full.
 
-5. **Integration & Navigation:**
-   - Expose the module in `system/frontend/src/modules/healthcare_clinic/ClinicHealthcarePage.tsx` (or parent activity page).
-   - Ensure clean routing without layout nesting.
-
-6. **Verification & Testing:**
-   - Run `npx tsc -b --noEmit` and `npm run build` in `frontend/`.
-   - Navigate to the module via Playwright MCP, take a screenshot, and verify typography, colors, and layout.
-   - Document completion in `docs/DEVELOPMENT_ROADMAP.md`.
+5. **Verification & Testing:**
+   - Backend tests in `system/backend/tests/`; `python manage.py test backend`; `test e2e` if routes changed.
+   - `npx tsc -b --noEmit` and `npm run build` in `system/frontend`.
+   - Open the screen in a browser (Playwright), check it, and update docs (`TASKS.md`, the module's README).

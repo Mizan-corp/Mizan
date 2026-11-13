@@ -10,7 +10,7 @@ description: Procedure for designing and reviewing an enterprise screen in Mizan
    - Determine the primary operational action.
 
 2. **Visual Canon Adherence:**
-   - Palette: Deep Navy (`#0A2540`), Royal Blue (`#1E3A8A`), Slate (`#F8FAFC`), White cards (`#FFFFFF`).
+   - Colours: design tokens only (`bg-background`, `bg-card`, `text-foreground`, `bg-primary`…), so the screen follows the workspace's theme (Mizan's default: oxblood `#651E2C`, warm ivory, deep merlot sidebar).
    - Fonts: Arabic RTL text with `.num font-mono` for all figures, dates, IDs, and financial metrics.
    - Icons: Lucide React only (no emojis).
 

@@ -8,13 +8,12 @@
 ## 2. Testing & Quality Assurance
 - **Frontend Build & Typecheck:** Every commit must pass `npx tsc -b --noEmit` and `npm run build` with exit code 0.
 - **Unit & Integration Tests:** `pytest` in backend; Vitest/Testing Library in frontend.
-- **End-to-End Verification:** Playwright MCP for browser-based visual verification of live routes, testing modals, navigation, and error boundaries.
+- **End-to-End Verification:** `python manage.py test e2e` (the live API suite) and `test browser` (Playwright flows across the four apps, `e2e/browser/`), both in CI; inspect changed screens in a real browser before calling them done.
+- **One command for everything:** `python manage.py check` runs what CI runs except e2e; `test backend` covers the system, website, owner, admin, installer and SDK suites.
+- **Models match migrations:** a model declares its migration's primary key and database defaults (`create_all` builds local, CI and on-site tables before migrations run).
 
 ## 3. Component Architecture
-- Reusable UI primitives reside in `src/components/ui/`.
+- Reusable UI primitives live in the shared kit: `shared/frontend/src/components/ui.tsx` and `components/kit/` (imported as `@/components/…`).
 - Domain module screens live in `system/frontend/src/activities/<home_activity>/modules/<module_id>/`; their backend lives in `shared/backend/app/activities/<home_activity>/modules/<module_id>/` (platform modules: `app/platform/`, connectors: `app/integrations/`, mirrored in `src/platform/`, `src/integrations/`). See ADR-006.
-- Every standalone module must provide:
-  - `types.ts`: Clean domain data interfaces.
-  - `mockData.ts`: Realistic localized seed data for offline preview and resilient fallback.
-  - `components/`: Modular sub-views and interactive screens.
-  - `index.tsx`: Root exported entrypoint.
+- Every module follows [`MODULE_STANDARD.md`](MODULE_STANDARD.md) (created with `python manage.py module new`, checked by `module check` and the registry tests): `index.ts` (its definition and widgets), `api.ts`, `screens/`, `components/`, and on the backend `manifest.json`, models, schemas, service, router, hooks, seed.
+- **Shared contracts have one source:** the package and manifest validator (`app/framework/manifest.py`) is copied byte for byte into the SDK, and tests fail if they drift; built-in themes and the SDK's starter theme likewise.

@@ -9,9 +9,11 @@ Provide an all-in-one ERP that eliminates fragmented point solutions for busines
 
 ## 2. Platform Foundations
 1. **Multi-Tenancy & Isolation:** Complete cryptographic or RLS-enforced logical separation across organizations and branches.
-2. **Global Access Control (RBAC + ABAC):** Distinguish Job Positions (what employees do), Account Types (license level), and granular Permissions (what system actions they can execute).
+2. **Access Control:** Distinguish job positions (what employees do), roles, and permissions declared by modules (what actions they can execute); a user acts as one role at a time.
 3. **Unified Audit Trail:** Every sensitive data read, mutation, export, or authorization override is logged with user, IP, timestamp, and delta diff.
 4. **Offline Resilience & Sync:** Essential checkout (POS) and clinical intake queues can operate gracefully through transient connectivity drops.
+5. **Extensibility without risk:** outside developers add modules, themes and whole business activities that owners install with explicit approval of what they can access, without code running inside Mizan (ADR-007, ADR-010).
+6. **One look per business:** each workspace has a theme its admin chooses, applied to every screen, its login page and printed documents.
 
 ## 3. High-Priority Functional Requirements (HLT Suite)
 - **HLT-01:** Healthcare Organization & Facility Management (Multi-branch, buildings, floors, departments, units, rooms, operating hours, accreditations).

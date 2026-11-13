@@ -5,8 +5,8 @@ reports, the 48 industry modules, and public storefronts.
 
 | | Folder | Local | Production |
 |---|---|---|---|
-| Frontend | `frontend/` | `npm run dev:system` → http://localhost:5173 | https://mizan-co-app.vercel.app |
-| API | `backend/` | `docker compose up system-api` → :8000 | https://mizan-co-api.vercel.app |
+| Frontend | `frontend/` | `npm run dev:system` → http://localhost:5173 (`/c/<workspace>`) | `https://<workspace>.allmizan.live` |
+| API | `backend/` | `docker compose up system-api` → :8000 | https://api.allmizan.live/api |
 
 - **Backend** is `main.py` + `system_api/` (the route list, tenant resolution, tenant-side
   platform endpoints). Models, services, ERP routers and modules come from `shared/backend`.
@@ -15,7 +15,12 @@ reports, the 48 industry modules, and public storefronts.
 - Accepts sessions handed off by the website (new owner after onboarding) and the admin
   panel (impersonation) through `#session=` on first load.
 - Owns schema bootstrap (`create_all`) and the tracked migrations run by `python manage.py db migrate`.
-- Tests: `backend/tests/` (pytest) and the live API suite in `/e2e`.
+- Applies the workspace's theme pack (from the workspace resolve and `/auth/me`); the module
+  centre (`src/features/modules/`) holds the themes section and developers' modules
+  (`src/platform/themes/`, `src/platform/community/`), and `/x/<module>/<entity>` renders a
+  community module's records.
+- Serves `/ext/v1` for developers' module servers (ADR-007).
+- Tests: `backend/tests/` (pytest), the live API suite in `/e2e` and the browser flows in `/e2e/browser`.
 
 ## On site (single device and LAN)
 

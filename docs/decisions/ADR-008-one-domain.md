@@ -18,7 +18,7 @@ everything, with subdomains only for each workspace and, later, the developer po
 | `allmizan.live/admin/…` | Admin panel | `mizan-admin`, built with base `/admin/` |
 | `api.`, `owner-api.`, `web-api.`, `admin-api.allmizan.live` | The system, owner, website and admin APIs (called by the apps; never visited) | the four API projects |
 | `<workspace>.allmizan.live/…` | That workspace's ERP | `mizan-system` (wildcard) |
-| `dev.allmizan.live` | Reserved: developer portal (ADR-006 phase 7) | — |
+| `dev.allmizan.live` | The developer platform: home, portal, developer docs, the SDK wheel (ADR-007, attached 2026-11-13) | `mizan-website` (the app shows the developer platform on `dev.*` hosts) |
 
 - **The apex project proxies the panels.** `mizan-website` holds `allmizan.live`; its
   `vercel.json` rewrites `/owner` and `/admin` to those projects (static files). Each app still

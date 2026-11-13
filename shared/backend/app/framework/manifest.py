@@ -1,5 +1,6 @@
-"""Community module manifests and entities (ADR-007): the checks the platform and the `mizan` CLI
-share. Standard library only, so mizan-sdk ships this file as is.
+"""What outside developers ship, checked the same way by the platform and the `mizan` CLI:
+community module manifests and entities (ADR-007), theme packs and activity packages (ADR-010).
+Standard library only, so mizan-sdk ships this file as is (a test keeps the copy identical).
 
 Official modules' manifest v2 checks stay in loader.manifest_problems().
 

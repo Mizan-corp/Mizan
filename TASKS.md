@@ -2,26 +2,27 @@
 
 Current as of 2026-11-13. **Open work is tracked in [GitHub issues](https://github.com/ammar0xff/Mizan/issues)**; this file is the high-level summary of what has shipped.
 
-## 0. Priority plan (2026-11-11)
+## 0. Priority plan (updated 2026-11-13)
 
 Done: ADR-006 phases 1–5 (module platform, permissions and acting roles, activities and variants
-with pharmacy end to end, role screens and the screen builder). Open work in priority order;
-each step ships, is tested and deployed before the next.
+with pharmacy end to end, role screens and the screen builder); production safety (#114 files in
+Vercel Blob, #64 releases migrate production from CI, #115 PWA paths, #63 deploy budget); the
+cross-cutting fixes (#26, #27, #28, #59, #60, #61); on-site updates, backups and device binding
+(#89, #90, #92). Open work in priority order; each step ships, is tested and deployed before the next.
 
-**P0 — Production safety (now)**
-1. #114 Uploaded files are lost on Vercel: move them to object storage (needs a provider choice).
-2. #64 Apply production migrations from CI, with the backup and schema check `db migrate --production` does.
-3. #115 PWA manifest and service worker paths (with a review of `sw.js`); #63 Vercel deploy limit.
-4. #85 Manual security follow-ups (owner: change the `platform` password, rotate the Paymob keys).
+**P0 — Production safety**
+1. #85 Manual security follow-ups that need the owner (rotate the Paymob key, revoke old tokens).
 
 **P1 — Getting paid and owner basics**
-5. #65 Paymob live (waiting on Paymob), then #67 reconciliation, #68 plan changes, #69 PDF receipts, #70 retire the old upgrade flow.
-6. #71 owner password reset, #72 verified email and phone, #74 workspace settings, #76 link to the owner panel, #73 owner accounts in admin, #79 website sign-in state.
+2. #65 Paymob live (waiting on Paymob), then #68 plan changes. Built and released, to be checked
+   in production and closed: #67 reconciliation, #69 PDF receipts, #70 the old upgrade flow
+   retired, #73 owner accounts in admin, #74 workspace settings, #76 link to the owner panel,
+   #79 website sign-in state.
+3. Deferred until mail is set up: #71 owner password reset, #72 verified email and phone.
 
 **P2 — The product customers use daily**
-7. Quick cross-cutting fixes: #26 badge contrast, #27 focus rings, #28 tables on small screens, #59/#60 POS touch and keyboard.
-8. ETA e-invoicing and e-receipts (legally required in Egypt). **Deferred (2026-11-12)**: no ETA test credentials yet; e-invoice signing (local signer helper vs cloud signing provider) to be decided. E-receipts are the likely first part.
-9. **Business activities are placeholders (owner, 2026-11-12).** The global Mizan comes first:
+4. ETA e-invoicing and e-receipts (legally required in Egypt). **Deferred (2026-11-12)**: no ETA test credentials yet; e-invoice signing (local signer helper vs cloud signing provider) to be decided. E-receipts are the likely first part.
+5. **Business activities are placeholders (owner, 2026-11-12).** The global Mizan comes first:
    the shared platform and the `general` modules every workspace uses (POS, sales, inventory,
    purchases, finance and accounting (#25), HR, reports, settings, the screen builder). Activity
    work (ADR-006 phase 8, #106: restaurant onwards, pharmacy, healthcare, hotel, the industry
@@ -37,10 +38,10 @@ modules are milestone 2 (#105, paid needs #65).
 **Milestone 1 built (2026-11-13), steps 1–7**: the .mzm format and validator, community records and
 screens, install from file with scope approval, installation tokens and `/ext/v1`, signed
 webhooks with retries, `mizan-sdk` and the `mizan` CLI, and the developer portal with its docs
-(website app under `/dev`, `dev.allmizan.live` in production). Left: attach the domain and give
-the website API the signing key at the next deploy; publish `mizan-sdk` on PyPI (owner's
-account; until then the portal serves the wheel); email verification and password reset for
-developers wait for the mail work (#71, #72).
+(website app under `/dev`, `dev.allmizan.live` in production, live since 2026-11-13; English by
+default, Arabic on request). Left: publish `mizan-sdk` on PyPI (owner's account; until then the
+portal serves the wheel); email verification and password reset for developers wait for the
+mail work (#71, #72).
 
 **P1c — Activities as packages, and theme packs (owner, 2026-11-13; ADR-010)**
 Every business activity is one folder (`activities/<id>/`: activity.json, modules/, variants/,
@@ -51,24 +52,30 @@ point Mizan advertises to developers. 1. Done 2026-11-13: all 30 activities move
 admin; `mizan theme new`); paid themes with the marketplace. 3. Done 2026-11-13: activity packages
 (`mizan activity new`, checked against Mizan's catalogue); running them in a workspace with #107.
 
-**P3 — Platform for outside developers**
-10. ADR-006 phase 6 (#104): ADR-007 milestone 1 done (see P1b); the isolation runtime for code modules waits for the own cluster.
-11. ADR-006 phase 7 (#105): developer portal and marketplace (needs #65).
-12. ADR-006 phase 9 (#107): changing a workspace's activity.
+**P3 — Platform for outside developers, next**
+6. ADR-006 phase 9 (#107): changing a workspace's activity, which also runs developers' activity
+   packages in a workspace (the last piece of what's advertised to developers).
+7. ADR-006 phase 7 (#105): the marketplace for modules, themes and activities, paid ones after #65
+   (the portal is done).
+8. ADR-006 phase 6 (#104): ADR-007 milestone 1 done; the isolation runtime for code modules
+   waits for Mizan's own cluster.
 
 **P4 — On-site installs (as customers need them)**
-13. Done 2026-11-12: #89 updates, #90 local backups, #92 device limits, #88 in-app network page. Waiting: #88 checks on real tills (owner), #93 Windows signing (deferred), #117 encrypted cloud backup (deferred), #91 own database (designed in ADR-009, not built).
+9. Done 2026-11-12: #89 updates, #90 local backups, #92 device limits, #88 in-app network page. Waiting: #88 checks on real tills (owner), #93 Windows signing (deferred), #117 encrypted cloud backup (deferred), #91 own database (designed in ADR-009, not built).
 
-**Ongoing** — #84 warnings and unused imports, #83 old docs, #80/#82 tests, #97 vitest workers, #96, #61, healthcare extras (#42–#45).
+**Ongoing** — healthcare extras (#42–#45). Done: #84 warnings, #83 old docs, #80/#82 tests, #97 vitest workers, #96 storefront switch. Docs refreshed 2026-11-13 (ADR-010 layout, themes, developer platform, domains, roles, security, API).
 
 ## 1. Shipped Core & SaaS Milestones (Completed & CI-Green)
 
 - [x] **SaaS Multi-Tenancy Engine** — Row-level security (RLS), tenant isolation (`tenant_id NOT NULL`), composite username constraints, and dynamic subdomain/slug resolution.
 - [x] **Admin panel** (`admin/`, English, Mizan team) — "Needs you" queue, workspaces (plan, trial, modules, people, suspend, open as owner, delete), billing with manual "mark paid", team access, live system health, audit log. Rebuilt on real data only (2026-11-09).
-- [x] **Owner panel & owner accounts** (`owner/`, Arabic) — one owner, many workspaces; owners sign in on the app's `/login`, employees on `/c/<workspace>/login`; welcome tour after signup; create workspaces; subscribe and pay through Paymob (HMAC-verified, idempotent callbacks). See ADR-004.
+- [x] **Owner panel & owner accounts** (`owner/`, Arabic) — one owner, many workspaces; owners sign in at `allmizan.live/login`, employees on their workspace's login page (`<workspace>.allmizan.live/login`); welcome tour after signup; create workspaces; subscribe and pay through Paymob (HMAC-verified, idempotent callbacks). See ADR-004.
 - [x] **Plan gating** — tier limits (Starter, Pro, Enterprise), trial expiry to read-only, suspension enforced at sign-in and on every request.
 - [x] **Deployment modes: single device and LAN** (ADR-005) — workspaces created as cloud, single device or LAN; Ed25519 licences that work offline and extend on payment; admin Licence tab; server mode for the ERP; **Mizan Setup v1.0.0** for Windows and Linux (guided installer, desktop app, headless installs, bundled PostgreSQL, systemd/Windows service, daily backups, HTTPS + `mizan.local` on the LAN), built and smoke-tested in CI and published to `mizan-releases`. See `installer/README.md`.
-- [ ] **Deployment modes, remaining** — updates for installed servers (#89), encrypted cloud backup (#90), bring your own database (#91), device limits (#92), Windows code signing and a manual Windows pass (#93), LAN till checks (#88).
+- [x] **Deployment modes, follow-ups** — updates with rollback (#89), local backups (#90), licences bound to one computer (#92), the in-app network page (#88).
+- [ ] **Deployment modes, remaining** — encrypted cloud backup (#117, deferred), bring your own database (#91, designed in ADR-009), Windows code signing and a manual Windows pass (#93), LAN till checks (#88).
+- [x] **Developer platform** (ADR-007) — community modules, `/ext/v1`, signed webhooks, the developer portal and docs at dev.allmizan.live, `mizan-sdk`.
+- [x] **Activities as packages and theme packs** (ADR-010) — one folder per activity, theme packs (one per workspace), activity packages for developers.
 - [ ] **Billing, remaining** — Paymob production keys and first live payment (#65), subscription lapse (#66), reconciliation (#67), proration (#68), PDF receipts (#69).
 - [x] **Tenant Storefronts Engine (`storefront`)** — Public customer-facing storefronts with customizable branding, shopping cart, checkout, coupon engine, and real-time merchant dispatch board (Screens 196–201).
 - [x] **In-App Notification Center & Alerts Hub** — TopNav bell popover, live unread badges, automated system alert triggers (storefront web orders, low stock, trial expiry), filter pills, and read/unread state management (Screens 202–205).
