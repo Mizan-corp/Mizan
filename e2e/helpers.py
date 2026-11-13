@@ -14,7 +14,7 @@ from typing import Any
 
 import httpx
 
-BASE = os.environ.get("E2E_API_BASE", "https://mizan-co-api.vercel.app/api")
+BASE = os.environ.get("E2E_API_BASE", "http://localhost:8000")  # the local stack (CI sets it too)
 
 DEFAULT_ADMIN = ("ammar", os.environ.get("E2E_ADMIN_PASSWORD", "changeme"))
 

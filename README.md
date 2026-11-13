@@ -321,7 +321,6 @@ db      migrate | backup | restore <file> | backups | reset | baseline | export 
 dev     [system|website|owner|admin|all]    build [system|website|owner|admin|all]
 test    [unit|backend|e2e|browser|all]      lint | check
 module  new <activity> <id> "<name>" | scaffold | check | catalog
-vercel  status | domains | redeploy <project>
 cron    [--job NAME]
 ```
 
@@ -411,7 +410,7 @@ docs/                   product, architecture, design, security and requirements
                         jobs.yml (scheduled jobs) · installers.yml (build + smoke-test Mizan Setup)
 docker-compose.yml      local stack: database + the four APIs
 package.json            npm workspaces: shared, the four frontends and installer/setup
-manage.py               the one CLI: setup, stack, db, dev, build, test, lint, module, vercel
+manage.py               the one CLI: setup, stack, db, dev, build, test, lint, module
 ```
 
 Frontend import aliases: `@/` is the shared kit, `@app/` is the current app, `@activities/` is the activities' screens (system only).

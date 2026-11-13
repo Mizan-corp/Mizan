@@ -1,7 +1,9 @@
 # ADR-011: Self-hosted production (Vercel and Neon replaced by Mizan's own server)
 
 ## Status
-Accepted and done (2026-11-13). Replaces the hosting parts of ADR-003 and ADR-008 (the domains
+Accepted and done (2026-11-13). Production moved at 15:48 UTC; the Vercel projects, their Blob
+store, the domain on Vercel and the Vercel secrets and workflows were removed the same day. Neon
+is kept read-only for a few days as a fallback. Replaces the hosting parts of ADR-003 and ADR-008 (the domains
 and the four products stay as they were).
 
 ## Context

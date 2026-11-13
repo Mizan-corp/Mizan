@@ -12,7 +12,6 @@ manage.py — one command line for the whole Mizan monorepo.
     python manage.py test   [unit|backend|e2e|browser|all]   run test suites (default: unit + backend)
     python manage.py lint                                   ruff + TypeScript
     python manage.py check                                  lint + unit/backend tests + builds
-    python manage.py vercel status | redeploy <project> | domains
     python manage.py module new <activity> <id> "<name>" | scaffold | check | catalog   modules
     python manage.py cron   [--job NAME]                    background jobs in the system API
 
@@ -24,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import datetime
-import json
 import os
 import platform
 import re
@@ -50,7 +48,6 @@ COMPOSE = ["docker", "compose", "-f", str(ROOT / "docker-compose.yml")]
 DB_SERVICE, DB_NAME, DB_USER = "db", "inventory_db", "postgres"
 DB_URL_HOST = f"postgresql://{DB_USER}:postgres@localhost:5433/{DB_NAME}"
 TEST_SECRET = "local-dev-only-secret-key-change-me-0123456789abcdef"
-VERCEL_TEAM = os.environ.get("VERCEL_TEAM", "ammar0xfs-projects")
 BACKUP_RETENTION = 10
 
 
@@ -64,10 +61,6 @@ class App:
     dev_port: int
     api_service: str
     api_port: int
-    vercel_frontend: str
-    vercel_api: str
-    domain: str
-    api_domain: str
 
     @property
     def frontend(self) -> Path:
@@ -85,14 +78,10 @@ class App:
 APPS: dict[str, App] = {
     a.name: a
     for a in (
-        App("system", "the ERP", 5173, "system-api", 8000,
-            "mizan-system", "mizan-system-api", "mizan-co-app.vercel.app", "mizan-co-api.vercel.app"),
-        App("website", "landing, signup, onboarding", 5174, "website-api", 8001,
-            "mizan-website", "mizan-website-api", "mizan-co.vercel.app", "mizan-co-web-api.vercel.app"),
-        App("admin", "admin panel (Mizan team)", 5175, "admin-api", 8002,
-            "mizan-admin", "mizan-admin-api", "mizan-co-admin.vercel.app", "mizan-co-admin-api.vercel.app"),
-        App("owner", "owner panel (workspaces, subscriptions)", 5176, "owner-api", 8003,
-            "mizan-owner", "mizan-owner-api", "mizan-co-owner.vercel.app", "mizan-co-owner-api.vercel.app"),
+        App("system", "the ERP", 5173, "system-api", 8000),
+        App("website", "landing, signup, onboarding", 5174, "website-api", 8001),
+        App("admin", "admin panel (Mizan team)", 5175, "admin-api", 8002),
+        App("owner", "owner panel (workspaces, subscriptions)", 5176, "owner-api", 8003),
     )
 }
 SYSTEM = APPS["system"]
@@ -356,26 +345,16 @@ def migrate() -> None:
 
 # ─── production migrations (#64) ────────────────────────────────────────────
 
-PG_IMAGE = "postgres:18"  # pg_dump must be at least the server's version (Neon runs 18)
-PROD_VERCEL_PROJECT = "mizan-system-api"
+PG_IMAGE = "postgres:18"  # pg_dump must be at least the server's version (production runs 18)
 
 
 def _production_url() -> str:
-    """The production database URL: MIZAN_PROD_DATABASE_URL, else the system API's Vercel env.
-    Returned as a plain libpq URL on the direct host (DDL and pg_dump bypass the pooler)."""
+    """The production database URL, from MIZAN_PROD_DATABASE_URL. Production is on Mizan's server
+    (ADR-011), reachable only there: the release (deploy/server/deploy.sh) sets it for the migration.
+    Returned as a plain libpq URL."""
     url = os.environ.get("MIZAN_PROD_DATABASE_URL", "").strip()
     if not url:
-        need("vercel", "Install the Vercel CLI and run `vercel login`, or set MIZAN_PROD_DATABASE_URL.")
-        import tempfile
-
-        with tempfile.TemporaryDirectory() as tmp:
-            run(["vercel", "link", "--project", PROD_VERCEL_PROJECT, "--yes"], cwd=Path(tmp), capture=True)
-            run(["vercel", "env", "pull", ".env.prod", "--environment", "production", "--yes"], cwd=Path(tmp), capture=True)
-            for line in (Path(tmp) / ".env.prod").read_text().splitlines():
-                if line.startswith("DATABASE_URL="):
-                    url = line.split("=", 1)[1].strip().strip('"')
-        if not url:
-            die(f"No DATABASE_URL in the {PROD_VERCEL_PROJECT} production environment.")
+        die("Set MIZAN_PROD_DATABASE_URL (production migrations run on the server: deploy/server/deploy.sh).")
     url = url.replace("postgresql+asyncpg://", "postgresql://", 1).replace("-pooler.", ".", 1)
     return url.replace("&channel_binding=require", "").replace("?channel_binding=require&", "?")
 
@@ -900,86 +879,6 @@ def cmd_check(opts: argparse.Namespace) -> None:
     ok("All checks passed")
 
 
-# ─── Vercel ─────────────────────────────────────────────────────────────────
-
-
-def _vercel_token() -> str:
-    token = os.environ.get("VERCEL_TOKEN")
-    if token:
-        return token
-    for p in (Path.home() / ".local/share/com.vercel.cli/auth.json",
-              Path.home() / "Library/Application Support/com.vercel.cli/auth.json",
-              Path(os.environ.get("APPDATA", "")) / "com.vercel.cli/Data/auth.json"):
-        if p.is_file():
-            return json.loads(p.read_text())["token"]
-    die("No Vercel token. Run `vercel login` or set VERCEL_TOKEN.")
-    return ""
-
-
-def _vercel(method: str, path: str, body: dict | None = None) -> dict:
-    sep = "&" if "?" in path else "?"
-    req = urllib.request.Request(
-        f"https://api.vercel.com{path}{sep}teamId={VERCEL_TEAM}", method=method,
-        data=json.dumps(body).encode() if body is not None else None,
-        headers={"Authorization": f"Bearer {_vercel_token()}", "Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            return json.loads(r.read() or b"{}")
-    except urllib.error.HTTPError as e:
-        die(f"Vercel API {method} {path}: {e.code} {e.read().decode()[:300]}")
-        return {}
-
-
-def _vercel_projects() -> list[tuple[App, str, str]]:
-    return [(a, proj, dom) for a in APPS.values()
-            for proj, dom in ((a.vercel_frontend, a.domain), (a.vercel_api, a.api_domain))]
-
-
-def _production(project: str) -> tuple[dict, dict]:
-    """(live, newest): the deployment serving production, and the newest attempt.
-
-    A newer attempt may be CANCELED on purpose: the per-folder ignore rule skips
-    builds when the project's folder didn't change. That's not a problem.
-    """
-    pid = _vercel("GET", f"/v9/projects/{project}")["id"]
-    deps = _vercel("GET", f"/v6/deployments?projectId={pid}&target=production&limit=20")["deployments"]
-    live = next((d for d in deps if d.get("state") == "READY"), {})
-    return live, (deps[0] if deps else {})
-
-
-def cmd_vercel(opts: argparse.Namespace) -> None:
-    """Production status and redeploys of the six Vercel projects."""
-    if opts.action == "status":
-        info(f"{'project':<20} {'live':<9} {'age':>5}  {'domain':<32} newest attempt")
-        for _, project, domain in _vercel_projects():
-            live, newest = _production(project)
-            sha = (live.get("meta") or {}).get("githubCommitSha", "")[:7] or "-"
-            age = f"{int((time.time() - live['created'] / 1000) // 3600)}h" if live else "-"
-            note = ""
-            if newest and newest.get("uid") != live.get("uid"):
-                state = newest.get("state", "")
-                color = "31" if state == "ERROR" else "33" if state != "CANCELED" else "2"
-                label = "skipped (no changes)" if state == "CANCELED" else state.lower()
-                note = _c(color, f"{label} @ {(newest.get('meta') or {}).get('githubCommitSha', '')[:7]}")
-            info(f"{project:<20} {_c('32', f'{sha:<9}')} {age:>5}  {domain:<32} {note}")
-    elif opts.action == "domains":
-        for _, project, _ in _vercel_projects():
-            names = [d["name"] for d in _vercel("GET", f"/v9/projects/{project}/domains")["domains"]]
-            info(f"{project:<20} {', '.join(names)}")
-    elif opts.action == "redeploy":
-        valid = [p for _, p, _ in _vercel_projects()]
-        if opts.project not in valid:
-            die(f"Unknown project. One of: {', '.join(valid)}")
-        d, _ = _production(opts.project)
-        if not d:
-            die(f"{opts.project} has no production deployment to redeploy.")
-        confirm(f"Redeploy {opts.project} to production (from {d['url']})?", opts)
-        new = _vercel("POST", "/v13/deployments?forceNew=1",
-                      {"name": opts.project, "deploymentId": d["uid"], "target": "production"})
-        ok(f"Queued: https://{new.get('url')}  (track with: python manage.py vercel status)")
-
-
 # ─── cron ───────────────────────────────────────────────────────────────────
 
 
@@ -1087,10 +986,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("suite", nargs="?", default=None, choices=["unit", "backend", "e2e", "browser", "all"])
     add("lint", cmd_lint, "ruff (Python) + TypeScript for all four apps")
     add("check", cmd_check, "Lint, unit and backend tests, and builds (CI minus e2e)")
-
-    p = add("vercel", cmd_vercel, "Vercel: status, domains, redeploy <project>")
-    p.add_argument("action", choices=["status", "domains", "redeploy"])
-    p.add_argument("project", nargs="?", help="With `redeploy`: e.g. mizan-system-api")
 
     p = add("module", cmd_module, "Modules (docs/MODULE_STANDARD.md): new, scaffold (fill missing files), check, catalog (docs/MODULE_CATALOG.md)")
     p.add_argument("action", choices=["new", "scaffold", "check", "catalog"])

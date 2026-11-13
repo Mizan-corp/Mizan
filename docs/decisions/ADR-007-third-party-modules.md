@@ -93,7 +93,7 @@ manifest declares and roles hold (ADR-006 D4): scopes limit the module, permissi
 ### D6. Where the developer platform lives
 
 - **The portal** is part of the website app, served at **`dev.allmizan.live`** (ADR-008
-  reserved it): a host rule in the website's `vercel.json` sends that host to the portal's
+  reserved it): a host rule (then the website's `vercel.json`, now `deploy/server/nginx.conf`, ADR-011) sends that host to the portal's
   routes. No new Vercel project, so pushes don't cost more deployments.
 - **The developer API** (accounts, keys, packages) is a router in the website API; the extension
   API (`/ext/v1`) is part of the system API, next to the data it serves.

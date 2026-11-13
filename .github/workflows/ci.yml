@@ -13,6 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 # ─── CI: lint + syntax + live e2e against the compose stack ───────────────
+# Releases are .github/workflows/deploy-server.yml: it builds the images while this runs and
+# releases a master commit on the server once this passes.
 
 jobs:
   ci-frontend:
@@ -167,83 +169,3 @@ jobs:
       - name: Help renders
         working-directory: ./
         run: python manage.py --help > /dev/null
-
-# ─── CD: images ────────────────────────────────────────────────────────────
-
-  build-docker:
-    name: Docker image (tag)
-    needs: [ci-frontend, ci-backend, ci-e2e, ci-manage]
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-22.04
-    env:
-      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Docker Hub
-        if: env.DOCKER_USERNAME != '' && env.DOCKER_PASSWORD != ''
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Extract metadata (tags, labels)
-        if: env.DOCKER_USERNAME != '' && env.DOCKER_PASSWORD != ''
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ secrets.DOCKER_USERNAME }}/mizan-backend
-
-      - name: Build & push backend
-        if: env.DOCKER_USERNAME != '' && env.DOCKER_PASSWORD != ''
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: system/backend/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-  # ─── Beta image (ghcr.io, :beta tag on every main/master push) ────────────
-  beta-docker:
-    name: Beta image (ghcr.io)
-    needs: [ci-frontend, ci-backend, ci-e2e, ci-manage]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Lowercase image owner
-        id: owner
-        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build & push backend (beta)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: system/backend/Dockerfile
-          push: true
-          tags: ghcr.io/${{ steps.owner.outputs.owner }}/mizan-backend:beta
