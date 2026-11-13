@@ -637,6 +637,30 @@ variants made real, and demo data that shows them.
   piece, and a fresh counter (fruit, vegetables, cheese, meat) is sold by weight with scale codes.
 - Tests: `system/backend/tests/test_retail.py`.
 
+## Phase 9 implementation notes (2026-11-13, #107)
+
+Changing a workspace's activity, for Mizan's own activities (`app/platform/tenancy/activity_change.py`).
+
+- **Flow**: the owner (owner panel → workspace settings → «تغيير النشاط») picks the activity, sees
+  the preview and chooses what happens to the leaving modules' data, then asks; the Mizan team
+  reviews it in the admin panel (Overview → Needs you → Review) and approves, which applies it at
+  once, or rejects it with a reason the owner sees. One open request per workspace; the owner can
+  cancel it.
+- **What changes**: `tenants.sector` and `business_type`. Variants, menus and home screens,
+  terms and positions are read from the activity, so they follow. Modules the new activity can't
+  run (`installable`) leave with the modules that need them, through the same rules as removing a
+  module: kept hidden 30 days (`module_retention`, restored if they come back) or deleted after
+  an export; core ERP data is never deleted. The new activity's own modules join (general's
+  defaults the workspace removed stay removed). The settings preset follows; a theme that belonged
+  to the old activity switches to the new activity's default or Mizan's.
+- **Price**: plans don't depend on the activity, so nothing changes in billing.
+- **Limits**: cloud workspaces only (on-site installs carry their activity in the licence: via
+  support). Developers' activity packages as targets come next (ADR-010 D2).
+- **Data**: table `activity_changes` (v74, RLS like every table with `tenant_id`; the owner and
+  admin APIs read it with `app.bypass`). APIs: owner `GET …/activity-change/preview?to=`,
+  `GET|POST|DELETE …/activity-change`; admin `GET /admoon/activity-changes[/{id}]`,
+  `POST …/{id}/approve|reject`; Needs you item `activity_change`.
+
 ## Decision log (review of 2026-11-10)
 Answers as given by the owner; *italics* = how this ADR applies them.
 

@@ -324,6 +324,43 @@ async def test_plan_changes_mid_period():
         await db.rollback()
 
 
+async def test_owners_ask_to_change_the_activity():
+    """#107: preview, ask, one open request at a time, cancel."""
+    from sqlalchemy import text
+
+    from app.framework.composition import base_modules
+
+    owner, tenant, _ = await make_owner()
+    async with AsyncSessionLocal() as db:
+        await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
+        t = await db.get(Tenant, tenant.id)
+        t.sector, t.active_modules = "pharmacy", base_modules("pharmacy")
+        await db.commit()
+    base = f"/account/workspaces/{tenant.id}/activity-change"
+    async with client() as c:
+        h = await login(c, owner)
+        p = (await c.get(f"{base}/preview", headers=h, params={"to": "retail"})).json()
+        assert p["from"]["id"] == "pharmacy" and p["to"]["id"] == "retail"
+        assert {"pharmacy", "batches"} <= {m["id"] for m in p["leaving"]}
+        assert {m["id"] for m in p["variants_changed"]} >= {"inventory", "pos"} and p["price_changes"] is False
+        assert (await c.get(f"{base}/preview", headers=h, params={"to": "pharmacy"})).status_code == 409
+        assert (await c.get(f"{base}/preview", headers=h, params={"to": "nonsense"})).status_code == 422
+        assert (await c.get(base, headers=h)).json()["change"] is None
+
+        r = await c.post(base, headers=h, json={"to": "retail", "data_mode": "keep", "note": "we sell other things now"})
+        assert r.status_code == 201, r.text
+        assert r.json()["change"]["status"] == "requested" and r.json()["change"]["to"]["id"] == "retail"
+        assert (await c.post(base, headers=h, json={"to": "restaurant"})).status_code == 409  # one at a time
+        assert (await c.get(base, headers=h)).json()["change"]["status"] == "requested"
+
+        assert (await c.delete(base, headers=h)).status_code == 204
+        assert (await c.get(base, headers=h)).json()["change"]["status"] == "cancelled"
+        assert (await c.delete(base, headers=h)).status_code == 404
+        # Someone else's workspace isn't found.
+        other, other_ws, _ = await make_owner()
+        assert (await c.get(f"/account/workspaces/{other_ws.id}/activity-change", headers=h)).status_code == 404
+
+
 async def test_checkout_is_refused_without_paymob(monkeypatch):
     monkeypatch.setattr(settings, "PAYMOB_SECRET_KEY", "")
     owner, tenant, _ = await make_owner()

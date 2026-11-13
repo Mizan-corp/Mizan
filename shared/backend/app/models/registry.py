@@ -53,6 +53,7 @@ def load_all_models() -> None:
     import app.activities.general.modules.purchases.models.supplier_price
     import app.activities.general.modules.purchases.models.supplier_transaction
     import app.platform.tenancy.models
+    import app.platform.tenancy.activity_change
     import app.platform.auth.models.user
     import app.activities.general.modules.inventory.models.warehouse
     import app.activities.general.modules.inventory.models.warehouse_product_status

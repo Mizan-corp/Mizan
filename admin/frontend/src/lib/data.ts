@@ -18,6 +18,33 @@ export interface ActivityItem {
 export type AttentionItem =
   | { kind: "trial_expired" | "trial_ending" | "paid_ended" | "paid_ending"; tenant_id: string; tenant_name: string; days: number; at: string }
   | { kind: "invoice_pending"; tenant_id: string; tenant_name: string | null; ref: string; amount_egp: number; plan: string; at: string }
+  | { kind: "activity_change"; tenant_id: string; tenant_name: string | null; change_id: string; from_activity: string; to_activity: string; at: string }
+
+/** An owner's request to change a workspace's activity (#107), with what it does today. */
+export interface ActivityChange {
+  id: string;
+  tenant_id: string;
+  tenant_name: string | null;
+  from: { id: string; name: string };
+  to: { id: string; name: string };
+  data_mode: "keep" | "delete";
+  status: "requested" | "applied" | "rejected" | "cancelled";
+  note: string | null;
+  decision_note: string | null;
+  created_at: string;
+  preview?: {
+    leaving: { id: string; name: string; name_en: string }[];
+    joining: { id: string; name: string; name_en: string }[];
+    variants_changed: { id: string; name: string; name_en: string; from: string; to: string }[];
+    data: { id: string; name: string; name_en: string; rows: number; kept_always: boolean }[];
+    keep_days: number;
+    theme: { from: string | null; to: string } | null;
+  };
+  preview_error?: string;
+}
+
+export const useActivityChange = (id: string, enabled = true) =>
+  useQuery({ queryKey: ["activity-change", id], queryFn: () => api.get<ActivityChange>(`/admoon/activity-changes/${id}`), enabled });
 
 export interface Revenue {
   mrr_egp: number;
@@ -219,6 +246,8 @@ export function useAction<TVars, TResult = unknown>(
 }
 
 export const actions = {
+  approveActivityChange: (v: { id: string; note?: string }) => api.post<ActivityChange>(`/admoon/activity-changes/${v.id}/approve`, { note: v.note }),
+  rejectActivityChange: (v: { id: string; note: string }) => api.post<ActivityChange>(`/admoon/activity-changes/${v.id}/reject`, { note: v.note }),
   resetOwnerPassword: (id: string) => api.post<{ password: string }>(`/admoon/owners/${id}/reset-password`),
   setOwnerActive: (v: { id: string; active: boolean }) => api.post<OwnerRow>(`/admoon/owners/${v.id}/active`, { active: v.active }),
   moveWorkspace: (v: { owner_id: string; tenant_id: string }) =>

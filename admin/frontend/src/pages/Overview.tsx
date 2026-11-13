@@ -6,6 +6,7 @@ import { actions, type AttentionItem, useAction, useOverview } from "@app/lib/da
 import { ago, date, money, num, plural, planLabel, sectorLabel } from "@app/lib/format";
 import { ActivityList, Badge, Button, Figures, LoadError, PageHeader, PageSkeleton, Panel, WorkspaceLink } from "@app/ui";
 import { MarkPaidDialog } from "@app/pages/Billing";
+import { ActivityChangeReview } from "@app/pages/ActivityChanges";
 
 function greeting() {
   const h = new Date().getHours();
@@ -18,12 +19,14 @@ const KIND: Record<AttentionItem["kind"], { label: string; tone: "bad" | "warn" 
   trial_ending: { label: "Trial ending", tone: "info" },
   paid_ended: { label: "Read-only", tone: "bad" },
   paid_ending: { label: "Renewal due", tone: "warn" },
+  activity_change: { label: "Activity change", tone: "ox" },
 };
 
 function AttentionRow({ item }: { item: AttentionItem }) {
   const navigate = useNavigate();
   const extend = useAction(actions.extendTrial, { success: (v) => `Trial extended by ${v.days} days` });
   const [paying, setPaying] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const name = <WorkspaceLink id={item.tenant_id} name={item.tenant_name ?? "Unknown workspace"} />;
 
   let sentence;
@@ -76,6 +79,17 @@ function AttentionRow({ item }: { item: AttentionItem }) {
             Mark paid
           </Button>
           <MarkPaidDialog open={paying} onClose={() => setPaying(false)} invoiceRef={item.ref} amount={item.amount_egp} />
+        </>
+      );
+      break;
+    case "activity_change":
+      sentence = <>{name} asks to change its activity from {sectorLabel(item.from_activity)} to {sectorLabel(item.to_activity)}.</>;
+      action = (
+        <>
+          <Button size="sm" onClick={() => setReviewing(true)}>
+            Review
+          </Button>
+          <ActivityChangeReview id={item.change_id} open={reviewing} onClose={() => setReviewing(false)} />
         </>
       );
       break;

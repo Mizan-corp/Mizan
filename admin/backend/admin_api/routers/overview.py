@@ -56,6 +56,16 @@ async def overview(db: AsyncSession = Depends(get_db), _: User = Depends(require
                    "ref": i.invoice_ref, "amount_egp": i.amount_egp, "plan": i.plan,
                    "at": iso(i.created_at)} for i in pending]
 
+    # Owners asking to change a workspace's activity (#107).
+    from app.platform.tenancy.activity_change import ActivityChange
+
+    asks = (await db.execute(select(ActivityChange).where(ActivityChange.status == "requested")
+                             .order_by(ActivityChange.created_at))).scalars().all()
+    names = await tenant_names(db, {c.tenant_id for c in asks})
+    attention += [{"kind": "activity_change", "tenant_id": str(c.tenant_id), "tenant_name": names.get(c.tenant_id),
+                   "change_id": str(c.id), "from_activity": c.from_activity, "to_activity": c.to_activity,
+                   "at": iso(c.created_at)} for c in asks]
+
     ending = (await db.execute(select(Tenant).where(on_trial, Tenant.trial_ends_at >= now,
                                                     Tenant.trial_ends_at < now + timedelta(days=7))
                                .order_by(Tenant.trial_ends_at))).scalars().all()

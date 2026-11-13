@@ -105,6 +105,11 @@ the invoice paid. Starting a new checkout abandons the previous unpaid one. With
 keys, or for owners outside `PAYMOB_TEST_OWNERS`, checkout answers 503 and the panel says
 online payment isn't available.
 
+**Changing activity (#107)**: workspace settings → «تغيير النشاط». The owner sees what leaves,
+joins and works differently, chooses whether leaving modules' data is kept hidden 30 days or
+deleted, and asks; the Mizan team approves (applied at once) or rejects with a reason in the admin
+panel. Routes in `owner_api/routers/activity.py`; logic in `app.platform.tenancy.activity_change`.
+
 **Changing plan (#68)**, in `app.platform.billing.services.subscriptions` (`checkout_quote`,
 `new_invoice`, `activate_invoice`, `apply_due_plan_changes`). The panel shows the quote
 (`GET /account/workspaces/{id}/checkout/quote?plan=&cycle=`) before sending the owner to Paymob.

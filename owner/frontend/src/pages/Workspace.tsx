@@ -8,6 +8,8 @@ import {
   type PaymentMethod,
   type Plan,
   useAction,
+  useActivityChange,
+  useActivityPreview,
   useCheckoutQuote,
   useMe,
   usePlans,
@@ -16,11 +18,11 @@ import {
   type Workspace as WorkspaceT,
 } from "@app/lib/data";
 import { useOpenWorkspace } from "@app/lib/open";
-import { ago, date, errorText, LICENCE_STATUS, MODE, money, paidState, planLabel, sectorLabel, trialState } from "@app/lib/format";
+import { ago, date, errorText, LICENCE_STATUS, MODE, money, num, paidState, planLabel, SECTORS, sectorLabel, trialState } from "@app/lib/format";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { appUrl, workspaceUrl } from "@/lib/urls";
-import { Badge, Button, ErrorNote, Field, Input, LoadError, Meter, Modal, ModalActions, PageSkeleton, Panel, Money } from "@app/ui";
+import { Badge, Button, ErrorNote, Field, Input, LoadError, Meter, Modal, ModalActions, PageSkeleton, Panel, Money, Select } from "@app/ui";
 import { PlanBadge } from "@app/pages/Workspaces";
 import { DownloadButton } from "@app/DownloadDialog";
 import { InvoiceTable } from "@app/pages/Invoices";
@@ -445,6 +447,142 @@ function MoveLicence({ workspaceId, installationId, hostname }: { workspaceId: s
 }
 
 /** Name, address and deletion (#74). The URL name is the workspace's address. */
+function records(n: number): string {
+  if (n === 1) return "سجل واحد";
+  if (n === 2) return "سجلان";
+  return `${num(n)} ${n % 100 >= 3 && n % 100 <= 10 ? "سجلات" : "سجلًا"}`;
+}
+
+function modulesLeaving(n: number): string {
+  if (n === 1) return "ستُزال وحدة لا يشغّلها النشاط الجديد";
+  if (n === 2) return "ستُزال وحدتان لا يشغّلهما النشاط الجديد";
+  return `ستُزال ${num(n)} ${n <= 10 ? "وحدات" : "وحدة"} لا يشغّلها النشاط الجديد`;
+}
+
+/** Changing the workspace's activity (#107): the owner asks after seeing what changes; the Mizan team decides. */
+function ActivityChangeDialog({ w, onClose }: { w: WorkspaceT; onClose: () => void }) {
+  const [to, setTo] = useState("");
+  const [mode, setMode] = useState<"keep" | "delete">("keep");
+  const [note, setNote] = useState("");
+  const preview = useActivityPreview(w.id, to);
+  const ask = useAction(actions.askActivityChange);
+  const p = preview.data;
+  const removable = (p?.data ?? []).filter((d) => !d.kept_always);
+
+  return (
+    <Modal open onClose={onClose} title="تغيير نشاط مساحة العمل"
+           description="يراجع فريق ميزان الطلب ثم يطبّقه. القوائم والشاشات وطريقة عمل الوحدات تتبع النشاط الجديد.">
+      <Field label="النشاط الجديد">
+        <Select value={to} onChange={(e) => setTo(e.target.value)}>
+          <option value="">اختر النشاط…</option>
+          {SECTORS.filter(([v]) => v !== w.sector).map(([v, l]) => (
+            <option key={v} value={v}>{l}</option>
+          ))}
+        </Select>
+      </Field>
+
+      {to && preview.isPending && <p className="mt-4 text-[13px] text-mute">نجهّز ما سيتغيّر…</p>}
+      {preview.isError && <ErrorNote>{errorText(preview.error)}</ErrorNote>}
+      {p && (
+        <div className="mt-4 grid gap-3 text-sm">
+          {p.leaving.length > 0 && (
+            <div className="rounded-lg bg-bad/8 px-3.5 py-2.5">
+              <p className="font-semibold text-ink">{modulesLeaving(p.leaving.length)}</p>
+              <p className="mt-1 text-ink-2">{p.leaving.map((m) => m.name).join("، ")}</p>
+            </div>
+          )}
+          {p.joining.length > 0 && (
+            <div className="rounded-lg bg-ok/10 px-3.5 py-2.5">
+              <p className="font-semibold text-ink">ستُضاف وحدات النشاط الجديد</p>
+              <p className="mt-1 text-ink-2">{p.joining.map((m) => m.name).join("، ")}</p>
+            </div>
+          )}
+          {p.variants_changed.length > 0 && (
+            <div className="rounded-lg bg-sand/60 px-3.5 py-2.5">
+              <p className="font-semibold text-ink">ستعمل بطريقة النشاط الجديد</p>
+              <p className="mt-1 text-ink-2">{p.variants_changed.map((m) => m.name).join("، ")}: حقولها وإعداداتها الخاصة بالنشاط الحالي تبقى محفوظة.</p>
+            </div>
+          )}
+          {p.theme && <p className="text-ink-2">مظهر مساحة العمل خاص بالنشاط الحالي، فسيتغيّر إلى مظهر النشاط الجديد.</p>}
+          {!p.leaving.length && !p.joining.length && !p.variants_changed.length && (
+            <p className="text-ink-2">لن تتغيّر الوحدات المثبتة؛ تتغيّر القوائم والمصطلحات حسب النشاط الجديد.</p>
+          )}
+
+          {removable.length > 0 && (
+            <fieldset>
+              <legend className="mb-2 font-semibold text-ink">بيانات الوحدات التي ستُزال ({removable.map((d) => `${d.name}: ${records(d.rows)}`).join("، ")})</legend>
+              <div className="grid gap-2" role="radiogroup">
+                {([["keep", `احتفظ بها مخفية ${num(p.keep_days)} يومًا (تعود إن رجعت للنشاط)`], ["delete", "احذفها نهائيًا بعد أخذ نسخة"]] as const).map(([v, label]) => (
+                  <label key={v} className={cn("flex cursor-pointer items-center gap-2.5 rounded-lg border p-3", mode === v ? "border-wine bg-wine-soft" : "border-line")}>
+                    <input type="radio" name="data_mode" checked={mode === v} onChange={() => setMode(v)} className="accent-wine" />
+                    <span className="text-ink-2">{label}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+
+          <Field label="ملاحظة لفريق ميزان (اختياري)">
+            <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} placeholder="مثلًا: أضفنا مطبخًا وصرنا مطعمًا" />
+          </Field>
+          <p className="text-[12px] text-mute">لا يتغيّر سعر باقتك. بيانات المبيعات والمخزون والعملاء والحسابات لا تُحذف أبدًا.</p>
+        </div>
+      )}
+      {ask.isError && <ErrorNote>{errorText(ask.error)}</ErrorNote>}
+      <ModalActions>
+        <Button variant="primary" busy={ask.isPending} disabled={!p}
+                onClick={() => ask.mutateAsync({ id: w.id, to, data_mode: mode, note: note.trim() || undefined })
+                  .then(() => { toast.success("أُرسل الطلب إلى فريق ميزان"); onClose(); })}>
+          أرسل الطلب
+        </Button>
+        <Button variant="ghost" onClick={onClose}>إلغاء</Button>
+      </ModalActions>
+    </Modal>
+  );
+}
+
+function ActivitySection({ w }: { w: WorkspaceT }) {
+  const q = useActivityChange(w.id);
+  const cancel = useAction(actions.cancelActivityChange);
+  const [asking, setAsking] = useState(false);
+  const c = q.data?.change;
+  const open = c?.status === "requested";
+  const onSite = w.deployment_mode !== "cloud_saas";
+
+  return (
+    <div className="mt-6 border-t border-line-soft pt-5">
+      <h3 className="text-sm font-semibold text-ink">النشاط التجاري</h3>
+      <p className="mt-1 text-sm text-ink-2">{sectorLabel(w.sector)}</p>
+      {open && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-warn/12 px-3.5 py-2.5 text-[13px] text-ink-2">
+          <span>طلبت التحويل إلى «{sectorLabel(c.to.id)}» في {date(c.created_at)}، والطلب قيد مراجعة فريق ميزان.</span>
+          <Button size="sm" variant="ghost" busy={cancel.isPending} onClick={() => cancel.mutateAsync(w.id).then(() => toast.success("أُلغي الطلب"))}>
+            إلغاء الطلب
+          </Button>
+        </div>
+      )}
+      {c?.status === "rejected" && (
+        <p className="mt-3 rounded-lg bg-sand/60 px-3.5 py-2.5 text-[13px] text-ink-2">
+          لم يُقبل طلب التحويل إلى «{sectorLabel(c.to.id)}»{c.decision_note ? `: ${c.decision_note}` : "."}
+        </p>
+      )}
+      {c?.status === "applied" && c.decided_at && (
+        <p className="mt-3 text-[13px] text-mute">تحوّلت من «{sectorLabel(c.from.id)}» إلى «{sectorLabel(c.to.id)}» في {date(c.decided_at)}.</p>
+      )}
+      {onSite ? (
+        <p className="mt-1 text-[13px] text-mute">تغيير نشاط النسخ المثبتة على أجهزتك يتم عن طريق الدعم.</p>
+      ) : (
+        !open && (
+          <Button size="sm" className="mt-3" disabled={w.status === "suspended" || q.isPending} onClick={() => setAsking(true)}>
+            تغيير النشاط
+          </Button>
+        )
+      )}
+      {asking && <ActivityChangeDialog w={w} onClose={() => setAsking(false)} />}
+    </div>
+  );
+}
+
 function Settings({ w, staff }: { w: WorkspaceT; staff: number }) {
   const navigate = useNavigate();
   const [name, setName] = useState(w.name);
@@ -499,6 +637,8 @@ function Settings({ w, staff }: { w: WorkspaceT; staff: number }) {
           </Button>
         )}
       </div>
+
+      <ActivitySection w={w} />
 
       <div className="mt-6 border-t border-line-soft pt-5">
         <h3 className="text-sm font-semibold text-ink">حذف مساحة العمل</h3>

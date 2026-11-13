@@ -42,6 +42,7 @@ Besides the ERP's own records, every workspace has (all tenant-scoped, with RLS)
 | `community_webhook_deliveries` | Webhooks to modules' servers: payload, status, attempts, next attempt, last error |
 | `workspace_themes` | Theme packages installed in the workspace (ADR-010), with their font files; the chosen theme is `tenants.palette["name"]` |
 | `workspace_files` | Every uploaded file and its size (#114) |
+| `activity_changes` | Owners' requests to change the workspace's activity and the Mizan team's decisions (#107); read across workspaces by the owner and admin APIs with `app.bypass` |
 
 ## 3. Platform Tables (not tenant-scoped)
 

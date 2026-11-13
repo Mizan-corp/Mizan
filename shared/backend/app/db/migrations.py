@@ -3088,6 +3088,34 @@ MIGRATIONS = [
         CREATE POLICY tenant_isolation ON workspace_themes
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    # #107 (ADR-006 phase 9): an owner asks to change a workspace's activity; the Mizan team
+    # approves or rejects it in the admin panel. Read across workspaces (owner and admin APIs, with
+    # app.bypass), so written outside a bound workspace; RLS like every table with tenant_id.
+    ("v74_activity_changes", """
+        CREATE TABLE IF NOT EXISTS activity_changes (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            from_activity varchar(32) NOT NULL,
+            to_activity varchar(64) NOT NULL,
+            data_mode varchar(8) NOT NULL DEFAULT 'keep',
+            status varchar(16) NOT NULL DEFAULT 'requested',
+            note text,
+            requested_by uuid REFERENCES owner_accounts(id) ON DELETE SET NULL,
+            decided_by uuid,
+            decision_note text,
+            result jsonb,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            decided_at timestamptz
+        );
+        CREATE INDEX IF NOT EXISTS ix_activity_changes_tenant ON activity_changes (tenant_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS ix_activity_changes_status ON activity_changes (status);
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_activity_changes_one_open ON activity_changes (tenant_id) WHERE status = 'requested';
+        ALTER TABLE activity_changes ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE activity_changes FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON activity_changes;
+        CREATE POLICY tenant_isolation ON activity_changes
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

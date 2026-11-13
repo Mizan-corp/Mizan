@@ -168,6 +168,51 @@ export interface CheckoutQuote {
   current_paid_until: string | null;
 }
 
+/** Changing a workspace's activity (#107): asked here, decided by the Mizan team. */
+export interface ActivityChange {
+  id: string;
+  from: { id: string; name: string };
+  to: { id: string; name: string };
+  data_mode: "keep" | "delete";
+  status: "requested" | "applied" | "rejected" | "cancelled";
+  note: string | null;
+  decision_note: string | null;
+  created_at: string;
+  decided_at: string | null;
+}
+
+interface ModuleRef {
+  id: string;
+  name: string;
+}
+
+export interface ActivityPreview {
+  from: { id: string; name: string };
+  to: { id: string; name: string };
+  leaving: ModuleRef[];
+  joining: ModuleRef[];
+  staying: ModuleRef[];
+  variants_changed: (ModuleRef & { from: string; to: string })[];
+  /** Leaving modules that hold records; core ERP data (kept_always) is never deleted. */
+  data: (ModuleRef & { rows: number; kept_always: boolean })[];
+  keep_days: number;
+  theme: { from: string | null; to: string } | null;
+}
+
+export const useActivityChange = (id: string) =>
+  useQuery({
+    queryKey: ["activity-change", id],
+    queryFn: () => api.get<{ change: ActivityChange | null }>(`/account/workspaces/${id}/activity-change`),
+  });
+
+export const useActivityPreview = (id: string, to: string) =>
+  useQuery({
+    queryKey: ["activity-preview", id, to],
+    queryFn: () => api.get<ActivityPreview>(`/account/workspaces/${id}/activity-change/preview`, { to }),
+    enabled: !!to,
+    retry: false,
+  });
+
 export const useCheckoutQuote = (id: string, plan: string, cycle: "monthly" | "annual") =>
   useQuery({
     queryKey: ["quote", id, plan, cycle],
@@ -205,6 +250,9 @@ export const actions = {
       wallet_number: v.wallet_number,
     }),
   invoice: (ref: string) => api.get<Invoice>(`/account/invoices/${encodeURIComponent(ref)}`),
+  askActivityChange: (v: { id: string; to: string; data_mode: "keep" | "delete"; note?: string }) =>
+    api.post<{ change: ActivityChange }>(`/account/workspaces/${v.id}/activity-change`, { to: v.to, data_mode: v.data_mode, note: v.note }),
+  cancelActivityChange: (id: string) => api.del(`/account/workspaces/${id}/activity-change`),
   updateWorkspace: (v: { id: string; name?: string; slug?: string }) =>
     api.patch<WorkspaceDetail>(`/account/workspaces/${v.id}`, { name: v.name, slug: v.slug }),
   moveLicence: (v: { id: string; installation: string }) =>
