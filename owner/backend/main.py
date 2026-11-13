@@ -5,5 +5,5 @@ from owner_api.routers import account, activity, billing, installations, workspa
 
 app = create_app(
     title="Mizan Owner API",
-    routers=[account.router, workspaces.router, activity.router, billing.router, installations.router],
+    routers=[account.router, activity.catalogue, workspaces.router, activity.router, billing.router, installations.router],
 )

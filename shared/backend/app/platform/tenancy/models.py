@@ -15,7 +15,7 @@ class Tenant(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, server_default=text("gen_random_uuid()"))
     name: Mapped[str] = mapped_column(Text, nullable=False)
-    sector: Mapped[str] = mapped_column(String(32), nullable=False, default="plumbing", server_default=text("'plumbing'"))
+    sector: Mapped[str] = mapped_column(String(80), nullable=False, default="plumbing", server_default=text("'plumbing'"))
     scale: Mapped[str] = mapped_column(String(16), nullable=False, default="medium", server_default=text("'medium'"))
     # wizard choices: {"primary_hue": "...", ...} applied by the frontend as token overrides
     palette: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
@@ -33,7 +33,7 @@ class Tenant(Base):
     custom_domain: Mapped[str | None] = mapped_column(String(128), unique=True, nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active", server_default=text("'active'"))
     deployment_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="cloud_saas", server_default=text("'cloud_saas'"))
-    business_type: Mapped[str] = mapped_column(String(64), nullable=False, default="retail", server_default=text("'retail'"))
+    business_type: Mapped[str] = mapped_column(String(80), nullable=False, default="retail", server_default=text("'retail'"))
     tech_stack: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     active_modules: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb"))
     limits: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))

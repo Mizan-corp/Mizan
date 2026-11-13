@@ -37,6 +37,14 @@ MAX_WORKSPACES = 10
 MAX_TRIALS = 3
 
 
+def _activity_name(sector: str | None) -> str | None:
+    """A developer's activity's name (ADR-012); the panel names Mizan's own activities itself."""
+    from app.framework import package_activities
+
+    d = package_activities.get(sector)
+    return d.manifest.get("name") if d else None
+
+
 def licence_out(lic: Licence | None, installs: list[Installation] | None = None) -> dict | None:
     if lic is None:
         return None
@@ -63,6 +71,7 @@ def summary(
         "name": t.name,
         "slug": t.slug,
         "sector": t.sector,
+        "sector_name": _activity_name(t.sector),
         "status": t.status,
         "plan": t.plan,
         "monthly_price_egp": get_plan(t.plan)["price_monthly_egp"],

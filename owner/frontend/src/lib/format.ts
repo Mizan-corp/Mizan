@@ -79,7 +79,8 @@ export const SECTORS: [string, string][] = [
   ["services", "خدمات أخرى"],
 ];
 const SECTOR_MAP = Object.fromEntries(SECTORS);
-export const sectorLabel = (s: string) => SECTOR_MAP[s] ?? s.replace(/_/g, " ");
+/** An activity's name: Mizan's from the list, a developer's from `name` (ADR-012). */
+export const sectorLabel = (s: string, name?: string | null) => SECTOR_MAP[s] ?? name ?? s.replace(/_/g, " ");
 
 export function trialState(daysLeft: number | null | undefined): { text: string; tone: Tone } {
   if (daysLeft == null) return { text: "فترة تجريبية", tone: "info" };

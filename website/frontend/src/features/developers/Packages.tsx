@@ -1,17 +1,17 @@
 /**
- * A team's marketplace packages (ADR-007 milestone 2, #105): what is listed in workspaces' stores,
+ * A team's marketplace packages (ADR-007 milestone 2, #105; activities ADR-012): what is listed,
  * and every version sent for review with its outcome. Sending is a signed .mzm, here or with
  * `mizan publish`.
  */
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Blocks, Palette, Store, Upload } from "lucide-react";
+import { Blocks, Palette, Store, Upload, Building2 } from "lucide-react";
 import { Badge, Button, Empty, ErrorBox, Spinner, useToast } from "@/components/ui";
 import { useDevI18n } from "./i18n";
 import { Confirm, Panel, useWhen } from "./kit";
 import { portal, PortalError } from "./session";
 
-type Kind = "community" | "theme";
+type Kind = "community" | "theme" | "activity";
 interface Item {
   id: string; kind: Kind; name: string; name_en: string | null; version: string;
   status: "listed" | "delisted"; status_note: string | null; installs: number;
@@ -59,7 +59,10 @@ export function Packages({ handle }: { handle: string }) {
     withdrawn: [t("Withdrawn", "مسحوب"), "muted"],
   };
   const name = (x: { name: string | null; name_en: string | null }) => (isAr ? x.name || x.name_en : x.name_en || x.name) ?? "";
-  const Icon = ({ kind }: { kind: Kind }) => (kind === "theme" ? <Palette className="size-4 shrink-0 text-primary" /> : <Blocks className="size-4 shrink-0 text-primary" />);
+  const Icon = ({ kind }: { kind: Kind }) => {
+    const I = kind === "theme" ? Palette : kind === "activity" ? Building2 : Blocks;
+    return <I className="size-4 shrink-0 text-primary" />;
+  };
 
   return (
     <Panel
@@ -82,8 +85,8 @@ export function Packages({ handle }: { handle: string }) {
       ) : !q.data.versions.length ? (
         <div className="p-5">
           <Empty icon={<Store className="size-10" strokeWidth={1.25} />} text={t("Nothing sent yet", "لم ترسل شيئًا بعد")}
-                 hint={t("Send a signed module or theme (.mzm) here, or run mizan publish. The Mizan team reviews it, then every workspace can install it from its store. Free listings only for now.",
-                         "أرسل وحدة أو مظهرًا موقّعًا (.mzm) من هنا أو نفّذ mizan publish. يراجعه فريق ميزان، ثم تستطيع كل منشأة تثبيته من متجرها. القوائم المجانية فقط حاليًا.")} />
+                 hint={t("Send a signed module, theme or activity (.mzm) here, or run mizan publish. The Mizan team reviews it; then workspaces install modules and themes from their store, and can change to your activity. Free listings only for now.",
+                         "أرسل وحدة أو مظهرًا أو نشاطًا موقّعًا (.mzm) من هنا أو نفّذ mizan publish. يراجعه فريق ميزان، ثم تثبّت المنشآت الوحدات والمظاهر من متجرها، ويمكنها التحوّل إلى نشاطك. القوائم المجانية فقط حاليًا.")} />
         </div>
       ) : (
         <>
@@ -94,11 +97,14 @@ export function Packages({ handle }: { handle: string }) {
                   <span className="min-w-0">
                     <span className="flex items-center gap-2 font-semibold text-foreground"><Icon kind={it.kind} /> {name(it)}</span>
                     <span className="text-xs text-muted-foreground">
-                      <Code>{it.id} v{it.version}</Code> · {t(it.installs === 1 ? "1 install" : `${it.installs} installs`, `عدد التثبيتات ${it.installs}`)}
+                      <Code>{it.id} v{it.version}</Code> · {it.kind === "activity" ? t("chosen through an activity change", "يُختار عند تغيير نشاط المنشأة")
+                        : t(it.installs === 1 ? "1 install" : `${it.installs} installs`, `عدد التثبيتات ${it.installs}`)}
                     </span>
                     {it.status === "delisted" && it.status_note && <span className="block text-xs text-destructive">{it.status_note}</span>}
                   </span>
-                  {it.status === "listed" ? <Badge tone="success">{t("In the store", "في المتجر")}</Badge> : <Badge tone="danger">{t("Removed from the store", "أُزيل من المتجر")}</Badge>}
+                  {it.status === "listed"
+                    ? <Badge tone="success">{it.kind === "activity" ? t("Available to workspaces", "متاح للمنشآت") : t("In the store", "في المتجر")}</Badge>
+                    : <Badge tone="danger">{t("Removed from the store", "أُزيل من المتجر")}</Badge>}
                 </li>
               ))}
             </ul>

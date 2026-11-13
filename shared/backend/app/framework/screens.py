@@ -87,13 +87,17 @@ def defaults(activity_id: str | None, role_code: str | None) -> dict:
 
 
 def resolve(layout: dict | None, activity_id: str | None, role_code: str | None,
-            granted: frozenset, active_modules: list[str]) -> dict:
-    """The home, menu, dashboard and every available screen for a role."""
+            granted: frozenset, active_modules: list[str], extra: dict[str, dict] | None = None) -> dict:
+    """The home, menu, dashboard and every available screen for a role. `extra`: community modules'
+    screens this user may open, by the id an activity's menu uses ("acme.orders/order", ADR-012)."""
     base = defaults(activity_id, role_code)
     layout = layout or {}
     active = set(active_modules)
+    extra = extra or {}
 
     def visible(screen_id: str) -> dict | None:
+        if screen_id in extra:
+            return extra[screen_id]
         s = screen(screen_id, activity_id)
         if not s or not installed(s["module"], active) or not allowed(s.get("permission"), granted):
             return None

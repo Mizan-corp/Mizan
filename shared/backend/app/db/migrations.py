@@ -3154,6 +3154,15 @@ MIGRATIONS = [
             updated_at timestamptz NOT NULL DEFAULT now()
         );
     """),
+    # Developers' activities run in workspaces (ADR-012): activity ids are '<team>.<activity>'.
+    ("v76_package_activity_ids", """
+        ALTER TABLE tenants ALTER COLUMN sector TYPE varchar(80);
+        ALTER TABLE tenants ALTER COLUMN business_type TYPE varchar(80);
+        ALTER TABLE activity_changes ALTER COLUMN from_activity TYPE varchar(80);
+        ALTER TABLE activity_changes ALTER COLUMN to_activity TYPE varchar(80);
+        ALTER TABLE org_positions ALTER COLUMN activity TYPE varchar(80);
+        ALTER TABLE org_positions ALTER COLUMN category TYPE varchar(80);
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

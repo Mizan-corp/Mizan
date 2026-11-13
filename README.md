@@ -91,6 +91,8 @@ that plugs into the shared core.
 Each business activity is **one self-contained folder**: its modules, how it adapts other
 activities' modules (pharmacy's rules at the POS, for instance), its menus and roles, its themes
 and its demo data ([ADR-010](docs/decisions/ADR-010-activity-packages-and-themes.md)).
+Outside developers build activities the same way and publish them; once the Mizan team approves
+one, a workspace can change to it ([ADR-012](docs/decisions/ADR-012-running-activity-packages.md)).
 
 > **Honest status.** The core and the Shops & dining family are the most mature. Most other
 > industry modules are **scaffolded**: their data, API and screens exist, but depth varies from
@@ -425,7 +427,7 @@ Each product folder has its own README: [`system/`](system/README.md) · [`websi
 | [Security standards](docs/SECURITY_STANDARDS.md) | [Roles & permissions](docs/USER_ROLES_AND_PERMISSIONS.md) |
 | [Design system](docs/DESIGN_SYSTEM.md) | [UI/UX kit](docs/ui-ux-kit/) · [Brand identity](docs/developer/mizan/frontend/08-brand-identity-full.md) |
 | [Engineering standards](docs/ENGINEERING_STANDARDS.md) | [Contributor & agent rules](AGENTS.md) · [Module standard](docs/MODULE_STANDARD.md) |
-| [Developer platform (ADR-007)](docs/decisions/ADR-007-third-party-modules.md) | [Activities & themes (ADR-010)](docs/decisions/ADR-010-activity-packages-and-themes.md) · [Developer docs](https://dev.allmizan.live/docs) · [SDK](sdk/python/README.md) |
+| [Developer platform (ADR-007)](docs/decisions/ADR-007-third-party-modules.md) | [Activities & themes (ADR-010)](docs/decisions/ADR-010-activity-packages-and-themes.md) · [Developers' activities (ADR-012)](docs/decisions/ADR-012-running-activity-packages.md) · [Developer docs](https://dev.allmizan.live/docs) · [SDK](sdk/python/README.md) |
 | [Installers](installer/README.md) | [Deployment modes (ADR-005)](docs/decisions/ADR-005-deployment-modes.md) · [Public docs: running on site](https://allmizan.live/docs/deploy/modes) |
 
 ---

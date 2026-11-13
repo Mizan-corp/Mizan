@@ -6,7 +6,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from admin_api.common import record
@@ -16,6 +16,7 @@ from app.platform.auth.models.user import User
 from app.platform.developers.models import DeveloperTeam
 from app.platform.marketplace import listings
 from app.platform.marketplace.listings import MarketplaceItem, MarketplaceVersion
+from app.platform.tenancy.models import Tenant
 
 router = APIRouter(prefix="/admoon/marketplace", tags=["admin: marketplace"])
 
@@ -51,6 +52,9 @@ async def submission(version_id: uuid.UUID, db: AsyncSession = Depends(get_db), 
         pkg = mzm.verify(v.package)
         if v.kind == "community":
             out["summary"] = community.summary(pkg, None)
+        elif v.kind == "activity":
+            out["activity"] = activity_summary(pkg)
+            out["workspaces"] = await db.scalar(select(func.count()).select_from(Tenant).where(Tenant.sector == v.item_id))
         else:
             from app.platform.themes import service as themes
 
@@ -68,6 +72,30 @@ async def submission(version_id: uuid.UUID, db: AsyncSession = Depends(get_db), 
     return out
 
 
+def activity_summary(pkg) -> dict:
+    """What a developer's activity brings (ADR-012), for the reviewer."""
+    from app.framework import package_activities
+    from app.framework.loader import manifest_index
+
+    d = package_activities.from_package(pkg)
+    names = manifest_index()
+    m = d.manifest
+    return {
+        "family": m.get("family"), "home": m.get("home"), "theme": m.get("theme"),
+        "modules": [{"id": x, "name": names.get(x, {}).get("name_en") or x} for x in d.activity["modules"]],
+        "optional": [{"id": x, "name": names.get(x, {}).get("name_en") or x} for x in d.activity["optional"]],
+        "own_modules": [{"id": mid, "name": p.manifest.get("name_en") or p.manifest.get("name"), "entities": len(p.entities),
+                         "scopes": list(p.manifest.get("scopes") or []), "sends_to": ((p.manifest.get("webhooks") or {}).get("url") or "").split("/")[2]
+                         if (p.manifest.get("webhooks") or {}).get("url") else None} for mid, p in d.modules.items()],
+        "variants": [{"module": mod, "fields": sum(len(f) for f in (v.get("fields") or {}).values()),
+                      "terms": len(v.get("terms") or {}), "settings": len(v.get("settings") or {})} for mod, v in d.variants.items()],
+        "themes": [{"id": t.manifest["id"], "name": t.manifest.get("name_en") or t.manifest.get("name")} for t in d.themes.values()],
+        "positions": [p.get("name_en") for p in m.get("positions") or []],
+        "menu_groups": len(m.get("menu") or []),
+        "seed_records": sum(len(x.get("records") or []) for x in d.seed),
+    }
+
+
 class Decision(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
@@ -78,8 +106,16 @@ async def approve(version_id: uuid.UUID, body: Decision, request: Request, db: A
     v = await _version(db, version_id)
     item = await listings.approve(db, v, admin.id, body.note)
     await db.commit()
-    await record(db, admin, "marketplace_approved", request=request, item=v.item_id, version=v.version, kind=v.kind)
-    return {**listings.version_out(v), "listing": listings.item_out(item)}
+    updated: list[str] = []
+    if v.kind == "activity":  # ADR-012: reload it here at once; workspaces running it follow
+        from app.framework import package_activities
+        from app.platform.tenancy.activity_change import follow_update
+
+        await package_activities.refresh(force=True)
+        updated = await follow_update(db, v.item_id)
+    await record(db, admin, "marketplace_approved", request=request, item=v.item_id, version=v.version, kind=v.kind,
+                 workspaces_updated=len(updated))
+    return {**listings.version_out(v), "listing": listings.item_out(item), "workspaces_updated": len(updated)}
 
 
 @router.post("/submissions/{version_id}/reject")
@@ -109,5 +145,9 @@ async def set_listed(item_id: str, action: str, body: Decision, request: Request
         raise HTTPException(422, "Say why")
     item = await listings.set_listed(db, item_id, action == "relist", body.note)
     await db.commit()
+    if item.kind == "activity":  # a delisted activity can't be switched to; workspaces on it keep it
+        from app.framework import package_activities
+
+        await package_activities.refresh(force=True)
     await record(db, admin, f"marketplace_{action}ed", request=request, item=item_id, note=body.note)
     return listings.item_out(item)

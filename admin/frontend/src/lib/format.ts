@@ -86,7 +86,8 @@ const SECTORS: Record<string, string> = {
   tiles: "Tiles",
   paint: "Paint",
 };
-export const sectorLabel = (s: string) => SECTORS[s] ?? s.replace(/_/g, " ");
+/** An activity's name: Mizan's from the list, a developer's from `name` (ADR-012). */
+export const sectorLabel = (s: string, name?: string | null) => SECTORS[s] ?? name ?? s.replace(/_/g, " ");
 export const SECTOR_OPTIONS = Object.entries(SECTORS).slice(0, 30);
 
 // Module families (shared/backend/app/catalog/families.json).

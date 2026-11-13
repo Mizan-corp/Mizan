@@ -19,6 +19,12 @@ router = APIRouter(prefix="/admoon/overview", tags=["admin: overview"])
 WEEKS = 12
 
 
+def _activity_name(activity_id: str) -> str | None:
+    from app.framework.variants import activity
+
+    return activity(activity_id).get("name_en") or activity(activity_id).get("name")
+
+
 @router.get("")
 async def overview(db: AsyncSession = Depends(get_db), _: User = Depends(require_superadmin)):
     now = datetime.now(UTC)
@@ -64,6 +70,7 @@ async def overview(db: AsyncSession = Depends(get_db), _: User = Depends(require
     names = await tenant_names(db, {c.tenant_id for c in asks})
     attention += [{"kind": "activity_change", "tenant_id": str(c.tenant_id), "tenant_name": names.get(c.tenant_id),
                    "change_id": str(c.id), "from_activity": c.from_activity, "to_activity": c.to_activity,
+                   "from_name": _activity_name(c.from_activity), "to_name": _activity_name(c.to_activity),
                    "at": iso(c.created_at)} for c in asks]
 
     # Developers' submissions waiting for review (#105).

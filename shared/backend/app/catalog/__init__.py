@@ -40,7 +40,12 @@ def activities() -> dict[str, dict[str, Any]]:
 
 def family_of(activity_id: str) -> str | None:
     activity = activities().get(activity_id)
-    return activity["family"] if activity else None
+    if activity is None:  # a developer's activity (ADR-012)
+        from app.framework import package_activities
+
+        d = package_activities.get(activity_id)
+        return d.manifest.get("family") if d else None
+    return activity["family"]
 
 
 @lru_cache(maxsize=1)

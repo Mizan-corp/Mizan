@@ -9,7 +9,8 @@
 - Workspaces **install** listed versions from the store (the app's module centre): the stored
   package is verified again, countersignature included, then installed exactly as from a file.
 
-Free listings only for now; paid ones come with Paymob (#65). Activity packages wait for #107.
+Free listings only for now; paid ones come with Paymob (#65). Activities are listed too, but a
+workspace takes one through an activity change (#107, ADR-012), not an install from the store.
 Platform tables (no workspace).
 """
 from __future__ import annotations
@@ -27,7 +28,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 
 COUNTERSIGN_PREFIX = "MZP1"
-KINDS = ("community", "theme")
+KINDS = ("community", "theme", "activity")
+STORE_KINDS = ("community", "theme")  # installed from the store; activities are switched to
 
 
 class MarketplaceVersion(Base):
@@ -95,8 +97,8 @@ async def submit(db: AsyncSession, team, user_id, data: bytes, say=lambda en, ar
     if pkg.developer != team.handle:
         raise HTTPException(403, say(f"This package belongs to team {pkg.developer}", f"هذه الحزمة تخص فريق {pkg.developer}"))
     if pkg.kind not in KINDS:
-        raise HTTPException(422, say("Activity packages can't be published yet; modules and themes can",
-                                     "لا يمكن نشر الأنشطة الكاملة بعد؛ الوحدات والمظاهر فقط"))
+        raise HTTPException(422, say("Only modules, themes and activities can be published",
+                                     "يمكن نشر الوحدات والمظاهر والأنشطة فقط"))
     item_id, version = pkg.manifest["id"], pkg.manifest["version"]
     if await db.scalar(select(MarketplaceVersion.id).where(MarketplaceVersion.item_id == item_id, MarketplaceVersion.version == version)):
         raise HTTPException(409, say(f"{item_id} {version} was already submitted: raise the version",
@@ -200,8 +202,7 @@ async def store(db: AsyncSession, kind: str | None = None, q: str | None = None)
 
     stmt = (select(MarketplaceItem, DeveloperTeam.handle).join(DeveloperTeam, DeveloperTeam.id == MarketplaceItem.team_id)
             .where(MarketplaceItem.status == "listed").order_by(MarketplaceItem.installs.desc(), MarketplaceItem.name))
-    if kind:
-        stmt = stmt.where(MarketplaceItem.kind == kind)
+    stmt = stmt.where(MarketplaceItem.kind == kind) if kind else stmt.where(MarketplaceItem.kind.in_(STORE_KINDS))
     if q:
         like = f"%{q.strip()}%"
         stmt = stmt.where(or_(MarketplaceItem.name.ilike(like), MarketplaceItem.name_en.ilike(like),
@@ -217,7 +218,7 @@ async def listed_package(db: AsyncSession, item_id: str):
     from app.platform.licensing import keys
 
     item = await db.get(MarketplaceItem, item_id)
-    if not item or item.status != "listed":
+    if not item or item.status != "listed" or item.kind not in STORE_KINDS:
         raise HTTPException(404, "هذه الإضافة غير متاحة في المتجر")
     v = await db.scalar(select(MarketplaceVersion).where(MarketplaceVersion.item_id == item_id,
                                                          MarketplaceVersion.version == item.current_version,

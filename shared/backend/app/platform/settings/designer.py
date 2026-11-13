@@ -55,14 +55,18 @@ async def my_screens(db: AsyncSession = Depends(get_db), user: User = Depends(ge
 
     acting = getattr(user, "acting_role", None)
     layout = await layouts.get(db, "role", str(acting["id"])) if acting else {}
-    out = resolve(layout, await workspace_activity(db), acting["code"] if acting else None,
-                  getattr(user, "effective_permissions", frozenset()), await get_active_modules(db))
-    # Community modules' screens (ADR-007) in a group of their own.
     community = await menu_items(db, user)
-    if community:
-        items = [{k: c[k] for k in ("id", "path", "label", "icon")} for c in community]
-        out["menu"].append({"id": "community", "label": "وحدات إضافية", "items": items})
-        out["screens"] += [{**i, "module": c["module"]} for i, c in zip(items, community, strict=True)]
+    # A developer's activity places its own modules' screens in its menus (ADR-012).
+    own = {f"{c['module']}/{c['path'].rsplit('/', 1)[1]}": {**{k: c[k] for k in ("id", "path", "label", "icon")}, "module": c["module"]}
+           for c in community}
+    out = resolve(layout, await workspace_activity(db), acting["code"] if acting else None,
+                  getattr(user, "effective_permissions", frozenset()), await get_active_modules(db), own)
+    # Community modules' screens (ADR-007) the menu doesn't place, in a group of their own.
+    placed = {i["path"] for g in out["menu"] for i in g["items"]}
+    rest = [c for c in community if c["path"] not in placed]
+    if rest:
+        out["menu"].append({"id": "community", "label": "وحدات إضافية", "items": [{k: c[k] for k in ("id", "path", "label", "icon")} for c in rest]})
+    out["screens"] += [{**{k: c[k] for k in ("id", "path", "label", "icon")}, "module": c["module"]} for c in community]
     return out
 
 

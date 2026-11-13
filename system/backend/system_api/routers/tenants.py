@@ -41,7 +41,12 @@ async def resolve_tenant_slug(slug_or_domain: str, db: AsyncSession = Depends(ge
     if not active_mods or active_mods == ["pos", "inventory"]:
         active_mods = SECTOR_PRIMARY_MODULES.get(tenant.sector, ["pos", "inventory", "finance"])
 
-    primary_route = SECTOR_PRIMARY_ROUTES.get(tenant.sector, "/pos")
+    primary_route = SECTOR_PRIMARY_ROUTES.get(tenant.sector)
+    if not primary_route:  # a developer's activity (ADR-012)
+        from app.framework.variants import activity
+
+        home = activity(tenant.sector).get("home")
+        primary_route = home if isinstance(home, str) and home.startswith("/") else "/pos"
 
     s_rows = (await db.execute(
         select(StoreSetting).where(

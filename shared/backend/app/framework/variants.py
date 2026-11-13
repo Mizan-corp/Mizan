@@ -26,7 +26,10 @@ def activity(activity_id: str | None) -> dict:
         return {}
     f = ACTIVITIES / activity_id / "activity.json"
     if not f.is_file():
-        return {}
+        from app.framework import package_activities  # a developer's activity (ADR-012)
+
+        d = package_activities.get(activity_id)
+        return d.activity if d else {}
     data = json.loads(f.read_text(encoding="utf-8"))
     if data.get("legacy_of"):
         return activity(data["legacy_of"])
@@ -48,6 +51,12 @@ def all_variants() -> dict[str, dict[str, dict]]:
         module_id, activity_id = f.parent.name, f.parent.parent.parent.name
         data = json.loads(f.read_text(encoding="utf-8"))
         out.setdefault(module_id, {})[activity_id] = {**data, "id": activity_id, "_dir": str(f.parent)}
+    # Developers' activities' adaptations (ADR-012): fields, terms and settings only.
+    from app.framework import package_activities
+
+    for d in package_activities.all_defs().values():
+        for module_id, data in d.variants.items():
+            out.setdefault(module_id, {})[d.id] = data
     return out
 
 

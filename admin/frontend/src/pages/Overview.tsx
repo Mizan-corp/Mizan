@@ -85,7 +85,7 @@ function AttentionRow({ item }: { item: AttentionItem }) {
       );
       break;
     case "activity_change":
-      sentence = <>{name} asks to change its activity from {sectorLabel(item.from_activity)} to {sectorLabel(item.to_activity)}.</>;
+      sentence = <>{name} asks to change its activity from {sectorLabel(item.from_activity, item.from_name)} to {sectorLabel(item.to_activity, item.to_name)}{item.to_activity.includes(".") && " (a developer's activity)"}.</>;
       action = (
         <>
           <Button size="sm" onClick={() => setReviewing(true)}>
@@ -99,7 +99,7 @@ function AttentionRow({ item }: { item: AttentionItem }) {
       sentence = (
         <>
           A developer sent <span className="bidi font-semibold">{item.name ?? item.item_id}</span>{" "}
-          <span className="code text-mute">{item.item_id} {item.version}</span> ({item.item_kind === "theme" ? "theme" : "module"}) for the store.
+          <span className="code text-mute">{item.item_id} {item.version}</span> ({item.item_kind === "community" ? "module" : item.item_kind}) for the store.
         </>
       );
       action = (

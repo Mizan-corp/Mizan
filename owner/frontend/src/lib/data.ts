@@ -19,6 +19,8 @@ export interface Workspace {
   name: string;
   slug: string | null;
   sector: string;
+  /** A developer's activity's name (ADR-012); Mizan's activities are named by sectorLabel. */
+  sector_name?: string | null;
   status: "active" | "suspended" | string;
   plan: string;
   monthly_price_egp: number;
@@ -197,7 +199,38 @@ export interface ActivityPreview {
   data: (ModuleRef & { rows: number; kept_always: boolean })[];
   keep_days: number;
   theme: { from: string | null; to: string } | null;
+  /** A developer's activity (ADR-012): its own modules, what they may access, its themes. */
+  own_joining: OwnModule[];
+  own_leaving: (OwnModule & { rows?: number })[];
+  package: { developer: string; version: string; themes: { id: string; name: string }[] } | null;
 }
+
+export interface OwnModule {
+  id: string;
+  name: string;
+  entities: string[];
+  scopes: { id: string; text: string }[];
+  sends_to: string | null;
+}
+
+/** A developer's activity a workspace can change to (ADR-012). */
+export interface DeveloperActivity {
+  id: string;
+  name: string;
+  name_en: string;
+  description: string | null;
+  family: string;
+  developer: string;
+  version: string;
+}
+
+export const useDeveloperActivities = (enabled: boolean) =>
+  useQuery({
+    queryKey: ["developer-activities"],
+    queryFn: () => api.get<{ items: DeveloperActivity[] }>("/account/activities/developers"),
+    enabled,
+    staleTime: 60_000,
+  });
 
 export const useActivityChange = (id: string) =>
   useQuery({

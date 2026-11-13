@@ -27,6 +27,10 @@ def declared_positions() -> dict[str, list[dict]]:
     out = {}
     for f in sorted(ACTIVITIES.glob("*/positions.json")):
         out[f.parent.name] = json.loads(f.read_text(encoding="utf-8"))
+    from app.framework import package_activities  # developers' activities (ADR-012)
+
+    for d in package_activities.all_defs().values():
+        out[d.id] = [p for p in d.manifest.get("positions") or [] if isinstance(p, dict)]
     return out
 
 
@@ -37,7 +41,9 @@ def activity_of(sector: str | None) -> str | None:
         return None
     f = ACTIVITIES / sector / "activity.json"
     if not f.is_file():
-        return None
+        from app.framework import package_activities
+
+        return sector if package_activities.get(sector) else None
     return json.loads(f.read_text(encoding="utf-8")).get("legacy_of") or sector
 
 

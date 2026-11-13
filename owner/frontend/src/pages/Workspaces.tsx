@@ -35,7 +35,7 @@ function WorkspaceCard({ w, first, onOpen, opening, planQuery = "" }: { w: Works
         <div className="min-w-0">
           <h2 className="truncate text-lg font-bold text-ink">{w.name}</h2>
           <p className="mt-0.5 text-[13px] text-mute">
-            {sectorLabel(w.sector)}
+            {sectorLabel(w.sector, w.sector_name)}
             {onPrem && <span className="text-ink-2"> · {MODE[w.deployment_mode].short}</span>}
           </p>
         </div>

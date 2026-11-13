@@ -255,7 +255,7 @@ async def store(kind: str | None = None, q: str | None = None, db: AsyncSession 
 
     _may_browse(user)
     installed = await _store_installed(db, user)
-    items = await listings.store(db, kind if kind in listings.KINDS else None, q)
+    items = await listings.store(db, kind if kind in listings.STORE_KINDS else None, q)
     return {"items": [{**i, "installed_version": installed.get(i["id"])} for i in items]}
 
 

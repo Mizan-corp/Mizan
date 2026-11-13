@@ -33,7 +33,7 @@ async def workspace_activity(db: AsyncSession) -> str | None:
 
 def _hooks_module(module_id: str, variant_id: str):
     data = variants.all_variants().get(module_id, {}).get(variant_id)
-    if not data or not (Path(data["_dir"]) / "hooks.py").is_file():
+    if not data or not data.get("_dir") or not (Path(data["_dir"]) / "hooks.py").is_file():  # packages have no code
         return None
     app_root = Path(__file__).resolve().parents[1]
     dotted = ".".join(("app", *(Path(data["_dir"]).relative_to(app_root).parts), "hooks"))

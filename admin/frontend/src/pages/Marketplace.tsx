@@ -20,7 +20,7 @@ import {
   Textarea,
 } from "@app/ui";
 
-const KIND = { community: "Module", theme: "Theme" } as const;
+const KIND = { community: "Module", theme: "Theme", activity: "Activity" } as const;
 const STATUS: Record<Submission["status"], { label: string; tone: "warn" | "ok" | "bad" | "mute" }> = {
   in_review: { label: "In review", tone: "warn" },
   approved: { label: "Approved", tone: "ok" },
@@ -115,6 +115,40 @@ export function SubmissionReview({ id, open, onClose }: { id: string; open: bool
                 {s.theme.motion && <> · motion {s.theme.motion}</>}
               </p>
             </div>
+          )}
+          {s.activity && (
+            <>
+              <div className="rounded-lg bg-paper px-3.5 py-2.5">
+                <p className="font-semibold text-ink">
+                  A {s.activity.family} activity · {plural(s.activity.menu_groups, "menu group")} · home <span className="code">{s.activity.home ?? "—"}</span>
+                </p>
+                <p className="mt-0.5 text-ink-2">Runs Mizan's {s.activity.modules.map((m) => m.name).join(", ")}</p>
+                {s.activity.optional.length > 0 && <p className="text-ink-2">Optional: {s.activity.optional.map((m) => m.name).join(", ")}</p>}
+                {s.activity.variants.length > 0 && (
+                  <p className="text-ink-2">
+                    Adapts {s.activity.variants.map((v) => `${v.module} (${plural(v.fields, "field")}, ${plural(v.terms, "term")}, ${plural(v.settings, "setting")})`).join(", ")}
+                  </p>
+                )}
+                {s.activity.positions.length > 0 && <p className="text-ink-2">Positions: {s.activity.positions.join(", ")}</p>}
+                {s.activity.themes.length > 0 && <p className="text-ink-2">Themes: {s.activity.themes.map((t) => t.name).join(", ")}</p>}
+              </div>
+              {s.activity.own_modules.map((m) => (
+                <div key={m.id} className="rounded-lg bg-warn/10 px-3.5 py-2.5">
+                  <p className="font-semibold text-ink">
+                    Its module <bdi>{m.name}</bdi> <span className="code text-mute">{m.id}</span> · {plural(m.entities, "record type")}
+                  </p>
+                  <p className="mt-0.5 text-ink-2">
+                    May access {m.scopes.length ? m.scopes.map((x) => <span key={x} className="code">{x} </span>) : "nothing else"}
+                    {m.sends_to && <> · sends events to <span className="code">{m.sends_to}</span></>}
+                  </p>
+                </div>
+              ))}
+              {!!s.workspaces && (
+                <p className="rounded-lg bg-info/10 px-3.5 py-2.5 text-ink-2">
+                  {plural(s.workspaces, "workspace")} run this activity: approving updates them at once (new modules join; nothing leaves).
+                </p>
+              )}
+            </>
           )}
           <details className="rounded-lg border border-line-soft px-3.5 py-2.5">
             <summary className="cursor-pointer font-semibold text-ink">

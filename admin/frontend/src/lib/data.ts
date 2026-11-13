@@ -18,8 +18,8 @@ export interface ActivityItem {
 export type AttentionItem =
   | { kind: "trial_expired" | "trial_ending" | "paid_ended" | "paid_ending"; tenant_id: string; tenant_name: string; days: number; at: string }
   | { kind: "invoice_pending"; tenant_id: string; tenant_name: string | null; ref: string; amount_egp: number; plan: string; at: string }
-  | { kind: "activity_change"; tenant_id: string; tenant_name: string | null; change_id: string; from_activity: string; to_activity: string; at: string }
-  | { kind: "marketplace_review"; tenant_id: string; tenant_name: null; version_id: string; item_id: string; version: string; item_kind: "community" | "theme"; name: string | null; at: string }
+  | { kind: "activity_change"; tenant_id: string; tenant_name: string | null; change_id: string; from_activity: string; to_activity: string; from_name?: string | null; to_name?: string | null; at: string }
+  | { kind: "marketplace_review"; tenant_id: string; tenant_name: null; version_id: string; item_id: string; version: string; item_kind: "community" | "theme" | "activity"; name: string | null; at: string }
 
 /** An owner's request to change a workspace's activity (#107), with what it does today. */
 export interface ActivityChange {
@@ -40,8 +40,21 @@ export interface ActivityChange {
     data: { id: string; name: string; name_en: string; rows: number; kept_always: boolean }[];
     keep_days: number;
     theme: { from: string | null; to: string } | null;
+    own_joining: OwnModule[];
+    own_leaving: (OwnModule & { rows?: number })[];
+    package: { developer: string; version: string; themes: { id: string; name: string }[] } | null;
   };
   preview_error?: string;
+}
+
+/** A developer's activity's own module (ADR-012). */
+export interface OwnModule {
+  id: string;
+  name: string;
+  name_en: string;
+  entities: string[];
+  scopes: { id: string; text: string; text_en: string }[];
+  sends_to: string | null;
 }
 
 export const useActivityChange = (id: string, enabled = true) =>
@@ -52,7 +65,7 @@ export interface Submission {
   id: string;
   item_id: string;
   version: string;
-  kind: "community" | "theme";
+  kind: "community" | "theme" | "activity";
   status: "in_review" | "approved" | "rejected" | "withdrawn";
   name: string | null;
   name_en: string | null;
@@ -75,12 +88,21 @@ export interface SubmissionDetail extends Submission {
     sends_to: string | null;
   };
   theme?: { swatches: string[]; fonts: { body?: string; display?: string }; radius?: string; motion?: string };
+  /** An activity package (ADR-012): what it brings, and how many workspaces run it now. */
+  activity?: {
+    family: string; home: string | null; theme: string | null;
+    modules: { id: string; name: string }[]; optional: { id: string; name: string }[];
+    own_modules: { id: string; name: string; entities: number; scopes: string[]; sends_to: string | null }[];
+    variants: { module: string; fields: number; terms: number; settings: number }[];
+    themes: { id: string; name: string }[]; positions: string[]; menu_groups: number; seed_records: number;
+  };
+  workspaces?: number;
 }
 
 /** A marketplace listing: its current approved version. */
 export interface Listing {
   id: string;
-  kind: "community" | "theme";
+  kind: "community" | "theme" | "activity";
   name: string;
   name_en: string | null;
   description: string | null;

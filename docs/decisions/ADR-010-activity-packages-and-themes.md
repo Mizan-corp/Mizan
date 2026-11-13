@@ -131,9 +131,9 @@ A theme is a folder with `theme.json`:
   variant may extend, Mizan's themes), every reference. Module and theme packages can't carry
   activity folders. `mizan activity new` makes a small complete activity; `check` and `package`
   handle it. Developer docs: "Business activities"; the developer home leads with it.
-  **Not yet**: running a developer's activity in a workspace: uploads are refused with that
-  explanation; its modules and themes install on their own. Changing a workspace between Mizan's
-  activities is built (#107, ADR-006 phase 9 notes); packages as a target are the next step on it.
+  Running a developer's activity in a workspace: built 2026-11-14 through the marketplace and
+  the activity change (ADR-012). Uploading one as a file in a workspace is still refused (it points
+  to the owner panel).
 
 ## Consequences
 

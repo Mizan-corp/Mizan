@@ -10,6 +10,7 @@ import {
   useAction,
   useActivityChange,
   useActivityPreview,
+  useDeveloperActivities,
   useCheckoutQuote,
   useMe,
   usePlans,
@@ -466,20 +467,39 @@ function ActivityChangeDialog({ w, onClose }: { w: WorkspaceT; onClose: () => vo
   const [note, setNote] = useState("");
   const preview = useActivityPreview(w.id, to);
   const ask = useAction(actions.askActivityChange);
+  const devs = useDeveloperActivities(true);
+  const [agreed, setAgreed] = useState(false);
   const p = preview.data;
   const removable = (p?.data ?? []).filter((d) => !d.kept_always);
+  const needsAgreement = !!p?.own_joining.length;
+  const chosenDev = devs.data?.items.find((a) => a.id === to);
 
   return (
     <Modal open onClose={onClose} title="تغيير نشاط مساحة العمل"
            description="يراجع فريق ميزان الطلب ثم يطبّقه. القوائم والشاشات وطريقة عمل الوحدات تتبع النشاط الجديد.">
       <Field label="النشاط الجديد">
-        <Select value={to} onChange={(e) => setTo(e.target.value)}>
+        <Select value={to} onChange={(e) => { setTo(e.target.value); setAgreed(false); }}>
           <option value="">اختر النشاط…</option>
-          {SECTORS.filter(([v]) => v !== w.sector).map(([v, l]) => (
-            <option key={v} value={v}>{l}</option>
-          ))}
+          <optgroup label="من ميزان">
+            {SECTORS.filter(([v]) => v !== w.sector).map(([v, l]) => (
+              <option key={v} value={v}>{l}</option>
+            ))}
+          </optgroup>
+          {!!devs.data?.items.filter((a) => a.id !== w.sector).length && (
+            <optgroup label="من المطورين (راجعها فريق ميزان)">
+              {devs.data.items.filter((a) => a.id !== w.sector).map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </optgroup>
+          )}
         </Select>
       </Field>
+      {chosenDev && (
+        <p className="mt-2 text-[13px] text-ink-2">
+          نشاط من المطور <span className="code" dir="ltr">{chosenDev.developer}</span> · <span className="code" dir="ltr">v{chosenDev.version}</span>
+          {chosenDev.description && <> · {chosenDev.description}</>}
+        </p>
+      )}
 
       {to && preview.isPending && <p className="mt-4 text-[13px] text-mute">نجهّز ما سيتغيّر…</p>}
       {preview.isError && <ErrorNote>{errorText(preview.error)}</ErrorNote>}
@@ -503,6 +523,28 @@ function ActivityChangeDialog({ w, onClose }: { w: WorkspaceT; onClose: () => vo
               <p className="mt-1 text-ink-2">{p.variants_changed.map((m) => m.name).join("، ")}: حقولها وإعداداتها الخاصة بالنشاط الحالي تبقى محفوظة.</p>
             </div>
           )}
+          {p.own_joining.length > 0 && (
+            <div className="rounded-lg border border-line px-3.5 py-2.5">
+              <p className="font-semibold text-ink">وحدات المطور التي ستُثبَّت</p>
+              <ul className="mt-1.5 grid gap-1.5">
+                {p.own_joining.map((m) => (
+                  <li key={m.id} className="text-ink-2">
+                    <span className="font-semibold text-ink">{m.name}</span>
+                    {m.entities.length > 0 && <> · سجلات {m.entities.map((e) => `«${e}»`).join("، ")}</>}
+                    <span className="block text-[13px]">
+                      {m.scopes.length ? <>تصل إلى: {m.scopes.map((x) => x.text).join("، ")}</> : "لا تصل إلى بيانات أخرى في منشأتك"}
+                      {m.sends_to && <> · ترسل الأحداث إلى <span className="code" dir="ltr">{m.sends_to}</span></>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {p.own_leaving.length > 0 && (
+            <p className="text-ink-2">
+              ستُزال وحدات النشاط الحالي من المطور ({p.own_leaving.map((m) => m.name).join("، ")})، وتبقى سجلاتها محفوظة مخفية وتعود إن رجعت إليه.
+            </p>
+          )}
           {p.theme && <p className="text-ink-2">مظهر مساحة العمل خاص بالنشاط الحالي، فسيتغيّر إلى مظهر النشاط الجديد.</p>}
           {!p.leaving.length && !p.joining.length && !p.variants_changed.length && (
             <p className="text-ink-2">لن تتغيّر الوحدات المثبتة؛ تتغيّر القوائم والمصطلحات حسب النشاط الجديد.</p>
@@ -525,12 +567,18 @@ function ActivityChangeDialog({ w, onClose }: { w: WorkspaceT; onClose: () => vo
           <Field label="ملاحظة لفريق ميزان (اختياري)">
             <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} placeholder="مثلًا: أضفنا مطبخًا وصرنا مطعمًا" />
           </Field>
+          {needsAgreement && (
+            <label className="flex cursor-pointer items-start gap-2.5 text-ink-2">
+              <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-1 accent-wine" />
+              <span>أوافق على ما تصل إليه وحدات هذا النشاط، وأثق في مطوره.</span>
+            </label>
+          )}
           <p className="text-[12px] text-mute">لا يتغيّر سعر باقتك. بيانات المبيعات والمخزون والعملاء والحسابات لا تُحذف أبدًا.</p>
         </div>
       )}
       {ask.isError && <ErrorNote>{errorText(ask.error)}</ErrorNote>}
       <ModalActions>
-        <Button variant="primary" busy={ask.isPending} disabled={!p}
+        <Button variant="primary" busy={ask.isPending} disabled={!p || (needsAgreement && !agreed)}
                 onClick={() => ask.mutateAsync({ id: w.id, to, data_mode: mode, note: note.trim() || undefined })
                   .then(() => { toast.success("أُرسل الطلب إلى فريق ميزان"); onClose(); })}>
           أرسل الطلب
@@ -552,10 +600,10 @@ function ActivitySection({ w }: { w: WorkspaceT }) {
   return (
     <div className="mt-6 border-t border-line-soft pt-5">
       <h3 className="text-sm font-semibold text-ink">النشاط التجاري</h3>
-      <p className="mt-1 text-sm text-ink-2">{sectorLabel(w.sector)}</p>
+      <p className="mt-1 text-sm text-ink-2">{sectorLabel(w.sector, w.sector_name)}</p>
       {open && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-warn/12 px-3.5 py-2.5 text-[13px] text-ink-2">
-          <span>طلبت التحويل إلى «{sectorLabel(c.to.id)}» في {date(c.created_at)}، والطلب قيد مراجعة فريق ميزان.</span>
+          <span>طلبت التحويل إلى «{sectorLabel(c.to.id, c.to.name)}» في {date(c.created_at)}، والطلب قيد مراجعة فريق ميزان.</span>
           <Button size="sm" variant="ghost" busy={cancel.isPending} onClick={() => cancel.mutateAsync(w.id).then(() => toast.success("أُلغي الطلب"))}>
             إلغاء الطلب
           </Button>
@@ -563,11 +611,11 @@ function ActivitySection({ w }: { w: WorkspaceT }) {
       )}
       {c?.status === "rejected" && (
         <p className="mt-3 rounded-lg bg-sand/60 px-3.5 py-2.5 text-[13px] text-ink-2">
-          لم يُقبل طلب التحويل إلى «{sectorLabel(c.to.id)}»{c.decision_note ? `: ${c.decision_note}` : "."}
+          لم يُقبل طلب التحويل إلى «{sectorLabel(c.to.id, c.to.name)}»{c.decision_note ? `: ${c.decision_note}` : "."}
         </p>
       )}
       {c?.status === "applied" && c.decided_at && (
-        <p className="mt-3 text-[13px] text-mute">تحوّلت من «{sectorLabel(c.from.id)}» إلى «{sectorLabel(c.to.id)}» في {date(c.decided_at)}.</p>
+        <p className="mt-3 text-[13px] text-mute">تحوّلت من «{sectorLabel(c.from.id, c.from.name)}» إلى «{sectorLabel(c.to.id, c.to.name)}» في {date(c.decided_at)}.</p>
       )}
       {onSite ? (
         <p className="mt-1 text-[13px] text-mute">تغيير نشاط النسخ المثبتة على أجهزتك يتم عن طريق الدعم.</p>
@@ -692,7 +740,7 @@ export default function Workspace() {
             <h1 className="title text-2xl leading-tight text-ink">{w.name}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-mute">
               <PlanBadge w={w} />
-              <span>{sectorLabel(w.sector)}</span>
+              <span>{sectorLabel(w.sector, w.sector_name)}</span>
             </div>
           </div>
           {onPrem ? (

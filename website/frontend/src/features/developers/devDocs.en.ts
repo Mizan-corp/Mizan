@@ -311,7 +311,7 @@ export const EN: DocSection[] = [
               title: "What goes in it",
               body:
                 "• family: general, commerce, food_hospitality, health, education, services, logistics, industry, projects or institutions.\n• modules and optional: Mizan's modules (pos, inventory, sales, finance, hr, …) and its own (<team>.<module>, each a community module in modules/).\n• menu, dashboard, roles: menu groups of screens. Mizan's screens are <module>.<screen> (pos.pos, inventory.products); your entities' screens are <module>/<entity>. Dashboards list widgets (pos.recent_sales). roles gives a role (cashier, …) its own home, menu and dashboard.\n• terms: the trade's words (\"item\": \"قطعة\").\n• positions: job titles and the roles they suggest.\n• theme: one of its themes (themes/) or Mizan's.\n• variants/<module>/variant.json: extra fields on Mizan's records (fields.sale, fields.product…), terms and settings defaults.\n• seed/*.json: demo records for its own entities.\n\nmizan check verifies the shape; Mizan checks every reference (modules, screens, widgets, records, themes) when it receives the package.",
-              callout: { type: "note", text: "Activity packages are declarative, like community modules: no code in variants yet (Mizan's own activities add rules in hooks.py). Running a developer's activity in a workspace comes with changing a workspace's activity; until then, build and validate it, and its modules and themes install on their own." },
+              callout: { type: "note", text: "Activity packages are declarative, like community modules: no code in variants yet (Mizan's own activities add rules in hooks.py). Publish it (mizan publish); once the Mizan team approves it, owners can change an existing workspace to it from the owner panel (the team approves each change too). Its own modules install with the scopes they declare, its themes install, and its menus, terms, variants and positions apply. Approved updates reach every workspace running it: new modules join, nothing leaves. Seed records aren't added to a live workspace, and new workspaces can't start from a developer's activity yet." },
             },
           ],
         },
@@ -466,7 +466,7 @@ export const EN: DocSection[] = [
         lastUpdated: UPDATED,
         content: {
           overview:
-            "Published modules and themes appear in the store inside every workspace's module centre (المتجر). Send a signed package with mizan publish, or with “Send a package” on your team's page in the portal. The Mizan team reviews it; once approved, Mizan countersigns that exact package and lists it. Listings are free for now; activities and paid listings come later.",
+            "Published modules and themes appear in the store inside every workspace's module centre (المتجر). Send a signed package with mizan publish, or with “Send a package” on your team's page in the portal. The Mizan team reviews it; once approved, Mizan countersigns that exact package and lists it. Activities are published the same way; workspaces don't install them from the store but change to them (see Business activities). Listings are free for now; paid listings come later.",
           sections: [
             {
               id: "send",

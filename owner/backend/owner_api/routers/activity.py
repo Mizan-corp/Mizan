@@ -17,12 +17,29 @@ from app.platform.tenancy import activity_change as changes
 from app.platform.tenancy.context import unbind_tenant
 
 router = APIRouter(prefix="/account/workspaces", tags=["activity change"])
+catalogue = APIRouter(prefix="/account/activities", tags=["activity change"])
+
+
+@catalogue.get("/developers")
+async def developer_activities(_: OwnerAccount = Depends(get_current_owner)):
+    """Developers' activities a workspace can change to (ADR-012): approved and listed."""
+    from app.framework import package_activities
+
+    await package_activities.ensure_fresh()
+    return {"items": [
+        {"id": d.id, "name": d.manifest.get("name"), "name_en": d.manifest.get("name_en"), "description": d.manifest.get("description"),
+         "family": d.manifest.get("family"), "icon": d.manifest.get("icon"), "developer": d.developer, "version": d.version}
+        for d in sorted(package_activities.all_defs().values(), key=lambda d: d.manifest.get("name") or d.id)
+        if d.listed and not d.revoked]}
 
 
 @router.get("/{tenant_id}/activity-change/preview")
 async def preview(tenant_id: uuid.UUID, to: str, db: AsyncSession = Depends(get_db), owner: OwnerAccount = Depends(get_current_owner)):
     """What changing to `to` would do: modules leaving (with their records), joining, working differently."""
+    from app.framework import package_activities
+
     t = await owned_workspace(db, owner, tenant_id)
+    await package_activities.ensure_fresh()
     try:
         return await changes.preview(db, t, to)
     finally:
@@ -41,7 +58,7 @@ async def latest(tenant_id: uuid.UUID, db: AsyncSession = Depends(get_db), owner
 
 
 class ChangeRequest(BaseModel):
-    to: str = Field(min_length=2, max_length=64)
+    to: str = Field(min_length=2, max_length=80)
     data_mode: Literal["keep", "delete"] = "keep"
     note: str | None = Field(default=None, max_length=1000)
 

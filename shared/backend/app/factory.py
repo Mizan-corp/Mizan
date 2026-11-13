@@ -69,6 +69,9 @@ def create_app(
                     await conn.execute(text("ALTER TYPE doc_type_enum ADD VALUE IF NOT EXISTS 'safe_deposit'"))
             except Exception as e:
                 logging.getLogger("startup").warning("Lifespan DB initialization notice: %s", e)
+        from app.framework import package_activities
+
+        package_activities.start()  # developers' activities (ADR-012), once per process
         yield
 
     app = FastAPI(title=title, version="1.0.0", lifespan=lifespan)

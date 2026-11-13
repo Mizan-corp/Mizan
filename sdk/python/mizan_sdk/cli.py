@@ -311,7 +311,7 @@ def cmd_package(a) -> int:
     out = Path(a.out or f"{manifest['id']}-{manifest['version']}.mzm")
     out.write_bytes(data)
     if manifest.get("kind") == "activity":
-        print(f"✔ {out} ({len(data) // 1024 + 1} KB), a signed activity package.")
+        print(f"✔ {out} ({len(data) // 1024 + 1} KB), a signed activity package. `mizan publish` sends it for review; then workspaces can change to it.")
         return 0
     where = ("Themes (المظاهر) → Install a theme from file" if manifest.get("kind") == "theme"
              else "Developer modules (وحدات المطورين) → Install from file")

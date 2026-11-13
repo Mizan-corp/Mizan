@@ -14,6 +14,11 @@ so the conversion itself is small:
 - the settings preset follows, and a theme that belonged to the old activity gives way to the new
   activity's (or Mizan's).
 
+A developer's activity from the marketplace (ADR-012) is a target too: its own modules install as
+community modules with the scopes they declare, its themes install, and its definition (menus,
+terms, variants, positions) is read from `framework.package_activities`. Leaving one removes its
+own modules; their records stay hidden (installing them again brings them back).
+
 Cloud workspaces only: on-site installs carry their activity in the licence (through support).
 Plans don't depend on the activity, so the price doesn't change.
 """
@@ -40,8 +45,8 @@ class ActivityChange(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,
                                           server_default=text("gen_random_uuid()"))
     tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
-    from_activity: Mapped[str] = mapped_column(String(32), nullable=False)
-    to_activity: Mapped[str] = mapped_column(String(64), nullable=False)
+    from_activity: Mapped[str] = mapped_column(String(80), nullable=False)
+    to_activity: Mapped[str] = mapped_column(String(80), nullable=False)
     data_mode: Mapped[str] = mapped_column(String(8), nullable=False, default="keep", server_default=text("'keep'"))
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="requested", server_default=text("'requested'"))
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -70,9 +75,15 @@ def check_target(tenant, to: str) -> str:
     from app.catalog.sectors import SECTORS
     from app.platform.licensing.services.licences import is_on_premise
 
+    from app.framework import package_activities
+
     to = canonical_activity(to)
     if to not in SECTORS:
-        raise HTTPException(status_code=422, detail="نشاط غير معروف")
+        d = package_activities.get(to)
+        if d is None or not d.listed:
+            raise HTTPException(status_code=422, detail="نشاط غير معروف")
+        if d.revoked:
+            raise HTTPException(status_code=409, detail="أُلغي مفتاح توقيع مطوّر هذا النشاط؛ لا يمكن التحويل إليه")
     if to == canonical_activity(tenant.sector):
         raise HTTPException(status_code=409, detail="هذا هو نشاط مساحة العمل الحالي")
     if is_on_premise(tenant):
@@ -113,19 +124,51 @@ def plan(tenant, to: str) -> dict:
         "joining": [info(m) for m in joining],
         "staying": [info(m) for m in staying],
         "variants_changed": changed,
+        **own_modules(old, to),
+    }
+
+
+def own_modules(old: str | None, to: str) -> dict:
+    """A developer's activity's own modules (ADR-012): those that join, with what they may access,
+    and the old activity's that leave."""
+    from app.framework import package_activities
+    from app.framework.manifest import SCOPES
+
+    before, after = package_activities.get(old), package_activities.get(to)
+    keep = set(after.modules) if after else set()
+
+    def info(pkg) -> dict:
+        m = pkg.manifest
+        return {"id": m["id"], "name": m.get("name", m["id"]), "name_en": m.get("name_en", ""),
+                "entities": [e.get("name") for e in pkg.entities.values()],
+                "scopes": [{"id": x, "text": SCOPES[x][0], "text_en": SCOPES[x][1]} for x in m.get("scopes") or [] if x in SCOPES],
+                "sends_to": ((m.get("webhooks") or {}).get("url") or "").split("/")[2] if (m.get("webhooks") or {}).get("url") else None}
+
+    return {
+        "own_joining": [info(pkg) for pkg in after.modules.values()] if after else [],
+        "own_leaving": [info(pkg) for mid, pkg in before.modules.items() if mid not in keep] if before else [],
+        "package": {"developer": after.developer, "version": after.version,
+                    "themes": [{"id": t.manifest["id"], "name": t.manifest.get("name")} for t in after.themes.values()]} if after else None,
     }
 
 
 def theme_after(tenant, to: str) -> str | None:
-    """The theme the workspace switches to, if its current one belongs to the old activity."""
+    """The theme the workspace switches to, if its current one belongs to the old activity. A
+    developer's activity's themes count as its own (ADR-012)."""
+    from app.framework import package_activities
     from app.platform.themes.service import current_id, file_themes
 
     themes = file_themes()
-    current = themes.get(current_id(tenant))
-    if not current or current.get("activity") in (None, "general", to):
+    cur = current_id(tenant)
+    old_pkg, new_pkg = package_activities.get(tenant.sector), package_activities.get(to)
+    if cur in themes:
+        belongs = themes[cur].get("activity")
+    else:
+        belongs = tenant.sector if old_pkg and cur in old_pkg.themes else None
+    if belongs in (None, "general", to):
         return None
     default = _activity(to).get("theme")
-    return default if default in themes else "mizan"
+    return default if default in themes or (new_pkg and default in new_pkg.themes) else "mizan"
 
 
 async def preview(db: AsyncSession, tenant, to: str) -> dict:
@@ -145,6 +188,8 @@ async def preview(db: AsyncSession, tenant, to: str) -> dict:
                 rows += await db.scalar(text(f"SELECT count(*) FROM {table.name}")) or 0
         if rows:
             data.append({**m, "rows": rows, "kept_always": keeps_data(m["id"])})
+    for m in p["own_leaving"]:
+        m["rows"] = await db.scalar(text("SELECT count(*) FROM ext_records WHERE module_id = :m"), {"m": m["id"]}) or 0
     new_theme = theme_after(tenant, to)
     return {
         "from": {"id": tenant.sector, "name": _name(tenant.sector)},
@@ -207,6 +252,7 @@ async def apply(db: AsyncSession, change: ActivityChange, tenant, admin_user_id)
                 export=export if mid == leaving[0] else None,
             ))
     restored = [m["id"] for m in p["joining"] if await restore_on_install(db, m["id"])]
+    await _apply_own(db, tenant, to, p)
 
     tenant.sector = to
     tenant.business_type = to
@@ -222,10 +268,62 @@ async def apply(db: AsyncSession, change: ActivityChange, tenant, admin_user_id)
         "added": [m["id"] for m in p["joining"]],
         "restored": restored,
         "variants_changed": [m["id"] for m in p["variants_changed"]],
+        "own_added": [m["id"] for m in p["own_joining"]],
+        "own_removed": [m["id"] for m in p["own_leaving"]],
+        "package_version": p["package"]["version"] if p["package"] else None,
         "data_mode": change.data_mode,
         "theme": new_theme,
         "applied_by": str(admin_user_id) if admin_user_id else None,
     }
+
+
+async def _apply_own(db: AsyncSession, tenant, to: str, p: dict) -> None:
+    """A developer's activity's own modules and themes (ADR-012), in the bound workspace. The old
+    activity's own modules leave with their records kept (hidden). Each step commits."""
+    from app.framework import package_activities
+    from app.platform.community import service as community
+    from app.platform.themes import service as themes
+
+    for m in p["own_leaving"]:
+        try:
+            await community.uninstall(db, m["id"])
+        except HTTPException:
+            pass  # already removed by the workspace
+    d = package_activities.get(to)
+    if d is None:
+        return
+    for pkg in d.modules.values():
+        await community.install(db, pkg, None, list(pkg.manifest.get("scopes") or []))
+    for pkg in d.themes.values():
+        await themes.install(db, tenant, pkg, None)
+
+
+async def follow_update(db: AsyncSession, activity_id: str) -> list[str]:
+    """After a new version of a developer's activity is approved (ADR-012 D3): every workspace
+    running it gets the version's new Mizan modules, own modules and themes; nothing leaves.
+    Returns the workspaces updated. Runs each workspace in turn, bound to it."""
+    from app.framework import package_activities
+    from app.framework.activation import set_active_modules
+    from app.framework.composition import base_modules, installable
+    from app.platform.tenancy.context import bind_tenant, unbind_tenant
+    from app.platform.tenancy.models import Tenant
+
+    d = package_activities.get(activity_id)
+    if d is None:
+        return []
+    await unbind_tenant(db)
+    tenants = (await db.execute(select(Tenant).where(Tenant.sector == activity_id))).scalars().all()
+    done = []
+    for t in tenants:
+        await bind_tenant(db, t.id)
+        await _apply_own(db, t, activity_id, {"own_leaving": []})
+        active = list(t.active_modules or [])
+        new = [m for m in base_modules(activity_id) if m not in active and installable(m, activity_id)[0]]
+        if new:
+            await set_active_modules(db, active + new)  # commits
+        await unbind_tenant(db)
+        done.append(str(t.id))
+    return done
 
 
 def out(change: ActivityChange, tenant_name: str | None = None) -> dict:
