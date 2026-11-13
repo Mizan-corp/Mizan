@@ -1,8 +1,9 @@
 /** Layout pieces of the developer portal, built like the owner panel's (owner/frontend/src/ui.tsx). */
 import type { ReactNode } from "react";
 import { Copy } from "lucide-react";
-import { useToast } from "@/components/ui";
+import { Button, Modal, useToast } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { useDevI18n } from "./i18n";
 
 export function PageHeader({ title, description, actions }: { title: ReactNode; description?: ReactNode; actions?: ReactNode }) {
   return (
@@ -45,13 +46,14 @@ export function Field({ label, hint, htmlFor, children }: { label: string; hint?
 /** A secret or long value with a copy button. */
 export function CopyValue({ value, label }: { value: string; label: string }) {
   const { toast } = useToast();
+  const { t } = useDevI18n();
   return (
     <div className="flex items-center gap-2">
       <code dir="ltr" className="code min-w-0 flex-1 truncate rounded-md border border-line bg-muted/40 px-2.5 py-2 text-xs">{value}</code>
       <button
         type="button"
-        aria-label={`انسخ ${label}`}
-        onClick={() => navigator.clipboard?.writeText(value).then(() => toast("success", "نُسخ"))}
+        aria-label={t(`Copy ${label}`, `انسخ ${label}`)}
+        onClick={() => navigator.clipboard?.writeText(value).then(() => toast("success", t("Copied", "نُسخ")))}
         className="grid size-9 shrink-0 place-items-center rounded-md border border-input bg-card text-muted-foreground transition hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40"
       >
         <Copy className="size-4" />
@@ -60,5 +62,27 @@ export function CopyValue({ value, label }: { value: string; label: string }) {
   );
 }
 
-export const when = (iso: string | null | undefined) =>
-  iso ? new Intl.DateTimeFormat("ar-EG-u-nu-latn", { dateStyle: "medium" }).format(new Date(iso)) : "—";
+/** A date in the platform's language ("Nov 13, 2026" / "13 نوفمبر 2026"). */
+export function useWhen() {
+  const { isAr } = useDevI18n();
+  const f = new Intl.DateTimeFormat(isAr ? "ar-EG-u-nu-latn" : "en-GB", { dateStyle: "medium" });
+  return (iso: string | null | undefined) => (iso ? f.format(new Date(iso)) : "—");
+}
+
+/** A confirmation in the platform's language (the shared ConfirmDialog is Arabic only). */
+export function Confirm({ open, title, message, confirmLabel, onConfirm, onClose, busy }: {
+  open: boolean; title: string; message: string; confirmLabel: string; onConfirm: () => void; onClose: () => void; busy?: boolean;
+}) {
+  const { t } = useDevI18n();
+  return (
+    <Modal open={open} onClose={onClose} title={title}>
+      <div className="space-y-4">
+        <p className="text-sm leading-relaxed text-muted-foreground">{message}</p>
+        <div className="flex gap-2">
+          <Button variant="danger" disabled={busy} onClick={onConfirm}>{confirmLabel}</Button>
+          <Button variant="outline" onClick={onClose}>{t("Cancel", "إلغاء")}</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}

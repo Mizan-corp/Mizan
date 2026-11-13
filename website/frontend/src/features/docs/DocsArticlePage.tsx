@@ -74,7 +74,7 @@ export default function DocsArticlePage({ sections = DOC_SECTIONS, base = "/docs
             {article.title}
           </h1>
 
-          <div className="text-xs font-mono text-[#77716E]">{article.titleEn}</div>
+          {article.titleEn !== article.title && <div className="text-xs font-mono text-[#77716E]">{article.titleEn}</div>}
 
           <p className="mt-3 text-sm text-[#77716E] leading-relaxed">
             {article.content.overview}

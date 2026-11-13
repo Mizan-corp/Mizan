@@ -31,42 +31,50 @@ def public_key() -> str:
 def test_portal_signup_team_key_and_cli_token(page: Page, developer_tag):
     tag, handle = developer_tag, f"e2e{developer_tag}"
     page.goto(f"{WEBSITE}/dev")
-    page.get_by_role("link", name=re.compile("أنشئ حساب مطور")).first.click()
-    page.locator("#dev-name").fill("مطور اختبار المتصفح")
+    expect(page.get_by_role("heading", level=1)).to_have_text("Build on Mizan")  # English by default
+    assert page.evaluate("() => document.documentElement.dir") == "ltr"
+    page.get_by_role("link", name=re.compile("Create a developer account")).first.click()
+    page.locator("#dev-name").fill("Browser test developer")
     page.locator("#dev-email").fill(f"e2e-{tag}@example.com")
     page.locator("#dev-password").fill("Browser-e2e-9!")
-    page.get_by_role("button", name="إنشاء الحساب").click()
+    page.get_by_role("button", name="Create account").click()
     page.wait_for_url(re.compile(r"/dev/portal$"))
-    expect(page.get_by_text("لا فرق بعد")).to_be_visible()
+    expect(page.get_by_text("No teams yet")).to_be_visible()
 
     # A team; its handle is the namespace of its modules.
-    page.get_by_role("button", name=re.compile("فريق جديد")).click()
+    page.get_by_role("button", name=re.compile("New team")).click()
     page.locator("#team-handle").fill(handle)
-    page.locator("#team-name").fill("فريق المتصفح")
-    page.get_by_role("dialog").get_by_role("button", name="إنشاء الفريق").click()
-    page.get_by_role("link", name=re.compile("فريق المتصفح")).click()
+    page.locator("#team-name").fill("Browser team")
+    page.get_by_role("dialog").get_by_role("button", name="Create team").click()
+    page.get_by_role("link", name=re.compile("Browser team")).click()
     page.wait_for_url(re.compile(rf"/dev/portal/teams/{handle}$"))
 
     # A key, certified by Mizan.
-    page.get_by_role("button", name="مفتاح").click()
+    page.get_by_role("button", name="Key", exact=True).click()
     dialog = page.get_by_role("dialog")
     dialog.locator("#key-public").fill(public_key())
     dialog.locator("#key-name").fill("laptop")
-    dialog.get_by_role("button", name=re.compile("تسجيل وإصدار")).click()
+    dialog.get_by_role("button", name="Register and certify").click()
     expect(dialog.locator("code").first).to_contain_text("MZD1.")
-    dialog.get_by_role("button", name="تم").click()
+    dialog.get_by_role("button", name="Done").click()
     expect(page.get_by_text(re.compile(rf"{handle}-[0-9a-f]{{8}}")).first).to_be_visible()
 
     # A CLI token, shown once.
-    page.get_by_role("link", name="رموز سطر الأوامر").click()
-    page.get_by_role("button", name=re.compile("رمز جديد")).first.click()
+    page.get_by_role("link", name="CLI tokens").click()
+    page.get_by_role("button", name=re.compile("New token")).first.click()
     page.locator("#token-name").fill("laptop")
-    page.get_by_role("dialog").get_by_role("button", name="إنشاء").click()
+    page.get_by_role("dialog").get_by_role("button", name="Create", exact=True).click()
     expect(page.get_by_role("dialog").locator("code").first).to_contain_text("mzd_")
-    page.get_by_role("dialog").get_by_role("button", name="تم").click()
-    expect(page.get_by_text("لم يُستخدم بعد")).to_be_visible()
+    page.get_by_role("dialog").get_by_role("button", name="Done").click()
+    expect(page.get_by_text(re.compile("not used yet"))).to_be_visible()
+
+    # Arabic on request (right to left), remembered for the developer platform only.
+    page.get_by_role("button", name="العربية").click()
+    expect(page.get_by_role("heading", level=1)).to_have_text("رموز سطر الأوامر")
+    assert page.evaluate("() => document.documentElement.dir") == "rtl"
+    page.get_by_role("button", name="English").click()
 
     # Signing out ends the portal session.
-    page.get_by_role("button", name="تسجيل الخروج").first.click()
+    page.get_by_role("button", name="Sign out").first.click()
     page.goto(f"{WEBSITE}/dev/portal")
     page.wait_for_url(re.compile(r"/dev/login"))

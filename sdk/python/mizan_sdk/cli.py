@@ -208,7 +208,7 @@ def cmd_package(a) -> int:
     manifest = json.loads(files["manifest.json"])
     out = Path(a.out or f"{manifest['id']}-{manifest['version']}.mzm")
     out.write_bytes(data)
-    print(f"✔ {out} ({len(data) // 1024 + 1} KB). Owners install it from the module centre: وحدات المطورين → تثبيت من ملف.")
+    print(f"✔ {out} ({len(data) // 1024 + 1} KB). Owners install it from the app's module centre: Developer modules (وحدات المطورين) → Install from file.")
     return 0
 
 

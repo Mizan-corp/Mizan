@@ -2,11 +2,12 @@
  * The developer platform (ADR-007 D6): home, docs and the portal. At the root of
  * dev.allmizan.live, under /dev elsewhere (paths.ts).
  */
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, Suspense, useLayoutEffect, type ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { DocsLayout } from "@app/features/docs/DocsLayout";
 import { devPath } from "./paths";
-import { DEV_DOC_SECTIONS } from "./devDocs";
+import { devDocSections } from "./devDocs";
+import { devLocale, restoreSiteLocale, setDevLocale, useDevI18n } from "./i18n";
 
 const DevHome = lazy(() => import("./DevHome"));
 const AuthPage = lazy(() => import("./AuthPage"));
@@ -27,22 +28,36 @@ function Page({ children }: { children: ReactNode }) {
 }
 
 function Docs({ children }: { children: ReactNode }) {
+  const { locale, toggle } = useDevI18n();
   return (
-    <DocsLayout sections={DEV_DOC_SECTIONS} base={devPath("/docs")} home={devPath("/")} label={{ ar: "توثيق المطورين", en: "Developer docs" }}>
+    <DocsLayout sections={devDocSections(locale)} base={devPath("/docs")} home={devPath("/")}
+                label={{ ar: "توثيق المطورين", en: "Developer docs" }} onToggleLocale={toggle}>
       {children}
     </DocsLayout>
   );
 }
 
+function Article() {
+  const { locale, t } = useDevI18n();
+  return (
+    <DocsArticlePage sections={devDocSections(locale)} base={devPath("/docs")} help={devPath("/portal")}
+                     helpText={{ title: t("Developer portal", "بوابة المطورين"), hint: t("Your teams, signing keys and CLI tokens", "فرقك ومفاتيح التوقيع ورموز سطر الأوامر") }} />
+  );
+}
+
 export default function DevRoutes() {
+  // English unless the developer chose Arabic here; the website keeps its own language.
+  useLayoutEffect(() => {
+    setDevLocale(devLocale());
+    return restoreSiteLocale;
+  }, []);
   return (
     <Routes>
       <Route index element={<Page><DevHome /></Page>} />
       <Route path="login" element={<Page><AuthPage mode="login" /></Page>} />
       <Route path="signup" element={<Page><AuthPage mode="signup" /></Page>} />
       <Route path="docs" element={<Page><Docs><DevDocsHome /></Docs></Page>} />
-      <Route path="docs/*" element={<Page><Docs><DocsArticlePage sections={DEV_DOC_SECTIONS} base={devPath("/docs")} help={devPath("/portal")}
-                                                                 helpText={{ title: "بوابة المطورين", hint: "فرقك ومفاتيح التوقيع ورموز سطر الأوامر" }} /></Docs></Page>} />
+      <Route path="docs/*" element={<Page><Docs><Article /></Docs></Page>} />
       <Route path="portal" element={<Page><PortalShell /></Page>}>
         <Route index element={<Page><TeamsPage /></Page>} />
         <Route path="teams/:handle" element={<Page><TeamPage /></Page>} />

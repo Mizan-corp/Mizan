@@ -2,100 +2,108 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { KeyRound, Plus, Terminal } from "lucide-react";
-import { Button, ConfirmDialog, Empty, ErrorBox, Input, Modal, Spinner, useToast } from "@/components/ui";
-import { CopyValue, Field, PageHeader, Panel, when } from "./kit";
+import { Button, Empty, ErrorBox, Input, Modal, Spinner, useToast } from "@/components/ui";
+import { useDevI18n } from "./i18n";
+import { Confirm, CopyValue, Field, PageHeader, Panel, useWhen } from "./kit";
 import { portal, PortalError } from "./session";
 
 interface CliToken { id: string; name: string; created_at: string | null; last_used_at: string | null; token?: string }
 
 export default function TokensPage() {
   const { toast } = useToast();
+  const { t } = useDevI18n();
+  const when = useWhen();
   const qc = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [made, setMade] = useState<CliToken | null>(null);
   const [revoking, setRevoking] = useState<CliToken | null>(null);
+  const fail = (e: unknown, en: string, ar: string) => toast("error", e instanceof PortalError ? e.message : t(en, ar));
 
   const list = useQuery({ queryKey: ["developer-cli-tokens"], queryFn: () => portal<{ items: CliToken[] }>("GET", "/cli-tokens") });
   const create = useMutation({
     mutationFn: () => portal<CliToken>("POST", "/cli-tokens", { name: name.trim() || "CLI" }),
-    onSuccess: (t) => { setMade(t); setName(""); qc.invalidateQueries({ queryKey: ["developer-cli-tokens"] }); },
-    onError: (e) => toast("error", e instanceof PortalError ? e.message : "تعذر إنشاء الرمز"),
+    onSuccess: (tok) => { setMade(tok); setName(""); qc.invalidateQueries({ queryKey: ["developer-cli-tokens"] }); },
+    onError: (e) => fail(e, "Couldn't create the token", "تعذر إنشاء الرمز"),
   });
   const revoke = useMutation({
-    mutationFn: (t: CliToken) => portal("DELETE", `/cli-tokens/${t.id}`),
-    onSuccess: () => { toast("success", "أُلغي الرمز"); setRevoking(null); qc.invalidateQueries({ queryKey: ["developer-cli-tokens"] }); },
-    onError: (e) => toast("error", e instanceof PortalError ? e.message : "تعذر الإلغاء"),
+    mutationFn: (tok: CliToken) => portal("DELETE", `/cli-tokens/${tok.id}`),
+    onSuccess: () => { toast("success", t("Token revoked", "أُلغي الرمز")); setRevoking(null); qc.invalidateQueries({ queryKey: ["developer-cli-tokens"] }); },
+    onError: (e) => fail(e, "Couldn't revoke it", "تعذر الإلغاء"),
   });
   const close = () => { setCreating(false); setMade(null); };
   const submit = (e: FormEvent) => {
     e.preventDefault();
     create.mutate();
   };
+  const newButton = <Button onClick={() => setCreating(true)}><Plus className="size-4" /> {t("New token", "رمز جديد")}</Button>;
 
   return (
     <>
       <PageHeader
-        title="رموز سطر الأوامر"
-        description={<>رمز لكل جهاز تستخدم عليه <span className="code inline-block" dir="ltr">mizan</span>. يعمل بصلاحيات حسابك؛ ألغِ أي رمز لا تعرفه.</>}
-        actions={<Button onClick={() => setCreating(true)}><Plus className="size-4" /> رمز جديد</Button>}
+        title={t("CLI tokens", "رموز سطر الأوامر")}
+        description={<>{t("One token per machine you use ", "رمز لكل جهاز تستخدم عليه ")}<span className="code inline-block" dir="ltr">mizan</span>
+          {t(" on. It acts as your account; revoke any you don't recognise.", ". يعمل بصلاحيات حسابك؛ ألغِ أي رمز لا تعرفه.")}</>}
+        actions={newButton}
       />
       {list.isPending ? (
         <div className="flex justify-center p-12"><Spinner /></div>
       ) : list.isError ? (
-        <ErrorBox message="تعذر تحميل الرموز" onRetry={() => list.refetch()} />
+        <ErrorBox message={t("Couldn't load the tokens", "تعذر تحميل الرموز")} onRetry={() => list.refetch()} />
       ) : list.data.items.length === 0 ? (
-        <Empty icon={<Terminal className="size-10" strokeWidth={1.25} />} text="لا رموز بعد"
-               hint="أنشئ رمزًا ثم اكتب mizan login على جهازك."
-               action={<Button onClick={() => setCreating(true)}><Plus className="size-4" /> رمز جديد</Button>} />
+        <Empty icon={<Terminal className="size-10" strokeWidth={1.25} />} text={t("No tokens yet", "لا رموز بعد")}
+               hint={t("Create one, then run mizan login on your machine.", "أنشئ رمزًا ثم اكتب mizan login على جهازك.")} action={newButton} />
       ) : (
         <Panel flush>
           <ul className="divide-y divide-line">
-            {list.data.items.map((t) => (
-              <li key={t.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
+            {list.data.items.map((tok) => (
+              <li key={tok.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
                 <span className="flex min-w-0 items-start gap-2.5">
                   <KeyRound className="mt-0.5 size-4 shrink-0 text-primary" />
                   <span>
-                    <span className="block font-semibold text-foreground">{t.name}</span>
+                    <span className="block font-semibold text-foreground">{tok.name}</span>
                     <span className="text-xs text-muted-foreground">
-                      أُنشئ {when(t.created_at)} · {t.last_used_at ? `آخر استخدام ${when(t.last_used_at)}` : "لم يُستخدم بعد"}
+                      {t("created", "أُنشئ")} {when(tok.created_at)} ·{" "}
+                      {tok.last_used_at ? t(`last used ${when(tok.last_used_at)}`, `آخر استخدام ${when(tok.last_used_at)}`) : t("not used yet", "لم يُستخدم بعد")}
                     </span>
                   </span>
                 </span>
-                <Button size="sm" variant="ghost" onClick={() => setRevoking(t)}>إلغاء</Button>
+                <Button size="sm" variant="ghost" onClick={() => setRevoking(tok)}>{t("Revoke", "إلغاء")}</Button>
               </li>
             ))}
           </ul>
         </Panel>
       )}
 
-      <Modal open={creating} onClose={close} title="رمز جديد">
+      <Modal open={creating} onClose={close} title={t("New token", "رمز جديد")}>
         {made?.token ? (
           <div className="space-y-4 text-sm">
-            <p className="text-muted-foreground">انسخه الآن؛ لن يظهر مرة أخرى. ثم على جهازك:</p>
-            <CopyValue value={made.token} label="الرمز" />
-            <pre dir="ltr" className="code overflow-x-auto rounded-md border border-line bg-muted/40 p-3 text-start text-xs">mizan login</pre>
-            <Button onClick={close}>تم</Button>
+            <p className="text-muted-foreground">{t("Copy it now; it won't be shown again. Then, on your machine:", "انسخه الآن؛ لن يظهر مرة أخرى. ثم على جهازك:")}</p>
+            <CopyValue value={made.token} label={t("the token", "الرمز")} />
+            <pre dir="ltr" className="code overflow-x-auto rounded-md border border-line bg-muted/40 p-3 text-left text-xs">mizan login</pre>
+            <Button onClick={close}>{t("Done", "تم")}</Button>
           </div>
         ) : (
           <form onSubmit={submit} className="space-y-4">
-            <Field label="اسم يميزه" htmlFor="token-name" hint="مثل اسم الجهاز.">
+            <Field label={t("Name", "اسم يميزه")} htmlFor="token-name" hint={t("Such as the machine's name.", "مثل اسم الجهاز.")}>
               <Input id="token-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={64} placeholder="laptop" autoFocus />
             </Field>
             <div className="flex gap-2">
-              <Button type="submit" disabled={create.isPending}>{create.isPending ? <Spinner /> : "إنشاء"}</Button>
-              <Button type="button" variant="outline" onClick={close}>إلغاء</Button>
+              <Button type="submit" disabled={create.isPending}>{create.isPending ? <Spinner /> : t("Create", "إنشاء")}</Button>
+              <Button type="button" variant="outline" onClick={close}>{t("Cancel", "إلغاء")}</Button>
             </div>
           </form>
         )}
       </Modal>
-      <ConfirmDialog
+      <Confirm
         open={!!revoking}
         onClose={() => setRevoking(null)}
         onConfirm={() => revoking && revoke.mutate(revoking)}
-        title="إلغاء الرمز"
-        message={`يتوقف الرمز «${revoking?.name ?? ""}» فورًا، وتحتاج mizan login من جديد على ذلك الجهاز.`}
-        confirmLabel="إلغاء الرمز"
+        busy={revoke.isPending}
+        title={t("Revoke the token", "إلغاء الرمز")}
+        message={t(`"${revoking?.name ?? ""}" stops working at once; that machine needs mizan login again.`,
+                   `يتوقف الرمز «${revoking?.name ?? ""}» فورًا، وتحتاج mizan login من جديد على ذلك الجهاز.`)}
+        confirmLabel={t("Revoke token", "إلغاء الرمز")}
       />
     </>
   );

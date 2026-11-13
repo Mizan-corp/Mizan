@@ -6,7 +6,7 @@ Authenticated with a portal session (scope "developer") or a CLI token (mzd_…)
 """
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +16,12 @@ from app.db.base import get_db
 from app.platform.developers import service
 from app.platform.developers.models import DeveloperUser
 
-router = APIRouter(prefix="/developers", tags=["developers"])
+async def language(request: Request) -> None:
+    """English by default; Arabic when the client asks (Accept-Language: ar…)."""
+    service.LANG.set("ar" if request.headers.get("accept-language", "").lower().startswith("ar") else "en")
+
+
+router = APIRouter(prefix="/developers", tags=["developers"], dependencies=[Depends(language)])
 _bearer = OAuth2PasswordBearer(tokenUrl="/developers/login", auto_error=False)
 signup_limiter = RateLimiter(max_requests=5, window_seconds=3600)
 login_limiter = RateLimiter(max_requests=20, window_seconds=600)

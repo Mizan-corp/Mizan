@@ -4,14 +4,13 @@
  * app/platform/community/ext_api.py, webhooks app/platform/community/events.py, the CLI sdk/python.
  */
 import type { DocSection } from "@app/features/docs/docsData";
+import { EN } from "./devDocs.en";
 
-export const SDK_VERSION = "0.1.0";
-export const SDK_WHEEL = `mizan_sdk-${SDK_VERSION}-py3-none-any.whl`;
-const SDK_URL = `https://dev.allmizan.live/sdk/${SDK_WHEEL}`;
-const EXT = "https://api.allmizan.live/api/ext/v1";
-const UPDATED = "2026-11-13";
+import { DOCS_UPDATED as UPDATED, EXT_API as EXT, SDK_URL } from "./sdk";
 
-export const DEV_DOC_SECTIONS: DocSection[] = [
+export { SDK_WHEEL } from "./sdk";
+
+const AR: DocSection[] = [
   {
     id: "start",
     title: "البداية",
@@ -406,6 +405,7 @@ mizan package [folder] [--key ...] [--certificate ...] [--out ...]`,
   },
 ];
 
-export function devDocArticles() {
-  return DEV_DOC_SECTIONS.flatMap((s) => s.items);
+/** The developer docs in the platform's language (English by default). */
+export function devDocSections(locale: "ar" | "en"): DocSection[] {
+  return locale === "ar" ? AR : EN;
 }

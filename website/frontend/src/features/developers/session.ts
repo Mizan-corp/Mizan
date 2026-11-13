@@ -4,6 +4,7 @@
  */
 import { useSyncExternalStore } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { devIsArabic } from "./i18n";
 
 const KEY = "mizan.developer_session";
 const BASE = ((import.meta.env.VITE_API_URL as string | undefined) ?? "/api").replace(/\/+$/, "");
@@ -40,22 +41,23 @@ export class PortalError extends Error {
 /** A call to the developer API (/developers…) with the portal session. */
 export async function portal<T>(method: string, path: string, body?: unknown): Promise<T> {
   const token = read();
-  const headers: Record<string, string> = { Accept: "application/json" };
+  const ar = devIsArabic();
+  const headers: Record<string, string> = { Accept: "application/json", "Accept-Language": ar ? "ar" : "en" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (token) headers.Authorization = `Bearer ${token}`;
   let res: Response;
   try {
     res = await fetch(`${BASE}/developers${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   } catch {
-    throw new PortalError(0, "تعذر الاتصال بالخادم، تحقق من الإنترنت");
+    throw new PortalError(0, ar ? "تعذر الاتصال بالخادم، تحقق من الإنترنت" : "Couldn't reach Mizan; check your connection");
   }
   if (res.status === 401 && token && !path.startsWith("/login")) clearDeveloperSession();
   if (!res.ok) {
-    let detail = "حدث خطأ غير متوقع";
+    let detail = ar ? "حدث خطأ غير متوقع" : "Something went wrong";
     try {
       const j = await res.json();
       if (typeof j.detail === "string") detail = j.detail;
-      else if (Array.isArray(j.detail)) detail = "تحقق من البيانات المدخلة";
+      else if (Array.isArray(j.detail)) detail = ar ? "تحقق من البيانات المدخلة" : "Check what you entered";
     } catch {
       /* not JSON */
     }

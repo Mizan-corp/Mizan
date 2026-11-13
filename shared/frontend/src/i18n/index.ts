@@ -21,7 +21,7 @@ function getInitialLocale(): Locale {
   return "ar";
 }
 
-function applyHtmlDirection(locale: Locale) {
+export function applyHtmlDirection(locale: Locale) {
   const dir = locale === "ar" ? "rtl" : "ltr";
   document.documentElement.lang = locale;
   document.documentElement.dir = dir;

@@ -130,3 +130,11 @@ async def test_portal_flow():
             await db.execute(text("DELETE FROM developer_teams WHERE handle = :h"), {"h": handle})
             await db.execute(text("DELETE FROM developer_users WHERE email = ANY(:e)"), {"e": [a_mail, b_mail]})
             await db.commit()
+
+
+async def test_messages_are_english_unless_arabic_is_asked():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        body = {"email": f"nobody-{uuid.uuid4().hex[:6]}@example.com", "password": "wrong-pass"}
+        assert (await c.post("/developers/login", json=body)).json()["detail"] == "Wrong email or password"
+        ar = await c.post("/developers/login", json=body, headers={"Accept-Language": "ar-EG,ar;q=0.9"})
+        assert ar.json()["detail"] == "البريد أو كلمة المرور غير صحيحة"

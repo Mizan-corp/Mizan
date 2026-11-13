@@ -144,6 +144,11 @@ manifest declares and roles hold (ADR-006 D4): scopes limit the module, permissi
   under `/dev` elsewhere (`features/developers/paths.ts`): home, sign-in, the portal (teams,
   keys, CLI tokens, account) and the docs (`devDocs.ts`, rendered by the docs components). The
   old developer articles in the general docs were removed; the docs home links to the new ones.
+- **Language**: the developer platform is English by default (developers anywhere), Arabic on
+  request: its own preference (`mizan.dev_locale`), so the website keeps its Arabic default. The
+  docs exist in both (`devDocs.en.ts`, `devDocs.ts`); the developer API answers in English unless
+  asked `Accept-Language: ar` (the CLI prints its messages). Modules' own labels stay Arabic: the
+  app is Arabic.
 - **SDK** (`sdk/python`): `mizan login|whoami|logout`, `module new`, `check` (a byte copy of the
   platform validator, kept identical by a test), `keys new [--team]` (registers the key and saves
   its certificate when signed in), `package`. Until it is on PyPI, deploy builds the wheel into

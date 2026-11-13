@@ -25,6 +25,8 @@ interface DocsLayoutProps {
   base?: string;
   home?: string;
   label?: { ar: string; en: string };
+  /** Switches the language somewhere else than the website's own choice (the developer platform). */
+  onToggleLocale?: () => void;
 }
 
 export function DocsLayout({
@@ -33,6 +35,7 @@ export function DocsLayout({
   base = "/docs",
   home = "/",
   label = { ar: "مركز التوثيق والمطورين", en: "Docs & Developer Portal" },
+  onToggleLocale,
 }: DocsLayoutProps) {
   const location = useLocation();
   const { themeMode, toggleThemeMode } = useUiStore();
@@ -138,7 +141,7 @@ export function DocsLayout({
             >
               <Search className="size-3.5 text-[#B86B76] group-hover:text-[#651E2C]" />
               <span className="flex-1 text-start">
-                {isAr ? "بحث في شروحات المنظومة..." : "Search docs & APIs..."}
+                {isAr ? "ابحث في التوثيق..." : "Search the docs..."}
               </span>
               <kbd className="hidden sm:inline-block rounded border border-[#E7D6C1] bg-[#FAF6F0] px-1.5 py-0.5 text-[10px] font-mono text-[#77716E]">
                 ⌘K
@@ -147,7 +150,7 @@ export function DocsLayout({
 
             <button
               type="button"
-              onClick={toggleLocale}
+              onClick={onToggleLocale ?? toggleLocale}
               title={isAr ? "Switch to English" : "التبديل إلى العربية"}
               className="flex size-9 items-center justify-center rounded-full border border-[#E7D6C1] bg-white text-xs font-bold text-[#262321] hover:border-[#651E2C]"
             >

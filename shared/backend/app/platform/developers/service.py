@@ -13,6 +13,7 @@ import hashlib
 import re
 import secrets
 import uuid
+from contextvars import ContextVar
 from datetime import UTC, datetime
 
 from fastapi import HTTPException
@@ -35,6 +36,14 @@ RESERVED = {"mizan", "allmizan", "admin", "platform", "system", "core", "general
 MAX_KEYS = 10
 MAX_TEAMS = 5
 
+# The developer platform speaks English unless the client asks for Arabic (Accept-Language: ar);
+# the CLI prints these messages as they come.
+LANG: ContextVar[str] = ContextVar("developer_lang", default="en")
+
+
+def _(en: str, ar: str) -> str:
+    return ar if LANG.get() == "ar" else en
+
 
 def normalize_email(email: str) -> str:
     return email.strip().lower()
@@ -51,7 +60,7 @@ async def signup(db: AsyncSession, email: str, full_name: str, password: str) ->
 
     email = normalize_email(email)
     if await db.scalar(select(DeveloperUser.id).where(DeveloperUser.email == email)):
-        raise HTTPException(409, "هذا البريد مسجل بالفعل، سجّل الدخول")
+        raise HTTPException(409, _("This email is already registered; sign in", "هذا البريد مسجل بالفعل، سجّل الدخول"))
     user = DeveloperUser(email=email, full_name=full_name.strip(), password_hash=hash_password(password),
                          last_login_at=datetime.now(UTC))
     db.add(user)
@@ -64,7 +73,7 @@ async def authenticate(db: AsyncSession, email: str, password: str) -> Developer
 
     user = await db.scalar(select(DeveloperUser).where(DeveloperUser.email == normalize_email(email)))
     if not user or not user.is_active or not verify_password(password, user.password_hash):
-        raise HTTPException(401, "البريد أو كلمة المرور غير صحيحة")
+        raise HTTPException(401, _("Wrong email or password", "البريد أو كلمة المرور غير صحيحة"))
     user.last_login_at = datetime.now(UTC)
     await db.commit()
     return user
@@ -83,7 +92,7 @@ async def user_from_token(db: AsyncSession, token: str) -> DeveloperUser:
                                                               DeveloperCliToken.revoked_at.is_(None)))
         user = await db.get(DeveloperUser, row.user_id) if row else None
         if not user or not user.is_active:
-            raise HTTPException(401, "رمز سطر الأوامر غير صالح أو أُلغي")
+            raise HTTPException(401, _("Invalid or revoked CLI token", "رمز سطر الأوامر غير صالح أو أُلغي"))
         row.last_used_at = datetime.now(UTC)
         await db.commit()
         return user
@@ -92,7 +101,7 @@ async def user_from_token(db: AsyncSession, token: str) -> DeveloperUser:
 
     payload = decode_token(token)
     if payload.get("scope") != SCOPE:
-        raise HTTPException(401, "هذه الجلسة ليست جلسة مطور")
+        raise HTTPException(401, _("Not a developer session", "هذه الجلسة ليست جلسة مطور"))
     try:
         user = await db.get(DeveloperUser, uuid.UUID(str(payload.get("sub"))))
     except ValueError:
@@ -109,7 +118,7 @@ async def change_password(db: AsyncSession, user: DeveloperUser, current: str, n
     from app.platform.auth.sessions import sessions_end_now
 
     if not verify_password(current, user.password_hash):
-        raise HTTPException(400, "كلمة المرور الحالية غير صحيحة")
+        raise HTTPException(400, _("The current password is wrong", "كلمة المرور الحالية غير صحيحة"))
     user.password_hash = hash_password(new)
     user.tokens_valid_after = sessions_end_now()  # every portal session ends; CLI tokens are revoked one by one
     await db.commit()
@@ -132,15 +141,15 @@ def team_out(t: DeveloperTeam, role: str) -> dict:
 async def create_team(db: AsyncSession, user: DeveloperUser, handle: str, name: str) -> dict:
     handle = handle.strip().lower()
     if not HANDLE.match(handle):
-        raise HTTPException(422, "المعرّف حروف إنجليزية صغيرة وأرقام و _ ، يبدأ بحرف (2–32)")
+        raise HTTPException(422, _("A handle is 2–32 lower-case letters, digits and _, starting with a letter", "المعرّف حروف إنجليزية صغيرة وأرقام و _ ، يبدأ بحرف (2–32)"))
     if handle in RESERVED:
-        raise HTTPException(422, "هذا المعرّف محجوز")
+        raise HTTPException(422, _("This handle is reserved", "هذا المعرّف محجوز"))
     if await db.scalar(select(DeveloperTeam.id).where(DeveloperTeam.handle == handle)):
-        raise HTTPException(409, "هذا المعرّف مستخدم")
+        raise HTTPException(409, _("This handle is taken", "هذا المعرّف مستخدم"))
     count = await db.scalar(select(func.count()).select_from(DeveloperTeamMember)
                             .where(DeveloperTeamMember.user_id == user.id, DeveloperTeamMember.role == "owner"))
     if count >= MAX_TEAMS:
-        raise HTTPException(409, f"يمكنك إنشاء {MAX_TEAMS} فرق على الأكثر")
+        raise HTTPException(409, _(f"You can create up to {MAX_TEAMS} teams", f"يمكنك إنشاء {MAX_TEAMS} فرق على الأكثر"))
     team = DeveloperTeam(handle=handle, name=name.strip(), created_by=user.id)
     db.add(team)
     await db.flush()
@@ -155,9 +164,9 @@ async def membership(db: AsyncSession, user: DeveloperUser, handle: str, owner: 
                             .join(DeveloperTeamMember, DeveloperTeamMember.team_id == DeveloperTeam.id)
                             .where(DeveloperTeam.handle == handle, DeveloperTeamMember.user_id == user.id))).first()
     if row is None:
-        raise HTTPException(404, "الفريق غير موجود")
+        raise HTTPException(404, _("Team not found", "الفريق غير موجود"))
     if owner and row[1] != "owner":
-        raise HTTPException(403, "هذا لمالكي الفريق فقط")
+        raise HTTPException(403, _("Only the team's owners can do this", "هذا لمالكي الفريق فقط"))
     return row[0], row[1]
 
 
@@ -171,12 +180,12 @@ async def members(db: AsyncSession, team: DeveloperTeam) -> list[dict]:
 async def add_member(db: AsyncSession, team: DeveloperTeam, email: str, role: str) -> None:
     """Add a developer who already has a portal account (by their email)."""
     if role not in ("owner", "member"):
-        raise HTTPException(422, "دور غير معروف")
+        raise HTTPException(422, _("Unknown role", "دور غير معروف"))
     user = await db.scalar(select(DeveloperUser).where(DeveloperUser.email == normalize_email(email)))
     if user is None:
-        raise HTTPException(404, "لا يوجد مطور بهذا البريد؛ اطلب منه إنشاء حساب في البوابة أولًا")
+        raise HTTPException(404, _("No developer has this email; ask them to create a portal account first", "لا يوجد مطور بهذا البريد؛ اطلب منه إنشاء حساب في البوابة أولًا"))
     if await db.get(DeveloperTeamMember, (team.id, user.id)):
-        raise HTTPException(409, "عضو في الفريق بالفعل")
+        raise HTTPException(409, _("Already a member of the team", "عضو في الفريق بالفعل"))
     db.add(DeveloperTeamMember(team_id=team.id, user_id=user.id, role=role))
     await db.commit()
 
@@ -184,12 +193,12 @@ async def add_member(db: AsyncSession, team: DeveloperTeam, email: str, role: st
 async def remove_member(db: AsyncSession, team: DeveloperTeam, user_id: uuid.UUID) -> None:
     m = await db.get(DeveloperTeamMember, (team.id, user_id))
     if m is None:
-        raise HTTPException(404, "ليس عضوًا في الفريق")
+        raise HTTPException(404, _("Not a member of the team", "ليس عضوًا في الفريق"))
     if m.role == "owner":
         owners = await db.scalar(select(func.count()).select_from(DeveloperTeamMember)
                                  .where(DeveloperTeamMember.team_id == team.id, DeveloperTeamMember.role == "owner"))
         if owners <= 1:
-            raise HTTPException(409, "للفريق مالك واحد؛ أضف مالكًا آخر قبل إزالته")
+            raise HTTPException(409, _("The team has one owner; add another owner first", "للفريق مالك واحد؛ أضف مالكًا آخر قبل إزالته"))
     await db.delete(m)
     await db.commit()
 
@@ -219,18 +228,18 @@ async def register_key(db: AsyncSession, team: DeveloperTeam, user: DeveloperUse
     except (ValueError, TypeError):
         raw = b""
     if len(raw) != 32:
-        raise HTTPException(422, "المفتاح العام غير صالح: الصقه كما طبعه الأمر mizan keys new")
+        raise HTTPException(422, _("Invalid public key: paste it as `mizan keys new` printed it", "المفتاح العام غير صالح: الصقه كما طبعه الأمر mizan keys new"))
     if await db.scalar(select(DeveloperKey.id).where(DeveloperKey.public_key == text, DeveloperKey.revoked_at.is_(None))):
-        raise HTTPException(409, "هذا المفتاح مسجل بالفعل")
+        raise HTTPException(409, _("This key is already registered", "هذا المفتاح مسجل بالفعل"))
     active = await db.scalar(select(func.count()).select_from(DeveloperKey)
                              .where(DeveloperKey.team_id == team.id, DeveloperKey.revoked_at.is_(None)))
     if active >= MAX_KEYS:
-        raise HTTPException(409, f"للفريق {MAX_KEYS} مفاتيح فعالة على الأكثر؛ ألغِ مفتاحًا قديمًا")
+        raise HTTPException(409, _(f"A team has up to {MAX_KEYS} active keys; revoke an old one", f"للفريق {MAX_KEYS} مفاتيح فعالة على الأكثر؛ ألغِ مفتاحًا قديمًا"))
     key_id = f"{team.handle}-{secrets.token_hex(4)}"
     try:
         cert = certify(team.handle, key_id, raw)
     except LicenceError:
-        raise HTTPException(503, "إصدار الشهادات غير متاح الآن، حاول لاحقًا") from None
+        raise HTTPException(503, _("Certificates can't be issued right now; try again later", "إصدار الشهادات غير متاح الآن، حاول لاحقًا")) from None
     k = DeveloperKey(team_id=team.id, key_id=key_id, name=(name or "default").strip()[:64], public_key=text,
                      certificate=cert, created_by=user.id)
     db.add(k)
@@ -241,7 +250,7 @@ async def register_key(db: AsyncSession, team: DeveloperTeam, user: DeveloperUse
 async def revoke_key(db: AsyncSession, team: DeveloperTeam, key_id: str) -> None:
     k = await db.scalar(select(DeveloperKey).where(DeveloperKey.team_id == team.id, DeveloperKey.key_id == key_id))
     if k is None:
-        raise HTTPException(404, "المفتاح غير موجود")
+        raise HTTPException(404, _("Key not found", "المفتاح غير موجود"))
     if k.revoked_at is None:
         k.revoked_at = datetime.now(UTC)
         await db.commit()
@@ -283,6 +292,6 @@ async def revoke_cli_token(db: AsyncSession, user: DeveloperUser, token_id: uuid
     t = await db.scalar(select(DeveloperCliToken).where(DeveloperCliToken.id == token_id,
                                                         DeveloperCliToken.user_id == user.id))
     if t is None:
-        raise HTTPException(404, "الرمز غير موجود")
+        raise HTTPException(404, _("Token not found", "الرمز غير موجود"))
     t.revoked_at = t.revoked_at or datetime.now(UTC)
     await db.commit()
