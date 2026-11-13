@@ -56,4 +56,9 @@ HDD, home connection with a changing IP), the first node of a future cluster.
 - No more deployment quota, Blob or Neon; scheduled jobs could move onto the server.
 - On-site installs released before this check in at the old Vercel owner API address until they
   update (new builds use `owner-api.allmizan.live`).
+- The database copied from Neon kept Neon's default privileges (for `neondb_owner`), so tables the
+  server's login role `mizan` created afterwards (v74, v75, `whatsapp_message_log`) had no grants
+  for `mizan_app` and workspace requests touching them failed with "permission denied" until
+  2026-11-13. Every migrate path now grants `mizan_app` on all tables and sets default privileges
+  for the current login role (`APP_ROLE_GRANTS` in `app/db/migrations.py`).
 - Details and operations: `deploy/server/README.md`.
