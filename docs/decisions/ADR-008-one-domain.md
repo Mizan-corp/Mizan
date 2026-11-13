@@ -2,6 +2,9 @@
 
 ## Status
 Accepted (2026-11-12). Issue #116. Extends ADR-003 (separate apps) and ADR-004 (owner accounts).
+The addresses stand; the hosting below (Vercel projects, Vercel DNS) was replaced on 2026-11-13 by
+Mizan's own server behind Cloudflare (ADR-011): DNS is on Cloudflare, `*.vercel.app` addresses
+are no longer used.
 
 ## Context
 The four products (website, ERP, owner panel, admin panel) and their four APIs ran on eight

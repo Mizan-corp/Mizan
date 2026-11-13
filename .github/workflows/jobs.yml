@@ -1,6 +1,6 @@
-# Scheduled platform jobs in the cloud (the APIs are serverless, so nothing runs on its own).
-# Each call is authenticated by the CRON_SECRET secret, also set on mizan-system-api and
-# mizan-owner-api. Job list: app/platform/automation_worker/runner.py (JOB_REGISTRY).
+# Scheduled platform jobs, called over HTTPS on the production APIs (Mizan's server, ADR-011).
+# Each call is authenticated by the CRON_SECRET secret, the same value as CRON_SECRET in the
+# server's /srv/mizan/mizan.env. Job list: app/platform/automation_worker/runner.py (JOB_REGISTRY).
 name: Jobs
 
 on:

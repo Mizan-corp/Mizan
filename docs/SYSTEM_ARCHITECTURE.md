@@ -41,7 +41,7 @@ Mizan is built as a **Modular Monolith** optimized for developer velocity, trans
                                      │
                                      ▼
                     ┌─────────────────────────────────┐
-                    │   PostgreSQL (Neon / RLS GUC)   │
+                    │  PostgreSQL (own server, RLS)   │
                     │   - Tenant Isolation Policies   │
                     │   - Immutable Audit Log Table   │
                     └─────────────────────────────────┘
@@ -50,14 +50,15 @@ Mizan is built as a **Modular Monolith** optimized for developer velocity, trans
 ## 2. Directory Layout
 
 Mizan ships as **four products that are developed and deployed separately**, on top
-of one shared kernel and one PostgreSQL database (see `docs/decisions/ADR-003-separate-apps.md` and `ADR-004-owner-accounts-and-payments.md`). The system API and app also run on the client's own computers (`installer/`, ADR-005).
+of one shared kernel and one PostgreSQL database; in production the four APIs run in one process
+and nginx serves the four apps (ADR-011, `deploy/server/`; see `docs/decisions/ADR-003-separate-apps.md` and `ADR-004-owner-accounts-and-payments.md`). The system API and app also run on the client's own computers (`installer/`, ADR-005).
 
-| Folder | What it is | Frontend | Backend |
+| Folder | What it is | Frontend (served at) | Backend (served at) |
 |---|---|---|---|
-| `system/` | The ERP tenants use every day | `system/frontend` → `mizan-system` (`<workspace>.allmizan.live`) | `system/backend` → `mizan-system-api` (`api.allmizan.live`) |
-| `website/` | Landing, pricing, docs, signup, onboarding, the developer platform | `website/frontend` → `mizan-website` (`allmizan.live`, `dev.allmizan.live`) | `website/backend` → `mizan-website-api` (`web-api.allmizan.live`) |
-| `owner/` | The owner panel: an owner's workspaces, subscriptions, Paymob payments (Arabic) | `owner/frontend` → `mizan-owner` (`allmizan.live/owner`) | `owner/backend` → `mizan-owner-api` (`owner-api.allmizan.live`) |
-| `admin/` | The admin panel (English, Mizan team only) | `admin/frontend` → `mizan-admin` (`allmizan.live/admin`) | `admin/backend` → `mizan-admin-api` (`admin-api.allmizan.live`) |
+| `system/` | The ERP tenants use every day | `system/frontend` → `<workspace>.allmizan.live` | `system/backend` → `api.allmizan.live` |
+| `website/` | Landing, pricing, docs, signup, onboarding, the developer platform | `website/frontend` → `allmizan.live`, `dev.allmizan.live` | `website/backend` → `web-api.allmizan.live` |
+| `owner/` | The owner panel: an owner's workspaces, subscriptions, Paymob payments (Arabic) | `owner/frontend` → `allmizan.live/owner` | `owner/backend` → `owner-api.allmizan.live` |
+| `admin/` | The admin panel (English, Mizan team only) | `admin/frontend` → `allmizan.live/admin` | `admin/backend` → `admin-api.allmizan.live` |
 | `shared/` | Code every product uses | `shared/frontend` (design kit) | `shared/backend` (domain kernel) |
 | `installer/` | Single-device and LAN installs (ADR-005) | `installer/setup` (Mizan Setup, Tauri) | `installer/server` (mizan-server, PyInstaller) |
 | `sdk/` | `mizan-sdk` and the `mizan` CLI for outside developers (ADR-007, ADR-010) | — | `sdk/python` |
@@ -106,7 +107,7 @@ A workspace runs in one of these, chosen when it's created:
 
 | Mode | Where the data lives | How it's reached |
 |---|---|---|
-| Cloud | Neon (the platform database); uploaded files in Vercel Blob (store `mizan-files`) | `allmizan.live` (website, `/owner`, `/admin`) and `<workspace>.allmizan.live` (ERP), on Vercel (ADR-008) |
+| Cloud | PostgreSQL on Mizan's server; uploaded files on its disk | `allmizan.live` (website, `/owner`, `/admin`) and `<workspace>.allmizan.live` (ERP), through Cloudflare to Mizan's server (ADR-008, ADR-011) |
 | Single device | A private PostgreSQL 16 on the computer | `http://127.0.0.1:47800`, in a Mizan app window |
 | LAN | A private PostgreSQL 16 on the shop's server | `https://mizan.local` (mDNS) or the server's address, HTTPS with the install's own CA |
 | Bring your own database | The owner's PostgreSQL | Planned (#91) |
@@ -132,20 +133,18 @@ A workspace runs in one of these, chosen when it's created:
 - **Licences** are Ed25519-signed (`MZN1.<payload>.<signature>`, `app.platform.licensing`),
   verified offline against the public key built into the app, and extended by
   `activate_invoice` when the owner pays.
-- **Deploys** (#64): `.github/workflows/deploy.yml`. After CI passes on `master` it migrates the
-  production database (`manage.py db migrate --production --no-backup`; Neon's point-in-time
-  restore is the way back), deploys the four APIs, then the four apps (`vercel deploy --prod
-  --archive=tgz`), and checks `/api/health`. Vercel's Git deploys are off (`"git":
-  {"deploymentEnabled": false}` in each `vercel.json`), so code never goes live before its
-  migrations; migrations must stay backward compatible. Re-run by hand: Actions → Deploy → Run
-  workflow. Secrets: `VERCEL_TOKEN`, `MIZAN_PROD_DATABASE_URL`. Before deploying it builds the
-  `mizan-sdk` wheel into the website's `public/sdk/` (served at `dev.allmizan.live/sdk/`). Free-plan limits: 100 deployments
-  and 5,000 uploaded files a day (8 deployments per push).
+- **Releases** (ADR-011, `deploy/server/`): a push to `master` is a release
+  (`.github/workflows/deploy-server.yml`). The API and web images build on GitHub while CI runs
+  and go to GHCR; when CI passes, the runner on Mizan's server backs up the database, migrates it
+  (`manage.py db migrate --production --no-backup`), and switches the services
+  (`deploy/server/deploy.sh`), keeping the previous release for rollback. Migrations must stay
+  backward compatible (the old code serves until the switch). Re-run by hand: Actions → Deploy
+  (server) → Run workflow. The web image includes the `mizan-sdk` wheel
+  (`dev.allmizan.live/sdk/`).
 - **Uploaded files** (logo and its PWA icons, sign-in cover, product images, purchase invoice
-  images) go through one service, `app/framework/files.py` (#114). In the cloud it writes to
-  Vercel Blob (`BLOB_READ_WRITE_TOKEN`, set on the system and admin APIs; a public store, each file
-  with a random suffix); on site and in development, to `UPLOAD_DIR`, served at `/uploads`. On
-  Vercel without the token, uploads are refused (the function's disk isn't kept). Each file is
+  images) go through one service, `app/framework/files.py` (#114). It writes to `UPLOAD_DIR`
+  (in production `/srv/data/mizan/uploads` on the server), served at `/uploads`; it can also use
+  Vercel Blob (`BLOB_READ_WRITE_TOKEN`), and on Vercel without the token uploads are refused. Each file is
   recorded in `workspace_files` (kind, owner, size): a replaced file is deleted, the storage quota
   counts real sizes, and deleting a workspace in the admin panel deletes its files.
 - **Platform tables** (`licences`, `installations`) live in the cloud database; nothing

@@ -161,9 +161,9 @@ in the URL fragment: signing up on the website opens the owner panel, and "Open 
 
 | Layer | Technology |
 |---|---|
-| **Backend** | Python 3.12 · FastAPI · SQLAlchemy 2.0 (async) · Pydantic v2 · PostgreSQL 16 (Neon) |
+| **Backend** | Python 3.12 · FastAPI · SQLAlchemy 2.0 (async) · Pydantic v2 · PostgreSQL 18 |
 | **Frontend** | React 19 · TypeScript (strict) · Vite · Tailwind CSS v4 · shadcn/ui on Base UI · TanStack Query · Zustand · Motion · Recharts |
-| **Hosting** | Vercel (8 projects: 4 frontends + 4 APIs) on `allmizan.live` ([ADR-008](docs/decisions/ADR-008-one-domain.md)) · Neon (one database) · Vercel Blob (uploaded files) · Docker Compose for local development |
+| **Hosting** | Mizan's own server with Docker Compose (the four APIs in one process, nginx for the apps, PostgreSQL), behind Cloudflare (DNS, TLS, tunnel) on `allmizan.live` ([ADR-011](docs/decisions/ADR-011-self-hosted-production.md), [ADR-008](docs/decisions/ADR-008-one-domain.md)) · Docker Compose for local development |
 | **On site** | Mizan Setup (Tauri 2 + React) · `mizan-server` (the API packaged with PyInstaller) · PostgreSQL 16 bundled · systemd or a Windows service · releases in [mizan-releases](https://github.com/ammar0xff/mizan-releases) |
 
 ### Five ideas that hold it together
@@ -349,31 +349,25 @@ Mizan Setup on Linux and Windows and smoke-tests both modes (`installer/ci_smoke
 
 ## Shipping changes
 
-**A push to `master` is a release.** After CI passes, `.github/workflows/deploy.yml` migrates the
-production database, then deploys the four APIs and the four apps (Vercel's own Git deploys are
-off, so code never goes live before its migrations).
+**A push to `master` is a release.** GitHub builds the API and web images while CI runs; when CI
+passes, the runner on Mizan's server backs up the database, migrates it and switches to the new
+images (`.github/workflows/deploy-server.yml`, `deploy/server/`, ADR-011). Nothing goes live
+before its migrations, and a failed migration stops the release.
 
-| Vercel project | Folder | Domain |
+| Service (on the server) | Built from | Serves |
 |---|---|---|
-| `mizan-website` | `website/frontend` | allmizan.live (and dev.allmizan.live, the developer platform) |
-| `mizan-website-api` | `website/backend` | web-api.allmizan.live |
-| `mizan-system` | `system/frontend` | *.allmizan.live (each workspace) |
-| `mizan-system-api` | `system/backend` | api.allmizan.live |
-| `mizan-owner` | `owner/frontend` | allmizan.live/owner (proxied by the website) |
-| `mizan-owner-api` | `owner/backend` | owner-api.allmizan.live |
-| `mizan-admin` | `admin/frontend` | allmizan.live/admin (proxied by the website) |
-| `mizan-admin-api` | `admin/backend` | admin-api.allmizan.live |
+| `web` (nginx) | `system/`, `website/`, `owner/`, `admin/` `frontend` | allmizan.live and dev.allmizan.live (website), allmizan.live/owner, allmizan.live/admin, *.allmizan.live (each workspace) |
+| `api` (one process) | `system/`, `website/`, `owner/`, `admin/` `backend` | api., web-api., owner-api., admin-api.allmizan.live |
+| `postgres` | — | the database, backed up nightly and before every release |
 
-- **Commit as `ammar0xff`.** Vercel blocks deploys from commits it can't match to the account.
 - **Migrations must stay backward compatible**: the database is migrated before the new code
-  goes live, while the old code still serves (#64). Neon's point-in-time restore is the way back.
+  goes live, while the old code still serves (#64). The backup taken before each release is the
+  way back (`/mnt/media/backups/mizan`).
 - **Changing `shared/` affects every product**, so check every app that uses what you changed.
-- **Vercel's free plan allows 100 deployments a day**; every release is 8. Batch changes into
-  fewer pushes (#63). Re-run a release by hand: Actions → Deploy → Run workflow.
-- **`python manage.py vercel status`** shows what's live on each project.
-- The four APIs share one database and one `SECRET_KEY`; their settings live in each Vercel
-  project. The owner and website APIs also hold `LICENSE_SIGNING_KEY` (licences and developer
-  certificates).
+- **Rollback**: on the server, `/srv/mizan/deploy.sh <previous commit>` (the previous release's
+  images are kept). Re-run a release: Actions → Deploy (server) → Run workflow.
+- The four APIs share one database and one `SECRET_KEY`; production settings live in
+  `/srv/mizan/mizan.env` on the server (`deploy/server/README.md`).
 - **Installers ship separately**: a `v*` tag builds them and publishes to the public
   [mizan-releases](https://github.com/ammar0xff/mizan-releases); the owner panel links there
   through `MIZAN_INSTALLERS` on `mizan-owner-api`. See [`installer/README.md`](installer/README.md#publishing).
@@ -408,11 +402,12 @@ shared/                 code every product uses
                         (activity.json, modules/, variants/, themes/; core ERP in general/), themes
                         (Mizan's theme packs), catalog, integrations, onprem (server mode, licence
                         gate, check-in), db (baseline schema, migrations, bootstrap)
+deploy/server/          production on Mizan's server: compose, images, nginx, release and backup scripts
 sdk/python/             mizan-sdk: the `mizan` CLI (modules, themes, activities, keys, packages),
                         the /ext/v1 client and webhook verification
 e2e/                    live API end-to-end suite
 docs/                   product, architecture, design, security and requirements docs
-.github/workflows/      ci.yml (lint, tests, builds, e2e, browser) · deploy.yml (migrate + deploy) ·
+.github/workflows/      ci.yml (lint, tests, builds, e2e, browser) · deploy-server.yml (images, then release on the server) ·
                         jobs.yml (scheduled jobs) · installers.yml (build + smoke-test Mizan Setup)
 docker-compose.yml      local stack: database + the four APIs
 package.json            npm workspaces: shared, the four frontends and installer/setup
