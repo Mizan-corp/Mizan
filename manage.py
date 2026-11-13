@@ -313,6 +313,13 @@ asyncio.run(go())
     return r.returncode == 0
 
 
+def _app_role_grants() -> str:
+    """mizan_app's rights on every table, granted again after each migrate (app.db.migrations)."""
+    from app.db.migrations import APP_ROLE_GRANTS
+
+    return APP_ROLE_GRANTS
+
+
 def migrate() -> None:
     foundation, migrations, split = _migration_list()
     require_db()
@@ -337,6 +344,8 @@ def migrate() -> None:
     if done < len(migrations):
         die(f"{done}/{len(migrations)} migrations applied.")
     ok(f"{done}/{len(migrations)} migrations applied")
+    if psql("SELECT 1 FROM pg_roles WHERE rolname = 'mizan_app';").stdout.strip():
+        _apply(_app_role_grants(), split)
 
     # First-run bootstrap: the first admin on an empty database; no-op otherwise.
     r = compose("exec", "-T", SYSTEM.api_service, "python", "-m", "app.db.bootstrap", capture=True)
@@ -443,6 +452,17 @@ def _backup_production(url: str) -> Path:
     return out
 
 
+def _grant_production(url: str) -> None:
+    """mizan_app's rights on every table (#112), before and after the pending migrations."""
+    if _prod_psql(url, "SELECT 1 FROM pg_roles WHERE rolname = 'mizan_app';").stdout.strip() != "1":
+        return
+    from app.db.migrations import APP_ROLE_GRANTS
+
+    res = _prod_psql(url, APP_ROLE_GRANTS)
+    if res.returncode != 0:
+        warn(f"Granting mizan_app failed: {((res.stderr or '').strip().splitlines() or [''])[-1][:200]}")
+
+
 def migrate_production(opts: argparse.Namespace) -> None:
     """Backup, then apply pending migrations to production in order, each in one transaction.
     Run it BEFORE deploying code that needs them (migrations stay backward compatible)."""
@@ -454,6 +474,7 @@ def migrate_production(opts: argparse.Namespace) -> None:
     if r.returncode != 0:
         die(f"Can't read schema_migrations: {(r.stderr or '').strip()[:200]}")
     applied = set(r.stdout.split())
+    _grant_production(url)
     pending = [(n, sql) for n, sql in migrations if n not in applied]
     unknown = sorted(applied - {n for n, _ in migrations})
     if unknown:
@@ -489,6 +510,7 @@ def migrate_production(opts: argparse.Namespace) -> None:
             die(f"{n} failed and was rolled back; later ones were not run. {err[-1] if err else ''}\n"
                 f"   Restore if needed: {restore}")
         ok(n)
+    _grant_production(url)
     drift = _schema_drift(url)
     if drift:
         die(f"Migrated, but columns the code expects are still missing (write a migration first, "
