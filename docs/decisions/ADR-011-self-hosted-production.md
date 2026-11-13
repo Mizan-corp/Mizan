@@ -12,7 +12,13 @@ recreated (same names, linked to GitHub, deploying `master`; each builds only wh
 (DNS-only; `_acme-challenge` delegated to Vercel for the wildcard certificate), Neon writable, and
 `migrate-neon.yml` migrating it on each push. "Deploy (server)" is disabled. Writes made on the
 server between 15:52 and 16:34 UTC are only in its database. To return: copy Neon to the server,
-point DNS back at the tunnel, re-enable the server workflow, remove the Vercel bits again. Replaces the hosting parts of ADR-003 and ADR-008 (the domains
+point DNS back at the tunnel, re-enable the server workflow, remove the Vercel bits again.
+
+**Back on the server (2026-11-13, evening).** `homie` returned after a power cut (idle beforehand,
+log cut mid-stream, every service came back by itself on boot). The owner chose to move
+production back at once: Vercel's GitHub links removed, the temporary Vercel files and
+`migrate-neon.yml` deleted, "Deploy (server)" re-enabled, Neon copied to the server and set
+read-only, DNS pointed at the tunnel again. A UPS and off-site backups are the next safeguards. Replaces the hosting parts of ADR-003 and ADR-008 (the domains
 and the four products stay as they were).
 
 ## Context
