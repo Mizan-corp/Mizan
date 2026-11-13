@@ -80,10 +80,10 @@ def catalog_for(activity: str) -> list:
 
 async def seed_workspace(db: AsyncSession, tenant_id: uuid.UUID, owner_id: uuid.UUID, activity: str,
                          scale: str = "medium", features: Any = None) -> None:
-    from app.modules.general.contacts import seed as contacts
-    from app.modules.general.finance import seed as finance
-    from app.modules.general.inventory import seed as inventory
-    from app.modules.general.sales import seed as sales
+    from app.activities.general.modules.contacts import seed as contacts
+    from app.activities.general.modules.finance import seed as finance
+    from app.activities.general.modules.inventory import seed as inventory
+    from app.activities.general.modules.sales import seed as sales
 
     activity = canonical_activity(activity)
     ctx = DemoContext(tenant_id, owner_id, activity, *SCALES.get(scale, SCALES["medium"]),

@@ -1,9 +1,9 @@
 import type { ComponentType } from "react";
 import type { ModuleDefinition } from "./types";
 
-// Every module's definition (modules/<activity>/<module>/index.ts, platform/*, integrations/*).
+// Every module's definition (activities/<activity>/modules/<module>/index.ts, platform/*, integrations/*).
 const found = import.meta.glob<{ default: ModuleDefinition }>(
-  ["../modules/*/*/index.ts", "../platform/*/index.ts", "../integrations/*/index.ts"],
+  ["../activities/*/modules/*/index.ts", "../platform/*/index.ts", "../integrations/*/index.ts"],
   { eager: true },
 );
 

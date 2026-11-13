@@ -42,6 +42,15 @@ the website API the signing key at the next deploy; publish `mizan-sdk` on PyPI 
 account; until then the portal serves the wheel); email verification and password reset for
 developers wait for the mail work (#71, #72).
 
+**P1c — Activities as packages, and theme packs (owner, 2026-11-13; ADR-010)**
+Every business activity is one folder (`activities/<id>/`: activity.json, modules/, variants/,
+themes/, seed), so a developer can build a full Mizan business activity with the framework: the
+point Mizan advertises to developers. 1. Done 2026-11-13: all 30 activities moved (149 modules,
+5 variants now owned by their activity), backend and screens. 2. Theme packs: free now (Mizan's,
+the activity's, signed packages from file), paid with the marketplace; one theme per workspace,
+chosen by its admin. 3. Activity packages in the CLI (declarative until code modules run in
+containers); installing them with #107.
+
 **P3 — Platform for outside developers**
 10. ADR-006 phase 6 (#104): ADR-007 milestone 1 done (see P1b); the isolation runtime for code modules waits for the own cluster.
 11. ADR-006 phase 7 (#105): developer portal and marketplace (needs #65).
@@ -72,7 +81,7 @@ developers wait for the mail work (#71, #72).
 
 ## 2. Next Major Integration Candidates (Modular Architecture)
 
-Integration modules now live under the **`integrations`** category (`shared/backend/app/modules/<id>/` + `system/frontend/src/modules/<id>/`), following the same module contract as core/vertical modules. Each integration is a self-contained, activatable module with its own settings schema, router, models, and UI.
+Integration modules now live under the **`integrations`** category (`shared/backend/app/integrations/<id>/` + `system/frontend/src/integrations/<id>/`), following the same module contract as core/vertical modules. Each integration is a self-contained, activatable module with its own settings schema, router, models, and UI.
 
 - [x] **WhatsApp Business & Digital Receipt Dispatch (`whatsapp_gateway`)** — Scaffolded as an integration module: settings schema (Cloud API token, phone number ID, template selector, auto-send toggles), message log model, `/integrations/whatsapp/*` endpoints (status, send-receipt, messages), and a management page. Real dispatch to Meta's Cloud API is queued for the worker.
 - [ ] **Egyptian Tax Authority (ETA) e-Invoicing & e-Receipt Module (`eta_einvoice`)** — Implement as an `integrations` module: ETA portal submission queue, document signing schema (UUID, issuer tax ID, activity code, 14% VAT + 1% WHT), status dashboard.

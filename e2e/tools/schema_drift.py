@@ -11,24 +11,24 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "backend"))
 
 import app.platform.archive.models  # noqa: F401
-import app.modules.general.contacts.models.customer_payment  # noqa: F401
+import app.activities.general.modules.contacts.models.customer_payment  # noqa: F401
 import app.platform.notifications.models.device_token  # noqa: F401
-import app.modules.general.finance.models.expense  # noqa: F401
-import app.modules.general.finance.models.financial_category  # noqa: F401
-import app.modules.general.contacts.models.party  # noqa: F401
-import app.modules.general.finance.models.payment_wallet  # noqa: F401
-import app.modules.general.hr.models.payroll  # noqa: F401
-import app.modules.general.finance.models.period  # noqa: F401
-import app.modules.general.inventory.models.product  # noqa: F401
-import app.modules.general.purchases.models.purchase  # noqa: F401
-import app.modules.general.finance.models.safe  # noqa: F401
-import app.modules.general.sales.models.sale  # noqa: F401
-import app.modules.general.sales.models.sale_payment  # noqa: F401
+import app.activities.general.modules.finance.models.expense  # noqa: F401
+import app.activities.general.modules.finance.models.financial_category  # noqa: F401
+import app.activities.general.modules.contacts.models.party  # noqa: F401
+import app.activities.general.modules.finance.models.payment_wallet  # noqa: F401
+import app.activities.general.modules.hr.models.payroll  # noqa: F401
+import app.activities.general.modules.finance.models.period  # noqa: F401
+import app.activities.general.modules.inventory.models.product  # noqa: F401
+import app.activities.general.modules.purchases.models.purchase  # noqa: F401
+import app.activities.general.modules.finance.models.safe  # noqa: F401
+import app.activities.general.modules.sales.models.sale  # noqa: F401
+import app.activities.general.modules.sales.models.sale_payment  # noqa: F401
 import app.platform.settings.models  # noqa: F401
-import app.modules.general.pos.models  # noqa: F401
-import app.modules.general.inventory.models.stock  # noqa: F401
+import app.activities.general.modules.pos.models  # noqa: F401
+import app.activities.general.modules.inventory.models.stock  # noqa: F401
 import app.platform.auth.models.user  # noqa: F401
-import app.modules.general.inventory.models.warehouse  # noqa: F401
+import app.activities.general.modules.inventory.models.warehouse  # noqa: F401
 
 from sqlalchemy import text as sqlt
 from sqlalchemy.ext.asyncio import AsyncSession

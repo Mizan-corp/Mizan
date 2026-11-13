@@ -10,11 +10,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.platform.billing.plans import get_plan, get_plan_limits
-from app.modules.general.inventory.models.product import Product
-from app.modules.general.sales.models.sale import Sale
+from app.activities.general.modules.inventory.models.product import Product
+from app.activities.general.modules.sales.models.sale import Sale
 from app.platform.tenancy.models import Tenant
 from app.platform.auth.models.user import User
-from app.modules.general.inventory.models.warehouse import Warehouse
+from app.activities.general.modules.inventory.models.warehouse import Warehouse
 
 
 async def get_tenant_by_id(db: AsyncSession, tenant_id: uuid.UUID) -> Tenant:

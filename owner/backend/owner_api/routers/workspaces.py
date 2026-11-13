@@ -16,7 +16,7 @@ from app.catalog.sectors import SECTORS
 from app.db.base import get_db
 from app.platform.billing.models import BillingInvoice
 from app.platform.auth.models.owner import OwnerAccount
-from app.modules.general.sales.models.sale import Sale
+from app.activities.general.modules.sales.models.sale import Sale
 from app.platform.tenancy.models import Tenant
 from app.platform.auth.models.user import User
 from app.platform.auth.services import auth as auth_service

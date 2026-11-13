@@ -9,8 +9,8 @@ from sqlalchemy.exc import IntegrityError
 
 from app.db.base import AsyncSessionLocal
 from app.platform.tenancy.models import Tenant
-from app.modules.pharmacy.pharmacy.models import PharmacyPrescription
-from app.modules.school.school.models import SchoolStudent
+from app.activities.pharmacy.modules.pharmacy.models import PharmacyPrescription
+from app.activities.school.modules.school.models import SchoolStudent
 
 from main import app  # noqa: F401  (registers every model)
 

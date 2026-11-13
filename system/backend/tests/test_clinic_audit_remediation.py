@@ -25,12 +25,12 @@ from app.db.base import AsyncSessionLocal
 from app.platform.auth.security import create_access_token, hash_password
 from app.platform.tenancy.models import Tenant
 from app.platform.auth.models.user import User
-from app.modules.general.inventory.models.warehouse import Warehouse
-from app.modules.general.sales.models.sale import Sale
-from app.modules.healthcare.healthcare_clinic.models import (
+from app.activities.general.modules.inventory.models.warehouse import Warehouse
+from app.activities.general.modules.sales.models.sale import Sale
+from app.activities.healthcare.modules.healthcare_clinic.models import (
     ClinicInpatientBed,
 )
-from app.modules.pharmacy.pharmacy.models import PharmacyDrug
+from app.activities.pharmacy.modules.pharmacy.models import PharmacyDrug
 from tests.conftest import give_roles
 
 pytestmark = pytest.mark.skipif(

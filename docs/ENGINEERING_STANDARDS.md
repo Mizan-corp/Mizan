@@ -12,7 +12,7 @@
 
 ## 3. Component Architecture
 - Reusable UI primitives reside in `src/components/ui/`.
-- Domain module screens live in `system/frontend/src/modules/<home_activity>/<module_id>/`; their backend lives in `shared/backend/app/modules/<home_activity>/<module_id>/` (platform modules: `app/platform/`, connectors: `app/integrations/`, mirrored in `src/platform/`, `src/integrations/`). See ADR-006.
+- Domain module screens live in `system/frontend/src/activities/<home_activity>/modules/<module_id>/`; their backend lives in `shared/backend/app/activities/<home_activity>/modules/<module_id>/` (platform modules: `app/platform/`, connectors: `app/integrations/`, mirrored in `src/platform/`, `src/integrations/`). See ADR-006.
 - Every standalone module must provide:
   - `types.ts`: Clean domain data interfaces.
   - `mockData.ts`: Realistic localized seed data for offline preview and resilient fallback.

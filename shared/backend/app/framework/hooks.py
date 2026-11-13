@@ -2,7 +2,8 @@
 
 A module names its points in its own `hooks.py` (POINTS) and calls `emit("pos.before_confirm",
 db, ...)` at that moment. The workspace's variant for that module (from its activity) runs the
-function of the same name in `<module>/variants/<variant>/hooks.py`, if it has one. Only that
+function of the same name in its variant's `hooks.py` (`activities/<activity>/variants/<module>/`,
+or the module's own `variants/standard/`), if it has one. Only that
 variant runs, so a pharmacy's rules never touch a restaurant's sales.
 
 A hook may raise HTTPException to refuse the action, and may return a value (collected in order).

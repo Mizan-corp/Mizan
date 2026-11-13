@@ -22,11 +22,11 @@ from app.platform.tenancy.context import bind_tenant
 from app.db.base import get_db
 from app.dependencies import require_superadmin
 from app.platform.billing.models import BillingInvoice
-from app.modules.general.inventory.models.product import Product
-from app.modules.general.sales.models.sale import Sale
+from app.activities.general.modules.inventory.models.product import Product
+from app.activities.general.modules.sales.models.sale import Sale
 from app.platform.tenancy.models import Tenant
 from app.platform.auth.models.user import User
-from app.modules.general.inventory.models.warehouse import Warehouse
+from app.activities.general.modules.inventory.models.warehouse import Warehouse
 from app.platform.auth.services import auth as auth_service
 from app.platform.auth.models.owner import OwnerAccount
 from app.platform.auth.services.owners import normalize_login

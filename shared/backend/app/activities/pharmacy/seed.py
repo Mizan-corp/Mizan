@@ -64,7 +64,7 @@ async def seed(db, ctx) -> None:
     """Drug details on the products, and their stock split into batches (lots = stock)."""
     from sqlalchemy import text
 
-    from app.modules.pharmacy.batches.models import Lot
+    from app.activities.pharmacy.modules.batches.models import Lot
 
     today = ctx.now.date()
     for product in ctx.products:

@@ -11,8 +11,8 @@ from app.db.base import get_db
 from app.db.migrations import MIGRATIONS
 from app.dependencies import require_superadmin
 from app.platform.billing.models import BillingInvoice
-from app.modules.general.inventory.models.product import Product
-from app.modules.general.sales.models.sale import Sale
+from app.activities.general.modules.inventory.models.product import Product
+from app.activities.general.modules.sales.models.sale import Sale
 from app.platform.tenancy.models import Tenant
 from app.platform.auth.models.user import User
 

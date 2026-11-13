@@ -1,7 +1,7 @@
 # Mizan ERP — Module Catalog
 
 ## 1. Global Business Activities & Modules Directory
-Every module lives under its home activity: `shared/backend/app/modules/<activity>/<module_id>/` (screens in `system/frontend/src/modules/<activity>/<module_id>/`). Activities are defined in `shared/backend/app/activities/<activity_id>/activity.json`. Grouped below by activity:
+Every module lives under its home activity: `shared/backend/app/activities/<activity>/modules/<module_id>/` (screens in `system/frontend/src/activities/<activity>/modules/<module_id>/`). Activities are defined in `shared/backend/app/activities/<activity_id>/activity.json`. Grouped below by activity:
 
 ### A. Healthcare & Hospitals (`healthcare/`)
 - `facility_management` (HLT-01): Multi-branch organizations, facilities, buildings, floors, departments, rooms, and schedules.

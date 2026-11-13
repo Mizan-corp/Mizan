@@ -1,8 +1,10 @@
 """Variant resolution (ADR-006 D1/D2).
 
 A workspace has one activity; the activity says which variant of each module it runs
-(`activity.json` "variants"), `standard` otherwise. A variant (`<module>/variants/<id>/variant.json`)
-changes how the module works for that activity: fields, terms, settings defaults, extra
+(`activity.json` "variants"), `standard` otherwise. A module's own defaults are its `standard`
+variant (`<module>/variants/standard/`); an activity's adaptation of a module lives in the activity
+(`activities/<activity>/variants/<module>/variant.json`, ADR-010), and its id is the activity's. A
+variant changes how the module works for that activity: fields, terms, settings defaults, extra
 permissions, screens, templates, widgets, the modules it uses, and rules in its `hooks.py`.
 
 Resolution order: module (base) -> variant (chosen by the activity) -> workspace settings and
@@ -41,6 +43,11 @@ def all_variants() -> dict[str, dict[str, dict]]:
         for f in sorted((path / "variants").glob("*/variant.json")):
             data = json.loads(f.read_text(encoding="utf-8"))
             out.setdefault(module_id, {})[data.get("id", f.parent.name)] = {**data, "_dir": str(f.parent)}
+    # Activities' adaptations of modules: activities/<activity>/variants/<module>/.
+    for f in sorted(ACTIVITIES.glob("*/variants/*/variant.json")):
+        module_id, activity_id = f.parent.name, f.parent.parent.parent.name
+        data = json.loads(f.read_text(encoding="utf-8"))
+        out.setdefault(module_id, {})[activity_id] = {**data, "id": activity_id, "_dir": str(f.parent)}
     return out
 
 

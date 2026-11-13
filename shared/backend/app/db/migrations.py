@@ -2852,7 +2852,7 @@ MIGRATIONS = [
     """),
     # The pharmacy's own drugs and batches join the ERP: products, stock and batches (ADR-006
     # phase 4e); see the module's migrate.py.
-    ("v63_pharmacy_joins_the_erp", "python:app.modules.pharmacy.pharmacy.migrate:migrate"),
+    ("v63_pharmacy_joins_the_erp", "python:app.activities.pharmacy.modules.pharmacy.migrate:migrate"),
     # Removing a module (ADR-006 D2): its data kept hidden 30 days, or deleted after an export.
     ("v64_module_retention", """
         CREATE TABLE IF NOT EXISTS module_retention (

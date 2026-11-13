@@ -9,7 +9,7 @@ in `shared/backend/app/framework/module_template/`, and applied by
 
 | Kind | Backend | Frontend |
 |---|---|---|
-| `business` | `shared/backend/app/modules/<activity>/<module_id>/` | `system/frontend/src/modules/<activity>/<module_id>/` |
+| `business` | `shared/backend/app/activities/<activity>/modules/<module_id>/` | `system/frontend/src/activities/<activity>/modules/<module_id>/` |
 | `platform` | `shared/backend/app/platform/<module_id>/` | `system/frontend/src/platform/<module_id>/` |
 | `integration` | `shared/backend/app/integrations/<module_id>/` | `system/frontend/src/integrations/<module_id>/` |
 

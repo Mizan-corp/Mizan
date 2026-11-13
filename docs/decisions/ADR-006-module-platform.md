@@ -1,6 +1,11 @@
 # ADR-006: Module platform: activities, variants, roles & screens, marketplace
 
 ## Status
+
+The folder layout below (`modules/<home_activity>/<module_id>/`, variants inside the module)
+is superseded by ADR-010: each activity is one folder (`activities/<activity>/modules/`,
+`variants/`, `themes/`). Everything else here still holds.
+
 Proposed (2026-11-10). Agreed with the owner in a structured review on 2026-11-10 (the full
 question-by-question record is in the **Decision log** at the end). Phases 1–5 are built (see the
 implementation notes); 6–9 are not started. Once accepted

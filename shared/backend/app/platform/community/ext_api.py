@@ -166,7 +166,7 @@ class NewCustomer(BaseModel):
 @ext.post("/customers", status_code=201)
 async def create_customer(data: NewCustomer, inst: Installation = Depends(installation), db: AsyncSession = Depends(get_db)):
     inst.need("customers:write")
-    from app.modules.general.contacts.models.party import Customer
+    from app.activities.general.modules.contacts.models.party import Customer
 
     c = Customer(name=data.name.strip(), phone=data.phone, address=data.address)
     db.add(c)

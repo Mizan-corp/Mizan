@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         "@app": fileURLToPath(new URL("./src", import.meta.url)),
-      "@modules": fileURLToPath(new URL("./src/modules", import.meta.url)),
+      "@activities": fileURLToPath(new URL("./src/activities", import.meta.url)),
         "@": fileURLToPath(new URL("../../shared/frontend/src", import.meta.url)),
       },
     },

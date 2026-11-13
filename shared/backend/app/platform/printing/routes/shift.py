@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_print_user
-from app.modules.general.pos.service import compute_summary
+from app.activities.general.modules.pos.service import compute_summary
 
 from . import _make_pdf, ar_egp, ar_num, fmt_date, fmt_dt, get_settings, h, router, top_band, wrap
 

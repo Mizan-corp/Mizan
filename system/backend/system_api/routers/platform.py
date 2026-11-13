@@ -175,7 +175,7 @@ async def run_platform_migrations(
     seeded = False
     if data.seed:
         try:
-            from app.modules.healthcare.seeder import seed_healthcare
+            from app.activities.healthcare.seeder import seed_healthcare
             slug = data.tenant_slug
             if not slug and current_user and current_user.tenant_id:
                 res_t = await db.execute(select(Tenant.slug).where(Tenant.id == current_user.tenant_id))

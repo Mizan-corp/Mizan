@@ -137,11 +137,16 @@ def test_activities_and_families_are_consistent():
 
 REPO = Path(__file__).resolve().parents[3]
 APP = REPO / "shared" / "backend" / "app"
-MODULES = APP / "modules"
+ACTIVITIES = APP / "activities"
+FRONTEND = REPO / "system" / "frontend" / "src"
+# What an activity's folder may hold (ADR-010 D1); first-party activities may also share Python
+# code between their modules at the root (healthcare's seeder).
+ACTIVITY_ENTRIES = {"activity.json", "positions.json", "seed.py", "README.md", "modules", "variants", "themes",
+                    "seed", "i18n", "assets", "__pycache__", "__init__.py"}
 
 
 def test_modules_live_in_their_home_activity():
-    # modules/<home_activity>/<module_id>/, platform/<id>/, integrations/<id>/ (ADR-006).
+    # activities/<home_activity>/modules/<module_id>/, platform/<id>/, integrations/<id>/ (ADR-010).
     from app.framework.loader import manifest_files
 
     for manifest in manifest_files():
@@ -150,7 +155,7 @@ def test_modules_live_in_their_home_activity():
         where = folder.relative_to(APP).parts
         kind = data.get("kind", "business")
         if kind == "business":
-            assert where[0] == "modules" and where[1] == data["activity"], f"{folder} is not in modules/{data['activity']}/"
+            assert where[:3] == ("activities", data["activity"], "modules"), f"{folder} is not in activities/{data['activity']}/modules/"
         else:
             assert where[0] == {"platform": "platform", "integration": "integrations"}[kind], folder
         assert folder.name == data["id"], f"{folder.relative_to(APP)} holds '{data['id']}'"
@@ -166,10 +171,36 @@ def test_activity_ids_are_full_one_word_names():
 def test_activity_folders_match_their_ids():
     for f in (APP / "activities").glob("*/activity.json"):
         assert json.loads(f.read_text(encoding="utf-8"))["id"] == f.parent.name, f
-    activities = {f.parent.name for f in (APP / "activities").glob("*/activity.json")}
-    for folder in MODULES.iterdir():
+    for folder in ACTIVITIES.iterdir():
         if folder.is_dir() and not folder.name.startswith(("_", ".")):
-            assert folder.name in activities, f"modules/{folder.name} is not an activity"
+            assert (folder / "activity.json").is_file(), f"activities/{folder.name} has no activity.json"
+
+
+def test_activities_are_self_contained_folders():
+    """ADR-010: an activity's folder holds its definition, modules, variants, themes and data."""
+    for folder in (p for p in ACTIVITIES.iterdir() if p.is_dir() and not p.name.startswith(("_", "."))):
+        extra = {e.name for e in folder.iterdir()} - ACTIVITY_ENTRIES
+        assert all(n.endswith(".py") for n in extra), f"activities/{folder.name}: unexpected {sorted(extra)}"
+    for side in (APP, FRONTEND):
+        for folder in (side / "activities").iterdir():
+            if folder.is_dir():
+                unexpected = {e.name for e in folder.iterdir() if e.is_dir()} - ACTIVITY_ENTRIES
+                assert not unexpected, f"{folder}: unexpected folders {sorted(unexpected)}"
+
+
+def test_activity_variants_adapt_real_modules():
+    """activities/<activity>/variants/<module>/: the module exists and lists the variant."""
+    from app.framework.loader import manifest_index
+
+    index = manifest_index()
+    for f in ACTIVITIES.glob("*/variants/*/variant.json"):
+        module_id, activity_id = f.parent.name, f.parent.parent.parent.name
+        assert module_id in index, f"{f}: no module {module_id}"
+        assert activity_id in index[module_id].get("variants", []), f"{module_id} doesn't list the variant {activity_id}"
+        data = json.loads(f.read_text(encoding="utf-8"))
+        assert data.get("module", module_id) == module_id and data.get("id", activity_id) == activity_id, f
+    for f in ACTIVITIES.glob("*/modules/*/variants/*/variant.json"):
+        assert f.parent.name == "standard", f"{f}: an activity's variant belongs in activities/<activity>/variants/"
 
 
 WINDOWS_RESERVED = re.compile(r"^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$", re.IGNORECASE)
@@ -177,8 +208,8 @@ WINDOWS_RESERVED = re.compile(r"^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$", r
 
 def test_module_paths_are_valid_on_windows():
     # The installers are built on Windows.
-    roots = [MODULES, APP / "platform", APP / "integrations", APP / "framework", APP / "activities", APP / "catalog",
-             REPO / "system" / "frontend" / "src" / "modules", REPO / "system" / "frontend" / "src" / "platform",
+    roots = [APP / "platform", APP / "integrations", APP / "framework", APP / "activities", APP / "catalog",
+             FRONTEND / "activities", FRONTEND / "platform",
              REPO / "system" / "frontend" / "src" / "integrations"]
     for root in roots:
         for path in root.rglob("*"):
@@ -205,7 +236,7 @@ def test_legacy_ids_point_to_current_modules():
 
 
 def test_frontend_mirrors_the_backend_layout():
-    # system/frontend/src/modules/<home_activity>/<module_id>/, src/platform/<id>/, src/integrations/<id>/
+    # src/activities/<home_activity>/modules/<module_id>/, src/platform/<id>/, src/integrations/<id>/
     from app.framework import scaffold
 
     frontend = REPO / "system" / "frontend" / "src"
@@ -213,9 +244,10 @@ def test_frontend_mirrors_the_backend_layout():
     for folder, m in scaffold.manifests():
         if m.get("kind", "business") == "business":
             by_activity.setdefault(m["activity"], set()).add(folder.name)
-    for activity_dir in (frontend / "modules").iterdir():
-        assert (APP / "activities" / activity_dir.name).is_dir(), f"src/modules/{activity_dir.name} is not an activity"
-        for module_dir in (p for p in activity_dir.iterdir() if p.is_dir()):
+    for activity_dir in (frontend / "activities").iterdir():
+        assert (APP / "activities" / activity_dir.name).is_dir(), f"src/activities/{activity_dir.name} is not an activity"
+        modules = activity_dir / "modules"
+        for module_dir in (p for p in modules.iterdir() if p.is_dir()) if modules.is_dir() else []:
             assert module_dir.name in by_activity.get(activity_dir.name, set()), f"{module_dir.relative_to(frontend)}"
     kinds = {folder.name: m.get("kind") for folder, m in scaffold.manifests()}
     for root, kind in (("platform", "platform"), ("integrations", "integration")):
@@ -363,9 +395,8 @@ def test_frontend_definitions_match_the_manifests():
     """A module's index.ts has its manifest's status, and renders every widget it declares."""
     from app.framework import scaffold
 
-    frontend = REPO / "system" / "frontend" / "src" / "modules"
     for folder, m in scaffold.manifests():
-        index = frontend / m.get("activity", "") / folder.name / "index.ts"
+        index = FRONTEND / "activities" / m.get("activity", "") / "modules" / folder.name / "index.ts"
         if m.get("kind", "business") != "business" or not index.exists():
             continue
         source = index.read_text(encoding="utf-8")

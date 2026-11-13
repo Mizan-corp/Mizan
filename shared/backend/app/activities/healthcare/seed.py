@@ -10,6 +10,6 @@ CATALOG: list[tuple[str, list[str]]] = [
 
 async def seed(db, ctx) -> None:
     """After the general demo data: the clinic's own records (patients, appointments, beds…)."""
-    from app.modules.healthcare.healthcare_clinic.seed import seed_clinic_records
+    from app.activities.healthcare.modules.healthcare_clinic.seed import seed_clinic_records
 
     await seed_clinic_records(db, str(ctx.tenant_id))

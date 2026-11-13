@@ -25,9 +25,9 @@ from app.platform.settings.models import StoreSetting
 logger = logging.getLogger("mizan.modules")
 
 APP_DIR = Path(__file__).resolve().parents[1]
-# Where modules live (ADR-006): modules/<home_activity>/<module_id>/, plus the platform's own
-# modules and the connectors to outside systems.
-MODULES_DIR = APP_DIR / "modules"
+# Where modules live (ADR-010): each activity's own folder, activities/<activity>/modules/<id>/,
+# plus the platform's own modules and the connectors to outside systems.
+ACTIVITIES_DIR = APP_DIR / "activities"
 PLATFORM_DIR = APP_DIR / "platform"
 INTEGRATIONS_DIR = APP_DIR / "integrations"
 
@@ -99,7 +99,7 @@ def manifest_problems(data: dict[str, Any]) -> list[str]:
 
 
 def manifest_files() -> list[Path]:
-    """Every module's manifest.json: modules/<activity>/<module>/, platform/<module>/ and
+    """Every module's manifest.json: activities/<activity>/modules/<module>/, platform/<module>/ and
     integrations/<module>/."""
     def dirs(root: Path) -> list[Path]:
         if not root.exists():
@@ -111,10 +111,10 @@ def manifest_files() -> list[Path]:
 
     # Mount order: the platform's modules, the general modules (the core ERP), every other
     # activity's modules, then integrations.
-    activities = sorted(dirs(MODULES_DIR), key=lambda a: (a.name != "general", a.name))
+    activities = sorted(dirs(ACTIVITIES_DIR), key=lambda a: (a.name != "general", a.name))
     files = manifests_in(PLATFORM_DIR)
     for activity in activities:
-        files += manifests_in(activity)
+        files += manifests_in(activity / "modules")
     return files + manifests_in(INTEGRATIONS_DIR)
 
 
@@ -143,7 +143,7 @@ def manifest_index() -> dict[str, dict[str, Any]]:
 
 class ModuleRegistry:
     def __init__(self) -> None:
-        self.modules_dir = MODULES_DIR
+        self.modules_dir = ACTIVITIES_DIR
         self._manifests: dict[str, ModuleManifest] = {}
         self._routers: dict[str, APIRouter] = {}
         self._discovered = False
@@ -201,7 +201,7 @@ class ModuleRegistry:
             self._manifests[manifest.id] = manifest
             logger.info("Discovered module: %s v%s (path: %s)", manifest.id, manifest.version, entry)
 
-            # The module's router.py, if it has one (modules/<activity>/<module>/router.py).
+            # The module's router.py, if it has one (activities/<activity>/modules/<module>/router.py).
             pkg_prefix = "app." + ".".join(entry.relative_to(APP_DIR).parts)
             if (entry / "router.py").exists():
                 try:

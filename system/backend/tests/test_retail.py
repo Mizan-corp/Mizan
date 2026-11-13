@@ -8,7 +8,7 @@ import pytest
 import main  # noqa: F401  (loads every model)
 from app.core.exceptions import NotFoundError
 from app.framework import variants
-from app.modules.general.pos.variants.retail import hooks as retail
+from app.activities.retail.variants.pos import hooks as retail
 
 
 @pytest.fixture(autouse=True)
@@ -48,8 +48,8 @@ async def test_the_till_adds_weighed_items(monkeypatch):
     from sqlalchemy import text
 
     from app.db.base import AsyncSessionLocal
-    from app.modules.general.inventory.models.product import Product
-    from app.modules.general.pos import service
+    from app.activities.general.modules.inventory.models.product import Product
+    from app.activities.general.modules.pos import service
     from app.platform.tenancy.context import bind_tenant, current_tenant_id
     from app.platform.tenancy.models import Tenant
 

@@ -1,7 +1,7 @@
 """The standard module structure (docs/MODULE_STANDARD.md) and the tool that applies it.
 
 The structure itself is the template in ``app/framework/module_template/``: ``backend/`` becomes
-``app/modules/<activity>/<id>/`` (``app/platform/<id>/``, ``app/integrations/<id>/`` by kind),
+``app/activities/<activity>/modules/<id>/`` (``app/platform/<id>/``, ``app/integrations/<id>/`` by kind),
 ``frontend/`` the matching folder under ``system/frontend/src/``. Used by
 ``python manage.py module new|scaffold|check``. Only missing files are created; existing files
 are never changed. Standard library only, so it runs without the API's settings.
@@ -58,7 +58,7 @@ def render(template: Path, values: dict[str, str]) -> str:
 def manifests() -> list[tuple[Path, dict]]:
     """Every module folder (built or planned) with its manifest."""
     found = []
-    for root, pattern in ((APP_DIR / "modules", "*/*/manifest.json"), (APP_DIR / "platform", "*/manifest.json"),
+    for root, pattern in ((APP_DIR / "activities", "*/modules/*/manifest.json"), (APP_DIR / "platform", "*/manifest.json"),
                           (APP_DIR / "integrations", "*/manifest.json")):
         if root.exists():
             for f in sorted(root.glob(pattern)):
@@ -82,7 +82,11 @@ def _plan(module_dir: Path, manifest: dict) -> list[tuple[Path, Path, dict[str, 
             if not business:
                 continue
             for variant in manifest.get("variants", ["standard"]):
-                target = module_dir / _target(Path(*[variant if p == VARIANT_DIR else p for p in rel.parts]))
+                if variant == "standard":  # the module's own defaults stay in the module
+                    target = module_dir / _target(Path(*[variant if p == VARIANT_DIR else p for p in rel.parts]))
+                else:  # an activity's adaptation lives in that activity (ADR-010)
+                    inner = rel.parts[rel.parts.index(VARIANT_DIR) + 1:]
+                    target = APP_DIR / "activities" / variant / "variants" / manifest["id"] / _target(Path(*inner))
                 out.append((target, TEMPLATE / "backend" / rel, _values(manifest, variant)))
             continue
         out.append((module_dir / _target(rel), TEMPLATE / "backend" / rel, _values(manifest)))
@@ -161,7 +165,7 @@ def new_module(activity: str, module_id: str, name: str, name_en: str = "", kind
         return existing[module_id]
     if not (APP_DIR / "activities" / activity / "activity.json").exists():
         raise ValueError(f"unknown activity '{activity}'")
-    module_dir = APP_DIR / KIND_ROOT[kind] / module_id if kind in KIND_ROOT else APP_DIR / "modules" / activity / module_id
+    module_dir = APP_DIR / KIND_ROOT[kind] / module_id if kind in KIND_ROOT else APP_DIR / "activities" / activity / "modules" / module_id
     if module_dir.exists() and {f.name for f in module_dir.iterdir()} - {"README.md"}:
         raise ValueError(f"{module_dir} already exists")
     module_dir.mkdir(parents=True, exist_ok=True)

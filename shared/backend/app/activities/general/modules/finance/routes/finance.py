@@ -1,0 +1,200 @@
+"""Financial categories + permissions + shift close with manager"""
+import uuid
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.exceptions import BusinessError
+from app.db.base import get_db
+from app.dependencies import get_current_user, require_perm, verify_warehouse_access
+from app.platform.auth.models.user import User
+from app.activities.general.modules.finance.schemas.finance import FinancialCategoryCreate, FinancialCategoryUpdate, PermissionsUpdate
+
+router = APIRouter(tags=["finance"])
+
+
+# ── Financial Categories ───────────────────────────────────────────────────
+@router.get("/financial-categories")
+async def list_categories(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    r = await db.execute(text("SELECT * FROM financial_categories ORDER BY type, name"))
+    cols = r.keys()
+    return [dict(zip(cols, row, strict=False)) for row in r.fetchall()]
+
+
+@router.post("/financial-categories")
+async def create_category(data: FinancialCategoryCreate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("finance"))):
+    r = await db.execute(text("""
+        INSERT INTO financial_categories (name, type, color) VALUES (:name, :type, :color) RETURNING *
+    """), data.model_dump())
+    await db.commit()
+    return dict(zip(r.keys(), r.fetchone(), strict=False))
+
+
+@router.put("/financial-categories/{cat_id}")
+async def update_category(cat_id: uuid.UUID, data: FinancialCategoryUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("finance"))):
+    updates = data.model_dump(exclude_unset=True)
+    if not updates:
+        return {"detail": "no changes"}
+    params = {"id": cat_id, "name": updates.get("name"), "color": updates.get("color")}
+    await db.execute(text(
+        "UPDATE financial_categories SET name=COALESCE(:name, name), color=COALESCE(:color, color) WHERE id=:id"
+    ), params)
+    await db.commit()
+    return {"detail": "updated"}
+
+
+@router.delete("/financial-categories/{cat_id}", status_code=204)
+async def delete_category(cat_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("finance"))):
+    from sqlalchemy.exc import IntegrityError
+    try:
+        await db.execute(text("DELETE FROM financial_categories WHERE id=:id"), {'id': cat_id})
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        await db.execute(text("UPDATE drawer_transactions SET category_id=NULL WHERE category_id=:id"), {'id': cat_id})
+        try:
+            await db.execute(text("DELETE FROM financial_categories WHERE id=:id"), {'id': cat_id})
+            await db.commit()
+        except IntegrityError:
+            await db.rollback()
+            raise BusinessError("لا يمكن حذف التصنيف — مرتبط ببيانات أخرى") from None
+
+
+# ── User Permissions ───────────────────────────────────────────────────────
+@router.get("/permissions/{user_id}")
+async def get_permissions(user_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("users"))):
+    """The permissions of the role the user acts as (ADR-006 phase 3), and the manager flag."""
+    from app.platform.permissions.access import roles_of
+
+    row = (await db.execute(text("SELECT active_role_id, is_manager FROM users WHERE id=:id"), {"id": user_id})).fetchone()
+    if not row:
+        raise HTTPException(404)
+    roles = await roles_of(db, user_id)
+    acting = next((r for r in roles if r["id"] == row[0]), roles[0] if roles else None)
+    return {"permissions": sorted(acting["grants"] or []) if acting else [], "is_manager": bool(row[1])}
+
+
+@router.put("/permissions/{user_id}")
+async def update_permissions(user_id: uuid.UUID, data: PermissionsUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("users"))):
+    """Set a user's access: their standard role if the list matches it, else a role of their own."""
+    from app.platform.auth.models.user import User as _User
+    from app.platform.permissions.access import set_access
+
+    user = await db.get(_User, user_id)
+    if not user:
+        raise HTTPException(404)
+    await set_access(db, user, user.role, list(data.permissions))
+    user.is_manager = data.is_manager
+    await db.commit()
+    return {"detail": "updated"}
+
+
+
+# ── Financial Ledger by Category ──────────────────────────────────────────
+@router.get("/financial-ledger")
+async def financial_ledger(
+    from_date: str, to_date: str,
+    warehouse_id: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_perm("finance")),
+):
+    """
+    Returns all drawer transactions grouped by financial category.
+    Shows total per category + individual entries — like customer accounts but for expenses/income.
+    """
+    await verify_warehouse_access(db, current_user, uuid.UUID(warehouse_id) if warehouse_id else None)
+    start = datetime.fromisoformat(from_date)
+    end   = datetime.fromisoformat(to_date).replace(hour=23, minute=59, second=59)
+
+    q = """
+        SELECT dt.id, dt.type, dt.amount, dt.note, dt.created_at,
+               fc.name as category_name, fc.type as category_type, fc.color,
+               s.warehouse_id, w.name as warehouse_name,
+               u.full_name as cashier_name
+        FROM drawer_transactions dt
+        JOIN shifts s ON dt.shift_id = s.id
+        LEFT JOIN financial_categories fc ON dt.category_id = fc.id
+        LEFT JOIN warehouses w ON s.warehouse_id = w.id
+        LEFT JOIN users u ON dt.created_by = u.id
+        WHERE dt.created_at BETWEEN :start AND :end
+        AND dt.type IN ('expense', 'deposit', 'withdrawal')
+    """
+    params = {'start': start, 'end': end}
+    if warehouse_id:
+        q += " AND s.warehouse_id = :wid"
+        params['wid'] = uuid.UUID(warehouse_id)
+    q += " ORDER BY dt.created_at DESC"
+
+    rows = (await db.execute(text(q), params)).fetchall()
+    cols = ['id','type','amount','note','created_at','category_name','category_type','color','warehouse_id','warehouse_name','cashier_name']
+    entries = [dict(zip(cols, r, strict=False)) for r in rows]
+
+    # Group by category
+    from collections import defaultdict
+    by_category: dict = defaultdict(lambda: {'total': 0.0, 'count': 0, 'entries': []})
+    uncategorized = {'total': 0.0, 'count': 0, 'entries': []}
+
+    for e in entries:
+        e['amount'] = float(e['amount'])
+        e['created_at'] = e['created_at'].isoformat() if e['created_at'] else None
+        e['warehouse_id'] = str(e['warehouse_id']) if e['warehouse_id'] else None
+        cat = e['category_name'] or 'غير مصنف'
+        if e['category_name']:
+            by_category[cat]['total'] += e['amount']
+            by_category[cat]['count'] += 1
+            by_category[cat]['color'] = e['color']
+            by_category[cat]['type'] = e['category_type']
+            by_category[cat]['entries'].append(e)
+        else:
+            uncategorized['total'] += e['amount']
+            uncategorized['count'] += 1
+            uncategorized['entries'].append(e)
+
+    categories_out = [
+        {'name': k, 'total': v['total'], 'count': v['count'],
+         'color': v.get('color','#64748b'), 'type': v.get('type','expense'), 'entries': v['entries']}
+        for k, v in sorted(by_category.items(), key=lambda x: -x[1]['total'])
+    ]
+    if uncategorized['count']:
+        categories_out.append({'name': 'غير مصنف', 'total': uncategorized['total'],
+                                'count': uncategorized['count'], 'color': '#94a3b8',
+                                'type': 'expense', 'entries': uncategorized['entries']})
+
+    total_expense = sum(e['amount'] for e in entries if e['type'] in ('expense','withdrawal'))
+    total_income  = sum(e['amount'] for e in entries if e['type'] == 'deposit')
+
+    return {
+        'from_date': from_date, 'to_date': to_date,
+        'total_expense': total_expense, 'total_income': total_income,
+        'net': total_income - total_expense,
+        'categories': categories_out,
+    }
+
+
+# ── Audit Log ─────────────────────────────────────────────────────────────────
+@router.get("/audit-log")
+async def get_audit_log(
+    entity_type: str | None = None,
+    entity_id: str | None = None,
+    limit: int = 100,
+    db: AsyncSession = Depends(get_db),
+    _=Depends(require_perm("admin"))
+):
+    conditions = ["1=1"]
+    params: dict = {"limit": limit}
+    if entity_type:
+        conditions.append("entity_type = :etype")
+        params["etype"] = entity_type
+    if entity_id:
+        conditions.append("entity_id = :eid")
+        params["eid"] = entity_id
+    rows = await db.execute(text(f"""
+        SELECT al.*, u.full_name as user_display
+        FROM audit_log al
+        LEFT JOIN users u ON u.id = al.user_id
+        WHERE {' AND '.join(conditions)}
+        ORDER BY al.created_at DESC LIMIT :limit
+    """), params)
+    return [dict(r._mapping) for r in rows.fetchall()]

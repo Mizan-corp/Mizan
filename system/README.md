@@ -10,8 +10,8 @@ reports, the 48 industry modules, and public storefronts.
 
 - **Backend** is `main.py` + `system_api/` (the route list, tenant resolution, tenant-side
   platform endpoints). Models, services, ERP routers and modules come from `shared/backend`.
-- **Frontend** owns the app shell, ERP screens, tenant routing and `src/modules/` (industry
-  screens). Kit components, the API client and stores come from `shared/frontend` (`@/`).
+- **Frontend** owns the app shell, ERP screens, tenant routing and `src/activities/<activity>/{modules,variants}/`
+  (each activity's screens, ADR-010). Kit components, the API client and stores come from `shared/frontend` (`@/`).
 - Accepts sessions handed off by the website (new owner after onboarding) and the admin
   panel (impersonation) through `#session=` on first load.
 - Owns schema bootstrap (`create_all`) and the tracked migrations run by `python manage.py db migrate`.

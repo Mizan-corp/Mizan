@@ -19,7 +19,7 @@ from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
 from app.platform.notifications.models.device_token import DeviceToken
 from app.platform.notifications.models.notification import Notification
-from app.modules.general.inventory.models.product import Product
+from app.activities.general.modules.inventory.models.product import Product
 from app.platform.tenancy.models import Tenant
 from app.platform.auth.models.user import User
 
@@ -278,7 +278,7 @@ async def generate_system_alerts(
 
     # 2. Storefront pending orders
     try:
-        from app.modules.general.storefront.models import StorefrontOrder
+        from app.activities.general.modules.storefront.models import StorefrontOrder
         pending_stmt = select(func.count(StorefrontOrder.id)).where(
             StorefrontOrder.tenant_id == current_user.tenant_id,
             StorefrontOrder.status == "pending",

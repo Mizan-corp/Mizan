@@ -19,12 +19,12 @@ from app.core.exceptions import BusinessError
 from app.platform.auth.security import hash_password
 from app.platform.tenancy.models import Tenant
 from app.platform.auth.models.user import User
-from app.modules.general.inventory.models.warehouse import Warehouse
-from app.modules.general.inventory.models.product import Product
-from app.modules.general.pos.models import Shift
-from app.modules.general.inventory.models.stock_balance import StockBalance
-from app.modules.general.sales.schemas import SaleCreate, SaleItemCreate
-from app.modules.general.sales.services.sales import create_sale, return_sale, cancel_sale
+from app.activities.general.modules.inventory.models.warehouse import Warehouse
+from app.activities.general.modules.inventory.models.product import Product
+from app.activities.general.modules.pos.models import Shift
+from app.activities.general.modules.inventory.models.stock_balance import StockBalance
+from app.activities.general.modules.sales.schemas import SaleCreate, SaleItemCreate
+from app.activities.general.modules.sales.services.sales import create_sale, return_sale, cancel_sale
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set"

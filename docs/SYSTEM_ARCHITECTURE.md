@@ -3,7 +3,7 @@
 ## 1. Architectural Style
 Mizan is built as a **Modular Monolith** optimized for developer velocity, transaction integrity, and deployment simplicity:
 - **Shared Enterprise Kernel:** Multi-tenancy resolution, database session lifecycle, audit logging, security context, and notification dispatch.
-- **Pluggable Domain Modules:** Each in `shared/backend/app/modules/<home_activity>/<module_id>/` (manifest, models, router, templates) with screens in `system/frontend/src/modules/<home_activity>/<module_id>/`; platform modules in `app/platform/`, connectors in `app/integrations/`, the loader in `app/framework/` (ADR-006).
+- **Pluggable Domain Modules:** Each in its activity's folder, `shared/backend/app/activities/<home_activity>/modules/<module_id>/` (manifest, models, router, templates), with screens in `system/frontend/src/activities/<home_activity>/modules/<module_id>/`; an activity also holds its variants of other modules and its themes (ADR-010); platform modules in `app/platform/`, connectors in `app/integrations/`, the loader in `app/framework/` (ADR-006).
 
 ```
                     ┌─────────────────────────────────┐
@@ -68,7 +68,7 @@ of one shared kernel and one PostgreSQL database (see `docs/decisions/ADR-003-se
   - `framework/`: the module runtime (the loader, the module template and scaffold).
   - `platform/`: the engines every workspace has (auth, permissions, notifications, printing,
     settings, billing, …) and the platform's modules (module centre, scheduler, i18n).
-  - `modules/<activity>/<module>/`: every module, including the core ERP (`modules/general/*`:
+  - `activities/<activity>/`: one folder per business activity (ADR-010): `activity.json`, `modules/<module>/` (every module, including the core ERP in `activities/general/modules/*`:
     sales, pos, inventory, purchases, finance, hr, contacts, operations, reporting), built or
     planned, in the standard structure (docs/MODULE_STANDARD.md).
   - `activities/`, `catalog/`: activities and families as data; `integrations/`: connectors.

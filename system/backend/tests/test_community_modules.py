@@ -55,7 +55,7 @@ async def test_install_records_and_permissions():
             assert e.value.status_code == 409
             await service.install(db, pkg, None, approved_scopes=pkg.manifest["scopes"])
 
-            from app.modules.general.contacts.models.party import Customer
+            from app.activities.general.modules.contacts.models.party import Customer
 
             customer = uuid.uuid4()
             db.add(Customer(id=customer, name="عميل الزيارات"))
@@ -202,7 +202,7 @@ async def test_the_extension_api_is_scoped_and_isolated():
     from sqlalchemy import text
 
     from app.db.base import AsyncSessionLocal
-    from app.modules.general.contacts.models.party import Customer
+    from app.activities.general.modules.contacts.models.party import Customer
     from app.platform.community import service
     from app.platform.tenancy.context import bind_tenant, current_tenant_id
     from app.platform.tenancy.models import Tenant

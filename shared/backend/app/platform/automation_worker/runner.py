@@ -12,9 +12,9 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.platform.notifications.models.notification import Notification
-from app.modules.general.inventory.models.product import Product
-from app.modules.general.sales.models.sale import Sale
-from app.modules.general.pos.models import Shift, ShiftStatus
+from app.activities.general.modules.inventory.models.product import Product
+from app.activities.general.modules.sales.models.sale import Sale
+from app.activities.general.modules.pos.models import Shift, ShiftStatus
 from app.platform.tenancy.models import Tenant
 from app.platform.automation_worker.models import AutomationJobLog, AutomationSchedule
 

@@ -10,7 +10,7 @@ from sqlalchemy import delete, event
 from app.platform.auth.security import hash_password
 from app.platform.tenancy.context import bind_tenant, current_tenant_id
 from app.db.base import AsyncSessionLocal, engine
-from app.modules.general.pos.models import Shift
+from app.activities.general.modules.pos.models import Shift
 from app.platform.tenancy.models import Tenant
 from app.platform.auth.models.user import User
 
@@ -63,7 +63,7 @@ async def _drop(tid: uuid.UUID) -> None:
 
 
 async def test_shift_list_query_count_is_constant():
-    from app.modules.general.pos.routes.shifts import list_shifts
+    from app.activities.general.modules.pos.routes.shifts import list_shifts
 
     async with AsyncSessionLocal() as s:
         tid, user = await _workspace(s)
@@ -98,9 +98,9 @@ async def test_drug_list_query_count_is_constant():
     query however many drugs and batches there are (ADR-006 phase 4e)."""
     from datetime import date, timedelta
 
-    from app.modules.general.inventory.models.product import Product
-    from app.modules.pharmacy.batches.models import Lot
-    from app.modules.pharmacy.pharmacy.router import list_drugs
+    from app.activities.general.modules.inventory.models.product import Product
+    from app.activities.pharmacy.modules.batches.models import Lot
+    from app.activities.pharmacy.modules.pharmacy.router import list_drugs
     from sqlalchemy import text as sqltext
 
     async with AsyncSessionLocal() as s:

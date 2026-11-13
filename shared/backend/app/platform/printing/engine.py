@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 ENGINE_DIR = Path(__file__).resolve().parent
-# Templates live inside each module: app/modules/<module_id>/templates/<category>/*.html
+# Templates live inside each module: <module folder>/templates/<category>/*.html
 TEMPLATES_DIR = ENGINE_DIR / "templates"
 CONFIG_FILE = ENGINE_DIR / "config.json"
 
