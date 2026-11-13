@@ -66,6 +66,15 @@ async def overview(db: AsyncSession = Depends(get_db), _: User = Depends(require
                    "change_id": str(c.id), "from_activity": c.from_activity, "to_activity": c.to_activity,
                    "at": iso(c.created_at)} for c in asks]
 
+    # Developers' submissions waiting for review (#105).
+    from app.platform.marketplace.listings import MarketplaceVersion
+
+    reviews = (await db.execute(select(MarketplaceVersion).where(MarketplaceVersion.status == "in_review")
+                                .order_by(MarketplaceVersion.submitted_at))).scalars().all()
+    attention += [{"kind": "marketplace_review", "tenant_id": "", "tenant_name": None, "version_id": str(v.id),
+                   "item_id": v.item_id, "version": v.version, "item_kind": v.kind, "name": v.manifest.get("name"),
+                   "at": iso(v.submitted_at)} for v in reviews]
+
     ending = (await db.execute(select(Tenant).where(on_trial, Tenant.trial_ends_at >= now,
                                                     Tenant.trial_ends_at < now + timedelta(days=7))
                                .order_by(Tenant.trial_ends_at))).scalars().all()

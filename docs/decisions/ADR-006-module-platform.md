@@ -375,7 +375,7 @@ Each phase ends usable and tested; existing workspaces and on-site installs keep
 | **4. Activities & variants** | `activity.json`, variant resolution, hooks; **pharmacy end to end** (POS + inventory variants) | Workspace creation from the activity; install rules (family / compatible variant); uninstall flow with 30-day keep; storage quota and its analysis |
 | **5. Role screens & builder** | Role home/navigation/dashboard; screen builder with custom fields and forms; `designer` permission | Frontend framework renders builder schemas; navigation from the active role |
 | **6. Isolation & SDK** | ADR-007; sandbox runtime; scopes and owner approval; SDK + CLI; private `.mzm` installs | Security review of the runtime; on-site per-installation module files |
-| **7. Marketplace & developer portal** | Portal, review pipeline, listings, payouts; owner marketplace; admin review queue | Per-module billing (base + add-ons); Paymob payouts and revenue share |
+| **7. Marketplace & developer portal** | Portal, review pipeline, listings, payouts; owner marketplace; admin review queue (free modules and themes built 2026-11-13, ADR-007 milestone 2) | Per-module billing (base + add-ons); Paymob payouts and revenue share |
 | **8. Migrate every activity** | All current modules in the new structure, with variants; duplicates merged | Activity by activity, with demo data per activity |
 | **9. Activity change** | Guided conversion, approved by the Mizan team | Price change through billing |
 

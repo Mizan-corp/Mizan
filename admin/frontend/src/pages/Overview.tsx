@@ -7,6 +7,7 @@ import { ago, date, money, num, plural, planLabel, sectorLabel } from "@app/lib/
 import { ActivityList, Badge, Button, Figures, LoadError, PageHeader, PageSkeleton, Panel, WorkspaceLink } from "@app/ui";
 import { MarkPaidDialog } from "@app/pages/Billing";
 import { ActivityChangeReview } from "@app/pages/ActivityChanges";
+import { SubmissionReview } from "@app/pages/Marketplace";
 
 function greeting() {
   const h = new Date().getHours();
@@ -20,6 +21,7 @@ const KIND: Record<AttentionItem["kind"], { label: string; tone: "bad" | "warn" 
   paid_ended: { label: "Read-only", tone: "bad" },
   paid_ending: { label: "Renewal due", tone: "warn" },
   activity_change: { label: "Activity change", tone: "ox" },
+  marketplace_review: { label: "Marketplace", tone: "info" },
 };
 
 function AttentionRow({ item }: { item: AttentionItem }) {
@@ -90,6 +92,22 @@ function AttentionRow({ item }: { item: AttentionItem }) {
             Review
           </Button>
           <ActivityChangeReview id={item.change_id} open={reviewing} onClose={() => setReviewing(false)} />
+        </>
+      );
+      break;
+    case "marketplace_review":
+      sentence = (
+        <>
+          A developer sent <span className="bidi font-semibold">{item.name ?? item.item_id}</span>{" "}
+          <span className="code text-mute">{item.item_id} {item.version}</span> ({item.item_kind === "theme" ? "theme" : "module"}) for the store.
+        </>
+      );
+      action = (
+        <>
+          <Button size="sm" onClick={() => setReviewing(true)}>
+            Review
+          </Button>
+          {reviewing && <SubmissionReview id={item.version_id} open onClose={() => setReviewing(false)} />}
         </>
       );
       break;

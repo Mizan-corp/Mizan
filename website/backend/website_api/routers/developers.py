@@ -156,6 +156,50 @@ async def revoke_key(handle: str, key_id: str, db: AsyncSession = Depends(get_db
     await service.revoke_key(db, t, key_id)
 
 
+# ── Marketplace submissions (ADR-007 milestone 2, #105) ─────────────────────────
+
+
+@router.post("/teams/{handle}/packages", status_code=201)
+async def submit_package(handle: str, request: Request, db: AsyncSession = Depends(get_db),
+                         user: DeveloperUser = Depends(current_developer)):
+    """Submit a signed package (the .mzm bytes as the body, or a multipart `file`) for review.
+    `mizan publish` uses this."""
+    from app.framework.package import MAX_BYTES
+    from app.platform.marketplace import listings
+
+    t, _ = await service.membership(db, user, handle)
+    if (request.headers.get("content-type") or "").startswith("multipart/form-data"):
+        form = await request.form()
+        upload = form.get("file")
+        data = await upload.read(MAX_BYTES + 1) if upload is not None and hasattr(upload, "read") else b""
+    else:
+        data = await request.body()
+    if not data:
+        raise HTTPException(422, service._("Send the package (.mzm)", "أرسل الحزمة (.mzm)"))
+    row = await listings.submit(db, t, user.id, data, say=service._)
+    await db.commit()
+    return listings.version_out(row)
+
+
+@router.get("/teams/{handle}/packages")
+async def team_packages(handle: str, db: AsyncSession = Depends(get_db), user: DeveloperUser = Depends(current_developer)):
+    """The team's listings and every version it submitted, with the review outcome."""
+    from app.platform.marketplace import listings
+
+    t, _ = await service.membership(db, user, handle)
+    return await listings.team_submissions(db, t)
+
+
+@router.delete("/teams/{handle}/packages/{item_id}/{version}", status_code=204)
+async def withdraw_package(handle: str, item_id: str, version: str, db: AsyncSession = Depends(get_db),
+                           user: DeveloperUser = Depends(current_developer)):
+    from app.platform.marketplace import listings
+
+    t, _ = await service.membership(db, user, handle)
+    await listings.withdraw(db, t, item_id, version, say=service._)
+    await db.commit()
+
+
 # ── CLI tokens ────────────────────────────────────────────────────────────────
 
 @router.get("/cli-tokens")

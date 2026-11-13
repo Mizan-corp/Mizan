@@ -1,4 +1,4 @@
-/** A team: its members and its signing keys, each certified by Mizan (ADR-007 D5). */
+/** A team: its marketplace packages (#105), its signing keys, each certified by Mizan (ADR-007 D5), and its members. */
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -6,6 +6,7 @@ import { ChevronLeft, KeyRound, Plus, Trash2, UserPlus } from "lucide-react";
 import { Badge, Button, Empty, ErrorBox, Input, Modal, Select, Spinner, useToast } from "@/components/ui";
 import { useDevI18n } from "./i18n";
 import { Confirm, CopyValue, Field, PageHeader, Panel, useWhen } from "./kit";
+import { Packages } from "./Packages";
 import { devPath } from "./paths";
 import { portal, PortalError, useDeveloper } from "./session";
 
@@ -169,6 +170,7 @@ export default function TeamPage() {
         description={<>{t("This team's modules start with ", "وحدات هذا الفريق تبدأ بـ ")}<Code>{data.handle}.</Code> · {t("your role: ", "دورك: ")}{owner ? t("owner", "مالك") : t("member", "عضو")}</>}
       />
       <div className="grid gap-6">
+        <Packages handle={data.handle} />
         <Panel
           title={t("Signing keys", "مفاتيح التوقيع")}
           aside={<Button size="sm" onClick={() => setAddingKey(true)}><Plus className="size-4" /> {t("Key", "مفتاح")}</Button>}

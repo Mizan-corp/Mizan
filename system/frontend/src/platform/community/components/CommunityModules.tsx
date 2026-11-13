@@ -11,7 +11,7 @@ import { Badge } from "@/components/kit/badge";
 import { Button, Modal, Spinner, useToast } from "@/components/ui";
 
 interface Scope { id: string; text: string; new: boolean }
-interface Summary {
+export interface Summary {
   id: string; name: string; version: string; developer: string; description: string;
   entities: { id: string; name: string; fields: number }[]; scopes: Scope[];
   permissions: { id: string; name: string }[]; sends_to: string | null; installed_version: string | null;
@@ -59,6 +59,50 @@ function fieldCount(n: number): string {
   if (n === 2) return "حقلان";
   if (n >= 3 && n <= 10) return `${n} حقول`;
   return `${n} حقلًا`;
+}
+
+/** What a community module adds and may access, and the owner's agreement: shown before installing
+ * from a file and from the store (#105). */
+export function PackageReview({ summary, agreed, onAgree }: { summary: Summary; agreed: boolean; onAgree: (v: boolean) => void }) {
+  return (
+    <>
+      <p className="text-muted-foreground">
+        <span className="code" dir="ltr">{summary.id} v{summary.version}</span> · المطور <span className="code">{summary.developer}</span>
+        {summary.installed_version && <> · المثبت الآن <span className="code" dir="ltr">v{summary.installed_version}</span></>}
+      </p>
+      {summary.description && <p>{summary.description}</p>}
+      <div>
+        <p className="mb-1 font-semibold">يضيف</p>
+        <ul className="list-disc ps-5 text-muted-foreground">
+          {summary.entities.map((e) => <li key={e.id}>سجلات «{e.name}» ({fieldCount(e.fields)})</li>)}
+        </ul>
+      </div>
+      <div className="rounded-lg border border-line p-3">
+        <p className="mb-1.5 flex items-center gap-1.5 font-semibold"><ShieldCheck className="size-4 text-primary" /> يحتاج الوصول إلى</p>
+        {summary.scopes.length ? (
+          <ul className="space-y-1">
+            {summary.scopes.map((s) => (
+              <li key={s.id} className="flex items-center gap-2">
+                <span>• {s.text}</span>
+                {s.new && <Badge variant="warning">جديد</Badge>}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted-foreground">سجلاته فقط، ولا شيء من بياناتك الأخرى.</p>
+        )}
+        {summary.sends_to && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            يرسل الأحداث التي يحتاجها إلى خادم المطور: <span className="code" dir="ltr">{summary.sends_to}</span>
+          </p>
+        )}
+      </div>
+      <label className="flex items-start gap-2">
+        <input type="checkbox" className="mt-1 size-4" checked={agreed} onChange={(e) => onAgree(e.target.checked)} />
+        <span>أوافق على ما تصل إليه هذه الوحدة، وأثق في مطورها.</span>
+      </label>
+    </>
+  );
 }
 
 export function CommunityModules() {
@@ -178,41 +222,7 @@ export function CommunityModules() {
              title={summary ? (summary.installed_version ? `تحديث «${summary.name}»` : `تثبيت «${summary.name}»`) : ""}>
         {summary && (
           <div className="space-y-4 text-sm">
-            <p className="text-muted-foreground">
-              <span className="code" dir="ltr">{summary.id} v{summary.version}</span> · المطور <span className="code">{summary.developer}</span>
-              {summary.installed_version && <> · المثبت الآن <span className="code" dir="ltr">v{summary.installed_version}</span></>}
-            </p>
-            {summary.description && <p>{summary.description}</p>}
-            <div>
-              <p className="mb-1 font-semibold">يضيف</p>
-              <ul className="list-disc ps-5 text-muted-foreground">
-                {summary.entities.map((e) => <li key={e.id}>سجلات «{e.name}» ({fieldCount(e.fields)})</li>)}
-              </ul>
-            </div>
-            <div className="rounded-lg border border-line p-3">
-              <p className="mb-1.5 flex items-center gap-1.5 font-semibold"><ShieldCheck className="size-4 text-primary" /> يحتاج الوصول إلى</p>
-              {summary.scopes.length ? (
-                <ul className="space-y-1">
-                  {summary.scopes.map((s) => (
-                    <li key={s.id} className="flex items-center gap-2">
-                      <span>• {s.text}</span>
-                      {s.new && <Badge variant="warning">جديد</Badge>}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-muted-foreground">سجلاته فقط، ولا شيء من بياناتك الأخرى.</p>
-              )}
-              {summary.sends_to && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  يرسل الأحداث التي يحتاجها إلى خادم المطور: <span className="code" dir="ltr">{summary.sends_to}</span>
-                </p>
-              )}
-            </div>
-            <label className="flex items-start gap-2">
-              <input type="checkbox" className="mt-1 size-4" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
-              <span>أوافق على ما تصل إليه هذه الوحدة، وأثق في مطورها.</span>
-            </label>
+            <PackageReview summary={summary} agreed={agreed} onAgree={setAgreed} />
             <div className="flex gap-2">
               <Button disabled={!agreed || install.isPending} onClick={() => install.mutate()}>
                 {install.isPending ? <Spinner /> : summary.installed_version ? "تحديث" : "تثبيت"}

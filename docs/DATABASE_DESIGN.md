@@ -63,6 +63,8 @@ admin and website APIs (and the system API's sign-in) read them.
 | `developer_users`, `developer_teams`, `developer_team_members` | The developer portal (ADR-007): developers (separate from owners), teams (a team's handle is its modules' namespace) and their members |
 | `developer_keys` | Teams' signing keys and the certificates Mizan issued; `revoked_at` makes cloud installs refuse their packages |
 | `developer_cli_tokens` | `mizan` CLI tokens (only their SHA-256) |
+| `marketplace_versions` | Every package version developers sent to the marketplace (#105): the `.mzm` bytes, SHA-256, manifest, review status and note, and Mizan's `MZP1` countersignature once approved |
+| `marketplace_items` | Listings: the current approved version, `listed`/`delisted` with a reason, install count |
 
 On site, the install's private PostgreSQL holds one workspace and the same schema; the
 licence and installation identity live in files under the data folder

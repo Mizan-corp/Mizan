@@ -7,6 +7,7 @@
   mizan check [folder]                what Mizan would refuse, before you package
   mizan keys new --team acme          a signing key, certified by Mizan for your team
   mizan package [folder]              a signed .mzm for owners to install from file
+  mizan publish [folder|file.mzm]     send it to the marketplace for review (needs `mizan login`)
 
 Keys, certificates and credentials live in ~/.mizan (MIZAN_HOME). Signed in, `keys new` registers
 the key and saves its certificate as <key>.cert; otherwise register the printed public key in the
@@ -197,7 +198,7 @@ def _credentials() -> dict | None:
     return json.loads(path.read_text()) if path.exists() else None
 
 
-def _portal(method: str, path: str, token: str, api: str, body: dict | None = None) -> dict:
+def _portal(method: str, path: str, token: str, api: str, body: dict | bytes | None = None) -> dict:
     from mizan_sdk.client import MizanClient
 
     return MizanClient(token, base_url=f"{api.rstrip('/')}/developers").request(method, path, body)
@@ -318,6 +319,45 @@ def cmd_package(a) -> int:
     return 0
 
 
+def cmd_publish(a) -> int:
+    """Send a signed package to the marketplace: the Mizan team reviews it, then workspaces can
+    install it from their store. A folder is packaged first (with the same key options)."""
+    import io
+    import zipfile
+
+    from mizan_sdk.client import MizanError
+
+    creds = _credentials()
+    if not creds:
+        print("✘ Not signed in. Run `mizan login` first.", file=sys.stderr)
+        return 1
+    target = Path(a.target)
+    if target.is_dir():
+        a.dir, a.out = str(target), None
+        if cmd_package(a):
+            return 1
+        manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
+        target = Path(f"{manifest['id']}-{manifest['version']}.mzm")
+    if not target.is_file():
+        print(f"✘ {target} isn't a folder or a .mzm file", file=sys.stderr)
+        return 1
+    data = target.read_bytes()
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            manifest = json.loads(z.read("manifest.json"))
+    except (zipfile.BadZipFile, KeyError, ValueError):
+        print(f"✘ {target} isn't a Mizan package", file=sys.stderr)
+        return 1
+    team = a.team or str(manifest.get("id", "")).split(".", 1)[0]
+    try:
+        out = _portal("POST", f"/teams/{team}/packages", creds["token"], creds["api"], data)
+    except (MizanError, OSError) as e:
+        print(f"✘ The marketplace refused it: {e}", file=sys.stderr)
+        return 1
+    print(f"✔ Sent {out['item_id']} {out['version']} for review. Follow it in the portal: {PORTAL}/portal/teams/{team}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="mizan", description="Build Mizan community modules (https://dev.allmizan.live/docs).")
     p.add_argument("--version", action="version", version=f"mizan-sdk {__version__}")
@@ -365,6 +405,13 @@ def main(argv: list[str] | None = None) -> int:
     pkg.add_argument("--certificate", help="certificate file (default: next to the key, .cert)")
     pkg.add_argument("--out", help="output file")
     pkg.set_defaults(func=cmd_package)
+
+    pub = sub.add_parser("publish", help="send a module or theme to the marketplace for review")
+    pub.add_argument("target", nargs="?", default=".", help="a .mzm file, or a folder to package first (default: .)")
+    pub.add_argument("--team", help="the team (default: the package id's prefix)")
+    pub.add_argument("--key", help="private key file, when packaging a folder (default ~/.mizan/default.key)")
+    pub.add_argument("--certificate", help="certificate file (default: next to the key, .cert)")
+    pub.set_defaults(func=cmd_publish)
 
     a = p.parse_args(argv)
     return a.func(a)

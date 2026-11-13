@@ -13,6 +13,7 @@ const WorkspaceDetail = lazy(() => import("@app/pages/WorkspaceDetail"));
 const Billing = lazy(() => import("@app/pages/Billing"));
 const Owners = lazy(() => import("@app/pages/Owners"));
 const Activity = lazy(() => import("@app/pages/Activity"));
+const Marketplace = lazy(() => import("@app/pages/Marketplace"));
 const Team = lazy(() => import("@app/pages/Team"));
 const System = lazy(() => import("@app/pages/System"));
 
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="owners" element={<Owners />} />
           <Route path="billing" element={<Billing />} />
           <Route path="activity" element={<Activity />} />
+          <Route path="marketplace" element={<Marketplace />} />
           <Route path="team" element={<Team />} />
           <Route path="system" element={<System />} />
         </Route>

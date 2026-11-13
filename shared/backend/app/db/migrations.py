@@ -3116,6 +3116,44 @@ MIGRATIONS = [
         CREATE POLICY tenant_isolation ON activity_changes
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    # The marketplace (ADR-007 milestone 2, #105): developers submit signed packages, the Mizan
+    # team reviews and countersigns them, workspaces install listed ones. Platform tables.
+    ("v75_marketplace", """
+        CREATE TABLE IF NOT EXISTS marketplace_versions (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            item_id varchar(80) NOT NULL,
+            version varchar(32) NOT NULL,
+            kind varchar(16) NOT NULL,
+            team_id uuid NOT NULL REFERENCES developer_teams(id) ON DELETE CASCADE,
+            package bytea NOT NULL,
+            sha256 varchar(64) NOT NULL,
+            size integer NOT NULL,
+            manifest jsonb NOT NULL,
+            status varchar(16) NOT NULL DEFAULT 'in_review',
+            submitted_by uuid REFERENCES developer_users(id) ON DELETE SET NULL,
+            submitted_at timestamptz NOT NULL DEFAULT now(),
+            reviewed_by uuid,
+            reviewed_at timestamptz,
+            review_note text,
+            countersignature text,
+            UNIQUE (item_id, version)
+        );
+        CREATE INDEX IF NOT EXISTS ix_marketplace_versions_status ON marketplace_versions (status, submitted_at);
+        CREATE TABLE IF NOT EXISTS marketplace_items (
+            id varchar(80) PRIMARY KEY,
+            kind varchar(16) NOT NULL,
+            team_id uuid NOT NULL REFERENCES developer_teams(id) ON DELETE CASCADE,
+            name text NOT NULL,
+            name_en text,
+            description text,
+            current_version varchar(32) NOT NULL,
+            status varchar(16) NOT NULL DEFAULT 'listed',
+            status_note text,
+            installs integer NOT NULL DEFAULT 0,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now()
+        );
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

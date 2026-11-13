@@ -21,11 +21,15 @@ class MizanClient:
     def __init__(self, token: str, base_url: str = DEFAULT_BASE, timeout: float = 20):
         self.token, self.base, self.timeout = token, base_url.rstrip("/"), timeout
 
-    def request(self, method: str, path: str, body: dict | None = None, **query) -> dict | None:
+    def request(self, method: str, path: str, body: dict | bytes | None = None, **query) -> dict | None:
+        """A JSON body, or bytes sent as they are (a package)."""
         q = {k: v for k, v in query.items() if v is not None}
         url = f"{self.base}{path}" + (f"?{urllib.parse.urlencode(q)}" if q else "")
-        req = urllib.request.Request(url, method=method, data=json.dumps(body).encode() if body is not None else None,
-                                     headers={"Authorization": f"Bearer {self.token}", "Content-Type": "application/json",
+        raw = isinstance(body, bytes)
+        data = body if raw else json.dumps(body).encode() if body is not None else None
+        req = urllib.request.Request(url, method=method, data=data,
+                                     headers={"Authorization": f"Bearer {self.token}",
+                                              "Content-Type": "application/octet-stream" if raw else "application/json",
                                               "Accept": "application/json", "User-Agent": "mizan-sdk/0.1"})
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as res:

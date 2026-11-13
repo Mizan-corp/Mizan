@@ -222,3 +222,91 @@ async def apply_preset(_=Depends(require_perm("settings"))):
     """Retired: a workspace has one activity, and its modules follow it (ADR-006 D2). Changing
     activity is a guided conversion done with the Mizan team."""
     raise HTTPException(status_code=410, detail="تغيير نشاط المنشأة يتم عبر فريق ميزان؛ ثبّت الوحدات المناسبة من الدليل")
+
+
+# ─── The store: developers' listed modules and themes (ADR-007 milestone 2, #105) ────────────
+
+
+async def _store_installed(db: AsyncSession, user) -> dict[str, str]:
+    """Item id -> installed version, for this workspace's community modules and theme packages."""
+    from sqlalchemy import select
+
+    from app.platform.community.models import CommunityModule
+    from app.platform.themes.models import WorkspaceTheme
+
+    out = {m: v for m, v in (await db.execute(select(CommunityModule.module_id, CommunityModule.version))).all()}
+    out.update({t: v for t, v in (await db.execute(
+        select(WorkspaceTheme.theme_id, WorkspaceTheme.version).where(WorkspaceTheme.tenant_id == user.tenant_id))).all()})
+    return out
+
+
+def _may_browse(user) -> None:
+    from app.platform.permissions.access import can
+
+    if not can(user, "community.manage", "themes.manage"):
+        raise HTTPException(status_code=403, detail="ليست لديك صلاحية إدارة الإضافات")
+
+
+@router.get("/store")
+async def store(kind: str | None = None, q: str | None = None, db: AsyncSession = Depends(get_db),
+                user=Depends(get_current_user)):
+    """Listed modules and themes, with what this workspace has installed."""
+    from app.platform.marketplace import listings
+
+    _may_browse(user)
+    installed = await _store_installed(db, user)
+    items = await listings.store(db, kind if kind in listings.KINDS else None, q)
+    return {"items": [{**i, "installed_version": installed.get(i["id"])} for i in items]}
+
+
+@router.get("/store/{item_id}")
+async def store_item(item_id: str, db: AsyncSession = Depends(get_db), user=Depends(get_current_user)):
+    """A listing in full: what it adds and may access (as an install from a file shows it)."""
+    from app.platform.community import service as community
+    from app.platform.marketplace import listings
+    from app.platform.themes import service as themes
+
+    _may_browse(user)
+    item, pkg = await listings.listed_package(db, item_id)
+    installed = await _store_installed(db, user)
+    if item.kind == "theme":
+        detail = themes.package_summary(pkg, await themes.installed_row(db, user.tenant_id, item_id))
+    else:
+        from sqlalchemy import select
+
+        from app.platform.community.models import CommunityModule
+
+        row = await db.scalar(select(CommunityModule).where(CommunityModule.module_id == item_id))
+        detail = community.summary(pkg, row)
+    return {"item": {**listings.item_out(item, pkg.developer), "installed_version": installed.get(item_id)}, "detail": detail}
+
+
+class StoreInstall(BaseModel):
+    approved_scopes: list[str] = []
+
+
+@router.post("/store/{item_id}/install")
+async def store_install(item_id: str, body: StoreInstall, db: AsyncSession = Depends(get_db), user=Depends(get_current_user)):
+    """Install (or update to) the listed version: verified again, then installed as from a file."""
+    from app.platform.community import service as community
+    from app.platform.marketplace import listings
+    from app.platform.permissions.access import can
+    from app.platform.tenancy.context import unbind_tenant
+    from app.platform.tenancy.models import Tenant
+    from app.platform.themes import service as themes
+
+    item, pkg = await listings.listed_package(db, item_id)
+    needed = "themes.manage" if item.kind == "theme" else "community.manage"
+    if not can(user, needed):
+        raise HTTPException(status_code=403, detail="ليست لديك صلاحية تثبيت هذه الإضافة")
+    if item.kind == "theme":
+        row = await themes.install(db, await db.get(Tenant, user.tenant_id), pkg, user.id)  # commits
+        out = {"id": row.theme_id, "version": row.version}
+    else:
+        row = await community.install(db, pkg, user.id, body.approved_scopes)  # commits
+        out = community.installed_out(row)
+    # The listing's install count is a platform row: written with no workspace bound (#112).
+    await unbind_tenant(db)
+    await listings.count_install(db, item_id)
+    await db.commit()
+    return out

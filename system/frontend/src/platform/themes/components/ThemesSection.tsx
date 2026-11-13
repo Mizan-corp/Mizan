@@ -20,7 +20,7 @@ interface Inspected extends ThemeSummary { installed_version: string | null; fil
 const SOURCE: Record<ThemeSummary["source"], string> = { mizan: "من ميزان", activity: "من نشاطك", package: "من مطور" };
 
 /** A small picture of the app in the theme's colours: sidebar, page, a card and the brand colour. */
-function Preview({ swatches, radius }: { swatches: string[]; radius?: string }) {
+export function Preview({ swatches, radius }: { swatches: string[]; radius?: string }) {
   const [primary, background, sidebar, accent, card] = swatches;
   const r = radius ?? "0.75rem";
   return (

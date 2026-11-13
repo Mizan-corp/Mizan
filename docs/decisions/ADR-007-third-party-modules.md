@@ -87,8 +87,9 @@ manifest declares and roles hold (ADR-006 D4): scopes limit the module, permissi
 - **Private install**: the owner uploads a `.mzm` (owner panel, or the app's module centre),
   Mizan verifies it, shows its scopes, and installs it into that workspace only. Packages from an
   unknown or revoked developer key are refused.
-- **Marketplace** (milestone 2): publishing adds automated checks and a review; Mizan
-  countersigns accepted versions; owners install from listings. Paid modules wait for Paymob (#65).
+- **Marketplace** (milestone 2, built for free modules and themes, below): publishing adds
+  automated checks and a review; Mizan countersigns accepted versions; owners install from
+  listings. Paid modules wait for Paymob (#65).
 
 ### D6. Where the developer platform lives
 
@@ -99,8 +100,8 @@ manifest declares and roles hold (ADR-006 D4): scopes limit the module, permissi
   API (`/ext/v1`) is part of the system API, next to the data it serves.
 - **The SDK and CLI** (`mizan-sdk` on PyPI, command `mizan`): `mizan login`, `mizan module new`
   (a declarative template), `mizan check` (the same manifest and entity validator the platform
-  uses, as a dependency-free package), `mizan package` (zip and sign), later `mizan dev` (a local
-  Mizan with the module) and `mizan publish`.
+  uses, as a dependency-free package), `mizan package` (zip and sign), `mizan publish` (send to
+  the marketplace), later `mizan dev` (a local Mizan with the module).
 - **Docs** at `dev.allmizan.live/docs`: getting started, the package and manifest reference,
   entities and screens, scopes, the extension API (generated from its OpenAPI), webhooks, the CLI,
   signing and private installs. The old, inaccurate developer articles on the website are
@@ -157,6 +158,39 @@ manifest declares and roles hold (ADR-006 D4): scopes limit the module, permissi
 - **Not yet**: developer email verification and password reset (with the mail work), the
   marketplace and paid modules (milestone 2), code modules (the cluster), installs from the owner
   panel (the app's module centre does it today).
+
+## Milestone 2 as built (2026-11-13, #105): the marketplace, free listings
+
+- **Scope**: developers' modules (`kind: community`) and theme packs. Free only; paid listings,
+  revenue share and payouts wait for Paymob (#65); developer activity packages wait for #107's
+  second part (running a developer's activity in a workspace).
+- **Tables** (v75, platform, no RLS): `marketplace_versions` (every package version sent: the
+  `.mzm` bytes, SHA-256, manifest, team, status `in_review|approved|rejected|withdrawn`, the
+  reviewer's note, and Mizan's countersignature once approved; unique `(item_id, version)`) and
+  `marketplace_items` (one row per listing: current version, `listed|delisted` with a reason,
+  install count). Logic in `app/platform/marketplace/listings.py`.
+- **Submitting** (website API `POST /developers/teams/{handle}/packages`, the `.mzm` as the body
+  or a multipart `file`): the same checks as an install from file (signature, certificate, key not
+  revoked, the team's namespace, the validator), then: modules and themes only, a version is sent
+  once, and it must be newer than the listed one. `GET` lists the team's listings and versions;
+  `DELETE …/{item}/{version}` withdraws one in review. The portal's team page has a
+  "Marketplace" panel; `mizan publish [folder|file.mzm]` packages and sends.
+- **Review** (admin API `/admoon/marketplace`, page "Marketplace", and a "Needs you" row per
+  submission): the reviewer sees what it adds, its scopes (new ones against the listed version
+  marked), where it sends webhooks, its permissions, a theme's colours and fonts, its files and
+  manifest. **Approving** countersigns it with the platform key under prefix `MZP1` (item,
+  version, package SHA-256, kind) and makes it the listing's current version; **rejecting** needs a
+  note the developer sees. A listing can be **delisted** with a reason (hidden from the store; the
+  workspaces that have it keep it) and relisted.
+- **The store** (system API `/modules/store`, section «المتجر» in the module centre, for users with
+  `community.manage` or `themes.manage`): browse and search listings, filtered by kind, with
+  "installed" and "update available". Opening one re-verifies the stored package (developer
+  signature and certificate, key not revoked since, and the countersignature over exactly these
+  bytes) and shows the same review as an install from file; installing goes through the same
+  install code as a file. The install count is a platform row, written after unbinding the
+  workspace (#112).
+- **Not yet**: automated checks beyond the validator (e.g. webhook host reachability), developer
+  analytics, on-site servers installing from the cloud store, paid listings.
 
 ## Consequences
 

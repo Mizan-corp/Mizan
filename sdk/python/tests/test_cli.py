@@ -121,3 +121,31 @@ def test_activity_new_check_package(home, capsys):
     with zipfile.ZipFile(home / "acme.laundry-0.1.0.mzm") as z:
         names = set(z.namelist())
     assert "modules/acme.laundry_orders/entities/order.json" in names and "themes/fresh/theme.json" in names
+
+
+def test_publish(home, monkeypatch, capsys):
+    import mizan_sdk.cli as cli
+
+    calls = []
+
+    def portal(method, path, token, api, body=None):
+        calls.append((method, path, body))
+        return {"item_id": "acme.visits", "version": "0.1.0", "status": "in_review"}
+
+    monkeypatch.setattr(cli, "_portal", portal)
+    assert main(["module", "new", "acme.visits"]) == 0
+    assert main(["publish", "acme.visits"]) == 1  # not signed in
+    (home / ".mizan").mkdir(exist_ok=True)
+    (home / ".mizan" / "credentials.json").write_text(json.dumps({"token": "mzd_x", "api": "http://test"}))
+    assert main(["keys", "new"]) == 0
+    (home / ".mizan" / "default.cert").write_text("MZD1.x.y")
+
+    assert main(["publish", "acme.visits"]) == 0  # a folder: packaged, then sent
+    method, path, body = calls[-1]
+    assert (method, path) == ("POST", "/teams/acme/packages") and body == (home / "acme.visits-0.1.0.mzm").read_bytes()
+    assert "for review" in capsys.readouterr().out
+
+    assert main(["publish", "acme.visits-0.1.0.mzm", "--team", "other"]) == 0  # a file
+    assert calls[-1][1] == "/teams/other/packages"
+    (home / "junk.mzm").write_bytes(b"nope")
+    assert main(["publish", "junk.mzm"]) == 1

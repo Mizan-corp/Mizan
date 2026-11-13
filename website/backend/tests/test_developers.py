@@ -138,3 +138,83 @@ async def test_messages_are_english_unless_arabic_is_asked():
         assert (await c.post("/developers/login", json=body)).json()["detail"] == "Wrong email or password"
         ar = await c.post("/developers/login", json=body, headers={"Accept-Language": "ar-EG,ar;q=0.9"})
         assert ar.json()["detail"] == "البريد أو كلمة المرور غير صحيحة"
+
+
+async def test_marketplace_submission_review_and_store():
+    """#105: submit → review (countersign, list) → the store serves a verified package."""
+    from fastapi import HTTPException
+    from sqlalchemy import select
+
+    from app.db.base import AsyncSessionLocal
+    from app.framework import package as mzm
+    from app.platform.marketplace import listings
+    from app.platform.marketplace.listings import MarketplaceVersion
+
+    tag = uuid.uuid4().hex[:8]
+    handle, mail = f"m{tag}", f"m-{tag}@example.com"
+
+    def files(version: str) -> dict[str, bytes]:
+        f = module_files(f"{handle}.notes")
+        m = json.loads(f["manifest.json"])
+        m["version"], m["description"] = version, "دفتر ملاحظات للفريق"
+        f["manifest.json"] = json.dumps(m, ensure_ascii=False).encode()
+        return f
+
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            tok = (await c.post("/developers/signup", json={"email": mail, "full_name": "مطور", "password": "longpass1"})).json()["access_token"]
+            h = {"Authorization": f"Bearer {tok}"}
+            assert (await c.post("/developers/teams", headers=h, json={"handle": handle, "name": "فريق"})).status_code == 201
+            private, public = keypair()
+            key = (await c.post(f"/developers/teams/{handle}/keys", headers=h, json={"public_key": public})).json()
+            v1 = mzm.build(files("1.0.0"), private, key["certificate"])
+
+            # Submit (raw body, as `mizan publish` sends it); the same version again is refused.
+            r = await c.post(f"/developers/teams/{handle}/packages", headers=h, content=v1)
+            assert r.status_code == 201, r.text
+            assert r.json()["status"] == "in_review" and r.json()["item_id"] == f"{handle}.notes"
+            assert (await c.post(f"/developers/teams/{handle}/packages", headers=h, content=v1)).status_code == 409
+            assert (await c.post(f"/developers/teams/{handle}/packages", headers=h, content=b"not a zip")).status_code == 422
+            listed = (await c.get(f"/developers/teams/{handle}/packages", headers=h)).json()
+            assert listed["items"] == [] and listed["versions"][0]["status"] == "in_review"
+
+            # A second version can be withdrawn while in review.
+            v2 = mzm.build(files("1.1.0"), private, key["certificate"])
+            files_form = {"file": ("notes.mzm", v2, "application/octet-stream")}
+            assert (await c.post(f"/developers/teams/{handle}/packages", headers=h, files=files_form)).status_code == 201
+            assert (await c.delete(f"/developers/teams/{handle}/packages/{handle}.notes/1.1.0", headers=h)).status_code == 204
+            assert (await c.delete(f"/developers/teams/{handle}/packages/{handle}.notes/1.1.0", headers=h)).status_code == 409
+
+        # The Mizan team approves 1.0.0: countersigned and listed; the store serves it, verified.
+        async with AsyncSessionLocal() as db:
+            v = await db.scalar(select(MarketplaceVersion).where(MarketplaceVersion.item_id == f"{handle}.notes",
+                                                                MarketplaceVersion.version == "1.0.0"))
+            item = await listings.approve(db, v, uuid.uuid4())
+            await db.commit()
+            assert v.countersignature.startswith("MZP1.") and item.status == "listed" and item.current_version == "1.0.0"
+            assert any(i["id"] == f"{handle}.notes" for i in await listings.store(db, "community", "ملاحظات"))
+            got, pkg = await listings.listed_package(db, f"{handle}.notes")
+            assert pkg.manifest["version"] == "1.0.0" and pkg.developer == handle
+
+            # Tampered bytes are refused, and an older version can't be submitted after a listing.
+            good = v.package
+            v.package = good[:-1] + bytes([good[-1] ^ 1])
+            await db.flush()
+            with pytest.raises(HTTPException):
+                await listings.listed_package(db, f"{handle}.notes")
+            await db.rollback()
+
+            await listings.set_listed(db, f"{handle}.notes", False, "test")
+            await db.commit()
+            assert not any(i["id"] == f"{handle}.notes" for i in await listings.store(db))
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            v0 = mzm.build(files("0.9.0"), private, key["certificate"])
+            assert (await c.post(f"/developers/teams/{handle}/packages", headers=h, content=v0)).status_code == 409
+    finally:
+        async with AsyncSessionLocal() as db:
+            await db.execute(text("DELETE FROM marketplace_items WHERE id = :i"), {"i": f"{handle}.notes"})
+            await db.execute(text("DELETE FROM marketplace_versions WHERE item_id = :i"), {"i": f"{handle}.notes"})
+            await db.execute(text("DELETE FROM developer_teams WHERE handle = :h"), {"h": handle})
+            await db.execute(text("DELETE FROM developer_users WHERE email = :e"), {"e": mail})
+            await db.commit()

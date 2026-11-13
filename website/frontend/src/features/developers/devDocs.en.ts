@@ -123,7 +123,7 @@ export const EN: DocSection[] = [
               title: "Declarative modules, for now",
               body:
                 "Today a module is JSON files only: a manifest.json and one file per entity under entities/. No outside code runs on Mizan's servers; that's what makes installing your module safe for the business. Your code runs on your server and reaches the business's data only through the scopes its owner approved.\n\nModules with code running inside Mizan (in isolated containers) will come when the platform moves to its own servers.",
-              callout: { type: "note", text: "The module marketplace and paid modules come next. Today modules are installed from a signed file (.mzm) the developer gives the business owner." },
+              callout: { type: "note", text: "Two ways to reach workspaces: publish to the marketplace (the Mizan team reviews it, then any workspace installs it from its store), or hand the owner the signed file (.mzm) privately. Paid listings come later; today they are free." },
             },
             {
               id: "pieces",
@@ -458,6 +458,41 @@ export const EN: DocSection[] = [
         },
       },
       {
+        slug: "publishing",
+        title: "Publishing to the marketplace",
+        titleEn: "Publishing",
+        description: "Sending a module or theme for review, what the review checks, and updates.",
+        category: "Signing and shipping",
+        lastUpdated: UPDATED,
+        content: {
+          overview:
+            "Published modules and themes appear in the store inside every workspace's module centre (المتجر). Send a signed package with mizan publish, or with “Send a package” on your team's page in the portal. The Mizan team reviews it; once approved, Mizan countersigns that exact package and lists it. Listings are free for now; activities and paid listings come later.",
+          sections: [
+            {
+              id: "send",
+              title: "Sending",
+              body: "mizan publish packages the folder and sends it to the team named by the id's prefix (acme.visits → acme). It can also send a .mzm you built before. Your team's page lists every version you sent with its status: in review, approved, rejected (with the reviewer's note) or withdrawn. You can withdraw a version while it's in review.",
+              codeBlock: { language: "bash", code: "mizan publish acme.visits          # package, then send\nmizan publish acme.visits-1.2.0.mzm" },
+            },
+            {
+              id: "review",
+              title: "What the review checks",
+              body: "The same checks as an install from file run first: the signature, Mizan's certificate for your key, the key not revoked, the id in your team's namespace and the manifest rules. Then a person looks at what it adds, the scopes it asks for (new scopes in an update are marked), where it sends webhooks, and its files. Ask only for the scopes you use and describe the module plainly in Arabic.",
+            },
+            {
+              id: "updates",
+              title: "Updates",
+              body: "Raise the version (1.0.0 → 1.1.0) and publish again; a version can be sent only once, and it must be newer than the listed one. The listed version stays in the store until the new one is approved. Workspaces that installed the module see “update available” and approve any new scopes.",
+            },
+            {
+              id: "delist",
+              title: "Removal from the store",
+              body: "The Mizan team can delist a module or theme (for example after a security report) with a reason you see on your team's page. It can no longer be installed; workspaces that have it keep it. Revoking your signing key also stops new installs of everything it signed.",
+            },
+          ],
+        },
+      },
+      {
         slug: "cli",
         title: "The mizan CLI",
         titleEn: "The CLI",
@@ -481,7 +516,8 @@ mizan theme new acme.sunrise      # a theme pack from Mizan's own
 mizan activity new acme.laundry   # a whole business activity
 mizan check [folder]              # the platform's own checks
 mizan keys new [--team acme] [--name laptop]
-mizan package [folder] [--key ...] [--certificate ...] [--out ...]`,
+mizan package [folder] [--key ...] [--certificate ...] [--out ...]
+mizan publish [folder|file.mzm] [--team acme]   # send it to the marketplace for review`,
               },
             },
           ],

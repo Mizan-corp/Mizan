@@ -58,8 +58,10 @@ admin; `mizan theme new`); paid themes with the marketplace. 3. Done 2026-11-13:
 6. ADR-006 phase 9 (#107): changing a workspace's activity between Mizan's activities is built
    (2026-11-13: owner asks with a preview, Mizan team approves in the admin panel). Next on it:
    running developers' activity packages in a workspace (the last piece advertised to developers).
-7. ADR-006 phase 7 (#105): the marketplace for modules, themes and activities, paid ones after #65
-   (the portal is done).
+7. ADR-006 phase 7 (#105): the marketplace. Done 2026-11-13 for free modules and themes
+   (`mizan publish` or the portal → review in the admin panel, countersigned `MZP1` → the store in
+   the module centre; ADR-007 milestone 2). Next: activities (with #107's second part), paid
+   listings and payouts after #65.
 8. ADR-006 phase 6 (#104): ADR-007 milestone 1 done; the isolation runtime for code modules
    waits for Mizan's own cluster.
 

@@ -11,6 +11,7 @@ mizan module new acme.visits      # a starter module
 mizan check acme.visits           # what Mizan would refuse
 mizan keys new --team acme        # a signing key, certified for your team
 mizan package acme.visits         # acme.visits-0.1.0.mzm, signed
+mizan publish acme.visits         # send it to the marketplace for the Mizan team to review
 
 mizan theme new acme.sunrise      # a theme pack, from Mizan's own theme
 mizan activity new acme.laundry   # a whole business activity: modules, variants, theme, menus, demo data

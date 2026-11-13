@@ -38,16 +38,19 @@ export class PortalError extends Error {
   }
 }
 
-/** A call to the developer API (/developers…) with the portal session. */
+/** A call to the developer API (/developers…) with the portal session. A Blob body (a package) is sent as is. */
 export async function portal<T>(method: string, path: string, body?: unknown): Promise<T> {
   const token = read();
   const ar = devIsArabic();
+  const raw = body instanceof Blob;
   const headers: Record<string, string> = { Accept: "application/json", "Accept-Language": ar ? "ar" : "en" };
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (body !== undefined) headers["Content-Type"] = raw ? "application/octet-stream" : "application/json";
   if (token) headers.Authorization = `Bearer ${token}`;
   let res: Response;
   try {
-    res = await fetch(`${BASE}/developers${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    res = await fetch(`${BASE}/developers${path}`, {
+      method, headers, body: body === undefined ? undefined : raw ? body : JSON.stringify(body),
+    });
   } catch {
     throw new PortalError(0, ar ? "تعذر الاتصال بالخادم، تحقق من الإنترنت" : "Couldn't reach Mizan; check your connection");
   }

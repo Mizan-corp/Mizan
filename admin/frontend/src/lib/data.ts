@@ -19,6 +19,7 @@ export type AttentionItem =
   | { kind: "trial_expired" | "trial_ending" | "paid_ended" | "paid_ending"; tenant_id: string; tenant_name: string; days: number; at: string }
   | { kind: "invoice_pending"; tenant_id: string; tenant_name: string | null; ref: string; amount_egp: number; plan: string; at: string }
   | { kind: "activity_change"; tenant_id: string; tenant_name: string | null; change_id: string; from_activity: string; to_activity: string; at: string }
+  | { kind: "marketplace_review"; tenant_id: string; tenant_name: null; version_id: string; item_id: string; version: string; item_kind: "community" | "theme"; name: string | null; at: string }
 
 /** An owner's request to change a workspace's activity (#107), with what it does today. */
 export interface ActivityChange {
@@ -45,6 +46,58 @@ export interface ActivityChange {
 
 export const useActivityChange = (id: string, enabled = true) =>
   useQuery({ queryKey: ["activity-change", id], queryFn: () => api.get<ActivityChange>(`/admoon/activity-changes/${id}`), enabled });
+
+/** A developer's package version sent to the marketplace (#105). */
+export interface Submission {
+  id: string;
+  item_id: string;
+  version: string;
+  kind: "community" | "theme";
+  status: "in_review" | "approved" | "rejected" | "withdrawn";
+  name: string | null;
+  name_en: string | null;
+  size: number;
+  sha256: string;
+  developer: string;
+  submitted_at: string;
+  reviewed_at: string | null;
+  review_note: string | null;
+}
+
+export interface SubmissionDetail extends Submission {
+  manifest: Record<string, unknown> & { description?: string; permissions?: { id: string; name: string; name_en: string }[] };
+  files: { name: string; size: number }[];
+  listed_version: string | null;
+  verify_error?: string;
+  summary?: {
+    entities: { id: string; name: string; fields: number }[];
+    scopes: { id: string; text: string; text_en: string; new?: boolean }[];
+    sends_to: string | null;
+  };
+  theme?: { swatches: string[]; fonts: { body?: string; display?: string }; radius?: string; motion?: string };
+}
+
+/** A marketplace listing: its current approved version. */
+export interface Listing {
+  id: string;
+  kind: "community" | "theme";
+  name: string;
+  name_en: string | null;
+  description: string | null;
+  version: string;
+  status: "listed" | "delisted";
+  status_note: string | null;
+  installs: number;
+  developer: string | null;
+  updated_at: string | null;
+}
+
+export const useSubmissions = (status: string) =>
+  useQuery({ queryKey: ["marketplace-submissions", status], queryFn: () => api.get<{ items: Submission[] }>("/admoon/marketplace/submissions", { status }) });
+export const useSubmission = (id: string, enabled = true) =>
+  useQuery({ queryKey: ["marketplace-submission", id], queryFn: () => api.get<SubmissionDetail>(`/admoon/marketplace/submissions/${id}`), enabled });
+export const useListings = () =>
+  useQuery({ queryKey: ["marketplace-items"], queryFn: () => api.get<{ items: Listing[] }>("/admoon/marketplace/items") });
 
 export interface Revenue {
   mrr_egp: number;
@@ -246,6 +299,10 @@ export function useAction<TVars, TResult = unknown>(
 }
 
 export const actions = {
+  approveSubmission: (v: { id: string; note?: string }) => api.post<Submission>(`/admoon/marketplace/submissions/${v.id}/approve`, { note: v.note }),
+  rejectSubmission: (v: { id: string; note: string }) => api.post<Submission>(`/admoon/marketplace/submissions/${v.id}/reject`, { note: v.note }),
+  setListed: (v: { id: string; listed: boolean; note?: string }) =>
+    api.post<Listing>(`/admoon/marketplace/items/${encodeURIComponent(v.id)}/${v.listed ? "relist" : "delist"}`, { note: v.note }),
   approveActivityChange: (v: { id: string; note?: string }) => api.post<ActivityChange>(`/admoon/activity-changes/${v.id}/approve`, { note: v.note }),
   rejectActivityChange: (v: { id: string; note: string }) => api.post<ActivityChange>(`/admoon/activity-changes/${v.id}/reject`, { note: v.note }),
   resetOwnerPassword: (id: string) => api.post<{ password: string }>(`/admoon/owners/${id}/reset-password`),
