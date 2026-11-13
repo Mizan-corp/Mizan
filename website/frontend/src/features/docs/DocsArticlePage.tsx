@@ -10,15 +10,22 @@ import {
   ThumbsUp,
   ThumbsDown,
 } from "lucide-react";
-import { getDocArticle, getAllDocArticles } from "./docsData";
+import { DOC_SECTIONS, type DocSection } from "./docsData";
 import { Button } from "@/components/kit/button";
 import { toast } from "sonner";
 import { useTranslation } from "@/i18n";
 
-export default function DocsArticlePage() {
+export default function DocsArticlePage({ sections = DOC_SECTIONS, base = "/docs", help = "/contact", helpText }: {
+  /** Another set of docs (the developer docs, ADR-007) under another path. */
+  sections?: DocSection[];
+  base?: string;
+  help?: string;
+  helpText?: { title: string; hint: string };
+}) {
   const params = useParams();
   const slug = params["*"] || params.slug || "";
-  const article = getDocArticle(slug);
+  const allArticles = sections.flatMap((s) => s.items);
+  const article = allArticles.find((a) => a.slug === slug);
 
   const [copiedCodeIndex, setCopiedCodeIndex] = useState<number | null>(null);
   const [feedbackGiven, setFeedbackGiven] = useState<"yes" | "no" | null>(null);
@@ -27,10 +34,9 @@ export default function DocsArticlePage() {
   const isAr = locale === "ar";
 
   if (!article) {
-    return <Navigate to="/docs" replace />;
+    return <Navigate to={base} replace />;
   }
 
-  const allArticles = getAllDocArticles();
   const currentIndex = allArticles.findIndex((a) => a.slug === article.slug);
   const prevArticle = currentIndex > 0 ? allArticles[currentIndex - 1] : null;
   const nextArticle = currentIndex < allArticles.length - 1 ? allArticles[currentIndex + 1] : null;
@@ -48,7 +54,7 @@ export default function DocsArticlePage() {
       <div className="xl:col-span-9 space-y-8">
         {/* Breadcrumb Navigation */}
         <nav className="flex items-center gap-2 text-xs text-[#77716E]">
-          <Link to="/docs" className="hover:text-[#651E2C] transition-colors">
+          <Link to={base} className="hover:text-[#651E2C] transition-colors">
             {isAr ? "مركز التوثيق" : "Documentation"}
           </Link>
           <span>/</span>
@@ -148,7 +154,7 @@ export default function DocsArticlePage() {
                       )}
                     </button>
                   </div>
-                  <pre className="p-4 text-xs font-mono text-[#FAF6F0] overflow-x-auto leading-relaxed">
+                  <pre dir="ltr" className="p-4 text-left text-xs font-mono text-[#FAF6F0] overflow-x-auto leading-relaxed">
                     <code>{sec.codeBlock.code}</code>
                   </pre>
                 </div>
@@ -203,7 +209,7 @@ export default function DocsArticlePage() {
         <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-[#E7D6C1] pt-6">
           {prevArticle ? (
             <Link
-              to={`/docs/${prevArticle.slug}`}
+              to={`${base}/${prevArticle.slug}`}
               className="flex flex-col items-start rounded-xl border border-[#E7D6C1] bg-white p-4 hover:border-[#651E2C]/50 w-full sm:w-1/2 transition-colors shadow-xs"
             >
               <span className="text-[10px] text-[#77716E] font-mono">
@@ -219,7 +225,7 @@ export default function DocsArticlePage() {
 
           {nextArticle && (
             <Link
-              to={`/docs/${nextArticle.slug}`}
+              to={`${base}/${nextArticle.slug}`}
               className="flex flex-col items-end rounded-xl border border-[#E7D6C1] bg-white p-4 hover:border-[#651E2C]/50 w-full sm:w-1/2 text-end transition-colors shadow-xs"
             >
               <span className="text-[10px] text-[#77716E] font-mono">
@@ -254,13 +260,13 @@ export default function DocsArticlePage() {
 
           <div className="pt-4 border-t border-[#E7D6C1]">
             <Link
-              to="/contact"
+              to={help}
               className="text-xs text-[#651E2C] hover:underline font-bold block"
             >
-              {isAr ? "هل تحتاج لمساعدة مطور مخصصة؟" : "Need custom developer assistance?"}
+              {helpText?.title ?? (isAr ? "هل تحتاج لمساعدة مطور مخصصة؟" : "Need custom developer assistance?")}
             </Link>
             <span className="text-[10px] text-[#77716E] block mt-1">
-              {isAr ? "تواصل مباشرة مع مهندسي النظام" : "Direct access to our systems architects"}
+              {helpText?.hint ?? (isAr ? "تواصل مباشرة مع مهندسي النظام" : "Direct access to our systems architects")}
             </span>
           </div>
         </div>

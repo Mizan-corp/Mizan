@@ -34,6 +34,9 @@ CSRF_EXEMPT_SUFFIXES = (
     "/auth/print-token",
     "/platform/signup",
     "/account/login",
+    # The developer portal (ADR-007); its other routes take a bearer token only.
+    "/developers/signup",
+    "/developers/login",
     # Paymob's server calls this; it's authenticated by its HMAC instead.
     "/account/paymob/callback",
     # On-premise installs; authenticated by their signed licence key.

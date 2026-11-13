@@ -64,6 +64,10 @@ jobs:
         with:
           node-version: 22
 
+      - name: Build the SDK the developer portal serves (dev.allmizan.live/sdk/)
+        if: steps.latest.outputs.skip != 'true'
+        run: pip wheel --no-deps --wheel-dir website/frontend/public/sdk ./sdk/python
+
       - name: Install the Vercel CLI
         if: steps.latest.outputs.skip != 'true'
         run: npm install --global vercel@latest

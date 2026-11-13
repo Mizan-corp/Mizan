@@ -1,6 +1,6 @@
 # ميزان (Mizan) — Roadmap & Delivery Status
 
-Current as of 2026-11-11. **Open work is tracked in [GitHub issues](https://github.com/ammar0xff/Mizan/issues)**; this file is the high-level summary of what has shipped.
+Current as of 2026-11-13. **Open work is tracked in [GitHub issues](https://github.com/ammar0xff/Mizan/issues)**; this file is the high-level summary of what has shipped.
 
 ## 0. Priority plan (2026-11-11)
 
@@ -34,9 +34,16 @@ ADR-007: milestone 1 = the portal at dev.allmizan.live, the docs, and private de
 modules (.mzm packages: entities, screens, scopes, extension API, webhooks; SDK and CLI). Code
 modules run in sandboxed containers once Mizan moves to its own cluster; marketplace and paid
 modules are milestone 2 (#105, paid needs #65).
+**Milestone 1 built (2026-11-13), steps 1–7**: the .mzm format and validator, community records and
+screens, install from file with scope approval, installation tokens and `/ext/v1`, signed
+webhooks with retries, `mizan-sdk` and the `mizan` CLI, and the developer portal with its docs
+(website app under `/dev`, `dev.allmizan.live` in production). Left: attach the domain and give
+the website API the signing key at the next deploy; publish `mizan-sdk` on PyPI (owner's
+account; until then the portal serves the wheel); email verification and password reset for
+developers wait for the mail work (#71, #72).
 
 **P3 — Platform for outside developers**
-10. ADR-006 phase 6 (#104): ADR-007, isolation runtime, scopes, SDK and CLI; a docs-only developer site can start here.
+10. ADR-006 phase 6 (#104): ADR-007 milestone 1 done (see P1b); the isolation runtime for code modules waits for the own cluster.
 11. ADR-006 phase 7 (#105): developer portal and marketplace (needs #65).
 12. ADR-006 phase 9 (#107): changing a workspace's activity.
 

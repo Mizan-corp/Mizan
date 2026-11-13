@@ -12,7 +12,7 @@ import {
   Moon,
   Home,
 } from "lucide-react";
-import { DOC_SECTIONS, getAllDocArticles } from "./docsData";
+import { DOC_SECTIONS, type DocSection } from "./docsData";
 import { useUiStore } from "@/stores/ui";
 import { useI18nStore } from "@/i18n";
 import { MizanLogo } from "@/components/MizanLogo";
@@ -20,9 +20,20 @@ import { MizanReadingProgress } from "@/components/motion/MizanReadingProgress";
 
 interface DocsLayoutProps {
   children?: React.ReactNode;
+  /** Another set of docs (the developer docs, ADR-007) under another path. */
+  sections?: DocSection[];
+  base?: string;
+  home?: string;
+  label?: { ar: string; en: string };
 }
 
-export function DocsLayout({ children }: DocsLayoutProps) {
+export function DocsLayout({
+  children,
+  sections = DOC_SECTIONS,
+  base = "/docs",
+  home = "/",
+  label = { ar: "مركز التوثيق والمطورين", en: "Docs & Developer Portal" },
+}: DocsLayoutProps) {
   const location = useLocation();
   const { themeMode, toggleThemeMode } = useUiStore();
   const { locale, toggleLocale, dir } = useI18nStore();
@@ -31,17 +42,16 @@ export function DocsLayout({ children }: DocsLayoutProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>(() => base !== "/docs" ? Object.fromEntries(sections.map((sec) => [sec.id, true])) : {
     "getting-started": true,
     "user-guide": true,
     "modules-doc": true,
     "admin-doc": false,
-    "dev-doc": true,
     "deployment-doc": false,
     "support-doc": false,
   });
 
-  const allArticles = getAllDocArticles();
+  const allArticles = sections.flatMap((sec) => sec.items);
 
   // Filtered search results
   const searchResults = searchQuery.trim()
@@ -98,23 +108,25 @@ export function DocsLayout({ children }: DocsLayoutProps) {
               <Menu className="size-4" />
             </button>
 
-            <Link to="/" className="flex items-center gap-2">
+            <Link to={home} className="flex items-center gap-2">
               <MizanLogo size="sm" showWordmark={true} />
             </Link>
 
             <span className="text-[#E7D6C1] hidden sm:inline-block">/</span>
 
             <Link
-              to="/docs"
+              to={base}
               className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-[#651E2C] hover:underline"
             >
               <BookOpen className="size-3.5 text-[#B86B76]" />
-              <span>{isAr ? "مركز التوثيق والمطورين" : "Docs & Developer Portal"}</span>
+              <span>{isAr ? label.ar : label.en}</span>
             </Link>
 
-            <span className="hidden md:inline-flex rounded-full bg-[#651E2C]/10 px-2.5 py-0.5 text-[10px] font-bold text-[#651E2C] font-mono">
-              v3.0.0
-            </span>
+            {base === "/docs" && (
+              <span className="hidden md:inline-flex rounded-full bg-[#651E2C]/10 px-2.5 py-0.5 text-[10px] font-bold text-[#651E2C] font-mono">
+                v3.0.0
+              </span>
+            )}
           </div>
 
           {/* Search Trigger & Right Actions */}
@@ -152,7 +164,7 @@ export function DocsLayout({ children }: DocsLayoutProps) {
             </button>
 
             <Link
-              to="/"
+              to={home}
               className="hidden sm:inline-flex items-center gap-1.5 text-xs font-bold text-[#651E2C] bg-[#651E2C]/10 hover:bg-[#651E2C] hover:text-white rounded-full px-3 py-1.5 transition-all ms-1"
             >
               <Home className="size-3.5" />
@@ -168,9 +180,9 @@ export function DocsLayout({ children }: DocsLayoutProps) {
         <aside className="hidden lg:block w-72 shrink-0 border-e border-[#E7D6C1] pe-6 py-8 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
           <div className="mb-4">
             <Link
-              to="/docs"
+              to={base}
               className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition-all ${
-                location.pathname === "/docs"
+                location.pathname === base
                   ? "bg-[#651E2C] text-white shadow-xs"
                   : "text-[#262321] hover:bg-white"
               }`}
@@ -181,7 +193,7 @@ export function DocsLayout({ children }: DocsLayoutProps) {
           </div>
 
           <nav className="space-y-6">
-            {DOC_SECTIONS.map((section) => {
+            {sections.map((section) => {
               const isExpanded = expandedSections[section.id] ?? false;
               return (
                 <div key={section.id} className="space-y-1.5">
@@ -201,11 +213,11 @@ export function DocsLayout({ children }: DocsLayoutProps) {
                   {isExpanded && (
                     <ul className="space-y-0.5 ps-1 border-s-2 border-[#E7D6C1]">
                       {section.items.map((item) => {
-                        const active = location.pathname === `/docs/${item.slug}`;
+                        const active = location.pathname === `${base}/${item.slug}`;
                         return (
                           <li key={item.slug}>
                             <Link
-                              to={`/docs/${item.slug}`}
+                              to={`${base}/${item.slug}`}
                               className={`block rounded-lg px-2.5 py-1.5 text-xs transition-all ${
                                 active
                                   ? "bg-[#651E2C]/10 text-[#651E2C] font-bold"
@@ -252,7 +264,7 @@ export function DocsLayout({ children }: DocsLayoutProps) {
                 </div>
 
                 <nav className="space-y-6">
-                  {DOC_SECTIONS.map((section) => (
+                  {sections.map((section) => (
                     <div key={section.id} className="space-y-1.5">
                       <h4 className="text-xs font-bold uppercase tracking-wider text-[#77716E]">
                         {section.title}
@@ -261,7 +273,7 @@ export function DocsLayout({ children }: DocsLayoutProps) {
                         {section.items.map((item) => (
                           <li key={item.slug}>
                             <Link
-                              to={`/docs/${item.slug}`}
+                              to={`${base}/${item.slug}`}
                               className="block rounded-lg px-2 py-1.5 text-xs text-[#262321] hover:bg-white"
                             >
                               {item.title}
@@ -315,7 +327,7 @@ export function DocsLayout({ children }: DocsLayoutProps) {
                     searchResults.map((res) => (
                       <Link
                         key={res.slug}
-                        to={`/docs/${res.slug}`}
+                        to={`${base}/${res.slug}`}
                         onClick={() => setSearchOpen(false)}
                         className="block p-3 hover:bg-[#FAF6F0] rounded-lg transition-colors"
                       >

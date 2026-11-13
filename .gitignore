@@ -77,3 +77,6 @@ installer/build/
 installer/setup/src-tauri/target/
 installer/setup/src-tauri/gen/
 installer/setup/dist/
+
+# Built by deploy.yml from sdk/python (served at dev.allmizan.live/sdk/).
+website/frontend/public/sdk/

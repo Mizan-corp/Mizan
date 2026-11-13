@@ -7,6 +7,7 @@ import { MarketingLayout } from "@app/features/marketing/MarketingLayout";
 import { AdoptSession, SignOut } from "@app/features/session/SessionRoutes";
 import PricingPage from "@/features/billing/PricingPage";
 import { appUrl } from "@/lib/urls";
+import { DEV_HOST } from "@app/features/developers/paths";
 
 const ProductPage = lazy(() => import("@app/features/marketing/ProductPage"));
 const FeaturesPage = lazy(() => import("@app/features/marketing/FeaturesPage"));
@@ -21,6 +22,7 @@ const LegalPage = lazy(() => import("@app/features/legal/LegalPage"));
 const DocsLayout = lazy(() => import("@app/features/docs/DocsLayout").then((m) => ({ default: m.DocsLayout })));
 const DocsHomePage = lazy(() => import("@app/features/docs/DocsHomePage"));
 const DocsArticlePage = lazy(() => import("@app/features/docs/DocsArticlePage"));
+const DevRoutes = lazy(() => import("@app/features/developers/DevRoutes"));
 
 function Page({ children }: { children: ReactNode }) {
   return (
@@ -43,6 +45,14 @@ function ToOwnerLogin() {
 }
 
 export default function App() {
+  // dev.allmizan.live is the developer platform (ADR-007 D6); elsewhere it lives under /dev.
+  if (DEV_HOST) {
+    return (
+      <Routes>
+        <Route path="/*" element={<Page><DevRoutes /></Page>} />
+      </Routes>
+    );
+  }
   return (
     <Routes>
       <Route path="/" element={<Page><LandingPage /></Page>} />
@@ -63,6 +73,8 @@ export default function App() {
 
       <Route path="/docs" element={<Page><DocsLayout><DocsHomePage /></DocsLayout></Page>} />
       <Route path="/docs/*" element={<Page><DocsLayout><DocsArticlePage /></DocsLayout></Page>} />
+
+      <Route path="/dev/*" element={<Page><DevRoutes /></Page>} />
 
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/onboarding" element={<OnboardingWizard />} />

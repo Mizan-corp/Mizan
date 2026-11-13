@@ -3,10 +3,11 @@
 Build community modules for [Mizan](https://allmizan.live) and talk to Mizan from your module's server.
 
 ```bash
-pip install mizan-sdk
+pip install https://dev.allmizan.live/sdk/mizan_sdk-0.1.0-py3-none-any.whl
+mizan login                       # a CLI token from the portal (dev.allmizan.live/portal/tokens)
 mizan module new acme.visits      # a starter module
 mizan check acme.visits           # what Mizan would refuse
-mizan keys new                    # register the printed public key in the developer portal
+mizan keys new --team acme        # a signing key, certified for your team
 mizan package acme.visits         # acme.visits-0.1.0.mzm, signed
 ```
 

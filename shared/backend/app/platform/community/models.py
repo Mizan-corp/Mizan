@@ -6,7 +6,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, Text, func, text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -17,6 +17,10 @@ from app.platform.tenancy.context import TenantScoped
 class CommunityModule(TenantScoped, Base):
     __tablename__ = "community_modules"
 
+    # One installation per workspace and module: the key is both (as in migration v69), so tables
+    # made from the models (create_all: local stacks, on-site setup) match the migrated ones.
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"),
+                                                 primary_key=True)
     module_id: Mapped[str] = mapped_column(String(80), primary_key=True)
     version: Mapped[str] = mapped_column(String(32), nullable=False)
     developer: Mapped[str] = mapped_column(String(32), nullable=False)

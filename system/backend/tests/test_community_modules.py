@@ -169,11 +169,30 @@ async def test_installing_from_a_file_over_http():
 
             assert (await c.delete("/community/modules/acme.visits", headers=admin)).status_code == 204
             assert (await c.get("/community/modules", headers=admin)).json()["items"] == []
+
+            # A key revoked in the developer portal: its packages are refused (ADR-007 D5).
+            from cryptography.hazmat.primitives import serialization
+            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+            k = Ed25519PrivateKey.generate()
+            raw = k.private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption())
+            pub = k.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+            revoked_id = f"acme-{tid.hex[:8]}"
+            async with AsyncSessionLocal() as db:
+                team = await db.scalar(text("INSERT INTO developer_teams (handle, name) VALUES (:h, 'Revoked') RETURNING id"),
+                                       {"h": f"r{tid.hex[:8]}"})
+                await db.execute(text("INSERT INTO developer_keys (team_id, key_id, name, public_key, certificate, revoked_at) "
+                                      "VALUES (:t, :k, 'old', 'x', 'x', now())"), {"t": team, "k": revoked_id})
+                await db.commit()
+            revoked = mzm.build(files(), raw, mzm.certify("acme", revoked_id, pub))
+            r = await c.post("/community/packages/inspect", files={"file": ("a.mzm", revoked, "application/zip")}, headers=admin)
+            assert r.status_code == 422 and "أُلغي" in r.json()["detail"]
     finally:
         current_tenant_id.set(None)
         async with AsyncSessionLocal() as db:
             await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
             await db.execute(text("DELETE FROM tenants WHERE id = :t"), {"t": tid})
+            await db.execute(text("DELETE FROM developer_teams WHERE handle = :h"), {"h": f"r{tid.hex[:8]}"})
             await db.commit()
 
 

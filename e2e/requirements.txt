@@ -4,3 +4,4 @@ psycopg[binary]>=3.2
 openpyxl>=3.1  # reading exports (test_designer)
 playwright>=1.50  # browser flows (e2e/browser)
 bcrypt>=4.0  # the browser suite's temporary platform admin
+cryptography>=41  # the developer portal flow signs a key (e2e/browser)

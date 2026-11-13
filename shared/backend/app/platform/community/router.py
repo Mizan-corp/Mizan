@@ -18,14 +18,18 @@ from app.platform.community import service
 community = APIRouter(prefix="/community", tags=["Community modules"])
 
 
-async def _read_package(file: UploadFile):
+async def _read_package(file: UploadFile, db: AsyncSession):
     from app.framework import package as mzm
+    from app.platform.developers.service import key_revoked
 
     data = await file.read(mzm.MAX_BYTES + 1)
     try:
-        return mzm.verify(data)
+        pkg = mzm.verify(data)
     except mzm.PackageError as e:
         raise HTTPException(422, f"تعذر قبول الحزمة: {e}") from None
+    if await key_revoked(db, pkg.key_id):  # ADR-007 D5: the developer's key was revoked in the portal
+        raise HTTPException(422, "تعذر قبول الحزمة: مفتاح توقيع المطور أُلغي")
+    return pkg
 
 
 async def _installed_row(db: AsyncSession, module_id: str):
@@ -45,14 +49,14 @@ async def installed_modules(db: AsyncSession = Depends(get_db), _: User = Depend
 async def inspect_package(file: UploadFile = File(...), db: AsyncSession = Depends(get_db),
                           _: User = Depends(require_perm("community.manage"))):
     """Verify a .mzm and say what it would add and may access (nothing is installed)."""
-    pkg = await _read_package(file)
+    pkg = await _read_package(file, db)
     return service.summary(pkg, await _installed_row(db, pkg.manifest["id"]))
 
 
 @community.post("/packages/install")
 async def install_package(file: UploadFile = File(...), approved_scopes: str = Form("[]"),
                           db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("community.manage"))):
-    pkg = await _read_package(file)
+    pkg = await _read_package(file, db)
     try:
         approved = json.loads(approved_scopes)
     except ValueError:

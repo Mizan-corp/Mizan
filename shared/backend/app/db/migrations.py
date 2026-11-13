@@ -3019,6 +3019,54 @@ MIGRATIONS = [
         CREATE POLICY tenant_isolation ON community_webhook_deliveries
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    # ADR-007 D5: the developer portal. Developers (people, separate from owners), teams (a team's
+    # handle is the <developer> part of its module ids), their signing keys and CLI tokens.
+    ("v72_developer_portal", """
+        CREATE TABLE IF NOT EXISTS developer_users (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            email varchar(254) NOT NULL UNIQUE,
+            full_name varchar(128) NOT NULL,
+            password_hash varchar(256) NOT NULL,
+            is_active boolean NOT NULL DEFAULT true,
+            tokens_valid_after timestamptz,
+            last_login_at timestamptz,
+            created_at timestamptz DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS developer_teams (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            handle varchar(32) NOT NULL UNIQUE,
+            name varchar(128) NOT NULL,
+            created_by uuid REFERENCES developer_users(id) ON DELETE SET NULL,
+            created_at timestamptz DEFAULT now()
+        );
+        CREATE TABLE IF NOT EXISTS developer_team_members (
+            team_id uuid NOT NULL REFERENCES developer_teams(id) ON DELETE CASCADE,
+            user_id uuid NOT NULL REFERENCES developer_users(id) ON DELETE CASCADE,
+            role varchar(16) NOT NULL DEFAULT 'member',
+            created_at timestamptz DEFAULT now(),
+            PRIMARY KEY (team_id, user_id)
+        );
+        CREATE TABLE IF NOT EXISTS developer_keys (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            team_id uuid NOT NULL REFERENCES developer_teams(id) ON DELETE CASCADE,
+            key_id varchar(32) NOT NULL UNIQUE,
+            name varchar(64) NOT NULL,
+            public_key varchar(64) NOT NULL,
+            certificate text NOT NULL,
+            created_by uuid REFERENCES developer_users(id) ON DELETE SET NULL,
+            created_at timestamptz DEFAULT now(),
+            revoked_at timestamptz
+        );
+        CREATE TABLE IF NOT EXISTS developer_cli_tokens (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id uuid NOT NULL REFERENCES developer_users(id) ON DELETE CASCADE,
+            name varchar(64) NOT NULL,
+            token_hash varchar(64) NOT NULL UNIQUE,
+            created_at timestamptz DEFAULT now(),
+            last_used_at timestamptz,
+            revoked_at timestamptz
+        );
+    """),
 ]
 
 async def apply_migrations(session: AsyncSession) -> List[str]:

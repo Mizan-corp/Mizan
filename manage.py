@@ -807,7 +807,7 @@ def _test_unit() -> None:
 
 def _test_backend() -> None:
     require_db()
-    for app in ("system", "owner", "admin"):
+    for app in ("system", "website", "owner", "admin"):
         step(f"Backend tests ({app}/backend/tests)")
         run([python_bin(), "-m", "pytest", "-q", "--no-header"], cwd=ROOT / app / "backend", env=_backend_env())
     step("Installed-server engine tests (installer/server/tests)")

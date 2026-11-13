@@ -7,8 +7,10 @@ import {
   Search,
   ArrowRight,
   ArrowLeft,
+  Code2,
 } from "lucide-react";
 import { DOC_SECTIONS } from "./docsData";
+import { devUrl } from "@app/features/developers/paths";
 import { useTranslation } from "@/i18n";
 import { assetUrl } from "@/lib/utils";
 
@@ -17,13 +19,14 @@ export default function DocsHomePage() {
   const isAr = locale === "ar";
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
+  const articleCount = DOC_SECTIONS.reduce((n, sec) => n + sec.items.length, 0);
 
   const mainPillars = [
     {
       titleAr: "الأساسيات",
       titleEn: "Core Basics",
       icon: BookOpen,
-      href: "/docs/core/architecture",
+      href: "/docs/overview",
       descAr: "تهيئة المنشأة، إعداد الفروع، وإدارة صلاحيات المستخدمين وعزل البيانات.",
       descEn: "Tenant onboarding, branch configuration, user access control, and PostgreSQL RLS.",
     },
@@ -99,8 +102,8 @@ export default function DocsHomePage() {
                   {isAr ? "المحاسبة" : "Accounting"}
                 </Link>
                 <span>•</span>
-                <Link to="/docs/dev/hardware-escpos" className="hover:text-white underline">
-                  {isAr ? "الطباعة الحرارية" : "Thermal Printing"}
+                <Link to="/docs/deploy/install" className="hover:text-white underline">
+                  {isAr ? "التثبيت على جهازك" : "Installing on site"}
                 </Link>
                 <span>•</span>
                 <Link to="/docs/admin/tenant-settings" className="hover:text-white underline">
@@ -161,8 +164,8 @@ export default function DocsHomePage() {
           </h2>
           <p className="text-xs sm:text-sm text-[#77716E]">
             {isAr
-              ? "38 مقالاً هندسياً يغطي جميع طبقات النظام من المحاسبة إلى العتاد ونقاط النهاية"
-              : "38 articles covering all system layers from core ledger to hardware protocols"}
+              ? `${articleCount} مقالًا عن استخدام ميزان وإدارته وتشغيله`
+              : `${articleCount} articles on using, running and administering Mizan`}
           </p>
         </div>
 
@@ -192,6 +195,27 @@ export default function DocsHomePage() {
           ))}
         </div>
       </div>
+
+      {/* Building on Mizan has its own docs, on the developer platform (ADR-007). */}
+      <a
+        href={devUrl("/docs")}
+        className="flex flex-col gap-3 rounded-2xl border border-[#E7D6C1] bg-white p-6 shadow-xs transition-all hover:border-[#651E2C] sm:flex-row sm:items-center sm:justify-between"
+      >
+        <span className="flex items-start gap-3">
+          <Code2 className="mt-0.5 size-5 shrink-0 text-[#651E2C]" />
+          <span className="space-y-1">
+            <span className="block font-display text-lg font-bold text-[#262321]">{isAr ? "للمطورين" : "For developers"}</span>
+            <span className="block text-xs text-[#77716E]">
+              {isAr
+                ? "ابنِ وحدات لميزان واربطها بخادمك: التوثيق وبوابة المطورين على dev.allmizan.live"
+                : "Build modules for Mizan and connect your server: docs and the developer portal at dev.allmizan.live"}
+            </span>
+          </span>
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#651E2C]">
+          {isAr ? "توثيق المطورين" : "Developer docs"} <ArrowIcon className="size-3.5" />
+        </span>
+      </a>
     </div>
   );
 }

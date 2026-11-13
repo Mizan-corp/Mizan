@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-11-12). Details ADR-006's "Isolation" section and phases 6–7 (#104, #105).
+Accepted; milestone 1 built (2026-11-13, see "Milestone 1 as built"). Proposed 2026-11-12. Details ADR-006's "Isolation" section and phases 6–7 (#104, #105).
 Owner's decisions (2026-11-12): Mizan will move from Vercel to its own cluster of servers
 later, so **containers are the long-term sandbox**; the first milestone is **the developer portal,
 the docs and private modules**.
@@ -115,6 +115,42 @@ manifest declares and roles hold (ADR-006 D4): scopes limit the module, permissi
 5. Webhooks: delivery, signing, retries, logs.
 6. The SDK and CLI.
 7. The portal: developer accounts, teams, signing keys, CLI tokens; the docs.
+
+## Milestone 1 as built (2026-11-13)
+
+- **Platform** (`app/platform/community/`, always on): `community_modules`, `ext_records`,
+  `community_webhook_deliveries` (v69–v71, RLS). The standard admin holds every permission the
+  workspace's community modules declare; custom roles can be granted them. Install, update and
+  uninstall need `community.manage`. Screens at `/x/<module>/<entity>` in the app, menu group
+  "وحدات إضافية".
+- **Extension API** (`ext_api.py`): `/ext/v1` with an `mzx_` installation token (only its SHA-256
+  stored), 240 requests a minute; the module's records plus customers, suppliers, products,
+  stock, sales, employees and branches by scope. CSRF-exempt (bearer only).
+- **Webhooks** (`events.py`): recorded in the transaction that made the change, sent after the
+  commit, retried 1m/5m/30m/2h/6h/12h by the hourly `community_webhooks` job, HTTPS to public
+  hosts only, `Mizan-Signature: sha256=` HMAC over `"<timestamp>.<body>"`.
+- **Developer portal** (`app/platform/developers/`, v72; router `website_api/routers/developers.py`):
+  developer accounts (email login, separate from owners), teams (the handle is the module
+  namespace; some handles are reserved), members (owner/member; added by the email of an
+  existing developer), signing keys certified with `MZD1` (`key_id` = `<handle>-<8 hex>`,
+  up to 10 active per team; owners revoke), CLI tokens (`mzd_`, hashed). Portal sessions are
+  JWTs with scope `developer`; the CLI token reaches the same endpoints.
+- **Revocation**: installs in the cloud refuse packages signed with a revoked key (the system API
+  reads `developer_keys`). On-site installs verify offline and can't see revocations yet; they
+  will when they sync with the cloud.
+- **Signing key**: the website API certifies keys, so it needs `LICENSE_SIGNING_KEY` like the
+  owner API (outside production both derive a development key from `SECRET_KEY`).
+- **Frontend**: the website app serves the developer platform at the root of `dev.*` hosts and
+  under `/dev` elsewhere (`features/developers/paths.ts`): home, sign-in, the portal (teams,
+  keys, CLI tokens, account) and the docs (`devDocs.ts`, rendered by the docs components). The
+  old developer articles in the general docs were removed; the docs home links to the new ones.
+- **SDK** (`sdk/python`): `mizan login|whoami|logout`, `module new`, `check` (a byte copy of the
+  platform validator, kept identical by a test), `keys new [--team]` (registers the key and saves
+  its certificate when signed in), `package`. Until it is on PyPI, deploy builds the wheel into
+  the website's `public/sdk/` and the docs install it from `dev.allmizan.live/sdk/`.
+- **Not yet**: developer email verification and password reset (with the mail work), the
+  marketplace and paid modules (milestone 2), code modules (the cluster), installs from the owner
+  panel (the app's module centre does it today).
 
 ## Consequences
 

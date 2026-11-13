@@ -1,17 +1,20 @@
 """The `mizan` command: create, check and package community modules (ADR-007).
 
+  mizan login                         sign in with a CLI token from the developer portal
   mizan module new acme.visits        a starter module in ./acme.visits
   mizan check [folder]                what Mizan would refuse, before you package
-  mizan keys new                      a signing key; register its public part in the portal
+  mizan keys new --team acme          a signing key, certified by Mizan for your team
   mizan package [folder]              a signed .mzm for owners to install from file
 
-Keys live in ~/.mizan (MIZAN_HOME). The certificate the portal issues for your key is saved
-next to it as <key>.cert.
+Keys, certificates and credentials live in ~/.mizan (MIZAN_HOME). Signed in, `keys new` registers
+the key and saves its certificate as <key>.cert; otherwise register the printed public key in the
+portal and save the certificate there yourself.
 """
 from __future__ import annotations
 
 import argparse
 import base64
+import getpass
 import json
 import os
 import re
@@ -22,6 +25,8 @@ from mizan_sdk import __version__
 from mizan_sdk.package import PackageError, build, module_files, problems
 
 HOME = Path(os.environ.get("MIZAN_HOME", Path.home() / ".mizan"))
+PORTAL_API = os.environ.get("MIZAN_PORTAL_API", "https://web-api.allmizan.live/api")
+PORTAL = "https://dev.allmizan.live"
 MODULE_ID = re.compile(r"^[a-z][a-z0-9_]{1,31}\.[a-z][a-z0-9_]{1,47}$")
 
 
@@ -86,6 +91,67 @@ def cmd_check(a) -> int:
     return 0
 
 
+def _credentials() -> dict | None:
+    path = HOME / "credentials.json"
+    return json.loads(path.read_text()) if path.exists() else None
+
+
+def _portal(method: str, path: str, token: str, api: str, body: dict | None = None) -> dict:
+    from mizan_sdk.client import MizanClient
+
+    return MizanClient(token, base_url=f"{api.rstrip('/')}/developers").request(method, path, body)
+
+
+def cmd_login(a) -> int:
+    from mizan_sdk.client import MizanError
+
+    token = a.token or os.environ.get("MIZAN_TOKEN") or getpass.getpass(
+        f"CLI token (portal → CLI tokens, {PORTAL}/portal/tokens): ").strip()
+    if not token.startswith("mzd_"):
+        print("✘ A CLI token starts with mzd_", file=sys.stderr)
+        return 2
+    api = a.api or PORTAL_API
+    try:
+        me = _portal("GET", "/me", token, api)
+    except (MizanError, OSError) as e:
+        print(f"✘ The portal refused the token: {e}", file=sys.stderr)
+        return 1
+    HOME.mkdir(parents=True, exist_ok=True)
+    path = HOME / "credentials.json"
+    path.write_text(json.dumps({"token": token, "api": api}) + "\n", encoding="utf-8")
+    if os.name != "nt":
+        os.chmod(path, 0o600)
+    teams = ", ".join(t["handle"] for t in me.get("teams", [])) or "none yet (create one in the portal)"
+    print(f"✔ Signed in as {me['email']}. Teams: {teams}")
+    return 0
+
+
+def cmd_logout(a) -> int:
+    path = HOME / "credentials.json"
+    if path.exists():
+        path.unlink()
+    print("✔ Signed out (revoke the token in the portal if it may have leaked)")
+    return 0
+
+
+def cmd_whoami(a) -> int:
+    from mizan_sdk.client import MizanError
+
+    creds = _credentials()
+    if not creds:
+        print("Not signed in. Run `mizan login`.")
+        return 1
+    try:
+        me = _portal("GET", "/me", creds["token"], creds["api"])
+    except (MizanError, OSError) as e:
+        print(f"✘ {e}", file=sys.stderr)
+        return 1
+    print(f"{me['full_name']} <{me['email']}>")
+    for t in me.get("teams", []):
+        print(f"  {t['handle']}  ({t['role']})  {t['name']}")
+    return 0
+
+
 def cmd_keys_new(a) -> int:
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -102,8 +168,21 @@ def cmd_keys_new(a) -> int:
         os.chmod(path, 0o600)
     public = _b64e(key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw))
     print(f"✔ Private key: {path} (keep it secret, back it up)")
-    print("Register this public key in the developer portal (Keys → Add), then save the certificate it")
-    print(f"gives you as {HOME / (a.name + '.cert')}:")
+    creds = _credentials()
+    if creds and a.team:
+        from mizan_sdk.client import MizanError
+
+        try:
+            cert = _portal("POST", f"/teams/{a.team}/keys", creds["token"], creds["api"],
+                           {"public_key": public, "name": a.name})
+        except (MizanError, OSError) as e:
+            print(f"✘ Couldn't register it with team {a.team}: {e}", file=sys.stderr)
+            return 1
+        (HOME / f"{a.name}.cert").write_text(cert["certificate"] + "\n", encoding="utf-8")
+        print(f"✔ Certified for team {a.team} as {cert['key_id']}; certificate saved to {HOME / (a.name + '.cert')}")
+        return 0
+    print(f"Register this public key in the developer portal ({PORTAL}/portal → your team → Keys), then save the")
+    print(f"certificate it gives you as {HOME / (a.name + '.cert')}  (or `mizan login` and use --team):")
     print(public)
     return 0
 
@@ -138,6 +217,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--version", action="version", version=f"mizan-sdk {__version__}")
     sub = p.add_subparsers(dest="command", required=True)
 
+    login = sub.add_parser("login", help="sign in with a CLI token from the developer portal")
+    login.add_argument("--token", help="the mzd_ token (default: asked, or MIZAN_TOKEN)")
+    login.add_argument("--api", help=argparse.SUPPRESS)
+    login.set_defaults(func=cmd_login)
+    sub.add_parser("logout", help="forget the saved token").set_defaults(func=cmd_logout)
+    sub.add_parser("whoami", help="who you're signed in as, and your teams").set_defaults(func=cmd_whoami)
+
     module = sub.add_parser("module", help="create modules").add_subparsers(dest="action", required=True)
     new = module.add_parser("new", help="a starter module")
     new.add_argument("id", help="<developer>.<module>, e.g. acme.visits")
@@ -152,6 +238,7 @@ def main(argv: list[str] | None = None) -> int:
     kn = keys.add_parser("new", help="create a signing key")
     kn.add_argument("--name", default="default")
     kn.add_argument("--force", action="store_true")
+    kn.add_argument("--team", help="register it with this team and save its certificate (needs `mizan login`)")
     kn.set_defaults(func=cmd_keys_new)
 
     pkg = sub.add_parser("package", help="build a signed .mzm")

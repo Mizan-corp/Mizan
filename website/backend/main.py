@@ -1,8 +1,8 @@
-"""Mizan Website API: plans and self-serve signup for onboarding."""
+"""Mizan Website API: plans, self-serve signup, and the developer portal (ADR-007)."""
 from app.factory import create_app
-from website_api.routers import signup
+from website_api.routers import developers, signup
 
 app = create_app(
     title="Mizan Website API",
-    routers=[signup.router],
+    routers=[signup.router, developers.router],
 )
