@@ -485,6 +485,21 @@ async def test_paid_invoices_have_a_pdf_receipt():
         assert f"Mizan-receipt-{ref}.pdf" in r.headers["content-disposition"]
         assert (await c.get(f"/account/invoices/{ref}/receipt.pdf", headers=await login(c, other))).status_code == 404
 
+        # Where the server can't render PDFs (serverless hosting), the same receipt as a print page.
+        from app.platform.billing import receipt
+
+        async def no_pdf(*a, **kw):
+            raise OSError("cannot load library 'libpango-1.0-0'")
+
+        real, receipt.receipt_pdf = receipt.receipt_pdf, no_pdf
+        try:
+            r = await c.get(f"/account/invoices/{ref}/receipt.pdf", headers=h)
+        finally:
+            receipt.receipt_pdf = real
+        assert r.status_code == 200 and r.headers["content-type"].startswith("text/html")
+        assert f"Mizan-receipt-{ref}.html" in r.headers["content-disposition"]
+        assert ref in r.text and "window.print()" in r.text
+
 
 async def test_owners_rename_and_readdress_their_workspaces():
     """#74: name and URL name (the workspace's address), with the sign-up rules."""

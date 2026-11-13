@@ -158,6 +158,9 @@ export async function downloadExport(path: string, params?: Record<string, strin
   const res = await fetch(url.toString(), { headers: authHeaders() });
   if (!res.ok) throw new ApiError(res.status, `فشل تنزيل الملف (${res.status})`);
   const blob = await res.blob();
+  // A printable page instead of the PDF (e.g. receipts where the server can't render PDFs):
+  // keep the name, fix the extension so it opens in the browser.
+  if ((res.headers.get("content-type") ?? "").startsWith("text/html")) filename = filename.replace(/\.[a-z0-9]+$/i, "") + ".html";
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = filename;

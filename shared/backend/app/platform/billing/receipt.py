@@ -88,3 +88,20 @@ async def receipt_pdf(invoice: BillingInvoice, workspace_name: str, owner_name: 
 
     page = receipt_html(invoice, workspace_name, owner_name)
     return await asyncio.get_running_loop().run_in_executor(None, lambda: HTML(string=page).write_pdf())
+
+
+_PRINT_HELP = """<div class="no-print" style="margin:0 0 18px;padding:10px 14px;border-radius:8px;background:#F5EBDD;font-size:13px">
+لحفظ الإيصال ملفًا: اختر «حفظ بصيغة PDF» في نافذة الطباعة.</div>
+<style>@media print { .no-print { display: none } }</style>
+<script>window.addEventListener("load", () => setTimeout(() => window.print(), 400));</script>"""
+
+
+async def receipt_file(invoice: BillingInvoice, workspace_name: str, owner_name: str | None) -> tuple[bytes, str, str]:
+    """(content, media type, file extension): the PDF, or where WeasyPrint's system libraries
+    aren't installed (serverless hosting) the same receipt as a page that opens the print dialog,
+    to save as PDF from the browser."""
+    try:
+        return await receipt_pdf(invoice, workspace_name, owner_name), "application/pdf", "pdf"
+    except (OSError, ImportError):
+        page = receipt_html(invoice, workspace_name, owner_name).replace("<body>", "<body>" + _PRINT_HELP, 1)
+        return page.encode(), "text/html; charset=utf-8", "html"

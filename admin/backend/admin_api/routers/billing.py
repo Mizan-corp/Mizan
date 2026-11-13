@@ -105,7 +105,7 @@ async def invoice_receipt(ref: str, db: AsyncSession = Depends(get_db), _: User 
     from fastapi.responses import Response
 
     from app.platform.auth.models.owner import OwnerAccount
-    from app.platform.billing.receipt import receipt_pdf
+    from app.platform.billing.receipt import receipt_file
     from app.platform.tenancy.models import Tenant
 
     row = (await db.execute(
@@ -118,6 +118,6 @@ async def invoice_receipt(ref: str, db: AsyncSession = Depends(get_db), _: User 
     invoice, tenant, owner = row
     if invoice.status != "paid":
         raise HTTPException(status_code=409, detail="Receipts exist for paid invoices only")
-    pdf = await receipt_pdf(invoice, tenant.name, (owner.full_name or owner.login) if owner else None)
-    return Response(pdf, media_type="application/pdf",
-                    headers={"Content-Disposition": f'attachment; filename="Mizan-receipt-{invoice.invoice_ref}.pdf"'})
+    content, media, ext = await receipt_file(invoice, tenant.name, (owner.full_name or owner.login) if owner else None)
+    return Response(content, media_type=media,
+                    headers={"Content-Disposition": f'attachment; filename="Mizan-receipt-{invoice.invoice_ref}.{ext}"'})
