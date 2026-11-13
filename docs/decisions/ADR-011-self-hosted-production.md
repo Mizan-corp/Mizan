@@ -3,7 +3,16 @@
 ## Status
 Accepted and done (2026-11-13). Production moved at 15:48 UTC; the Vercel projects, their Blob
 store, the domain on Vercel and the Vercel secrets and workflows were removed the same day. Neon
-is kept read-only for a few days as a fallback. Replaces the hosting parts of ADR-003 and ADR-008 (the domains
+is kept read-only for a few days as a fallback.
+
+**Temporarily back on Vercel (2026-11-13, 16:34 UTC onward):** `homie` went offline (power or
+connection) 40 minutes after the move. Production was restored on Vercel + Neon: 8 projects
+recreated (same names, linked to GitHub, deploying `master`; each builds only when its folder or
+`shared/` changes), Cloudflare DNS pointing `allmizan.live` and `*.allmizan.live` at Vercel
+(DNS-only; `_acme-challenge` delegated to Vercel for the wildcard certificate), Neon writable, and
+`migrate-neon.yml` migrating it on each push. "Deploy (server)" is disabled. Writes made on the
+server between 15:52 and 16:34 UTC are only in its database. To return: copy Neon to the server,
+point DNS back at the tunnel, re-enable the server workflow, remove the Vercel bits again. Replaces the hosting parts of ADR-003 and ADR-008 (the domains
 and the four products stay as they were).
 
 ## Context

@@ -1,0 +1,14 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/$1"
+    }
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "master": true,
+      "adr-006/phase-1": false
+    }
+  }
+}
