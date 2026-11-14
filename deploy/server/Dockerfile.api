@@ -20,13 +20,15 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONPATH=/shared \
     MIZAN_BACKENDS=/srv/mizan \
-    UPLOAD_DIR=/data/uploads
+    UPLOAD_DIR=/data/uploads \
+    XDG_CACHE_HOME=/tmp/.cache
 RUN apt-get update --fix-missing && \
     apt-get install -y --no-install-recommends \
       libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 \
       libcairo2 libgdk-pixbuf-2.0-0 shared-mime-info fonts-noto-core \
       postgresql-client && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    fc-cache -f  # fonts indexed once here; PDFs (WeasyPrint) don't rescan them on every render
 COPY --from=builder /install/ /usr/local/
 RUN addgroup --system --gid 10001 mizan && adduser --system --uid 10001 --ingroup mizan mizan && \
     mkdir -p /data/uploads && chown -R mizan:mizan /data

@@ -27,11 +27,11 @@ async def get_invoice_pdf(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Generate and return styled branded PDF for an invoice."""
-    pdf_bytes, sale = await invoices_service.render_pdf(db, invoice_id, current_user.tenant_id)
+    """The invoice as a branded PDF (or a printable page where the server can't render PDFs)."""
+    content, media, ext, sale = await invoices_service.render_file(db, invoice_id, current_user.tenant_id)
     inv_num = sale.get("invoice_number", str(invoice_id))
-    return Response(content=pdf_bytes, media_type="application/pdf",
-                    headers={"Content-Disposition": f'inline; filename="invoice-{inv_num}.pdf"'})
+    return Response(content=content, media_type=media,
+                    headers={"Content-Disposition": f'inline; filename="invoice-{inv_num}.{ext}"'})
 
 
 @router.post("/{invoice_id}/send")

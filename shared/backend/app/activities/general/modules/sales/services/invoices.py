@@ -1,5 +1,4 @@
 """Invoices: the branded invoice document (HTML, PDF) and sending it by email."""
-import asyncio
 import re
 import uuid
 from datetime import datetime
@@ -203,12 +202,14 @@ async def _render_invoice_html(db: AsyncSession, invoice_id: uuid.UUID, tenant_i
     return html, sale
 
 
-async def render_pdf(db: AsyncSession, invoice_id: uuid.UUID, tenant_id) -> tuple[bytes, dict]:
-    from weasyprint import HTML
+async def render_file(db: AsyncSession, invoice_id: uuid.UUID, tenant_id) -> tuple[bytes, str, str, dict]:
+    """(content, media type, extension, sale): the invoice PDF, or a printable page where the
+    server can't render PDFs (#118)."""
+    from app.platform.printing.fallback import pdf_or_page
 
     html, sale = await _render_invoice_html(db, invoice_id, tenant_id)
-    pdf = await asyncio.get_running_loop().run_in_executor(None, lambda: HTML(string=html).write_pdf())
-    return pdf, sale
+    content, media, ext = await pdf_or_page(html)
+    return content, media, ext, sale
 
 
 async def email_invoice(db: AsyncSession, invoice_id: uuid.UUID, to_email: str | None, subject: str | None, user) -> dict:
@@ -217,7 +218,7 @@ async def email_invoice(db: AsyncSession, invoice_id: uuid.UUID, to_email: str |
     recipient = (to_email or "").strip()
     if not EMAIL.match(recipient):
         raise HTTPException(400, "أدخل بريدًا إلكترونيًا صحيحًا للعميل")
-    pdf, sale = await render_pdf(db, invoice_id, user.tenant_id)
+    content, media, ext, sale = await render_file(db, invoice_id, user.tenant_id)
     inv_num = sale.get("invoice_number", str(invoice_id))
     body = f"""
     <div dir="rtl" style="font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b;">
@@ -229,7 +230,7 @@ async def email_invoice(db: AsyncSession, invoice_id: uuid.UUID, to_email: str |
     """
     res = await send_email(to_email=recipient, subject=subject or f"فاتورة إلكترونية رقم {inv_num} من منصة ميزان",
                            html_content=body,
-                           attachments=[{"filename": f"invoice-{inv_num}.pdf", "content": pdf, "type": "application/pdf"}])
+                           attachments=[{"filename": f"invoice-{inv_num}.{ext}", "content": content, "type": media.split(";")[0]}])
     if not res.get("ok", True):
         raise HTTPException(502, "تعذر إرسال البريد الإلكتروني، حاول مرة أخرى")
 
