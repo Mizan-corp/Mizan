@@ -4,6 +4,7 @@ import {
   FileText,
   HandCoins,
   Plus,
+  Power,
   Search,
   ShieldAlert,
   UserCheck,
@@ -17,6 +18,7 @@ import { D, dateTime, moneyEGP } from "@/lib/format";
 import { Button, Card, Empty, ErrorBox, Input, Modal, Spinner, useToast } from "@/components/ui";
 import { sound } from "@/lib/sound";
 import { RecordFormFields, cleanExtra, missingRequired, useRecordForm, type ExtraValues } from "@app/framework/forms";
+import { PaySourceSelect, sourceFields } from "@app/components/PaySourceSelect";
 
 interface Customer {
   id: string;
@@ -24,14 +26,31 @@ interface Customer {
   phone: string | null;
   balance: string;
   credit_limit: string | null;
+  is_active: boolean;
 }
 
+/** One line of GET /customers/{id}/ledger (the last element is a pagination marker). */
 interface LedgerEntry {
-  id: string;
-  description: string | null;
-  debit: string | null;
-  credit: string | null;
-  created_at: string;
+  type: "invoice" | "return" | "payment" | "opening" | "adjustment";
+  ref: string;
+  amount: number;
+  date: string;
+  note?: string | null;
+}
+
+const LEDGER_LABEL: Record<LedgerEntry["type"], string> = {
+  invoice: "فاتورة آجلة",
+  return: "مرتجع",
+  payment: "دفعة",
+  opening: "رصيد افتتاحي",
+  adjustment: "تسوية رصيد",
+};
+
+/** Whether a ledger line raises (debit) or lowers (credit) what the customer owes, and by how much. */
+function ledgerSides(l: LedgerEntry): { debit: number | null; credit: number | null } {
+  if (l.type === "invoice") return { debit: l.amount, credit: null };
+  if (l.type === "return" || l.type === "payment") return { debit: null, credit: l.amount };
+  return l.amount >= 0 ? { debit: l.amount, credit: null } : { debit: null, credit: -l.amount };
 }
 
 export default function CustomersPage() {
@@ -45,15 +64,21 @@ export default function CustomersPage() {
   const [ledgerFor, setLedgerFor] = useState<Customer | null>(null);
   const [payFor, setPayFor] = useState<Customer | null>(null);
   const [payAmount, setPayAmount] = useState("");
+  const [paySource, setPaySource] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
 
   const list = useQuery({
-    queryKey: ["customers", search],
-    queryFn: () => api.get<Customer[]>("/customers", { search: search.trim() || undefined }),
+    queryKey: ["customers", search, showInactive],
+    queryFn: () =>
+      api.get<Customer[]>("/customers", { search: search.trim() || undefined, include_inactive: showInactive ? "true" : undefined }),
   });
 
   const ledger = useQuery({
     queryKey: ["customer-ledger", ledgerFor?.id],
-    queryFn: () => api.get<LedgerEntry[]>(`/customers/${ledgerFor!.id}/ledger`),
+    queryFn: async () => {
+      const rows = await api.get<(LedgerEntry | { __pagination: unknown })[]>(`/customers/${ledgerFor!.id}/ledger`);
+      return rows.filter((r): r is LedgerEntry => !("__pagination" in r));
+    },
     enabled: !!ledgerFor,
   });
 
@@ -78,15 +103,32 @@ export default function CustomersPage() {
 
   const { toast } = useToast();
   const pay = useMutation({
-    mutationFn: () => api.post(`/customers/${payFor!.id}/payments`, { amount: D(payAmount).toNumber() }),
+    mutationFn: () =>
+      api.post(`/customers/${payFor!.id}/payments`, { amount: D(payAmount).toNumber(), method: "cash", ...sourceFields(paySource) }),
     onSuccess: () => {
       sound.success();
       setPayFor(null);
       setPayAmount("");
+      setPaySource("");
+      qc.invalidateQueries({ queryKey: ["safes"] });
+      qc.invalidateQueries({ queryKey: ["wallets"] });
       toast("success", "تم تسجيل دفعة العميل بنجاح");
       qc.invalidateQueries({ queryKey: ["customers"] });
     },
     onError: () => sound.error(),
+  });
+
+  const setActive = useMutation({
+    mutationFn: (c: Customer) => api.post(`/customers/${c.id}/${c.is_active ? "deactivate" : "activate"}`),
+    onSuccess: (_d, c) => {
+      sound.success();
+      toast("success", c.is_active ? "تم إيقاف العميل" : "تمت إعادة تفعيل العميل");
+      qc.invalidateQueries({ queryKey: ["customers"] });
+    },
+    onError: (e) => {
+      sound.error();
+      toast("error", (e as Error).message);
+    },
   });
 
   // Calculate Accounts Receivable (AR) KPIs
@@ -180,7 +222,8 @@ export default function CustomersPage() {
       </div>
 
       {/* Search Bar */}
-      <div className="relative rounded-xl border border-border/80 bg-card p-2.5 shadow-xs">
+      <div className="flex flex-wrap items-center gap-3">
+      <div className="relative flex-1 rounded-xl border border-border/80 bg-card p-2.5 shadow-xs">
         <Search className="absolute start-5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="ابحث باسم العميل أو رقم الهاتف…"
@@ -200,6 +243,11 @@ export default function CustomersPage() {
             ✕
           </button>
         )}
+      </div>
+      <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+        إظهار العملاء الموقوفين
+      </label>
       </div>
 
       {/* Customers List Table */}
@@ -244,7 +292,12 @@ export default function CustomersPage() {
                       className="border-b border-border/40 text-xs transition-colors hover:bg-muted/30 last:border-0"
                     >
                       <TableCell className="p-3 font-semibold text-foreground">
-                        {c.name}
+                        <span className="flex items-center gap-2">
+                          {c.name}
+                          {!c.is_active && (
+                            <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">موقوف</Badge>
+                          )}
+                        </span>
                       </TableCell>
 
                       <TableCell className="num p-3 text-xs text-muted-foreground" dir="ltr">
@@ -290,6 +343,17 @@ export default function CustomersPage() {
                           >
                             <FileText className="size-3.5" />
                             كشف حساب
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => setActive.mutate(c)}
+                            disabled={setActive.isPending}
+                            aria-label={c.is_active ? `إيقاف ${c.name}` : `تفعيل ${c.name}`}
+                          >
+                            <Power className="size-3.5" />
+                            {c.is_active ? "إيقاف" : "تفعيل"}
                           </Button>
 
                           {isDue ? (
@@ -383,7 +447,7 @@ export default function CustomersPage() {
       </Modal>
 
       {/* Collect Payment Dialog */}
-      <Modal open={!!payFor} onClose={() => setPayFor(null)} title={`تحصيل دفعة نقدية — ${payFor?.name ?? ""}`}>
+      <Modal open={!!payFor} onClose={() => setPayFor(null)} title={`تحصيل دفعة — ${payFor?.name ?? ""}`}>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -411,6 +475,21 @@ export default function CustomersPage() {
               onChange={(e) => setPayAmount(e.target.value)}
               required
             />
+          </div>
+
+          <div>
+            <label htmlFor="pay-source" className="mb-1.5 block text-xs font-semibold text-foreground">
+              استُلم المبلغ في
+            </label>
+            <PaySourceSelect
+              id="pay-source"
+              value={paySource}
+              onChange={setPaySource}
+              emptyLabel="درج ورديتي المفتوحة (نقدي)"
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              بدون وردية مفتوحة اختر الخزنة أو الحساب البنكي أو المحفظة التي استلمت المبلغ.
+            </p>
           </div>
 
           {pay.isError && <ErrorBox message={(pay.error as Error).message} />}
@@ -453,25 +532,29 @@ export default function CustomersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {ledger.data.map((l) => (
-                    <TableRow
-                      key={l.id}
-                      className="border-b border-border/40 text-xs hover:bg-muted/30 last:border-0"
-                    >
-                      <TableCell className="num p-3 text-xs text-muted-foreground">
-                        {dateTime(l.created_at)}
-                      </TableCell>
-                      <TableCell className="p-3 font-medium text-foreground">
-                        {l.description ?? "—"}
-                      </TableCell>
-                      <TableCell className="num p-3 font-bold text-destructive-ink">
-                        {l.debit ? moneyEGP(l.debit) : "—"}
-                      </TableCell>
-                      <TableCell className="num p-3 font-bold text-emerald-600 dark:text-emerald-400">
-                        {l.credit ? moneyEGP(l.credit) : "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {ledger.data.map((l, i) => {
+                    const { debit, credit } = ledgerSides(l);
+                    return (
+                      <TableRow
+                        key={`${l.type}-${l.ref}-${i}`}
+                        className="border-b border-border/40 text-xs hover:bg-muted/30 last:border-0"
+                      >
+                        <TableCell className="num p-3 text-xs text-muted-foreground">
+                          {dateTime(l.date)}
+                        </TableCell>
+                        <TableCell className="p-3 font-medium text-foreground">
+                          {LEDGER_LABEL[l.type] ?? l.type} <span className="num text-muted-foreground">#{l.ref}</span>
+                          {l.note ? <span className="text-muted-foreground"> — {l.note}</span> : null}
+                        </TableCell>
+                        <TableCell className="num p-3 font-bold text-destructive-ink">
+                          {debit != null ? moneyEGP(debit) : "—"}
+                        </TableCell>
+                        <TableCell className="num p-3 font-bold text-emerald-600 dark:text-emerald-400">
+                          {credit != null ? moneyEGP(credit) : "—"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
