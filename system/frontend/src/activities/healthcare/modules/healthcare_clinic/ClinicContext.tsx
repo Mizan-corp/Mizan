@@ -2,7 +2,7 @@ import { createContext, useContext } from "react";
 import type { ClinicPerms } from "./permissions";
 import type { ClinicActions } from "./useClinicActions";
 import type { ClinicData, Paging } from "./useClinicData";
-import type { Bed, ClinicTab, Encounter, LabOrder, PatientRef, Prescription } from "./types";
+import type { Bed, ChartSection, ClinicTab, Encounter, LabOrder, PatientRef, Prescription } from "./types";
 
 export interface PagingControl extends Paging {
   setPage: (page: number) => void;
@@ -19,6 +19,7 @@ export type ClinicDialog =
   | { kind: "admit"; bed: Bed }
   | { kind: "labResult"; order: LabOrder }
   | { kind: "referral"; patient: PatientRef; encounterId?: string }
+  | { kind: "chart"; patient: PatientRef; section?: ChartSection; encounterId?: string }
   | null;
 
 // The page (ClinicHealthcarePage) provides the data, the acting role's permissions, the row actions

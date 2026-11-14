@@ -121,6 +121,7 @@ class ClinicEncounter(TenantScoped, Base):
     heart_rate: Mapped[int] = mapped_column(Integer, default=72)
     temperature: Mapped[float] = mapped_column(Float, default=37.0)
     spo2: Mapped[int] = mapped_column(Integer, default=98)
+    blood_glucose: Mapped[float | None] = mapped_column(Float, nullable=True)  # mg/dL (#42)
     chief_complaint: Mapped[str] = mapped_column(Text)
     icd10_code: Mapped[str] = mapped_column(String(32), index=True)  # e.g. E11.9, I10, J06.9
     icd10_description: Mapped[str] = mapped_column(String(256))

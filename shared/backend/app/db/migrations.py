@@ -3490,6 +3490,10 @@ MIGRATIONS = [
         CREATE POLICY tenant_isolation ON clinic_referrals
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    # #42: encounters record blood glucose (mg/dL) next to the other vitals, for the trend charts.
+    ("v87_clinic_encounter_glucose", """
+        ALTER TABLE clinic_encounters ADD COLUMN IF NOT EXISTS blood_glucose double precision;
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

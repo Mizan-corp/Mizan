@@ -1,7 +1,7 @@
 import { Badge } from "@/components/kit/badge";
 import { Button } from "@/components/kit/button";
 import { Card } from "@/components/kit/card";
-import { ArrowLeftRight, HeartPulse, Plus } from "lucide-react";
+import { Activity, ArrowLeftRight, HeartPulse, Plus } from "lucide-react";
 import { sound } from "@/lib/sound";
 import { useClinic } from "../ClinicContext";
 import QueryState from "../components/QueryState";
@@ -80,8 +80,8 @@ export default function EMRTab() {
                 <div className="num text-xs font-bold text-foreground">{enc.spo2}%</div>
               </div>
               <div>
-                <div className="text-[10px] text-muted-foreground">التشخيص</div>
-                <div className="num text-xs font-bold text-primary">{enc.icd10_code}</div>
+                <div className="text-[10px] text-muted-foreground">سكر الدم</div>
+                <div className="num text-xs font-bold text-foreground">{enc.blood_glucose ?? "—"}</div>
               </div>
             </div>
 
@@ -97,15 +97,20 @@ export default function EMRTab() {
               </div>
             </div>
 
-            {perms.doctor && (
-              <div className="flex justify-end">
+            <div className="flex justify-end gap-1.5">
+              <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1 border-primary/30"
+                onClick={() => openDialog({ kind: "chart", patient: { id: enc.patient_id, full_name: enc.patient_name }, encounterId: enc.id })}>
+                <Activity className="size-3" />
+                مؤشرات المريض
+              </Button>
+              {perms.doctor && (
                 <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1 border-primary/30"
                   onClick={() => openDialog({ kind: "referral", patient: { id: enc.patient_id, full_name: enc.patient_name }, encounterId: enc.id })}>
                   <ArrowLeftRight className="size-3" />
                   إحالة
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </Card>
         ))}
         {filteredEncounters.length === 0 && (

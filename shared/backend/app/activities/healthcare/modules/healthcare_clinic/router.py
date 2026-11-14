@@ -42,6 +42,7 @@ from app.activities.healthcare.modules.healthcare_clinic.schemas import (
     CareTeamAdd,
 )
 from app.activities.healthcare.modules.healthcare_clinic import scheduling as sched
+from app.activities.healthcare.modules.healthcare_clinic.routes import charts as chart_routes
 from app.activities.healthcare.modules.healthcare_clinic.routes import referrals as referral_routes
 from app.activities.healthcare.modules.healthcare_clinic.routes import scheduling as scheduling_routes
 from app.activities.healthcare.modules.healthcare_clinic import service as access
@@ -134,6 +135,7 @@ class EncounterCreate(BaseModel):
     heart_rate: int = 72
     temperature: float = 37.0
     spo2: int = 98
+    blood_glucose: float | None = Field(None, ge=10, le=1500, description="سكر الدم mg/dL")
     chief_complaint: str
     icd10_code: str
     icd10_description: str
@@ -1234,6 +1236,7 @@ async def create_encounter(
         heart_rate=payload.heart_rate,
         temperature=payload.temperature,
         spo2=payload.spo2,
+        blood_glucose=payload.blood_glucose,
         chief_complaint=payload.chief_complaint,
         icd10_code=payload.icd10_code,
         icd10_description=payload.icd10_description,
@@ -2069,3 +2072,4 @@ async def seed_clinic_data(
 # ─── Route areas in routes/ (under /clinic, behind the same guards) ─────────
 router.include_router(scheduling_routes.router)
 router.include_router(referral_routes.router)
+router.include_router(chart_routes.router)

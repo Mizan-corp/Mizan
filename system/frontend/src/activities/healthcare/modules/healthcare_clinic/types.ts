@@ -75,6 +75,7 @@ export interface Encounter {
   heart_rate: number;
   temperature: number;
   spo2: number;
+  blood_glucose?: number | null;
   chief_complaint: string;
   icd10_code: string;
   icd10_description: string;
@@ -260,3 +261,26 @@ export interface ReferralDetail extends Referral {
     | "bp_diastolic" | "heart_rate" | "temperature" | "spo2" | "chief_complaint" | "icd10_code" | "icd10_description"
     | "clinical_notes">) | null;
 }
+
+/** GET /clinic/patients/{id}/vitals-history (#42): one point per encounter, oldest first; null = not recorded. */
+export interface VitalsPoint {
+  encounter_id: string;
+  encounter_ref: string;
+  date: string;
+  bp_systolic: number | null;
+  bp_diastolic: number | null;
+  heart_rate: number | null;
+  spo2: number | null;
+  temperature: number | null;
+  blood_glucose: number | null;
+}
+
+export interface VitalsHistory {
+  patient_id: string;
+  patient_name: string;
+  points: VitalsPoint[];
+  glucose_labs: { order_ref: string; test_name: string; value: number; unit: string; date: string }[];
+}
+
+/** The patient chart dialog's sections. */
+export type ChartSection = "vitals";

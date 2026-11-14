@@ -45,6 +45,9 @@ department's name. New bookings store `time_slot` as `HH:MM` (24h); older rows k
 ("10:30 AM"), which the booking rules still read. No two non-cancelled appointments overlap for the
 same doctor or the same room on a date (checked by the API: each lasts its doctor's roster slot).
 
+`clinic_encounters.blood_glucose` (v87, #42): blood glucose in mg/dL, nullable (not every visit
+measures it), next to the other vitals; `GET /clinic/patients/{id}/vitals-history` charts them.
+
 Besides the ERP's own records, every workspace has (all tenant-scoped, with RLS):
 
 | Table | What it holds |

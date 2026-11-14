@@ -107,6 +107,16 @@ name). `GET /clinic/summary` returns the money figures only to `clinic:billing`.
   (`components/ReferralDialog.tsx`). Migration `v86_clinic_referrals`; tests
   `system/backend/tests/test_clinic_referrals.py`.
 
+## Vitals trends (#42)
+
+`GET /clinic/patients/{id}/vitals-history` (access to the record, logged as `vitals`): per
+encounter, oldest first, blood pressure, heart rate, SpO2, temperature and blood glucose (null when
+not recorded), plus reported numeric blood-glucose lab results (`glucose_labs`). Encounters record
+`blood_glucose` (mg/dL, optional; migration `v87_clinic_encounter_glucose`). Screen: the patient
+chart dialog (`components/PatientChartDialog.tsx` → `VitalsPanel.tsx`: latest values with
+sparklines, Recharts trend lines through the kit's `ChartContainer`), opened from «الملف» on a
+patient row and «مؤشرات المريض» on an encounter card. Tests `system/backend/tests/test_clinic_vitals.py`.
+
 Route guards are in `guards.py` (shared by `router.py` and `routes/`); the route areas in
 `routes/` are included by `router.py` under `/clinic`.
 

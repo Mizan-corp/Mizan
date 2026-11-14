@@ -17,7 +17,7 @@ export function ClinicModal({
   icon: ReactNode;
   subtitle?: ReactNode;
   onClose: () => void;
-  size?: "md" | "lg";
+  size?: "md" | "lg" | "xl";
   scroll?: boolean;
   children: ReactNode;
 }) {
@@ -34,7 +34,7 @@ export function ClinicModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`w-full ${size === "lg" ? "max-w-lg" : "max-w-md"} p-6 bg-card border-border shadow-2xl relative text-right ${scroll ? "max-h-[90vh] overflow-y-auto" : ""}`}
+        className={`w-full ${size === "xl" ? "max-w-4xl" : size === "lg" ? "max-w-lg" : "max-w-md"} p-6 bg-card border-border shadow-2xl relative text-right ${scroll ? "max-h-[90vh] overflow-y-auto" : ""}`}
         dir="rtl"
       >
         <button

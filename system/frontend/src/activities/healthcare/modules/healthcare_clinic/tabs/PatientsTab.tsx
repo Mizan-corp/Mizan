@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "@/components/kit/table";
 import { useState } from "react";
-import { AlertCircle, Lock, ShieldAlert, UserPlus, Users, UsersRound } from "lucide-react";
+import { AlertCircle, FolderHeart, Lock, ShieldAlert, UserPlus, Users, UsersRound } from "lucide-react";
 import { sound } from "@/lib/sound";
 import { useClinic } from "../ClinicContext";
 import QueryState from "../components/QueryState";
@@ -172,6 +172,18 @@ export default function PatientsTab() {
                     className="text-[10px] h-7 px-2 border-primary/30 text-foreground hover:bg-primary/5"
                   >
                     روشتة e-Rx
+                  </Button>
+                  )}
+                  {pat.clinical_access && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openDialog({ kind: "chart", patient: { id: pat.id, full_name: pat.full_name } })}
+                    aria-label={`الملف السريري لـ ${pat.full_name}`}
+                    className="text-[10px] h-7 px-2 border-primary/30 text-foreground hover:bg-primary/5 gap-1"
+                  >
+                    <FolderHeart className="size-3" />
+                    الملف
                   </Button>
                   )}
                   {perms.doctor && pat.clinical_access && (
