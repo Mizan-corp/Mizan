@@ -1,4 +1,4 @@
-# HLT-11 — الأشعة والتصوير الطبي (RIS/PACS) (Radiology & Imaging Management (RIS/PACS))
+# HLT-11 — الأشعة والتصوير الطبي (RIS/PACS) (Radiology & Imaging Management (RIS/PACS)) (planned)
 
 ## Overview
 طلبات الأشعة (X-Ray, CT, MRI, US)، أجهزة التصوير، تقارير أطباء الأشعة، وحالة الفحوصات.

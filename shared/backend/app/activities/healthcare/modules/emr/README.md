@@ -1,4 +1,4 @@
-# HLT-05 — السجل الطبي الإلكتروني التراكمي (Longitudinal Electronic Medical Records (EMR))
+# HLT-05 — السجل الطبي الإلكتروني التراكمي (Longitudinal Electronic Medical Records (EMR)) (planned)
 
 ## Overview
 العلامات الحيوية، التاريخ المرضي والجراحي، الحساسيات الدوائية، الأمراض المزمنة، والمرفقات.

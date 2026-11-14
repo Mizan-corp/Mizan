@@ -1,4 +1,4 @@
-# HLT-17 — المستودعات الطبية والمشتريات (Medical Inventory & Procurement)
+# HLT-17 — المستودعات الطبية والمشتريات (Medical Inventory & Procurement) (planned)
 
 ## Overview
 المستلزمات الطبية، أدوات الجراحة، تتبع التشغيلات والصلاحيات، طلبات الشراء، وأرصدة الأقسام.

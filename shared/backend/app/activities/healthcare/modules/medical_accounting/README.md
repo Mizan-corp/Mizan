@@ -1,4 +1,4 @@
-# HLT-18 — المحاسبة الطبية ومراكز التكلفة (Accounting & Healthcare Financial Management)
+# HLT-18 — المحاسبة الطبية ومراكز التكلفة (Accounting & Healthcare Financial Management) (planned)
 
 ## Overview
 مراكز تكلفة الأقسام، عمولات وأتعاب الأطباء، إيرادات العيادات والأجنحة، وقيود اليومية التلقائية.

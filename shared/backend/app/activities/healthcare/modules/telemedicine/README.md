@@ -1,4 +1,4 @@
-# HLT-22 — الطب الاتصالي والاستشارات المرئية (Telemedicine & Virtual Consultations)
+# HLT-22 — الطب الاتصالي والاستشارات المرئية (Telemedicine & Virtual Consultations) (planned)
 
 ## Overview
 جلسات الفيديو المشفرة، غرف الانتظار الافتراضية، التوثيق السريري عن بعد، والروشتات الرقمية.

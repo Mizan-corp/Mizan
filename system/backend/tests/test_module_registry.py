@@ -225,7 +225,12 @@ def test_module_paths_are_valid_on_windows():
 def test_legacy_ids_point_to_current_modules():
     from app.catalog import canonical_modules, legacy_ids
 
-    current = {m.id for m in registry.get_all_manifests()}
+    # Planned modules count: an old id may map to a module that isn't built (mounted) yet.
+    import json
+
+    from app.framework.loader import manifest_files
+
+    current = {json.loads(f.read_text(encoding="utf-8")).get("id", f.parent.name) for f in manifest_files()}
     for old, new in legacy_ids().items():
         assert old not in current, old
         assert new in current, f"{old} -> {new}"

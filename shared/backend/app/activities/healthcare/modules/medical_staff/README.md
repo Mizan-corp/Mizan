@@ -1,4 +1,4 @@
-# HLT-04 — الأطباء والكوادر الطبية (Doctor & Medical Staff Management)
+# HLT-04 — الأطباء والكوادر الطبية (Doctor & Medical Staff Management) (planned)
 
 ## Overview
 ملفات الأطباء، التخصصات، التراخيص المهنية، بدلات الكشفية، وجداول المناوبات والورديات.

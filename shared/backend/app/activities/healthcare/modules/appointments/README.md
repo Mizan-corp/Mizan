@@ -1,4 +1,4 @@
-# HLT-03 — المواعيد وجدولة الأطباء (Appointment & Scheduling Management)
+# HLT-03 — المواعيد وجدولة الأطباء (Appointment & Scheduling Management) (planned)
 
 ## Overview
 حجز المواعيد، جداول الأطباء، منع التعارض، قوائم الانتظار، وإدارة دور الانتظار اللحظي.

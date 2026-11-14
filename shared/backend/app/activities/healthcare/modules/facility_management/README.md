@@ -1,4 +1,4 @@
-# HLT-01 — إدارة المنشآت والمرافق الصحية (Healthcare Facility & Organization Management)
+# HLT-01 — إدارة المنشآت والمرافق الصحية (Healthcare Facility & Organization Management) (planned)
 
 ## Overview
 إدارة المنشآت الطبية، المستشفيات، الفروع، الأقسام، العيادات، وساعات العمل والاعتمادات.

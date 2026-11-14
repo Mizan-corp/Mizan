@@ -1,4 +1,4 @@
-# HLT-07 — التنويم والإدخال والخروج (ADT) (Inpatient Admission & Discharge Management)
+# HLT-07 — التنويم والإدخال والخروج (ADT) (Inpatient Admission & Discharge Management) (planned)
 
 ## Overview
 أوامر التنويم، تسكين الأسرة، تحويلات الأجنحة، ملخصات الخروج، ومتابعة الإقامة السريرية.

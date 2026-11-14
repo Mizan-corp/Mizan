@@ -183,32 +183,32 @@ Turns on: `healthcare_clinic`, `pharmacy`, `finance`, `inventory`, `hr`.
 
 | Module | Name | Status | What it does |
 |---|---|---|---|
-| `admissions` | Inpatient Admission & Discharge Management | **active** | أوامر التنويم، تسكين الأسرة، تحويلات الأجنحة، ملخصات الخروج، ومتابعة الإقامة السريرية. |
-| `appointments` | Appointment & Scheduling Management | **active** | حجز المواعيد، جداول الأطباء، منع التعارض، قوائم الانتظار، وإدارة دور الانتظار اللحظي. |
-| `beds` | Bed, Ward & Room Management | **active** | مخطط الأجنحة، حالة الأسرة اللحظية (شاغر، مشغول، تعقيم، صيانة)، وتسعيرة الإقامة اليومية. |
-| `consultation` | Consultation & Clinical Workflow | **active** | توثيق الكشف السريري (SOAP)، الشكوى الحالية، التشخيص (ICD-10)، الوصفات والطلبات الطبية. |
+| `admissions` | Inpatient Admission & Discharge Management | *planned* | أوامر التنويم، تسكين الأسرة، تحويلات الأجنحة، ملخصات الخروج، ومتابعة الإقامة السريرية. |
+| `appointments` | Appointment & Scheduling Management | *planned* | حجز المواعيد، جداول الأطباء، منع التعارض، قوائم الانتظار، وإدارة دور الانتظار اللحظي. |
+| `beds` | Bed, Ward & Room Management | *planned* | مخطط الأجنحة، حالة الأسرة اللحظية (شاغر، مشغول، تعقيم، صيانة)، وتسعيرة الإقامة اليومية. |
+| `consultation` | Consultation & Clinical Workflow | *planned* | توثيق الكشف السريري (SOAP)، الشكوى الحالية، التشخيص (ICD-10)، الوصفات والطلبات الطبية. |
 | `electronic_prescriptions` | Electronic prescriptions | *planned* |  |
-| `emergency` | Emergency Department & Triage Management | **active** | استقبال الطوارئ، تصنيف خطورة الحالات (ESI 1-5)، مسارات الإنعاش السريع، وتسكين أسرة الطوارئ. |
-| `emr` | Longitudinal Electronic Medical Records (EMR) | **active** | العلامات الحيوية، التاريخ المرضي والجراحي، الحساسيات الدوائية، الأمراض المزمنة، والمرفقات. |
-| `equipment_maintenance` | Medical Equipment & Maintenance Management | **active** | سجل الأجهزة الطبية، الصيانة الوقائية، شهادات المعايرة الدورية، وتذاكر الأعطال والإصلاح. |
-| `facility_management` | Healthcare Facility & Organization Management | **active** | إدارة المنشآت الطبية، المستشفيات، الفروع، الأقسام، العيادات، وساعات العمل والاعتمادات. |
-| `health_insurance` | Insurance & Claims Management | **active** | شركات التأمين، بوالص المرضى، الموافقات المسبقة، تقديم المطالبات الإلكترونية، والتسوية والرفض. |
+| `emergency` | Emergency Department & Triage Management | *planned* | استقبال الطوارئ، تصنيف خطورة الحالات (ESI 1-5)، مسارات الإنعاش السريع، وتسكين أسرة الطوارئ. |
+| `emr` | Longitudinal Electronic Medical Records (EMR) | *planned* | العلامات الحيوية، التاريخ المرضي والجراحي، الحساسيات الدوائية، الأمراض المزمنة، والمرفقات. |
+| `equipment_maintenance` | Medical Equipment & Maintenance Management | *planned* | سجل الأجهزة الطبية، الصيانة الوقائية، شهادات المعايرة الدورية، وتذاكر الأعطال والإصلاح. |
+| `facility_management` | Healthcare Facility & Organization Management | *planned* | إدارة المنشآت الطبية، المستشفيات، الفروع، الأقسام، العيادات، وساعات العمل والاعتمادات. |
+| `health_insurance` | Insurance & Claims Management | *planned* | شركات التأمين، بوالص المرضى، الموافقات المسبقة، تقديم المطالبات الإلكترونية، والتسوية والرفض. |
 | `healthcare_clinic` | Healthcare & Clinic/Hospital ERP | **active** | السجلات الطبية الإلكترونية (EMR)، حجز المواعيد والكشوفات، الروشتات الرقمية (e-Rx)، الفحوصات والتحاليل، وإدارة غرف وأسِرّة التنويم… |
-| `hospital_analytics` | Clinical Analytics & Business Intelligence | **active** | نسبة إشغال الأسرة (BOR)، متوسط مدة الإقامة (ALOS)، إنتاجية الأطباء، ومؤشرات الجودة ومكافحة العدوى. |
-| `hospital_pharmacy` | Hospital Pharmacy & Medication Management | **active** | دليل الأدوية والبدائل، صرف الروشتات الرقمية، تتبع الصلاحيات (FEFO)، وسجل الأدوية المراقبة. |
-| `laboratory` | Laboratory Information Management (LIS) | **active** | دليل الفحوصات، باركود العينات، النتائج المخبرية، المعدلات الطبيعية، والتنبيه بالقيم الحرجة. |
-| `medical_accounting` | Accounting & Healthcare Financial Management | **active** | مراكز تكلفة الأقسام، عمولات وأتعاب الأطباء، إيرادات العيادات والأجنحة، وقيود اليومية التلقائية. |
-| `medical_billing` | Billing, Invoicing & Patient Accounts | **active** | تسعيرة الخدمات، فواتير الكشوفات والإجراءات، حساب نسبة التحمل، سندات القبض، ودفعات المرضى. |
-| `medical_staff` | Doctor & Medical Staff Management | **active** | ملفات الأطباء، التخصصات، التراخيص المهنية، بدلات الكشفية، وجداول المناوبات والورديات. |
-| `medical_supplies` | Medical Inventory & Procurement | **active** | المستلزمات الطبية، أدوات الجراحة، تتبع التشغيلات والصلاحيات، طلبات الشراء، وأرصدة الأقسام. |
-| `medical_workforce` | HR & Clinical Workforce Management | **active** | تراخيص المزاولة الطبية، الامتيازات السريرية، ساعات التعليم الطبي المستمر (CME)، وتبادل الورديات. |
-| `nursing` | Nursing Care & Medication Administration | **active** | خطة الرعاية التمريضية، سجل إعطاء الدواء (MAR)، توازن السوائل، وتقارير تسليم الورديات. |
-| `patient_identity` | Patient Registration & Master Patient Index | **active** | ملفات المرضى، الرقم الطبي الموحد (MRN)، الهوية الوطنية، فحص الازدواجية، ودمج السجلات. |
-| `patient_notifications` | Healthcare Notifications & Alerts | **active** | تذكير المواعيد عبر SMS/واتساب، تنبيهات النتائج المخبرية الحرجة، استدعاء الأطباء، وإشعارات الفواتير. |
-| `patient_portal` | Patient Portal & Digital Services | **active** | حسابات المرضى، حجز المواعيد الذاتي، استعراض نتائج التحاليل والأشعة، وسجل الوصفات والتقارير. |
-| `radiology` | Radiology & Imaging Management (RIS/PACS) | **active** | طلبات الأشعة (X-Ray, CT, MRI, US)، أجهزة التصوير، تقارير أطباء الأشعة، وحالة الفحوصات. |
-| `surgery` | Operating Room & Surgery Management | **active** | جدولة غرف العمليات، الفريق الجراحي والتخدير، قائمة التحقق الجراحية (WHO)، وغرفة الإفاقة. |
-| `telemedicine` | Telemedicine & Virtual Consultations | **active** | جلسات الفيديو المشفرة، غرف الانتظار الافتراضية، التوثيق السريري عن بعد، والروشتات الرقمية. |
+| `hospital_analytics` | Clinical Analytics & Business Intelligence | *planned* | نسبة إشغال الأسرة (BOR)، متوسط مدة الإقامة (ALOS)، إنتاجية الأطباء، ومؤشرات الجودة ومكافحة العدوى. |
+| `hospital_pharmacy` | Hospital Pharmacy & Medication Management | *planned* | دليل الأدوية والبدائل، صرف الروشتات الرقمية، تتبع الصلاحيات (FEFO)، وسجل الأدوية المراقبة. |
+| `laboratory` | Laboratory Information Management (LIS) | *planned* | دليل الفحوصات، باركود العينات، النتائج المخبرية، المعدلات الطبيعية، والتنبيه بالقيم الحرجة. |
+| `medical_accounting` | Accounting & Healthcare Financial Management | *planned* | مراكز تكلفة الأقسام، عمولات وأتعاب الأطباء، إيرادات العيادات والأجنحة، وقيود اليومية التلقائية. |
+| `medical_billing` | Billing, Invoicing & Patient Accounts | *planned* | تسعيرة الخدمات، فواتير الكشوفات والإجراءات، حساب نسبة التحمل، سندات القبض، ودفعات المرضى. |
+| `medical_staff` | Doctor & Medical Staff Management | *planned* | ملفات الأطباء، التخصصات، التراخيص المهنية، بدلات الكشفية، وجداول المناوبات والورديات. |
+| `medical_supplies` | Medical Inventory & Procurement | *planned* | المستلزمات الطبية، أدوات الجراحة، تتبع التشغيلات والصلاحيات، طلبات الشراء، وأرصدة الأقسام. |
+| `medical_workforce` | HR & Clinical Workforce Management | *planned* | تراخيص المزاولة الطبية، الامتيازات السريرية، ساعات التعليم الطبي المستمر (CME)، وتبادل الورديات. |
+| `nursing` | Nursing Care & Medication Administration | *planned* | خطة الرعاية التمريضية، سجل إعطاء الدواء (MAR)، توازن السوائل، وتقارير تسليم الورديات. |
+| `patient_identity` | Patient Registration & Master Patient Index | *planned* | ملفات المرضى، الرقم الطبي الموحد (MRN)، الهوية الوطنية، فحص الازدواجية، ودمج السجلات. |
+| `patient_notifications` | Healthcare Notifications & Alerts | *planned* | تذكير المواعيد عبر SMS/واتساب، تنبيهات النتائج المخبرية الحرجة، استدعاء الأطباء، وإشعارات الفواتير. |
+| `patient_portal` | Patient Portal & Digital Services | *planned* | حسابات المرضى، حجز المواعيد الذاتي، استعراض نتائج التحاليل والأشعة، وسجل الوصفات والتقارير. |
+| `radiology` | Radiology & Imaging Management (RIS/PACS) | *planned* | طلبات الأشعة (X-Ray, CT, MRI, US)، أجهزة التصوير، تقارير أطباء الأشعة، وحالة الفحوصات. |
+| `surgery` | Operating Room & Surgery Management | *planned* | جدولة غرف العمليات، الفريق الجراحي والتخدير، قائمة التحقق الجراحية (WHO)، وغرفة الإفاقة. |
+| `telemedicine` | Telemedicine & Virtual Consultations | *planned* | جلسات الفيديو المشفرة، غرف الانتظار الافتراضية، التوثيق السريري عن بعد، والروشتات الرقمية. |
 
 ## Hotels & Resorts (`hotel`, food_hospitality)
 

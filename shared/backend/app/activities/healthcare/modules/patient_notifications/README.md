@@ -1,4 +1,4 @@
-# HLT-23 — الإشعارات والتنبيهات الطبية (Healthcare Notifications & Alerts)
+# HLT-23 — الإشعارات والتنبيهات الطبية (Healthcare Notifications & Alerts) (planned)
 
 ## Overview
 تذكير المواعيد عبر SMS/واتساب، تنبيهات النتائج المخبرية الحرجة، استدعاء الأطباء، وإشعارات الفواتير.
