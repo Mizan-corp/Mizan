@@ -5,9 +5,10 @@ import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
 import { dateTime, D, money, moneyEGP } from "@/lib/format";
 import { Badge, Button, Empty, ErrorBox, Input, Modal, Select, Spinner } from "@/components/ui";
+import { PaySourceSelect, sourceFields } from "@app/components/PaySourceSelect";
 
 interface PO {
-  id: string; doc_number: string; supplier_name: string | null; status: string;
+  id: string; po_number: string; supplier_name: string | null; status: string; amount_paid: string | null;
   total: string | null; created_at: string; notes: string | null;
 }
 interface Supplier { id: string; name: string }
@@ -24,6 +25,9 @@ export default function PurchasesPage() {
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<LineItem[]>([]);
   const [productSearch, setProductSearch] = useState("");
+  const [receiving, setReceiving] = useState<PO | null>(null);
+  const [paidNow, setPaidNow] = useState("");
+  const [paySource, setPaySource] = useState("");
 
   const list = useQuery({
     queryKey: ["purchases", page],
@@ -68,9 +72,23 @@ export default function PurchasesPage() {
   });
 
   const receive = useMutation({
-    mutationFn: (id: string) => api.post(`/purchases/${id}/receive`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["purchases"] }),
+    mutationFn: () =>
+      api.post(`/purchases/${receiving!.id}/receive`, {
+        items: [],
+        amount_paid: paying ? Number(paidNow) : 0,
+        ...(paying ? sourceFields(paySource) : {}),
+      }),
+    onSuccess: () => {
+      setReceiving(null);
+      setPaidNow("");
+      setPaySource("");
+      qc.invalidateQueries({ queryKey: ["purchases"] });
+      qc.invalidateQueries({ queryKey: ["safes"] });
+      qc.invalidateQueries({ queryKey: ["wallets"] });
+      qc.invalidateQueries({ queryKey: ["suppliers"] });
+    },
   });
+  const paying = Number.isFinite(Number(paidNow)) && Number(paidNow) > 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -106,7 +124,7 @@ export default function PurchasesPage() {
             <tbody>
               {list.data.map((po) => (
                 <tr key={po.id} className="border-b border-line/60 last:border-0 hover:bg-elevated">
-                  <td className="num p-3 font-bold" dir="ltr">{po.doc_number}</td>
+                  <td className="num p-3 font-bold" dir="ltr">{po.po_number}</td>
                   <td className="p-3">{po.supplier_name ?? "—"}</td>
                   <td className="num p-3 font-bold">{po.total ? moneyEGP(po.total) : "—"}</td>
                   <td className="p-3">
@@ -117,8 +135,14 @@ export default function PurchasesPage() {
                   <td className="p-3 text-xs text-muted">{dateTime(po.created_at)}</td>
                   <td className="p-3">
                     {po.status !== "received" && po.status !== "cancelled" && (
-                      <Button variant="outline" onClick={() => receive.mutate(po.id)} disabled={receive.isPending}>
-                        {receive.isPending ? <Spinner /> : <><PackageCheck size={16} /> استلام</>}
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setReceiving(po);
+                          setPaidNow(po.amount_paid && Number(po.amount_paid) > 0 ? po.amount_paid : "");
+                        }}
+                      >
+                        <PackageCheck size={16} /> استلام
                       </Button>
                     )}
                   </td>
@@ -129,7 +153,6 @@ export default function PurchasesPage() {
         </div>
       )}
 
-      {receive.isError && <ErrorBox message={(receive.error as Error).message} />}
 
       {list.data?.length === 25 && (
         <div className="flex items-center justify-center gap-3 text-sm">
@@ -138,6 +161,35 @@ export default function PurchasesPage() {
           <Button variant="outline" onClick={() => setPage((p) => p + 1)}>التالي</Button>
         </div>
       )}
+
+      <Modal open={!!receiving} onClose={() => setReceiving(null)} title={`استلام أمر الشراء ${receiving?.po_number ?? ""}`}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!receive.isPending && (!paying || paySource)) receive.mutate();
+          }}
+          className="flex flex-col gap-4"
+        >
+          <p className="text-xs text-muted">
+            تدخل الكميات المخزن بتكلفة الأمر. ما يُدفع الآن يخرج من الخزنة أو المحفظة المختارة، والباقي يُضاف إلى رصيد المورد.
+          </p>
+          <div>
+            <label htmlFor="po-paid" className="mb-1 block text-sm font-medium">المدفوع الآن (ج.م)</label>
+            <Input id="po-paid" className="num font-bold" inputMode="decimal" placeholder="0.00" value={paidNow}
+                   onChange={(e) => setPaidNow(e.target.value)} />
+          </div>
+          {paying && (
+            <div>
+              <label htmlFor="po-source" className="mb-1 block text-sm font-medium">دُفع من *</label>
+              <PaySourceSelect id="po-source" value={paySource} onChange={setPaySource} />
+            </div>
+          )}
+          {receive.isError && <ErrorBox message={(receive.error as Error).message} />}
+          <Button type="submit" className="w-full h-11 font-bold" disabled={receive.isPending || (paying && !paySource)}>
+            {receive.isPending ? <Spinner /> : "تأكيد الاستلام"}
+          </Button>
+        </form>
+      </Modal>
 
       <Modal open={creating} onClose={() => setCreating(false)} title="أمر شراء جديد" wide>
         <div className="flex flex-col gap-6">

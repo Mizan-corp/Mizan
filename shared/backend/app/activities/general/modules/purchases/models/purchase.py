@@ -29,6 +29,9 @@ class PurchaseOrder(TenantScoped, Base):
     created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=False)
     status: Mapped[POStatus] = mapped_column(SAEnum(POStatus, name="po_status_enum"), default=POStatus.draft)
     amount_paid: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    # Where amount_paid comes from (ADR-014 D4): a safe (or bank account) or a payment wallet.
+    safe_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("safes.id"), nullable=True)
+    wallet_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("payment_wallets.id"), nullable=True)
     received_by_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
