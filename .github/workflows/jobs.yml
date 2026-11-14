@@ -20,7 +20,7 @@ permissions: {}
 
 jobs:
   run:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, homie]   # curls the production APIs; free on the server
     timeout-minutes: 10
     env:
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
