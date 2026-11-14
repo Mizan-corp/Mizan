@@ -175,7 +175,7 @@ export interface Clinician {
   is_doctor: boolean;
 }
 
-export type ClinicTab = "appointments" | "patients" | "emr" | "rx_labs" | "beds" | "billing" | "claims" | "privacy" | "scheduling";
+export type ClinicTab = "appointments" | "patients" | "emr" | "rx_labs" | "beds" | "billing" | "claims" | "privacy" | "scheduling" | "referrals";
 
 /** Department master (#36). */
 export interface Department {
@@ -222,4 +222,41 @@ export interface Page<T> {
   total: number;
   page: number;
   pages: number;
+}
+
+export type ReferralPriority = "routine" | "urgent" | "emergency";
+export type ReferralStatus = "pending" | "accepted" | "declined" | "completed";
+
+/** GET /clinic/referrals (#45). reason and triage_notes are null for coordinators (clinic:manage). */
+export interface Referral {
+  id: string;
+  referral_ref: string;
+  patient_id: string;
+  patient_name: string;
+  patient_mrn: string;
+  from_doctor_user_id: string | null;
+  from_doctor_name: string;
+  to_department_id: string;
+  to_department_name: string;
+  to_doctor_user_id: string | null;
+  to_doctor_name: string | null;
+  priority: ReferralPriority;
+  status: ReferralStatus;
+  encounter_id: string | null;
+  reason: string | null;
+  triage_notes: string | null;
+  response_note: string;
+  responded_at: string | null;
+  created_at: string;
+  direction: "incoming" | "outgoing" | null;
+  can_respond: boolean;
+  can_complete: boolean;
+}
+
+/** GET /clinic/referrals/{id}: the encounter summary only with access to the record. */
+export interface ReferralDetail extends Referral {
+  record_access: boolean;
+  last_encounter: (Pick<Encounter, "id" | "encounter_ref" | "encounter_date" | "doctor_name" | "department" | "bp_systolic"
+    | "bp_diastolic" | "heart_rate" | "temperature" | "spo2" | "chief_complaint" | "icd10_code" | "icd10_description"
+    | "clinical_notes">) | null;
 }

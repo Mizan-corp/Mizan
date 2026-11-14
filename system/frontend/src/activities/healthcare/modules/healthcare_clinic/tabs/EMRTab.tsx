@@ -1,7 +1,7 @@
 import { Badge } from "@/components/kit/badge";
 import { Button } from "@/components/kit/button";
 import { Card } from "@/components/kit/card";
-import { HeartPulse, Plus } from "lucide-react";
+import { ArrowLeftRight, HeartPulse, Plus } from "lucide-react";
 import { sound } from "@/lib/sound";
 import { useClinic } from "../ClinicContext";
 import QueryState from "../components/QueryState";
@@ -96,6 +96,16 @@ export default function EMRTab() {
                 <span className="font-semibold text-primary">[{enc.icd10_description}]</span> {enc.clinical_notes}
               </div>
             </div>
+
+            {perms.doctor && (
+              <div className="flex justify-end">
+                <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1 border-primary/30"
+                  onClick={() => openDialog({ kind: "referral", patient: { id: enc.patient_id, full_name: enc.patient_name }, encounterId: enc.id })}>
+                  <ArrowLeftRight className="size-3" />
+                  إحالة
+                </Button>
+              </div>
+            )}
           </Card>
         ))}
         {filteredEncounters.length === 0 && (

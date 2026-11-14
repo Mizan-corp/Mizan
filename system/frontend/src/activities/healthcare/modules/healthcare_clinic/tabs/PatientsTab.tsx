@@ -174,6 +174,16 @@ export default function PatientsTab() {
                     روشتة e-Rx
                   </Button>
                   )}
+                  {perms.doctor && pat.clinical_access && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openDialog({ kind: "referral", patient: { id: pat.id, full_name: pat.full_name } })}
+                    className="text-[10px] h-7 px-2 border-primary/30 text-foreground hover:bg-primary/5"
+                  >
+                    إحالة
+                  </Button>
+                  )}
                 </div>
               </TableCell>
             </TableRow>

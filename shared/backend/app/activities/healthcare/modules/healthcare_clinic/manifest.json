@@ -179,7 +179,14 @@
       "path": "/clinic?tab=scheduling",
       "label": "الأقسام وجداول الأطباء",
       "icon": "Building2",
-      "permission": "clinic:manage"
+      "permission": "clinic|clinic:manage"
+    },
+    {
+      "id": "healthcare_clinic.clinic_referrals",
+      "path": "/clinic?tab=referrals",
+      "label": "الإحالات بين الأقسام",
+      "icon": "ArrowLeftRight",
+      "permission": "clinic|clinic:doctor|clinic:manage"
     }
   ],
   "widgets": [],

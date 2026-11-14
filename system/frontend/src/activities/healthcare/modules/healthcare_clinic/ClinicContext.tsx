@@ -18,6 +18,7 @@ export type ClinicDialog =
   | { kind: "lab"; patient?: PatientRef }
   | { kind: "admit"; bed: Bed }
   | { kind: "labResult"; order: LabOrder }
+  | { kind: "referral"; patient: PatientRef; encounterId?: string }
   | null;
 
 // The page (ClinicHealthcarePage) provides the data, the acting role's permissions, the row actions

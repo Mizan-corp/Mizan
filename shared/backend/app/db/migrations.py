@@ -3453,6 +3453,43 @@ MIGRATIONS = [
         CREATE POLICY tenant_isolation ON clinic_doctor_schedules
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    # #45: referrals between departments and doctors; accepting one puts the receiving doctor on
+    # the patient's care team.
+    ("v86_clinic_referrals", """
+        CREATE TABLE IF NOT EXISTS clinic_referrals (
+            id varchar(36) PRIMARY KEY,
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            referral_ref varchar(32) NOT NULL,
+            patient_id varchar(36) NOT NULL REFERENCES clinic_patients(id) ON DELETE CASCADE,
+            from_doctor_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+            from_doctor_name varchar(128) NOT NULL DEFAULT '',
+            to_department_id varchar(36) NOT NULL REFERENCES clinic_departments(id) ON DELETE RESTRICT,
+            to_doctor_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+            priority varchar(16) NOT NULL DEFAULT 'routine' CHECK (priority IN ('routine', 'urgent', 'emergency')),
+            reason text NOT NULL,
+            triage_notes text NOT NULL DEFAULT '',
+            status varchar(16) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'completed')),
+            encounter_id varchar(36) REFERENCES clinic_encounters(id) ON DELETE SET NULL,
+            responded_by uuid,
+            responded_at timestamptz,
+            response_note text NOT NULL DEFAULT '',
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_clinic_referrals_tenant_id ON clinic_referrals (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_referrals_referral_ref ON clinic_referrals (referral_ref);
+        CREATE INDEX IF NOT EXISTS ix_clinic_referrals_patient_id ON clinic_referrals (patient_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_referrals_from_doctor_user_id ON clinic_referrals (from_doctor_user_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_referrals_to_department_id ON clinic_referrals (to_department_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_referrals_to_doctor_user_id ON clinic_referrals (to_doctor_user_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_referrals_status ON clinic_referrals (status);
+        CREATE INDEX IF NOT EXISTS ix_clinic_referrals_created_at ON clinic_referrals (created_at);
+        ALTER TABLE clinic_referrals ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE clinic_referrals FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON clinic_referrals;
+        CREATE POLICY tenant_isolation ON clinic_referrals
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

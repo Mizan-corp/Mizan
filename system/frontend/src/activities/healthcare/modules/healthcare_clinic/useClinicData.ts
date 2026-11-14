@@ -25,6 +25,7 @@ export const CLINIC_KEYS = {
   departments: ["clinic-departments"],
   rooms: ["clinic-rooms"],
   schedules: ["clinic-schedules"],
+  referrals: ["clinic-referrals"],
 } as const;
 
 /** Every list the clinic screen shows. Patients and appointments are searched and paged on the

@@ -90,6 +90,23 @@ name). `GET /clinic/summary` returns the money figures only to `clinic:billing`.
   booking dialog. Migration `v85_clinic_departments_rosters`; tests
   `system/backend/tests/test_clinic_scheduling.py`.
 
+## Referrals (#45)
+
+- `POST /clinic/referrals` (clinic:doctor, with access to the patient's record): department, an
+  optional doctor on its roster, priority (`routine`/`urgent`/`emergency`), reason, triage notes and
+  the encounter it came from. The receiving doctors are notified.
+- `GET /clinic/referrals?box=incoming|outgoing|all`: incoming = named to me, or to a department I'm
+  rostered in (any doctor for a department with no roster) with no doctor named; `all` is for
+  `clinic:manage`, without the reason and triage notes. Rows with clinical text are logged
+  (`referrals`).
+- `POST /clinic/referrals/{id}/accept`: the receiving doctor joins the care team (`consultant`) and
+  so reaches the record; `/decline` (with a reason) and `/complete`. The sender is notified.
+- `GET /clinic/referrals/{id}`: the encounter summary (the referral's encounter or the latest) only
+  for those who reach the record, logged as `referral`.
+- Screen: the «الإحالات» tab (`tabs/ReferralsTab.tsx`), «إحالة» on patient rows and encounter cards
+  (`components/ReferralDialog.tsx`). Migration `v86_clinic_referrals`; tests
+  `system/backend/tests/test_clinic_referrals.py`.
+
 Route guards are in `guards.py` (shared by `router.py` and `routes/`); the route areas in
 `routes/` are included by `router.py` under `/clinic`.
 

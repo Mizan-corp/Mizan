@@ -189,3 +189,13 @@ async def notify_privacy_officers(db: AsyncSession, tenant_id, title: str, body:
     for uid in ids:
         db.add(Notification(tenant_id=tenant_id, user_id=uid, type="clinic_break_glass", severity="warning",
                             title=title, body=body, link="/clinic?tab=privacy", data_json=data, is_read=False))
+
+
+async def notify_users(db: AsyncSession, tenant_id, user_ids, *, type: str, title: str, body: str, link: str,
+                       data: dict, severity: str = "info") -> None:
+    """An in-app notification to each of these users. Doesn't commit."""
+    from app.platform.notifications.models.notification import Notification
+
+    for uid in {u for u in user_ids if u}:
+        db.add(Notification(tenant_id=tenant_id, user_id=uid, type=type, severity=severity,
+                            title=title, body=body, link=link, data_json=data, is_read=False))

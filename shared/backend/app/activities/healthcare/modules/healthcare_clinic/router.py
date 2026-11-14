@@ -42,6 +42,7 @@ from app.activities.healthcare.modules.healthcare_clinic.schemas import (
     CareTeamAdd,
 )
 from app.activities.healthcare.modules.healthcare_clinic import scheduling as sched
+from app.activities.healthcare.modules.healthcare_clinic.routes import referrals as referral_routes
 from app.activities.healthcare.modules.healthcare_clinic.routes import scheduling as scheduling_routes
 from app.activities.healthcare.modules.healthcare_clinic import service as access
 from app.activities.healthcare.modules.healthcare_clinic.guards import (  # noqa: F401 (re-exported)
@@ -2067,3 +2068,4 @@ async def seed_clinic_data(
 
 # ─── Route areas in routes/ (under /clinic, behind the same guards) ─────────
 router.include_router(scheduling_routes.router)
+router.include_router(referral_routes.router)

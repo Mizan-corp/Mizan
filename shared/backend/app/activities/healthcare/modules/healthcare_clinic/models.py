@@ -299,3 +299,27 @@ class ClinicAccessLog(TenantScoped, Base):
     how: Mapped[str] = mapped_column(String(16))  # all, team, break_glass, queue, setting
     rows: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class ClinicReferral(TenantScoped, Base):
+    """A referral of a patient to another department or doctor (#45). Accepting it puts the
+    receiving doctor on the patient's care team: the patient's record follows the referral."""
+    __tablename__ = "clinic_referrals"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    referral_ref: Mapped[str] = mapped_column(String(32), index=True)
+    patient_id: Mapped[str] = mapped_column(String(36), ForeignKey("clinic_patients.id", ondelete="CASCADE"), index=True)
+    from_doctor_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    from_doctor_name: Mapped[str] = mapped_column(String(128), default="", server_default="")
+    to_department_id: Mapped[str] = mapped_column(String(36), ForeignKey("clinic_departments.id", ondelete="RESTRICT"), index=True)
+    to_doctor_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    priority: Mapped[str] = mapped_column(String(16), default="routine", server_default="routine")  # routine, urgent, emergency
+    reason: Mapped[str] = mapped_column(Text)
+    triage_notes: Mapped[str] = mapped_column(Text, default="", server_default="")
+    status: Mapped[str] = mapped_column(String(16), default="pending", server_default="pending", index=True)  # pending, accepted, declined, completed
+    encounter_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("clinic_encounters.id", ondelete="SET NULL"), nullable=True)
+    responded_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    response_note: Mapped[str] = mapped_column(Text, default="", server_default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
