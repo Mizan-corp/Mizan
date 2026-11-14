@@ -1,7 +1,7 @@
 import { Badge } from "@/components/kit/badge";
 import { Button } from "@/components/kit/button";
 import { Card } from "@/components/kit/card";
-import { Activity, ArrowLeftRight, HeartPulse, Plus } from "lucide-react";
+import { Activity, ArrowLeftRight, HeartPulse, Plus, ScanLine } from "lucide-react";
 import { sound } from "@/lib/sound";
 import { useClinic } from "../ClinicContext";
 import QueryState from "../components/QueryState";
@@ -102,6 +102,11 @@ export default function EMRTab() {
                 onClick={() => openDialog({ kind: "chart", patient: { id: enc.patient_id, full_name: enc.patient_name }, encounterId: enc.id })}>
                 <Activity className="size-3" />
                 مؤشرات المريض
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1 border-primary/30"
+                onClick={() => openDialog({ kind: "chart", patient: { id: enc.patient_id, full_name: enc.patient_name }, section: "images", encounterId: enc.id })}>
+                <ScanLine className="size-3" />
+                الصور والأشعة
               </Button>
               {perms.doctor && (
                 <Button size="sm" variant="outline" className="h-7 text-[10px] gap-1 border-primary/30"

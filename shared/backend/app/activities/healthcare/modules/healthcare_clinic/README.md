@@ -136,6 +136,22 @@ patient row and «مؤشرات المريض» on an encounter card. Tests `syste
   `SignaturePad.tsx`: a `<canvas>` with pointer events, finger, pen or mouse). Migration
   `v88_clinic_consent_forms`; tests `system/backend/tests/test_clinic_consents.py`.
 
+## Medical images (#44)
+
+- `POST /clinic/patients/{id}/images` (multipart `file`, `modality` XR/US/CT/MRI/other, optional
+  `encounter_id`, `notes`): a doctor or nurse who reaches the record. At most 50 MB (read in chunks,
+  413 beyond); the type comes from the bytes (JPEG, PNG, WebP, DICOM's `DICM` marker or a `.dcm`
+  starting with a group-0008 tag), never from the declared type or name (415 otherwise). Stored with
+  `files.store_private`; counted in the storage quota.
+- `GET /clinic/patients/{id}/images` (logged: `images`) returns each image with a signed link
+  (`url`, 5 minutes); `GET /clinic/images/{id}/link` renews one; `DELETE /clinic/images/{id}` (the
+  uploader or a doctor) removes the file and the row. Opening a link is logged again (`image`).
+- Screen: «الصور الطبية» in the patient chart (`components/ImagesPanel.tsx`), opened from «الصور
+  والأشعة» on an encounter card in the EMR tab (filtered to that encounter): thumbnail grid and a
+  lightbox (arrows, Esc) for JPEG/PNG/WebP; DICOM shows a tile that downloads the file (no browser
+  DICOM decoder is bundled). Migration `v89_clinic_images`; tests
+  `system/backend/tests/test_clinic_imaging.py`.
+
 Route guards are in `guards.py` (shared by `router.py` and `routes/`); the route areas in
 `routes/` are included by `router.py` under `/clinic`.
 

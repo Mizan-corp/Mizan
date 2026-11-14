@@ -3525,6 +3525,33 @@ MIGRATIONS = [
         CREATE POLICY tenant_isolation ON clinic_consent_forms
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    # #44: medical images in the private file store, served only through short-lived signed links.
+    ("v89_clinic_images", """
+        CREATE TABLE IF NOT EXISTS clinic_images (
+            id varchar(36) PRIMARY KEY,
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            patient_id varchar(36) NOT NULL REFERENCES clinic_patients(id) ON DELETE CASCADE,
+            encounter_id varchar(36) REFERENCES clinic_encounters(id) ON DELETE SET NULL,
+            modality varchar(8) NOT NULL DEFAULT 'other' CHECK (modality IN ('XR', 'US', 'CT', 'MRI', 'other')),
+            file_path varchar(1024) NOT NULL,
+            content_type varchar(64) NOT NULL,
+            size integer NOT NULL,
+            original_name varchar(255) NOT NULL DEFAULT '',
+            notes text NOT NULL DEFAULT '',
+            uploaded_by uuid REFERENCES users(id) ON DELETE SET NULL,
+            uploaded_by_name varchar(128) NOT NULL DEFAULT '',
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_clinic_images_tenant_id ON clinic_images (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_images_patient_id ON clinic_images (patient_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_images_encounter_id ON clinic_images (encounter_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_images_created_at ON clinic_images (created_at);
+        ALTER TABLE clinic_images ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE clinic_images FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON clinic_images;
+        CREATE POLICY tenant_isolation ON clinic_images
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

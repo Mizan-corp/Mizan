@@ -303,5 +303,25 @@ export interface Consent {
   status: "active" | "revoked";
 }
 
+export type ImageModality = "XR" | "US" | "CT" | "MRI" | "other";
+
+/** GET /clinic/patients/{id}/images (#44); url is a short-lived signed link (5 minutes). */
+export interface ClinicImage {
+  id: string;
+  patient_id: string;
+  encounter_id: string | null;
+  modality: ImageModality;
+  content_type: string;
+  size: number;
+  original_name: string;
+  notes: string;
+  uploaded_by: string | null;
+  uploaded_by_name: string;
+  created_at: string;
+  is_dicom: boolean;
+  url: string;
+  expires_at: string;
+}
+
 /** The patient chart dialog's sections. */
-export type ChartSection = "vitals" | "consents";
+export type ChartSection = "vitals" | "consents" | "images";
