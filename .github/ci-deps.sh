@@ -12,6 +12,7 @@
 #   node=X     Node.js X (latest of that major, cached)
 #   npm        node_modules from package-lock.json, through a warm npm cache (--prefer-offline)
 #   playwright Chromium for the browser flows, and its system libraries (once per container)
+#   weasyprint WeasyPrint's system libraries and Arabic fonts, for PDFs (once per container)
 #
 # Puts the tools on PATH for the next steps ($GITHUB_PATH, $GITHUB_ENV) and prints what it found
 # or installed, with the time each part took.
@@ -112,6 +113,19 @@ ensure_playwright() {
   fi
 }
 
+ensure_weasyprint() {
+  # The same libraries as the server image (deploy/server/Dockerfile.api).
+  if [ -f /var/lib/mizan-ci/weasyprint-deps ]; then say "pdf libs" present; return; fi
+  say "pdf libs" installing
+  local t0=$SECONDS
+  DEBIAN_FRONTEND=noninteractive apt-get update -qq >/dev/null
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+    libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 \
+    shared-mime-info fonts-noto-core >/dev/null
+  echo "   ($(( SECONDS - t0 ))s)"
+  mkdir -p /var/lib/mizan-ci && touch /var/lib/mizan-ci/weasyprint-deps
+}
+
 echo "CI dependencies (cache: $CACHE)"
 for arg in "$@"; do
   case "$arg" in
@@ -120,6 +134,7 @@ for arg in "$@"; do
     node=*)   ensure_node "${arg#node=}" ;;
     npm)      ensure_npm ;;
     playwright) ensure_playwright ;;
+    weasyprint) ensure_weasyprint ;;
     *) echo "unknown: $arg" >&2; exit 2 ;;
   esac
 done

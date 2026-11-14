@@ -73,7 +73,7 @@ jobs:
           docker compose up -d --build
 
       - name: Dependencies (cached on the runner)
-        run: bash .github/ci-deps.sh python=3.12 py=e2e node=24 npm playwright
+        run: bash .github/ci-deps.sh python=3.12 py=e2e node=24 npm playwright weasyprint
 
       - name: Wait for health
         run: |
