@@ -26,6 +26,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    ports:
+      - "127.0.0.1:15432:5432"   # loopback only: the k3s cluster's pg-bridge (deploy/k3s) reaches it from homie
     stop_grace_period: 1m
     mem_limit: 300m
     logging: *logging

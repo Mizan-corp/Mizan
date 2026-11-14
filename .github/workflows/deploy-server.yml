@@ -80,7 +80,9 @@ jobs:
       - uses: actions/checkout@v4
         if: steps.latest.outputs.skip != 'true'
         with:
-          sparse-checkout: deploy/server
+          sparse-checkout: |
+            deploy/server
+            deploy/k3s
           sparse-checkout-cone-mode: true
 
       - name: Update the server's compose file and scripts
@@ -97,3 +99,23 @@ jobs:
           echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin >/dev/null
           trap 'docker logout ghcr.io >/dev/null' EXIT
           /srv/mizan/deploy.sh "$GITHUB_SHA"
+
+      # The cluster copy (deploy/k3s, ADR-011): latitude serves alongside homie's compose. Runs after
+      # the release, so the database is already migrated. Doesn't fail the release while the cluster
+      # is being introduced; homie's compose keeps serving either way.
+      - name: Cluster
+        if: steps.latest.outputs.skip != 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KUBECONFIG: /home/ammar/.kube/mizan-k3s
+        run: |
+          [ -f "$KUBECONFIG" ] || { echo "no kubeconfig: cluster skipped"; exit 0; }
+          # A pull secret from this job's token: the cluster pulls the new images now, while it's valid,
+          # and keeps them (IfNotPresent) for restarts.
+          kubectl -n mizan create secret docker-registry ghcr --docker-server=ghcr.io \
+            --docker-username="${{ github.actor }}" --docker-password="$GH_TOKEN" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          sed "s/MIZAN_TAG/$GITHUB_SHA/g" deploy/k3s/mizan.yaml | kubectl apply -f -
+          kubectl -n mizan rollout status deploy/api --timeout=10m
+          kubectl -n mizan rollout status deploy/web --timeout=5m
