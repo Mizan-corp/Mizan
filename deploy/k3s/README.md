@@ -8,7 +8,7 @@ Mizan up.
 | Piece | Where | Notes |
 |---|---|---|
 | `api`, `web` | latitude | Same images and settings as compose; Services named like compose's (`api:8000`, `web:8080`), which the tunnel routes to |
-| `tunnel` | latitude | A second connector of the `mizan-homie` tunnel (`TUNNEL_TOKEN`); replicas 0 until the copy is checked |
+| `tunnel` | latitude | A second connector of the `mizan-homie` tunnel (`TUNNEL_TOKEN`), live since 2026-11-14 |
 | `pg-bridge` → Service `postgres` | homie | The database stays on homie's compose, published on `127.0.0.1:15432`; the bridge listens on homie's Tailscale address only |
 | Uploads | homie's disk over NFS | `/srv/data/mizan/{uploads,private_uploads}` exported to latitude's Tailscale address only (`/etc/exports.d/mizan.exports`) |
 

@@ -151,12 +151,12 @@ spec:
   ports: [{port: 8080, targetPort: 8080}]
 ---
 # A second connector of homie's tunnel: Cloudflare spreads requests over every healthy connector,
-# so either machine keeps the apps up. Kept at 0 until the cluster copy has been checked.
+# so either machine keeps the apps up. Scale to 0 to take latitude out at once.
 apiVersion: apps/v1
 kind: Deployment
 metadata: {name: tunnel, namespace: mizan}
 spec:
-  replicas: 0
+  replicas: 1
   selector: {matchLabels: {app: tunnel}}
   template:
     metadata: {labels: {app: tunnel}}
