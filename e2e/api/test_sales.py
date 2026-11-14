@@ -102,13 +102,10 @@ def test_sale_get_list_update_item(admin_api, reg, product, wh):
     lst = admin_api.ok(admin_api.get("/sales"))
     assert any(x["id"] == s["id"] for x in lst)
 
+    # A confirmed sale isn't edited (ADR-014 D4): corrections go through a return or a cancel.
     item = got["items"][0]
-    up = admin_api.ok(admin_api.put(f"/sales/{s['id']}/items/{item['id']}",
-                                    json={"qty": 3}))
-    assert up.get("ok") is True and float(up.get("new_qty", 3)) == 3
-
-    d = admin_api.ok(admin_api.delete(f"/sales/{s['id']}/items/{item['id']}"))
-    assert d.get("ok") is True
+    assert admin_api.put(f"/sales/{s['id']}/items/{item['id']}", json={"qty": 3}).status_code == 409
+    assert admin_api.delete(f"/sales/{s['id']}/items/{item['id']}").status_code == 409
 
 
 def test_sale_print(admin_api, reg, product, wh):
@@ -134,9 +131,10 @@ def test_full_return(admin_api, reg, product, wh):
     reg.add("sale", s["id"])
     r = admin_api.post(f"/sales/{s['id']}/return")
     body = admin_api.ok(r, 200)
-    # stock restored
+    # The return is its own document; the sale stays confirmed with its returns (ADR-014 D4).
     got = admin_api.ok(admin_api.get(f"/sales/{s['id']}"))
-    assert got["status"] in ("returned", "cancelled") or got.get("returned")
+    assert got["status"] == "confirmed" and got["returns_total"] > 0
+    assert len(got["returns"]) == 1 and got["returns"][0]["invoice_number"].startswith("RET-")
 
 
 def test_partial_return(admin_api, reg, product, wh):
