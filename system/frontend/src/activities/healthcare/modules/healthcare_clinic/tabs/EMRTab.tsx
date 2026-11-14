@@ -7,7 +7,7 @@ import { useClinic } from "../ClinicContext";
 
 export default function EMRTab() {
   const c = useClinic();
-  const { filteredEncounters, setIsEncounterModalOpen } = c;
+  const { filteredEncounters, setIsEncounterModalOpen, perms } = c;
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -20,6 +20,7 @@ export default function EMRTab() {
             العلامات الحيوية (Vitals)، تصنيف الأمراض الدولي (ICD-10)، والملاحظات التخصصية
           </p>
         </div>
+        {perms.doctor && (
         <Button
           onClick={() => {
             sound.click();
@@ -31,6 +32,7 @@ export default function EMRTab() {
           <Plus className="size-3.5" />
           توثيق كشف سريري جديد
         </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

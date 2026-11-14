@@ -3,7 +3,7 @@
 السجلات الطبية الإلكترونية (EMR)، حجز المواعيد والكشوفات، الروشتات الرقمية (e-Rx)، الفحوصات والتحاليل، وإدارة غرف وأسِرّة التنويم والمطالبات التأمينية.
 
 ## Module ID
-`clinic`
+`healthcare_clinic`
 
 ## Category
 healthcare
@@ -29,6 +29,16 @@ is read and written per patient; the rules are in `service.py`:
   a patient they don't already reach.
 - Every clinical read is logged in `clinic_access_log`. `clinic:privacy`: `GET /clinic/access-log`,
   `GET /clinic/break-glass`, `POST /clinic/break-glass/{id}/review` and `/revoke`.
+
+## Role separation (#131)
+
+Every route checks the permission its guard names (`require_clinic_manage`, `_booking`, `_queue`,
+`_doctor`, `_ward`, `_lab`, `_dispense`, `_billing`); the umbrella `clinic` (admin, manager) passes
+them all, and the standard clinical roles don't hold it. The table of who does what is in
+`docs/USER_ROLES_AND_PERMISSIONS.md` (§2). The screen mirrors the guards with `useClinicPerms()`
+(`permissions.ts`). Dispensing and lab invoices carry neutral line text (no medication or test
+name). `GET /clinic/summary` returns the money figures only to `clinic:billing`. Migration
+`v84_clinic_role_separation`; tests `system/backend/tests/test_clinic_role_separation.py`.
 
 Migrations: `v79_clinic_patient_access` (tables and columns), `v79b_clinic_care_team_backfill`
 (`migrate.py`: links existing records to users by exact doctor name). Tests:

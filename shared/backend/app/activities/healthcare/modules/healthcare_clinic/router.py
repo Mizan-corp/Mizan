@@ -49,10 +49,11 @@ async def get_current_tenant_id(user: User = Depends(get_current_user)) -> uuid.
 
 
 # ─── RBAC / ABAC Permissions Enforcement ───────────────────────────────────
+# Each helper checks the permission its name says (#131). The umbrella "clinic" (admin, manager)
+# passes them all; the standard clinical roles don't hold it. Patient-level access to clinical
+# data is separate and never follows the umbrella (service.py, #113).
 def _has_clinic_perm(user: User, *perms: str) -> bool:
-    """The acting role's clinic permissions: 'clinic' is the whole clinic; with no specific
-    permission asked, 'clinic:view' is enough. (Role names used to grant these; the standard
-    roles hold them now, ADR-006 phase 3.)"""
+    """With no specific permission asked, 'clinic:view' is enough."""
     granted = getattr(user, "effective_permissions", frozenset())
     if "clinic" in granted:
         return True
@@ -61,46 +62,31 @@ def _has_clinic_perm(user: User, *perms: str) -> bool:
     return any(p in granted for p in perms)
 
 
-async def require_clinic_view(current_user: User = Depends(get_current_user)) -> User:
-    if not _has_clinic_perm(current_user):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="لا تملك صلاحية الوصول إلى العيادات")
-    return current_user
+def _clinic_guard(*perms: str, detail: str):
+    async def guard(current_user: User = Depends(get_current_user)) -> User:
+        if not _has_clinic_perm(current_user, *perms):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
+        return current_user
+    return guard
 
 
-async def require_clinic_manage(current_user: User = Depends(get_current_user)) -> User:
-    if not _has_clinic_perm(current_user, "clinic:manage"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="لا تملك صلاحية إدارة بيانات العيادات")
-    return current_user
-
-
-async def require_clinic_doctor(current_user: User = Depends(get_current_user)) -> User:
-    if not _has_clinic_perm(current_user, "clinic:doctor"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="لا تملك صلاحية الطبيب السريري (clinic:doctor)")
-    return current_user
-
-
-async def require_clinic_nurse(current_user: User = Depends(get_current_user)) -> User:
-    if not _has_clinic_perm(current_user, "clinic:nurse"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="لا تملك صلاحية طاقم التمريض (clinic:nurse)")
-    return current_user
-
-
-async def require_clinic_dispense(current_user: User = Depends(get_current_user)) -> User:
-    if not _has_clinic_perm(current_user, "clinic:dispense", "clinic:pharmacist"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="لا تملك صلاحية صرف الأدوية والصيدلية (clinic:dispense)")
-    return current_user
-
-
-async def require_clinic_lab(current_user: User = Depends(get_current_user)) -> User:
-    if not _has_clinic_perm(current_user, "clinic:lab", "clinic:doctor"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="لا تملك صلاحية الفحوصات والمختبرات (clinic:lab)")
-    return current_user
-
-
-async def require_clinic_billing(current_user: User = Depends(get_current_user)) -> User:
-    if not _has_clinic_perm(current_user, "clinic:billing", "clinic:manage", "finance"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="لا تملك صلاحية الفوترة المالية للعيادات")
-    return current_user
+# Everyone in the clinic: the patient list (demographics), appointments, beds, summary.
+require_clinic_view = _clinic_guard(detail="لا تملك صلاحية الوصول إلى العيادات")
+# Front desk: register and edit patients, cancel and reschedule, care teams.
+require_clinic_manage = _clinic_guard("clinic:manage", detail="لا تملك صلاحية إدارة المواعيد وملفات المرضى (clinic:manage)")
+# Booking: the front desk, and doctors booking follow-ups.
+require_clinic_booking = _clinic_guard("clinic:manage", "clinic:doctor", detail="لا تملك صلاحية حجز المواعيد")
+# Moving a patient through the queue (waiting, in consultation, completed).
+require_clinic_queue = _clinic_guard("clinic:manage", "clinic:doctor", "clinic:nurse",
+                                     detail="لا تملك صلاحية تحديث حالة الموعد في قائمة الانتظار")
+# Examining, prescribing and ordering tests.
+require_clinic_doctor = _clinic_guard("clinic:doctor", detail="لا تملك صلاحية الطبيب السريري (clinic:doctor)")
+# The ward: admitting, discharging and readying beds.
+require_clinic_ward = _clinic_guard("clinic:nurse", "clinic:manage", detail="لا تملك صلاحية إدارة أسرّة التنويم (clinic:nurse)")
+require_clinic_dispense = _clinic_guard("clinic:dispense", detail="لا تملك صلاحية صرف الأدوية والصيدلية (clinic:dispense)")
+# Recording and signing off lab results.
+require_clinic_lab = _clinic_guard("clinic:lab", detail="لا تملك صلاحية تسجيل نتائج المختبر (clinic:lab)")
+require_clinic_billing = _clinic_guard("clinic:billing", detail="لا تملك صلاحية فواتير العيادة (clinic:billing)")
 
 
 logger = logging.getLogger(__name__)
@@ -481,7 +467,7 @@ async def get_clinic_summary(
 
     bed_occupancy_pct = round((occupied_beds / total_beds) * 100) if total_beds > 0 else 0
 
-    return {
+    operational = {
         "total_registered_patients": patients_count,
         "today_appointments_count": appts_today,
         "waiting_queue_count": waiting_queue,
@@ -489,6 +475,11 @@ async def get_clinic_summary(
         "occupied_beds": occupied_beds,
         "bed_occupancy_percent": bed_occupancy_pct,
         "pending_lab_orders_count": pending_labs,
+    }
+    if not _has_clinic_perm(current_user, "clinic:billing"):
+        return operational  # the money figures are billing's
+    return {
+        **operational,
         "total_revenue_billed": round(float(total_billed), 2),
         "total_revenue_collected": round(float(total_paid), 2),
         "total_revenue_pending": round(float(total_patient_share - total_paid), 2),
@@ -975,7 +966,7 @@ async def create_appointment(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_manage),
+    _: User = Depends(require_clinic_booking),
 ):
     # Referential integrity check
     patient = (await db.execute(
@@ -1043,7 +1034,7 @@ async def update_appointment_status(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_manage),
+    _: User = Depends(require_clinic_queue),
 ):
     q = await db.execute(
         select(ClinicAppointment).where(ClinicAppointment.id == appt_id, ClinicAppointment.tenant_id == tenant_id)
@@ -1394,7 +1385,8 @@ async def dispense_prescription(
         patient_id=rx.patient_id,
         patient_name=rx.patient_name,
         encounter_ref=rx.encounter_ref,
-        charges=[{"description": f"صرف دواء: {rx.medication_name} ({rx.dosage}) × {qty_dispensed}", "amount": total_med_cost}],
+        # Neutral line text: billing staff see the invoice, not the medication (#131).
+        charges=[{"description": f"صرف أدوية — روشتة {rx.rx_ref}", "amount": total_med_cost}],
         total=total_med_cost,
         copay_percent=copay,
         insurance_amount=ins_share,
@@ -1542,7 +1534,7 @@ async def record_lab_result(
                 patient_id=order.patient_id,
                 patient_name=order.patient_name,
                 encounter_ref=order.order_ref,
-                charges=[{"description": f"رسوم فحص مخبري: {order.test_name} ({order.category})", "amount": order.test_fee}],
+                charges=[{"description": f"رسوم فحص مخبري — طلب {order.order_ref}", "amount": order.test_fee}],
                 total=total,
                 copay_percent=copay,
                 insurance_amount=ins_amt,
@@ -1595,7 +1587,7 @@ async def admit_bed(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_nurse),
+    _: User = Depends(require_clinic_ward),
 ):
     q = await db.execute(
         select(ClinicInpatientBed).where(ClinicInpatientBed.id == bed_id, ClinicInpatientBed.tenant_id == tenant_id)
@@ -1642,7 +1634,7 @@ async def discharge_bed(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_manage),
+    _: User = Depends(require_clinic_ward),
 ):
     q = await db.execute(
         select(ClinicInpatientBed).where(ClinicInpatientBed.id == bed_id, ClinicInpatientBed.tenant_id == tenant_id)
@@ -1726,7 +1718,7 @@ async def clean_bed(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
-    _: User = Depends(require_clinic_manage),
+    _: User = Depends(require_clinic_ward),
 ):
     q = await db.execute(
         select(ClinicInpatientBed).where(ClinicInpatientBed.id == bed_id, ClinicInpatientBed.tenant_id == tenant_id)

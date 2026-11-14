@@ -19,7 +19,7 @@ import ClaimsTab from "./tabs/ClaimsTab";
 import PatientsTab from "./tabs/PatientsTab";
 import PrivacyTab from "./tabs/PrivacyTab";
 import type { Clinician } from "./components/CareTeamDialog";
-import { useAuth } from "@/stores/auth";
+import { useClinicPerms } from "./permissions";
 
 // Standalone 24 Healthcare ERP Modules (HLT-01..24)
 // preview: the screen runs on sample data and isn't wired to the API yet; it says so (#47).
@@ -207,9 +207,9 @@ export default function ClinicHealthcarePage() {
   const activeModuleKey = moduleSlug || (tabParam && HEALTHCARE_MODULES_MAP[tabParam] ? tabParam : null);
   const [activeCategory, setActiveCategory] = useState<string>("All");
 
-  const can = useAuth((s) => s.can);
-  const canPrivacy = can("clinic:privacy");
-  const validTabs = ["appointments", "patients", "emr", "rx_labs", "labs", "beds", "billing", "claims", ...(canPrivacy ? ["privacy"] : [])];
+  const perms = useClinicPerms();
+  const canPrivacy = perms.privacy;
+  const validTabs = ["appointments", "patients", "emr", "rx_labs", "labs", "beds", ...(perms.billing ? ["billing", "claims"] : []), ...(canPrivacy ? ["privacy"] : [])];
   const tab = tabParam && validTabs.includes(tabParam)
     ? (tabParam === "labs" ? "rx_labs" : (tabParam as "appointments" | "patients" | "emr" | "rx_labs" | "beds" | "billing" | "claims" | "privacy"))
     : "appointments";
@@ -357,11 +357,13 @@ export default function ClinicHealthcarePage() {
   const { data: invoicesData = [] } = useQuery<ClinicInvoice[]>({
     queryKey: ["clinic-invoices"],
     queryFn: () => api.get("/clinic/invoices"),
+    enabled: perms.billing,
   });
 
   const { data: claimsData = [] } = useQuery<ClinicInsuranceClaim[]>({
     queryKey: ["clinic-claims"],
     queryFn: () => api.get("/clinic/claims"),
+    enabled: perms.billing,
   });
 
   // Datasets from API queries
@@ -682,7 +684,7 @@ export default function ClinicHealthcarePage() {
     handleCreatePrescription, handleCreateLabOrder, handleDispenseRx, handleAdmitBed,
     handleDischargeBed, handleCleanBed, handleRecordLabResult, handleBillAppointment, handlePayInvoice,
     filteredAppts, filteredPatients, filteredEncounters, filteredRx, filteredLabs,
-    sound, moneyEGP, queryClient, toast, searchParams, setSearchParams,
+    sound, moneyEGP, queryClient, toast, searchParams, setSearchParams, perms,
   };
   return (
     <ClinicProvider value={ctx}>
@@ -743,6 +745,7 @@ export default function ClinicHealthcarePage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {perms.manage && (
               <Button
                 onClick={() => {
                   sound.click();
@@ -754,7 +757,9 @@ export default function ClinicHealthcarePage() {
                 <UserPlus className="size-4 text-primary" />
                 فتح ملف مريض جديد (EMR)
               </Button>
+              )}
 
+              {perms.book && (
               <Button
                 onClick={() => {
                   sound.click();
@@ -765,6 +770,7 @@ export default function ClinicHealthcarePage() {
                 <Calendar className="size-4" />
                 حجز موعد كشف فوري
               </Button>
+              )}
             </div>
           </div>
 
@@ -968,6 +974,7 @@ export default function ClinicHealthcarePage() {
                 أسرّة التنويم (<span className="num">{beds.length}</span>)
               </button>
 
+              {perms.billing && (
               <button
                 onClick={() => handleTabChange("billing")}
                 className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
@@ -979,6 +986,7 @@ export default function ClinicHealthcarePage() {
                 <FileText className="size-3.5" />
                 الفواتير والتحصيل (<span className="num">{invoicesData.length}</span>)
               </button>
+              )}
 
               {canPrivacy && (
                 <button
@@ -994,6 +1002,7 @@ export default function ClinicHealthcarePage() {
                 </button>
               )}
 
+              {perms.billing && (
               <button
                 onClick={() => handleTabChange("claims")}
                 className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
@@ -1005,6 +1014,7 @@ export default function ClinicHealthcarePage() {
                 <ShieldCheck className="size-3.5" />
                 مطالبات التأمين (<span className="num">{claimsData.length}</span>)
               </button>
+              )}
             </div>
 
             <div className="relative w-full sm:w-64">

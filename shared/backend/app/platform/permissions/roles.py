@@ -37,22 +37,22 @@ ROLE_DEFAULT_PERMISSIONS = {
         "clinic:billing",
     ],
     "doctor": [
-        "clinic", "clinic:view", "clinic:manage", "clinic:doctor", "clinic:nurse", "clinic:lab",
-        "patients", "reports", "finance",
+        "clinic:view", "clinic:doctor",
+        "patients", "reports",
     ],
     "nurse": [
-        "clinic", "clinic:view", "clinic:nurse", "clinic:manage",
+        "clinic:view", "clinic:nurse",
         "patients",
     ],
     "receptionist": [
-        "clinic", "clinic:view", "clinic:manage", "clinic:billing",
+        "clinic:view", "clinic:manage", "clinic:billing",
         "patients", "customers",
     ],
     "lab_tech": [
-        "clinic", "clinic:view", "clinic:manage", "clinic:lab",
+        "clinic:view", "clinic:lab",
     ],
     "pharmacist": [
-        "clinic", "clinic:view", "clinic:manage", "clinic:dispense",
+        "clinic:view", "clinic:dispense",
         "inventory", "pos",
     ],
 }
@@ -63,10 +63,14 @@ ROLE_DEFAULT_PERMISSIONS = {
 # What a role name used to grant on its own, besides the list above (before ADR-006 phase 3 the
 # clinic and the shift/branch checks looked at role names). Standard roles now hold these as
 # permissions, so access stays the same while "permissions decide".
+# The clinical roles hold only their own clinic permissions (#131): the umbrella "clinic" (every
+# clinic action) stays with admin and manager. doctor: examine, prescribe, order tests (and book
+# follow-ups); nurse: ward and queue; receptionist: front desk and billing; lab_tech: results;
+# pharmacist: dispensing.
 ROLE_IMPLIED_PERMISSIONS = {
     "manager": ["clinic", "supervise"],
-    "doctor": ["clinic:view", "clinic:doctor", "clinic:nurse", "clinic:dispense", "clinic:lab", "clinic:manage", "clinic:billing"],
-    "nurse": ["clinic:view", "clinic:nurse", "clinic:manage"],
+    "doctor": ["clinic:view", "clinic:doctor"],
+    "nurse": ["clinic:view", "clinic:nurse"],
     "receptionist": ["clinic:view", "clinic:manage", "clinic:billing"],
     "lab_tech": ["clinic:view", "clinic:lab"],
     "pharmacist": ["clinic:view", "clinic:dispense"],

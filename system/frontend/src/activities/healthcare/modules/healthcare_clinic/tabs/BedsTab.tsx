@@ -10,7 +10,7 @@ const moneyEGP = (amount: number) =>
 
 export default function BedsTab() {
   const c = useClinic();
-  const { beds, handleDischargeBed, handleCleanBed, setAdmitBedTarget } = c;
+  const { beds, handleDischargeBed, handleCleanBed, setAdmitBedTarget, perms } = c;
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -80,7 +80,7 @@ export default function BedsTab() {
             )}
 
             <div className="mt-4 pt-2 border-t border-border/40 flex justify-end">
-              {b.status === "available" && (
+              {perms.ward && b.status === "available" && (
                 <Button
                   size="sm"
                   onClick={() => {
@@ -93,7 +93,7 @@ export default function BedsTab() {
                   تسكين مريض بالسرير
                 </Button>
               )}
-              {b.status === "occupied" && (
+              {perms.ward && b.status === "occupied" && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -103,7 +103,7 @@ export default function BedsTab() {
                   إخلاء السرير للتعقيم
                 </Button>
               )}
-              {b.status === "cleaning" && (
+              {perms.ward && b.status === "cleaning" && (
                 <Button
                   size="sm"
                   onClick={() => handleCleanBed(b.id)}

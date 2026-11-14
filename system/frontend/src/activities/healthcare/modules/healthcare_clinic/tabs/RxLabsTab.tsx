@@ -9,7 +9,7 @@ export default function RxLabsTab() {
   const c = useClinic();
   const {
     filteredRx, filteredLabs, handleDispenseRx, setIsRxModalOpen, setIsLabModalOpen,
-    setLabResultModalTarget, setLabResultValue,
+    setLabResultModalTarget, setLabResultValue, perms,
   } = c;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -20,6 +20,7 @@ export default function RxLabsTab() {
             <Pill className="size-4 text-primary" />
             الروشتات والوصفات الطبية الإلكترونية (e-Rx)
           </h3>
+          {perms.doctor && (
           <Button
             onClick={() => {
               sound.click();
@@ -31,6 +32,7 @@ export default function RxLabsTab() {
             <Plus className="size-3.5" />
             روشتة جديدة
           </Button>
+          )}
         </div>
 
         <div className="divide-y divide-border/40">
@@ -72,7 +74,7 @@ export default function RxLabsTab() {
 
               <div className="flex items-center justify-between pt-1">
                 <span className="text-[11px] text-muted-foreground">الطبيب: {rx.doctor_name}</span>
-                {rx.status === "pending" && (
+                {perms.dispense && rx.status === "pending" && (
                   <Button
                     size="sm"
                     onClick={() => handleDispenseRx(rx.id)}
@@ -94,6 +96,7 @@ export default function RxLabsTab() {
             <Microscope className="size-4 text-primary" />
             الفحوصات والتحاليل المخبرية والتصوير الطبي
           </h3>
+          {perms.doctor && (
           <Button
             onClick={() => {
               sound.click();
@@ -105,6 +108,7 @@ export default function RxLabsTab() {
             <Plus className="size-3.5" />
             طلب فحص جديد
           </Button>
+          )}
         </div>
 
         <div className="divide-y divide-border/40">
@@ -145,7 +149,7 @@ export default function RxLabsTab() {
 
               <div className="flex items-center justify-between pt-1">
                 <span className="text-[11px] text-muted-foreground">الطبيب: {lab.doctor_name}</span>
-                {lab.status !== "reported" && (
+                {perms.lab && lab.status !== "reported" && (
                   <Button
                     size="sm"
                     onClick={() => {

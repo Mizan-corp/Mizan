@@ -12,7 +12,6 @@ import {
 import { useState } from "react";
 import { AlertCircle, Lock, ShieldAlert, UserPlus, Users, UsersRound } from "lucide-react";
 import { sound } from "@/lib/sound";
-import { useAuth } from "@/stores/auth";
 import { useClinic } from "../ClinicContext";
 import BreakGlassDialog from "../components/BreakGlassDialog";
 import CareTeamDialog from "../components/CareTeamDialog";
@@ -25,8 +24,8 @@ export default function PatientsTab() {
     filteredPatients, setIsPatientModalOpen, setIsBookingOpen,
     setBookingForm, setIsRxModalOpen, setRxForm, bookingForm, rxForm,
   } = c;
-  const can = useAuth((s) => s.can);
-  const clinician = can("clinic:doctor|clinic:nurse");
+  const { perms } = c;
+  const clinician = perms.clinician;
   const [breakGlassFor, setBreakGlassFor] = useState<PatientRef | null>(null);
   const [careTeamFor, setCareTeamFor] = useState<PatientRef | null>(null);
   return (
@@ -41,6 +40,7 @@ export default function PatientsTab() {
             الملفات الطبية الرقمية، أرقام السجل الطبي (MRN)، الحساسيات الدوائية، والشركات الضامنة
           </p>
         </div>
+        {perms.manage && (
         <Button
           onClick={() => {
             sound.click();
@@ -52,6 +52,7 @@ export default function PatientsTab() {
           <UserPlus className="size-3.5" />
           تسجيل مريض جديد
         </Button>
+        )}
       </div>
 
       <Table>
@@ -124,6 +125,7 @@ export default function PatientsTab() {
               </TableCell>
               <TableCell className="text-center">
                 <div className="flex flex-wrap items-center justify-center gap-1">
+                  {perms.book && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -139,6 +141,8 @@ export default function PatientsTab() {
                   >
                     حجز كشف
                   </Button>
+                  )}
+                  {(perms.manage || pat.clinical_access) && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -149,6 +153,7 @@ export default function PatientsTab() {
                     <UsersRound className="size-3" />
                     الفريق
                   </Button>
+                  )}
                   {clinician && !pat.clinical_access && (
                     <Button
                       size="sm"
@@ -160,7 +165,7 @@ export default function PatientsTab() {
                       وصول طارئ
                     </Button>
                   )}
-                  {pat.clinical_access && (
+                  {perms.doctor && pat.clinical_access && (
                   <Button
                     size="sm"
                     variant="outline"

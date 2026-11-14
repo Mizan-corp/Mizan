@@ -18,7 +18,7 @@ const moneyEGP = (amount: number) =>
 
 export default function AppointmentsTab() {
   const c = useClinic();
-  const { filteredAppts, handleBillAppointment, handleUpdateApptStatus, setIsBookingOpen } = c;
+  const { filteredAppts, handleBillAppointment, handleUpdateApptStatus, setIsBookingOpen, perms } = c;
   return (
     <Card className="border-border/70 overflow-hidden shadow-xs bg-card/80">
       <div className="p-4 border-b border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/10">
@@ -31,6 +31,7 @@ export default function AppointmentsTab() {
             تنظيم دخول المرضى، مواعيد الاستشارة، وتحصيل أتعاب الكشوفات
           </p>
         </div>
+        {perms.book && (
         <Button
           onClick={() => {
             sound.click();
@@ -42,6 +43,7 @@ export default function AppointmentsTab() {
           <Plus className="size-3.5" />
           حجز موعد كشف
         </Button>
+        )}
       </div>
 
       <Table>
@@ -104,7 +106,7 @@ export default function AppointmentsTab() {
               </TableCell>
               <TableCell className="text-center">
                 <div className="flex items-center justify-center gap-1">
-                  {a.status === "scheduled" && (
+                  {perms.queue && a.status === "scheduled" && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -114,7 +116,7 @@ export default function AppointmentsTab() {
                       استدعاء للانتظار
                     </Button>
                   )}
-                  {a.status === "waiting" && (
+                  {perms.queue && a.status === "waiting" && (
                     <Button
                       size="sm"
                       onClick={() => handleUpdateApptStatus(a.id, "in_consultation")}
@@ -123,7 +125,7 @@ export default function AppointmentsTab() {
                       بدء الكشف الطبي
                     </Button>
                   )}
-                  {a.status === "in_consultation" && (
+                  {perms.queue && a.status === "in_consultation" && (
                     <Button
                       size="sm"
                       onClick={() => handleUpdateApptStatus(a.id, "completed")}
@@ -138,6 +140,7 @@ export default function AppointmentsTab() {
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                 تم الكشف
                               </span>
+                              {perms.billing && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -146,6 +149,7 @@ export default function AppointmentsTab() {
                               >
                                 إصدار فاتورة
                               </Button>
+                              )}
                             </div>
                           )}
                         </div>

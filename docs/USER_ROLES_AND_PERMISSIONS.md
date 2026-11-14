@@ -48,6 +48,38 @@ allergies, chronic conditions, blood group) is decided **per patient** (#113,
 - Standard roles: `manager` holds `clinic:all_patients` and `clinic:privacy`; `admin` holds every
   permission; doctors and nurses hold neither. Workspaces' own roles get them only when granted.
 
+### Clinic actions by role (#131)
+
+Each clinic action checks one permission (`require_clinic_*` in `healthcare_clinic/router.py`,
+`useClinicPerms()` on the screen). The umbrella `clinic` passes every action check; only `admin`
+and `manager` hold it. The clinical roles hold their own permissions only.
+
+| Action | Permission (any of) | doctor | nurse | receptionist | lab_tech | pharmacist | accountant | manager / admin |
+|---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| See the clinic (patient list without clinical fields, appointments, beds) | `clinic:view` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Register / edit / delete patients, cancel and reschedule, manage care teams | `clinic:manage` | | | ✓ | | | | ✓ |
+| Book an appointment | `clinic:manage`, `clinic:doctor` | ✓ | | ✓ | | | | ✓ |
+| Move a patient through the queue (waiting, in consultation, completed) | `clinic:manage`, `clinic:doctor`, `clinic:nurse` | ✓ | ✓ | ✓ | | | | ✓ |
+| Record an encounter, prescribe, order a lab test | `clinic:doctor` (+ patient access) | ✓ | | | | | | ✓ |
+| Admit, discharge, ready a bed | `clinic:nurse`, `clinic:manage` | | ✓ | ✓ | | | | ✓ |
+| Record and sign off a lab result | `clinic:lab` | | | | ✓ | | | ✓ |
+| Dispense a prescription | `clinic:dispense` | | | | | ✓ | | ✓ |
+| Invoices, payments, insurance claims, the summary's money figures | `clinic:billing` | | | ✓ | | | ✓ | ✓ |
+
+- Invoice lines don't name the medication or the test: dispensing bills «صرف أدوية — روشتة RX-…»,
+  a lab result «رسوم فحص مخبري — طلب LAB-…» (billing staff see invoices, not clinical data).
+- Doctors no longer hold `finance`, `clinic:manage`, `clinic:billing`, `clinic:dispense` or
+  `clinic:lab`; nurses no longer hold `clinic:manage`. A small clinic where the doctor also runs
+  the front desk gives that user a second role (e.g. `receptionist`) or a workspace role.
+- **Workspace roles and new permissions.** The standard roles are platform rows (no workspace),
+  re-synced from `roles.py` by `ensure_standard_roles` when the API starts, so a change there
+  reaches every workspace at once. Roles a workspace made itself (`ws-…`) are never changed by an
+  update: a new permission reaches them only when the workspace's admin grants it on the roles
+  screen. The personal copies migration v54 made of a standard role for users whose access
+  differed (`doctor-1a2b3c4d`) are kept as they were too, except that
+  `v84_clinic_role_separation` removed the umbrella `clinic` from the copies of the five clinical
+  roles (keeping `clinic:view`).
+
 ## 3. Permissions from the extension platform
 
 | Permission | Who holds it by default | What it allows |
