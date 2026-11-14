@@ -32,21 +32,28 @@ async def auto_close_stale_shifts(db: AsyncSession) -> dict[str, Any]:
     closed_details = []
 
     for shift in stale_shifts:
-        # Calculate sales count & total during shift
+        from app.activities.general.modules.pos.service import compute_summary
+
+        # Confirmed sales of the shift (for the note), and the cash the drawer should hold, worked
+        # out exactly as a cashier's close does (pos.service.compute_summary).
         sales_stmt = select(
             func.count(Sale.id),
-            func.coalesce(func.sum(Sale.total), Decimal("0")),
-        ).where(Sale.shift_id == shift.id)
+            func.coalesce(func.sum(Sale.net_total), Decimal("0")),
+        ).where(Sale.shift_id == shift.id, Sale.status == "confirmed")
         sales_res = await db.execute(sales_stmt)
         sales_cnt, sales_sum = sales_res.one()
+        expected = (await compute_summary(db, shift.id))["expected_balance"]
 
         shift.status = ShiftStatus.closed
         shift.closed_at = datetime.datetime.now(datetime.timezone.utc)
-        shift.closing_balance = sales_sum + (shift.initial_amount or Decimal("0"))
-        shift.expected_balance = shift.closing_balance
+        # Nobody counted the drawer: it is closed at the expected cash, with no difference.
+        shift.closing_balance = expected
+        shift.expected_balance = expected
+        shift.next_day_drawer = expected
         shift.difference = Decimal("0")
         shift.notes = (
             f"إغلاق آلي بواسطة محرك الأتمتة (Z-Report Auto Cutover) — مبيعات: {sales_sum} ج.م ({sales_cnt} فاتورة)"
+            f" — النقدية المتوقعة في الدرج: {expected} ج.م"
         )
 
         closed_count += 1

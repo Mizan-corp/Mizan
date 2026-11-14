@@ -167,7 +167,7 @@ async def profit_report(db: AsyncSession, from_date: str, to_date: str, warehous
         SELECT dt.note, SUM(dt.amount) as total
         FROM drawer_transactions dt
         JOIN shifts s ON s.id = dt.shift_id
-        WHERE dt.type = 'expense'
+        WHERE dt.type = 'expense' AND dt.cancelled_at IS NULL
           AND dt.created_at BETWEEN :start AND :end
           {exp_wh}
         GROUP BY dt.note
@@ -187,11 +187,16 @@ async def profit_report(db: AsyncSession, from_date: str, to_date: str, warehous
         .join(Sale, Sale.id == SaleItem.sale_id)
         .where(Sale.created_at.between(start, end), Sale.status == "returned", *wh_filter)
     )
+    # A return document carries its share of the sale's invoice discount (ADR-014 D4).
+    returns_disc = await db.execute(
+        select(func.coalesce(func.sum(Sale.discount_amount), 0))
+        .where(Sale.created_at.between(start, end), Sale.status == "returned", Sale.return_of.is_not(None), *wh_filter)
+    )
 
     items_rev   = rev.scalar_one()  or Decimal("0")
     inv_disc    = rev_disc.scalar_one() or Decimal("0")
     total_cogs  = cogs.scalar_one() or Decimal("0")
-    total_returns      = returns.scalar_one() or Decimal("0")
+    total_returns      = (returns.scalar_one() or Decimal("0")) - (returns_disc.scalar_one() or Decimal("0"))
     returns_cogs_total = returns_cogs.scalar_one() or Decimal("0")
 
     net_revenue = items_rev - inv_disc - total_returns
@@ -335,7 +340,7 @@ async def daily_items(db: AsyncSession, target_date: date, warehouse_id: str | N
     expenses = (await db.execute(text(f"""
         SELECT dt.note, SUM(dt.amount) as total
         FROM drawer_transactions dt JOIN shifts sh ON sh.id = dt.shift_id
-        WHERE dt.type = 'expense' AND dt.created_at BETWEEN :start AND :end
+        WHERE dt.type = 'expense' AND dt.cancelled_at IS NULL AND dt.created_at BETWEEN :start AND :end
           {exp_sql}
         GROUP BY dt.note
     """), params)).fetchall()
@@ -389,7 +394,7 @@ async def periodic_ledger(db: AsyncSession, period: str = "weekly", warehouse_id
         SELECT TO_CHAR(DATE_TRUNC('{trunc}', dt.created_at), '{label_fmt}') as period,
                COALESCE(SUM(dt.amount), 0) as expenses
         FROM drawer_transactions dt JOIN shifts sh ON sh.id = dt.shift_id
-        WHERE dt.type = 'expense'
+        WHERE dt.type = 'expense' AND dt.cancelled_at IS NULL
           {exp_sql}
         GROUP BY DATE_TRUNC('{trunc}', dt.created_at)
     """), params)).fetchall()
@@ -467,7 +472,7 @@ async def cash_flow(
     drawer_expenses = (await db.execute(text(f"""
         SELECT COALESCE(SUM(dt.amount), 0)
         FROM drawer_transactions dt JOIN shifts sh ON sh.id = dt.shift_id
-        WHERE dt.type = 'expense'
+        WHERE dt.type = 'expense' AND dt.cancelled_at IS NULL
           AND dt.created_at BETWEEN :start AND :end {wh_filter_sh}
     """), params)).scalar()
 

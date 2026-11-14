@@ -172,12 +172,13 @@ async def compute_summary(db: AsyncSession, shift_id: uuid.UUID) -> dict:
     if not shift:
         raise NotFoundError("Shift not found")
 
-    tx_count = await db.execute(select(func.count()).where(DrawerTransaction.shift_id == shift_id))
+    live = (DrawerTransaction.shift_id == shift_id, DrawerTransaction.cancelled_at.is_(None))
+    tx_count = await db.execute(select(func.count()).where(*live))
 
-    # Aggregate ALL drawer transactions by type (for display totals)
+    # Aggregate the shift's drawer transactions by type (for display totals); cancelled rows don't count.
     rows = await db.execute(
         select(DrawerTransaction.type, func.sum(DrawerTransaction.amount).label("total"))
-        .where(DrawerTransaction.shift_id == shift_id)
+        .where(*live)
         .group_by(DrawerTransaction.type)
     )
     totals: dict[str, Decimal] = {}
@@ -219,7 +220,7 @@ async def compute_summary(db: AsyncSession, shift_id: uuid.UUID) -> dict:
                dt.type as tx_type, SUM(dt.amount) as total
         FROM drawer_transactions dt
         LEFT JOIN payment_wallets pw ON pw.id = dt.wallet_id
-        WHERE dt.shift_id = :sid AND dt.payment_method = 'wallet'
+        WHERE dt.shift_id = :sid AND dt.payment_method = 'wallet' AND dt.cancelled_at IS NULL
         AND dt.type IN ('deposit','expense','withdrawal')
         GROUP BY dt.payment_method, pw.name, pw.type, dt.type
     """), {"sid": shift_id})
@@ -229,7 +230,7 @@ async def compute_summary(db: AsyncSession, shift_id: uuid.UUID) -> dict:
     # Only transactions with payment_method != 'wallet' affect the physical drawer.
     raw = await db.execute(
         select(DrawerTransaction.type, DrawerTransaction.amount, DrawerTransaction.payment_method)
-        .where(DrawerTransaction.shift_id == shift_id)
+        .where(*live)
     )
     cash_sums: dict[str, Decimal] = {}
     for r in raw.fetchall():
@@ -381,15 +382,19 @@ async def add_transaction(db: AsyncSession, shift_id: uuid.UUID, tx_type: Drawer
         elif tx_type in (DrawerTxType.expense, DrawerTxType.withdrawal):
             await record_wallet_tx(db, wallet_id, -amount, "expense", None, note, created_by)
 
-    # Customer debt payment
+    # Customer debt payment, linked to its drawer row so cancelling the row reverses it.
     if customer_id and tx_type == DrawerTxType.deposit:
         from app.activities.general.modules.contacts.models.customer_payment import CustomerPayment
-        db.add(CustomerPayment(
+        payment = CustomerPayment(
+            id=uuid.uuid4(),
             customer_id=customer_id,
             amount=amount,
             note=note,
             created_by=created_by,
-        ))
+        )
+        db.add(payment)
+        await db.flush()
+        dt.customer_payment_id = payment.id
         await db.execute(sqlt(
             "UPDATE customers SET balance = GREATEST(0, COALESCE(balance,0) - :amt) WHERE id = :cid",
         ), {"amt": float(amount), "cid": customer_id})
@@ -471,12 +476,16 @@ async def revenue_delivery(db: AsyncSession, shift_id: uuid.UUID, data, current_
 
 
 async def delete_drawer_transaction(db: AsyncSession, tx_id: uuid.UUID, current_user_id: uuid.UUID) -> None:
-    """Delete a drawer transaction (manager only). Reverses wallet if needed."""
+    """Cancel a drawer transaction (manager only). The row is kept and marked cancelled (ADR-014 D4),
+    so the shift's totals skip it; a wallet movement it made is reversed, and a customer receipt it
+    recorded is reversed by a negative receipt and the debt comes back. Rows of a sale or a return
+    are changed through the sale (cancel or return), not here."""
     result = await db.execute(sqlt("""
         SELECT dt.*, sh.status as shift_status
         FROM drawer_transactions dt
         JOIN shifts sh ON sh.id = dt.shift_id
         WHERE dt.id = :id
+        FOR UPDATE OF dt
     """), {"id": tx_id})
     row = result.fetchone()
     if not row:
@@ -484,17 +493,32 @@ async def delete_drawer_transaction(db: AsyncSession, tx_id: uuid.UUID, current_
     tx = dict(row._mapping)
     if tx["shift_status"] == "closed":
         raise BusinessError("لا يمكن حذف معاملة من وردية مغلقة")
+    if tx["cancelled_at"] is not None:
+        raise BusinessError("هذه العملية ملغاة بالفعل")
+    if tx["ref_id"] is not None:
+        raise BusinessError("هذه العملية تخص فاتورة — ألغِ الفاتورة أو سجّل مرتجعاً بدلاً من حذفها")
 
+    amt = Decimal(str(tx["amount"]))
     # Reverse wallet balance if wallet payment
     if tx.get("wallet_id") and tx.get("payment_method") == "wallet":
         from app.activities.general.modules.finance.services.wallets import record_wallet_tx
-        amt = Decimal(str(tx["amount"]))
         if tx["type"] == "deposit":
             await record_wallet_tx(db, tx["wallet_id"], -amt, "deposit_reversed", tx_id, "حذف دواخل", current_user_id)
         elif tx["type"] in ("expense", "withdrawal"):
             await record_wallet_tx(db, tx["wallet_id"], amt, "expense_reversed", tx_id, "حذف خوارج", current_user_id)
 
-    await db.execute(sqlt("DELETE FROM drawer_transactions WHERE id=:id"), {"id": tx_id})
+    if tx.get("customer_payment_id"):
+        from app.activities.general.modules.contacts.models.customer_payment import CustomerPayment
+        paid = await db.get(CustomerPayment, tx["customer_payment_id"])
+        if paid:
+            db.add(CustomerPayment(customer_id=paid.customer_id, amount=-Decimal(str(paid.amount)),
+                                   note=f"إلغاء دفعة من الدرج{(' — ' + paid.note) if paid.note else ''}",
+                                   created_by=current_user_id))
+            await db.execute(sqlt("UPDATE customers SET balance = COALESCE(balance,0) + :amt WHERE id = :cid"),
+                             {"amt": Decimal(str(paid.amount)), "cid": paid.customer_id})
+
+    await db.execute(sqlt("UPDATE drawer_transactions SET cancelled_at = now(), cancelled_by = :uid WHERE id = :id"),
+                     {"uid": current_user_id, "id": tx_id})
     await db.commit()
 
 

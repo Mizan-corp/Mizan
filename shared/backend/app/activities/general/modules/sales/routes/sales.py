@@ -266,8 +266,27 @@ async def get_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Dep
         "note": p.note,
         "created_at": p.created_at.isoformat() if p.created_at else None,
     } for p in payments]
-    # Use returns_total stored on the sale (updated by return_sale / partial_return_sale)
-    # which correctly accounts for item discounts.  Fall back to 0 if not set.
+    # Returns are their own documents (ADR-014 D4): the sale lists them and how much of each
+    # product came back; a return names the sale it returns.
+    returns = (await db.execute(sqlt(
+        "SELECT id, invoice_number, net_total, created_at FROM sales WHERE return_of = :id AND status = 'returned' "
+        "ORDER BY created_at"
+    ), {"id": sale_id})).fetchall()
+    result["returns"] = [{"id": str(r.id), "invoice_number": r.invoice_number, "net_total": float(r.net_total or 0),
+                          "created_at": r.created_at.isoformat() if r.created_at else None} for r in returns]
+    returned_qty = dict((await db.execute(sqlt(
+        "SELECT si.product_id, SUM(si.qty) FROM sale_items si JOIN sales r ON r.id = si.sale_id "
+        "WHERE r.return_of = :id AND r.status = 'returned' GROUP BY si.product_id"
+    ), {"id": sale_id})).fetchall())
+    left = {str(k): float(v) for k, v in returned_qty.items()}
+    for item in result["items"]:
+        pid = str(item["product_id"])
+        taken = min(float(item["qty"]), left.get(pid, 0.0))
+        left[pid] = left.get(pid, 0.0) - taken
+        item["returned_qty"] = taken
+    result["return_of_number"] = (await db.execute(sqlt("SELECT invoice_number FROM sales WHERE id = :id"),
+                                                   {"id": result["return_of"]})).scalar() if result.get("return_of") else None
+    # returns_total is kept on the sale by every return.
     net_total = float(result.get("net_total", 0))
     paid = float(result.get("paid_amount", 0) or 0)
     returns_total = float(result.get("returns_total", 0) or 0)
@@ -312,7 +331,7 @@ async def update_sale_item_qty(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_is_manager)
 ):
-    """Adjust qty of a sale item with optimistic locking."""
+    """Refused (409): a confirmed sale is corrected with a return, not edited (ADR-014 D4)."""
     return await sale_service.update_sale_item_qty(db, sale_id, item_id, data, current_user.id, current_user.full_name)
 
 
@@ -323,5 +342,5 @@ async def delete_sale_item(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_is_manager)
 ):
-    """Delete a sale item. Reverses stock movement and drawer balance."""
+    """Refused (409): removing a line from a confirmed sale is a partial return (ADR-014 D4)."""
     return await sale_service.delete_sale_item(db, sale_id, item_id, current_user.id)

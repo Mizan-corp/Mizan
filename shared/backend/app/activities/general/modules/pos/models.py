@@ -69,6 +69,11 @@ class DrawerTransaction(TenantScoped, Base):
     wallet_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("payment_wallets.id", ondelete="SET NULL"), nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Drawer rows are cancelled, never deleted (ADR-014 D4); totals skip cancelled rows.
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    cancelled_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    # The customer receipt a deposit row recorded (a customer paying off their debt at the drawer).
+    customer_payment_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("customer_payments.id", ondelete="SET NULL"), nullable=True)
 
     shift: Mapped["Shift"] = relationship(back_populates="transactions")
     sale = relationship("Sale", foreign_keys=[ref_id], primaryjoin="DrawerTransaction.ref_id == Sale.id", viewonly=True)

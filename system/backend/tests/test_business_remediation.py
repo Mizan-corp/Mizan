@@ -156,8 +156,10 @@ async def test_biz_01_cash_sale_return_deducts_from_drawer():
     # 3. Verify drawer transactions contain the return transaction with amount 200 EGP
     async with AsyncSessionLocal() as session:
         from sqlalchemy import text as sqlt
+        # The refund row belongs to the return document, which points to the sale (ADR-014 D4).
         txs = (await session.execute(
-            sqlt("SELECT type, amount, shift_id FROM drawer_transactions WHERE ref_id = :sid"),
+            sqlt("SELECT type, amount, shift_id FROM drawer_transactions WHERE ref_id = :sid "
+                 "OR ref_id IN (SELECT id FROM sales WHERE return_of = :sid)"),
             {"sid": str(sale_id)}
         )).fetchall()
 

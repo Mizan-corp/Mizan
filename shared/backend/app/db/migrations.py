@@ -3270,6 +3270,30 @@ MIGRATIONS = [
     # Existing clinics keep access to their patients: records whose doctor_name is exactly an active
     # user's name in the workspace are linked to that user, who joins the patient's care team.
     ("v79b_clinic_care_team_backfill", "python:app.activities.healthcare.modules.healthcare_clinic.migrate:backfill_care_team"),
+    # ADR-014 D4/D5 (sales, POS, inventory): returns are their own documents linked to the sale,
+    # drawer rows are cancelled instead of deleted, and products keep a weighted average cost.
+    # Existing partial returns (RET-…, linked only by "مرتجع جزئي من INV-…" in their notes) are
+    # linked to their sale and get their real totals from their lines. Old full returns (the
+    # original sale marked 'returned') are left as they are: history is not rewritten.
+    ("v80_sales_returns_drawer_cancel_avg_cost", """
+        ALTER TABLE sales ADD COLUMN IF NOT EXISTS return_of uuid REFERENCES sales(id);
+        CREATE INDEX IF NOT EXISTS ix_sales_return_of ON sales (return_of) WHERE return_of IS NOT NULL;
+        ALTER TABLE drawer_transactions ADD COLUMN IF NOT EXISTS cancelled_at timestamptz;
+        ALTER TABLE drawer_transactions ADD COLUMN IF NOT EXISTS cancelled_by uuid REFERENCES users(id) ON DELETE SET NULL;
+        ALTER TABLE drawer_transactions ADD COLUMN IF NOT EXISTS customer_payment_id uuid REFERENCES customer_payments(id) ON DELETE SET NULL;
+        ALTER TABLE sale_payments ADD COLUMN IF NOT EXISTS safe_id uuid REFERENCES safes(id) ON DELETE SET NULL;
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS avg_cost numeric(14,4) NOT NULL DEFAULT 0;
+        UPDATE products SET avg_cost = COALESCE(cost_price, 0) WHERE avg_cost = 0 AND COALESCE(cost_price, 0) <> 0;
+        UPDATE sales r SET return_of = o.id
+        FROM sales o
+        WHERE r.return_of IS NULL AND r.status = 'returned' AND r.invoice_number LIKE 'RET-%'
+          AND r.notes LIKE 'مرتجع جزئي من %' AND o.tenant_id = r.tenant_id AND o.id <> r.id
+          AND o.invoice_number = btrim(substring(r.notes FROM 15));
+        UPDATE sales r SET total = t.gross, net_total = t.gross - t.line_discounts, paid_amount = t.gross - t.line_discounts
+        FROM (SELECT sale_id, SUM(qty * unit_price) AS gross, SUM(COALESCE(discount, 0)) AS line_discounts
+              FROM sale_items GROUP BY sale_id) t
+        WHERE t.sale_id = r.id AND r.return_of IS NOT NULL AND COALESCE(r.total, 0) = 0;
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

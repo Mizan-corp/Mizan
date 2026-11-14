@@ -81,8 +81,8 @@ class UpdateSale(BaseModel):
 
 
 class ConfirmQuotationRequest(BaseModel):
-    """وجهة فلوس عرض السعر عند التأكيد — درج (وردية مفتوحة) أو خزنة."""
-    destination: Literal["drawer", "safe"] = "drawer"
+    """وجهة فلوس عرض السعر عند التأكيد — درج (وردية مفتوحة) أو خزنة أو على حساب العميل (آجل)."""
+    destination: Literal["drawer", "safe", "credit"] = "drawer"
     safe_id: uuid.UUID | None = None
 
 
@@ -127,6 +127,9 @@ class SaleOut(BaseModel):
     wallet_id: uuid.UUID | None
     notes: str | None
     extra: dict = Field(default_factory=dict)
+    # A return document points to the sale it returns; a sale shows how much has been returned.
+    return_of: uuid.UUID | None = None
+    returns_total: Decimal | None = None
     created_at: datetime
     items: list[SaleItemOut] = []
     model_config = {"from_attributes": True}

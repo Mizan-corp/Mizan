@@ -51,6 +51,9 @@ class Product(TenantScoped, Base):
     retail_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     wholesale_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     cost_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    # Weighted moving average cost for the whole workspace (ADR-014 D5), kept by apply_movement.
+    # cost_price stays the last purchase price.
+    avg_cost: Mapped[Decimal] = mapped_column(Numeric(14, 4), default=0, server_default=text("0"))
     reorder_point: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=0)
     reorder_qty: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=0)
     reorder_level: Mapped[int] = mapped_column(Integer, default=5, server_default=text("5"))

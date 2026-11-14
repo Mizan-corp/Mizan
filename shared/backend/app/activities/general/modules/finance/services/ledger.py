@@ -67,7 +67,7 @@ BASE_TX = """
     FROM drawer_transactions dt
     JOIN shifts sh ON sh.id = dt.shift_id
     LEFT JOIN payment_wallets pw ON pw.id = dt.wallet_id
-    WHERE dt.type IN ('expense','deposit','withdrawal')
+    WHERE dt.type IN ('expense','deposit','withdrawal') AND dt.cancelled_at IS NULL
       AND dt.created_at BETWEEN :start AND :end
       {wh}
     ORDER BY dt.created_at
@@ -162,7 +162,7 @@ async def get_ledger(
     count_tx_sql = text(f"""
         SELECT COUNT(*) FROM drawer_transactions dt
         JOIN shifts sh ON sh.id = dt.shift_id
-        WHERE dt.type IN ('expense','deposit','withdrawal')
+        WHERE dt.type IN ('expense','deposit','withdrawal') AND dt.cancelled_at IS NULL
           AND dt.created_at BETWEEN :start AND :end
           {wh_t}
     """)
@@ -201,7 +201,7 @@ async def get_ledger(
         SELECT type, SUM(amount) as total
         FROM drawer_transactions dt
         JOIN shifts sh ON sh.id = dt.shift_id
-        WHERE dt.type IN ('sale','return_')
+        WHERE dt.type IN ('sale','return_') AND dt.cancelled_at IS NULL
           AND (dt.payment_method IS NULL OR dt.payment_method = '' OR dt.payment_method = 'cash')
           AND dt.created_at BETWEEN :start AND :end
           {wh_t}

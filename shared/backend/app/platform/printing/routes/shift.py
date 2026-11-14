@@ -50,7 +50,7 @@ async def print_shift_summary(shift_id: uuid.UUID,
                pw.name as wallet_name, dt.created_at
         FROM drawer_transactions dt
         LEFT JOIN payment_wallets pw ON pw.id = dt.wallet_id
-        WHERE dt.shift_id = :sid AND dt.type IN ('deposit','expense','withdrawal')
+        WHERE dt.shift_id = :sid AND dt.type IN ('deposit','expense','withdrawal') AND dt.cancelled_at IS NULL
         ORDER BY dt.created_at
     """), {"sid": shift_id})
     txns = [dict(r._mapping) for r in tx_rows.fetchall()]
@@ -89,7 +89,7 @@ async def print_shift_summary(shift_id: uuid.UUID,
 
     ret_rows = await db.execute(text("""
         SELECT s.invoice_number, s.created_at,
-               COALESCE(SUM(si.qty * si.unit_price),0) as total
+               COALESCE(NULLIF(MAX(s.net_total), 0), SUM(si.qty * si.unit_price), 0) as total
         FROM sales s LEFT JOIN sale_items si ON si.sale_id = s.id
         WHERE s.shift_id = :sid AND s.status = 'returned'
         GROUP BY s.id ORDER BY s.created_at
