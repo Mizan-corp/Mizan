@@ -52,4 +52,7 @@ HDD, home connection with a changing IP), the first node of a future cluster.
   for `mizan_app` and workspace requests touching them failed with "permission denied" until
   2026-11-13. Every migrate path now grants `mizan_app` on all tables and sets default privileges
   for the current login role (`APP_ROLE_GRANTS` in `app/db/migrations.py`).
+- **CI and scheduled jobs run on Mizan's own machines** (2026-11-14), after GitHub's free hosted
+  minutes ran out: CI on latitude-e6530 (runner `latitude-ci`), the release and the scheduled jobs
+  on homie. See `.github/RUNNERS.md`.
 - Details and operations: `deploy/server/README.md`.
