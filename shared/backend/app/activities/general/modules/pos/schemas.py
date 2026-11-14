@@ -63,6 +63,8 @@ class DrawerTxOut(BaseModel):
     wallet_id: uuid.UUID | None = None
     created_by: uuid.UUID | None = None
     created_at: datetime
+    cancelled_at: datetime | None = None
+    cancelled_by: uuid.UUID | None = None
     model_config = {"from_attributes": True}
 
 
