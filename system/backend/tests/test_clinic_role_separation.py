@@ -79,8 +79,7 @@ async def test_each_role_does_only_its_own_work():
         assert not any("Paracetamol" in d or "CBC" in d for d in lines)
 
         # The queue: doctors and nurses move patients; the lab doesn't. The ward: nurses.
-        appt = (await c.get("/clinic/appointments", headers=h["reception"])).json()
-        appt_id = (appt["items"] if isinstance(appt, dict) else appt)[0]["id"]
+        appt_id = (await c.get("/clinic/appointments", headers=h["reception"])).json()["items"][0]["id"]
         assert (await c.post(f"/clinic/appointments/{appt_id}/status", json={"status": "waiting"}, headers=h["lab"])).status_code == 403
         assert (await c.post(f"/clinic/appointments/{appt_id}/status", json={"status": "waiting"}, headers=h["nurse"])).status_code == 200
         assert (await c.post(f"/clinic/appointments/{appt_id}/status", json={"status": "in_consultation"}, headers=h["doc_a"])).status_code == 200

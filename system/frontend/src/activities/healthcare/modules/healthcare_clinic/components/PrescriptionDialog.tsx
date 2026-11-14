@@ -5,14 +5,13 @@ import { Input } from "@/components/kit/input";
 import { useClinicMutation } from "../useClinicActions";
 import type { PatientRef } from "../types";
 import { ClinicModal, ModalActions } from "./ClinicModal";
+import PatientPicker from "./PatientPicker";
 import { labelClass } from "./formStyles";
 
 // Issues an e-prescription to the pharmacy queue (POST /clinic/prescriptions, clinic:doctor).
 export default function PrescriptionDialog({ patient, onClose }: { patient?: PatientRef; onClose: () => void }) {
   const run = useClinicMutation();
   const [form, setForm] = useState({
-    patient_id: patient?.id ?? "",
-    patient_name: patient?.full_name ?? "",
     doctor_name: "د. هشام الشناوي",
     issue_date: "2026-11-05",
     medication_name: "",
@@ -21,14 +20,16 @@ export default function PrescriptionDialog({ patient, onClose }: { patient?: Pat
     duration_days: "14",
     instructions: "يؤخذ بعد الأكل مع كوب ماء كامل",
   });
+  const [picked, setPicked] = useState<PatientRef | null>(patient ?? null);
   const set = (patch: Partial<typeof form>) => setForm({ ...form, ...patch });
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!picked) return;
     await run(
       () => api.post("/clinic/prescriptions", {
-        patient_id: form.patient_id || "pat-" + Date.now(),
-        patient_name: form.patient_name,
+        patient_id: picked.id,
+        patient_name: picked.full_name,
         doctor_name: form.doctor_name,
         issue_date: form.issue_date,
         medication_name: form.medication_name,
@@ -47,11 +48,7 @@ export default function PrescriptionDialog({ patient, onClose }: { patient?: Pat
   return (
     <ClinicModal title="إصدار روشتة طبية رقمية (e-Prescription)" icon={<Pill className="size-5 text-primary" />} onClose={onClose}>
       <form onSubmit={submit} className="space-y-3.5 text-xs">
-        <div>
-          <label className={labelClass}>اسم المريض *</label>
-          <Input required placeholder="مثال: فاطمة الزهراء علي" value={form.patient_name}
-            onChange={(e) => set({ patient_name: e.target.value })} className="h-9 text-xs" />
-        </div>
+        <PatientPicker id="rx-patient" value={picked} onChange={setPicked} />
 
         <div>
           <label className={labelClass}>اسم الدواء والمادة الفعالة *</label>

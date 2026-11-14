@@ -3,20 +3,18 @@ import { useQuery } from "@tanstack/react-query";
 import { Calendar } from "lucide-react";
 import { api } from "@/lib/api";
 import { Input } from "@/components/kit/input";
-import { useClinic } from "../ClinicContext";
 import { useClinicMutation } from "../useClinicActions";
 import { CLINIC_KEYS } from "../useClinicData";
 import type { Clinician, PatientRef } from "../types";
 import { ClinicModal, ModalActions } from "./ClinicModal";
 import { labelClass, selectClass } from "./formStyles";
+import PatientPicker from "./PatientPicker";
 
 // Books a consultation (POST /clinic/appointments); the chosen doctor joins the care team (#113).
 export default function BookAppointmentDialog({ patient, onClose }: { patient?: PatientRef; onClose: () => void }) {
-  const { data } = useClinic();
   const run = useClinicMutation();
+  const [picked, setPicked] = useState<PatientRef | null>(patient ?? null);
   const [form, setForm] = useState({
-    patient_id: patient?.id ?? "",
-    patient_name: patient?.full_name ?? "",
     doctor_user_id: "",
     department: "الباطنة العامة",
     appointment_date: "2026-11-05",
@@ -33,10 +31,11 @@ export default function BookAppointmentDialog({ patient, onClose }: { patient?: 
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!picked) return;
     const ok = await run(
       () => api.post("/clinic/appointments", {
-        patient_id: form.patient_id,
-        patient_name: form.patient_name,
+        patient_id: picked.id,
+        patient_name: picked.full_name,
         doctor_user_id: form.doctor_user_id,
         department: form.department,
         appointment_date: form.appointment_date,
@@ -54,24 +53,7 @@ export default function BookAppointmentDialog({ patient, onClose }: { patient?: 
   return (
     <ClinicModal title="حجز موعد كشف واستشارة طبية" icon={<Calendar className="size-5 text-primary" />} onClose={onClose} size="lg">
       <form onSubmit={submit} className="space-y-3.5 text-xs">
-        <div>
-          <label htmlFor="booking-patient" className={labelClass}>المريض *</label>
-          <select
-            id="booking-patient"
-            required
-            value={form.patient_id}
-            onChange={(e) => {
-              const p = data.patients.find((x) => x.id === e.target.value);
-              set({ patient_id: e.target.value, patient_name: p?.full_name || "" });
-            }}
-            className={selectClass}
-          >
-            <option value="">اختر ملف المريض</option>
-            {data.patients.map((p) => (
-              <option key={p.id} value={p.id}>{p.full_name} — {p.patient_mrn}</option>
-            ))}
-          </select>
-        </div>
+        <PatientPicker id="booking-patient" value={picked} onChange={setPicked} />
 
         <div className="grid grid-cols-2 gap-3">
           <div>

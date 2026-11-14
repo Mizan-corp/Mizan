@@ -1,7 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { ClinicPerms } from "./permissions";
-import type { Appointment, Bed, Claim, ClinicSummary, Encounter, Invoice, LabOrder, Patient, Prescription } from "./types";
+import type { Appointment, Bed, Claim, ClinicSummary, Encounter, Invoice, LabOrder, Page, Patient, Prescription } from "./types";
+
+export interface Paging {
+  page: number;
+  pageSize: number;
+}
+
+export const DEFAULT_PAGE_SIZE = 25;
 
 /** Query keys of the clinic's lists, for invalidation after a change. */
 export const CLINIC_KEYS = {
@@ -17,19 +24,29 @@ export const CLINIC_KEYS = {
   claims: ["clinic-claims"],
 } as const;
 
-/** Every list the clinic screen shows. Billing lists load only for clinic:billing (#131). */
-export function useClinicData(perms: ClinicPerms) {
+/** Every list the clinic screen shows. Patients and appointments are searched and paged on the
+ *  server (#39); billing lists load only for clinic:billing (#131). */
+export function useClinicData(
+  perms: ClinicPerms,
+  { search, patients: patientsPaging, appointments: appointmentsPaging }: { search: string; patients: Paging; appointments: Paging },
+) {
   const summaryQuery = useQuery<ClinicSummary>({
     queryKey: CLINIC_KEYS.summary,
     queryFn: () => api.get("/clinic/summary"),
   });
-  const appointmentsQuery = useQuery<Appointment[]>({
-    queryKey: CLINIC_KEYS.appointments,
-    queryFn: () => api.get("/clinic/appointments"),
+  const appointmentsQuery = useQuery<Page<Appointment>>({
+    queryKey: [...CLINIC_KEYS.appointments, search, appointmentsPaging.page, appointmentsPaging.pageSize],
+    queryFn: () => api.get("/clinic/appointments", {
+      search: search || undefined, page: appointmentsPaging.page, page_size: appointmentsPaging.pageSize,
+    }),
+    placeholderData: keepPreviousData,
   });
-  const patientsQuery = useQuery<Patient[]>({
-    queryKey: CLINIC_KEYS.patients,
-    queryFn: () => api.get("/clinic/patients"),
+  const patientsQuery = useQuery<Page<Patient>>({
+    queryKey: [...CLINIC_KEYS.patients, search, patientsPaging.page, patientsPaging.pageSize],
+    queryFn: () => api.get("/clinic/patients", {
+      search: search || undefined, page: patientsPaging.page, page_size: patientsPaging.pageSize,
+    }),
+    placeholderData: keepPreviousData,
   });
   const encountersQuery = useQuery<Encounter[]>({
     queryKey: CLINIC_KEYS.encounters,
@@ -58,8 +75,10 @@ export function useClinicData(perms: ClinicPerms) {
     enabled: perms.billing,
   });
 
-  const patients = patientsQuery.data ?? [];
-  const appointments = appointmentsQuery.data ?? [];
+  const patientsPage = patientsQuery.data;
+  const appointmentsPage = appointmentsQuery.data;
+  const patients = patientsPage?.items ?? [];
+  const appointments = appointmentsPage?.items ?? [];
   const encounters = encountersQuery.data ?? [];
   const prescriptions = prescriptionsQuery.data ?? [];
   const labOrders = labOrdersQuery.data ?? [];
@@ -69,8 +88,8 @@ export function useClinicData(perms: ClinicPerms) {
 
   const occupied = beds.filter((b) => b.status === "occupied").length;
   const summary: ClinicSummary = summaryQuery.data || {
-    total_registered_patients: patients.length,
-    today_appointments_count: appointments.length,
+    total_registered_patients: patientsPage?.total ?? 0,
+    today_appointments_count: appointmentsPage?.total ?? 0,
     waiting_queue_count: appointments.filter((a) => a.status === "waiting" || a.status === "in_consultation").length,
     total_beds: beds.length,
     occupied_beds: occupied,
@@ -93,6 +112,10 @@ export function useClinicData(perms: ClinicPerms) {
     summary,
     patients,
     appointments,
+    patientsTotal: patientsPage?.total ?? 0,
+    patientsPages: patientsPage?.pages ?? 1,
+    appointmentsTotal: appointmentsPage?.total ?? 0,
+    appointmentsPages: appointmentsPage?.pages ?? 1,
     encounters,
     prescriptions,
     labOrders,

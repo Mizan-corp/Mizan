@@ -12,12 +12,13 @@ import {
 import { Calendar, CheckCircle2, Plus } from "lucide-react";
 import { sound } from "@/lib/sound";
 import { useClinic } from "../ClinicContext";
+import ListPager from "../components/ListPager";
 import { moneyEGP } from "../format";
 
 
 export default function AppointmentsTab() {
   const c = useClinic();
-  const { filteredAppts, actions, openDialog, perms } = c;
+  const { data, paging, search, actions, openDialog, perms } = c;
   return (
     <Card className="border-border/70 overflow-hidden shadow-xs bg-card/80">
       <div className="p-4 border-b border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/10">
@@ -58,7 +59,7 @@ export default function AppointmentsTab() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredAppts.map((a) => (
+          {data.appointments.map((a) => (
             <TableRow key={a.id} className="hover:bg-primary/[0.03] transition-colors border-b border-border/40">
               <TableCell>
                 <div className="num font-bold text-foreground text-xs">{a.appointment_ref}</div>
@@ -155,8 +156,16 @@ export default function AppointmentsTab() {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {data.appointments.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-6 text-center text-muted-foreground text-xs">
+                        {search.trim() ? "لا توجد مواعيد تطابق البحث." : "لا توجد مواعيد بعد."}
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
+              <ListPager paging={paging.appointments} total={data.appointmentsTotal} pages={data.appointmentsPages} />
             </Card>
   );
 }

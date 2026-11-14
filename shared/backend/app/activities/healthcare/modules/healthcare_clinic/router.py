@@ -759,17 +759,29 @@ async def revoke_break_glass(
 
 
 # ─── Patients Master Index (EMR) ────────────────────────────────────────────
+MAX_PAGE_SIZE = 100
+
+
+async def _page(db: AsyncSession, query, page: int, page_size: int) -> tuple[list, int, int]:
+    """One page of a list query: (rows, total, pages)."""
+    total = await db.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0
+    rows = (await db.execute(query.offset((page - 1) * page_size).limit(page_size))).scalars().all()
+    return list(rows), total, max(1, -(-total // page_size))
+
+
 @router.get("/patients")
 async def list_patients(
     search: str | None = None,
-    limit: int = Query(50, ge=1, le=500),
-    offset: int = Query(0, ge=0),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=MAX_PAGE_SIZE),
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
 ):
+    """A page of the patient index, searched by name, MRN, national id or phone (#39). Clinical
+    fields only where the user reaches the patient; the rows read clinically are logged (#113)."""
     query = select(ClinicPatient).where(ClinicPatient.tenant_id == tenant_id)
-    if search:
+    if search and search.strip():
         s = f"%{search.strip()}%"
         query = query.where(
             or_(
@@ -779,13 +791,13 @@ async def list_patients(
                 ClinicPatient.phone.ilike(s),
             )
         )
-    query = query.order_by(ClinicPatient.created_at.desc()).offset(offset).limit(limit)
-    patients = (await db.execute(query)).scalars().all()
+    query = query.order_by(ClinicPatient.created_at.desc(), ClinicPatient.id)
+    patients, total, pages = await _page(db, query, page, page_size)
     reach = await access.access_by_patient(db, current_user, [p.id for p in patients])
     if reach:
         hows = set(reach.values())
         await access.log_access(db, current_user, "patient", hows.pop() if len(hows) == 1 else "team", None, len(reach))
-    return [_patient_out(p, reach.get(p.id)) for p in patients]
+    return {"items": [_patient_out(p, reach.get(p.id)) for p in patients], "total": total, "page": page, "pages": pages}
 
 
 @router.post("/patients")
@@ -932,14 +944,15 @@ async def list_appointments(
     doctor_name: str | None = None,
     appointment_date: str | None = None,
     status_filter: str | None = Query(None, alias="status"),
-    limit: int = Query(50, ge=1, le=500),
-    offset: int = Query(0, ge=0),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=MAX_PAGE_SIZE),
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
 ):
+    """A page of appointments, searched by patient, doctor or reference, with the filters (#39)."""
     query = select(ClinicAppointment).where(ClinicAppointment.tenant_id == tenant_id)
-    if search:
+    if search and search.strip():
         s = f"%{search.strip()}%"
         query = query.where(
             or_(
@@ -955,9 +968,10 @@ async def list_appointments(
     if status_filter:
         query = query.where(ClinicAppointment.status == status_filter)
 
-    query = query.order_by(ClinicAppointment.appointment_date.desc(), ClinicAppointment.queue_number.asc()).offset(offset).limit(limit)
-    q = await db.execute(query)
-    return q.scalars().all()
+    query = query.order_by(ClinicAppointment.appointment_date.desc(), ClinicAppointment.queue_number.asc(),
+                           ClinicAppointment.id)
+    rows, total, pages = await _page(db, query, page, page_size)
+    return {"items": [_row(a) for a in rows], "total": total, "page": page, "pages": pages}
 
 
 @router.post("/appointments")

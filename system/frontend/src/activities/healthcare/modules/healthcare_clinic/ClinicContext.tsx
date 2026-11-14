@@ -1,8 +1,13 @@
 import { createContext, useContext } from "react";
 import type { ClinicPerms } from "./permissions";
 import type { ClinicActions } from "./useClinicActions";
-import type { ClinicData } from "./useClinicData";
-import type { Appointment, Bed, ClinicTab, Encounter, LabOrder, Patient, PatientRef, Prescription } from "./types";
+import type { ClinicData, Paging } from "./useClinicData";
+import type { Bed, ClinicTab, Encounter, LabOrder, PatientRef, Prescription } from "./types";
+
+export interface PagingControl extends Paging {
+  setPage: (page: number) => void;
+  setPageSize: (size: number) => void;
+}
 
 /** Which clinic dialog is open, with what it was opened for. */
 export type ClinicDialog =
@@ -23,9 +28,9 @@ export interface ClinicContextValue {
   actions: ClinicActions;
   tab: ClinicTab;
   handleTabChange: (tab: string) => void;
+  /** The search box; patients and appointments are searched on the server (#39). */
   search: string;
-  filteredAppts: Appointment[];
-  filteredPatients: Patient[];
+  paging: { patients: PagingControl; appointments: PagingControl };
   filteredEncounters: Encounter[];
   filteredRx: Prescription[];
   filteredLabs: LabOrder[];

@@ -5,6 +5,7 @@ import { Input } from "@/components/kit/input";
 import { useClinicMutation } from "../useClinicActions";
 import type { PatientRef } from "../types";
 import { ClinicModal, ModalActions } from "./ClinicModal";
+import PatientPicker from "./PatientPicker";
 import { labelClass, selectClass } from "./formStyles";
 
 const LAB_CATEGORIES = [
@@ -19,22 +20,22 @@ const LAB_CATEGORIES = [
 export default function LabOrderDialog({ patient, onClose }: { patient?: PatientRef; onClose: () => void }) {
   const run = useClinicMutation();
   const [form, setForm] = useState(() => ({
-    patient_id: patient?.id ?? "",
-    patient_name: patient?.full_name ?? "",
     doctor_name: "د. هشام الشناوي",
     test_name: "صورة دم كاملة (CBC)",
     category: "أمراض الدم (Hematology)",
     specimen_barcode: "SPEC-" + Math.floor(1000 + Math.random() * 9000),
     reference_range: "معتمد مخبرياً",
   }));
+  const [picked, setPicked] = useState<PatientRef | null>(patient ?? null);
   const set = (patch: Partial<typeof form>) => setForm({ ...form, ...patch });
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!picked) return;
     await run(
       () => api.post("/clinic/lab-orders", {
-        patient_id: form.patient_id || "pat-" + Date.now(),
-        patient_name: form.patient_name,
+        patient_id: picked.id,
+        patient_name: picked.full_name,
         doctor_name: form.doctor_name,
         test_name: form.test_name,
         category: form.category,
@@ -51,11 +52,7 @@ export default function LabOrderDialog({ patient, onClose }: { patient?: Patient
   return (
     <ClinicModal title="طلب فحص مخبري أو تصوير طبي" icon={<Microscope className="w-5 h-5 text-purple-400" />} onClose={onClose}>
       <form onSubmit={submit} className="space-y-3.5 text-xs">
-        <div>
-          <label className={labelClass}>اسم المريض *</label>
-          <Input required placeholder="مثال: طارق عبد الحميد" value={form.patient_name}
-            onChange={(e) => set({ patient_name: e.target.value })} className="h-9 text-xs" />
-        </div>
+        <PatientPicker id="lab-patient" value={picked} onChange={setPicked} />
 
         <div>
           <label className={labelClass}>اسم الفحص أو التحليل *</label>

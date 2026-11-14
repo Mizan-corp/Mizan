@@ -32,10 +32,10 @@ export default function ClinicTabsBar({ onSearch }: { onSearch: (value: string) 
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/70 pb-1">
       <div className="flex flex-wrap items-center gap-1">
         <TabButton id="appointments" icon={<Calendar className="size-3.5" />}>
-          الكشوفات والانتظار <Count n={data.appointments.length} />
+          الكشوفات والانتظار <Count n={data.appointmentsTotal} />
         </TabButton>
         <TabButton id="patients" icon={<Users className="size-3.5" />}>
-          سجلات المرضى (EMR) <Count n={data.patients.length} />
+          سجلات المرضى (EMR) <Count n={data.patientsTotal} />
         </TabButton>
         <TabButton id="emr" icon={<HeartPulse className="size-3.5" />}>
           الكشوفات السريرية <Count n={data.encounters.length} />

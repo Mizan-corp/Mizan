@@ -173,3 +173,11 @@ export interface Clinician {
 }
 
 export type ClinicTab = "appointments" | "patients" | "emr" | "rx_labs" | "beds" | "billing" | "claims" | "privacy";
+
+/** A page of a server-side list (GET /clinic/patients, /clinic/appointments; #39). */
+export interface Page<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pages: number;
+}

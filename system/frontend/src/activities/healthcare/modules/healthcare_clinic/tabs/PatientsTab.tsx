@@ -13,6 +13,7 @@ import { useState } from "react";
 import { AlertCircle, Lock, ShieldAlert, UserPlus, Users, UsersRound } from "lucide-react";
 import { sound } from "@/lib/sound";
 import { useClinic } from "../ClinicContext";
+import ListPager from "../components/ListPager";
 import BreakGlassDialog from "../components/BreakGlassDialog";
 import CareTeamDialog from "../components/CareTeamDialog";
 
@@ -21,7 +22,7 @@ import type { PatientRef } from "../types";
 export default function PatientsTab() {
   const c = useClinic();
   const {
-    filteredPatients, openDialog,
+    data, paging, search, openDialog,
   } = c;
   const { perms } = c;
   const clinician = perms.clinician;
@@ -66,7 +67,7 @@ export default function PatientsTab() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredPatients.map((pat) => (
+          {data.patients.map((pat) => (
             <TableRow key={pat.id} className="hover:bg-primary/[0.03] transition-colors border-b border-border/40">
               <TableCell>
                 <div className="font-bold text-foreground text-xs flex items-center gap-1.5">
@@ -175,8 +176,16 @@ export default function PatientsTab() {
               </TableCell>
             </TableRow>
           ))}
+          {data.patients.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={6} className="py-6 text-center text-muted-foreground text-xs">
+                {search.trim() ? "لا يوجد مريض يطابق البحث (الاسم، رقم الملف، الرقم القومي أو الهاتف)." : "لا توجد ملفات مرضى بعد."}
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
+      <ListPager paging={paging.patients} total={data.patientsTotal} pages={data.patientsPages} />
       <BreakGlassDialog patient={breakGlassFor} onClose={() => setBreakGlassFor(null)} />
       <CareTeamDialog patient={careTeamFor} onClose={() => setCareTeamFor(null)} />
     </Card>

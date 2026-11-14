@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { sound } from "@/lib/sound";
-import { ClinicProvider, type ClinicContextValue, type ClinicDialog } from "./ClinicContext";
+import { ClinicProvider, type ClinicContextValue, type ClinicDialog, type PagingControl } from "./ClinicContext";
 import { HEALTHCARE_MODULES_MAP } from "./healthcareModules";
 import { useClinicPerms } from "./permissions";
 import { useClinicActions } from "./useClinicActions";
-import { useClinicData } from "./useClinicData";
+import { DEFAULT_PAGE_SIZE, useClinicData } from "./useClinicData";
+import { useDebounced } from "./useDebounced";
 import type { ClinicTab } from "./types";
 import ClinicDialogs from "./components/ClinicDialogs";
 import ClinicHeader from "./components/ClinicHeader";
@@ -42,9 +43,19 @@ export default function ClinicHealthcarePage() {
   const { moduleSlug } = useParams<{ moduleSlug?: string }>();
   const navigate = useNavigate();
   const perms = useClinicPerms();
-  const data = useClinicData(perms);
   const actions = useClinicActions();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounced(search.trim(), 300);
+  const [patientsPaging, setPatientsPaging] = useState({ page: 1, pageSize: DEFAULT_PAGE_SIZE });
+  const [appointmentsPaging, setAppointmentsPaging] = useState({ page: 1, pageSize: DEFAULT_PAGE_SIZE });
+  const [searchedFor, setSearchedFor] = useState(debouncedSearch);
+  if (searchedFor !== debouncedSearch) {
+    // A new search starts both lists at their first page.
+    setSearchedFor(debouncedSearch);
+    setPatientsPaging((p) => ({ ...p, page: 1 }));
+    setAppointmentsPaging((p) => ({ ...p, page: 1 }));
+  }
+  const data = useClinicData(perms, { search: debouncedSearch, patients: patientsPaging, appointments: appointmentsPaging });
   const [dialog, setDialog] = useState<ClinicDialog>(null);
   const [activeCategory, setActiveCategory] = useState("All");
 
@@ -71,14 +82,16 @@ export default function ClinicHealthcarePage() {
     else setSearchParams({ tab: modKey });
   };
 
+  const control = (paging: typeof patientsPaging, set: typeof setPatientsPaging): PagingControl => ({
+    ...paging,
+    setPage: (page) => set((p) => ({ ...p, page })),
+    setPageSize: (pageSize) => set({ page: 1, pageSize }),
+  });
   const q = search.trim().toLowerCase();
   const ctx: ClinicContextValue = {
     perms, data, actions, tab, handleTabChange, search,
+    paging: { patients: control(patientsPaging, setPatientsPaging), appointments: control(appointmentsPaging, setAppointmentsPaging) },
     openDialog: setDialog,
-    filteredAppts: data.appointments.filter((a) =>
-      !q || includes(a.patient_name, q) || includes(a.doctor_name, q) || includes(a.appointment_ref, q)),
-    filteredPatients: data.patients.filter((p) =>
-      !q || includes(p.full_name, q) || includes(p.patient_mrn, q) || includes(p.phone, q) || includes(p.national_id, q)),
     filteredEncounters: data.encounters.filter((e) =>
       !q || includes(e.patient_name, q) || includes(e.doctor_name, q) || includes(e.chief_complaint, q) || includes(e.icd10_code, q)),
     filteredRx: data.prescriptions.filter((r) =>

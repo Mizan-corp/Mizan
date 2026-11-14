@@ -5,6 +5,7 @@ import { Input } from "@/components/kit/input";
 import { useClinicMutation } from "../useClinicActions";
 import type { PatientRef } from "../types";
 import { ClinicModal, ModalActions } from "./ClinicModal";
+import PatientPicker from "./PatientPicker";
 import { labelClass } from "./formStyles";
 
 const VITALS = [
@@ -18,8 +19,6 @@ const VITALS = [
 export default function EncounterDialog({ patient, onClose }: { patient?: PatientRef; onClose: () => void }) {
   const run = useClinicMutation();
   const [form, setForm] = useState({
-    patient_id: patient?.id ?? "",
-    patient_name: patient?.full_name ?? "",
     doctor_name: "د. هشام الشناوي",
     department: "الباطنة العامة",
     encounter_date: "2026-11-05",
@@ -33,14 +32,16 @@ export default function EncounterDialog({ patient, onClose }: { patient?: Patien
     icd10_description: "داء السكري النوع الثاني",
     clinical_notes: "",
   });
+  const [picked, setPicked] = useState<PatientRef | null>(patient ?? null);
   const set = (patch: Partial<typeof form>) => setForm({ ...form, ...patch });
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!picked) return;
     await run(
       () => api.post("/clinic/encounters", {
-        patient_id: form.patient_id || "pat-" + Date.now(),
-        patient_name: form.patient_name,
+        patient_id: picked.id,
+        patient_name: picked.full_name,
         doctor_name: form.doctor_name,
         department: form.department,
         encounter_date: form.encounter_date,
@@ -64,11 +65,7 @@ export default function EncounterDialog({ patient, onClose }: { patient?: Patien
   return (
     <ClinicModal title="توثيق كشف سريري وتشخيص طبي (EMR)" icon={<HeartPulse className="size-5 text-primary" />} onClose={onClose} size="lg" scroll>
       <form onSubmit={submit} className="space-y-3.5 text-xs">
-        <div>
-          <label className={labelClass}>اسم المريض *</label>
-          <Input required placeholder="مثال: طارق عبد الحميد محمود" value={form.patient_name}
-            onChange={(e) => set({ patient_name: e.target.value })} className="h-9 text-xs" />
-        </div>
+        <PatientPicker id="encounter-patient" value={picked} onChange={setPicked} />
 
         <div className="grid grid-cols-2 gap-3">
           <div>
