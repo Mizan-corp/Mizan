@@ -8,7 +8,7 @@ from app.core.exceptions import NotFoundError
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_open_period, require_perm, verify_warehouse_access
 from app.platform.auth.models.user import User
-from app.activities.general.modules.finance.schemas.expense import ExpenseApprove, ExpenseCreate, ExpenseUpdate, ExpenseVendorCreate, ExpenseVendorUpdate
+from app.activities.general.modules.finance.schemas.expense import ExpenseApprove, ExpenseCancel, ExpenseCreate, ExpenseUpdate, ExpenseVendorCreate, ExpenseVendorUpdate
 from app.activities.general.modules.finance.services import expenses as expenses_service
 
 router = APIRouter(tags=["expenses"])
@@ -157,13 +157,18 @@ async def create_expense(data: ExpenseCreate, db: AsyncSession = Depends(get_db)
 @router.put("/expenses/{eid}")
 async def update_expense(eid: uuid.UUID, data: ExpenseUpdate, db: AsyncSession = Depends(get_db),
                          _=Depends(require_perm("finance"))):
-    existing = await db.execute(sqlt("SELECT * FROM expenses WHERE id = :id"), {"id": eid})
-    if not existing.mappings().first():
+    existing = (await db.execute(sqlt("SELECT status FROM expenses WHERE id = :id FOR UPDATE"), {"id": eid})).scalar_one_or_none()
+    if existing is None:
         raise NotFoundError()
-    from app.activities.general.modules.finance.schemas.expense import ExpenseUpdate as _ExpenseUpdate
-    # Exclude 'status' — it must be changed via the approve/reject endpoint only
-    ALLOWED_EXPENSE_FIELDS = set(_ExpenseUpdate.model_fields.keys()) - {"status"}
-    updates = {k: v for k, v in data.model_dump(exclude_unset=True).items() if k in ALLOWED_EXPENSE_FIELDS}
+    # Exclude 'status' — it must be changed via the approve/reject/cancel endpoints only
+    allowed = set(ExpenseUpdate.model_fields.keys()) - {"status"}
+    if existing in expenses_service.FINAL_STATUSES:
+        allowed = {"notes"}  # the money has moved (or been put back): only the notes can change
+    changes = data.model_dump(exclude_unset=True)
+    changes.pop("status", None)
+    if set(changes) - allowed:
+        raise HTTPException(409, "لا يمكن تعديل مصروف معتمد أو ملغى، يمكن تعديل الملاحظات فقط. لتصحيحه ألغِه وسجّل مصروفًا جديدًا")
+    updates = {k: v for k, v in changes.items() if k in allowed}
     if not updates:
         raise NotFoundError()
     sets = ", ".join(f"{k} = :{k}" for k in updates)
@@ -176,7 +181,17 @@ async def update_expense(eid: uuid.UUID, data: ExpenseUpdate, db: AsyncSession =
 @router.post("/expenses/{eid}/approve")
 async def approve_expense(eid: uuid.UUID, data: ExpenseApprove, db: AsyncSession = Depends(get_db),
                           current_user=Depends(require_perm("finance"))):
-    row = await expenses_service.decide(db, eid, data.approved, data.notes, current_user)
+    row = await expenses_service.decide(db, eid, data.approved, data.notes, current_user,
+                                        safe_id=data.safe_id, wallet_id=data.wallet_id)
+    await db.commit()
+    return row
+
+
+@router.post("/expenses/{eid}/cancel")
+async def cancel_expense(eid: uuid.UUID, data: ExpenseCancel | None = None, db: AsyncSession = Depends(get_db),
+                         current_user=Depends(require_perm("finance"))):
+    """Cancel an approved expense: its money goes back to the safe or wallet it came from."""
+    row = await expenses_service.cancel(db, eid, data.reason if data else None, current_user)
     await db.commit()
     return row
 
@@ -184,10 +199,14 @@ async def approve_expense(eid: uuid.UUID, data: ExpenseApprove, db: AsyncSession
 @router.delete("/expenses/{eid}", status_code=204)
 async def delete_expense(eid: uuid.UUID, db: AsyncSession = Depends(get_db),
                          _=Depends(require_perm("finance"))):
-    r = await db.execute(sqlt("DELETE FROM expenses WHERE id = :id"), {"id": eid})
-    await db.commit()
-    if r.rowcount == 0:
+    """Only drafts and rejected expenses are deleted; an approved one is cancelled instead."""
+    status = (await db.execute(sqlt("SELECT status FROM expenses WHERE id = :id FOR UPDATE"), {"id": eid})).scalar_one_or_none()
+    if status is None:
         raise NotFoundError()
+    if status in expenses_service.FINAL_STATUSES:
+        raise HTTPException(409, "لا يمكن حذف مصروف معتمد أو ملغى. استخدم الإلغاء لإرجاع المبلغ")
+    await db.execute(sqlt("DELETE FROM expenses WHERE id = :id"), {"id": eid})
+    await db.commit()
 
 
 # ── Expense Summary ────────────────────────────────────────────────────────

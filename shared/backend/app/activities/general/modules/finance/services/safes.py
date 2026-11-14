@@ -20,15 +20,18 @@ async def _lock_safe(db: AsyncSession, safe_id: uuid.UUID) -> dict:
     return dict(safe)
 
 
-async def _post(db: AsyncSession, safe_id: uuid.UUID, tx_type: str, delta: Decimal, note: str, user_id) -> Decimal:
-    """Apply delta (+ in, - out) to a locked safe and log it; returns the new balance."""
+async def _post(db: AsyncSession, safe_id: uuid.UUID, tx_type: str, delta: Decimal, note: str, user_id,
+                ref_type: str | None = None, ref_id: uuid.UUID | None = None) -> Decimal:
+    """Apply delta (+ in, - out) to a locked safe and log it with the document it belongs to
+    (ref_type/ref_id); returns the new balance."""
     new_balance = (await db.execute(
         text("UPDATE safes SET balance = balance + :d WHERE id = :id RETURNING balance"), {"d": delta, "id": safe_id}
     )).scalar_one()
     await db.execute(text("""
-        INSERT INTO safe_transactions (safe_id, tx_type, amount, balance_after, note, created_by)
-        VALUES (:sid, :type, :amt, :bal, :note, :uid)
-    """), {"sid": safe_id, "type": tx_type, "amt": abs(delta), "bal": new_balance, "note": note, "uid": user_id})
+        INSERT INTO safe_transactions (safe_id, tx_type, amount, balance_after, note, created_by, ref_type, ref_id)
+        VALUES (:sid, :type, :amt, :bal, :note, :uid, :rtype, :rid)
+    """), {"sid": safe_id, "type": tx_type, "amt": abs(delta), "bal": new_balance, "note": note, "uid": user_id,
+           "rtype": ref_type, "rid": ref_id})
     return new_balance
 
 
@@ -86,8 +89,30 @@ async def withdraw(db: AsyncSession, safe_id: uuid.UUID, amount: Decimal, note: 
     return await _post(db, safe_id, "withdraw", -amount, note or "", user.id)
 
 
-async def pay_expense(db: AsyncSession, safe_id: uuid.UUID, amount: Decimal, note: str, user_id) -> Decimal:
+async def pay_expense(db: AsyncSession, safe_id: uuid.UUID, amount: Decimal, note: str, user_id,
+                      expense_id: uuid.UUID | None = None) -> Decimal:
     """Money out of a safe for an approved expense. Unlike withdraw(), this does not refuse an
     overdraft: approving an expense has always been allowed to take a safe below zero."""
     await _lock_safe(db, safe_id)
-    return await _post(db, safe_id, "withdraw", -amount, note, user_id)
+    return await _post(db, safe_id, "withdraw", -amount, note, user_id, "expense", expense_id)
+
+
+async def pay_out(db: AsyncSession, safe_id: uuid.UUID, amount: Decimal, note: str, user_id, *,
+                  ref_type: str, ref_id: uuid.UUID | None) -> Decimal:
+    """Money out of a safe for a document (supplier payment, salaries, advance…). Refuses an
+    overdraft: cash that isn't in the safe can't be paid out of it."""
+    safe = await _lock_safe(db, safe_id)
+    if not safe["is_active"]:
+        raise HTTPException(400, "الخزنة موقوفة")
+    if Decimal(safe["balance"]) < amount:
+        raise HTTPException(400, f"رصيد الخزنة غير كافٍ ({safe['balance']} ج.م)")
+    return await _post(db, safe_id, "withdraw", -amount, note, user_id, ref_type, ref_id)
+
+
+async def take_in(db: AsyncSession, safe_id: uuid.UUID, amount: Decimal, note: str, user_id, *,
+                  ref_type: str, ref_id: uuid.UUID | None) -> Decimal:
+    """Money into a safe for a document (customer receipt, reversed payment…)."""
+    safe = await _lock_safe(db, safe_id)
+    if not safe["is_active"]:
+        raise HTTPException(400, "الخزنة موقوفة")
+    return await _post(db, safe_id, "deposit", amount, note, user_id, ref_type, ref_id)

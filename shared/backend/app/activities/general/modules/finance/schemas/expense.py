@@ -55,3 +55,10 @@ class ExpenseUpdate(BaseModel):
 class ExpenseApprove(BaseModel):
     approved: bool = True
     notes: str | None = None
+    # The money's source, if the draft doesn't name it yet.
+    safe_id: UUID | None = None
+    wallet_id: UUID | None = None
+
+
+class ExpenseCancel(BaseModel):
+    reason: str | None = None

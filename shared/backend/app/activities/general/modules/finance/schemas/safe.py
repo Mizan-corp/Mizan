@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -9,6 +10,8 @@ from pydantic import BaseModel, Field
 class SafeCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=128)
     location: str | None = None
+    # A bank account is a safe of type bank: bank transfers and cheques are paid into or out of it.
+    safe_type: Literal["permanent", "temporary", "bank"] = "permanent"
 
 
 class SafeUpdate(BaseModel):

@@ -1,35 +1,35 @@
 /**
  * PAGE CONTRACT
- * Page: الإدارة المالية ودفتر الأستاذ العام (/finance)
- * Archetype: General Ledger & Double-Entry Accounting Console
- * User: المدير المالي (CFO)، رئيس الحسابات، والمحاسب القانوني
- * Purpose: إدارة دفتر الأستاذ العام، ميزان المراجعة، قيود اليومية المزدوجة المتزنة، الخزائن والمحافظ، وإقفال الفترات المالية
+ * Page: الإدارة المالية (/finance)
+ * Archetype: Treasury & expenses console
+ * User: المدير المالي، رئيس الحسابات، والمحاسب
+ * Purpose: حركة الخزينة والمصروفات، الخزائن والمحافظ، اعتماد المصروفات وإلغاؤها، وإقفال الفترات.
+ * There is no general ledger yet: the journal and trial balance come with ADR-014 (D9).
  */
 import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeftRight,
   Banknote,
+  Landmark,
   Lock,
   LockOpen,
   Plus,
   Wallet,
-  Scale,
   ReceiptText,
   BookOpen,
   CalendarCheck,
-  CheckCircle2,
-  AlertTriangle,
   Trash2,
   Building2,
   Coins,
-  FileCheck2,
+  Ban,
 } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
 import { D, dateTime, moneyEGP } from "@/lib/format";
 import { sound } from "@/lib/sound";
 import { Badge, Button, ErrorBox, Input, Modal, Select, Spinner } from "@/components/ui";
+import { PaySourceSelect, sourceFields } from "@app/components/PaySourceSelect";
 
 interface Safe {
   id: string;
@@ -49,11 +49,19 @@ interface Expense {
   id: string;
   amount: string;
   description: string;
-  status: string;
+  status: "draft" | "approved" | "rejected" | "cancelled";
   created_at: string;
   is_recurring: boolean;
+  payment_method: string | null;
+  safe_id: string | null;
+  wallet_id: string | null;
   category_name?: string | null;
   vendor_name?: string | null;
+}
+
+interface ExpensePage {
+  data: Expense[];
+  total: number;
 }
 
 interface FinCategory {
@@ -71,35 +79,33 @@ interface Period {
   status: string;
 }
 
-interface LedgerRow {
-  id?: string;
-  date?: string;
-  description?: string | null;
-  debit?: string | null;
-  credit?: string | null;
-  balance?: string | null;
-  account_code?: string;
-  account_name?: string;
+interface CashEntry {
+  id: string;
+  type: "deposit" | "withdrawal" | "expense";
+  amount: number;
+  note: string | null;
+  created_at: string | null;
+  category_name: string | null;
+  warehouse_name: string | null;
+  cashier_name: string | null;
 }
 
-interface JournalLine {
-  id: string;
-  account: string;
-  description: string;
-  debit: string;
-  credit: string;
+interface CashMovements {
+  total_income: number;
+  total_expense: number;
+  net: number;
+  categories: { name: string; entries: CashEntry[] }[];
 }
 
 const TABS = [
-  { key: "ledger", label: "دفتر الأستاذ وميزان المراجعة", icon: BookOpen },
-  { key: "journal", label: "قيد يومية مزدوج (Balanced Voucher)", icon: Scale },
+  { key: "cash", label: "حركة الخزينة والمصروفات", icon: BookOpen },
   { key: "treasury", label: "الخزائن والمحافظ النقدية", icon: Coins },
   { key: "expenses", label: "مصادقات وسجل المصروفات", icon: ReceiptText },
-  { key: "periods", label: "إقفال وترحيل الفترات المالية", icon: CalendarCheck },
+  { key: "periods", label: "إقفال الفترات المالية", icon: CalendarCheck },
 ] as const;
 
 export default function FinancePage() {
-  const [activeTab, setActiveTab] = useState<string>("ledger");
+  const [activeTab, setActiveTab] = useState<string>("cash");
 
   // Load high-level treasury and accounting periods for the ribbon
   const safes = useQuery({ queryKey: ["safes"], queryFn: () => api.get<Safe[]>("/safes") });
@@ -123,19 +129,12 @@ export default function FinancePage() {
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line/60 pb-5">
           <div className="flex items-center gap-3">
             <div className="size-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-xs">
-              <Scale className="size-6" />
+              <Landmark className="size-6" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl md:text-2xl font-black tracking-tight text-ink">
-                  الكونسول المالي ودفتر الأستاذ العام
-                </h1>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
-                  Double-Entry GAAP
-                </span>
-              </div>
+              <h1 className="text-xl md:text-2xl font-black tracking-tight text-ink">الإدارة المالية</h1>
               <p className="text-xs text-muted mt-0.5">
-                ميزان المراجعة، القيود المزدوجة المتزنة، ضبط السيولة النقدية، وترحيل الفترات المحاسبية
+                حركة الخزينة والمصروفات، الخزائن والمحافظ، وإقفال الفترات
               </p>
             </div>
           </div>
@@ -149,11 +148,11 @@ export default function FinancePage() {
             <Badge tone={currentPeriod.status === "closed" ? "danger" : "success"}>
               {currentPeriod.status === "closed" ? (
                 <span className="flex items-center gap-1">
-                  <Lock className="size-3" /> مغلقة ومرحّلة
+                  <Lock className="size-3" /> مغلقة
                 </span>
               ) : (
                 <span className="flex items-center gap-1">
-                  <LockOpen className="size-3" /> مفتوحة للقيود
+                  <LockOpen className="size-3" /> مفتوحة
                 </span>
               )}
             </Badge>
@@ -226,8 +225,7 @@ export default function FinancePage() {
       </div>
 
       {/* ── Active Workspaces ── */}
-      {activeTab === "ledger" && <LedgerWorkspace />}
-      {activeTab === "journal" && <JournalEntryWorkspace />}
+      {activeTab === "cash" && <CashMovementsWorkspace />}
       {activeTab === "treasury" && <TreasuryWorkspace safes={safes.data ?? []} wallets={wallets.data ?? []} />}
       {activeTab === "expenses" && <ExpensesWorkspace />}
       {activeTab === "periods" && <PeriodsWorkspace />}
@@ -236,18 +234,21 @@ export default function FinancePage() {
 }
 
 /* ════════════════════════════════════════════════════════════
-   1. LEDGER & TRIAL BALANCE WORKSPACE
+   1. CASH MOVEMENTS — the shift drawers' deposits, withdrawals and expenses.
+   Not a ledger: the journal and trial balance come with ADR-014 (D9).
    ════════════════════════════════════════════════════════════ */
-function LedgerWorkspace() {
+const CASH_TYPE_LABEL: Record<CashEntry["type"], string> = { deposit: "إيداع", withdrawal: "سحب", expense: "مصروف" };
+
+function CashMovementsWorkspace() {
   const today = new Date();
   const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
   const iso = (d: Date) => d.toISOString().slice(0, 10);
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(iso(today));
 
-  const ledger = useQuery({
+  const movements = useQuery({
     queryKey: ["fin-ledger", from, to],
-    queryFn: () => api.get<unknown>("/financial-ledger", { from_date: from, to_date: to }),
+    queryFn: () => api.get<CashMovements>("/financial-ledger", { from_date: from, to_date: to }),
   });
 
   const profit = useQuery({
@@ -255,140 +256,80 @@ function LedgerWorkspace() {
     queryFn: () => api.get<Record<string, string>>("/reports/profit", { from_date: from, to_date: to }),
   });
 
-  // Normalize entries whether backend returns raw array or { categories: [{ entries: [...] }] }
-  const entries: LedgerRow[] = useMemo(() => {
-    const raw = ledger.data as any;
-    if (!raw) return [];
-    if (Array.isArray(raw)) return raw;
-    if (raw.categories && Array.isArray(raw.categories)) {
-      return raw.categories.flatMap((cat: any) =>
-        (cat.entries || []).map((e: any) => ({
-          id: e.id,
-          date: e.created_at,
-          description: e.note || (e.type === "deposit" ? "إيداع نقدي" : "سحب نقدي"),
-          debit: e.type === "withdrawal" ? String(e.amount) : null,
-          credit: e.type === "deposit" ? String(e.amount) : null,
-          account_code: e.warehouse_id ? e.warehouse_id.slice(0, 6) : undefined,
-          account_name: e.warehouse_name ? `فرع / ${e.warehouse_name}` : cat.name,
-        }))
-      );
-    }
-    return [];
-  }, [ledger.data]);
-
-  const totalDebit = entries.reduce((s, r) => s + Number(r.debit ?? 0), 0);
-  const totalCredit = entries.reduce((s, r) => s + Number(r.credit ?? 0), 0);
-  const isBalanced = Math.abs(totalDebit - totalCredit) < 0.01;
-
-  // Compute running balance
-  const computedRows = useMemo(() => {
-    let running = 0;
-    return entries.map((r) => {
-      const d = Number(r.debit ?? 0);
-      const c = Number(r.credit ?? 0);
-      running += d - c;
-      return { ...r, runningBalance: running };
-    });
-  }, [entries]);
+  const rows: CashEntry[] = useMemo(
+    () =>
+      (movements.data?.categories ?? [])
+        .flatMap((c) => c.entries.map((e) => ({ ...e, category_name: e.category_name ?? c.name })))
+        .sort((x, y) => (y.created_at ?? "").localeCompare(x.created_at ?? "")),
+    [movements.data],
+  );
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Ledger Date Controls & Summary KPIs */}
-      <div className="rounded-2xl border border-line bg-card p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="rounded-2xl border border-line bg-card p-5 shadow-xs flex flex-wrap items-end justify-between gap-4">
+        <div className="flex flex-wrap items-end gap-3">
           <div>
             <label className="mb-1 block text-xs font-semibold text-muted">من تاريخ</label>
-            <Input
-              type="date"
-              className="num w-40 text-xs font-bold"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-            />
+            <Input type="date" className="num w-40 text-xs font-bold" value={from} onChange={(e) => setFrom(e.target.value)} />
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold text-muted">إلى تاريخ</label>
-            <Input
-              type="date"
-              className="num w-40 text-xs font-bold"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-            />
+            <Input type="date" className="num w-40 text-xs font-bold" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => ledger.refetch()}
-            className="self-end h-9 text-xs font-bold"
-          >
-            تحديث النطاق
-          </Button>
         </div>
+        <p className="text-xs text-muted max-w-md">
+          إيداعات ومسحوبات ومصروفات أدراج الورديات في الفترة المحددة. هذه ليست قيودًا محاسبية ولا ميزان مراجعة.
+        </p>
+      </div>
 
-        {/* Live Debit vs Credit Balance Badge */}
-        <div className="flex items-center gap-3">
-          <div className="text-end">
-            <span className="text-[11px] text-muted block">حالة توازن دفتر الأستاذ</span>
-            <span
-              className={`font-mono text-sm font-black ${
-                isBalanced ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
-              }`}
-            >
-              {isBalanced ? "متزن تماماً (Δ = 0.00)" : `فرق غير متزن: ${moneyEGP(Math.abs(totalDebit - totalCredit))}`}
-            </span>
-          </div>
-          <div
-            className={`size-10 rounded-xl flex items-center justify-center ${
-              isBalanced
-                ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/30"
-                : "bg-amber-500/10 text-amber-600 border border-amber-500/30"
-            }`}
-          >
-            {isBalanced ? <CheckCircle2 className="size-5" /> : <AlertTriangle className="size-5" />}
-          </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-xl border border-line bg-card p-4 shadow-xs">
+          <span className="text-xs text-muted block mb-1 font-medium">إجمالي الوارد</span>
+          <p className="num text-xl font-black text-emerald-600 dark:text-emerald-400">{moneyEGP(movements.data?.total_income ?? 0)}</p>
+        </div>
+        <div className="rounded-xl border border-line bg-card p-4 shadow-xs">
+          <span className="text-xs text-muted block mb-1 font-medium">إجمالي المنصرف</span>
+          <p className="num text-xl font-black text-rose-600">{moneyEGP(movements.data?.total_expense ?? 0)}</p>
+        </div>
+        <div className="rounded-xl border border-line bg-card p-4 shadow-xs">
+          <span className="text-xs text-muted block mb-1 font-medium">الصافي</span>
+          <p className="num text-xl font-black text-ink">{moneyEGP(movements.data?.net ?? 0)}</p>
         </div>
       </div>
 
-      {/* Operating Profit Snapshot */}
       {profit.data && (
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-line bg-card p-4 shadow-xs">
-            <span className="text-xs text-muted block mb-1 font-medium">صافي إيرادات الفترة (Net Revenue)</span>
+            <span className="text-xs text-muted block mb-1 font-medium">صافي إيرادات الفترة</span>
             <p className="num text-xl font-black text-primary">
               {moneyEGP(profit.data.net_revenue ?? profit.data.total_revenue ?? 0)}
             </p>
           </div>
           <div className="rounded-xl border border-line bg-card p-4 shadow-xs">
-            <span className="text-xs text-muted block mb-1 font-medium">مجمل الربح (Gross Profit)</span>
-            <p className="num text-xl font-black text-ink">
-              {moneyEGP(profit.data.gross_profit ?? 0)}
-            </p>
+            <span className="text-xs text-muted block mb-1 font-medium">مجمل الربح</span>
+            <p className="num text-xl font-black text-ink">{moneyEGP(profit.data.gross_profit ?? 0)}</p>
           </div>
           <div className="rounded-xl border border-line bg-card p-4 shadow-xs">
-            <span className="text-xs text-muted block mb-1 font-medium">صافي الربح التشغيلي (Net Profit)</span>
-            <p className="num text-xl font-black text-emerald-600 dark:text-emerald-400">
-              {moneyEGP(profit.data.net_profit ?? 0)}
-            </p>
+            <span className="text-xs text-muted block mb-1 font-medium">صافي الربح التشغيلي</span>
+            <p className="num text-xl font-black text-emerald-600 dark:text-emerald-400">{moneyEGP(profit.data.net_profit ?? 0)}</p>
           </div>
         </div>
       )}
 
-      {/* Ledger Table with Running Balances */}
-      {ledger.isLoading ? (
+      {movements.isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-12 w-full rounded-xl" />
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-14 w-full rounded-xl" />
           ))}
         </div>
-      ) : ledger.isError ? (
-        <ErrorBox message={(ledger.error as Error).message} onRetry={() => ledger.refetch()} />
-      ) : !computedRows.length ? (
+      ) : movements.isError ? (
+        <ErrorBox message={(movements.error as Error).message} onRetry={() => movements.refetch()} />
+      ) : !rows.length ? (
         <div className="flex flex-col items-center justify-center p-16 text-center border-2 border-dashed border-line rounded-2xl bg-card">
           <BookOpen className="size-12 text-muted mb-2 stroke-1" />
-          <h3 className="text-base font-bold text-ink">لا توجد حركات مالية مسجلة في هذا النطاق</h3>
-          <p className="text-xs text-muted mt-1">
-            قم بإنشاء قيود يومية جديدة أو تسجيل فواتير ومصروفات لتظهر في دفتر الأستاذ العام.
-          </p>
+          <h3 className="text-base font-bold text-ink">لا توجد حركات في هذه الفترة</h3>
+          <p className="text-xs text-muted mt-1">تظهر هنا إيداعات ومسحوبات ومصروفات أدراج الورديات.</p>
         </div>
       ) : (
         <div className="rounded-2xl border border-line bg-card overflow-hidden shadow-xs">
@@ -397,64 +338,33 @@ function LedgerWorkspace() {
               <thead>
                 <tr className="border-b border-line bg-elevated/50 text-xs font-bold text-muted">
                   <th className="p-3.5 text-start">التاريخ</th>
-                  <th className="p-3.5 text-start">البيان والحساب المحاسبي</th>
-                  <th className="p-3.5 text-end font-mono">مدين (Debit)</th>
-                  <th className="p-3.5 text-end font-mono">دائن (Credit)</th>
-                  <th className="p-3.5 text-end font-mono">الرصيد التراكمي (Running Balance)</th>
+                  <th className="p-3.5 text-start">البيان</th>
+                  <th className="p-3.5 text-start">النوع</th>
+                  <th className="p-3.5 text-start">التصنيف</th>
+                  <th className="p-3.5 text-start">الفرع</th>
+                  <th className="p-3.5 text-end">وارد</th>
+                  <th className="p-3.5 text-end">منصرف</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/60">
-                {computedRows.map((r, i) => (
-                  <tr key={r.id ?? i} className="hover:bg-elevated/40 transition-colors">
-                    <td className="p-3.5 text-xs text-muted font-mono">
-                      {r.date ? dateTime(r.date) : "—"}
+                {rows.map((r) => (
+                  <tr key={r.id} className="hover:bg-elevated/40 transition-colors">
+                    <td className="p-3.5 text-xs text-muted font-mono">{r.created_at ? dateTime(r.created_at) : "—"}</td>
+                    <td className="p-3.5 font-medium text-ink">{r.note || "—"}</td>
+                    <td className="p-3.5">
+                      <Badge tone={r.type === "deposit" ? "success" : "warning"}>{CASH_TYPE_LABEL[r.type] ?? r.type}</Badge>
                     </td>
-                    <td className="p-3.5 font-medium text-ink">
-                      <div className="flex items-center gap-2">
-                        <span>{r.description ?? "قيد محاسبي"}</span>
-                        {r.account_code && (
-                          <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-muted/20 text-muted">
-                            #{r.account_code}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="num p-3.5 text-end font-bold text-primary">
-                      {r.debit && Number(r.debit) > 0 ? moneyEGP(r.debit) : "—"}
-                    </td>
+                    <td className="p-3.5 text-xs text-muted">{r.category_name ?? "—"}</td>
+                    <td className="p-3.5 text-xs text-muted">{r.warehouse_name ?? "—"}</td>
                     <td className="num p-3.5 text-end font-bold text-emerald-600 dark:text-emerald-400">
-                      {r.credit && Number(r.credit) > 0 ? moneyEGP(r.credit) : "—"}
+                      {r.type === "deposit" ? moneyEGP(r.amount) : "—"}
                     </td>
-                    <td
-                      className={`num p-3.5 text-end font-black font-mono ${
-                        r.runningBalance >= 0 ? "text-ink" : "text-rose-600"
-                      }`}
-                    >
-                      {moneyEGP(r.runningBalance)}
+                    <td className="num p-3.5 text-end font-bold text-rose-600">
+                      {r.type !== "deposit" ? moneyEGP(r.amount) : "—"}
                     </td>
                   </tr>
                 ))}
               </tbody>
-              <tfoot>
-                <tr className="bg-elevated font-black border-t-2 border-line">
-                  <td className="p-4" colSpan={2}>
-                    إجمالي ميزان المراجعة للنطاق المحدد
-                  </td>
-                  <td className="num p-4 text-end text-primary text-base">
-                    {moneyEGP(totalDebit)}
-                  </td>
-                  <td className="num p-4 text-end text-emerald-600 dark:text-emerald-400 text-base">
-                    {moneyEGP(totalCredit)}
-                  </td>
-                  <td className="num p-4 text-end font-mono text-base">
-                    {isBalanced ? (
-                      <span className="text-emerald-600 dark:text-emerald-400">✓ صفر (متزن)</span>
-                    ) : (
-                      <span className="text-rose-600">{moneyEGP(totalDebit - totalCredit)}</span>
-                    )}
-                  </td>
-                </tr>
-              </tfoot>
             </table>
           </div>
         </div>
@@ -464,247 +374,7 @@ function LedgerWorkspace() {
 }
 
 /* ════════════════════════════════════════════════════════════
-   2. DOUBLE-ENTRY BALANCED JOURNAL VOUCHER WORKSPACE
-   ════════════════════════════════════════════════════════════ */
-function JournalEntryWorkspace() {
-  const qc = useQueryClient();
-  const [voucherDate, setVoucherDate] = useState(new Date().toISOString().slice(0, 10));
-  const [reference, setReference] = useState(`JV-${Date.now().toString().slice(-6)}`);
-  const [memo, setMemo] = useState("");
-  const [lines, setLines] = useState<JournalLine[]>([
-    { id: "1", account: "1010 - النقدية بالخزينة المركزية", description: "إيداع مالي", debit: "15000", credit: "" },
-    { id: "2", account: "4010 - إيرادات المبيعات والخدمات", description: "إيرادات نقدية", debit: "", credit: "15000" },
-  ]);
-
-  const addLine = () => {
-    sound.click();
-    setLines((prev) => [
-      ...prev,
-      { id: String(Date.now()), account: "", description: "", debit: "", credit: "" },
-    ]);
-  };
-
-  const removeLine = (id: string) => {
-    sound.click();
-    if (lines.length <= 2) return;
-    setLines((prev) => prev.filter((l) => l.id !== id));
-  };
-
-  const updateLine = (id: string, field: keyof JournalLine, value: string) => {
-    setLines((prev) =>
-      prev.map((l) => {
-        if (l.id !== id) return l;
-        const updated = { ...l, [field]: value };
-        // If user enters debit, clear credit and vice versa
-        if (field === "debit" && value) updated.credit = "";
-        if (field === "credit" && value) updated.debit = "";
-        return updated;
-      })
-    );
-  };
-
-  const totalDebit = lines.reduce((acc, l) => acc + (Number(l.debit) || 0), 0);
-  const totalCredit = lines.reduce((acc, l) => acc + (Number(l.credit) || 0), 0);
-  const difference = Math.abs(totalDebit - totalCredit);
-  const isZeroSumBalanced = difference < 0.001 && totalDebit > 0;
-
-  const postVoucher = useMutation({
-    mutationFn: async () => {
-      sound.click();
-      // Record as operational expense or general ledger movement
-      return api.post("/expenses", {
-        amount: totalDebit,
-        description: `قيد يومية: ${reference} - ${memo || "تسوية محاسبية"}`,
-        payment_method: "cash",
-      });
-    },
-    onSuccess: () => {
-      sound.success();
-      qc.invalidateQueries({ queryKey: ["fin-ledger"] });
-      qc.invalidateQueries({ queryKey: ["expenses"] });
-      setReference(`JV-${Date.now().toString().slice(-6)}`);
-      setMemo("");
-      setLines([
-        { id: "1", account: "", description: "", debit: "", credit: "" },
-        { id: "2", account: "", description: "", debit: "", credit: "" },
-      ]);
-    },
-    onError: () => sound.error(),
-  });
-
-  return (
-    <div className="rounded-2xl border border-line bg-card p-6 shadow-xs flex flex-col gap-6">
-      {/* Header Voucher Meta */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line/60 pb-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold text-ink">سند قيد يومية عام مزدوج (Journal Entry Voucher)</h2>
-            <Badge tone="brand">Double Entry</Badge>
-          </div>
-          <p className="text-xs text-muted mt-0.5">
-            يجب أن يتطابق إجمالي الطرف المدين مع الطرف الدائن تماماً (Δ = 0) ليتم ترحيل القيد في الدفاتر
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div>
-            <label className="text-xs font-semibold text-muted mb-1 block">رقم القيد الدفتري</label>
-            <Input
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              className="font-mono text-xs font-bold w-36"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-muted mb-1 block">تاريخ القيد</label>
-            <Input
-              type="date"
-              value={voucherDate}
-              onChange={(e) => setVoucherDate(e.target.value)}
-              className="font-mono text-xs font-bold w-36"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* General Description / Memo */}
-      <div>
-        <label className="text-xs font-semibold text-muted mb-1 block">شرح القيد العام (Memo)</label>
-        <Input
-          placeholder="مثال: تسوية إيرادات نقاط البيع والضيافة عن النصف الأول من الشهر..."
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-        />
-      </div>
-
-      {/* Voucher Entries Grid */}
-      <div className="overflow-x-auto rounded-xl border border-line">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-elevated/50 text-xs font-bold text-muted border-b border-line">
-              <th className="p-3 text-start w-72">الحساب الدفتري (دليل الحسابات)</th>
-              <th className="p-3 text-start">البيان والشرح</th>
-              <th className="p-3 text-end w-36 font-mono">مدين (Debit)</th>
-              <th className="p-3 text-end w-36 font-mono">دائن (Credit)</th>
-              <th className="p-3 text-center w-12"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line/60">
-            {lines.map((line) => (
-              <tr key={line.id} className="hover:bg-elevated/30">
-                <td className="p-2.5">
-                  <Input
-                    placeholder="رمز أو اسم الحساب..."
-                    value={line.account}
-                    onChange={(e) => updateLine(line.id, "account", e.target.value)}
-                    className="text-xs"
-                  />
-                </td>
-                <td className="p-2.5">
-                  <Input
-                    placeholder="شرح الحركة..."
-                    value={line.description}
-                    onChange={(e) => updateLine(line.id, "description", e.target.value)}
-                    className="text-xs"
-                  />
-                </td>
-                <td className="p-2.5">
-                  <Input
-                    type="number"
-                    placeholder="0.00"
-                    value={line.debit}
-                    onChange={(e) => updateLine(line.id, "debit", e.target.value)}
-                    className="num text-xs font-bold text-end"
-                  />
-                </td>
-                <td className="p-2.5">
-                  <Input
-                    type="number"
-                    placeholder="0.00"
-                    value={line.credit}
-                    onChange={(e) => updateLine(line.id, "credit", e.target.value)}
-                    className="num text-xs font-bold text-end"
-                  />
-                </td>
-                <td className="p-2.5 text-center">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeLine(line.id)}
-                    disabled={lines.length <= 2}
-                    className="size-8 text-rose-500 hover:bg-rose-500/10"
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr className="bg-elevated font-black border-t-2 border-line">
-              <td className="p-3">
-                <Button variant="outline" size="sm" onClick={addLine} className="gap-1.5 text-xs font-bold">
-                  <Plus className="size-3.5" /> إضافة سطر قيد
-                </Button>
-              </td>
-              <td className="p-3 text-end font-bold text-muted text-xs">إجمالي أطراف القيد:</td>
-              <td className="num p-3 text-end text-primary font-mono text-sm">{moneyEGP(totalDebit)}</td>
-              <td className="num p-3 text-end text-emerald-600 dark:text-emerald-400 font-mono text-sm">
-                {moneyEGP(totalCredit)}
-              </td>
-              <td></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-
-      {/* Real-time Zero-Sum Verification Bar */}
-      <div
-        className={`rounded-xl p-4 border flex flex-wrap items-center justify-between gap-4 transition-all ${
-          isZeroSumBalanced
-            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300"
-            : "bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300"
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className={`size-10 rounded-full flex items-center justify-center shrink-0 ${
-              isZeroSumBalanced ? "bg-emerald-500 text-white shadow-sm" : "bg-amber-500 text-black shadow-sm"
-            }`}
-          >
-            {isZeroSumBalanced ? <CheckCircle2 className="size-5" /> : <AlertTriangle className="size-5" />}
-          </div>
-          <div>
-            <h4 className="font-bold text-sm">
-              {isZeroSumBalanced
-                ? "القيد متزن تماماً ومطابق للقواعد المحاسبية (الفرق = 0.00 ج.م)"
-                : `القيد غير متزن! يوجد فارق مقداره ${moneyEGP(difference)}`}
-            </h4>
-            <p className="text-xs opacity-80 mt-0.5">
-              {isZeroSumBalanced
-                ? "كافة الأطراف المحاسبية متطابقة، يمكنك الآن ترحيل القيد لدفتر الأستاذ العام."
-                : "لا يمكن ترحيل القيد الدفتري إلا بعد مساواة إجمالي المدين مع إجمالي الدائن تماماً."}
-            </p>
-          </div>
-        </div>
-
-        <Button
-          onClick={() => postVoucher.mutate()}
-          disabled={!isZeroSumBalanced || postVoucher.isPending}
-          className="h-11 px-6 font-bold text-xs gap-2 rounded-xl shadow-md"
-        >
-          {postVoucher.isPending ? <Spinner /> : <FileCheck2 className="size-4" />}
-          <span>ترحيل القيد الدفتري (Post Voucher)</span>
-        </Button>
-      </div>
-
-      {postVoucher.isError && <ErrorBox message={(postVoucher.error as Error).message} />}
-    </div>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════
-   3. TREASURY & VAULTS WORKSPACE
+   2. TREASURY & VAULTS WORKSPACE
    ════════════════════════════════════════════════════════════ */
 function TreasuryWorkspace({ safes, wallets }: { safes: Safe[]; wallets: WalletRow[] }) {
   const qc = useQueryClient();
@@ -754,7 +424,9 @@ function TreasuryWorkspace({ safes, wallets }: { safes: Safe[]; wallets: WalletR
                 <span className="flex items-center gap-2 font-bold text-ink">
                   <Banknote className="size-5 text-amber-500" /> {s.name}
                 </span>
-                <Badge tone="muted">{s.safe_type === "permanent" ? "خزينة دائمة" : "خزينة وردية"}</Badge>
+                <Badge tone="muted">
+                  {s.safe_type === "bank" ? "حساب بنكي" : s.safe_type === "permanent" ? "خزينة دائمة" : "خزينة وردية"}
+                </Badge>
               </div>
 
               <div>
@@ -895,24 +567,39 @@ function TreasuryWorkspace({ safes, wallets }: { safes: Safe[]; wallets: WalletR
 }
 
 /* ════════════════════════════════════════════════════════════
-   4. EXPENSES & APPROVALS WORKSPACE
+   3. EXPENSES & APPROVALS WORKSPACE
    ════════════════════════════════════════════════════════════ */
+const EXPENSE_STATUS: Record<Expense["status"], { label: string; tone: "success" | "warning" | "danger" | "muted" }> = {
+  draft: { label: "مسودة بانتظار الاعتماد", tone: "warning" },
+  approved: { label: "معتمد ومصروف", tone: "success" },
+  rejected: { label: "مرفوض", tone: "danger" },
+  cancelled: { label: "ملغى (أُعيد المبلغ)", tone: "muted" },
+};
+
+const sourceOf = (e: Expense) => (e.wallet_id ? `wallet:${e.wallet_id}` : e.safe_id ? `safe:${e.safe_id}` : "");
+
 function ExpensesWorkspace() {
   const qc = useQueryClient();
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({
+  const emptyForm = {
     amount: "",
     description: "",
     category_id: "",
     vendor_id: "",
     payment_method: "cash",
+    source: "",
     is_recurring: false,
     recurring_interval: "monthly",
-  });
+  };
+  const [form, setForm] = useState(emptyForm);
+  const [approving, setApproving] = useState<Expense | null>(null);
+  const [approveSource, setApproveSource] = useState("");
+  const [cancelling, setCancelling] = useState<Expense | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
 
   const list = useQuery({
     queryKey: ["expenses"],
-    queryFn: () => api.get<Expense[]>("/expenses", { page: 1, page_size: 50 }),
+    queryFn: () => api.get<ExpensePage>("/expenses", { page: 1, page_size: 50 }),
   });
   const cats = useQuery({
     queryKey: ["fin-cats"],
@@ -923,15 +610,23 @@ function ExpensesWorkspace() {
     queryFn: () => api.get<Vendor[]>("/expense-vendors"),
   });
 
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["expenses"] });
+    qc.invalidateQueries({ queryKey: ["safes"] });
+    qc.invalidateQueries({ queryKey: ["wallets"] });
+  };
+
   const create = useMutation({
     mutationFn: () => {
       sound.click();
+      const src = sourceFields(form.source);
       return api.post("/expenses", {
         amount: D(form.amount).toNumber(),
         description: form.description,
         category_id: form.category_id || undefined,
         vendor_id: form.vendor_id || undefined,
-        payment_method: form.payment_method,
+        payment_method: src.wallet_id ? "wallet" : form.payment_method,
+        ...src,
         is_recurring: form.is_recurring,
         recurring_interval: form.is_recurring ? form.recurring_interval : undefined,
       });
@@ -939,38 +634,61 @@ function ExpensesWorkspace() {
     onSuccess: () => {
       sound.success();
       setCreating(false);
-      setForm({
-        amount: "",
-        description: "",
-        category_id: "",
-        vendor_id: "",
-        payment_method: "cash",
-        is_recurring: false,
-        recurring_interval: "monthly",
-      });
-      qc.invalidateQueries({ queryKey: ["expenses"] });
+      setForm(emptyForm);
+      refresh();
     },
     onError: () => sound.error(),
   });
 
   const approve = useMutation({
-    mutationFn: (id: string) => {
+    mutationFn: () => {
       sound.click();
-      return api.post(`/expenses/${id}/approve`);
+      return api.post(`/expenses/${approving!.id}/approve`, { approved: true, ...sourceFields(approveSource) });
     },
     onSuccess: () => {
       sound.success();
-      qc.invalidateQueries({ queryKey: ["expenses"] });
+      setApproving(null);
+      refresh();
     },
     onError: () => sound.error(),
   });
+
+  const cancel = useMutation({
+    mutationFn: () => {
+      sound.click();
+      return api.post(`/expenses/${cancelling!.id}/cancel`, { reason: cancelReason || null });
+    },
+    onSuccess: () => {
+      sound.success();
+      setCancelling(null);
+      setCancelReason("");
+      refresh();
+    },
+    onError: () => sound.error(),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => {
+      sound.click();
+      return api.del(`/expenses/${id}`);
+    },
+    onSuccess: () => {
+      sound.success();
+      refresh();
+    },
+    onError: () => sound.error(),
+  });
+
+  const rows = list.data?.data ?? [];
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-base font-bold text-ink">سجل المصروفات ومصادقات الصرف</h2>
-          <p className="text-xs text-muted">إدارة بنود النفقات التشغيلية والمصادقة على أذون الصرف الدفترية</p>
+          <h2 className="text-base font-bold text-ink">سجل المصروفات واعتمادها</h2>
+          <p className="text-xs text-muted">
+            يخرج المبلغ من الخزنة أو المحفظة عند الاعتماد. المصروف المعتمد لا يُحذف: يُلغى فيعود المبلغ إلى مصدره.
+          </p>
         </div>
         <Button onClick={() => setCreating(true)} className="gap-1.5 font-bold text-xs h-9 rounded-xl">
           <Plus className="size-4" /> تسجيل مصروف جديد
@@ -986,7 +704,7 @@ function ExpensesWorkspace() {
         </div>
       ) : list.isError ? (
         <ErrorBox message={(list.error as Error).message} onRetry={() => list.refetch()} />
-      ) : !list.data?.length ? (
+      ) : !rows.length ? (
         <div className="flex flex-col items-center justify-center p-16 text-center border-2 border-dashed border-line rounded-2xl bg-card">
           <ReceiptText className="size-12 text-muted mb-2 stroke-1" />
           <h3 className="text-base font-bold text-ink">لا توجد مصروفات مسجلة حالياً</h3>
@@ -994,57 +712,130 @@ function ExpensesWorkspace() {
         </div>
       ) : (
         <div className="rounded-2xl border border-line bg-card overflow-hidden shadow-xs">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line bg-elevated/50 text-xs font-bold text-muted">
-                <th className="p-3.5 text-start">الوصف والبيان</th>
-                <th className="p-3.5 text-start">المبلغ الصافي</th>
-                <th className="p-3.5 text-start">التصنيف المحاسبي</th>
-                <th className="p-3.5 text-start">حالة الاعتماد</th>
-                <th className="p-3.5 text-start">تاريخ الحركة</th>
-                <th className="p-3.5 text-end">إجراء الصرف</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line/60">
-              {list.data.map((e) => (
-                <tr key={e.id} className="hover:bg-elevated/40 transition-colors">
-                  <td className="p-3.5 font-bold text-ink">
-                    <div className="flex items-center gap-2">
-                      <span>{e.description}</span>
-                      {e.is_recurring && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-bold">
-                          دوري متكرر
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="num p-3.5 font-black text-rose-600">{moneyEGP(e.amount)}</td>
-                  <td className="p-3.5 text-muted text-xs">{e.category_name ?? "—"}</td>
-                  <td className="p-3.5">
-                    <Badge tone={e.status === "approved" ? "success" : "warning"}>
-                      {e.status === "approved" ? "معتمد ومصروف" : "مسودة قيد المراجعة"}
-                    </Badge>
-                  </td>
-                  <td className="p-3.5 text-xs text-muted font-mono">{dateTime(e.created_at)}</td>
-                  <td className="p-3.5 text-end">
-                    {e.status !== "approved" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => approve.mutate(e.id)}
-                        disabled={approve.isPending}
-                        className="font-bold text-xs h-8"
-                      >
-                        اعتماد الصرف
-                      </Button>
-                    )}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line bg-elevated/50 text-xs font-bold text-muted">
+                  <th className="p-3.5 text-start">الوصف والبيان</th>
+                  <th className="p-3.5 text-start">المبلغ</th>
+                  <th className="p-3.5 text-start">التصنيف</th>
+                  <th className="p-3.5 text-start">الحالة</th>
+                  <th className="p-3.5 text-start">التاريخ</th>
+                  <th className="p-3.5 text-end">إجراءات</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-line/60">
+                {rows.map((e) => (
+                  <tr key={e.id} className="hover:bg-elevated/40 transition-colors">
+                    <td className="p-3.5 font-bold text-ink">
+                      <div className="flex items-center gap-2">
+                        <span className={e.status === "cancelled" ? "line-through text-muted" : ""}>{e.description}</span>
+                        {e.is_recurring && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-bold">دوري متكرر</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="num p-3.5 font-black text-rose-600">{moneyEGP(e.amount)}</td>
+                    <td className="p-3.5 text-muted text-xs">{e.category_name ?? "—"}</td>
+                    <td className="p-3.5">
+                      <Badge tone={EXPENSE_STATUS[e.status]?.tone ?? "muted"}>{EXPENSE_STATUS[e.status]?.label ?? e.status}</Badge>
+                    </td>
+                    <td className="p-3.5 text-xs text-muted font-mono">{dateTime(e.created_at)}</td>
+                    <td className="p-3.5">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {e.status === "draft" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setApproving(e);
+                              setApproveSource(sourceOf(e));
+                            }}
+                            className="font-bold text-xs h-8"
+                          >
+                            اعتماد الصرف
+                          </Button>
+                        )}
+                        {(e.status === "draft" || e.status === "rejected") && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="حذف المصروف"
+                            onClick={() => remove.mutate(e.id)}
+                            disabled={remove.isPending}
+                            className="size-8 px-0! text-rose-500 hover:bg-rose-500/10"
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        )}
+                        {e.status === "approved" && e.payment_method !== "payroll" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setCancelling(e)}
+                            className="font-bold text-xs h-8 gap-1 text-rose-600"
+                          >
+                            <Ban className="size-3.5" /> إلغاء
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
+      {remove.isError && <ErrorBox message={(remove.error as Error).message} />}
+
+      {/* Approve: the money leaves the chosen safe or wallet */}
+      <Modal open={!!approving} onClose={() => setApproving(null)} title={`اعتماد صرف — ${approving?.description ?? ""}`}>
+        <form
+          onSubmit={(ev) => {
+            ev.preventDefault();
+            if (!approve.isPending && approveSource) approve.mutate();
+          }}
+          className="flex flex-col gap-4"
+        >
+          <div className="rounded-xl border border-line bg-elevated/40 p-3 text-xs">
+            <span className="text-muted">المبلغ: </span>
+            <strong className="num text-sm font-bold text-rose-600">{moneyEGP(approving?.amount ?? 0)}</strong>
+          </div>
+          <div>
+            <label htmlFor="approve-source" className="mb-1 block text-xs font-semibold text-muted">يُصرف من *</label>
+            <PaySourceSelect id="approve-source" value={approveSource} onChange={setApproveSource} />
+          </div>
+          {approve.isError && <ErrorBox message={(approve.error as Error).message} />}
+          <Button type="submit" className="w-full h-11 font-bold text-xs rounded-xl" disabled={approve.isPending || !approveSource}>
+            {approve.isPending ? <Spinner /> : "اعتماد وصرف المبلغ"}
+          </Button>
+        </form>
+      </Modal>
+
+      {/* Cancel: the money goes back */}
+      <Modal open={!!cancelling} onClose={() => setCancelling(null)} title={`إلغاء مصروف — ${cancelling?.description ?? ""}`}>
+        <form
+          onSubmit={(ev) => {
+            ev.preventDefault();
+            if (!cancel.isPending) cancel.mutate();
+          }}
+          className="flex flex-col gap-4"
+        >
+          <p className="text-xs text-muted leading-relaxed">
+            سيعود مبلغ <strong className="num text-ink">{moneyEGP(cancelling?.amount ?? 0)}</strong> إلى الخزنة أو المحفظة
+            التي صُرف منها، ويبقى المصروف في السجل بحالة ملغى.
+          </p>
+          <div>
+            <label htmlFor="cancel-reason" className="mb-1 block text-xs font-semibold text-muted">سبب الإلغاء</label>
+            <Input id="cancel-reason" value={cancelReason} onChange={(ev) => setCancelReason(ev.target.value)} />
+          </div>
+          {cancel.isError && <ErrorBox message={(cancel.error as Error).message} />}
+          <Button type="submit" variant="danger" className="w-full h-11 font-bold text-xs rounded-xl" disabled={cancel.isPending}>
+            {cancel.isPending ? <Spinner /> : "تأكيد الإلغاء وإرجاع المبلغ"}
+          </Button>
+        </form>
+      </Modal>
 
       {/* Expense Modal */}
       <Modal open={creating} onClose={() => setCreating(false)} title="تسجيل مصروف تشغيلي جديد">
@@ -1081,16 +872,27 @@ function ExpensesWorkspace() {
                 value={form.payment_method}
                 onChange={(e) => setForm({ ...form, payment_method: e.target.value })}
               >
-                <option value="cash">نقداً من الخزينة</option>
+                <option value="cash">نقداً</option>
+                <option value="bank">تحويل بنكي / شيك</option>
                 <option value="wallet">محفظة إلكترونية</option>
-                <option value="bank">تحويل بنكي</option>
               </Select>
             </div>
           </div>
 
+          <div>
+            <label htmlFor="expense-source" className="mb-1 block text-xs font-semibold text-muted">يُصرف من</label>
+            <PaySourceSelect
+              id="expense-source"
+              value={form.source}
+              onChange={(v) => setForm({ ...form, source: v })}
+              emptyLabel="— يُحدد عند الاعتماد —"
+            />
+            <p className="mt-1 text-[11px] text-muted">لا يُعتمد المصروف إلا بعد تحديد الخزنة أو الحساب البنكي أو المحفظة.</p>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-muted">التصنيف المحاسبي</label>
+              <label className="mb-1 block text-xs font-semibold text-muted">التصنيف</label>
               <Select
                 value={form.category_id}
                 onChange={(e) => setForm({ ...form, category_id: e.target.value })}
@@ -1156,7 +958,7 @@ function ExpensesWorkspace() {
 }
 
 /* ════════════════════════════════════════════════════════════
-   5. ACCOUNTING PERIODS CLOSING WORKSPACE
+   4. ACCOUNTING PERIODS CLOSING WORKSPACE
    ════════════════════════════════════════════════════════════ */
 function PeriodsWorkspace() {
   const qc = useQueryClient();
@@ -1180,10 +982,9 @@ function PeriodsWorkspace() {
   return (
     <div className="flex flex-col gap-6">
       <div className="rounded-2xl border border-line bg-card p-5 shadow-xs">
-        <h2 className="text-base font-bold text-ink">ترحيل وإقفال الفترات المحاسبية (Fiscal Period Lock)</h2>
+        <h2 className="text-base font-bold text-ink">إقفال الفترات المالية</h2>
         <p className="text-xs text-muted mt-1 leading-relaxed">
-          إقفال الشهر المحاسبي يمنع بشكل نهائي تعديل أو تسجيل أي قيود وفواتير بأثر رجعي، مما يضمن دقة القوائم الختامية
-          والامتثال للمعايير المحاسبية. يمكن للمدير المالي فقط إعادة فتح الفترة عند وجود تسويات قانونية معتمدة.
+          يسجّل إقفال الشهر أن حساباته رُوجعت. منع التسجيل في شهر مغلق من كل الشاشات يأتي مع دفتر القيود (ADR-014).
         </p>
       </div>
 
@@ -1207,9 +1008,9 @@ function PeriodsWorkspace() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-line bg-elevated/50 text-xs font-bold text-muted">
-                <th className="p-3.5 text-start font-mono">الفترة المحاسبية (الشهر)</th>
-                <th className="p-3.5 text-start">حالة الدفاتر والقيود</th>
-                <th className="p-3.5 text-end">إجراء الإقفال والترحيل</th>
+                <th className="p-3.5 text-start font-mono">الشهر</th>
+                <th className="p-3.5 text-start">الحالة</th>
+                <th className="p-3.5 text-end">الإجراء</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line/60">
@@ -1222,11 +1023,11 @@ function PeriodsWorkspace() {
                     <Badge tone={p.status === "closed" ? "danger" : "success"}>
                       {p.status === "closed" ? (
                         <span className="flex items-center gap-1.5">
-                          <Lock className="size-3" /> مقفلة دفترياً
+                          <Lock className="size-3" /> مقفلة
                         </span>
                       ) : (
                         <span className="flex items-center gap-1.5">
-                          <LockOpen className="size-3" /> مفتوحة وقابلة للقيود
+                          <LockOpen className="size-3" /> مفتوحة
                         </span>
                       )}
                     </Badge>
@@ -1250,7 +1051,7 @@ function PeriodsWorkspace() {
                         disabled={act.isPending}
                         className="font-bold text-xs gap-1.5 h-8"
                       >
-                        <Lock className="size-3.5" /> إقفال الشهر وترحيل الأرصدة
+                        <Lock className="size-3.5" /> إقفال الشهر
                       </Button>
                     )}
                   </td>

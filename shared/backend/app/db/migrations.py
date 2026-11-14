@@ -3294,6 +3294,69 @@ MIGRATIONS = [
               FROM sale_items GROUP BY sale_id) t
         WHERE t.sale_id = r.id AND r.return_of IS NOT NULL AND COALESCE(r.total, 0) = 0;
     """),
+    # ADR-014 D4: every payment says where the money went, and money documents are cancelled or
+    # deactivated instead of deleted.
+    ("v81_money_flows_finance", """
+        ALTER TABLE safes DROP CONSTRAINT IF EXISTS safes_safe_type_check;
+        ALTER TABLE safes ADD CONSTRAINT safes_safe_type_check CHECK (safe_type IN ('permanent', 'temporary', 'bank'));
+        ALTER TABLE safe_transactions ADD COLUMN IF NOT EXISTS ref_type text;
+        ALTER TABLE safe_transactions ADD COLUMN IF NOT EXISTS ref_id uuid;
+        CREATE INDEX IF NOT EXISTS idx_safe_transactions_ref ON safe_transactions (ref_type, ref_id);
+
+        ALTER TABLE expenses ADD COLUMN IF NOT EXISTS cancelled_at timestamptz;
+        ALTER TABLE expenses ADD COLUMN IF NOT EXISTS cancelled_by uuid REFERENCES users(id);
+        ALTER TABLE expenses ADD COLUMN IF NOT EXISTS cancel_reason text;
+
+        ALTER TABLE customers ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
+        ALTER TABLE customer_payments ADD COLUMN IF NOT EXISTS method text;
+        ALTER TABLE customer_payments ADD COLUMN IF NOT EXISTS safe_id uuid REFERENCES safes(id);
+        ALTER TABLE customer_payments ADD COLUMN IF NOT EXISTS wallet_id uuid REFERENCES payment_wallets(id);
+        ALTER TABLE customer_payments ADD COLUMN IF NOT EXISTS shift_id uuid REFERENCES shifts(id);
+        ALTER TABLE customer_payments DROP CONSTRAINT IF EXISTS customer_payments_customer_id_fkey;
+        ALTER TABLE customer_payments ADD CONSTRAINT customer_payments_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES customers(id);
+        CREATE TABLE IF NOT EXISTS customer_adjustments (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                REFERENCES tenants(id) ON DELETE CASCADE,
+            customer_id uuid NOT NULL REFERENCES customers(id),
+            kind text NOT NULL DEFAULT 'adjustment' CHECK (kind IN ('opening', 'adjustment')),
+            amount numeric(14,2) NOT NULL,
+            balance_before numeric(14,2) NOT NULL,
+            balance_after numeric(14,2) NOT NULL,
+            note text,
+            created_by uuid REFERENCES users(id),
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_customer_adjustments_tenant_id ON customer_adjustments (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_customer_adjustments_customer_id ON customer_adjustments (customer_id);
+        ALTER TABLE customer_adjustments ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE customer_adjustments FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'customer_adjustments' AND policyname = 'tenant_isolation') THEN
+            CREATE POLICY tenant_isolation ON customer_adjustments
+              USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+              WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+          END IF;
+        END $$;
+
+        ALTER TABLE supplier_transactions DROP COLUMN IF EXISTS tx_type;
+        ALTER TABLE supplier_transactions ADD COLUMN IF NOT EXISTS method text;
+        ALTER TABLE supplier_transactions ADD COLUMN IF NOT EXISTS safe_id uuid REFERENCES safes(id);
+        ALTER TABLE supplier_transactions ADD COLUMN IF NOT EXISTS wallet_id uuid REFERENCES payment_wallets(id);
+        ALTER TABLE supplier_transactions ADD COLUMN IF NOT EXISTS purchase_id uuid REFERENCES purchase_orders(id);
+        ALTER TABLE supplier_transactions ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES users(id);
+        ALTER TABLE supplier_transactions DROP CONSTRAINT IF EXISTS supplier_transactions_supplier_id_fkey;
+        ALTER TABLE supplier_transactions ADD CONSTRAINT supplier_transactions_supplier_id_fkey FOREIGN KEY (supplier_id) REFERENCES suppliers(id);
+        ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS safe_id uuid REFERENCES safes(id);
+        ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS wallet_id uuid REFERENCES payment_wallets(id);
+
+        ALTER TABLE hr_advances ADD COLUMN IF NOT EXISTS safe_id uuid REFERENCES safes(id);
+        ALTER TABLE hr_advances ADD COLUMN IF NOT EXISTS wallet_id uuid REFERENCES payment_wallets(id);
+        ALTER TABLE hr_payroll_periods ADD COLUMN IF NOT EXISTS safe_id uuid REFERENCES safes(id);
+        ALTER TABLE hr_payroll_periods ADD COLUMN IF NOT EXISTS wallet_id uuid REFERENCES payment_wallets(id);
+        ALTER TABLE hr_payroll_periods ADD COLUMN IF NOT EXISTS expense_id uuid REFERENCES expenses(id);
+        ALTER TABLE hr_payroll_periods ADD COLUMN IF NOT EXISTS paid_amount numeric(14,2);
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables
