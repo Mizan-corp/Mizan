@@ -4,6 +4,8 @@ import {
   User as UserIcon,
   AtSign,
   Lock,
+  Mail,
+  Phone,
   ArrowRight,
   ArrowLeft,
   Globe,
@@ -22,7 +24,7 @@ export default function SignupPage() {
   const { locale, dir, toggleLocale } = useTranslation();
   const isAr = locale === "ar";
 
-  const draft: { full_name?: string; username?: string } = (() => {
+  const draft: { full_name?: string; username?: string; email?: string; phone?: string } = (() => {
     try {
       return JSON.parse(
         sessionStorage.getItem("mizan.owner") ??
@@ -36,6 +38,8 @@ export default function SignupPage() {
 
   const [fullName, setFullName] = useState(draft.full_name ?? "");
   const [username, setUsername] = useState(draft.username ?? "");
+  const [email, setEmail] = useState(draft.email ?? "");
+  const [phone, setPhone] = useState(draft.phone ?? "");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,9 +63,21 @@ export default function SignupPage() {
       setBusy(false);
       return;
     }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) {
+      sound.error();
+      setError(isAr ? "اكتب بريدًا إلكترونيًا صحيحًا؛ نرسل إليه رمز التأكيد والإيصالات." : "Enter a valid email; we send the confirmation code and receipts there.");
+      setBusy(false);
+      return;
+    }
+    if (!/^\+?[0-9 ]{8,20}$/.test(phone.trim())) {
+      sound.error();
+      setError(isAr ? "اكتب رقم هاتف صحيحًا (أرقام فقط، مثل 01001234567)." : "Enter a valid phone number (digits only, e.g. 01001234567).");
+      setBusy(false);
+      return;
+    }
     try {
       sound.click();
-      const payload = JSON.stringify({ full_name: fullName, username, password });
+      const payload = JSON.stringify({ full_name: fullName, username, password, email: email.trim(), phone: phone.trim() });
       sessionStorage.setItem("mizan.owner", payload);
       setSignupDraft();
       navigate("/onboarding");
@@ -209,6 +225,51 @@ export default function SignupPage() {
                   className="w-full rounded-xl border border-[#DECFC0] bg-[#FAF6F0] py-2.5 ps-10 pe-3 text-sm text-[#262321] placeholder:text-[#77716E]/70 focus:border-[#651E2C] focus:bg-[#FFFFFF] focus:outline-none transition-colors font-mono"
                 />
               </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5 text-start">
+                <label htmlFor="reg-email" className="text-xs font-semibold text-[#262321]">
+                  {isAr ? "البريد الإلكتروني" : "Email"}
+                </label>
+                <div className="relative">
+                  <Mail className="absolute top-1/2 -translate-y-1/2 start-3.5 h-4 w-4 text-[#77716E]" />
+                  <input
+                    id="reg-email"
+                    type="email"
+                    dir="ltr"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                    placeholder="name@example.com"
+                    className="w-full rounded-xl border border-[#DECFC0] bg-[#FAF6F0] py-2.5 ps-10 pe-3 text-sm text-start text-[#262321] placeholder:text-[#77716E]/70 focus:border-[#651E2C] focus:bg-[#FFFFFF] focus:outline-none transition-colors"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5 text-start">
+                <label htmlFor="reg-phone" className="text-xs font-semibold text-[#262321]">
+                  {isAr ? "رقم الهاتف" : "Phone"}
+                </label>
+                <div className="relative">
+                  <Phone className="absolute top-1/2 -translate-y-1/2 start-3.5 h-4 w-4 text-[#77716E]" />
+                  <input
+                    id="reg-phone"
+                    type="tel"
+                    dir="ltr"
+                    inputMode="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    required
+                    autoComplete="tel"
+                    placeholder="01001234567"
+                    className="w-full rounded-xl border border-[#DECFC0] bg-[#FAF6F0] py-2.5 ps-10 pe-3 text-sm text-start text-[#262321] placeholder:text-[#77716E]/70 focus:border-[#651E2C] focus:bg-[#FFFFFF] focus:outline-none transition-colors"
+                  />
+                </div>
+              </div>
+              <p className="-mt-2 text-[11px] text-[#77716E] sm:col-span-2">
+                {isAr ? "نرسل إلى بريدك رمز تأكيد، وإيصالات الدفع، ورمز استعادة كلمة المرور إن نسيتها." : "We email you a confirmation code, payment receipts, and a reset code if you forget your password."}
+              </p>
             </div>
 
             <div className="space-y-1.5 text-start">

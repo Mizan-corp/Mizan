@@ -46,3 +46,50 @@ async def owner_login(data: OwnerLogin, db: AsyncSession = Depends(get_db), _=De
     await db.commit()
     # No cookie: the token is handed to the owner panel, which keeps it itself.
     return {"access_token": issue_owner_token(owner)}
+
+
+# ── Forgot password (#71): a code to the account's verified email, then a new password ───────
+
+reset_limiter = RateLimiter(max_requests=5, window_seconds=900)
+
+
+class ForgotPassword(BaseModel):
+    login: str = Field(min_length=2, max_length=254)
+
+
+@router.post("/password/forgot")
+async def forgot_password(data: ForgotPassword, db: AsyncSession = Depends(get_db), _=Depends(reset_limiter)):
+    """Email a reset code if the account has a verified address. The answer is the same either
+    way, so it doesn't reveal which accounts exist."""
+    from app.platform.auth.services import owner_mail
+
+    owner_mail.require_email_service()
+    owner = await owner_mail.find_for_reset(db, data.login)
+    if owner is not None and owner.email and owner.email_verified_at:
+        try:
+            await owner_mail.send_code(db, owner, "reset_password", owner.email)
+        except HTTPException as e:
+            if e.status_code != 429:  # too soon / too many: answer as if sent
+                raise
+    return {"ok": True, "detail": "إن كان الحساب مرتبطًا ببريد مؤكَّد فقد أرسلنا إليه رمزًا صالحًا 15 دقيقة."}
+
+
+class ResetPassword(BaseModel):
+    login: str = Field(min_length=2, max_length=254)
+    code: str = Field(min_length=6, max_length=12)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+@router.post("/password/reset")
+async def reset_password(data: ResetPassword, db: AsyncSession = Depends(get_db), _=Depends(reset_limiter)):
+    """Set a new password with the emailed code; every session ends and the owner is signed in."""
+    from app.platform.auth.security import hash_password
+    from app.platform.auth.services import owner_mail
+
+    owner = await owner_mail.find_for_reset(db, data.login)
+    if owner is None:
+        raise HTTPException(400, "الرمز غير صحيح أو انتهت صلاحيته؛ اطلب رمزًا جديدًا إن لزم.")
+    await owner_mail.check_code(db, owner, "reset_password", data.code)
+    await owner_mail.set_owner_password(db, owner, hash_password(data.new_password))
+    await db.commit()
+    return {"access_token": issue_owner_token(owner)}

@@ -305,6 +305,7 @@ python manage.py doctor    # what's installed, what's running, what to fix
 | Developer platform | http://localhost:5174/dev | website-api on :8001 |
 | Owner panel | http://localhost:5176 | owner-api on :8003 |
 | Admin panel | http://localhost:5175 | admin-api on :8002 |
+| Mailpit (emails the APIs send) | http://localhost:8025 | every API (set `MAILPIT_PORT` if 8025 is taken) |
 
 **A new database starts empty.** Docker loads a structure-only baseline
 (`shared/backend/app/db/baseline_schema.sql`, no data), the API builds the rest of the schema,

@@ -4,7 +4,7 @@ import uuid
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from app.db.base import AsyncSessionLocal
 from app.platform.auth.models.owner import OwnerAccount
@@ -88,14 +88,47 @@ async def test_reset_password_and_disable():
     owner, _ = await make_owner()
     h = await admin_headers()
     async with client() as c:
-        password = (await c.post(f"/admoon/owners/{owner.id}/reset-password", headers=h)).json()["password"]
+        r = (await c.post(f"/admoon/owners/{owner.id}/reset-password", headers=h)).json()
+        password = r["password"]
+        assert r["workspace_logins_updated"] == 1
         assert (await c.post(f"/admoon/owners/{owner.id}/active", headers=h, json={"active": False})).json()["is_active"] is False
     db = await _session()
     try:
         o = await db.get(OwnerAccount, owner.id)
         assert verify_password(password, o.password_hash) and not o.is_active and o.tokens_valid_after is not None
+        # The workspace login takes the same password, as when the owner changes it (#71).
+        u = await db.scalar(select(User).where(User.owner_account_id == owner.id))
+        assert verify_password(password, u.password_hash)
     finally:
         await db.close()
+
+
+async def test_send_reset_code_needs_a_verified_email(monkeypatch):
+    from app.platform.notifications import service as mail
+
+    sent = []
+
+    async def fake_send(to_email, subject, html_content, attachments=None, text=None, reply_to=None):
+        sent.append(to_email)
+        return {"ok": True}
+
+    monkeypatch.setattr(mail, "send_email", fake_send)
+    monkeypatch.setattr(mail, "email_enabled", lambda: True)
+    owner, _ = await make_owner()
+    h = await admin_headers()
+    async with client() as c:
+        assert (await c.post(f"/admoon/owners/{owner.id}/send-reset-code", headers=h)).status_code == 409
+        db = await _session()
+        try:
+            await db.execute(text("UPDATE owner_accounts SET email = 'adm-reset@example.com', email_verified_at = now() WHERE id = :o"),
+                             {"o": owner.id})
+            await db.commit()
+        finally:
+            await db.close()
+        r = await c.post(f"/admoon/owners/{owner.id}/send-reset-code", headers=h)
+        assert r.status_code == 200 and r.json()["sent_to"] == "a********@example.com" and sent == ["adm-reset@example.com"]
+        detail = (await c.get(f"/admoon/owners/{owner.id}", headers=h)).json()
+        assert detail["email_verified"] is True
 
 
 async def test_move_merge_and_delete():

@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { appUrl } from "@/lib/urls";
 import { useMe } from "@app/lib/data";
 import { signOut } from "@app/lib/session";
+import { VerifyEmailBanner } from "@app/components/VerifyEmail";
 
 const NAV: { to: string; label: string; icon: ComponentType<{ className?: string }>; end?: boolean; tour?: string }[] = [
   { to: "/", label: "مساحات العمل", icon: Building2, end: true },
@@ -132,6 +133,7 @@ export default function Shell() {
 
         <main className="flex-1 px-4 py-6 md:px-6 lg:px-8">
           <div className="mx-auto max-w-[1180px]">
+            {pathname !== "/account" && <VerifyEmailBanner />}
             <Outlet />
           </div>
         </main>

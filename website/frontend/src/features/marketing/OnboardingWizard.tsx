@@ -64,6 +64,8 @@ interface OwnerDraft {
   full_name: string;
   username: string;
   password: string;
+  email?: string;
+  phone?: string;
 }
 
 const STEPS = ["النشاط التجاري", "بيانات المنشأة", "المظهر والوحدات"];
@@ -202,7 +204,8 @@ export default function OnboardingWizard() {
     });
   }, [enrichedSectors, sectorCategory, sectorSearch]);
 
-  if (!draft) {
+  if (!draft || !draft.email || !draft.phone) {
+    // No account step yet, or one saved before signup asked for the email and phone (#72).
     return (
       <Centered>
         <Emptyish />
@@ -232,6 +235,8 @@ export default function OnboardingWizard() {
         owner_username: draft!.username,
         owner_password: draft!.password,
         owner_full_name: draft!.full_name,
+        owner_email: draft!.email ?? "",
+        owner_phone: draft!.phone ?? "",
       });
 
       useUiStore.getState().setPalette(palette as ThemePalette);

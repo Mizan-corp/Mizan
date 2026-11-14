@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { actions, type Owner, useAction, useMe } from "@app/lib/data";
 import { date, errorText } from "@app/lib/format";
-import { Button, ErrorNote, Field, Input, PageHeader, PageSkeleton, Panel } from "@app/ui";
+import { Badge, Button, ErrorNote, Field, Input, PageHeader, PageSkeleton, Panel } from "@app/ui";
+import { VerifyEmailForm } from "@app/components/VerifyEmail";
 
 function Profile({ me }: { me: Owner }) {
   const save = useAction(actions.updateMe);
@@ -29,7 +30,7 @@ function Profile({ me }: { me: Owner }) {
         <Field label="رقم الموبايل">
           <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} inputMode="tel" dir="ltr" className="text-start" />
         </Field>
-        <Field label="البريد الإلكتروني" hint="تصلك عليه إيصالات الدفع.">
+        <Field label="البريد الإلكتروني" hint="تصلك عليه إيصالات الدفع والتذكيرات، ورمز استعادة كلمة المرور. تغييره يحتاج تأكيدًا جديدًا.">
           <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} type="email" dir="ltr" className="text-start" />
         </Field>
         {error && <ErrorNote>{error}</ErrorNote>}
@@ -39,6 +40,16 @@ function Profile({ me }: { me: Owner }) {
           </Button>
         </div>
       </form>
+      {me.email && form.email === me.email && (
+        me.email_verified ? (
+          <p className="mt-4"><Badge tone="ok">البريد مؤكَّد</Badge></p>
+        ) : me.email_service && (
+          <div className="mt-4 max-w-lg rounded-lg border border-warn/30 bg-warn-soft p-3">
+            <p className="mb-2 text-[13px] font-semibold text-ink">بريدك غير مؤكَّد بعد</p>
+            <VerifyEmailForm me={me} />
+          </div>
+        )
+      )}
     </Panel>
   );
 }

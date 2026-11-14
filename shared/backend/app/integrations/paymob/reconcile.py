@@ -91,6 +91,10 @@ async def apply_transaction(db: AsyncSession, obj: dict, *, source: str = "callb
                      "transaction": str(obj.get("id")), "workspace_name": tenant_name, "source": source},
         ))
     await db.commit()
+    if action == "invoice_paid_online":  # the receipt to the owner's verified email (#72)
+        from app.platform.billing.owner_emails import email_receipt
+
+        await email_receipt(db, inv)
     return {"ok": True, "state": state}
 
 

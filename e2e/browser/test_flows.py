@@ -15,6 +15,8 @@ def test_signup_lands_in_the_owner_panel_and_opens_the_workspace(page: Page, cre
     tag = uuid.uuid4().hex[:8]
     page.locator("#reg-fullname").fill("مالك اختبار المتصفح")
     page.locator("#reg-username").fill(f"e2e_br_{tag}")
+    page.locator("#reg-email").fill(f"e2e-br-{tag}@example.com")
+    page.locator("#reg-phone").fill("01001234567")
     page.locator("#reg-password").fill("Browser-e2e-9!")
     page.locator("button[type=submit]").click()
 

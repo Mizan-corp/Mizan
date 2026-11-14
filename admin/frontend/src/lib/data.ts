@@ -178,6 +178,8 @@ export interface OwnerRow {
   login: string;
   full_name: string;
   email: string | null;
+  /** Proved with a code (#72): reset codes, receipts and reminders go only to a verified address. */
+  email_verified: boolean;
   phone: string | null;
   is_active: boolean;
   last_login_at: string | null;
@@ -328,6 +330,7 @@ export const actions = {
   approveActivityChange: (v: { id: string; note?: string }) => api.post<ActivityChange>(`/admoon/activity-changes/${v.id}/approve`, { note: v.note }),
   rejectActivityChange: (v: { id: string; note: string }) => api.post<ActivityChange>(`/admoon/activity-changes/${v.id}/reject`, { note: v.note }),
   resetOwnerPassword: (id: string) => api.post<{ password: string }>(`/admoon/owners/${id}/reset-password`),
+  sendOwnerResetCode: (id: string) => api.post<{ sent_to: string }>(`/admoon/owners/${id}/send-reset-code`),
   setOwnerActive: (v: { id: string; active: boolean }) => api.post<OwnerRow>(`/admoon/owners/${v.id}/active`, { active: v.active }),
   moveWorkspace: (v: { owner_id: string; tenant_id: string }) =>
     api.post<OwnerDetail>(`/admoon/owners/${v.owner_id}/workspaces`, { tenant_id: v.tenant_id }),

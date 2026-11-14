@@ -79,7 +79,10 @@ async def mark_invoice_paid(
     await db.commit()
     await record(db, admin, "invoice_marked_paid", tenant_id=invoice.tenant_id, request=request,
                  invoice=ref, plan=invoice.plan, amount_egp=invoice.amount_egp, reference=body.reference)
-    return {"ok": True}
+    from app.platform.billing.owner_emails import email_receipt
+
+    emailed = await email_receipt(db, invoice)  # to the owner's verified email (#72)
+    return {"ok": True, "receipt_emailed": emailed}
 
 
 @router.post("/invoices/{ref}/check-paymob")

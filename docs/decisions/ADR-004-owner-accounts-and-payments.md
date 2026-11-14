@@ -50,3 +50,29 @@ their workspace a paid plan for free, and the payment webhook accepted unsigned 
   and the admin team can still mark invoices paid by hand.
 - Paid periods are tracked per invoice (renewals start where the paid period ends), but a
   lapsed subscription doesn't yet move a workspace to read-only on its own.
+
+## Email to owners (built 2026-11-14, #71, #72)
+
+- **Signup** asks for the owner's email and phone (both required) and emails a 6-digit code to
+  verify the address. The owner panel shows a banner until it is verified; existing owners add
+  and verify their address there (account page). Changing the address clears the verification.
+  An address can be verified on one owner account only.
+- **Codes** (`owner_codes`): 6 digits, 15 minutes, single use, 5 wrong tries, at most one a minute
+  and three an hour per owner and purpose; only an HMAC of the code is stored.
+- **Forgot password** on the owner panel's sign-in page (system API `POST /account/password/forgot`
+  and `/reset`, rate-limited, CSRF-exempt like `/account/login`): a code to the account's
+  verified address only, by username or by that address; the answer is the same whether the
+  account exists or not. Resetting sets the owner's and every linked workspace login's
+  password, ends every session and signs the owner in.
+- **The admin panel** can email an owner a reset code (verified address only) or set a
+  temporary password; both now update the linked workspace logins too.
+- **Receipts** are emailed (with the PDF) when a payment is applied, online or marked paid by
+  the team; **reminders** go out daily (`owner_billing_reminders`): trials 3 days before and at
+  the end, paid periods 7 days before and at the end. Each once (`owner_email_log`), to
+  verified addresses only, cloud workspaces only.
+- **Delivery**: SMTP (`EMAIL_SMTP_*`, `EMAIL_FROM`, `EMAIL_REPLY_TO`); production sends through
+  Brevo's relay as `Mizan <no-reply@allmizan.live>` (domain authenticated in Brevo), replies to
+  `support@allmizan.live`. Without a host, mail is only logged and the panel hides the
+  verification banner; forgot password then answers 503. Locally, Mailpit catches everything
+  (`docker-compose.yml`, http://localhost:8025). Phone numbers are collected, not verified
+  (no SMS provider yet).

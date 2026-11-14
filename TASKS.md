@@ -20,7 +20,8 @@ cross-cutting fixes (#26, #27, #28, #59, #60, #61); on-site updates, backups and
    downgrades start at period end), and checked in production and closed: #69 receipts, #70,
    #74, #76, #79. Waiting on an admin-panel check: #67 (the «check with Paymob» action), #73.
    #118: ERP PDF downloads (sales invoice URL; WeasyPrint on serverless).
-3. Deferred until mail is set up: #71 owner password reset, #72 verified email and phone.
+3. Done 2026-11-14: #71 owner password reset, #72 email and phone at signup with a verified email,
+   emailed receipts and trial/renewal reminders (mail through Brevo, ADR-004 "Email to owners").
 
 **P2 — The product customers use daily**
 4. ETA e-invoicing and e-receipts (legally required in Egypt). **Deferred (2026-11-12)**: no ETA test credentials yet; e-invoice signing (local signer helper vs cloud signing provider) to be decided. E-receipts are the likely first part.
@@ -42,8 +43,8 @@ screens, install from file with scope approval, installation tokens and `/ext/v1
 webhooks with retries, `mizan-sdk` and the `mizan` CLI, and the developer portal with its docs
 (website app under `/dev`, `dev.allmizan.live` in production, live since 2026-11-13; English by
 default, Arabic on request). Left: publish `mizan-sdk` on PyPI (owner's account; until then the
-portal serves the wheel); email verification and password reset for developers wait for the
-mail work (#71, #72).
+portal serves the wheel); email verification and password reset for developers can now use
+the owners' email code service (#71, #72).
 
 **P1c — Activities as packages, and theme packs (owner, 2026-11-13; ADR-010)**
 Every business activity is one folder (`activities/<id>/`: activity.json, modules/, variants/,
