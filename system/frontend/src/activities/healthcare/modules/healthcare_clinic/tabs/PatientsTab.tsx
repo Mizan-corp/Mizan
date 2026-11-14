@@ -16,13 +16,12 @@ import { useClinic } from "../ClinicContext";
 import BreakGlassDialog from "../components/BreakGlassDialog";
 import CareTeamDialog from "../components/CareTeamDialog";
 
-type PatientRef = { id: string; full_name: string };
+import type { PatientRef } from "../types";
 
 export default function PatientsTab() {
   const c = useClinic();
   const {
-    filteredPatients, setIsPatientModalOpen, setIsBookingOpen,
-    setBookingForm, setIsRxModalOpen, setRxForm, bookingForm, rxForm,
+    filteredPatients, openDialog,
   } = c;
   const { perms } = c;
   const clinician = perms.clinician;
@@ -44,7 +43,7 @@ export default function PatientsTab() {
         <Button
           onClick={() => {
             sound.click();
-            setIsPatientModalOpen(true);
+            openDialog({ kind: "patient" });
           }}
           size="sm"
           className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-8 gap-1.5 shadow-xs"
@@ -67,7 +66,7 @@ export default function PatientsTab() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredPatients.map((pat: any) => (
+          {filteredPatients.map((pat) => (
             <TableRow key={pat.id} className="hover:bg-primary/[0.03] transition-colors border-b border-border/40">
               <TableCell>
                 <div className="font-bold text-foreground text-xs flex items-center gap-1.5">
@@ -130,12 +129,7 @@ export default function PatientsTab() {
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      setBookingForm({
-                        ...bookingForm,
-                        patient_id: pat.id,
-                        patient_name: pat.full_name,
-                      });
-                      setIsBookingOpen(true);
+                      openDialog({ kind: "booking", patient: pat });
                     }}
                     className="text-[10px] h-7 px-2 border-primary/30 text-foreground hover:bg-primary/5"
                   >
@@ -170,12 +164,7 @@ export default function PatientsTab() {
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      setRxForm({
-                        ...rxForm,
-                        patient_id: pat.id,
-                        patient_name: pat.full_name,
-                      });
-                      setIsRxModalOpen(true);
+                      openDialog({ kind: "prescription", patient: pat });
                     }}
                     className="text-[10px] h-7 px-2 border-primary/30 text-foreground hover:bg-primary/5"
                   >

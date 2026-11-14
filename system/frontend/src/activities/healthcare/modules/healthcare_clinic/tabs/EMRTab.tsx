@@ -7,7 +7,7 @@ import { useClinic } from "../ClinicContext";
 
 export default function EMRTab() {
   const c = useClinic();
-  const { filteredEncounters, setIsEncounterModalOpen, perms } = c;
+  const { filteredEncounters, openDialog, perms } = c;
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -24,7 +24,7 @@ export default function EMRTab() {
         <Button
           onClick={() => {
             sound.click();
-            setIsEncounterModalOpen(true);
+            openDialog({ kind: "encounter" });
           }}
           size="sm"
           className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-8 gap-1.5 shadow-xs font-semibold"
@@ -36,7 +36,7 @@ export default function EMRTab() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredEncounters.map((enc: any) => (
+        {filteredEncounters.map((enc) => (
           <Card key={enc.id} className="p-4 border-border/70 space-y-3 bg-card/80 shadow-xs hover:border-primary/40 transition-colors">
             <div className="flex items-center justify-between border-b border-border/60 pb-2">
               <div>

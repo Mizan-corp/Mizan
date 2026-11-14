@@ -1,9 +1,8 @@
 import { Badge } from "@/components/kit/badge";
 import { ShieldCheck } from "lucide-react";
 import { useClinic } from "../ClinicContext";
+import { moneyEGP } from "../format";
 
-const moneyEGP = (amount: number) =>
-  `${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
 
 export default function ClaimsTab() {
   const c = useClinic();
@@ -34,7 +33,7 @@ export default function ClaimsTab() {
             </tr>
           </thead>
           <tbody>
-            {c.claimsData.map((cl: any) => (
+            {c.data.claims.map((cl) => (
               <tr key={cl.id} className="border-t border-border/40 hover:bg-primary/[0.03] transition-colors">
                 <td className="py-2.5 px-3 num font-bold text-foreground">{cl.claim_ref}</td>
                 <td className="py-2.5 px-3 font-medium text-foreground">{cl.patient_name}</td>
@@ -46,7 +45,7 @@ export default function ClaimsTab() {
                 </td>
               </tr>
             ))}
-            {c.claimsData.length === 0 && (
+            {c.data.claims.length === 0 && (
               <tr>
                 <td colSpan={6} className="py-6 text-center text-muted-foreground">
                   لا توجد مطالبات تأمين بعد.

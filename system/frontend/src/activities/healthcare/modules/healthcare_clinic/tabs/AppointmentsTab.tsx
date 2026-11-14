@@ -12,13 +12,12 @@ import {
 import { Calendar, CheckCircle2, Plus } from "lucide-react";
 import { sound } from "@/lib/sound";
 import { useClinic } from "../ClinicContext";
+import { moneyEGP } from "../format";
 
-const moneyEGP = (amount: number) =>
-  `${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
 
 export default function AppointmentsTab() {
   const c = useClinic();
-  const { filteredAppts, handleBillAppointment, handleUpdateApptStatus, setIsBookingOpen, perms } = c;
+  const { filteredAppts, actions, openDialog, perms } = c;
   return (
     <Card className="border-border/70 overflow-hidden shadow-xs bg-card/80">
       <div className="p-4 border-b border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/10">
@@ -35,7 +34,7 @@ export default function AppointmentsTab() {
         <Button
           onClick={() => {
             sound.click();
-            setIsBookingOpen(true);
+            openDialog({ kind: "booking" });
           }}
           size="sm"
           className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-8 gap-1.5 shadow-xs"
@@ -59,7 +58,7 @@ export default function AppointmentsTab() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredAppts.map((a: any) => (
+          {filteredAppts.map((a) => (
             <TableRow key={a.id} className="hover:bg-primary/[0.03] transition-colors border-b border-border/40">
               <TableCell>
                 <div className="num font-bold text-foreground text-xs">{a.appointment_ref}</div>
@@ -110,7 +109,7 @@ export default function AppointmentsTab() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleUpdateApptStatus(a.id, "waiting")}
+                      onClick={() => actions.updateAppointmentStatus(a.id, "waiting")}
                       className="text-[10px] h-7 px-2 border-primary/30 text-foreground hover:bg-primary/5"
                     >
                       استدعاء للانتظار
@@ -119,7 +118,7 @@ export default function AppointmentsTab() {
                   {perms.queue && a.status === "waiting" && (
                     <Button
                       size="sm"
-                      onClick={() => handleUpdateApptStatus(a.id, "in_consultation")}
+                      onClick={() => actions.updateAppointmentStatus(a.id, "in_consultation")}
                       className="text-[10px] h-7 px-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                     >
                       بدء الكشف الطبي
@@ -128,7 +127,7 @@ export default function AppointmentsTab() {
                   {perms.queue && a.status === "in_consultation" && (
                     <Button
                       size="sm"
-                      onClick={() => handleUpdateApptStatus(a.id, "completed")}
+                      onClick={() => actions.updateAppointmentStatus(a.id, "completed")}
                       className="text-[10px] h-7 px-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
                             >
                               إنهاء واعتماد
@@ -144,7 +143,7 @@ export default function AppointmentsTab() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleBillAppointment(a.id)}
+                                onClick={() => actions.billAppointment(a.id)}
                                 className="text-[10px] h-7 px-2 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
                               >
                                 إصدار فاتورة

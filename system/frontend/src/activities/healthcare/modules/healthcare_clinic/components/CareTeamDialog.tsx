@@ -7,13 +7,8 @@ import { Badge } from "@/components/kit/badge";
 import { Button } from "@/components/kit/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/kit/dialog";
 import { useAuth } from "@/stores/auth";
+import type { Clinician } from "../types";
 
-export interface Clinician {
-  id: string;
-  full_name: string;
-  role: string | null;
-  is_doctor: boolean;
-}
 
 interface CareTeamMember {
   id: string;

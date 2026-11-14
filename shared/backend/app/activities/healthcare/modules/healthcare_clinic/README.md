@@ -30,6 +30,20 @@ is read and written per patient; the rules are in `service.py`:
 - Every clinical read is logged in `clinic_access_log`. `clinic:privacy`: `GET /clinic/access-log`,
   `GET /clinic/break-glass`, `POST /clinic/break-glass/{id}/review` and `/revoke`.
 
+## Screen (system/frontend/src/activities/healthcare/modules/healthcare_clinic/)
+
+- `ClinicHealthcarePage.tsx`: routing (`?tab=`, `/clinic/:moduleSlug`), permissions, data and the
+  open dialog only; `ClinicContext.tsx` (typed `useClinic()`) hands them to the parts.
+- `types.ts`: the API records (Patient, Appointment, Encounter, Prescription, LabOrder, Bed,
+  Invoice, Claim, Clinician); `useClinicData.ts`: the queries; `useClinicActions.ts`: row actions
+  and the mutation helper (typed toasts with the server's `detail`); `permissions.ts`:
+  `useClinicPerms()`; `healthcareModules.ts`: the suite's 24 standalone screens.
+- `tabs/`: one file per tab. `components/`: the dialogs (`RegisterPatientDialog`,
+  `BookAppointmentDialog`, `EncounterDialog`, `PrescriptionDialog`, `LabOrderDialog`,
+  `AdmitBedDialog`, `LabResultDialog`, each owning its form and request; `ClinicDialogs` picks the
+  open one), the page parts (`ClinicHeader`, `ClinicKpis`, `HealthcareSuiteNav`, `ClinicTabsBar`,
+  `StandaloneModuleView`), and the #113 dialogs (`BreakGlassDialog`, `CareTeamDialog`).
+
 ## Role separation (#131)
 
 Every route checks the permission its guard names (`require_clinic_manage`, `_booking`, `_queue`,

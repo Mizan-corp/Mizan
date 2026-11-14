@@ -3,10 +3,9 @@ import { Badge } from "@/components/kit/badge";
 import { Button } from "@/components/kit/button";
 import { FileText, Printer } from "lucide-react";
 import { useClinic } from "../ClinicContext";
+import { moneyEGP } from "../format";
 import { ClinicInvoiceReceiptModal, type ClinicInvoiceReceiptData } from "@app/features/modules/SpecializedReceiptModals";
 
-const moneyEGP = (amount: number) =>
-  `${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
 
 export default function BillingTab() {
   const c = useClinic();
@@ -41,7 +40,7 @@ export default function BillingTab() {
             </tr>
           </thead>
           <tbody>
-            {c.invoicesData.map((inv: any) => (
+            {c.data.invoices.map((inv) => (
               <tr key={inv.id} className="border-t border-border/40 hover:bg-primary/[0.03] transition-colors">
                 <td className="py-2.5 px-3 num font-bold text-foreground">{inv.invoice_ref}</td>
                 <td className="py-2.5 px-3 font-medium text-foreground">{inv.patient_name}</td>
@@ -55,7 +54,7 @@ export default function BillingTab() {
                 <td className="py-2.5 px-3">
                   <div className="flex items-center gap-1.5">
                     {inv.status !== "paid" && (
-                      <Button size="sm" onClick={() => c.handlePayInvoice(inv)} className="text-xs h-7 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+                      <Button size="sm" onClick={() => c.actions.payInvoice(inv)} className="text-xs h-7 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
                         تسجيل دفع
                       </Button>
                     )}
@@ -90,7 +89,7 @@ export default function BillingTab() {
                 </td>
               </tr>
             ))}
-            {c.invoicesData.length === 0 && (
+            {c.data.invoices.length === 0 && (
               <tr>
                 <td colSpan={8} className="py-6 text-center text-muted-foreground">
                   لا توجد فواتير. استخدم زر "إصدار فاتورة" في تبويب المواعيد.
