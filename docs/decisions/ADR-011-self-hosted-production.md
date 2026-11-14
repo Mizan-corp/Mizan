@@ -52,4 +52,9 @@ HDD, home connection with a changing IP), the first node of a future cluster.
   for `mizan_app` and workspace requests touching them failed with "permission denied" until
   2026-11-13. Every migrate path now grants `mizan_app` on all tables and sets default privileges
   for the current login role (`APP_ROLE_GRANTS` in `app/db/migrations.py`).
+- **Uptime** (2026-11-14): `.github/workflows/uptime.yml` checks from outside, every 5 minutes, the
+  five apps, the four APIs' health (database included: "degraded" counts as down) and the mail
+  server's ports 25, 587 and 993. Anything down for three tries 20 s apart opens an issue
+  labelled `outage` (GitHub emails the owner; at most one comment an hour while it lasts) and
+  closes it when everything is back. Run it by hand with "test_alert" to see an alert.
 - Details and operations: `deploy/server/README.md`.
