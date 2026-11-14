@@ -1,7 +1,7 @@
 # ADR-014: Double-entry accounting
 
 ## Status
-Proposed (2026-11-14), waiting for the owner's approval. Answers #25. Nothing is built yet.
+Accepted (2026-11-14) by the owner. Answers #25. Building in the order of D12.
 
 ## Context
 Mizan has no accounting ledger. Money is tracked in about ten separate places:
@@ -244,8 +244,7 @@ Each step is its own PR with tests:
   posting rule. Their money is not in the ledger until then; the reports say so.
 - Prepares ETA (#91): tax amounts are stored on every document.
 
-## Open questions for the owner
-1. Is the average cost **per workspace** (proposed) or **per branch/warehouse**?
-2. Should the accounting module be **on by default** for new general workspaces, or something an owner
-   enables?
-3. Should prices **include VAT** by default (proposed)?
+## Answers to the open questions (2026-11-14)
+1. The average cost is kept **per workspace**.
+2. Accounting is **enabled by the owner**, not on by default. Enabling it creates the opening entry (D10).
+3. Prices **include VAT** by default.
