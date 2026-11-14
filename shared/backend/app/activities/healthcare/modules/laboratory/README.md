@@ -1,4 +1,4 @@
-# HLT-10 — إدارة المختبرات والتحاليل (LIS) (Laboratory Information Management (LIS))
+# HLT-10 — إدارة المختبرات والتحاليل (LIS) (Laboratory Information Management (LIS)) (planned)
 
 ## Overview
 دليل الفحوصات، باركود العينات، النتائج المخبرية، المعدلات الطبيعية، والتنبيه بالقيم الحرجة.

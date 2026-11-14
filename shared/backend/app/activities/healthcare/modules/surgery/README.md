@@ -1,4 +1,4 @@
-# HLT-14 — العمليات الجراحية وغرف العمليات (OT) (Operating Room & Surgery Management)
+# HLT-14 — العمليات الجراحية وغرف العمليات (OT) (Operating Room & Surgery Management) (planned)
 
 ## Overview
 جدولة غرف العمليات، الفريق الجراحي والتخدير، قائمة التحقق الجراحية (WHO)، وغرفة الإفاقة.

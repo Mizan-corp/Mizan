@@ -7,7 +7,7 @@ const definition: ModuleDefinition = {
   id: "beds",
   activity: "healthcare",
   kind: "business",
-  status: "active",
+  status: "planned",
   screens: {},
   widgets: {},
 };

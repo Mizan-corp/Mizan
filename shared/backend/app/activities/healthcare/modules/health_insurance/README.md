@@ -1,4 +1,4 @@
-# HLT-16 — التأمين الطبي والمطالبات (Insurance & Claims Management)
+# HLT-16 — التأمين الطبي والمطالبات (Insurance & Claims Management) (planned)
 
 ## Overview
 شركات التأمين، بوالص المرضى، الموافقات المسبقة، تقديم المطالبات الإلكترونية، والتسوية والرفض.

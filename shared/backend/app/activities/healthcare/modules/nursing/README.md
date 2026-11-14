@@ -1,4 +1,4 @@
-# HLT-09 — التمريض وسجل إعطاء الأدوية (MAR) (Nursing Care & Medication Administration)
+# HLT-09 — التمريض وسجل إعطاء الأدوية (MAR) (Nursing Care & Medication Administration) (planned)
 
 ## Overview
 خطة الرعاية التمريضية، سجل إعطاء الدواء (MAR)، توازن السوائل، وتقارير تسليم الورديات.

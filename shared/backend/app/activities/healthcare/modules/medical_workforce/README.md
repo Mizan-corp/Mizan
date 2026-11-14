@@ -1,4 +1,4 @@
-# HLT-19 — الموارد البشرية والامتيازات السريرية (HR & Clinical Workforce Management)
+# HLT-19 — الموارد البشرية والامتيازات السريرية (HR & Clinical Workforce Management) (planned)
 
 ## Overview
 تراخيص المزاولة الطبية، الامتيازات السريرية، ساعات التعليم الطبي المستمر (CME)، وتبادل الورديات.

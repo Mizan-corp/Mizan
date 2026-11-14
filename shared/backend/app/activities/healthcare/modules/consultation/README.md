@@ -1,4 +1,4 @@
-# HLT-06 — الكشف الطبي ومسار الاستشارة (Consultation & Clinical Workflow)
+# HLT-06 — الكشف الطبي ومسار الاستشارة (Consultation & Clinical Workflow) (planned)
 
 ## Overview
 توثيق الكشف السريري (SOAP)، الشكوى الحالية، التشخيص (ICD-10)، الوصفات والطلبات الطبية.

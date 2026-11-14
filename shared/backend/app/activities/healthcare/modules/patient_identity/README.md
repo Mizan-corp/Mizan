@@ -1,4 +1,4 @@
-# HLT-02 — تسجيل وهوية المرضى (MPI) (Patient Registration & Master Patient Index)
+# HLT-02 — تسجيل وهوية المرضى (MPI) (Patient Registration & Master Patient Index) (planned)
 
 ## Overview
 ملفات المرضى، الرقم الطبي الموحد (MRN)، الهوية الوطنية، فحص الازدواجية، ودمج السجلات.

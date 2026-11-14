@@ -1,4 +1,4 @@
-# HLT-15 — الفوترة الطبية وحسابات المرضى (Billing, Invoicing & Patient Accounts)
+# HLT-15 — الفوترة الطبية وحسابات المرضى (Billing, Invoicing & Patient Accounts) (planned)
 
 ## Overview
 تسعيرة الخدمات، فواتير الكشوفات والإجراءات، حساب نسبة التحمل، سندات القبض، ودفعات المرضى.

@@ -1,4 +1,4 @@
-# HLT-20 — الأجهزة الطبية والمعايرة الحيوية (Medical Equipment & Maintenance Management)
+# HLT-20 — الأجهزة الطبية والمعايرة الحيوية (Medical Equipment & Maintenance Management) (planned)
 
 ## Overview
 سجل الأجهزة الطبية، الصيانة الوقائية، شهادات المعايرة الدورية، وتذاكر الأعطال والإصلاح.

@@ -1,4 +1,4 @@
-# HLT-24 — المؤشرات والذكاء السريري (BI) (Clinical Analytics & Business Intelligence)
+# HLT-24 — المؤشرات والذكاء السريري (BI) (Clinical Analytics & Business Intelligence) (planned)
 
 ## Overview
 نسبة إشغال الأسرة (BOR)، متوسط مدة الإقامة (ALOS)، إنتاجية الأطباء، ومؤشرات الجودة ومكافحة العدوى.

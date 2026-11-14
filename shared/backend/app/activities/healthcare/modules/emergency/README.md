@@ -1,4 +1,4 @@
-# HLT-13 — إدارة الطوارئ والفرز (ER Triage) (Emergency Department & Triage Management)
+# HLT-13 — إدارة الطوارئ والفرز (ER Triage) (Emergency Department & Triage Management) (planned)
 
 ## Overview
 استقبال الطوارئ، تصنيف خطورة الحالات (ESI 1-5)، مسارات الإنعاش السريع، وتسكين أسرة الطوارئ.

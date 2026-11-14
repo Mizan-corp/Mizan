@@ -1,4 +1,4 @@
-# HLT-21 — بوابة المريض والخدمات الرقمية (Patient Portal & Digital Services)
+# HLT-21 — بوابة المريض والخدمات الرقمية (Patient Portal & Digital Services) (planned)
 
 ## Overview
 حسابات المرضى، حجز المواعيد الذاتي، استعراض نتائج التحاليل والأشعة، وسجل الوصفات والتقارير.

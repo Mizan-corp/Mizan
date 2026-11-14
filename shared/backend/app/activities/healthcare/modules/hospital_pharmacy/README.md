@@ -1,4 +1,4 @@
-# HLT-12 — الصيدلية الدوائية وصرف الروشتات (Hospital Pharmacy & Medication Management)
+# HLT-12 — الصيدلية الدوائية وصرف الروشتات (Hospital Pharmacy & Medication Management) (planned)
 
 ## Overview
 دليل الأدوية والبدائل، صرف الروشتات الرقمية، تتبع الصلاحيات (FEFO)، وسجل الأدوية المراقبة.
