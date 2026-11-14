@@ -701,7 +701,9 @@ async def _make_return(db, orig: Sale, wanted: dict[str, Decimal] | None, user_i
 
     cash_refund = sum((v for (m, _), v in refunds.items() if m == "cash"), Decimal("0"))
     target_shift = await _open_shift_for_refund(db, user_id, shift_id, orig)
-    if cash_refund > 0 and not target_shift:
+    # Cash that went through a drawer comes back out of one; a sale made without a shift
+    # recorded no drawer cash, so its refund records none either.
+    if cash_refund > 0 and not target_shift and orig.shift_id:
         raise BusinessError("لا توجد وردية مفتوحة لصرف المبلغ النقدي للمرتجع — افتح وردية أولاً")
 
     seq = (await db.execute(text("SELECT nextval('invoice_seq')"))).scalar()
@@ -734,7 +736,7 @@ async def _make_return(db, orig: Sale, wanted: dict[str, Decimal] | None, user_i
         if amount <= 0:
             continue
         await _add_payment(db, ret.id, method, amount, wallet_id)
-        if method == "cash":
+        if method == "cash" and target_shift:
             db.add(DrawerTransaction(shift_id=target_shift, type=DrawerTxType.return_, amount=amount,
                                      ref_id=ret.id, created_by=user_id, note=note))
         elif method == "wallet" and wallet_id:
