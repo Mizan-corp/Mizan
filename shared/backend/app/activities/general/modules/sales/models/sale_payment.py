@@ -18,5 +18,7 @@ class SalePayment(TenantScoped, Base):
     method: Mapped[str] = mapped_column(String(32), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
     wallet_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("payment_wallets.id", ondelete="SET NULL"), nullable=True)
+    # The safe the money went into, when it didn't go through a drawer (a quotation confirmed into a safe).
+    safe_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("safes.id", ondelete="SET NULL"), nullable=True)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

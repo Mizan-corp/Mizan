@@ -53,6 +53,16 @@ Besides the ERP's own records, every workspace has (all tenant-scoped, with RLS)
 | `clinic_access_log` | One row per read of clinical data (#113): `user_id`, `user_name`, `patient_id` (`NULL` for a list), `resource` (`patient`, `encounters`, `prescriptions`, `lab_orders`), `how` (`all`, `setting`, `team`, `break_glass`, `queue`), `rows`; no foreign key to the patient, so it outlives the record |
 | `activity_changes` | Owners' requests to change the workspace's activity and the Mizan team's decisions (#107); read across workspaces by the owner and admin APIs with `app.bypass` |
 
+### Money documents in sales, POS and stock (ADR-014 D4, D5; migration `v80`)
+
+| Column | What it means |
+|---|---|
+| `sales.return_of` | A return is its own document: a `sales` row with status `returned`, number `RET-…`, its returned lines (at the cost they left at), its own totals (`total` = returned lines, `discount_amount` = its share of the sale's invoice discount, `net_total` = refunded) and refund lines in `sale_payments`, pointing to the sale it returns. The sale stays `confirmed` and its `returns_total` grows. Partial returns made before `v80` were linked from the "مرتجع جزئي من …" text of their notes and got their totals from their lines; full returns made before `v80` (the sale itself marked `returned`) are left as they were. |
+| `sale_payments.safe_id` | The safe a payment went into when it didn't go through a drawer (a quotation confirmed into a safe). Bank and cheque lines are recorded with no account yet (ADR-014 D12, step 2). A cancelled sale keeps its `sale_payments` rows; reports count only `confirmed` sales. |
+| `drawer_transactions.cancelled_at`, `cancelled_by` | Drawer rows are cancelled, never deleted. Shift summaries, the ledger and the reports skip cancelled rows. Cancelling a sale cancels its drawer rows. |
+| `drawer_transactions.customer_payment_id` | The customer receipt a drawer deposit recorded; cancelling the row adds a negative receipt and puts the debt back. |
+| `products.avg_cost` | Weighted moving average cost, per workspace (not per branch), started from `cost_price`. Every costed receipt (purchase, opening stock, a return at the cost the line left at, an adjustment with a cost) recomputes it in `inventory.services.stock.apply_movement`; every other movement and every sale line (`sale_items.unit_cost`) is recorded at it, whatever the client sends. `cost_price` stays the last purchase price. |
+
 ## 3. Platform Tables (not tenant-scoped)
 
 These belong to Mizan itself, not to a workspace, and have no RLS policy. Only the owner,
