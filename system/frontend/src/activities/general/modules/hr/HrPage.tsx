@@ -5,10 +5,11 @@ import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
 import { D, date as fmtDate, money, moneyEGP } from "@/lib/format";
 import { Badge, Button, Empty, ErrorBox, Input, Modal, Select, Spinner } from "@/components/ui";
+import { PaySourceSelect, sourceFields } from "@app/components/PaySourceSelect";
 
 interface Employee { id: string; emp_code: string | null; name: string; position: string | null; monthly_salary: string; is_active: boolean }
 interface Attendance { id: string; employee_id: string; work_date: string; check_in: string | null; check_out: string | null; status: string }
-interface Advance { id: string; employee_id: string; amount: string; date: string; note: string | null }
+interface Advance { id: string; employee_id: string; amount: string; date: string; note: string | null; record_type: string | null }
 
 export default function HrPage() {
   const [tab, setTab] = useState("employees");
@@ -236,7 +237,9 @@ function AttendanceTab() {
 function AdvancesTab() {
   const qc = useQueryClient();
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ employee_id: "", amount: "", note: "" });
+  const emptyForm = { employee_id: "", amount: "", note: "", record_type: "سلفة", source: "" };
+  const [form, setForm] = useState(emptyForm);
+  const isAdvance = form.record_type === "سلفة";
 
   const employees = useQuery({ queryKey: ["hr-employees"], queryFn: () => api.get<Employee[]>("/hr/employees") });
   const list = useQuery({ queryKey: ["hr-advances"], queryFn: () => api.get<Advance[]>("/hr/advances") });
@@ -246,8 +249,16 @@ function AdvancesTab() {
         employee_id: form.employee_id,
         amount: D(form.amount).toNumber(),
         note: form.note || null,
+        record_type: form.record_type,
+        ...(isAdvance ? sourceFields(form.source) : {}),
       }),
-    onSuccess: () => { setCreating(false); setForm({ employee_id: "", amount: "", note: "" }); qc.invalidateQueries({ queryKey: ["hr-advances"] }); },
+    onSuccess: () => {
+      setCreating(false);
+      setForm(emptyForm);
+      qc.invalidateQueries({ queryKey: ["hr-advances"] });
+      qc.invalidateQueries({ queryKey: ["safes"] });
+      qc.invalidateQueries({ queryKey: ["wallets"] });
+    },
   });
 
   const empList: Employee[] = Array.isArray(employees.data) ? employees.data : ((employees.data as any)?.items ?? []);
@@ -257,7 +268,7 @@ function AdvancesTab() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex justify-end">
-        <Button onClick={() => setCreating(true)}><Plus size={16} /> سلفة جديدة</Button>
+        <Button onClick={() => setCreating(true)}><Plus size={16} /> سلفة أو خصم أو مكافأة</Button>
       </div>
       {list.isLoading ? (
         <div className="flex flex-col gap-2" aria-busy="true" aria-label="جارٍ التحميل">
@@ -274,6 +285,7 @@ function AdvancesTab() {
             <thead>
               <tr className="border-b border-line text-xs text-muted bg-secondary/20">
                 <th className="p-3 text-start">الموظف</th>
+                <th className="p-3 text-start">النوع</th>
                 <th className="p-3 text-start">المبلغ</th>
                 <th className="p-3 text-start">التاريخ</th>
                 <th className="p-3 text-start">ملاحظة</th>
@@ -283,6 +295,11 @@ function AdvancesTab() {
               {advList.slice(0, 60).map((a) => (
                 <tr key={a.id} className="border-b border-line/60 last:border-0 hover:bg-secondary/10 transition-colors">
                   <td className="p-3 font-bold">{nameOf(a.employee_id)}</td>
+                  <td className="p-3">
+                    <Badge tone={a.record_type === "مكافأة" ? "success" : a.record_type === "خصم" ? "danger" : "warning"}>
+                      {a.record_type ?? "سلفة"}
+                    </Badge>
+                  </td>
                   <td className="num p-3 font-bold text-warning-ink">{money(a.amount)}</td>
                   <td className="p-3 text-xs text-muted">{fmtDate(a.date)}</td>
                   <td className="p-3 text-muted">{a.note ?? "—"}</td>
@@ -292,11 +309,11 @@ function AdvancesTab() {
           </table>
         </div>
       )}
-      <Modal open={creating} onClose={() => setCreating(false)} title="سلفة جديدة">
+      <Modal open={creating} onClose={() => setCreating(false)} title="سلفة أو خصم أو مكافأة">
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!create.isPending && form.employee_id && form.amount) create.mutate();
+            if (!create.isPending && form.employee_id && form.amount && (!isAdvance || form.source)) create.mutate();
           }}
           className="flex flex-col gap-3"
         >
@@ -304,6 +321,20 @@ function AdvancesTab() {
             <option value="">— اختر الموظف —</option>
             {empList.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
           </Select>
+          <div>
+            <label htmlFor="adv-type" className="mb-1 block text-sm font-medium">النوع</label>
+            <Select id="adv-type" value={form.record_type} onChange={(e) => setForm({ ...form, record_type: e.target.value })}>
+              <option value="سلفة">سلفة (تُصرف نقدًا الآن وتُخصم من الراتب)</option>
+              <option value="خصم">خصم من الراتب</option>
+              <option value="مكافأة">مكافأة تُضاف إلى الراتب</option>
+            </Select>
+          </div>
+          {isAdvance && (
+            <div>
+              <label htmlFor="adv-source" className="mb-1 block text-sm font-medium">تُصرف من *</label>
+              <PaySourceSelect id="adv-source" value={form.source} onChange={(v) => setForm({ ...form, source: v })} />
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-sm font-medium">المبلغ</label>
             <Input className="num text-lg font-bold" inputMode="decimal" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
@@ -313,8 +344,8 @@ function AdvancesTab() {
             <Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
           </div>
           {create.isError && <ErrorBox message={(create.error as Error).message} />}
-          <Button type="submit" className="w-full h-10 font-bold" disabled={create.isPending || !form.employee_id || !form.amount}>
-            {create.isPending ? <Spinner /> : "حفظ السلفة"}
+          <Button type="submit" className="w-full h-10 font-bold" disabled={create.isPending || !form.employee_id || !form.amount || (isAdvance && !form.source)}>
+            {create.isPending ? <Spinner /> : "حفظ"}
           </Button>
         </form>
       </Modal>

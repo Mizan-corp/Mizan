@@ -19,6 +19,9 @@ class PurchaseCreate(BaseModel):
     supplier_id: uuid.UUID | None = None
     notes: str | None = None
     amount_paid: Decimal | None = Field(None, ge=0)
+    # Where amount_paid comes from: a safe (or bank account) or a payment wallet.
+    safe_id: uuid.UUID | None = None
+    wallet_id: uuid.UUID | None = None
     received_by_name: str | None = None
     items: list[PurchaseItemCreate] = []
 
@@ -40,6 +43,10 @@ class ReceiveItemOverride(BaseModel):
 
 class PurchaseReceive(BaseModel):
     items: list[ReceiveItemOverride] = []
+    # What is paid on receipt and from where; when omitted, the order's own values are used.
+    amount_paid: Decimal | None = Field(None, ge=0)
+    safe_id: uuid.UUID | None = None
+    wallet_id: uuid.UUID | None = None
 
 
 class QuickProductCreate(BaseModel):

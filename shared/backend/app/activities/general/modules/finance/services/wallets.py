@@ -24,7 +24,7 @@ async def record_wallet_tx(
         current = row.scalar() or Decimal("0")
         if current + amount < 0:
             from app.core.exceptions import BusinessError
-            raise BusinessError(f"Wallet balance insufficient: {current} available, {abs(amount)} requested")
+            raise BusinessError(f"رصيد المحفظة غير كافٍ ({current} ج.م متاح، المطلوب {abs(amount)} ج.م)")
 
     await db.execute(text("""
         INSERT INTO wallet_transactions (wallet_id, amount, tx_type, ref_id, note, created_by)

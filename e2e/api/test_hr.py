@@ -5,7 +5,7 @@ from datetime import datetime
 
 from helpers import uid
 
-from conftest import (admin_api, owner_api, reg, db)  # noqa: F401
+from conftest import (admin_api, owner_api, reg, db, safe)  # noqa: F401
 
 
 def _now_month() -> str:
@@ -77,11 +77,15 @@ def test_hr_employees_crud_and_attendance(owner_api, reg):
         assert r.status_code == 200, rep
 
 
-def test_hr_advances(owner_api, reg):
+def test_hr_advances(owner_api, reg, safe):
     e = _employee(owner_api, reg)
+    day = datetime.now().strftime("%Y-%m-%d")
+    # an advance is cash paid out now: it must say where from (ADR-014 D4)
+    r = owner_api.post("/hr/advances", json={"employee_id": e["id"], "amount": "200", "date": day})
+    assert r.status_code == 400, r.text[:200]
+    owner_api.ok(owner_api.post(f"/safes/{safe['id']}/deposit", json={"amount": "200", "notes": "e2e"}))
     adv = owner_api.ok(owner_api.post("/hr/advances", json={
-        "employee_id": e["id"], "amount": "200",
-        "date": datetime.now().strftime("%Y-%m-%d"), "notes": "e2e"}))
+        "employee_id": e["id"], "amount": "200", "date": day, "notes": "e2e", "safe_id": safe["id"]}))
     reg.add("advance", adv.get("id") or "")
     rows = owner_api.ok(owner_api.get("/hr/advances", params={"employee_id": e["id"]}))
     assert isinstance(rows, list)
@@ -96,7 +100,7 @@ def test_hr_import_csv_and_no_device_sync(owner_api):
         assert getattr(owner_api, method)(path).status_code in (404, 405), path
 
 
-def test_payroll_full_flow(owner_api, reg):
+def test_payroll_full_flow(owner_api, reg, safe):
     e = _employee(owner_api, reg)
     month = _future_month()
 
@@ -126,7 +130,12 @@ def test_payroll_full_flow(owner_api, reg):
         for x in (exps if isinstance(exps, list) else exps.get("data", [])):
             if x.get("notes") == f"HR payroll month {month}":
                 reg.add("expense", x["id"])
-        pay = owner_api.ok(owner_api.post("/hr/payroll/period/pay", params={"month": month}))
+        if appr["total"] > 0:
+            r = owner_api.post("/hr/payroll/period/pay", params={"month": month})
+            assert r.status_code == 400, r.text[:200]  # paying needs a safe or wallet
+            owner_api.ok(owner_api.post(f"/safes/{safe['id']}/deposit", json={"amount": str(appr["total"]), "notes": "e2e"}))
+        pay = owner_api.ok(owner_api.post("/hr/payroll/period/pay", params={"month": month},
+                                          json={"safe_id": safe["id"]}))
         assert pay["detail"] == "paid"
         # paid month cannot be reopened
         r = owner_api.post("/hr/payroll/period/reopen", params={"month": month})

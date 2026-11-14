@@ -65,8 +65,11 @@ def test_expense_create_approve(owner_api, reg, safe, wallet):
     summ = owner_api.ok(owner_api.get("/expenses/summary"))
     assert "items" in summ or isinstance(summ, dict)
 
+    # an approved expense is cancelled (its money goes back), never deleted (ADR-014 D4)
     r = owner_api.delete(f"/expenses/{e['id']}")
-    assert r.status_code in (200, 204), r.text[:200]
+    assert r.status_code == 409, r.text[:200]
+    cancelled = owner_api.ok(owner_api.post(f"/expenses/{e['id']}/cancel", json={"reason": "e2e"}))
+    assert cancelled["status"] == "cancelled"
 
 
 def test_expense_wallet_payment(owner_api, reg, wallet):

@@ -22,6 +22,8 @@ class Customer(TenantScoped, Base):
     is_cash: Mapped[bool] = mapped_column(Boolean, default=False)
     balance: Mapped[Decimal] = mapped_column(Numeric(14, 2), default=0, server_default="0")
     credit_limit: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True, default=None)
+    # A customer with transactions is deactivated, never deleted (ADR-014 D4).
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

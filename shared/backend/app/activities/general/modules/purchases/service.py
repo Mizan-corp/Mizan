@@ -1,6 +1,7 @@
 """Purchase service — business logic for purchase orders, receiving, supplier prices."""
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException
@@ -103,9 +104,15 @@ async def create_purchase(
     )
     db.add(po)
     await db.flush()
-    if data.amount_paid or data.received_by_name:
-        await db.execute(_text("UPDATE purchase_orders SET amount_paid=:ap, received_by_name=:rbn WHERE id=:id"),
-                         {"ap": data.amount_paid or 0, "rbn": data.received_by_name or "", "id": po.id})
+    if data.safe_id and data.wallet_id:
+        from app.activities.general.modules.finance.services.payments import ONE_SOURCE
+
+        raise HTTPException(400, ONE_SOURCE)
+    if data.amount_paid or data.received_by_name or data.safe_id or data.wallet_id:
+        await db.execute(_text(
+            "UPDATE purchase_orders SET amount_paid=:ap, received_by_name=:rbn, safe_id=:sid, wallet_id=:wid WHERE id=:id"
+        ), {"ap": data.amount_paid or 0, "rbn": data.received_by_name or "", "sid": data.safe_id,
+            "wid": data.wallet_id, "id": po.id})
     for item in data.items:
         db.add(PurchaseOrderItem(
             po_id=po.id,
@@ -203,40 +210,51 @@ async def receive_purchase(
     po.status = POStatus.received
     po.received_at = datetime.now(UTC)
 
-    # Auto-update supplier balance
+    total_cost = sum(
+        (Decimal(str(overrides.get(str(item.product_id), {}).get("unit_cost", item.unit_cost))) *
+         Decimal(str(overrides.get(str(item.product_id), {}).get("qty_received", item.qty_ordered))))
+        for item in items
+    ) or Decimal("0")
+    total_cost = total_cost.quantize(Decimal("0.01"))
+
+    # What is paid now, and where it comes from (ADR-014 D4): the receipt may override what the
+    # order said. The money leaves the safe or wallet; neither may go below zero.
+    if data.amount_paid is not None:
+        po.amount_paid = data.amount_paid
+    if data.safe_id or data.wallet_id:
+        po.safe_id, po.wallet_id = data.safe_id, data.wallet_id
+    amount_paid = Decimal(str(po.amount_paid or 0))
+    if amount_paid > total_cost:
+        raise HTTPException(400, f"المبلغ المدفوع ({amount_paid} ج.م) أكبر من إجمالي الفاتورة ({total_cost} ج.م)")
+    if amount_paid > 0:
+        from app.activities.general.modules.finance.services import payments
+
+        payments.check_source(po.safe_id, po.wallet_id, "حدد الخزنة أو المحفظة التي دُفع منها المبلغ المدفوع عند الاستلام")
+        await payments.money_out(db, amount_paid, safe_id=po.safe_id, wallet_id=po.wallet_id, ref_type="purchase",
+                                 ref_id=po.id, note=f"دفعة مشتريات {po.po_number}", user_id=current_user.id)
+
     if po.supplier_id:
-        total_cost = sum(
-            float(overrides.get(str(item.product_id), {}).get("unit_cost", item.unit_cost)) *
-            float(overrides.get(str(item.product_id), {}).get("qty_received", item.qty_ordered))
-            for item in items
-        )
-        amount_paid = float(po.amount_paid or 0)
-        remaining = total_cost - amount_paid
-
-        # Record full invoice as debit (we owe them)
-        await db.execute(text(
-            "INSERT INTO supplier_transactions (supplier_id, amount, type, reference_doc, notes) VALUES (:sid, :amt, 'debit', :ref, 'فاتورة مشتريات')"
-        ), {"sid": po.supplier_id, "amt": total_cost, "ref": po.po_number})
-
-        # Record payment as credit if any paid
+        await db.execute(text("SELECT 1 FROM suppliers WHERE id = :sid FOR UPDATE"), {"sid": po.supplier_id})
+        # The full invoice as a debit (we owe them), the payment as a credit.
+        await db.execute(text("""
+            INSERT INTO supplier_transactions (supplier_id, amount, type, reference_doc, notes, purchase_id, created_by)
+            VALUES (:sid, :amt, 'debit', :ref, 'فاتورة مشتريات', :po, :uid)
+        """), {"sid": po.supplier_id, "amt": total_cost, "ref": po.po_number, "po": po.id, "uid": current_user.id})
         if amount_paid > 0:
-            await db.execute(text(
-                "INSERT INTO supplier_transactions (supplier_id, amount, type, reference_doc, notes) VALUES (:sid, :amt, 'credit', :ref, 'دفعة عند الاستلام')"
-            ), {"sid": po.supplier_id, "amt": amount_paid, "ref": po.po_number})
-
-        # Update balance = debit - credit (remaining owed)
+            await db.execute(text("""
+                INSERT INTO supplier_transactions
+                    (supplier_id, amount, type, reference_doc, notes, purchase_id, created_by, method, safe_id, wallet_id)
+                VALUES (:sid, :amt, 'credit', :ref, 'دفعة عند الاستلام', :po, :uid, :method, :safe, :wallet)
+            """), {"sid": po.supplier_id, "amt": amount_paid, "ref": po.po_number, "po": po.id, "uid": current_user.id,
+                   "method": "wallet" if po.wallet_id else "cash", "safe": po.safe_id, "wallet": po.wallet_id})
         await db.execute(text(
             "UPDATE suppliers SET balance = balance + :remaining WHERE id = :sid"
-        ), {"remaining": remaining, "sid": po.supplier_id})
+        ), {"remaining": total_cost - amount_paid, "sid": po.supplier_id})
 
     # Archive the purchase invoice
     from app.platform.archive.models import ArchivedDocument, DocType
     supplier_name = (await db.execute(text("SELECT name FROM suppliers WHERE id=:id"), {"id": po.supplier_id})).scalar() if po.supplier_id else None
-    total_received = sum(
-        float(overrides.get(str(item.product_id), {}).get("unit_cost", item.unit_cost)) *
-        float(overrides.get(str(item.product_id), {}).get("qty_received", item.qty_ordered))
-        for item in items
-    )
+    total_received = float(total_cost)
     db.add(ArchivedDocument(
         doc_number=po.po_number,
         doc_type=DocType.purchase_invoice,
@@ -255,6 +273,43 @@ async def receive_purchase(
 
     await db.commit()
     return {"detail": "Received", "po_number": po.po_number}
+
+
+async def record_supplier_transaction(db: AsyncSession, supplier_id: uuid.UUID, amount: Decimal, tx_type: str, user, *,
+                                     reference_doc: str | None = None, notes: str | None = None,
+                                     method: str | None = None, safe_id: uuid.UUID | None = None,
+                                     wallet_id: uuid.UUID | None = None) -> dict[str, Any]:
+    """A movement on a supplier's account. A debit is an amount we owe (an invoice entered by hand,
+    an opening balance) and moves no money. A credit is a payment to the supplier: it must say which
+    safe or wallet paid it, and the money leaves that safe or wallet (ADR-014 D4). Callers commit."""
+    from app.activities.general.modules.finance.services import payments
+
+    if tx_type not in ("debit", "credit"):
+        raise HTTPException(400, "نوع الحركة يجب أن يكون debit أو credit")
+    amount = Decimal(str(amount))
+    if amount <= 0:
+        raise HTTPException(400, "المبلغ يجب أن يكون أكبر من 0")
+    supplier = (await db.execute(text("SELECT id, name FROM suppliers WHERE id = :id FOR UPDATE"), {"id": supplier_id})).first()
+    if not supplier:
+        raise NotFoundError()
+    if tx_type == "credit":
+        payments.check_source(safe_id, wallet_id, "حدد الخزنة أو المحفظة التي دُفع منها المبلغ للمورد")
+        method = payments.method_of(safe_id, wallet_id, method)
+    else:
+        method, safe_id, wallet_id = None, None, None
+    row = (await db.execute(text("""
+        INSERT INTO supplier_transactions (supplier_id, amount, type, reference_doc, notes, method, safe_id, wallet_id, created_by)
+        VALUES (:sid, :amount, :type, :ref, :notes, :method, :safe, :wallet, :uid)
+        RETURNING *
+    """), {"sid": supplier_id, "amount": amount, "type": tx_type, "ref": reference_doc, "notes": notes,
+           "method": method, "safe": safe_id, "wallet": wallet_id, "uid": user.id})).mappings().one()
+    if tx_type == "credit":
+        await payments.money_out(db, amount, safe_id=safe_id, wallet_id=wallet_id, ref_type="supplier_payment",
+                                 ref_id=row["id"], note=f"دفعة للمورد {supplier.name}" + (f" — {notes}" if notes else ""),
+                                 user_id=user.id)
+    delta = amount if tx_type == "debit" else -amount
+    await db.execute(text("UPDATE suppliers SET balance = balance + :delta WHERE id = :id"), {"delta": delta, "id": supplier_id})
+    return dict(row)
 
 
 async def get_price_history(db: AsyncSession, product_id: uuid.UUID) -> list[dict[str, Any]]:

@@ -6,6 +6,7 @@ import {
   FileText,
   HandCoins,
   Plus,
+  Power,
   Search,
   Truck,
 } from "lucide-react";
@@ -17,23 +18,26 @@ import { D, dateTime, moneyEGP } from "@/lib/format";
 import { Button, Card, Empty, ErrorBox, Input, Modal, Select, Spinner, useToast } from "@/components/ui";
 import { sound } from "@/lib/sound";
 import { RecordFormFields, cleanExtra, missingRequired, useRecordForm, type ExtraValues } from "@app/framework/forms";
+import { PaySourceSelect, sourceFields } from "@app/components/PaySourceSelect";
 
 interface Supplier {
   id: string;
   name: string;
   phone: string | null;
   balance: string;
+  is_active: boolean;
 }
 
+/** A supplier_transactions row: debit = an amount we owe them, credit = a payment to them. */
 interface LedgerEntry {
-  id?: string;
-  date?: string;
-  created_at?: string;
-  description?: string | null;
-  notes?: string | null;
-  debit?: string | null;
-  credit?: string | null;
-  amount?: string | null;
+  id: string;
+  created_at: string;
+  type: "debit" | "credit";
+  amount: string;
+  reference_doc: string | null;
+  notes: string | null;
+  safe_name: string | null;
+  wallet_name: string | null;
 }
 
 export default function SuppliersPage() {
@@ -48,12 +52,16 @@ export default function SuppliersPage() {
   const [txFor, setTxFor] = useState<Supplier | null>(null);
   const [txAmount, setTxAmount] = useState("");
   const [txType, setTxType] = useState<"credit" | "debit">("credit");
+  const [txSource, setTxSource] = useState("");
+  const [txNotes, setTxNotes] = useState("");
+  const [showInactive, setShowInactive] = useState(false);
 
   const list = useQuery({
-    queryKey: ["suppliers", search],
+    queryKey: ["suppliers", search, showInactive],
     queryFn: async () => {
       const res = await api.get<{ items: Supplier[] } | Supplier[]>("/suppliers", {
         search: search.trim() || undefined,
+        include_inactive: showInactive ? "true" : undefined,
       });
       return Array.isArray(res) ? res : res.items ?? [];
     },
@@ -61,7 +69,8 @@ export default function SuppliersPage() {
 
   const ledger = useQuery({
     queryKey: ["supplier-ledger", ledgerFor?.id],
-    queryFn: () => api.get<LedgerEntry[]>(`/suppliers/${ledgerFor!.id}/ledger`),
+    queryFn: async () =>
+      (await api.get<{ transactions: LedgerEntry[] }>(`/suppliers/${ledgerFor!.id}/ledger`)).transactions,
     enabled: !!ledgerFor,
   });
 
@@ -88,16 +97,34 @@ export default function SuppliersPage() {
       api.post(`/suppliers/${txFor!.id}/transactions`, {
         amount: D(txAmount).toNumber(),
         type: txType,
-        notes: null,
+        notes: txNotes.trim() || null,
+        ...(txType === "credit" ? sourceFields(txSource) : {}),
       }),
     onSuccess: () => {
       sound.success();
       setTxFor(null);
       setTxAmount("");
+      setTxSource("");
+      setTxNotes("");
+      qc.invalidateQueries({ queryKey: ["safes"] });
+      qc.invalidateQueries({ queryKey: ["wallets"] });
       toast("success", "تم تسجيل حركة الحساب بنجاح");
       qc.invalidateQueries({ queryKey: ["suppliers"] });
     },
     onError: () => sound.error(),
+  });
+
+  const setActive = useMutation({
+    mutationFn: (s: Supplier) => api.post(`/suppliers/${s.id}/${s.is_active ? "deactivate" : "activate"}`),
+    onSuccess: (_d, s) => {
+      sound.success();
+      toast("success", s.is_active ? "تم إيقاف المورد" : "تمت إعادة تفعيل المورد");
+      qc.invalidateQueries({ queryKey: ["suppliers"] });
+    },
+    onError: (e) => {
+      sound.error();
+      toast("error", (e as Error).message);
+    },
   });
 
   // Calculate Accounts Payable (AP) KPIs
@@ -180,7 +207,8 @@ export default function SuppliersPage() {
       </div>
 
       {/* Search Bar */}
-      <div className="relative rounded-xl border border-border/80 bg-card p-2.5 shadow-xs">
+      <div className="flex flex-wrap items-center gap-3">
+      <div className="relative flex-1 rounded-xl border border-border/80 bg-card p-2.5 shadow-xs">
         <Search className="absolute start-5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="ابحث باسم المورد أو رقم الهاتف…"
@@ -200,6 +228,11 @@ export default function SuppliersPage() {
             ✕
           </button>
         )}
+      </div>
+      <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+        <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
+        إظهار الموردين الموقوفين
+      </label>
       </div>
 
       {/* Suppliers List Table */}
@@ -241,7 +274,12 @@ export default function SuppliersPage() {
                       className="border-b border-border/40 text-xs transition-colors hover:bg-muted/30 last:border-0"
                     >
                       <TableCell className="p-3 font-semibold text-foreground">
-                        {s.name}
+                        <span className="flex items-center gap-2">
+                          {s.name}
+                          {!s.is_active && (
+                            <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">موقوف</Badge>
+                          )}
+                        </span>
                       </TableCell>
 
                       <TableCell className="num p-3 text-xs text-muted-foreground" dir="ltr">
@@ -282,6 +320,17 @@ export default function SuppliersPage() {
                             كشف حساب
                           </Button>
 
+                          <Button
+                            variant="ghost"
+                            className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={() => setActive.mutate(s)}
+                            disabled={setActive.isPending}
+                            aria-label={s.is_active ? `إيقاف ${s.name}` : `تفعيل ${s.name}`}
+                          >
+                            <Power className="size-3.5" />
+                            {s.is_active ? "إيقاف" : "تفعيل"}
+                          </Button>
+
                           {isDue ? (
                             <Button
                               size="sm"
@@ -290,7 +339,7 @@ export default function SuppliersPage() {
                                 sound.click();
                                 setTxFor(s);
                                 setTxAmount(bal > 0 ? s.balance : "");
-                                setTxType("debit"); // pay off debt
+                                setTxType("credit"); // a payment lowers what we owe
                               }}
                             >
                               <HandCoins className="size-3.5" />
@@ -305,7 +354,7 @@ export default function SuppliersPage() {
                                 sound.click();
                                 setTxFor(s);
                                 setTxAmount("");
-                                setTxType("debit");
+                                setTxType("credit");
                               }}
                             >
                               <HandCoins className="size-3.5" />
@@ -395,8 +444,8 @@ export default function SuppliersPage() {
                 onChange={(e) => setTxType(e.target.value as any)}
                 className="h-10 text-xs font-medium"
               >
-                <option value="debit">سداد دفعة للمورد (مدين − يخفّض الدين)</option>
-                <option value="credit">استحقاق فاتورة توريد (دائن + يزيد الدين)</option>
+                <option value="credit">سداد دفعة للمورد (يخفّض المستحق)</option>
+                <option value="debit">مبلغ مستحق للمورد (فاتورة أو رصيد افتتاحي، يزيد المستحق)</option>
               </Select>
             </div>
 
@@ -416,12 +465,26 @@ export default function SuppliersPage() {
             </div>
           </div>
 
+          {txType === "credit" && (
+            <div>
+              <label htmlFor="tx-source" className="mb-1.5 block text-xs font-semibold text-foreground">
+                دُفع من *
+              </label>
+              <PaySourceSelect id="tx-source" value={txSource} onChange={setTxSource} />
+            </div>
+          )}
+
+          <div>
+            <label htmlFor="tx-notes" className="mb-1.5 block text-xs font-semibold text-foreground">ملاحظات</label>
+            <Input id="tx-notes" value={txNotes} onChange={(e) => setTxNotes(e.target.value)} />
+          </div>
+
           {tx.isError && <ErrorBox message={(tx.error as Error).message} />}
 
           <Button
             type="submit"
             className="w-full h-10 font-bold"
-            disabled={tx.isPending || !txAmount}
+            disabled={tx.isPending || !txAmount || (txType === "credit" && !txSource)}
           >
             {tx.isPending ? <Spinner /> : "تسجيل الحركة في الحساب"}
           </Button>
@@ -451,8 +514,8 @@ export default function SuppliersPage() {
                   <TableRow className="border-b border-border/80 bg-muted/40 text-[11px] font-semibold text-muted-foreground">
                     <TableHead className="p-3 text-start">التاريخ والوقت</TableHead>
                     <TableHead className="p-3 text-start">البيان / الفاتورة</TableHead>
-                    <TableHead className="p-3 text-start">مسدد للمورد (مدين)</TableHead>
-                    <TableHead className="p-3 text-start">مستحق للمورد (دائن)</TableHead>
+                    <TableHead className="p-3 text-start">مستحق للمورد (+)</TableHead>
+                    <TableHead className="p-3 text-start">مسدد للمورد (−)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -462,16 +525,20 @@ export default function SuppliersPage() {
                       className="border-b border-border/40 text-xs hover:bg-muted/30 last:border-0"
                     >
                       <TableCell className="num p-3 text-xs text-muted-foreground">
-                        {dateTime(l.created_at ?? l.date ?? "")}
+                        {dateTime(l.created_at)}
                       </TableCell>
                       <TableCell className="p-3 font-medium text-foreground">
-                        {l.description ?? l.notes ?? "—"}
-                      </TableCell>
-                      <TableCell className="num p-3 font-bold text-emerald-600 dark:text-emerald-400">
-                        {l.debit ? moneyEGP(l.debit) : "—"}
+                        {l.notes ?? (l.type === "credit" ? "دفعة" : "مستحق")}
+                        {l.reference_doc && <span className="num text-muted-foreground"> — {l.reference_doc}</span>}
+                        {(l.safe_name || l.wallet_name) && (
+                          <span className="text-muted-foreground"> · من {l.safe_name ?? l.wallet_name}</span>
+                        )}
                       </TableCell>
                       <TableCell className="num p-3 font-bold text-destructive-ink">
-                        {l.credit ? moneyEGP(l.credit) : "—"}
+                        {l.type === "debit" ? moneyEGP(l.amount) : "—"}
+                      </TableCell>
+                      <TableCell className="num p-3 font-bold text-emerald-600 dark:text-emerald-400">
+                        {l.type === "credit" ? moneyEGP(l.amount) : "—"}
                       </TableCell>
                     </TableRow>
                   ))}

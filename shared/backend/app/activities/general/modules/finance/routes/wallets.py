@@ -96,15 +96,12 @@ async def wallets_summary(
 
 @router.post("/{wid}/reset-balance", status_code=204)
 async def reset_wallet_balance(wid: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("finance"))):
-    """Reset a wallet balance to 0."""
-    row = await db.execute(text("SELECT balance FROM payment_wallets WHERE id=:id FOR UPDATE"), {"id": wid})
-    old_balance = row.scalar_one_or_none()
-    if old_balance and float(old_balance) != 0:
-        await db.execute(text("""
-            INSERT INTO wallet_transactions (wallet_id, amount, tx_type, note, created_by)
-            VALUES (:wid, :amt, 'adjustment', 'تصفير الرصيد', :uid)
-        """), {"wid": wid, "amt": -old_balance, "uid": current_user.id})
-    await db.execute(text("UPDATE payment_wallets SET balance = 0 WHERE id = :id"), {"id": wid})
+    """Bring a wallet's balance to 0, recorded as an adjustment movement (never a silent overwrite)."""
+    old_balance = (await db.execute(text("SELECT balance FROM payment_wallets WHERE id=:id FOR UPDATE"), {"id": wid})).scalar_one_or_none()
+    if old_balance is None:
+        raise HTTPException(404, "المحفظة غير موجودة")
+    if old_balance != 0:
+        await wallets_service.record_wallet_tx(db, wid, -old_balance, "adjustment", None, "تصفير الرصيد", current_user.id)
     await db.commit()
 
 

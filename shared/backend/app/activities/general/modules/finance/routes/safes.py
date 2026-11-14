@@ -23,8 +23,8 @@ async def list_safes(db: AsyncSession = Depends(get_db), _=Depends(get_current_u
 @router.post("", status_code=201)
 async def create_safe(data: SafeCreate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("finance"))):
     r = await db.execute(text(
-        "INSERT INTO safes (name, location) VALUES (:name, :loc) RETURNING *"
-    ), {"name": data.name, "loc": data.location or ""})
+        "INSERT INTO safes (name, location, safe_type) VALUES (:name, :loc, :type) RETURNING *"
+    ), {"name": data.name, "loc": data.location or "", "type": data.safe_type})
     await db.commit()
     return dict(r.fetchone()._mapping)
 

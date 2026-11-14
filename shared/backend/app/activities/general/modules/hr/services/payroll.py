@@ -2,6 +2,7 @@
 import asyncio
 import json
 from datetime import date
+from decimal import Decimal
 from functools import partial
 
 from sqlalchemy import text
@@ -83,18 +84,41 @@ async def load_attendance_for_month(
     return [dict(zip(att_cols, r, strict=False)) for r in att_rows.fetchall()]
 
 
+BONUS_TYPES = ("مكافأة", "bonus")
+DEDUCTION_TYPES = ("خصم", "deduction")
+
+
+def record_kind(record_type: str | None) -> str:
+    """An HR money record is a bonus (مكافأة), a deduction (خصم) or, otherwise, an advance (سلفة)."""
+    if record_type in BONUS_TYPES:
+        return "bonus"
+    if record_type in DEDUCTION_TYPES:
+        return "deduction"
+    return "advance"
+
+
+async def load_hr_records_for_month(db: AsyncSession, employee_id: str, month: str) -> dict[str, float]:
+    """The month's advances, deductions and bonuses, summed separately: advances and deductions
+    lower the salary, bonuses raise it."""
+    rows = (await db.execute(
+        text("""
+            SELECT record_type, COALESCE(SUM(amount),0) FROM hr_advances
+            WHERE employee_id=:eid AND TO_CHAR(date,'YYYY-MM')=:month
+            GROUP BY record_type
+        """),
+        {"eid": employee_id, "month": month},
+    )).all()
+    totals = {"advance": 0.0, "deduction": 0.0, "bonus": 0.0}
+    for record_type, amount in rows:
+        totals[record_kind(record_type)] += float(amount or 0)
+    return totals
+
+
 async def load_advances_for_month(
     db: AsyncSession, employee_id: str, month: str
 ) -> float:
-    return (
-        await db.execute(
-            text("""
-                SELECT COALESCE(SUM(amount),0) FROM hr_advances
-                WHERE employee_id=:eid AND TO_CHAR(date,'YYYY-MM')=:month
-            """),
-            {"eid": employee_id, "month": month},
-        )
-    ).scalar() or 0
+    """The month's advances only (not deductions or bonuses)."""
+    return (await load_hr_records_for_month(db, employee_id, month))["advance"]
 
 
 async def calculate_employee_payroll(
@@ -104,11 +128,14 @@ async def calculate_employee_payroll(
     shifts_map: dict,
     advance: float,
     month: str,
+    bonus: float = 0,
+    deduction: float = 0,
 ) -> dict:
     """Run payroll engine for a single employee."""
     return await asyncio.get_running_loop().run_in_executor(
         None,
-        partial(calc_engine, emp, attendances, settings, shifts_map, advance=advance, month=month),
+        partial(calc_engine, emp, attendances, settings, shifts_map, bonus=bonus, deduction=deduction,
+                advance=advance, month=month),
     )
 
 
@@ -126,11 +153,11 @@ async def save_payroll_entry(
                 period_id, employee_id, base_salary, working_days, actual_working_days,
                 absent_days, vacation_days, total_hours, lateness_minutes, early_leave_minutes,
                 missing_scan_minutes, lateness_deduction, overtime_hours, overtime_pay,
-                bonus_days, bonus_payment, bonuses, deductions, advances, drawer_variance, net_salary,
+                bonus_days, bonus_payment, bonuses, bonus, deductions, advances, drawer_variance, net_salary,
                 hourly_rate, daily_breakdown, created_by, status
             ) VALUES (
                 :pid, :eid, :base, :wd, :awd, :abd, :vd, :th, :lm, :elm, :msm, :ld, :oth, :otp,
-                :bd, :bp, :bonus, :ded, :adv, 0, :net, :hr, CAST(:db AS jsonb), :by, 'draft'
+                :bd, :bp, :bonus, :bonus, :ded, :adv, 0, :net, :hr, CAST(:db AS jsonb), :by, 'draft'
             )
             ON CONFLICT (period_id, employee_id) DO UPDATE SET
                 working_days=EXCLUDED.working_days, actual_working_days=EXCLUDED.actual_working_days,
@@ -138,7 +165,7 @@ async def save_payroll_entry(
                 lateness_minutes=EXCLUDED.lateness_minutes, lateness_deduction=EXCLUDED.lateness_deduction,
                 overtime_hours=EXCLUDED.overtime_hours, overtime_pay=EXCLUDED.overtime_pay,
                 bonus_days=EXCLUDED.bonus_days, bonus_payment=EXCLUDED.bonus_payment,
-                bonuses=EXCLUDED.bonuses, deductions=EXCLUDED.deductions,
+                bonuses=EXCLUDED.bonuses, bonus=EXCLUDED.bonus, deductions=EXCLUDED.deductions,
                 advances=EXCLUDED.advances, net_salary=EXCLUDED.net_salary,
                 hourly_rate=EXCLUDED.hourly_rate, daily_breakdown=EXCLUDED.daily_breakdown,
                 status=EXCLUDED.status
@@ -184,9 +211,10 @@ async def calculate_payroll_month(
     for emp in employees:
         eid = emp["id"]
         attendances = await load_attendance_for_month(db, eid, month)
-        advance = await load_advances_for_month(db, eid, month)
+        records = await load_hr_records_for_month(db, eid, month)
 
-        result = await calculate_employee_payroll(emp, attendances, settings, shifts_map, float(advance), month)
+        result = await calculate_employee_payroll(emp, attendances, settings, shifts_map, records["advance"], month,
+                                                  bonus=records["bonus"], deduction=records["deduction"])
         await save_payroll_entry(db, period_id, eid, result, current_user_id)
 
         results.append({
@@ -231,12 +259,8 @@ async def submit_payroll_period(db: AsyncSession, month: str, current_user_id: s
     await update_period_status(db, month, "review", current_user_id)
 
 
-async def approve_payroll_period(db: AsyncSession, month: str, current_user_id: str) -> float:
-    status = await get_period_status(db, month) or "draft"
-    if status != "review":
-        raise BusinessError("لا يمكن اعتماد الشهر إلا بعد المراجعة")
-
-    total = await db.execute(
+async def _payroll_total(db: AsyncSession, month: str) -> Decimal:
+    total = (await db.execute(
         text("""
             SELECT COALESCE(SUM(pe.net_salary),0)
             FROM hr_payroll_entries pe
@@ -244,8 +268,24 @@ async def approve_payroll_period(db: AsyncSession, month: str, current_user_id: 
             WHERE p.month = :m
         """),
         {"m": month},
-    )
-    total = float(total.scalar() or 0)
+    )).scalar()
+    return Decimal(str(total or 0))
+
+
+async def _lock_period(db: AsyncSession, month: str) -> dict | None:
+    row = (await db.execute(text("SELECT * FROM hr_payroll_periods WHERE month=:m FOR UPDATE"), {"m": month})).mappings().first()
+    return dict(row) if row else None
+
+
+async def approve_payroll_period(db: AsyncSession, month: str, current_user_id: str) -> float:
+    """Approve the month's salaries: records them as an approved expense whose payment is still
+    pending. No money moves here; paying the month (pay_payroll_period) moves it, once."""
+    period = await _lock_period(db, month)
+    status = (period or {}).get("status") or "draft"
+    if status != "review":
+        raise BusinessError("لا يمكن اعتماد الشهر إلا بعد المراجعة")
+
+    total = await _payroll_total(db, month)
 
     # Ensure expense category exists
     cat_id = (await db.execute(
@@ -256,16 +296,19 @@ async def approve_payroll_period(db: AsyncSession, month: str, current_user_id: 
             text("INSERT INTO financial_categories (name, type, color) VALUES ('رواتب','expense','#dc2626') RETURNING id")
         )).scalar_one()
 
-    # Record monthly payroll as approved expense
+    # The month's salaries as one approved expense (payment_method 'payroll': paid from the payroll
+    # screen, never through the expenses screen).
     marker = f"HR payroll month {month}"
-    exists = (await db.execute(
-        text("SELECT 1 FROM expenses WHERE notes=:n LIMIT 1"), {"n": marker}
+    expense_id = (await db.execute(
+        text("SELECT id FROM expenses WHERE notes=:n AND status <> 'cancelled' LIMIT 1"), {"n": marker}
     )).scalar_one_or_none()
-    if not exists and total > 0:
-        await db.execute(
+    if expense_id is None and total > 0:
+        expense_id = (await db.execute(
             text("""
-                INSERT INTO expenses (category_id, amount, description, date, status, created_by, notes)
-                VALUES (:cid, :amt, :desc, :dt, 'approved', :by, :notes)
+                INSERT INTO expenses (category_id, amount, description, date, status, payment_method, created_by,
+                                      approved_by, approved_at, notes)
+                VALUES (:cid, :amt, :desc, :dt, 'approved', 'payroll', :by, :by, now(), :notes)
+                RETURNING id
             """),
             {
                 "cid": cat_id,
@@ -275,24 +318,67 @@ async def approve_payroll_period(db: AsyncSession, month: str, current_user_id: 
                 "by": current_user_id,
                 "notes": marker,
             },
-        )
+        )).scalar_one()
+    await db.execute(text("UPDATE hr_payroll_periods SET expense_id=:e WHERE month=:m"), {"e": expense_id, "m": month})
 
     await update_period_status(db, month, "approved", current_user_id)
-    return total
+    return float(total)
 
 
-async def pay_payroll_period(db: AsyncSession, month: str, current_user_id: str) -> None:
-    status = await get_period_status(db, month) or "draft"
+async def pay_payroll_period(db: AsyncSession, month: str, current_user_id: str, *,
+                             safe_id=None, wallet_id=None) -> float:
+    """Pay an approved month: the total net salaries leave the chosen safe or wallet, once,
+    recorded against the payroll period (ADR-014 D4)."""
+    from app.activities.general.modules.finance.services import payments
+
+    period = await _lock_period(db, month)
+    status = (period or {}).get("status") or "draft"
+    if status == "paid":
+        raise BusinessError("تم صرف رواتب هذا الشهر بالفعل")
     if status != "approved":
         raise BusinessError("لا يمكن صرف الشهر إلا بعد الاعتماد")
+    total = await _payroll_total(db, month)
+    if total > 0:
+        payments.check_source(safe_id, wallet_id, "حدد الخزنة أو المحفظة التي تُصرف منها الرواتب")
+        await payments.money_out(db, total, safe_id=safe_id, wallet_id=wallet_id, ref_type="payroll",
+                                 ref_id=period["id"], note=f"صرف رواتب شهر {month}", user_id=current_user_id)
+    else:
+        safe_id = wallet_id = None
+    await db.execute(text("""
+        UPDATE hr_payroll_periods SET safe_id=:sid, wallet_id=:wid, paid_amount=:amt WHERE month=:m
+    """), {"sid": safe_id, "wid": wallet_id, "amt": total, "m": month})
+    if period.get("expense_id"):
+        await db.execute(text("UPDATE expenses SET safe_id=:sid, wallet_id=:wid, amount=:amt WHERE id=:id"),
+                         {"sid": safe_id, "wid": wallet_id, "amt": total, "id": period["expense_id"]})
     await update_period_status(db, month, "paid", current_user_id)
+    return float(total)
 
 
-async def reopen_payroll_period(db: AsyncSession, month: str) -> None:
-    status = await get_period_status(db, month)
+async def reopen_payroll_period(db: AsyncSession, month: str, current_user_id: str | None = None) -> None:
+    """Reopen a month for recalculation. A paid month can't be reopened (its money has left);
+    reopening an approved month cancels its pending salaries expense."""
+    period = await _lock_period(db, month)
+    status = (period or {}).get("status")
     if status == "paid":
         raise BusinessError("لا يمكن إعادة فتح شهر تم صرفه")
-    await update_period_status(db, month, "draft", "")
+    if period is None:
+        return
+    # The month's pending salaries expense (expenses approved before v81 are found by their marker).
+    await db.execute(text("""
+        UPDATE expenses SET status='cancelled', cancelled_at=now(), cancelled_by=:by,
+            cancel_reason='إعادة فتح شهر الرواتب'
+        WHERE status='approved' AND (id = :id OR (CAST(:id AS uuid) IS NULL AND notes = :marker))
+    """), {"by": current_user_id or None, "id": period.get("expense_id"), "marker": f"HR payroll month {month}"})
+    await db.execute(text("""
+        UPDATE hr_payroll_periods SET status='draft', expense_id=NULL, approved_by=NULL, approved_at=NULL,
+            updated_at=now()
+        WHERE month=:m
+    """), {"m": month})
+    await db.execute(text("""
+        UPDATE hr_payroll_entries SET status='draft'
+        WHERE period_id = (SELECT id FROM hr_payroll_periods WHERE month=:m)
+    """), {"m": month})
+    await db.commit()
 
 
 async def update_payroll_entry(

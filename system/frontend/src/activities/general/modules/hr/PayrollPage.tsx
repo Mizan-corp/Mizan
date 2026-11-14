@@ -4,11 +4,12 @@ import { Calculator, CheckCircle2, Coins, FileText, LockOpen, Send } from "lucid
 import { Skeleton } from "@/components/kit/skeleton";
 import { api, openPrintDoc } from "@/lib/api";
 import { money, moneyEGP } from "@/lib/format";
-import { Badge, Button, Card, ErrorBox, Spinner, useToast } from "@/components/ui";
+import { Badge, Button, Card, ErrorBox, Modal, Spinner, useToast } from "@/components/ui";
+import { PaySourceSelect, sourceFields } from "@app/components/PaySourceSelect";
 
-interface Period { id: string; month: string; status: "draft" | "submitted" | "approved" | "paid" }
+interface Period { id: string; month: string; status: "draft" | "review" | "approved" | "paid" }
 interface Entry {
-  id: string; employee_id: string; employee_name: string; net_salary: string;
+  id: string; employee_id: string; emp_name: string; net_salary: string;
   base_salary: string; bonuses: string; deductions: string; advances: string;
 }
 
@@ -16,6 +17,8 @@ export default function PayrollPage() {
   const qc = useQueryClient();
   const now = new Date();
   const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
+  const [paying, setPaying] = useState(false);
+  const [paySource, setPaySource] = useState("");
 
   const period = useQuery({
     queryKey: ["payroll-period", month],
@@ -53,8 +56,14 @@ export default function PayrollPage() {
     onSuccess: () => invalidate("تم اعتماد الرواتب"),
   });
   const pay = useMutation({
-    mutationFn: () => api.post(`/hr/payroll/period/pay?month=${month}`),
-    onSuccess: () => invalidate("تم صرف الرواتب"),
+    mutationFn: () => api.post(`/hr/payroll/period/pay?month=${month}`, sourceFields(paySource)),
+    onSuccess: () => {
+      setPaying(false);
+      setPaySource("");
+      qc.invalidateQueries({ queryKey: ["safes"] });
+      qc.invalidateQueries({ queryKey: ["wallets"] });
+      invalidate("تم صرف الرواتب");
+    },
   });
   const reopen = useMutation({
     mutationFn: () => api.post(`/hr/payroll/period/reopen?month=${month}`),
@@ -62,10 +71,10 @@ export default function PayrollPage() {
   });
 
   const status = period.data?.status ?? "draft";
-  const stepIndex = { draft: 0, submitted: 1, approved: 2, paid: 3 }[status];
+  const stepIndex = { draft: 0, review: 1, approved: 2, paid: 3 }[status] ?? 0;
   const totalNet = (entries.data ?? []).reduce((s, e) => s + Number(e.net_salary), 0);
   const busy = calc.isPending || submit.isPending || approve.isPending || pay.isPending || reopen.isPending;
-  const firstError = (calc.error ?? submit.error ?? approve.error ?? pay.error ?? reopen.error) as Error | null;
+  const firstError = (calc.error ?? submit.error ?? approve.error ?? reopen.error) as Error | null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -123,14 +132,40 @@ export default function PayrollPage() {
               <Button variant="outline" onClick={() => calc.mutate()}>إعادة الحساب</Button>
               <Button onClick={() => submit.mutate()}><Send size={16} /> تقديم للمراجعة</Button>
             </div>
-          ) : status === "submitted" ? (
+          ) : status === "review" ? (
             <Button onClick={() => approve.mutate()}><CheckCircle2 size={16} /> اعتماد</Button>
           ) : (
-            <Button variant="danger" onClick={() => pay.mutate()}><Coins size={16} /> صرف الرواتب</Button>
+            <Button variant="danger" onClick={() => setPaying(true)}><Coins size={16} /> صرف الرواتب</Button>
           )}
         </div>
         {firstError && <div className="mt-3"><ErrorBox message={firstError.message} /></div>}
+        {status === "approved" && (
+          <p className="mt-3 text-xs text-muted">الاعتماد يسجّل الرواتب مصروفًا بانتظار الصرف؛ المبلغ يخرج من الخزنة عند الصرف.</p>
+        )}
       </Card>
+
+      <Modal open={paying} onClose={() => setPaying(false)} title={`صرف رواتب ${month}`}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!pay.isPending && paySource) pay.mutate();
+          }}
+          className="flex flex-col gap-4"
+        >
+          <div className="rounded-xl border border-line bg-elevated/40 p-3 text-sm">
+            <span className="text-muted">إجمالي صافي الرواتب: </span>
+            <strong className="num font-black text-brand">{moneyEGP(totalNet)}</strong>
+          </div>
+          <div>
+            <label htmlFor="payroll-source" className="mb-1 block text-sm font-medium">تُصرف من *</label>
+            <PaySourceSelect id="payroll-source" value={paySource} onChange={setPaySource} />
+          </div>
+          {pay.isError && <ErrorBox message={(pay.error as Error).message} />}
+          <Button type="submit" variant="danger" className="w-full h-10 font-bold" disabled={pay.isPending || !paySource}>
+            {pay.isPending ? <Spinner /> : "تأكيد الصرف"}
+          </Button>
+        </form>
+      </Modal>
 
       {entries.isLoading ? (
         <div className="flex flex-col gap-2" aria-busy="true" aria-label="جارٍ التحميل">
@@ -158,7 +193,7 @@ export default function PayrollPage() {
             <tbody>
               {entries.data.map((e) => (
                 <tr key={e.id} className="border-b border-line/60 last:border-0 hover:bg-elevated">
-                  <td className="p-3 font-semibold">{e.employee_name}</td>
+                  <td className="p-3 font-semibold">{e.emp_name}</td>
                   <td className="num p-3">{money(e.base_salary)}</td>
                   <td className="num p-3 text-success-ink">{money(e.bonuses)}</td>
                   <td className="num p-3 text-danger">{money(e.deductions)}</td>

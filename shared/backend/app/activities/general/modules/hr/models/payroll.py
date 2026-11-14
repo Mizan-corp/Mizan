@@ -39,6 +39,11 @@ class HrPayrollPeriod(TenantScoped, Base):
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     paid_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Paying the month moves its total out of this safe or wallet, once (ADR-014 D4).
+    safe_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("safes.id"), nullable=True)
+    wallet_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("payment_wallets.id"), nullable=True)
+    paid_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
+    expense_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("expenses.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     __table_args__ = (UniqueConstraint("tenant_id", "month", name="uq_hr_payroll_periods_month"),)

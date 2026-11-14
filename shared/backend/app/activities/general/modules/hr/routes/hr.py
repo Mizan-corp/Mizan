@@ -20,6 +20,7 @@ from app.activities.general.modules.hr.schemas import (
     EmployeeUpdate,
     HRSettingsUpdate,
     PayrollCalculate,
+    PayrollPay,
     PayrollUpdate,
     ShiftCreate,
 )
@@ -220,20 +221,24 @@ async def approve_payroll_period(
 @router.post("/payroll/period/pay")
 async def pay_payroll_period(
     month: str,
+    data: PayrollPay | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_perm("payroll")),
 ):
-    await payroll_service.pay_payroll_period(db, month, str(current_user.id))
-    return {"detail": "paid"}
+    """Pay the approved month from a safe (or bank account) or wallet."""
+    data = data or PayrollPay()
+    total = await payroll_service.pay_payroll_period(db, month, str(current_user.id),
+                                                     safe_id=data.safe_id, wallet_id=data.wallet_id)
+    return {"detail": "paid", "total": total}
 
 
 @router.post("/payroll/period/reopen")
 async def reopen_payroll_period(
     month: str,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_perm("payroll")),
+    current_user: User = Depends(require_perm("payroll")),
 ):
-    await payroll_service.reopen_payroll_period(db, month)
+    await payroll_service.reopen_payroll_period(db, month, str(current_user.id))
     return {"detail": "reopened"}
 
 
@@ -283,21 +288,36 @@ async def list_advances(employee_id: str | None = None, db: AsyncSession = Depen
 
 @router.post("/advances")
 async def add_advance(data: AdvanceCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("payroll"))):
+    """An advance (سلفة) is cash paid to the employee now, from a safe or wallet, and deducted from
+    the month's salary. A deduction (خصم) or bonus (مكافأة) only changes the salary: no cash moves."""
+    from app.activities.general.modules.finance.services import payments
+
     record_type = data.record_type
     adv_date = data.date or date.today()
-    await db.execute(text("""
-        INSERT INTO hr_advances (employee_id, amount, date, note, created_by, record_type)
-        VALUES (:eid, :amt, :dt, :note, :by, :rt)
+    is_advance = payroll_service.record_kind(record_type) == "advance"
+    if is_advance:
+        payments.check_source(data.safe_id, data.wallet_id, "حدد الخزنة أو المحفظة التي تُصرف منها السلفة")
+    safe_id, wallet_id = (data.safe_id, data.wallet_id) if is_advance else (None, None)
+    advance_id = (await db.execute(text("""
+        INSERT INTO hr_advances (employee_id, amount, date, note, created_by, record_type, safe_id, wallet_id)
+        VALUES (:eid, :amt, :dt, :note, :by, :rt, :sid, :wid)
+        RETURNING id
     """), {'eid': data.employee_id, 'amt': data.amount,
            'dt': adv_date, 'note': data.note or '',
-           'by': current_user.id, 'rt': record_type})
+           'by': current_user.id, 'rt': record_type, 'sid': safe_id, 'wid': wallet_id})).scalar_one()
+    if is_advance:
+        name = (await db.execute(text("SELECT name FROM hr_employees WHERE id=:id"), {"id": data.employee_id})).scalar() or ""
+        await payments.money_out(db, data.amount, safe_id=safe_id, wallet_id=wallet_id, ref_type="hr_advance",
+                                 ref_id=advance_id, note=f"سلفة {name}".strip(), user_id=current_user.id)
     await db.execute(text("""
         INSERT INTO hr_audit_log (action_type, entity_type, entity_id, performed_by, reason, details)
         VALUES ('create', 'advance', :eid, :by, :note, CAST(:det AS jsonb))
     """), {'eid': str(data.employee_id), 'by': current_user.id,
-           'note': data.note or '', 'det': json.dumps({"type": record_type, "amount": float(data.amount)})})
+           'note': data.note or '', 'det': json.dumps({"type": record_type, "amount": float(data.amount),
+                                                       "safe_id": str(safe_id) if safe_id else None,
+                                                       "wallet_id": str(wallet_id) if wallet_id else None})})
     await db.commit()
-    return {"detail": "saved"}
+    return {"detail": "saved", "id": str(advance_id)}
 
 
 async def _report_auth(user=Depends(get_print_user)):
@@ -337,10 +357,11 @@ async def payroll_monthly_report(month: str, db: AsyncSession = Depends(get_db),
         """), {'eid': emp['id'], 'month': month})).fetchall()
         att_cols = ['check_in','check_out','status','edited','edited_by','edit_reason','excuse_no_late','excuse_no_early','excuse_allow_overtime','shift_override']
         attendances = [dict(zip(att_cols, r, strict=False)) for r in att_rows]
-        adv = float((await db.execute(text("SELECT COALESCE(SUM(amount),0) FROM hr_advances WHERE employee_id=:eid AND TO_CHAR(date,'YYYY-MM')=:month"), {'eid': emp['id'], 'month': month})).scalar() or 0)
+        records = await payroll_service.load_hr_records_for_month(db, emp['id'], month)
         result = await asyncio.get_running_loop().run_in_executor(
             None,
-            partial(calculate_payroll, emp, attendances, settings, shifts_map, advance=adv, month=month),
+            partial(calculate_payroll, emp, attendances, settings, shifts_map, bonus=records['bonus'],
+                    deduction=records['deduction'], advance=records['advance'], month=month),
         )
         result['emp_id'] = str(emp.get('emp_code') or emp['id'])
         result['emp_name'] = emp['name']
@@ -408,13 +429,17 @@ async def employee_report(emp_id: uuid.UUID, month: str, report_type: str = 'det
     att_cols = ['work_date','check_in','check_out','status','edited','edited_by','edit_reason','excuse_no_late','excuse_no_early','excuse_allow_overtime','shift_override']
     attendances = [dict(zip(att_cols, r, strict=False)) for r in att_rows]
 
-    adv_rows = (await db.execute(text("SELECT amount, date, note FROM hr_advances WHERE employee_id=:eid AND TO_CHAR(date,'YYYY-MM')=:month"), {'eid': emp_id, 'month': month})).fetchall()
-    adv_total = sum(float(r[0]) for r in adv_rows)
-    finances = [{'type': 'سلفة', 'amount': float(r[0]), 'date': str(r[1]), 'note': r[2] or ''} for r in adv_rows]
+    adv_rows = (await db.execute(text("SELECT amount, date, note, record_type FROM hr_advances WHERE employee_id=:eid AND TO_CHAR(date,'YYYY-MM')=:month"), {'eid': emp_id, 'month': month})).fetchall()
+    kind_label = {"advance": "سلفة", "deduction": "خصم", "bonus": "مكافأة"}
+    finances = [{'type': kind_label[payroll_service.record_kind(r[3])], 'amount': float(r[0]), 'date': str(r[1]), 'note': r[2] or ''}
+                for r in adv_rows]
+    totals = {k: sum(f['amount'] for f in finances if f['type'] == label) for k, label in kind_label.items()}
+    adv_total = totals["advance"]
 
     result = await asyncio.get_running_loop().run_in_executor(
         None,
-        partial(calculate_payroll, emp, attendances, settings, shifts_map, advance=adv_total, month=month),
+        partial(calculate_payroll, emp, attendances, settings, shifts_map, bonus=totals["bonus"],
+                deduction=totals["deduction"], advance=adv_total, month=month),
     )
     result['emp_name'] = emp['name']
     result['position'] = emp['position']

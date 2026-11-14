@@ -57,7 +57,16 @@ class AdvanceCreate(BaseModel):
     amount: Decimal = Field(..., gt=0)
     date: date_type | None = None
     note: str | None = None
-    record_type: str = "سلفة"
+    record_type: str = "سلفة"  # سلفة (cash advance) / خصم (deduction) / مكافأة (bonus)
+    # An advance is paid out now: from a safe (or bank account) or a wallet.
+    safe_id: uuid.UUID | None = None
+    wallet_id: uuid.UUID | None = None
+
+
+class PayrollPay(BaseModel):
+    """Where the month's salaries are paid from."""
+    safe_id: uuid.UUID | None = None
+    wallet_id: uuid.UUID | None = None
 
 
 class ShiftCreate(BaseModel):
