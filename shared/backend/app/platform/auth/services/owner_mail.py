@@ -18,7 +18,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, delete, func, select, text, update
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, delete, func, select, text, update
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
@@ -50,6 +50,9 @@ class OwnerCode(Base):
 
 class OwnerEmailLog(Base):
     __tablename__ = "owner_email_log"
+    # send_once relies on it (ON CONFLICT): declared here too, since tests and fresh databases
+    # create tables from the models before the migrations run.
+    __table_args__ = (UniqueConstraint("kind", "ref", name="owner_email_log_kind_ref_key"),)
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,
                                           server_default=text("gen_random_uuid()"))

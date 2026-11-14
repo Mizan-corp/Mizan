@@ -3190,6 +3190,11 @@ MIGRATIONS = [
             UNIQUE (kind, ref)
         );
     """),
+    # A table made from the model before v77 ran (tests, fresh databases) lacked the unique key
+    # owner_mail.send_once needs.
+    ("v78_owner_email_log_unique", """
+        CREATE UNIQUE INDEX IF NOT EXISTS owner_email_log_kind_ref_key ON owner_email_log (kind, ref);
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables
