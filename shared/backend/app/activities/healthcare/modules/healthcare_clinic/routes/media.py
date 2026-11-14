@@ -65,6 +65,9 @@ async def serve_media(token: str, db: AsyncSession = Depends(get_db)):
                                                 User.is_active))).scalar_one_or_none()
     if not user:
         raise HTTPException(403, "رابط الملف غير صالح")
+    from app.dependencies import ensure_workspace_open
+
+    await ensure_workspace_open(db, user)  # a suspended workspace or disabled owner loses its links too
     if "healthcare_clinic" not in await get_active_modules(db):
         raise HTTPException(403, "وحدة العيادات غير مفعلة")
     await load_acting(db, user)
