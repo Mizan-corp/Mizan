@@ -21,6 +21,10 @@ nothing. Details: [`USER_ROLES_AND_PERMISSIONS.md`](USER_ROLES_AND_PERMISSIONS.m
   refuses the others'.
 - Machine tokens (installation tokens `mzx_`, CLI tokens `mzd_`) are random, shown once, and
   stored only as SHA-256.
+- Owners' email codes (#71, #72) are 6 random digits stored only as an HMAC (`SECRET_KEY`),
+  valid 15 minutes, single use, locked after 5 wrong tries, limited to one a minute and three an
+  hour per owner; reset codes go only to a verified address, and "forgot password" answers the
+  same whether the account exists or not.
 - Sensitive patient identifiers (Egyptian National ID, Passport) masked in non-clinical views (e.g., `2980101****512`).
 
 ## 3a. Workspace isolation

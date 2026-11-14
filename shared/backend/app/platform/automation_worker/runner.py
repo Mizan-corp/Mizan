@@ -202,6 +202,13 @@ async def measure_storage(db: AsyncSession) -> dict[str, Any]:
     return {"message": f"قيست مساحة التخزين لـ {n} منشأة", "items_processed": n}
 
 
+async def owner_billing_reminders(db: AsyncSession) -> dict[str, Any]:
+    """Trial and renewal reminders by email to owners with a verified address (#72)."""
+    from app.platform.billing.owner_emails import billing_reminders
+
+    return await billing_reminders(db)
+
+
 async def community_webhooks(db: AsyncSession) -> dict[str, Any]:
     """Webhooks to community modules' servers that are due a retry (ADR-007)."""
     from app.platform.community.events import deliver_due
@@ -223,6 +230,13 @@ JOB_REGISTRY = {
         "description": "فحص صلاحية المستأجرين وتحديث حالة الحساب وإصدار إشعارات الترقية والتجديد",
         "cron": "0 */6 * * *",
         "handler": enforce_subscription_expiry,
+    },
+    "owner_billing_reminders": {
+        "title": "تذكير المالكين بالتجديد بالبريد",
+        "title_en": "Owner Trial & Renewal Email Reminders",
+        "description": "إرسال تذكير بالبريد قبل انتهاء الفترة التجريبية أو الاشتراك وعند انتهائهما، مرة واحدة لكل موعد",
+        "cron": "0 7 * * *",
+        "handler": owner_billing_reminders,
     },
     "generate_daily_metrics_digest": {
         "title": "ملخص العمليات والتنبيهات اليومي",

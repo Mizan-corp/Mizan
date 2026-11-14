@@ -36,7 +36,7 @@ async def _get(db: AsyncSession, owner_id: uuid.UUID) -> OwnerAccount:
 
 def _out(o: OwnerAccount, workspaces: list[Tenant] | None = None, paid_egp: float = 0.0, count: int | None = None) -> dict:
     return {
-        "id": str(o.id), "login": o.login, "full_name": o.full_name, "email": o.email, "phone": o.phone,
+        "id": str(o.id), "login": o.login, "full_name": o.full_name, "email": o.email, "email_verified": bool(o.email and o.email_verified_at), "phone": o.phone,
         "is_active": o.is_active, "last_login_at": iso(o.last_login_at), "created_at": iso(o.created_at),
         "workspace_count": count if count is not None else len(workspaces or []),
         "paid_egp": round(paid_egp, 2),
@@ -80,14 +80,30 @@ async def owner_detail(owner_id: uuid.UUID, db: AsyncSession = Depends(get_db), 
 @router.post("/{owner_id}/reset-password")
 async def reset_password(owner_id: uuid.UUID, request: Request, db: AsyncSession = Depends(get_db),
                          admin: User = Depends(require_superadmin)):
-    """A new temporary password, shown once; every session of the owner ends."""
+    """A new temporary password, shown once; every session of the owner ends, and the owner's
+    workspace logins take the same password (as when the owner changes it)."""
+    from app.platform.auth.services.owner_mail import set_owner_password
+
     o = await _get(db, owner_id)
     password = "Mz-" + secrets.token_urlsafe(9)
-    o.password_hash = hash_password(password)
-    o.tokens_valid_after = datetime.now(UTC)
+    changed = await set_owner_password(db, o, hash_password(password))
     await db.commit()
-    await record(db, admin, "owner_password_reset", request=request, owner=o.login)
-    return {"password": password}
+    await record(db, admin, "owner_password_reset", request=request, owner=o.login, workspace_logins=changed)
+    return {"password": password, "workspace_logins_updated": changed}
+
+
+@router.post("/{owner_id}/send-reset-code")
+async def send_reset_code(owner_id: uuid.UUID, request: Request, db: AsyncSession = Depends(get_db),
+                          admin: User = Depends(require_superadmin)):
+    """Email the owner a code to choose a new password themselves (#71): only to a verified address."""
+    from app.platform.auth.services import owner_mail
+
+    o = await _get(db, owner_id)
+    if not (o.email and o.email_verified_at):
+        raise HTTPException(409, "This owner has no verified email. Set a temporary password instead.")
+    await owner_mail.send_code(db, o, "reset_password", o.email)
+    await record(db, admin, "owner_reset_code_sent", request=request, owner=o.login)
+    return {"sent_to": owner_mail.mask(o.email)}
 
 
 class Active(BaseModel):

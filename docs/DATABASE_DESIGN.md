@@ -52,7 +52,7 @@ admin and website APIs (and the system API's sign-in) read them.
 | Table | What it holds |
 |---|---|
 | `tenants` | Every workspace: slug, sector, plan, limits, trial/paid-until, status, `deployment_mode` (`cloud_saas`, `desktop`, `lan`) |
-| `owner_accounts` | Business owners (ADR-004): one owner, many workspaces; their own credentials |
+| `owner_accounts` | Business owners (ADR-004): one owner, many workspaces; their own credentials, email (with `email_verified_at`) and phone |
 | `tenant_billing_invoices` | Subscription invoices per workspace |
 | `payment_transactions` | Paymob transactions, one per callback, idempotent on Paymob's id |
 | `licences` | One per single-device/LAN workspace (ADR-005): mode, `valid_until` (extended on payment), `revoked_at` |
@@ -60,6 +60,8 @@ admin and website APIs (and the system API's sign-in) read them.
 | `platform_audit_logs` | Every change made in the admin panel |
 | `sys_roles` (`tenant_id IS NULL`) | The platform's standard roles and their permissions (workspaces' own roles have a `tenant_id`) |
 | `revoked_tokens` | Signed-out sessions (by token id), until they would have expired anyway (#77) |
+| `owner_codes` | One-time codes emailed to owners: verify the address, reset the password (#71, #72); an HMAC of the code, expiry, tries, used |
+| `owner_email_log` | Emails that must go out once (receipts, trial and renewal reminders), by (kind, ref) |
 | `developer_users`, `developer_teams`, `developer_team_members` | The developer portal (ADR-007): developers (separate from owners), teams (a team's handle is its modules' namespace) and their members |
 | `developer_keys` | Teams' signing keys and the certificates Mizan issued; `revoked_at` makes cloud installs refuse their packages |
 | `developer_cli_tokens` | `mizan` CLI tokens (only their SHA-256) |

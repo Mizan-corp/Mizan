@@ -34,6 +34,7 @@ function OwnerDialog({ id, onClose }: { id: string; onClose: () => void }) {
   const [mergeError, setMergeError] = useState<string | null>(null);
   const others = useOwners({ q: mergeInto.trim() || undefined });
   const reset = useAction(actions.resetOwnerPassword, { success: () => "Password reset" });
+  const sendCode = useAction(actions.sendOwnerResetCode, { success: (_, r) => `Reset code sent to ${r.sent_to}` });
   const active = useAction(actions.setOwnerActive, { success: (v) => (v.active ? "Owner enabled" : "Owner disabled") });
   const merge = useAction(actions.mergeOwner, { success: () => "Owners merged", then: () => onClose() });
   const remove = useAction(actions.deleteOwner, { success: () => "Owner deleted", then: () => onClose() });
@@ -51,7 +52,11 @@ function OwnerDialog({ id, onClose }: { id: string; onClose: () => void }) {
         o && (
           <div className="grid gap-5">
             <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-              <dt className="text-mute">Email</dt><dd className="code">{o.email ?? "—"}</dd>
+              <dt className="text-mute">Email</dt>
+              <dd>
+                <span className="code">{o.email ?? "—"}</span>
+                {o.email && (o.email_verified ? <Badge tone="ok" className="ml-2">Verified</Badge> : <Badge className="ml-2">Not verified</Badge>)}
+              </dd>
               <dt className="text-mute">Phone</dt><dd className="code">{o.phone ?? "—"}</dd>
               <dt className="text-mute">Last sign-in</dt><dd>{o.last_login_at ? ago(o.last_login_at) : "never"}</dd>
               <dt className="text-mute">Paid in total</dt><dd>{money(o.paid_egp)}</dd>
@@ -77,12 +82,18 @@ function OwnerDialog({ id, onClose }: { id: string; onClose: () => void }) {
             {password && (
               <div className="rounded-lg border border-line bg-paper px-3 py-2.5 text-sm">
                 Temporary password, shown once: <span className="code select-all font-semibold text-ink">{password}</span>
-                <div className="mt-1 text-xs text-mute">Give it to the owner; they change it in their panel under حسابي. Their sessions have ended.</div>
+                <div className="mt-1 text-xs text-mute">Give it to the owner; it also signs in to their workspaces. They change it in their panel under حسابي. Their sessions have ended.</div>
               </div>
             )}
 
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" onClick={() => setConfirm("reset")}>Reset password</Button>
+              {o.email_verified && (
+                <Button size="sm" variant="primary" busy={sendCode.isPending} onClick={() => sendCode.mutate(id)}
+                        title="The owner gets a code by email and chooses a new password on the sign-in page">
+                  Email a reset code
+                </Button>
+              )}
+              <Button size="sm" onClick={() => setConfirm("reset")}>{o.email_verified ? "Set a temporary password" : "Reset password"}</Button>
               {o.is_active ? (
                 <Button size="sm" onClick={() => setConfirm("disable")}>Disable</Button>
               ) : (
@@ -114,7 +125,7 @@ function OwnerDialog({ id, onClose }: { id: string; onClose: () => void }) {
       </ModalActions>
 
       <Confirm open={confirm === "reset"} onClose={() => setConfirm(null)} title="Reset this owner's password?"
-               body="They get a new temporary password and are signed out everywhere." confirmLabel="Reset password"
+               body="They get a new temporary password (also for their workspace logins) and are signed out everywhere." confirmLabel="Reset password"
                onConfirm={() => reset.mutateAsync(id).then((r) => setPassword(r.password))} />
       <Confirm open={confirm === "disable"} onClose={() => setConfirm(null)} title="Disable this owner account?" danger
                body="They can't sign in to the owner panel and are signed out. Their workspaces keep running." confirmLabel="Disable"

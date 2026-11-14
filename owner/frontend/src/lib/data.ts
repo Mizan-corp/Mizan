@@ -9,6 +9,10 @@ export interface Owner {
   login: string;
   full_name: string;
   email: string | null;
+  /** The address was proved with a code (#72); receipts, reminders and password reset use it. */
+  email_verified: boolean;
+  /** Whether this server can send email at all. */
+  email_service: boolean;
   phone: string | null;
   tour_done: boolean;
   created_at: string | null;
@@ -271,6 +275,8 @@ export const actions = {
     return r;
   },
   tourDone: () => api.post<Owner>("/account/tour-done"),
+  sendEmailCode: () => api.post<{ ok: boolean; to?: string; already?: boolean }>("/account/email/send-code"),
+  verifyEmail: (code: string) => api.post<Owner>("/account/email/verify", { code }),
   createWorkspace: (v: { name: string; sector: string; scale: string; demo_data: boolean; mode: DeploymentMode }) =>
     api.post<Workspace>("/account/workspaces", v),
   download: (id: string) => api.get<Download>(`/account/workspaces/${id}/download`),

@@ -3163,6 +3163,33 @@ MIGRATIONS = [
         ALTER TABLE org_positions ALTER COLUMN activity TYPE varchar(80);
         ALTER TABLE org_positions ALTER COLUMN category TYPE varchar(80);
     """),
+    # Owners' email (#71, #72): a verified address, one-time codes (verify the address, reset the
+    # password) and a log of the emails Mizan sent, so reminders and receipts go out once.
+    ("v77_owner_email", """
+        ALTER TABLE owner_accounts ADD COLUMN IF NOT EXISTS email_verified_at timestamptz;
+        CREATE TABLE IF NOT EXISTS owner_codes (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            owner_id uuid NOT NULL REFERENCES owner_accounts(id) ON DELETE CASCADE,
+            purpose varchar(24) NOT NULL,
+            email varchar(254) NOT NULL,
+            code_hash varchar(64) NOT NULL,
+            attempts integer NOT NULL DEFAULT 0,
+            expires_at timestamptz NOT NULL,
+            used_at timestamptz,
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_owner_codes_owner ON owner_codes (owner_id, purpose, created_at);
+        CREATE TABLE IF NOT EXISTS owner_email_log (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            owner_id uuid REFERENCES owner_accounts(id) ON DELETE CASCADE,
+            kind varchar(32) NOT NULL,
+            ref varchar(160) NOT NULL,
+            email varchar(254) NOT NULL,
+            ok boolean NOT NULL DEFAULT true,
+            sent_at timestamptz NOT NULL DEFAULT now(),
+            UNIQUE (kind, ref)
+        );
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

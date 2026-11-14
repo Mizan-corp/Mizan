@@ -37,6 +37,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/inventory_db
       # Same key on every service: a token issued by one is valid on the others.
       SECRET_KEY: ${SECRET_KEY:-local-dev-only-secret-key-change-me-0123456789abcdef}
+      # Owners' emails (codes, receipts) land in Mailpit: http://localhost:8025
+      EMAIL_SMTP_HOST: ${EMAIL_SMTP_HOST:-mailpit}
+      EMAIL_SMTP_PORT: ${EMAIL_SMTP_PORT:-1025}
+      EMAIL_SMTP_TLS: ${EMAIL_SMTP_TLS:-false}
       FIREBASE_CREDENTIALS: /app/firebase-service-account.json
     volumes:
       - ./system/backend:/app
@@ -76,6 +80,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/inventory_db
       # Same key on every service: a token issued by one is valid on the others.
       SECRET_KEY: ${SECRET_KEY:-local-dev-only-secret-key-change-me-0123456789abcdef}
+      # Owners' emails (codes, receipts) land in Mailpit: http://localhost:8025
+      EMAIL_SMTP_HOST: ${EMAIL_SMTP_HOST:-mailpit}
+      EMAIL_SMTP_PORT: ${EMAIL_SMTP_PORT:-1025}
+      EMAIL_SMTP_TLS: ${EMAIL_SMTP_TLS:-false}
     volumes:
       - ./website/backend:/app
       - ./shared/backend/app:/shared/app
@@ -111,6 +119,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/inventory_db
       # Same key on every service: a token issued by one is valid on the others.
       SECRET_KEY: ${SECRET_KEY:-local-dev-only-secret-key-change-me-0123456789abcdef}
+      # Owners' emails (codes, receipts) land in Mailpit: http://localhost:8025
+      EMAIL_SMTP_HOST: ${EMAIL_SMTP_HOST:-mailpit}
+      EMAIL_SMTP_PORT: ${EMAIL_SMTP_PORT:-1025}
+      EMAIL_SMTP_TLS: ${EMAIL_SMTP_TLS:-false}
     volumes:
       - ./admin/backend:/app
       - ./shared/backend/app:/shared/app
@@ -145,6 +157,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/inventory_db
       # Same key on every service: a token issued by one is valid on the others.
       SECRET_KEY: ${SECRET_KEY:-local-dev-only-secret-key-change-me-0123456789abcdef}
+      # Owners' emails (codes, receipts) land in Mailpit: http://localhost:8025
+      EMAIL_SMTP_HOST: ${EMAIL_SMTP_HOST:-mailpit}
+      EMAIL_SMTP_PORT: ${EMAIL_SMTP_PORT:-1025}
+      EMAIL_SMTP_TLS: ${EMAIL_SMTP_TLS:-false}
       OWNER_APP_URL: ${OWNER_APP_URL:-http://localhost:5176}
       OWNER_API_URL: ${OWNER_API_URL:-http://localhost:8003}
       PAYMOB_BASE_URL: ${PAYMOB_BASE_URL:-https://accept.paymob.com}
@@ -175,6 +191,13 @@ services:
       options:
         max-size: 10m
         max-file: "3"
+
+  # Catches every email the local APIs send; read them at http://localhost:8025 (MAILPIT_PORT).
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_PORT:-8025}:8025"
 
 volumes:
   pgdata:

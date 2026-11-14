@@ -1,7 +1,8 @@
 """
-Email Service: supports SendGrid, Resend, and simulated SMTP fallback.
-Handles sending invoice PDFs and low-stock alerts.
+Email Service: SMTP (production: Brevo's relay), Resend or SendGrid, and a logged fallback.
+Handles invoice PDFs, low-stock alerts and the emails Mizan sends owners (#71, #72).
 """
+import asyncio
 import os
 import logging
 import base64
@@ -17,16 +18,80 @@ SENDER_EMAIL = os.getenv("SENDER_EMAIL", "invoices@mizan.app")
 ENABLE_EMAIL_NOTIFICATIONS = os.getenv("ENABLE_EMAIL_NOTIFICATIONS", "false").lower() in ("true", "1", "yes")
 
 
+def email_enabled() -> bool:
+    """Whether mail really leaves (an SMTP host or a provider key); otherwise it is only logged."""
+    from app.core.config import settings
+
+    return bool(settings.EMAIL_SMTP_HOST or RESEND_API_KEY or SENDGRID_API_KEY)
+
+
+def _smtp_send(to_email: str, subject: str, html_content: str, text: str | None, attachments, reply_to: str | None) -> str:
+    """Send one message over SMTP (blocking: run it in a thread). Returns the Message-ID."""
+    import re
+    import smtplib
+    import ssl
+    from email.message import EmailMessage
+    from email.utils import make_msgid
+
+    from app.core.config import settings
+
+    msg = EmailMessage()
+    msg["From"] = settings.EMAIL_FROM
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    if reply_to or settings.EMAIL_REPLY_TO:
+        msg["Reply-To"] = reply_to or settings.EMAIL_REPLY_TO
+    domain = settings.EMAIL_FROM.rsplit("@", 1)[-1].strip("> ") or "allmizan.live"
+    msg["Message-ID"] = make_msgid(domain=domain)
+    plain = text or re.sub(r"\n{3,}", "\n\n", re.sub(r"<[^>]+>", "", re.sub(r"<br\s*/?>|</p>|</div>|</tr>", "\n", html_content))).strip()
+    msg.set_content(plain)
+    msg.add_alternative(html_content, subtype="html")
+    for att in attachments or []:
+        maintype, _, subtype = (att.get("type") or "application/octet-stream").partition("/")
+        msg.add_attachment(att["content"], maintype=maintype, subtype=subtype, filename=att["filename"])
+    ctx = ssl.create_default_context()
+    port = settings.EMAIL_SMTP_PORT
+    if port == 465:
+        server = smtplib.SMTP_SSL(settings.EMAIL_SMTP_HOST, port, timeout=20, context=ctx)
+    else:
+        server = smtplib.SMTP(settings.EMAIL_SMTP_HOST, port, timeout=20)
+        if settings.EMAIL_SMTP_TLS:
+            server.starttls(context=ctx)
+    try:
+        if settings.EMAIL_SMTP_USER:
+            server.login(settings.EMAIL_SMTP_USER, settings.EMAIL_SMTP_PASSWORD)
+        server.send_message(msg)
+    finally:
+        try:
+            server.quit()
+        except Exception:
+            pass
+    return msg["Message-ID"]
+
+
 async def send_email(
     to_email: str,
     subject: str,
     html_content: str,
     attachments: Optional[List[dict]] = None,
+    text: Optional[str] = None,
+    reply_to: Optional[str] = None,
 ) -> dict:
     """
-    Sends email using Resend, SendGrid, or fallback simulated logger.
+    Sends email over SMTP, Resend or SendGrid, or logs it when none is configured.
     attachments: list of {"filename": "invoice.pdf", "content": bytes, "type": "application/pdf"}
     """
+    from app.core.config import settings
+
+    if settings.EMAIL_SMTP_HOST:
+        try:
+            mid = await asyncio.to_thread(_smtp_send, to_email, subject, html_content, text, attachments, reply_to)
+            logger.info("Email sent to %s over SMTP: %s (%s)", to_email, subject, mid)
+            return {"ok": True, "provider": "smtp", "id": mid}
+        except Exception as e:
+            logger.error("Failed to send email over SMTP to %s: %s", to_email, e)
+            return {"ok": False, "provider": "smtp", "error": str(e)}
+
     if RESEND_API_KEY:
         try:
             import urllib.request

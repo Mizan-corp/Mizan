@@ -70,6 +70,16 @@ class Settings(BaseSettings):
     MIZAN_COMPANY_DETAILS: str = ""
     # The scheduler (.github/workflows/jobs.yml) runs platform jobs with this shared secret.
     CRON_SECRET: str = ""
+    # Email to owners (verification codes, password reset, receipts, reminders: #71, #72).
+    # Production sends through Brevo's SMTP relay; without a host, mail is only logged.
+    EMAIL_SMTP_HOST: str = ""
+    EMAIL_SMTP_PORT: int = 587
+    EMAIL_SMTP_USER: str = ""
+    EMAIL_SMTP_PASSWORD: str = ""
+    # STARTTLS on the SMTP connection; off only for a local catcher such as Mailpit.
+    EMAIL_SMTP_TLS: bool = True
+    EMAIL_FROM: str = "Mizan <no-reply@allmizan.live>"
+    EMAIL_REPLY_TO: str = "support@allmizan.live"
     # ⚠️ CORS_ORIGINS must NOT contain wildcard ("*") when credentials are enabled
 
     @property

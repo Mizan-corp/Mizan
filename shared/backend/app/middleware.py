@@ -34,6 +34,9 @@ CSRF_EXEMPT_SUFFIXES = (
     "/auth/print-token",
     "/platform/signup",
     "/account/login",
+    # Forgot password (#71): signed-out, like login; they hold no session to forge.
+    "/account/password/forgot",
+    "/account/password/reset",
     # The developer portal (ADR-007); its other routes take a bearer token only.
     "/developers/signup",
     "/developers/login",

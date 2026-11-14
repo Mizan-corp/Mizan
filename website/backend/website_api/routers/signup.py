@@ -9,7 +9,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.ratelimit import RateLimiter
@@ -38,7 +38,10 @@ class SignupRequest(BaseModel):
     owner_username: str = Field(min_length=3, max_length=64, pattern=r"^[\w.\-]+$")
     owner_password: str = Field(min_length=6, max_length=128)
     owner_full_name: str = Field(min_length=2, max_length=128)
-    owner_phone: str | None = Field(default=None, max_length=32)
+    # #72: how Mizan reaches the owner (receipts, reminders, password reset). The email is
+    # verified with a code right after signup.
+    owner_email: str = Field(max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    owner_phone: str = Field(max_length=32, pattern=r"^\+?[0-9 ]{8,20}$")
 
 
 
@@ -61,13 +64,18 @@ async def signup(data: SignupRequest, request: Request, db: AsyncSession = Depen
         )
         if taken:
             raise HTTPException(status_code=409, detail="اسم المستخدم محجوز — اختر اسمًا آخر")
+        email = data.owner_email.strip().lower()
+        if await db.scalar(select(OwnerAccount.id).where(func.lower(OwnerAccount.email) == email,
+                                                         OwnerAccount.email_verified_at.is_not(None)).limit(1)):
+            raise HTTPException(status_code=409, detail="هذا البريد مسجّل لحساب آخر؛ سجّل الدخول أو استعد كلمة المرور")
 
         password_hash = hash_password(data.owner_password)
         account = OwnerAccount(
             id=uuid.uuid4(),
             login=normalize_login(data.owner_username),
             full_name=data.owner_full_name.strip(),
-            phone=data.owner_phone,
+            email=email,
+            phone=" ".join(data.owner_phone.split()),
             password_hash=password_hash,
         )
         db.add(account)
@@ -93,6 +101,14 @@ async def signup(data: SignupRequest, request: Request, db: AsyncSession = Depen
         await db.rollback()
         logger.exception("Workspace creation failed: %s", e)
         raise HTTPException(status_code=500, detail=f"فشل إنشاء مساحة العمل: {str(e)}")
+
+    # The code to verify the email (#72); signup doesn't wait on, or fail with, the mail.
+    try:
+        from app.platform.auth.services.owner_mail import send_code
+
+        await send_code(db, account, "verify_email", account.email)
+    except Exception as e:  # no mail service, or the provider refused: the panel offers "send again"
+        logger.warning("Verification email after signup failed: %s", getattr(e, "detail", e))
 
     # issue a token exactly like /auth/login does
     from app.platform.auth.services import auth as auth_service

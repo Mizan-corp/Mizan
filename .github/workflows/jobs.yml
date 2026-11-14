@@ -9,6 +9,7 @@ on:
     - cron: "0 */6 * * *"  # trials and subscriptions ending
     - cron: "0 22 * * *"   # nightly (00:00 Cairo): shifts, digest, module data, storage
     - cron: "0 1 * * 0"    # weekly: stale data
+    - cron: "0 7 * * *"    # daily (09:00 Cairo): trial and renewal emails to owners (#72)
   workflow_dispatch:
     inputs:
       job:
@@ -34,6 +35,7 @@ jobs:
             "0 */6 * * *") jobs="enforce_subscription_expiry" ;;
             "0 22 * * *")  jobs="auto_close_shifts generate_daily_metrics_digest purge_removed_module_data measure_storage" ;;
             "0 1 * * 0")   jobs="cleanup_system_stale_data" ;;
+            "0 7 * * *")   jobs="owner_billing_reminders" ;;
             *)             jobs="${{ inputs.job || 'paymob_reconcile' }}" ;;
           esac
           echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
