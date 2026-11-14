@@ -60,13 +60,57 @@ def is_inbound(movement_type) -> bool:
     return str(movement_type).split(".")[-1] in IN_TYPES
 
 
+# Inbound movements whose cost changes the average (ADR-014 D5). A transfer only moves stock between
+# branches; the average is kept for the whole workspace.
+COSTED_IN_TYPES = ("opening_stock", "purchase", "return_in", "adjustment_in")
+_AVG_PLACES = Decimal("0.0001")
+
+
+async def _movement_cost(db: AsyncSession, product_id, movement_type, qty, unit_cost) -> Decimal:
+    """The cost a movement is recorded at, keeping products.avg_cost (weighted moving average,
+    workspace-wide). Inbound stock with a cost moves the average:
+    (old qty × old average + qty × cost) ÷ (old qty + qty). Everything else is valued at the
+    average at this moment, whatever the caller sent."""
+    kind = str(movement_type).split(".")[-1]
+    cost = Decimal(str(unit_cost)) if unit_cost is not None else None
+    costed = kind in COSTED_IN_TYPES and cost is not None and cost > 0
+    # Only a costed receipt locks the product (outgoing stock already holds its balance row lock;
+    # locking the product too would deadlock against a receipt).
+    row = (await db.execute(text("SELECT avg_cost, cost_price FROM products WHERE id = :pid"
+                                 + (" FOR UPDATE" if costed else "")), {"pid": product_id})).one_or_none()
+    if row is None:
+        return cost or Decimal("0")
+    avg = Decimal(str(row.avg_cost or 0))
+    if avg == 0:
+        # A product that never had a costed receipt is valued at its listed cost.
+        avg = Decimal(str(row.cost_price or 0))
+    if costed:
+        on_hand = Decimal(str((await db.execute(
+            text("SELECT COALESCE(SUM(qty), 0) FROM stock_balances WHERE product_id = :pid"), {"pid": product_id}
+        )).scalar() or 0))
+        qty = Decimal(str(qty))
+        if on_hand <= 0 or avg == 0:
+            new_avg = cost
+        else:
+            new_avg = (on_hand * avg + qty * cost) / (on_hand + qty)
+        await db.execute(text("UPDATE products SET avg_cost = :a WHERE id = :pid"),
+                         {"a": new_avg.quantize(_AVG_PLACES), "pid": product_id})
+        return cost
+    return avg.quantize(Decimal("0.01"))
+
+
 async def apply_movement(db: AsyncSession, *, product_id, warehouse_id, movement_type, qty, unit_cost=None,
                          unit_price=None, created_by=None, ref_id=None, ref_type=None, sale_id=None,
                          purchase_id=None, note=None, lot: dict | None = None) -> tuple[StockMovement, list]:
     """The one way stock changes: the movement, its balance, and the inventory variant's rules
     (batches: a pharmacy receives stock into a batch and takes it out by first expiry, ADR-006
     phase 4). `lot` carries batch details for stock coming in. Returns the movement and the
-    batches it was taken from or put into (empty when the workspace doesn't track batches)."""
+    batches it was taken from or put into (empty when the workspace doesn't track batches).
+
+    The movement's unit_cost is decided here (ADR-014 D5): the given cost for costed inbound
+    stock (purchases, opening stock, returns at the sold line's cost, adjustments with a cost),
+    the product's average cost for everything else, including every sale."""
+    unit_cost = await _movement_cost(db, product_id, movement_type, qty, unit_cost)
     mv = StockMovement(
         product_id=product_id, warehouse_id=warehouse_id, movement_type=movement_type, qty=qty,
         unit_cost=unit_cost, unit_price=unit_price, note=note, created_by=created_by,
