@@ -24,6 +24,12 @@ HDD, home connection with a changing IP), the first node of a future cluster.
 - **Docker Compose on the server**, not Kubernetes yet. k3s was installed and measured: its
   control plane alone took ~830 MB of the 2 GB and kept the disk saturated. When a stronger server
   arrives it becomes the k3s control plane and `homie` joins as a worker (an agent is ~200 MB).
+  **Done (2026-11-14):** `latitude-e6530` (4 cores, 7.6 GB, SSD, on all the time) runs the k3s
+  control plane (v1.37, Traefik, ServiceLB and metrics-server disabled; Cloudflare Tunnel stays the
+  way in) and `homie` joined as a worker. Cluster traffic goes over Tailscale (`--flannel-iface
+  tailscale0`; API `https://100.112.4.15:6443`). Labels `mizan/role=control|worker`. The join token
+  is in `~/SECRETS.txt` on homie. Production still runs on Docker Compose on homie; moving it onto
+  the cluster is the next step, piece by piece (apps and APIs first, the database last).
 - **The four APIs in one process** (`deploy/server/asgi.py`): each API stays its own FastAPI app,
   picked by host; one interpreter and one copy of the kernel (~190 MB for all four).
 - **The four apps from one nginx** (`deploy/server/nginx.conf`), routed by host exactly as the
