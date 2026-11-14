@@ -35,6 +35,47 @@ class ClinicPatient(TenantScoped, Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
+class ClinicDepartment(TenantScoped, Base):
+    """Department master (#36): the clinic's departments and their specialty codes."""
+    __tablename__ = "clinic_departments"
+    __table_args__ = (Index("ux_clinic_departments_code", "tenant_id", "code", unique=True),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    code: Mapped[str] = mapped_column(String(16))
+    name: Mapped[str] = mapped_column(String(64))
+    specialty_code: Mapped[str] = mapped_column(String(32), default="", server_default="")
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ClinicRoom(TenantScoped, Base):
+    """Examination / consultation rooms (#36)."""
+    __tablename__ = "clinic_rooms"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String(64))
+    department_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("clinic_departments.id", ondelete="SET NULL"), nullable=True, index=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ClinicDoctorSchedule(TenantScoped, Base):
+    """A doctor's weekly roster (#36): on `weekday` (0 = Monday … 6 = Sunday, Python's weekday()),
+    from start_time to end_time ("HH:MM"), in a department and room, in slots of slot_minutes."""
+    __tablename__ = "clinic_doctor_schedules"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    doctor_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    department_id: Mapped[str] = mapped_column(String(36), ForeignKey("clinic_departments.id", ondelete="CASCADE"), index=True)
+    room_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("clinic_rooms.id", ondelete="SET NULL"), nullable=True, index=True)
+    weekday: Mapped[int] = mapped_column(Integer)
+    start_time: Mapped[str] = mapped_column(String(5))
+    end_time: Mapped[str] = mapped_column(String(5))
+    slot_minutes: Mapped[int] = mapped_column(Integer, default=15, server_default="15")
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class ClinicAppointment(TenantScoped, Base):
     """Physician Appointment Scheduling & Queuing (HLT-02)."""
     __tablename__ = "clinic_appointments"
@@ -45,9 +86,11 @@ class ClinicAppointment(TenantScoped, Base):
     patient_name: Mapped[str] = mapped_column(String(128))
     doctor_name: Mapped[str] = mapped_column(String(128), index=True)
     doctor_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
-    department: Mapped[str] = mapped_column(String(64))  # باطنة، أطفال، عظام، جراحة، جلدية
+    department: Mapped[str] = mapped_column(String(64))  # the department's name (kept for older records and lists)
+    department_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("clinic_departments.id", ondelete="SET NULL"), nullable=True, index=True)
+    room_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("clinic_rooms.id", ondelete="SET NULL"), nullable=True, index=True)
     appointment_date: Mapped[str] = mapped_column(String(32))
-    time_slot: Mapped[str] = mapped_column(String(32))  # 10:30 AM
+    time_slot: Mapped[str] = mapped_column(String(32))  # "HH:MM" (24h) since #36; older rows may hold "10:30 AM"
     queue_number: Mapped[int] = mapped_column(Integer, default=1)
     status: Mapped[str] = mapped_column(String(32), default="scheduled")  # scheduled, waiting, in_consultation, completed, cancelled, no_show
     consultation_fee: Mapped[float] = mapped_column(Float, default=250.0)
@@ -78,6 +121,7 @@ class ClinicEncounter(TenantScoped, Base):
     heart_rate: Mapped[int] = mapped_column(Integer, default=72)
     temperature: Mapped[float] = mapped_column(Float, default=37.0)
     spo2: Mapped[int] = mapped_column(Integer, default=98)
+    blood_glucose: Mapped[float | None] = mapped_column(Float, nullable=True)  # mg/dL (#42)
     chief_complaint: Mapped[str] = mapped_column(Text)
     icd10_code: Mapped[str] = mapped_column(String(32), index=True)  # e.g. E11.9, I10, J06.9
     icd10_description: Mapped[str] = mapped_column(String(256))
@@ -255,4 +299,71 @@ class ClinicAccessLog(TenantScoped, Base):
     resource: Mapped[str] = mapped_column(String(16))  # patient, encounters, prescriptions, lab_orders
     how: Mapped[str] = mapped_column(String(16))  # all, team, break_glass, queue, setting
     rows: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class ClinicReferral(TenantScoped, Base):
+    """A referral of a patient to another department or doctor (#45). Accepting it puts the
+    receiving doctor on the patient's care team: the patient's record follows the referral."""
+    __tablename__ = "clinic_referrals"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    referral_ref: Mapped[str] = mapped_column(String(32), index=True)
+    patient_id: Mapped[str] = mapped_column(String(36), ForeignKey("clinic_patients.id", ondelete="CASCADE"), index=True)
+    from_doctor_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    from_doctor_name: Mapped[str] = mapped_column(String(128), default="", server_default="")
+    to_department_id: Mapped[str] = mapped_column(String(36), ForeignKey("clinic_departments.id", ondelete="RESTRICT"), index=True)
+    to_doctor_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    priority: Mapped[str] = mapped_column(String(16), default="routine", server_default="routine")  # routine, urgent, emergency
+    reason: Mapped[str] = mapped_column(Text)
+    triage_notes: Mapped[str] = mapped_column(Text, default="", server_default="")
+    status: Mapped[str] = mapped_column(String(16), default="pending", server_default="pending", index=True)  # pending, accepted, declined, completed
+    encounter_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("clinic_encounters.id", ondelete="SET NULL"), nullable=True)
+    responded_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    response_note: Mapped[str] = mapped_column(Text, default="", server_default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class ClinicConsentForm(TenantScoped, Base):
+    """A signed consent (#43): procedure, surgery, data sharing… with the signer's drawn signature
+    (a PNG in the private file store; signature_path is its key, never served by URL)."""
+    __tablename__ = "clinic_consent_forms"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    consent_ref: Mapped[str] = mapped_column(String(32), index=True)
+    patient_id: Mapped[str] = mapped_column(String(36), ForeignKey("clinic_patients.id", ondelete="CASCADE"), index=True)
+    encounter_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("clinic_encounters.id", ondelete="SET NULL"), nullable=True)
+    kind: Mapped[str] = mapped_column(String(16), default="procedure")  # procedure, surgery, data_sharing, other
+    title: Mapped[str] = mapped_column(String(200))  # the procedure or what is consented to
+    body: Mapped[str] = mapped_column(Text)
+    signer_name: Mapped[str] = mapped_column(String(128))
+    signer_relation: Mapped[str] = mapped_column(String(16), default="self")  # self, guardian, parent, spouse, other
+    signature_path: Mapped[str] = mapped_column(String(1024))
+    signed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    witness_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    witness_name: Mapped[str] = mapped_column(String(128), default="", server_default="")
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    revoke_reason: Mapped[str] = mapped_column(Text, default="", server_default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ClinicImage(TenantScoped, Base):
+    """A medical image (#44): X-ray, ultrasound, CT, MRI… (JPEG, PNG, WebP or DICOM) in the private
+    file store; served only through a short-lived signed link after the access check."""
+    __tablename__ = "clinic_images"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    patient_id: Mapped[str] = mapped_column(String(36), ForeignKey("clinic_patients.id", ondelete="CASCADE"), index=True)
+    encounter_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("clinic_encounters.id", ondelete="SET NULL"), nullable=True, index=True)
+    modality: Mapped[str] = mapped_column(String(8), default="other")  # XR, US, CT, MRI, other
+    file_path: Mapped[str] = mapped_column(String(1024))
+    content_type: Mapped[str] = mapped_column(String(64))
+    size: Mapped[int] = mapped_column(Integer)
+    original_name: Mapped[str] = mapped_column(String(255), default="", server_default="")
+    notes: Mapped[str] = mapped_column(Text, default="", server_default="")
+    uploaded_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    uploaded_by_name: Mapped[str] = mapped_column(String(128), default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)

@@ -170,6 +170,7 @@ class Config:
             "MIZAN_CLOUD_URL": self.cloud_url,
             "MIZAN_VERSION": version(),
             "UPLOAD_DIR": str(self.data / "uploads"),
+            "PRIVATE_UPLOAD_DIR": str(self.data / "private_uploads"),
             "UPDATES_DIR": str(self.data / "updates"),
             "CORS_ORIGINS": "[]",
             **({"LICENSE_PUBLIC_KEY": self.licence_public_key} if self.licence_public_key else {}),

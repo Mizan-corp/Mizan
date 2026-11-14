@@ -14,6 +14,8 @@ const VITALS = [
   { key: "bp_diastolic", label: "الانبساطي", placeholder: "80" },
   { key: "heart_rate", label: "النبض HR", placeholder: "75" },
   { key: "spo2", label: "الأكسجين SpO2", placeholder: "99" },
+  { key: "temperature", label: "الحرارة °C", placeholder: "37.0" },
+  { key: "blood_glucose", label: "سكر الدم mg/dL", placeholder: "اختياري" },
 ] as const;
 
 // Documents a clinical encounter (POST /clinic/encounters, clinic:doctor + access to the patient).
@@ -28,6 +30,7 @@ export default function EncounterDialog({ patient, onClose }: { patient?: Patien
     heart_rate: "75",
     temperature: "37.0",
     spo2: "99",
+    blood_glucose: "",
     chief_complaint: "",
     icd10_code: "E11.9",
     icd10_description: "داء السكري النوع الثاني",
@@ -51,6 +54,7 @@ export default function EncounterDialog({ patient, onClose }: { patient?: Patien
         heart_rate: parseInt(form.heart_rate) || 75,
         temperature: parseFloat(form.temperature) || 37.0,
         spo2: parseInt(form.spo2) || 99,
+        blood_glucose: form.blood_glucose.trim() ? parseFloat(form.blood_glucose) : null,
         chief_complaint: form.chief_complaint,
         icd10_code: form.icd10_code,
         icd10_description: form.icd10_description,
@@ -79,11 +83,11 @@ export default function EncounterDialog({ patient, onClose }: { patient?: Patien
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-2 p-2.5 rounded-lg bg-muted/20 border border-border/30">
+        <div className="grid grid-cols-3 gap-2 p-2.5 rounded-lg bg-muted/20 border border-border/30">
           {VITALS.map((v) => (
             <div key={v.key}>
-              <label className="block text-muted-foreground text-[10px] mb-1">{v.label}</label>
-              <Input placeholder={v.placeholder} value={form[v.key]}
+              <label htmlFor={`enc-${v.key}`} className="block text-muted-foreground text-[10px] mb-1">{v.label}</label>
+              <Input id={`enc-${v.key}`} inputMode="decimal" placeholder={v.placeholder} value={form[v.key]}
                 onChange={(e) => set({ [v.key]: e.target.value })} className="h-8 text-xs font-mono" />
             </div>
           ))}

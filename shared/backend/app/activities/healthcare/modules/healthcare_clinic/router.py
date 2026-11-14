@@ -41,52 +41,28 @@ from app.activities.healthcare.modules.healthcare_clinic.schemas import (
     BreakGlassReview,
     CareTeamAdd,
 )
+from app.activities.healthcare.modules.healthcare_clinic import scheduling as sched
+from app.activities.healthcare.modules.healthcare_clinic.routes import charts as chart_routes
+from app.activities.healthcare.modules.healthcare_clinic.routes import consents as consent_routes
+from app.activities.healthcare.modules.healthcare_clinic.routes import imaging as imaging_routes
+from app.activities.healthcare.modules.healthcare_clinic.routes import media as media_routes
+from app.activities.healthcare.modules.healthcare_clinic.routes import referrals as referral_routes
+from app.activities.healthcare.modules.healthcare_clinic.routes import scheduling as scheduling_routes
 from app.activities.healthcare.modules.healthcare_clinic import service as access
-
-
-async def get_current_tenant_id(user: User = Depends(get_current_user)) -> uuid.UUID:
-    return user.tenant_id
-
-
-# ─── RBAC / ABAC Permissions Enforcement ───────────────────────────────────
-# Each helper checks the permission its name says (#131). The umbrella "clinic" (admin, manager)
-# passes them all; the standard clinical roles don't hold it. Patient-level access to clinical
-# data is separate and never follows the umbrella (service.py, #113).
-def _has_clinic_perm(user: User, *perms: str) -> bool:
-    """With no specific permission asked, 'clinic:view' is enough."""
-    granted = getattr(user, "effective_permissions", frozenset())
-    if "clinic" in granted:
-        return True
-    if not perms:
-        return "clinic:view" in granted
-    return any(p in granted for p in perms)
-
-
-def _clinic_guard(*perms: str, detail: str):
-    async def guard(current_user: User = Depends(get_current_user)) -> User:
-        if not _has_clinic_perm(current_user, *perms):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
-        return current_user
-    return guard
-
-
-# Everyone in the clinic: the patient list (demographics), appointments, beds, summary.
-require_clinic_view = _clinic_guard(detail="لا تملك صلاحية الوصول إلى العيادات")
-# Front desk: register and edit patients, cancel and reschedule, care teams.
-require_clinic_manage = _clinic_guard("clinic:manage", detail="لا تملك صلاحية إدارة المواعيد وملفات المرضى (clinic:manage)")
-# Booking: the front desk, and doctors booking follow-ups.
-require_clinic_booking = _clinic_guard("clinic:manage", "clinic:doctor", detail="لا تملك صلاحية حجز المواعيد")
-# Moving a patient through the queue (waiting, in consultation, completed).
-require_clinic_queue = _clinic_guard("clinic:manage", "clinic:doctor", "clinic:nurse",
-                                     detail="لا تملك صلاحية تحديث حالة الموعد في قائمة الانتظار")
-# Examining, prescribing and ordering tests.
-require_clinic_doctor = _clinic_guard("clinic:doctor", detail="لا تملك صلاحية الطبيب السريري (clinic:doctor)")
-# The ward: admitting, discharging and readying beds.
-require_clinic_ward = _clinic_guard("clinic:nurse", "clinic:manage", detail="لا تملك صلاحية إدارة أسرّة التنويم (clinic:nurse)")
-require_clinic_dispense = _clinic_guard("clinic:dispense", detail="لا تملك صلاحية صرف الأدوية والصيدلية (clinic:dispense)")
-# Recording and signing off lab results.
-require_clinic_lab = _clinic_guard("clinic:lab", detail="لا تملك صلاحية تسجيل نتائج المختبر (clinic:lab)")
-require_clinic_billing = _clinic_guard("clinic:billing", detail="لا تملك صلاحية فواتير العيادة (clinic:billing)")
+from app.activities.healthcare.modules.healthcare_clinic.guards import (  # noqa: F401 (re-exported)
+    _clinic_guard,
+    _has_clinic_perm,
+    get_current_tenant_id,
+    require_clinic_billing,
+    require_clinic_booking,
+    require_clinic_dispense,
+    require_clinic_doctor,
+    require_clinic_lab,
+    require_clinic_manage,
+    require_clinic_queue,
+    require_clinic_view,
+    require_clinic_ward,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -129,9 +105,11 @@ class AppointmentCreate(BaseModel):
     patient_name: str = ""
     doctor_user_id: str | None = None
     doctor_name: str = ""
-    department: str
+    department: str = ""  # the name, for clients that predate the department master (#36)
+    department_id: str | None = None
+    room_id: str | None = None
     appointment_date: str
-    time_slot: str
+    time_slot: str  # "HH:MM" (24h); "11:30 AM" is still read
     consultation_fee: float = 250.0
     chief_complaint: str = ""
 
@@ -160,6 +138,7 @@ class EncounterCreate(BaseModel):
     heart_rate: int = 72
     temperature: float = 37.0
     spo2: int = 98
+    blood_glucose: float | None = Field(None, ge=10, le=1500, description="سكر الدم mg/dL")
     chief_complaint: str
     icd10_code: str
     icd10_description: str
@@ -544,11 +523,13 @@ def _require_privacy(user: User) -> None:
 
 @router.get("/clinicians")
 async def list_clinicians(
+    department_id: str | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Users of the workspace who act clinically (clinic:doctor or clinic:nurse), for booking and care teams."""
-    return await access.clinicians(db, current_user.tenant_id)
+    """Users of the workspace who act clinically (clinic:doctor or clinic:nurse), for booking and care
+    teams; with department_id, the doctors on that department's roster (#36)."""
+    return await access.clinicians(db, current_user.tenant_id, department_id=department_id)
 
 
 @router.post("/patients/{patient_id}/break-glass")
@@ -996,6 +977,25 @@ async def create_appointment(
     if not doctor_name:
         raise HTTPException(status_code=400, detail="اختر الطبيب المعالج للموعد")
 
+    # Department and room from the master (#36); the roster decides them for a rostered doctor.
+    dep = await sched.department(db, tenant_id, payload.department_id) if payload.department_id else None
+    if payload.room_id:
+        await sched.room(db, tenant_id, payload.room_id)
+    slot = sched.normalize_slot(payload.time_slot)
+    sched.parse_date(payload.appointment_date)
+    doctor_uuid = uuid.UUID(doctor["id"]) if doctor else None
+    where = await sched.resolve_booking(db, tenant_id, doctor_id=doctor_uuid, day=payload.appointment_date, slot=slot,
+                                        department_id=dep.id if dep else None, room_id=payload.room_id)
+    if where["department_id"] and (not dep or dep.id != where["department_id"]):
+        dep = await sched.department(db, tenant_id, where["department_id"], active_only=False)
+    if not dep and payload.department.strip():
+        dep = await sched.department_by_name(db, tenant_id, payload.department)
+    department_name = dep.name if dep else payload.department.strip()
+    if not department_name:
+        raise HTTPException(status_code=400, detail="اختر القسم / العيادة")
+    await sched.check_no_overlap(db, tenant_id, day=payload.appointment_date, slot=where["slot"], minutes=where["minutes"],
+                                 doctor_id=doctor_uuid, doctor_name=doctor_name, room_id=where["room_id"])
+
     ref = f"APT-{uuid.uuid4().hex[:6].upper()}"
     q_count = await db.execute(
         select(func.count(ClinicAppointment.id)).where(
@@ -1012,10 +1012,12 @@ async def create_appointment(
         patient_id=patient.id,
         patient_name=patient.full_name,
         doctor_name=doctor_name,
-        doctor_user_id=uuid.UUID(doctor["id"]) if doctor else None,
-        department=payload.department,
+        doctor_user_id=doctor_uuid,
+        department=department_name,
+        department_id=dep.id if dep else None,
+        room_id=where["room_id"],
         appointment_date=payload.appointment_date,
-        time_slot=payload.time_slot,
+        time_slot=where["slot"],
         queue_number=queue_no,
         consultation_fee=payload.consultation_fee,
         chief_complaint=payload.chief_complaint,
@@ -1163,10 +1165,18 @@ async def reschedule_appointment(
     if not appt:
         raise HTTPException(status_code=404, detail="الموعد الطبي غير موجود")
 
+    sched.parse_date(payload.new_date)
+    where = await sched.resolve_booking(db, tenant_id, doctor_id=appt.doctor_user_id, day=payload.new_date,
+                                        slot=sched.normalize_slot(payload.new_time_slot),
+                                        department_id=appt.department_id, room_id=appt.room_id)
+    await sched.check_no_overlap(db, tenant_id, day=payload.new_date, slot=where["slot"], minutes=where["minutes"],
+                                 doctor_id=appt.doctor_user_id, doctor_name=appt.doctor_name, room_id=where["room_id"],
+                                 exclude_id=appt.id)
     old_slot = f"{appt.appointment_date} {appt.time_slot}"
     appt.rescheduled_from = old_slot
     appt.appointment_date = payload.new_date
-    appt.time_slot = payload.new_time_slot
+    appt.time_slot = where["slot"]
+    appt.room_id = where["room_id"]
     appt.reschedule_count = (appt.reschedule_count or 0) + 1
     appt.status = "scheduled"
     appt.updated_by = current_user.full_name
@@ -1177,8 +1187,8 @@ async def reschedule_appointment(
         current_user.id,
         current_user.full_name,
         None,
-        {"appointment_ref": appt.appointment_ref, "old_slot": old_slot, "new_slot": f"{payload.new_date} {payload.new_time_slot}"},
-        f"إعادة جدولة الموعد {appt.appointment_ref} من {old_slot} إلى {payload.new_date} {payload.new_time_slot}",
+        {"appointment_ref": appt.appointment_ref, "old_slot": old_slot, "new_slot": f"{payload.new_date} {appt.time_slot}"},
+        f"إعادة جدولة الموعد {appt.appointment_ref} من {old_slot} إلى {payload.new_date} {appt.time_slot}",
     )
     await db.commit()
     await db.refresh(appt)
@@ -1229,6 +1239,7 @@ async def create_encounter(
         heart_rate=payload.heart_rate,
         temperature=payload.temperature,
         spo2=payload.spo2,
+        blood_glucose=payload.blood_glucose,
         chief_complaint=payload.chief_complaint,
         icd10_code=payload.icd10_code,
         icd10_description=payload.icd10_description,
@@ -2059,3 +2070,18 @@ async def seed_clinic_data(
     if not seeded:
         return {"message": "بيانات المركز الطبي والعناية السريرية مسجلة مسبقاً"}
     return {"message": "تم تهيئة وتوليد بيانات العيادات والملفات الطبية والأسرة بنجاح"}
+
+
+# ─── Route areas in routes/ (under /clinic, behind the same guards) ─────────
+router.include_router(scheduling_routes.router)
+router.include_router(referral_routes.router)
+router.include_router(chart_routes.router)
+router.include_router(consent_routes.router)
+router.include_router(imaging_routes.router)
+
+# The module's router: the guarded /clinic routes, plus the signed-link file route, which can't sit
+# behind the session guards (an <img> sends no Authorization header; routes/media.py checks instead).
+clinic_router = router
+router = APIRouter()
+router.include_router(clinic_router)
+router.include_router(media_routes.router)

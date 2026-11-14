@@ -51,7 +51,10 @@ export interface Appointment {
   doctor_name: string;
   doctor_user_id: string | null;
   department: string;
+  department_id?: string | null;
+  room_id?: string | null;
   appointment_date: string;
+  /** "HH:MM" (24h) since #36; older appointments may hold "10:30 AM". */
   time_slot: string;
   queue_number: number;
   status: AppointmentStatus;
@@ -72,6 +75,7 @@ export interface Encounter {
   heart_rate: number;
   temperature: number;
   spo2: number;
+  blood_glucose?: number | null;
   chief_complaint: string;
   icd10_code: string;
   icd10_description: string;
@@ -172,7 +176,46 @@ export interface Clinician {
   is_doctor: boolean;
 }
 
-export type ClinicTab = "appointments" | "patients" | "emr" | "rx_labs" | "beds" | "billing" | "claims" | "privacy";
+export type ClinicTab = "appointments" | "patients" | "emr" | "rx_labs" | "beds" | "billing" | "claims" | "privacy" | "scheduling" | "referrals";
+
+/** Department master (#36). */
+export interface Department {
+  id: string;
+  code: string;
+  name: string;
+  specialty_code: string;
+  active: boolean;
+}
+
+export interface Room {
+  id: string;
+  name: string;
+  department_id: string | null;
+  active: boolean;
+}
+
+/** A doctor's weekly roster row; weekday 0 = Monday … 6 = Sunday. */
+export interface DoctorSchedule {
+  id: string;
+  doctor_user_id: string;
+  doctor_name: string;
+  department_id: string;
+  department_name: string | null;
+  room_id: string | null;
+  room_name: string | null;
+  weekday: number;
+  weekday_name: string;
+  start_time: string;
+  end_time: string;
+  slot_minutes: number;
+  active: boolean;
+}
+
+/** GET /clinic/schedule/slots */
+export interface SlotList {
+  has_roster: boolean;
+  slots: { time: string; minutes: number; available: boolean; department_id: string; room_id: string | null; room_name: string | null }[];
+}
 
 /** A page of a server-side list (GET /clinic/patients, /clinic/appointments; #39). */
 export interface Page<T> {
@@ -181,3 +224,104 @@ export interface Page<T> {
   page: number;
   pages: number;
 }
+
+export type ReferralPriority = "routine" | "urgent" | "emergency";
+export type ReferralStatus = "pending" | "accepted" | "declined" | "completed";
+
+/** GET /clinic/referrals (#45). reason and triage_notes are null for coordinators (clinic:manage). */
+export interface Referral {
+  id: string;
+  referral_ref: string;
+  patient_id: string;
+  patient_name: string;
+  patient_mrn: string;
+  from_doctor_user_id: string | null;
+  from_doctor_name: string;
+  to_department_id: string;
+  to_department_name: string;
+  to_doctor_user_id: string | null;
+  to_doctor_name: string | null;
+  priority: ReferralPriority;
+  status: ReferralStatus;
+  encounter_id: string | null;
+  reason: string | null;
+  triage_notes: string | null;
+  response_note: string;
+  responded_at: string | null;
+  created_at: string;
+  direction: "incoming" | "outgoing" | null;
+  can_respond: boolean;
+  can_complete: boolean;
+}
+
+/** GET /clinic/referrals/{id}: the encounter summary only with access to the record. */
+export interface ReferralDetail extends Referral {
+  record_access: boolean;
+  last_encounter: (Pick<Encounter, "id" | "encounter_ref" | "encounter_date" | "doctor_name" | "department" | "bp_systolic"
+    | "bp_diastolic" | "heart_rate" | "temperature" | "spo2" | "chief_complaint" | "icd10_code" | "icd10_description"
+    | "clinical_notes">) | null;
+}
+
+/** GET /clinic/patients/{id}/vitals-history (#42): one point per encounter, oldest first; null = not recorded. */
+export interface VitalsPoint {
+  encounter_id: string;
+  encounter_ref: string;
+  date: string;
+  bp_systolic: number | null;
+  bp_diastolic: number | null;
+  heart_rate: number | null;
+  spo2: number | null;
+  temperature: number | null;
+  blood_glucose: number | null;
+}
+
+export interface VitalsHistory {
+  patient_id: string;
+  patient_name: string;
+  points: VitalsPoint[];
+  glucose_labs: { order_ref: string; test_name: string; value: number; unit: string; date: string }[];
+}
+
+export type ConsentKind = "procedure" | "surgery" | "data_sharing" | "other";
+export type SignerRelation = "self" | "guardian" | "parent" | "spouse" | "other";
+
+/** GET /clinic/patients/{id}/consents (#43). The signature is fetched through a signed link. */
+export interface Consent {
+  id: string;
+  consent_ref: string;
+  patient_id: string;
+  encounter_id: string | null;
+  kind: ConsentKind;
+  title: string;
+  body: string;
+  signer_name: string;
+  signer_relation: SignerRelation;
+  signed_at: string;
+  witness_name: string;
+  revoked_at: string | null;
+  revoke_reason: string;
+  status: "active" | "revoked";
+}
+
+export type ImageModality = "XR" | "US" | "CT" | "MRI" | "other";
+
+/** GET /clinic/patients/{id}/images (#44); url is a short-lived signed link (5 minutes). */
+export interface ClinicImage {
+  id: string;
+  patient_id: string;
+  encounter_id: string | null;
+  modality: ImageModality;
+  content_type: string;
+  size: number;
+  original_name: string;
+  notes: string;
+  uploaded_by: string | null;
+  uploaded_by_name: string;
+  created_at: string;
+  is_dicom: boolean;
+  url: string;
+  expires_at: string;
+}
+
+/** The patient chart dialog's sections. */
+export type ChartSection = "vitals" | "consents" | "images";

@@ -1,4 +1,5 @@
 """Patient-level clinical access (#113): care team, break-glass, access log, privacy officer."""
+import itertools
 import json
 import os
 import uuid
@@ -98,10 +99,19 @@ async def _book(c, env, pid: str, doctor_key: str):
     return await _book_as(c, env, pid, doctor_key, "reception")
 
 
+_slots = itertools.count()
+
+
+def _next_slot() -> str:
+    """A different time for each booking: the same doctor can't be booked twice at once (#36)."""
+    n = next(_slots) % 48
+    return f"{8 + n // 4:02d}:{(n % 4) * 15:02d}"
+
+
 async def _book_as(c, env, pid: str, doctor_key: str, actor: str):
     return await c.post("/clinic/appointments", headers=env["h"][actor], json={
         "patient_id": pid, "doctor_user_id": str(env["users"][doctor_key].id), "department": "باطنة",
-        "appointment_date": "2026-11-14", "time_slot": "10:00 AM",
+        "appointment_date": "2026-11-14", "time_slot": _next_slot(),
     })
 
 

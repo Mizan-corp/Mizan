@@ -39,6 +39,15 @@ free-text `doctor_name`: the clinician the record belongs to (v79; v79b linked e
 whose `doctor_name` is exactly one active user's name, and put that user on the patient's care
 team).
 
+Since v85 (#36) `clinic_appointments` also has `department_id` (→ `clinic_departments`) and
+`room_id` (→ `clinic_rooms`), both nullable with `ON DELETE SET NULL`; `department` keeps the
+department's name. New bookings store `time_slot` as `HH:MM` (24h); older rows keep their free text
+("10:30 AM"), which the booking rules still read. No two non-cancelled appointments overlap for the
+same doctor or the same room on a date (checked by the API: each lasts its doctor's roster slot).
+
+`clinic_encounters.blood_glucose` (v87, #42): blood glucose in mg/dL, nullable (not every visit
+measures it), next to the other vitals; `GET /clinic/patients/{id}/vitals-history` charts them.
+
 Besides the ERP's own records, every workspace has (all tenant-scoped, with RLS):
 
 | Table | What it holds |
@@ -47,10 +56,16 @@ Besides the ERP's own records, every workspace has (all tenant-scoped, with RLS)
 | `ext_records` | Records of every community module's entities, as JSONB validated against the entity |
 | `community_webhook_deliveries` | Webhooks to modules' servers: payload, status, attempts, next attempt, last error |
 | `workspace_themes` | Theme packages installed in the workspace (ADR-010), with their font files; the chosen theme is `tenants.palette["name"]` |
-| `workspace_files` | Every uploaded file and its size (#114) |
+| `workspace_files` | Every uploaded file and its size (#114); private files (kinds `clinic_signature`, `clinic_image`) have a `private:…` key in `url` (PRIVATE_UPLOAD_DIR, never served by URL) |
 | `clinic_care_team` | A patient's care team (#113): `patient_id` → `clinic_patients`, `user_id` → `users`, `role` (`attending`, `consultant`, `nurse`, `other`), `added_by`, `created_at`, `ended_at` (members are ended, not deleted); one active membership per (patient, user) |
 | `clinic_access_grants` | Break-glass grants (#113): patient, user, `reason`, `starts_at`, `expires_at` (60 minutes), `revoked_at`, `reviewed_by`/`reviewed_at`/`review_note` |
-| `clinic_access_log` | One row per read of clinical data (#113): `user_id`, `user_name`, `patient_id` (`NULL` for a list), `resource` (`patient`, `encounters`, `prescriptions`, `lab_orders`), `how` (`all`, `setting`, `team`, `break_glass`, `queue`), `rows`; no foreign key to the patient, so it outlives the record |
+| `clinic_access_log` | One row per read of clinical data (#113): `user_id`, `user_name`, `patient_id` (`NULL` for a list), `resource` (`patient`, `encounters`, `prescriptions`, `lab_orders`, `referrals`, `referral`, …), `how` (`all`, `setting`, `team`, `break_glass`, `queue`, `referral`), `rows`; no foreign key to the patient, so it outlives the record |
+| `clinic_departments` | Department master (#36, v85): `code` (unique per workspace), `name`, `specialty_code`, `active`; a clinic with none gets the usual departments on its first read |
+| `clinic_rooms` | Examination rooms (#36): `name`, `department_id` (→ `clinic_departments`, nullable: shared), `active` |
+| `clinic_doctor_schedules` | Doctors' weekly rosters (#36): `doctor_user_id` → `users`, `department_id`, `room_id`, `weekday` (0 = Monday … 6 = Sunday), `start_time`/`end_time` (`HH:MM`), `slot_minutes`, `active`; rows of the same doctor or room don't overlap |
+| `clinic_referrals` | Referrals (#45, v86): `referral_ref`, `patient_id`, `from_doctor_user_id`/`from_doctor_name`, `to_department_id` → `clinic_departments`, `to_doctor_user_id` (nullable: any doctor on the department's roster), `priority` (`routine`, `urgent`, `emergency`), `reason`, `triage_notes`, `status` (`pending`, `accepted`, `declined`, `completed`), `encounter_id`, `responded_by`/`responded_at`/`response_note`; accepting puts the receiving doctor on the care team |
+| `clinic_consent_forms` | Signed consents (#43, v88): `consent_ref`, `patient_id`, `encounter_id`, `kind` (`procedure`, `surgery`, `data_sharing`, `other`), `title`, `body`, `signer_name`, `signer_relation` (`self`, `guardian`, `parent`, `spouse`, `other`), `signature_path` (the PNG's key in the private file store, never a URL or base64), `signed_at`, `witness_user_id`/`witness_name` (the clinician), `revoked_at`/`revoked_by`/`revoke_reason` (withdrawn, never deleted) |
+| `clinic_images` | Medical images (#44, v89): `patient_id`, `encounter_id`, `modality` (`XR`, `US`, `CT`, `MRI`, `other`), `file_path` (the key in the private file store), `content_type` (`image/jpeg`, `image/png`, `image/webp`, `application/dicom`, read from the bytes), `size`, `original_name`, `notes`, `uploaded_by`/`uploaded_by_name` |
 | `activity_changes` | Owners' requests to change the workspace's activity and the Mizan team's decisions (#107); read across workspaces by the owner and admin APIs with `app.bypass` |
 
 ### Money documents in sales, POS and stock (ADR-014 D4, D5; migration `v80`)

@@ -108,6 +108,12 @@ export const api = {
   postForm: <T>(path: string, form: FormData) => request<T>("POST", path, { form }),
 };
 
+/** The absolute URL of an API path, for links the browser loads itself (an <img src> to a
+ *  short-lived signed link). Never put the session token in such a URL. */
+export function apiUrl(path: string): string {
+  return new URL(RAW_BASE.replace(/\/+$/, "") + (path.startsWith("/") ? path : `/${path}`), window.location.origin).toString();
+}
+
 /** Open a server-rendered document (print/PDF) in a new tab.
  *
  * Print endpoints require a short-lived scope=print token (POST /auth/print-token,

@@ -37,5 +37,7 @@ secret the scheduled jobs use), `PAYMOB_*`, `MIZAN_INSTALLERS`, `TUNNEL_TOKEN`.
 ## Notes
 
 - Uploads: `/srv/data/mizan/uploads` (`UPLOAD_DIR`), served by the system API at `/uploads`.
+  Private files (clinical images, consent signatures): `/srv/data/mizan/private_uploads`
+  (`PRIVATE_UPLOAD_DIR`), never served by URL; only authenticated routes read them.
 - The rate limiter trusts `CF-Connecting-IP` only with `MIZAN_BEHIND_CLOUDFLARE=1`.
 - Memory (measured): API ~190 MB, PostgreSQL ~60 MB, nginx ~5 MB.

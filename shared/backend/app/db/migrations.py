@@ -3391,6 +3391,167 @@ MIGRATIONS = [
         WHERE jsonb_typeof(ci.charges) = 'array'
           AND (ci.charges::text LIKE '%صرف دواء:%' OR ci.charges::text LIKE '%رسوم فحص مخبري:%');
     """),
+    # #36: department master, examination rooms and doctors' weekly rosters; appointments name their
+    # department and room. The department name stays in clinic_appointments.department for older
+    # records and lists.
+    ("v85_clinic_departments_rosters", """
+        CREATE TABLE IF NOT EXISTS clinic_departments (
+            id varchar(36) PRIMARY KEY,
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            code varchar(16) NOT NULL,
+            name varchar(64) NOT NULL,
+            specialty_code varchar(32) NOT NULL DEFAULT '',
+            active boolean NOT NULL DEFAULT true,
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_clinic_departments_tenant_id ON clinic_departments (tenant_id);
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_clinic_departments_code ON clinic_departments (tenant_id, code);
+        CREATE TABLE IF NOT EXISTS clinic_rooms (
+            id varchar(36) PRIMARY KEY,
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            name varchar(64) NOT NULL,
+            department_id varchar(36) REFERENCES clinic_departments(id) ON DELETE SET NULL,
+            active boolean NOT NULL DEFAULT true,
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_clinic_rooms_tenant_id ON clinic_rooms (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_rooms_department_id ON clinic_rooms (department_id);
+        CREATE TABLE IF NOT EXISTS clinic_doctor_schedules (
+            id varchar(36) PRIMARY KEY,
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            doctor_user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            department_id varchar(36) NOT NULL REFERENCES clinic_departments(id) ON DELETE CASCADE,
+            room_id varchar(36) REFERENCES clinic_rooms(id) ON DELETE SET NULL,
+            weekday integer NOT NULL CHECK (weekday BETWEEN 0 AND 6),
+            start_time varchar(5) NOT NULL,
+            end_time varchar(5) NOT NULL,
+            slot_minutes integer NOT NULL DEFAULT 15,
+            active boolean NOT NULL DEFAULT true,
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_clinic_doctor_schedules_tenant_id ON clinic_doctor_schedules (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_doctor_schedules_doctor_user_id ON clinic_doctor_schedules (doctor_user_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_doctor_schedules_department_id ON clinic_doctor_schedules (department_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_doctor_schedules_room_id ON clinic_doctor_schedules (room_id);
+        ALTER TABLE clinic_appointments ADD COLUMN IF NOT EXISTS department_id varchar(36) REFERENCES clinic_departments(id) ON DELETE SET NULL;
+        ALTER TABLE clinic_appointments ADD COLUMN IF NOT EXISTS room_id varchar(36) REFERENCES clinic_rooms(id) ON DELETE SET NULL;
+        CREATE INDEX IF NOT EXISTS ix_clinic_appointments_department_id ON clinic_appointments (department_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_appointments_room_id ON clinic_appointments (room_id);
+        ALTER TABLE clinic_departments ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE clinic_departments FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON clinic_departments;
+        CREATE POLICY tenant_isolation ON clinic_departments
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        ALTER TABLE clinic_rooms ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE clinic_rooms FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON clinic_rooms;
+        CREATE POLICY tenant_isolation ON clinic_rooms
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        ALTER TABLE clinic_doctor_schedules ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE clinic_doctor_schedules FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON clinic_doctor_schedules;
+        CREATE POLICY tenant_isolation ON clinic_doctor_schedules
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
+    # #45: referrals between departments and doctors; accepting one puts the receiving doctor on
+    # the patient's care team.
+    ("v86_clinic_referrals", """
+        CREATE TABLE IF NOT EXISTS clinic_referrals (
+            id varchar(36) PRIMARY KEY,
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            referral_ref varchar(32) NOT NULL,
+            patient_id varchar(36) NOT NULL REFERENCES clinic_patients(id) ON DELETE CASCADE,
+            from_doctor_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+            from_doctor_name varchar(128) NOT NULL DEFAULT '',
+            to_department_id varchar(36) NOT NULL REFERENCES clinic_departments(id) ON DELETE RESTRICT,
+            to_doctor_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+            priority varchar(16) NOT NULL DEFAULT 'routine' CHECK (priority IN ('routine', 'urgent', 'emergency')),
+            reason text NOT NULL,
+            triage_notes text NOT NULL DEFAULT '',
+            status varchar(16) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'completed')),
+            encounter_id varchar(36) REFERENCES clinic_encounters(id) ON DELETE SET NULL,
+            responded_by uuid,
+            responded_at timestamptz,
+            response_note text NOT NULL DEFAULT '',
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_clinic_referrals_tenant_id ON clinic_referrals (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_referrals_referral_ref ON clinic_referrals (referral_ref);
+        CREATE INDEX IF NOT EXISTS ix_clinic_referrals_patient_id ON clinic_referrals (patient_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_referrals_from_doctor_user_id ON clinic_referrals (from_doctor_user_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_referrals_to_department_id ON clinic_referrals (to_department_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_referrals_to_doctor_user_id ON clinic_referrals (to_doctor_user_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_referrals_status ON clinic_referrals (status);
+        CREATE INDEX IF NOT EXISTS ix_clinic_referrals_created_at ON clinic_referrals (created_at);
+        ALTER TABLE clinic_referrals ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE clinic_referrals FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON clinic_referrals;
+        CREATE POLICY tenant_isolation ON clinic_referrals
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
+    # #42: encounters record blood glucose (mg/dL) next to the other vitals, for the trend charts.
+    ("v87_clinic_encounter_glucose", """
+        ALTER TABLE clinic_encounters ADD COLUMN IF NOT EXISTS blood_glucose double precision;
+    """),
+    # #43: signed consent forms; the signature PNG is in the private file store, not in the row.
+    ("v88_clinic_consent_forms", """
+        CREATE TABLE IF NOT EXISTS clinic_consent_forms (
+            id varchar(36) PRIMARY KEY,
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            consent_ref varchar(32) NOT NULL,
+            patient_id varchar(36) NOT NULL REFERENCES clinic_patients(id) ON DELETE CASCADE,
+            encounter_id varchar(36) REFERENCES clinic_encounters(id) ON DELETE SET NULL,
+            kind varchar(16) NOT NULL DEFAULT 'procedure' CHECK (kind IN ('procedure', 'surgery', 'data_sharing', 'other')),
+            title varchar(200) NOT NULL,
+            body text NOT NULL,
+            signer_name varchar(128) NOT NULL,
+            signer_relation varchar(16) NOT NULL DEFAULT 'self',
+            signature_path varchar(1024) NOT NULL,
+            signed_at timestamptz NOT NULL DEFAULT now(),
+            witness_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+            witness_name varchar(128) NOT NULL DEFAULT '',
+            revoked_at timestamptz,
+            revoked_by uuid,
+            revoke_reason text NOT NULL DEFAULT '',
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_clinic_consent_forms_tenant_id ON clinic_consent_forms (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_consent_forms_consent_ref ON clinic_consent_forms (consent_ref);
+        CREATE INDEX IF NOT EXISTS ix_clinic_consent_forms_patient_id ON clinic_consent_forms (patient_id);
+        ALTER TABLE clinic_consent_forms ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE clinic_consent_forms FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON clinic_consent_forms;
+        CREATE POLICY tenant_isolation ON clinic_consent_forms
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
+    # #44: medical images in the private file store, served only through short-lived signed links.
+    ("v89_clinic_images", """
+        CREATE TABLE IF NOT EXISTS clinic_images (
+            id varchar(36) PRIMARY KEY,
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            patient_id varchar(36) NOT NULL REFERENCES clinic_patients(id) ON DELETE CASCADE,
+            encounter_id varchar(36) REFERENCES clinic_encounters(id) ON DELETE SET NULL,
+            modality varchar(8) NOT NULL DEFAULT 'other' CHECK (modality IN ('XR', 'US', 'CT', 'MRI', 'other')),
+            file_path varchar(1024) NOT NULL,
+            content_type varchar(64) NOT NULL,
+            size integer NOT NULL,
+            original_name varchar(255) NOT NULL DEFAULT '',
+            notes text NOT NULL DEFAULT '',
+            uploaded_by uuid REFERENCES users(id) ON DELETE SET NULL,
+            uploaded_by_name varchar(128) NOT NULL DEFAULT '',
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_clinic_images_tenant_id ON clinic_images (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_images_patient_id ON clinic_images (patient_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_images_encounter_id ON clinic_images (encounter_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_images_created_at ON clinic_images (created_at);
+        ALTER TABLE clinic_images ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE clinic_images FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON clinic_images;
+        CREATE POLICY tenant_isolation ON clinic_images
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

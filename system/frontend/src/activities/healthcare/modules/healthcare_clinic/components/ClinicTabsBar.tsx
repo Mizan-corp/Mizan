@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Bed, Calendar, FileText, HeartPulse, Lock, Pill, Search, ShieldCheck, Users } from "lucide-react";
+import { ArrowLeftRight, Bed, Calendar, CalendarClock, FileText, HeartPulse, Lock, Pill, Search, ShieldCheck, Users } from "lucide-react";
 import { Input } from "@/components/kit/input";
 import { useClinic } from "../ClinicContext";
 import type { ClinicTab } from "../types";
@@ -49,6 +49,16 @@ export default function ClinicTabsBar({ onSearch }: { onSearch: (value: string) 
         {perms.billing && (
           <TabButton id="billing" icon={<FileText className="size-3.5" />}>
             الفواتير والتحصيل <Count n={data.invoices.length} />
+          </TabButton>
+        )}
+        {(perms.doctor || perms.manage) && (
+          <TabButton id="referrals" icon={<ArrowLeftRight className="size-3.5" />}>
+            الإحالات
+          </TabButton>
+        )}
+        {perms.manage && (
+          <TabButton id="scheduling" icon={<CalendarClock className="size-3.5" />}>
+            الأقسام والجداول
           </TabButton>
         )}
         {perms.privacy && (

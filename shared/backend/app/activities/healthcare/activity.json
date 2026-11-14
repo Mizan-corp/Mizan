@@ -45,6 +45,12 @@
         },
         {
           "screen": "healthcare_clinic.clinic_beds"
+        },
+        {
+          "screen": "healthcare_clinic.clinic_referrals"
+        },
+        {
+          "screen": "healthcare_clinic.clinic_scheduling"
         }
       ]
     },

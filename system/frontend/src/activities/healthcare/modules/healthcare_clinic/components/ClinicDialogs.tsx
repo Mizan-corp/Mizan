@@ -4,7 +4,9 @@ import BookAppointmentDialog from "./BookAppointmentDialog";
 import EncounterDialog from "./EncounterDialog";
 import LabOrderDialog from "./LabOrderDialog";
 import LabResultDialog from "./LabResultDialog";
+import PatientChartDialog from "./PatientChartDialog";
 import PrescriptionDialog from "./PrescriptionDialog";
+import ReferralDialog from "./ReferralDialog";
 import RegisterPatientDialog from "./RegisterPatientDialog";
 
 /** The open clinic dialog, if any. Each dialog owns its form and its request. */
@@ -24,6 +26,10 @@ export default function ClinicDialogs({ dialog, onClose }: { dialog: ClinicDialo
       return <AdmitBedDialog bed={dialog.bed} onClose={onClose} />;
     case "labResult":
       return <LabResultDialog order={dialog.order} onClose={onClose} />;
+    case "referral":
+      return <ReferralDialog patient={dialog.patient} encounterId={dialog.encounterId} onClose={onClose} />;
+    case "chart":
+      return <PatientChartDialog patient={dialog.patient} section={dialog.section} encounterId={dialog.encounterId} onClose={onClose} />;
     default:
       return null;
   }

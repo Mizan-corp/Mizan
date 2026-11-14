@@ -121,8 +121,9 @@ async def log_access(db: AsyncSession, user, resource: str, how: str, patient_id
     await db.commit()
 
 
-async def clinicians(db: AsyncSession, tenant_id, user_id=None) -> list[dict]:
-    """Active users of the workspace whose roles hold clinic:doctor or clinic:nurse."""
+async def clinicians(db: AsyncSession, tenant_id, user_id=None, department_id: str | None = None) -> list[dict]:
+    """Active users of the workspace whose roles hold clinic:doctor or clinic:nurse; with a
+    department, only those on its active roster (#36)."""
     rows = (await db.execute(text("""
         SELECT u.id, u.full_name, u.username,
                string_agg(DISTINCT r.name, '، ') AS role_name,
@@ -133,9 +134,12 @@ async def clinicians(db: AsyncSession, tenant_id, user_id=None) -> list[dict]:
         WHERE u.tenant_id = :t AND u.is_active
           AND (r.grants ? 'clinic:doctor' OR r.grants ? 'clinic:nurse')
           AND (CAST(:u AS uuid) IS NULL OR u.id = CAST(:u AS uuid))
+          AND (CAST(:d AS text) IS NULL OR EXISTS (
+                SELECT 1 FROM clinic_doctor_schedules s
+                WHERE s.doctor_user_id = u.id AND s.department_id = CAST(:d AS text) AND s.active))
         GROUP BY u.id, u.full_name, u.username
         ORDER BY u.full_name
-    """), {"t": tenant_id, "u": str(user_id) if user_id else None})).mappings().all()
+    """), {"t": tenant_id, "u": str(user_id) if user_id else None, "d": department_id})).mappings().all()
     return [{"id": str(r["id"]), "full_name": r["full_name"] or r["username"], "role": r["role_name"],
              "is_doctor": bool(r["is_doctor"])} for r in rows]
 
@@ -185,3 +189,13 @@ async def notify_privacy_officers(db: AsyncSession, tenant_id, title: str, body:
     for uid in ids:
         db.add(Notification(tenant_id=tenant_id, user_id=uid, type="clinic_break_glass", severity="warning",
                             title=title, body=body, link="/clinic?tab=privacy", data_json=data, is_read=False))
+
+
+async def notify_users(db: AsyncSession, tenant_id, user_ids, *, type: str, title: str, body: str, link: str,
+                       data: dict, severity: str = "info") -> None:
+    """An in-app notification to each of these users. Doesn't commit."""
+    from app.platform.notifications.models.notification import Notification
+
+    for uid in {u for u in user_ids if u}:
+        db.add(Notification(tenant_id=tenant_id, user_id=uid, type=type, severity=severity,
+                            title=title, body=body, link=link, data_json=data, is_read=False))
