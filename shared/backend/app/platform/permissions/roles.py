@@ -24,7 +24,7 @@ ROLE_DEFAULT_PERMISSIONS = {
     "manager": [
         "pos", "sales", "quotations", "inventory", "operations",
         "customers", "reports", "archive", "shifts", "finance", "settings", "payroll",
-        "clinic", "clinic:view", "clinic:manage", "clinic:billing",
+        "clinic", "clinic:view", "clinic:manage", "clinic:billing", "clinic:all_patients", "clinic:privacy",
     ],
     "cashier": [
         "pos", "sales", "quotations", "customers", "shifts",

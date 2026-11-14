@@ -1,7 +1,7 @@
 import React, { useState, lazy, Suspense } from "react";
 import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, BarChart3, Bed, Bell, Briefcase, Building2, Calculator, Calendar, CheckCircle2, DoorOpen, FileText, Flame, FlaskConical, HeartPulse, Hospital, Laptop, Microscope, Package, Pill, RefreshCw, Scan, Scissors, Search, ShieldCheck, Stethoscope, UserCheck, UserPlus, Users, Video, X } from "lucide-react";
+import { Activity, BarChart3, Bed, Bell, Briefcase, Building2, Calculator, Calendar, CheckCircle2, DoorOpen, FileText, Flame, FlaskConical, HeartPulse, Hospital, Laptop, Lock, Microscope, Package, Pill, RefreshCw, Scan, Scissors, Search, ShieldCheck, Stethoscope, UserCheck, UserPlus, Users, Video, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui";
 import { Badge } from "@/components/kit/badge";
@@ -17,6 +17,9 @@ import BedsTab from "./tabs/BedsTab";
 import BillingTab from "./tabs/BillingTab";
 import ClaimsTab from "./tabs/ClaimsTab";
 import PatientsTab from "./tabs/PatientsTab";
+import PrivacyTab from "./tabs/PrivacyTab";
+import type { Clinician } from "./components/CareTeamDialog";
+import { useAuth } from "@/stores/auth";
 
 // Standalone 24 Healthcare ERP Modules (HLT-01..24)
 // preview: the screen runs on sample data and isn't wired to the API yet; it says so (#47).
@@ -68,12 +71,14 @@ interface ClinicPatient {
   phone: string;
   gender: string;
   date_of_birth: string;
-  blood_group: string;
-  allergies: string;
-  chronic_conditions: string;
+  blood_group: string | null;
+  allergies: string | null;
+  chronic_conditions: string | null;
   insurance_provider: string;
   insurance_policy_no: string;
   copay_percent: number;
+  clinical_access: boolean;
+  access: "all" | "setting" | "team" | "break_glass" | null;
 }
 
 interface ClinicAppointment {
@@ -202,9 +207,11 @@ export default function ClinicHealthcarePage() {
   const activeModuleKey = moduleSlug || (tabParam && HEALTHCARE_MODULES_MAP[tabParam] ? tabParam : null);
   const [activeCategory, setActiveCategory] = useState<string>("All");
 
-  const validTabs = ["appointments", "patients", "emr", "rx_labs", "labs", "beds", "billing", "claims"];
+  const can = useAuth((s) => s.can);
+  const canPrivacy = can("clinic:privacy");
+  const validTabs = ["appointments", "patients", "emr", "rx_labs", "labs", "beds", "billing", "claims", ...(canPrivacy ? ["privacy"] : [])];
   const tab = tabParam && validTabs.includes(tabParam)
-    ? (tabParam === "labs" ? "rx_labs" : (tabParam as "appointments" | "patients" | "emr" | "rx_labs" | "beds" | "billing" | "claims"))
+    ? (tabParam === "labs" ? "rx_labs" : (tabParam as "appointments" | "patients" | "emr" | "rx_labs" | "beds" | "billing" | "claims" | "privacy"))
     : "appointments";
 
   const handleTabChange = (newTab: string) => {
@@ -244,7 +251,7 @@ export default function ClinicHealthcarePage() {
   const [bookingForm, setBookingForm] = useState({
     patient_id: "",
     patient_name: "",
-    doctor_name: "د. هشام الشناوي (استشاري الباطنة والسكري)",
+    doctor_user_id: "",
     department: "الباطنة العامة",
     appointment_date: "2026-11-05",
     time_slot: "11:30 AM",
@@ -321,6 +328,12 @@ export default function ClinicHealthcarePage() {
     queryFn: () => api.get("/clinic/patients"),
   });
 
+  const { data: cliniciansData = [] } = useQuery<Clinician[]>({
+    queryKey: ["clinic-clinicians"],
+    queryFn: () => api.get("/clinic/clinicians"),
+    enabled: isBookingOpen,
+  });
+
   const { data: encountersData = [] } = useQuery<ClinicEncounter[]>({
     queryKey: ["clinic-encounters"],
     queryFn: () => api.get("/clinic/encounters"),
@@ -390,7 +403,7 @@ export default function ClinicHealthcarePage() {
       await api.post("/clinic/appointments", {
         patient_id: bookingForm.patient_id,
         patient_name: bookingForm.patient_name,
-        doctor_name: bookingForm.doctor_name,
+        doctor_user_id: bookingForm.doctor_user_id,
         department: bookingForm.department,
         appointment_date: bookingForm.appointment_date,
         time_slot: bookingForm.time_slot,
@@ -401,8 +414,9 @@ export default function ClinicHealthcarePage() {
       setIsBookingOpen(false);
       queryClient.invalidateQueries({ queryKey: ["clinic-appointments"] });
       queryClient.invalidateQueries({ queryKey: ["clinic-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["clinic-patients"] });
     } catch (err: any) {
-      toast("error", err?.response?.data?.detail || "تعذر حفظ الموعد على الخادم");
+      toast("error", err?.response?.data?.detail || err?.message || "تعذر حفظ الموعد على الخادم");
     }
   };
 
@@ -966,6 +980,20 @@ export default function ClinicHealthcarePage() {
                 الفواتير والتحصيل (<span className="num">{invoicesData.length}</span>)
               </button>
 
+              {canPrivacy && (
+                <button
+                  onClick={() => handleTabChange("privacy")}
+                  className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                    tab === "privacy"
+                      ? "border-primary text-primary bg-primary/[0.06] rounded-t-lg font-bold"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/40 rounded-t-lg"
+                  }`}
+                >
+                  <Lock className="size-3.5" />
+                  الخصوصية والوصول
+                </button>
+              )}
+
               <button
                 onClick={() => handleTabChange("claims")}
                 className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
@@ -997,6 +1025,7 @@ export default function ClinicHealthcarePage() {
           {tab === "beds" && <BedsTab />}
           {tab === "billing" && <BillingTab />}
           {tab === "claims" && <ClaimsTab />}
+          {tab === "privacy" && <PrivacyTab />}
         </>
       )}
 
@@ -1154,14 +1183,22 @@ export default function ClinicHealthcarePage() {
             </h3>
             <form onSubmit={handleCreateAppointment} className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-muted-foreground mb-1">اسم المريض *</label>
-                <Input
+                <label htmlFor="booking-patient" className="block text-muted-foreground mb-1">المريض *</label>
+                <select
+                  id="booking-patient"
                   required
-                  placeholder="مثال: فاطمة الزهراء علي"
-                  value={bookingForm.patient_name}
-                  onChange={(e) => setBookingForm({ ...bookingForm, patient_name: e.target.value })}
-                  className="h-9 text-xs"
-                />
+                  value={bookingForm.patient_id}
+                  onChange={(e) => {
+                    const p = patients.find((x) => x.id === e.target.value);
+                    setBookingForm({ ...bookingForm, patient_id: e.target.value, patient_name: p?.full_name || "" });
+                  }}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
+                >
+                  <option value="">اختر ملف المريض</option>
+                  {patients.map((p) => (
+                    <option key={p.id} value={p.id}>{p.full_name} — {p.patient_mrn}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1175,13 +1212,20 @@ export default function ClinicHealthcarePage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-muted-foreground mb-1">الطبيب المعالج *</label>
-                  <Input
+                  <label htmlFor="booking-doctor" className="block text-muted-foreground mb-1">الطبيب المعالج *</label>
+                  <select
+                    id="booking-doctor"
                     required
-                    value={bookingForm.doctor_name}
-                    onChange={(e) => setBookingForm({ ...bookingForm, doctor_name: e.target.value })}
-                    className="h-9 text-xs"
-                  />
+                    value={bookingForm.doctor_user_id}
+                    onChange={(e) => setBookingForm({ ...bookingForm, doctor_user_id: e.target.value })}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
+                  >
+                    <option value="">{cliniciansData.length ? "اختر الطبيب" : "لا يوجد أطباء مسجلون كمستخدمين"}</option>
+                    {cliniciansData.map((d) => (
+                      <option key={d.id} value={d.id}>{d.full_name}{d.role ? ` — ${d.role}` : ""}</option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-muted-foreground mt-1">يُضاف الطبيب إلى فريق رعاية المريض</p>
                 </div>
               </div>
 

@@ -33,6 +33,12 @@ Mizan enforces a hybrid, multi-layered isolation model to ensure that no tenant 
                                  └─── N [Inpatient Admissions]
 ```
 
+In the clinic module, `clinic_appointments`, `clinic_encounters`, `clinic_prescriptions` and
+`clinic_lab_orders` have a nullable `doctor_user_id` (→ `users`, `ON DELETE SET NULL`) next to the
+free-text `doctor_name`: the clinician the record belongs to (v79; v79b linked existing records
+whose `doctor_name` is exactly one active user's name, and put that user on the patient's care
+team).
+
 Besides the ERP's own records, every workspace has (all tenant-scoped, with RLS):
 
 | Table | What it holds |
@@ -42,6 +48,9 @@ Besides the ERP's own records, every workspace has (all tenant-scoped, with RLS)
 | `community_webhook_deliveries` | Webhooks to modules' servers: payload, status, attempts, next attempt, last error |
 | `workspace_themes` | Theme packages installed in the workspace (ADR-010), with their font files; the chosen theme is `tenants.palette["name"]` |
 | `workspace_files` | Every uploaded file and its size (#114) |
+| `clinic_care_team` | A patient's care team (#113): `patient_id` → `clinic_patients`, `user_id` → `users`, `role` (`attending`, `consultant`, `nurse`, `other`), `added_by`, `created_at`, `ended_at` (members are ended, not deleted); one active membership per (patient, user) |
+| `clinic_access_grants` | Break-glass grants (#113): patient, user, `reason`, `starts_at`, `expires_at` (60 minutes), `revoked_at`, `reviewed_by`/`reviewed_at`/`review_note` |
+| `clinic_access_log` | One row per read of clinical data (#113): `user_id`, `user_name`, `patient_id` (`NULL` for a list), `resource` (`patient`, `encounters`, `prescriptions`, `lab_orders`), `how` (`all`, `setting`, `team`, `break_glass`, `queue`), `rows`; no foreign key to the patient, so it outlives the record |
 | `activity_changes` | Owners' requests to change the workspace's activity and the Mizan team's decisions (#107); read across workspaces by the owner and admin APIs with `app.bypass` |
 
 ## 3. Platform Tables (not tenant-scoped)
