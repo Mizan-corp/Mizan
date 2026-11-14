@@ -4,10 +4,11 @@ import { Card } from "@/components/kit/card";
 import { HeartPulse, Plus } from "lucide-react";
 import { sound } from "@/lib/sound";
 import { useClinic } from "../ClinicContext";
+import QueryState from "../components/QueryState";
 
 export default function EMRTab() {
   const c = useClinic();
-  const { filteredEncounters, setIsEncounterModalOpen } = c;
+  const { filteredEncounters, openDialog, perms } = c;
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -20,10 +21,11 @@ export default function EMRTab() {
             العلامات الحيوية (Vitals)، تصنيف الأمراض الدولي (ICD-10)، والملاحظات التخصصية
           </p>
         </div>
+        {perms.doctor && (
         <Button
           onClick={() => {
             sound.click();
-            setIsEncounterModalOpen(true);
+            openDialog({ kind: "encounter" });
           }}
           size="sm"
           className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-8 gap-1.5 shadow-xs font-semibold"
@@ -31,10 +33,12 @@ export default function EMRTab() {
           <Plus className="size-3.5" />
           توثيق كشف سريري جديد
         </Button>
+        )}
       </div>
 
+      <QueryState query={c.data.queries.encounters} what="الكشوفات السريرية" className="">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredEncounters.map((enc: any) => (
+        {filteredEncounters.map((enc) => (
           <Card key={enc.id} className="p-4 border-border/70 space-y-3 bg-card/80 shadow-xs hover:border-primary/40 transition-colors">
             <div className="flex items-center justify-between border-b border-border/60 pb-2">
               <div>
@@ -94,7 +98,13 @@ export default function EMRTab() {
             </div>
           </Card>
         ))}
+        {filteredEncounters.length === 0 && (
+          <p className="md:col-span-2 py-8 text-center text-xs text-muted-foreground rounded-xl border border-dashed border-border">
+            {c.search.trim() ? "لا توجد كشوفات تطابق البحث." : "لا توجد كشوفات سريرية لمرضاك بعد."}
+          </p>
+        )}
       </div>
+      </QueryState>
     </div>
   );
 }

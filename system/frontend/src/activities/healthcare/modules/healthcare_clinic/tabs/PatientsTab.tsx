@@ -12,21 +12,21 @@ import {
 import { useState } from "react";
 import { AlertCircle, Lock, ShieldAlert, UserPlus, Users, UsersRound } from "lucide-react";
 import { sound } from "@/lib/sound";
-import { useAuth } from "@/stores/auth";
 import { useClinic } from "../ClinicContext";
+import QueryState from "../components/QueryState";
+import ListPager from "../components/ListPager";
 import BreakGlassDialog from "../components/BreakGlassDialog";
 import CareTeamDialog from "../components/CareTeamDialog";
 
-type PatientRef = { id: string; full_name: string };
+import type { PatientRef } from "../types";
 
 export default function PatientsTab() {
   const c = useClinic();
   const {
-    filteredPatients, setIsPatientModalOpen, setIsBookingOpen,
-    setBookingForm, setIsRxModalOpen, setRxForm, bookingForm, rxForm,
+    data, paging, search, openDialog,
   } = c;
-  const can = useAuth((s) => s.can);
-  const clinician = can("clinic:doctor|clinic:nurse");
+  const { perms } = c;
+  const clinician = perms.clinician;
   const [breakGlassFor, setBreakGlassFor] = useState<PatientRef | null>(null);
   const [careTeamFor, setCareTeamFor] = useState<PatientRef | null>(null);
   return (
@@ -41,10 +41,11 @@ export default function PatientsTab() {
             الملفات الطبية الرقمية، أرقام السجل الطبي (MRN)، الحساسيات الدوائية، والشركات الضامنة
           </p>
         </div>
+        {perms.manage && (
         <Button
           onClick={() => {
             sound.click();
-            setIsPatientModalOpen(true);
+            openDialog({ kind: "patient" });
           }}
           size="sm"
           className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-8 gap-1.5 shadow-xs"
@@ -52,8 +53,10 @@ export default function PatientsTab() {
           <UserPlus className="size-3.5" />
           تسجيل مريض جديد
         </Button>
+        )}
       </div>
 
+      <QueryState query={data.queries.patients} what="ملفات المرضى">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/30 hover:bg-muted/30 border-b border-border/60">
@@ -66,7 +69,7 @@ export default function PatientsTab() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredPatients.map((pat: any) => (
+          {data.patients.map((pat) => (
             <TableRow key={pat.id} className="hover:bg-primary/[0.03] transition-colors border-b border-border/40">
               <TableCell>
                 <div className="font-bold text-foreground text-xs flex items-center gap-1.5">
@@ -124,21 +127,19 @@ export default function PatientsTab() {
               </TableCell>
               <TableCell className="text-center">
                 <div className="flex flex-wrap items-center justify-center gap-1">
+                  {perms.book && (
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      setBookingForm({
-                        ...bookingForm,
-                        patient_id: pat.id,
-                        patient_name: pat.full_name,
-                      });
-                      setIsBookingOpen(true);
+                      openDialog({ kind: "booking", patient: pat });
                     }}
                     className="text-[10px] h-7 px-2 border-primary/30 text-foreground hover:bg-primary/5"
                   >
                     حجز كشف
                   </Button>
+                  )}
+                  {(perms.manage || pat.clinical_access) && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -149,6 +150,7 @@ export default function PatientsTab() {
                     <UsersRound className="size-3" />
                     الفريق
                   </Button>
+                  )}
                   {clinician && !pat.clinical_access && (
                     <Button
                       size="sm"
@@ -160,17 +162,12 @@ export default function PatientsTab() {
                       وصول طارئ
                     </Button>
                   )}
-                  {pat.clinical_access && (
+                  {perms.doctor && pat.clinical_access && (
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      setRxForm({
-                        ...rxForm,
-                        patient_id: pat.id,
-                        patient_name: pat.full_name,
-                      });
-                      setIsRxModalOpen(true);
+                      openDialog({ kind: "prescription", patient: pat });
                     }}
                     className="text-[10px] h-7 px-2 border-primary/30 text-foreground hover:bg-primary/5"
                   >
@@ -181,8 +178,17 @@ export default function PatientsTab() {
               </TableCell>
             </TableRow>
           ))}
+          {data.patients.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={6} className="py-6 text-center text-muted-foreground text-xs">
+                {search.trim() ? "لا يوجد مريض يطابق البحث (الاسم، رقم الملف، الرقم القومي أو الهاتف)." : "لا توجد ملفات مرضى بعد."}
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
+      <ListPager paging={paging.patients} total={data.patientsTotal} pages={data.patientsPages} />
+      </QueryState>
       <BreakGlassDialog patient={breakGlassFor} onClose={() => setBreakGlassFor(null)} />
       <CareTeamDialog patient={careTeamFor} onClose={() => setCareTeamFor(null)} />
     </Card>

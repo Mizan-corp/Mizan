@@ -4,12 +4,12 @@ import { Card } from "@/components/kit/card";
 import { Microscope, Pill, Plus } from "lucide-react";
 import { sound } from "@/lib/sound";
 import { useClinic } from "../ClinicContext";
+import QueryState from "../components/QueryState";
 
 export default function RxLabsTab() {
   const c = useClinic();
   const {
-    filteredRx, filteredLabs, handleDispenseRx, setIsRxModalOpen, setIsLabModalOpen,
-    setLabResultModalTarget, setLabResultValue,
+    filteredRx, filteredLabs, actions, openDialog, perms,
   } = c;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -20,10 +20,11 @@ export default function RxLabsTab() {
             <Pill className="size-4 text-primary" />
             الروشتات والوصفات الطبية الإلكترونية (e-Rx)
           </h3>
+          {perms.doctor && (
           <Button
             onClick={() => {
               sound.click();
-              setIsRxModalOpen(true);
+              openDialog({ kind: "prescription" });
             }}
             size="sm"
             className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-7 px-2.5 gap-1 font-semibold shadow-xs"
@@ -31,10 +32,12 @@ export default function RxLabsTab() {
             <Plus className="size-3.5" />
             روشتة جديدة
           </Button>
+          )}
         </div>
 
+        <QueryState query={c.data.queries.prescriptions} what="الروشتات">
         <div className="divide-y divide-border/40">
-          {filteredRx.map((rx: any) => (
+          {filteredRx.map((rx) => (
             <div key={rx.id} className="p-4 space-y-2 hover:bg-primary/[0.02] transition">
               <div className="flex items-center justify-between">
                 <span className="num font-bold text-xs text-foreground">{rx.rx_ref}</span>
@@ -72,10 +75,10 @@ export default function RxLabsTab() {
 
               <div className="flex items-center justify-between pt-1">
                 <span className="text-[11px] text-muted-foreground">الطبيب: {rx.doctor_name}</span>
-                {rx.status === "pending" && (
+                {perms.dispense && rx.status === "pending" && (
                   <Button
                     size="sm"
-                    onClick={() => handleDispenseRx(rx.id)}
+                    onClick={() => actions.dispensePrescription(rx.id)}
                     className="text-xs h-7 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                   >
                     صرف الدواء الآن
@@ -84,7 +87,13 @@ export default function RxLabsTab() {
               </div>
             </div>
           ))}
+          {filteredRx.length === 0 && (
+            <p className="py-8 text-center text-xs text-muted-foreground">
+              {c.search.trim() ? "لا توجد روشتات تطابق البحث." : "لا توجد روشتات بعد."}
+            </p>
+          )}
         </div>
+        </QueryState>
       </Card>
 
       {/* Diagnostic Labs */}
@@ -94,10 +103,11 @@ export default function RxLabsTab() {
             <Microscope className="size-4 text-primary" />
             الفحوصات والتحاليل المخبرية والتصوير الطبي
           </h3>
+          {perms.doctor && (
           <Button
             onClick={() => {
               sound.click();
-              setIsLabModalOpen(true);
+              openDialog({ kind: "lab" });
             }}
             size="sm"
             className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-7 px-2.5 gap-1 font-semibold shadow-xs"
@@ -105,10 +115,12 @@ export default function RxLabsTab() {
             <Plus className="size-3.5" />
             طلب فحص جديد
           </Button>
+          )}
         </div>
 
+        <QueryState query={c.data.queries.labOrders} what="طلبات المختبر">
         <div className="divide-y divide-border/40">
-          {filteredLabs.map((lab: any) => (
+          {filteredLabs.map((lab) => (
             <div key={lab.id} className="p-4 space-y-2 hover:bg-primary/[0.02] transition">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -145,12 +157,11 @@ export default function RxLabsTab() {
 
               <div className="flex items-center justify-between pt-1">
                 <span className="text-[11px] text-muted-foreground">الطبيب: {lab.doctor_name}</span>
-                {lab.status !== "reported" && (
+                {perms.lab && lab.status !== "reported" && (
                   <Button
                     size="sm"
                     onClick={() => {
-                      setLabResultModalTarget(lab);
-                      setLabResultValue("");
+                      openDialog({ kind: "labResult", order: lab });
                     }}
                     className="text-xs h-7 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                   >
@@ -160,7 +171,13 @@ export default function RxLabsTab() {
               </div>
             </div>
           ))}
+          {filteredLabs.length === 0 && (
+            <p className="py-8 text-center text-xs text-muted-foreground">
+              {c.search.trim() ? "لا توجد طلبات فحص تطابق البحث." : "لا توجد طلبات فحص بعد."}
+            </p>
+          )}
         </div>
+        </QueryState>
       </Card>
     </div>
   );

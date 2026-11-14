@@ -4,13 +4,13 @@ import { Card } from "@/components/kit/card";
 import { Bed, CheckCircle2, UserPlus } from "lucide-react";
 import { sound } from "@/lib/sound";
 import { useClinic } from "../ClinicContext";
+import QueryState from "../components/QueryState";
+import { moneyEGP } from "../format";
 
-const moneyEGP = (amount: number) =>
-  `${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
 
 export default function BedsTab() {
   const c = useClinic();
-  const { beds, handleDischargeBed, handleCleanBed, setAdmitBedTarget } = c;
+  const { data: { beds }, actions, openDialog, perms } = c;
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -37,8 +37,9 @@ export default function BedsTab() {
         </div>
       </div>
 
+      <QueryState query={c.data.queries.beds} what="الأسرّة" className="">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {beds.map((b: any) => (
+        {beds.map((b) => (
           <Card
             key={b.id}
             className={`p-4 border shadow-xs transition-colors bg-card/80 ${
@@ -80,12 +81,12 @@ export default function BedsTab() {
             )}
 
             <div className="mt-4 pt-2 border-t border-border/40 flex justify-end">
-              {b.status === "available" && (
+              {perms.ward && b.status === "available" && (
                 <Button
                   size="sm"
                   onClick={() => {
                     sound.click();
-                    setAdmitBedTarget(b);
+                    openDialog({ kind: "admit", bed: b });
                   }}
                   className="w-full text-xs h-7 gap-1 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                 >
@@ -93,20 +94,20 @@ export default function BedsTab() {
                   تسكين مريض بالسرير
                 </Button>
               )}
-              {b.status === "occupied" && (
+              {perms.ward && b.status === "occupied" && (
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => handleDischargeBed(b.id)}
+                  onClick={() => actions.dischargeBed(b.id)}
                   className="w-full text-xs h-7 border-destructive/30 text-destructive-ink hover:bg-destructive/10"
                 >
                   إخلاء السرير للتعقيم
                 </Button>
               )}
-              {b.status === "cleaning" && (
+              {perms.ward && b.status === "cleaning" && (
                 <Button
                   size="sm"
-                  onClick={() => handleCleanBed(b.id)}
+                  onClick={() => actions.cleanBed(b.id)}
                   className="w-full text-xs h-7 gap-1 bg-amber-600 hover:bg-amber-500 text-white font-semibold"
                 >
                   <CheckCircle2 className="size-3.5" />
@@ -116,7 +117,13 @@ export default function BedsTab() {
             </div>
           </Card>
         ))}
+        {beds.length === 0 && (
+          <p className="md:col-span-3 py-8 text-center text-xs text-muted-foreground rounded-xl border border-dashed border-border">
+            لا توجد أسرّة معرفة بعد.
+          </p>
+        )}
       </div>
+      </QueryState>
     </div>
   );
 }

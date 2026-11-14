@@ -148,7 +148,7 @@ async def test_care_team_decides_and_booking_grants_access():
         assert r.status_code == 200 and len(r.json()) == 1
         listed = await c.get("/clinic/encounters", headers=h["doc_a"])
         assert {e["patient_id"] for e in listed.json()} == {p1}
-        patients = {p["id"]: p for p in (await c.get("/clinic/patients", headers=h["doc_a"])).json()}
+        patients = {p["id"]: p for p in (await c.get("/clinic/patients", headers=h["doc_a"])).json()["items"]}
         assert patients[p1]["clinical_access"] is True and patients[p1]["allergies"] == "بنسلين"
         assert patients[p1]["access"] == "team"
         assert patients[p2]["clinical_access"] is False and patients[p2]["allergies"] is None
@@ -160,7 +160,7 @@ async def test_care_team_decides_and_booking_grants_access():
             assert (await c.get(path, params={"patient_id": p1}, headers=h["doc_b"])).status_code == 403
 
         # Reception: patient list with clinical fields redacted, no clinical reads.
-        rows = (await c.get("/clinic/patients", headers=h["reception"])).json()
+        rows = (await c.get("/clinic/patients", headers=h["reception"])).json()["items"]
         mine = [p for p in rows if p["id"] in (p1, p2)]
         assert len(mine) == 2
         assert all(p["allergies"] is None and p["chronic_conditions"] is None and p["blood_group"] is None

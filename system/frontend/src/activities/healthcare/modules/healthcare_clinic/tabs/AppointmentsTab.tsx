@@ -12,13 +12,14 @@ import {
 import { Calendar, CheckCircle2, Plus } from "lucide-react";
 import { sound } from "@/lib/sound";
 import { useClinic } from "../ClinicContext";
+import QueryState from "../components/QueryState";
+import ListPager from "../components/ListPager";
+import { moneyEGP } from "../format";
 
-const moneyEGP = (amount: number) =>
-  `${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ج.م`;
 
 export default function AppointmentsTab() {
   const c = useClinic();
-  const { filteredAppts, handleBillAppointment, handleUpdateApptStatus, setIsBookingOpen } = c;
+  const { data, paging, search, actions, openDialog, perms } = c;
   return (
     <Card className="border-border/70 overflow-hidden shadow-xs bg-card/80">
       <div className="p-4 border-b border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/10">
@@ -31,10 +32,11 @@ export default function AppointmentsTab() {
             تنظيم دخول المرضى، مواعيد الاستشارة، وتحصيل أتعاب الكشوفات
           </p>
         </div>
+        {perms.book && (
         <Button
           onClick={() => {
             sound.click();
-            setIsBookingOpen(true);
+            openDialog({ kind: "booking" });
           }}
           size="sm"
           className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-8 gap-1.5 shadow-xs"
@@ -42,8 +44,10 @@ export default function AppointmentsTab() {
           <Plus className="size-3.5" />
           حجز موعد كشف
         </Button>
+        )}
       </div>
 
+      <QueryState query={data.queries.appointments} what="المواعيد">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/30 hover:bg-muted/30 border-b border-border/60">
@@ -57,7 +61,7 @@ export default function AppointmentsTab() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredAppts.map((a: any) => (
+          {data.appointments.map((a) => (
             <TableRow key={a.id} className="hover:bg-primary/[0.03] transition-colors border-b border-border/40">
               <TableCell>
                 <div className="num font-bold text-foreground text-xs">{a.appointment_ref}</div>
@@ -104,29 +108,29 @@ export default function AppointmentsTab() {
               </TableCell>
               <TableCell className="text-center">
                 <div className="flex items-center justify-center gap-1">
-                  {a.status === "scheduled" && (
+                  {perms.queue && a.status === "scheduled" && (
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleUpdateApptStatus(a.id, "waiting")}
+                      onClick={() => actions.updateAppointmentStatus(a.id, "waiting")}
                       className="text-[10px] h-7 px-2 border-primary/30 text-foreground hover:bg-primary/5"
                     >
                       استدعاء للانتظار
                     </Button>
                   )}
-                  {a.status === "waiting" && (
+                  {perms.queue && a.status === "waiting" && (
                     <Button
                       size="sm"
-                      onClick={() => handleUpdateApptStatus(a.id, "in_consultation")}
+                      onClick={() => actions.updateAppointmentStatus(a.id, "in_consultation")}
                       className="text-[10px] h-7 px-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                     >
                       بدء الكشف الطبي
                     </Button>
                   )}
-                  {a.status === "in_consultation" && (
+                  {perms.queue && a.status === "in_consultation" && (
                     <Button
                       size="sm"
-                      onClick={() => handleUpdateApptStatus(a.id, "completed")}
+                      onClick={() => actions.updateAppointmentStatus(a.id, "completed")}
                       className="text-[10px] h-7 px-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
                             >
                               إنهاء واعتماد
@@ -138,22 +142,33 @@ export default function AppointmentsTab() {
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                 تم الكشف
                               </span>
+                              {perms.billing && (
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => handleBillAppointment(a.id)}
+                                onClick={() => actions.billAppointment(a.id)}
                                 className="text-[10px] h-7 px-2 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
                               >
                                 إصدار فاتورة
                               </Button>
+                              )}
                             </div>
                           )}
                         </div>
                       </TableCell>
                     </TableRow>
                   ))}
+                  {data.appointments.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-6 text-center text-muted-foreground text-xs">
+                        {search.trim() ? "لا توجد مواعيد تطابق البحث." : "لا توجد مواعيد بعد."}
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
+              <ListPager paging={paging.appointments} total={data.appointmentsTotal} pages={data.appointmentsPages} />
+      </QueryState>
             </Card>
   );
 }

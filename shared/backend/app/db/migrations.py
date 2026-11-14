@@ -3366,6 +3366,31 @@ MIGRATIONS = [
               FROM sales ORDER BY tenant_id, invoice_number, created_at) s
         WHERE ci.sale_id IS NULL AND s.tenant_id = ci.tenant_id AND s.invoice_number = ci.invoice_ref;
     """),
+    # #131: the clinical roles hold their own clinic permissions, not the umbrella "clinic". The
+    # standard roles (tenant_id NULL) are re-synced from roles.py by ensure_standard_roles; this
+    # strips "clinic" from the personal copies v54 made of them ("doctor-1a2b3c4d"), keeping
+    # clinic:view. Workspaces' own roles ("ws-…") are left as their admins set them. Invoice lines
+    # stop naming the medication or test (billing staff see invoices, not clinical data).
+    ("v84_clinic_role_separation", """
+        UPDATE sys_roles r SET grants = (
+            SELECT COALESCE(jsonb_agg(DISTINCT g ORDER BY g), '[]'::jsonb)
+            FROM jsonb_array_elements_text(r.grants || '["clinic:view"]'::jsonb) AS e(g)
+            WHERE g <> 'clinic'
+        ), updated_at = now()
+        WHERE r.tenant_id IS NOT NULL
+          AND r.code ~ '^(doctor|nurse|receptionist|lab_tech|pharmacist)-[0-9a-f]{8}$'
+          AND r.grants ? 'clinic';
+        UPDATE clinic_invoices ci SET charges = (
+            SELECT jsonb_agg(CASE
+                WHEN c->>'description' LIKE 'صرف دواء:%' THEN jsonb_set(c, '{description}', to_jsonb('صرف أدوية'::text))
+                WHEN c->>'description' LIKE 'رسوم فحص مخبري:%'
+                    THEN jsonb_set(c, '{description}', to_jsonb(('رسوم فحص مخبري — طلب ' || COALESCE(ci.encounter_ref, ''))::text))
+                ELSE c END ORDER BY n)
+            FROM jsonb_array_elements(ci.charges) WITH ORDINALITY AS x(c, n)
+        )
+        WHERE jsonb_typeof(ci.charges) = 'array'
+          AND (ci.charges::text LIKE '%صرف دواء:%' OR ci.charges::text LIKE '%رسوم فحص مخبري:%');
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables
