@@ -5,6 +5,11 @@
   uploads are refused rather than silently lost.
 - On-site installs and development: the local disk (UPLOAD_DIR), served at /uploads.
 
+Private files (store_private/read_private; clinical images and signatures, #43/#44) are never
+served by URL: on disk they go to PRIVATE_UPLOAD_DIR, which nothing mounts, and a route reads them
+back after its own access checks. On Vercel Blob (a public store) they get an unguessable random
+pathname that is never sent to a client.
+
 Every file is recorded in workspace_files (its kind, what it belongs to, its size): the storage
 quota counts real sizes, a replaced file is deleted, and a deleted workspace's files can be removed.
 Kinds: logo, logo_icon (the PWA icons made from the logo), cover, product_image, po_invoice.
@@ -135,6 +140,44 @@ def _write(path: str, data: bytes) -> None:
         f.write(data)
 
 
+PRIVATE = "private:"
+_PRIVATE_KEY = re.compile(r"^private:(t/[0-9a-f-]{36}|platform)/[a-z_]{1,32}/[A-Za-z0-9_-]{1,80}\.[a-z0-9]{1,8}$")
+_private_root: str | None = None
+
+
+def _private_dir() -> str:
+    """PRIVATE_UPLOAD_DIR, or a mirror under the temp dir where it isn't writable (like UPLOAD_DIR)."""
+    global _private_root
+    if _private_root is None:
+        import tempfile
+
+        from app.core.config import settings
+
+        path = settings.PRIVATE_UPLOAD_DIR
+        try:
+            os.makedirs(path, exist_ok=True)
+            probe = os.path.join(path, ".wprobe")
+            with open(probe, "w") as f:
+                f.write("")
+            os.remove(probe)
+        except OSError:
+            path = os.path.join(tempfile.gettempdir(), "mizan-private-uploads")
+            os.makedirs(path, exist_ok=True)
+        _private_root = path
+    return _private_root
+
+
+def _private_path(key: str) -> str:
+    if not _PRIVATE_KEY.match(key):
+        raise HTTPException(404, "الملف غير موجود")
+    return os.path.join(_private_dir(), key.removeprefix(PRIVATE))
+
+
+def _read(path: str) -> bytes:
+    with open(path, "rb") as f:
+        return f.read()
+
+
 def backend() -> _Blob | _Disk:
     if _blob_token():
         return _Blob()
@@ -170,6 +213,46 @@ async def store(db: AsyncSession, data: bytes, *, kind: str, filename: str | Non
     return url
 
 
+async def store_private(db: AsyncSession, data: bytes, *, kind: str, filename: str | None, content_type: str,
+                        owner_id: str) -> str:
+    """Save a file only an authenticated route will serve; returns its key (keep it in the record,
+    never send it to a client). Read it back with read_private."""
+    tenant_id = current_tenant_id.get()
+    ext = os.path.splitext((filename or "").lower())[1]
+    if not EXT.match(ext):
+        ext = ".bin"
+    stem = f"{_prefix(tenant_id)}{kind}/{re.sub(r'[^A-Za-z0-9_-]', '', owner_id)[:40]}-{uuid.uuid4().hex}"
+    if _blob_token():
+        url = await _Blob().put(f"private/{stem}{ext}", data, content_type)
+        key = url  # an unguessable public-store URL; served only through the route
+    else:
+        if os.environ.get("VERCEL"):
+            raise HTTPException(503, "تخزين الملفات غير مهيأ على الخادم. تواصل مع الدعم.")
+        key = f"{PRIVATE}{stem}{ext}"
+        path = _private_path(key)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        await asyncio.to_thread(_write, path, data)
+    db.add(WorkspaceFile(kind=kind, owner_id=owner_id, url=key, size=len(data), content_type=content_type))
+    return key
+
+
+async def read_private(key: str) -> bytes:
+    if key.startswith(PRIVATE):
+        path = _private_path(key)
+        if not os.path.isfile(path):
+            raise HTTPException(404, "الملف غير موجود في التخزين")
+        return await asyncio.to_thread(_read, path)
+    if key.startswith("https://") and _blob_token():
+        def fetch() -> bytes:
+            with urllib.request.urlopen(key, timeout=60) as res:
+                return res.read()
+        try:
+            return await asyncio.to_thread(fetch)
+        except urllib.error.URLError:
+            raise HTTPException(502, "تعذر قراءة الملف من التخزين. حاول مرة أخرى.") from None
+    raise HTTPException(404, "الملف غير موجود")
+
+
 async def remove(db: AsyncSession, *, kind: str | None = None, owner_id: str | None = None, url: str | None = None) -> None:
     """Delete the workspace's files of a kind (and owner), or one by URL. Files from before this
     service (not recorded) are left alone."""
@@ -182,8 +265,11 @@ async def remove(db: AsyncSession, *, kind: str | None = None, owner_id: str | N
     rows = (await db.execute(q)).scalars().all()
     if not rows:
         return
+    for r in rows:
+        if r.url.startswith(PRIVATE) and _PRIVATE_KEY.match(r.url) and os.path.isfile(_private_path(r.url)):
+            os.remove(_private_path(r.url))
     try:
-        await backend().delete([r.url for r in rows])
+        await backend().delete([r.url for r in rows if not r.url.startswith(PRIVATE)])
     except HTTPException:
         log.warning("could not delete %d stored file(s); their records are removed anyway", len(rows))
     for r in rows:
@@ -198,7 +284,12 @@ async def purge_workspace(tenant_id) -> int:
     """Delete every stored file of a workspace (it is being deleted; its rows go with it)."""
     if not tenant_id:
         return 0
+    private = os.path.join(_private_dir(), _prefix(tenant_id).rstrip("/"))
+    if os.path.isdir(private):
+        shutil.rmtree(private, ignore_errors=True)
     try:
+        if _blob_token():
+            await _Blob().delete_prefix(f"private/{_prefix(tenant_id)}")
         return await backend().delete_prefix(_prefix(tenant_id))
     except HTTPException as e:
         log.warning("could not purge files of workspace %s: %s", tenant_id, e.detail)

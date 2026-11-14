@@ -324,3 +324,27 @@ class ClinicReferral(TenantScoped, Base):
     response_note: Mapped[str] = mapped_column(Text, default="", server_default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class ClinicConsentForm(TenantScoped, Base):
+    """A signed consent (#43): procedure, surgery, data sharing… with the signer's drawn signature
+    (a PNG in the private file store; signature_path is its key, never served by URL)."""
+    __tablename__ = "clinic_consent_forms"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    consent_ref: Mapped[str] = mapped_column(String(32), index=True)
+    patient_id: Mapped[str] = mapped_column(String(36), ForeignKey("clinic_patients.id", ondelete="CASCADE"), index=True)
+    encounter_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("clinic_encounters.id", ondelete="SET NULL"), nullable=True)
+    kind: Mapped[str] = mapped_column(String(16), default="procedure")  # procedure, surgery, data_sharing, other
+    title: Mapped[str] = mapped_column(String(200))  # the procedure or what is consented to
+    body: Mapped[str] = mapped_column(Text)
+    signer_name: Mapped[str] = mapped_column(String(128))
+    signer_relation: Mapped[str] = mapped_column(String(16), default="self")  # self, guardian, parent, spouse, other
+    signature_path: Mapped[str] = mapped_column(String(1024))
+    signed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    witness_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    witness_name: Mapped[str] = mapped_column(String(128), default="", server_default="")
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    revoke_reason: Mapped[str] = mapped_column(Text, default="", server_default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

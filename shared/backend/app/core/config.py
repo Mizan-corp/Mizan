@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
     UPLOAD_DIR: str = "./uploads"
+    # Files only an authenticated route may serve (clinical images, signatures): never mounted.
+    PRIVATE_UPLOAD_DIR: str = "./private_uploads"
     # Each API overrides this with its own production origins (Vercel env CORS_ORIGINS).
     CORS_ORIGINS: list[str] = [
         "http://localhost:5173",  # system (dev)

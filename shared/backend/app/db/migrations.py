@@ -3494,6 +3494,37 @@ MIGRATIONS = [
     ("v87_clinic_encounter_glucose", """
         ALTER TABLE clinic_encounters ADD COLUMN IF NOT EXISTS blood_glucose double precision;
     """),
+    # #43: signed consent forms; the signature PNG is in the private file store, not in the row.
+    ("v88_clinic_consent_forms", """
+        CREATE TABLE IF NOT EXISTS clinic_consent_forms (
+            id varchar(36) PRIMARY KEY,
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            consent_ref varchar(32) NOT NULL,
+            patient_id varchar(36) NOT NULL REFERENCES clinic_patients(id) ON DELETE CASCADE,
+            encounter_id varchar(36) REFERENCES clinic_encounters(id) ON DELETE SET NULL,
+            kind varchar(16) NOT NULL DEFAULT 'procedure' CHECK (kind IN ('procedure', 'surgery', 'data_sharing', 'other')),
+            title varchar(200) NOT NULL,
+            body text NOT NULL,
+            signer_name varchar(128) NOT NULL,
+            signer_relation varchar(16) NOT NULL DEFAULT 'self',
+            signature_path varchar(1024) NOT NULL,
+            signed_at timestamptz NOT NULL DEFAULT now(),
+            witness_user_id uuid REFERENCES users(id) ON DELETE SET NULL,
+            witness_name varchar(128) NOT NULL DEFAULT '',
+            revoked_at timestamptz,
+            revoked_by uuid,
+            revoke_reason text NOT NULL DEFAULT '',
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_clinic_consent_forms_tenant_id ON clinic_consent_forms (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_consent_forms_consent_ref ON clinic_consent_forms (consent_ref);
+        CREATE INDEX IF NOT EXISTS ix_clinic_consent_forms_patient_id ON clinic_consent_forms (patient_id);
+        ALTER TABLE clinic_consent_forms ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE clinic_consent_forms FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON clinic_consent_forms;
+        CREATE POLICY tenant_isolation ON clinic_consent_forms
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

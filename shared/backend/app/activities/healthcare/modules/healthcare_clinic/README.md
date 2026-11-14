@@ -117,6 +117,25 @@ chart dialog (`components/PatientChartDialog.tsx` → `VitalsPanel.tsx`: latest 
 sparklines, Recharts trend lines through the kit's `ChartContainer`), opened from «الملف» on a
 patient row and «مؤشرات المريض» on an encounter card. Tests `system/backend/tests/test_clinic_vitals.py`.
 
+## Consent forms (#43)
+
+- `GET/POST /clinic/patients/{id}/consents`, `POST /clinic/consents/{id}/revoke`,
+  `GET /clinic/consents/{id}/pdf`, `GET /clinic/consents/{id}/signature-link`: a doctor or nurse who
+  reaches the patient's record (logged: `consents`, `consent_pdf`, `signature`). Signing takes the
+  pad's PNG (data URL, ≤ 1 MB, checked to be a PNG); it is stored with
+  `framework.files.store_private` (PRIVATE_UPLOAD_DIR, never mounted) and the row keeps only its key.
+  The clinician is recorded as witness. Withdrawing keeps the form with the date and reason.
+- The PDF (Arabic, RTL, bundled Noto fonts, the signature embedded) goes through
+  `printing.fallback.pdf_or_page` (a printable page where WeasyPrint's libraries are missing).
+- Signed links (`media.py`, `routes/media.py`, `framework/signed.py`): `GET /clinic/media/{token}`
+  sits outside the session guards (an `<img>` sends no Authorization header). The token is an
+  HMAC-SHA256 over {kind, id, user, workspace, expiry} with a key derived from SECRET_KEY for this
+  purpose; it lives 5 minutes (410 after, 403 if altered), and each request re-checks the user,
+  the module and the user's access to the patient's record, and is logged.
+- Screen: «نماذج الموافقة» in the patient chart (`components/ConsentsPanel.tsx`,
+  `SignaturePad.tsx`: a `<canvas>` with pointer events, finger, pen or mouse). Migration
+  `v88_clinic_consent_forms`; tests `system/backend/tests/test_clinic_consents.py`.
+
 Route guards are in `guards.py` (shared by `router.py` and `routes/`); the route areas in
 `routes/` are included by `router.py` under `/clinic`.
 

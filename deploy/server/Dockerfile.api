@@ -21,6 +21,7 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/shared \
     MIZAN_BACKENDS=/srv/mizan \
     UPLOAD_DIR=/data/uploads \
+    PRIVATE_UPLOAD_DIR=/data/private_uploads \
     XDG_CACHE_HOME=/tmp/.cache
 RUN apt-get update --fix-missing && \
     apt-get install -y --no-install-recommends \
@@ -31,7 +32,7 @@ RUN apt-get update --fix-missing && \
     fc-cache -f  # fonts indexed once here; PDFs (WeasyPrint) don't rescan them on every render
 COPY --from=builder /install/ /usr/local/
 RUN addgroup --system --gid 10001 mizan && adduser --system --uid 10001 --ingroup mizan mizan && \
-    mkdir -p /data/uploads && chown -R mizan:mizan /data
+    mkdir -p /data/uploads /data/private_uploads && chown -R mizan:mizan /data
 # Code last: these small layers are all a release changes.
 COPY shared/backend/app /shared/app
 COPY manage.py /srv/mizan/manage.py

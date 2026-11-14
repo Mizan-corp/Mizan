@@ -38,11 +38,13 @@ services:
       APP_ENV: production
       MIZAN_BEHIND_CLOUDFLARE: "1"
       UPLOAD_DIR: /data/uploads
+      PRIVATE_UPLOAD_DIR: /data/private_uploads
       OWNER_API_URL: https://owner-api.allmizan.live/api
       OWNER_APP_URL: https://allmizan.live/owner
       CORS_ORIGINS: '["https://allmizan.live", "https://dev.allmizan.live"]'
     volumes:
       - /srv/data/mizan/uploads:/data/uploads
+      - /srv/data/mizan/private_uploads:/data/private_uploads
     ports:
       - "127.0.0.1:18000:8000"   # checks from the host only
     depends_on:

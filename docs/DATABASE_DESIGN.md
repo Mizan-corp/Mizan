@@ -56,7 +56,7 @@ Besides the ERP's own records, every workspace has (all tenant-scoped, with RLS)
 | `ext_records` | Records of every community module's entities, as JSONB validated against the entity |
 | `community_webhook_deliveries` | Webhooks to modules' servers: payload, status, attempts, next attempt, last error |
 | `workspace_themes` | Theme packages installed in the workspace (ADR-010), with their font files; the chosen theme is `tenants.palette["name"]` |
-| `workspace_files` | Every uploaded file and its size (#114) |
+| `workspace_files` | Every uploaded file and its size (#114); private files (kinds `clinic_signature`, `clinic_image`) have a `private:…` key in `url` (PRIVATE_UPLOAD_DIR, never served by URL) |
 | `clinic_care_team` | A patient's care team (#113): `patient_id` → `clinic_patients`, `user_id` → `users`, `role` (`attending`, `consultant`, `nurse`, `other`), `added_by`, `created_at`, `ended_at` (members are ended, not deleted); one active membership per (patient, user) |
 | `clinic_access_grants` | Break-glass grants (#113): patient, user, `reason`, `starts_at`, `expires_at` (60 minutes), `revoked_at`, `reviewed_by`/`reviewed_at`/`review_note` |
 | `clinic_access_log` | One row per read of clinical data (#113): `user_id`, `user_name`, `patient_id` (`NULL` for a list), `resource` (`patient`, `encounters`, `prescriptions`, `lab_orders`, `referrals`, `referral`, …), `how` (`all`, `setting`, `team`, `break_glass`, `queue`, `referral`), `rows`; no foreign key to the patient, so it outlives the record |
@@ -64,6 +64,7 @@ Besides the ERP's own records, every workspace has (all tenant-scoped, with RLS)
 | `clinic_rooms` | Examination rooms (#36): `name`, `department_id` (→ `clinic_departments`, nullable: shared), `active` |
 | `clinic_doctor_schedules` | Doctors' weekly rosters (#36): `doctor_user_id` → `users`, `department_id`, `room_id`, `weekday` (0 = Monday … 6 = Sunday), `start_time`/`end_time` (`HH:MM`), `slot_minutes`, `active`; rows of the same doctor or room don't overlap |
 | `clinic_referrals` | Referrals (#45, v86): `referral_ref`, `patient_id`, `from_doctor_user_id`/`from_doctor_name`, `to_department_id` → `clinic_departments`, `to_doctor_user_id` (nullable: any doctor on the department's roster), `priority` (`routine`, `urgent`, `emergency`), `reason`, `triage_notes`, `status` (`pending`, `accepted`, `declined`, `completed`), `encounter_id`, `responded_by`/`responded_at`/`response_note`; accepting puts the receiving doctor on the care team |
+| `clinic_consent_forms` | Signed consents (#43, v88): `consent_ref`, `patient_id`, `encounter_id`, `kind` (`procedure`, `surgery`, `data_sharing`, `other`), `title`, `body`, `signer_name`, `signer_relation` (`self`, `guardian`, `parent`, `spouse`, `other`), `signature_path` (the PNG's key in the private file store, never a URL or base64), `signed_at`, `witness_user_id`/`witness_name` (the clinician), `revoked_at`/`revoked_by`/`revoke_reason` (withdrawn, never deleted) |
 | `activity_changes` | Owners' requests to change the workspace's activity and the Mizan team's decisions (#107); read across workspaces by the owner and admin APIs with `app.bypass` |
 
 ### Money documents in sales, POS and stock (ADR-014 D4, D5; migration `v80`)

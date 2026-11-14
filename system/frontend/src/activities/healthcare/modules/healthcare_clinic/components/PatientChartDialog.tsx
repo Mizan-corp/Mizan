@@ -1,20 +1,24 @@
 import { useState } from "react";
-import { Activity, FolderHeart } from "lucide-react";
+import { Activity, FileSignature, FolderHeart } from "lucide-react";
+import { useClinic } from "../ClinicContext";
 import type { ChartSection, PatientRef } from "../types";
 import { ClinicModal } from "./ClinicModal";
+import ConsentsPanel from "./ConsentsPanel";
 import VitalsPanel from "./VitalsPanel";
 
 const SECTIONS: { id: ChartSection; label: string; icon: React.ReactNode }[] = [
   { id: "vitals", label: "العلامات الحيوية", icon: <Activity className="size-3.5" /> },
+  { id: "consents", label: "نماذج الموافقة", icon: <FileSignature className="size-3.5" /> },
 ];
 
 // The patient's chart: clinical sections read with access to the record (#113), each logged.
-export default function PatientChartDialog({ patient, section = "vitals", onClose }: {
+export default function PatientChartDialog({ patient, section = "vitals", encounterId, onClose }: {
   patient: PatientRef;
   section?: ChartSection;
   encounterId?: string;
   onClose: () => void;
 }) {
+  const { perms } = useClinic();
   const [active, setActive] = useState<ChartSection>(section);
   return (
     <ClinicModal title={`الملف السريري — ${patient.full_name}`} icon={<FolderHeart className="size-5 text-primary" />}
@@ -30,6 +34,7 @@ export default function PatientChartDialog({ patient, section = "vitals", onClos
         ))}
       </div>
       {active === "vitals" && <VitalsPanel patientId={patient.id} />}
+      {active === "consents" && <ConsentsPanel patientId={patient.id} encounterId={encounterId} canSign={perms.clinician} />}
     </ClinicModal>
   );
 }

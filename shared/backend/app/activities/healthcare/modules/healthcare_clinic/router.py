@@ -43,6 +43,8 @@ from app.activities.healthcare.modules.healthcare_clinic.schemas import (
 )
 from app.activities.healthcare.modules.healthcare_clinic import scheduling as sched
 from app.activities.healthcare.modules.healthcare_clinic.routes import charts as chart_routes
+from app.activities.healthcare.modules.healthcare_clinic.routes import consents as consent_routes
+from app.activities.healthcare.modules.healthcare_clinic.routes import media as media_routes
 from app.activities.healthcare.modules.healthcare_clinic.routes import referrals as referral_routes
 from app.activities.healthcare.modules.healthcare_clinic.routes import scheduling as scheduling_routes
 from app.activities.healthcare.modules.healthcare_clinic import service as access
@@ -2073,3 +2075,11 @@ async def seed_clinic_data(
 router.include_router(scheduling_routes.router)
 router.include_router(referral_routes.router)
 router.include_router(chart_routes.router)
+router.include_router(consent_routes.router)
+
+# The module's router: the guarded /clinic routes, plus the signed-link file route, which can't sit
+# behind the session guards (an <img> sends no Authorization header; routes/media.py checks instead).
+clinic_router = router
+router = APIRouter()
+router.include_router(clinic_router)
+router.include_router(media_routes.router)

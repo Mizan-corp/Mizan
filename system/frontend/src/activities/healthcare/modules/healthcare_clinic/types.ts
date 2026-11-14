@@ -282,5 +282,26 @@ export interface VitalsHistory {
   glucose_labs: { order_ref: string; test_name: string; value: number; unit: string; date: string }[];
 }
 
+export type ConsentKind = "procedure" | "surgery" | "data_sharing" | "other";
+export type SignerRelation = "self" | "guardian" | "parent" | "spouse" | "other";
+
+/** GET /clinic/patients/{id}/consents (#43). The signature is fetched through a signed link. */
+export interface Consent {
+  id: string;
+  consent_ref: string;
+  patient_id: string;
+  encounter_id: string | null;
+  kind: ConsentKind;
+  title: string;
+  body: string;
+  signer_name: string;
+  signer_relation: SignerRelation;
+  signed_at: string;
+  witness_name: string;
+  revoked_at: string | null;
+  revoke_reason: string;
+  status: "active" | "revoked";
+}
+
 /** The patient chart dialog's sections. */
-export type ChartSection = "vitals";
+export type ChartSection = "vitals" | "consents";
