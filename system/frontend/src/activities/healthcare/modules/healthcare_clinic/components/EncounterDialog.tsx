@@ -7,6 +7,7 @@ import type { PatientRef } from "../types";
 import { ClinicModal, ModalActions } from "./ClinicModal";
 import PatientPicker from "./PatientPicker";
 import { labelClass } from "./formStyles";
+import { localToday } from "../dates";
 
 const VITALS = [
   { key: "bp_systolic", label: "ضغط الدم الانقباضي", placeholder: "120" },
@@ -21,7 +22,7 @@ export default function EncounterDialog({ patient, onClose }: { patient?: Patien
   const [form, setForm] = useState({
     doctor_name: "د. هشام الشناوي",
     department: "الباطنة العامة",
-    encounter_date: "2026-11-05",
+    encounter_date: localToday(),
     bp_systolic: "120",
     bp_diastolic: "80",
     heart_rate: "75",

@@ -7,13 +7,14 @@ import type { PatientRef } from "../types";
 import { ClinicModal, ModalActions } from "./ClinicModal";
 import PatientPicker from "./PatientPicker";
 import { labelClass } from "./formStyles";
+import { localToday } from "../dates";
 
 // Issues an e-prescription to the pharmacy queue (POST /clinic/prescriptions, clinic:doctor).
 export default function PrescriptionDialog({ patient, onClose }: { patient?: PatientRef; onClose: () => void }) {
   const { run, busy } = useDialogMutation();
   const [form, setForm] = useState({
     doctor_name: "د. هشام الشناوي",
-    issue_date: "2026-11-05",
+    issue_date: localToday(),
     medication_name: "",
     dosage: "500mg",
     frequency: "قرص كل 12 ساعة",

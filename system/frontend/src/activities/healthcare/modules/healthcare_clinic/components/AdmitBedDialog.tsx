@@ -6,6 +6,7 @@ import { useDialogMutation } from "../useClinicActions";
 import type { Bed, PatientRef } from "../types";
 import { ClinicModal, ModalActions } from "./ClinicModal";
 import PatientPicker from "./PatientPicker";
+import { localToday } from "../dates";
 
 // Admits a patient to an available bed (POST /clinic/beds/{id}/admit, clinic:nurse or clinic:manage).
 export default function AdmitBedDialog({ bed, onClose }: { bed: Bed; onClose: () => void }) {
@@ -16,7 +17,7 @@ export default function AdmitBedDialog({ bed, onClose }: { bed: Bed; onClose: ()
     e.preventDefault();
     if (!picked) return;
     const ok = await run(
-      () => api.post(`/clinic/beds/${bed.id}/admit`, { patient_id: picked.id, patient_name: picked.full_name, admission_date: new Date().toISOString().slice(0, 10) }),
+      () => api.post(`/clinic/beds/${bed.id}/admit`, { patient_id: picked.id, patient_name: picked.full_name, admission_date: localToday() }),
       `تم تسكين المريض بالسرير ${bed.bed_code}`,
       "تعذر تسكين المريض على الخادم",
       ["beds", "summary"],

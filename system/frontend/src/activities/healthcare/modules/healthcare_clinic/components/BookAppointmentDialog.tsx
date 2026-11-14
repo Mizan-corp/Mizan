@@ -10,6 +10,7 @@ import type { Clinician, PatientRef } from "../types";
 import { ClinicModal, ModalActions } from "./ClinicModal";
 import { labelClass, selectClass } from "./formStyles";
 import PatientPicker from "./PatientPicker";
+import { localToday } from "../dates";
 
 // Books a consultation (POST /clinic/appointments); the chosen doctor joins the care team (#113).
 export default function BookAppointmentDialog({ patient, onClose }: { patient?: PatientRef; onClose: () => void }) {
@@ -18,7 +19,7 @@ export default function BookAppointmentDialog({ patient, onClose }: { patient?: 
   const [form, setForm] = useState({
     doctor_user_id: "",
     department: "الباطنة العامة",
-    appointment_date: "2026-11-05",
+    appointment_date: localToday(),
     time_slot: "11:30 AM",
     consultation_fee: "350",
     chief_complaint: "",
