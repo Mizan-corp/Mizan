@@ -3357,6 +3357,15 @@ MIGRATIONS = [
         ALTER TABLE hr_payroll_periods ADD COLUMN IF NOT EXISTS expense_id uuid REFERENCES expenses(id);
         ALTER TABLE hr_payroll_periods ADD COLUMN IF NOT EXISTS paid_amount numeric(14,2);
     """),
+    # ADR-014 D4 (clinic): a clinic invoice is one sale, made at its first payment; payments are
+    # payment lines on it. Before, every payment made a new sale with the same invoice number.
+    ("v82_clinic_invoice_sale", """
+        ALTER TABLE clinic_invoices ADD COLUMN IF NOT EXISTS sale_id uuid REFERENCES sales(id) ON DELETE SET NULL;
+        UPDATE clinic_invoices ci SET sale_id = s.id
+        FROM (SELECT DISTINCT ON (tenant_id, invoice_number) id, tenant_id, invoice_number
+              FROM sales ORDER BY tenant_id, invoice_number, created_at) s
+        WHERE ci.sale_id IS NULL AND s.tenant_id = ci.tenant_id AND s.invoice_number = ci.invoice_ref;
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

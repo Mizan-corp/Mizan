@@ -364,6 +364,41 @@ async def test_p0_1_sales_and_gl_posting_on_invoice_payment():
 
 
 @pytest.mark.asyncio
+async def test_invoice_paid_in_parts_is_one_sale_with_payment_lines():
+    """ADR-014 D4: a clinic invoice is one sale; each payment is a payment line on it."""
+    env = await _create_test_env()
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        patient_id = (await c.post("/clinic/patients", headers=env["doc_headers"], json={
+            "patient_mrn": f"MRN-{uuid.uuid4().hex[:6].upper()}", "full_name": "منى سعيد", "national_id": "29001010101111",
+            "phone": "0100000001", "gender": "أنثى", "date_of_birth": "1990-01-01", "copay_percent": 0.0,
+        })).json()["id"]
+        inv = (await c.post("/clinic/invoices", headers=env["doc_headers"], json={
+            "patient_id": patient_id, "patient_name": "منى سعيد",
+            "charges": [{"description": "كشف", "amount": 300.0}], "copay_percent": 0.0,
+        })).json()
+
+        for bad in (0, 301):
+            r = await c.post(f"/clinic/invoices/{inv['id']}/pay", headers=env["doc_headers"],
+                             json={"amount": bad, "payment_method": "cash"})
+            assert r.status_code == 400, r.text
+        r = await c.post(f"/clinic/invoices/{inv['id']}/pay", headers=env["doc_headers"], json={"amount": 100, "payment_method": "cash"})
+        assert r.status_code == 200 and r.json()["status"] == "partial"
+        r = await c.post(f"/clinic/invoices/{inv['id']}/pay", headers=env["doc_headers"], json={"amount": 200, "payment_method": "card"})
+        assert r.status_code == 200 and r.json()["status"] == "paid"
+        r = await c.post(f"/clinic/invoices/{inv['id']}/pay", headers=env["doc_headers"], json={"amount": 1, "payment_method": "cash"})
+        assert r.status_code == 400, "nothing is left to pay"
+
+    async with AsyncSessionLocal() as session:
+        sales = (await session.execute(select(Sale).where(
+            Sale.tenant_id == uuid.UUID(env["tenant_id"]), Sale.invoice_number == inv["invoice_ref"]))).scalars().all()
+        assert len(sales) == 1
+        assert float(sales[0].net_total) == 300.0 and float(sales[0].paid_amount) == 300.0
+        lines = (await session.execute(text(
+            "SELECT method, amount FROM sale_payments WHERE sale_id = :s ORDER BY amount"), {"s": sales[0].id})).all()
+        assert [(m, float(a)) for m, a in lines] == [("cash", 100.0), ("card", 200.0)]
+
+
+@pytest.mark.asyncio
 async def test_p0_1_p0_5_bed_admit_discharge_and_stay_billing():
     """Verify Inpatient Bed admit/discharge, referential integrity (patient_id FK), and stay billing."""
     env = await _create_test_env()

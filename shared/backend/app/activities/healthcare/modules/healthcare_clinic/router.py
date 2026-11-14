@@ -17,6 +17,8 @@ from app.db.base import get_db
 from app.dependencies import get_current_user
 from app.activities.general.modules.inventory.models.product import Category, Product
 from app.activities.general.modules.sales.models.sale import Sale, SaleItem, SaleMode, SaleStatus
+from app.activities.general.modules.sales.services.sales import _add_payment as add_sale_payment
+from app.activities.general.modules.pos.models import DrawerTransaction, DrawerTxType, Shift, ShiftStatus
 from app.platform.auth.models.user import User
 from app.activities.general.modules.inventory.models.warehouse import Warehouse
 from app.platform.audit.service import log as audit_log
@@ -305,17 +307,44 @@ async def _ensure_insurance_claim(
     return claim
 
 
-async def _post_invoice_to_sales(
+async def _record_invoice_payment(
     db: AsyncSession,
     tenant_id: str,
     inv: ClinicInvoice,
+    amount: Decimal,
+    method: str,
     current_user: User,
 ) -> Sale | None:
-    """Post payment of a ClinicInvoice to the platform Sales/GL table for finance visibility."""
+    """A clinic invoice is one sale (the patient's share), made at its first payment; every payment
+    is a payment line on it, and cash goes into the cashier's open drawer as at the POS (ADR-014 D4)."""
     try:
         t_uuid = uuid.UUID(str(tenant_id))
     except Exception:
         return None
+
+    sale = await db.get(Sale, inv.sale_id) if inv.sale_id else None
+    if sale is None:
+        sale = await _invoice_sale(db, t_uuid, inv, current_user)
+        inv.sale_id = sale.id
+    sale.paid_amount = (sale.paid_amount or Decimal("0")) + amount
+    sale.last_paid_at = datetime.now(UTC)
+    await add_sale_payment(db, sale.id, method, amount)
+    if method == "cash":
+        shift = (await db.execute(
+            select(Shift).where(
+                Shift.warehouse_id == sale.warehouse_id, Shift.cashier_id == current_user.id,
+                Shift.status == ShiftStatus.open,
+            ).order_by(Shift.started_at.desc()).limit(1)
+        )).scalar_one_or_none()
+        if shift:
+            db.add(DrawerTransaction(shift_id=shift.id, type=DrawerTxType.sale, amount=amount, ref_id=sale.id,
+                                     created_by=current_user.id, note=f"سداد فاتورة {inv.invoice_ref}"))
+            if not sale.shift_id:
+                sale.shift_id = shift.id
+    return sale
+
+
+async def _invoice_sale(db: AsyncSession, t_uuid: uuid.UUID, inv: ClinicInvoice, current_user: User) -> Sale:
 
     # Find tenant warehouse
     wh = (await db.execute(
@@ -360,7 +389,7 @@ async def _post_invoice_to_sales(
         total=Decimal(str(round(inv.total, 2))),
         discount_amount=Decimal("0.0"),
         net_total=Decimal(str(round(inv.patient_amount, 2))),
-        paid_amount=Decimal(str(round(inv.paid_amount, 2))),
+        paid_amount=Decimal("0"),
         payment_method=inv.payment_method or "cash",
         notes=f"سداد فاتورة عيادات/مستشفى — المريض: {inv.patient_name} — {inv.invoice_ref}",
     )
@@ -1877,6 +1906,12 @@ async def pay_invoice(
     if not inv:
         raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
 
+    remaining = round(inv.patient_amount - inv.paid_amount, 2)
+    if payload.amount <= 0:
+        raise HTTPException(status_code=400, detail="المبلغ المدفوع يجب أن يكون أكبر من صفر")
+    if payload.amount > remaining + 0.001:
+        raise HTTPException(status_code=400, detail=f"المبلغ أكبر من المتبقي على الفاتورة ({remaining})")
+
     inv.paid_amount = round(inv.paid_amount + payload.amount, 2)
     inv.payment_method = payload.payment_method
     inv.paid_by = current_user.full_name
@@ -1887,8 +1922,8 @@ async def pay_invoice(
     elif inv.paid_amount > 0:
         inv.status = "partial"
 
-    # Post to ERP sales/ledger
-    await _post_invoice_to_sales(db, tenant_id, inv, current_user)
+    await _record_invoice_payment(db, tenant_id, inv, Decimal(str(round(payload.amount, 2))),
+                                  payload.payment_method or "cash", current_user)
 
     await audit_log(
         db,
