@@ -7,11 +7,22 @@ a permission their acting role doesn't hold. Positions (job titles) describe peo
 nothing. Details: [`USER_ROLES_AND_PERMISSIONS.md`](USER_ROLES_AND_PERMISSIONS.md).
 
 ## 2. Clinical Isolation
-- Medical records (EMR, diagnoses, prescriptions) are behind clinical permissions held only by
-  clinical roles (`doctor`, `nurse`, `lab_tech`, `pharmacist`); administrative and reception roles
-  don't hold them.
-- An emergency **break-glass** override (time-limited, notified, audited) is designed but not
-  built; its unenforced endpoints were removed (#94 follow-up).
+- Medical records are enforced **per patient** on the server, in the clinic module (`/clinic/*`,
+  #113): a doctor or nurse reads and writes only the records of patients whose care team they are
+  on, unless they hold `clinic:all_patients` or the workspace sets `patient_access` to `all`.
+  With `?patient_id` a refused read is a 403; lists return only reachable patients' rows. Writes
+  (encounters, prescriptions, lab orders, and changing a patient's allergies, chronic conditions
+  or blood group) need the same access.
+- Reception and billing never receive clinical fields: the patient list and record are returned
+  with allergies, chronic conditions and blood group set to `null` and `clinical_access: false`.
+- Pharmacy and lab work queues: non-clinicians holding `clinic:dispense` / `clinic:lab` see every
+  prescription / lab order (logged as `queue`).
+- **Break-glass**: time-limited (60 minutes), one patient, mandatory reason, audited, notified to
+  `clinic:privacy` holders, reviewable and revocable (`clinic_access_grants`).
+- Every read that returns clinical data writes one row to `clinic_access_log` (user, patient or
+  `NULL` for a list, resource, how access was granted, row count); `clinic:privacy` reads it.
+- Not covered: the 24 prototype `/healthcare/*` screens (HLT-01..24) have their own endpoints
+  without these checks; they are previews, not the clinic's records.
 
 ## 3. Cryptographic & Data Protection Controls
 - Passwords hashed with bcrypt (per-password salt).

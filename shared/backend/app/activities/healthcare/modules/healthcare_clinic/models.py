@@ -4,8 +4,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, ForeignKey, String, Text, func
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Boolean, DateTime, Float, Index, Integer, ForeignKey, String, Text, func, text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.platform.tenancy.context import TenantScoped
@@ -44,6 +44,7 @@ class ClinicAppointment(TenantScoped, Base):
     patient_id: Mapped[str] = mapped_column(String(36), ForeignKey("clinic_patients.id", ondelete="CASCADE"), index=True)
     patient_name: Mapped[str] = mapped_column(String(128))
     doctor_name: Mapped[str] = mapped_column(String(128), index=True)
+    doctor_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     department: Mapped[str] = mapped_column(String(64))  # باطنة، أطفال، عظام، جراحة، جلدية
     appointment_date: Mapped[str] = mapped_column(String(32))
     time_slot: Mapped[str] = mapped_column(String(32))  # 10:30 AM
@@ -69,6 +70,7 @@ class ClinicEncounter(TenantScoped, Base):
     patient_id: Mapped[str] = mapped_column(String(36), ForeignKey("clinic_patients.id", ondelete="CASCADE"), index=True)
     patient_name: Mapped[str] = mapped_column(String(128))
     doctor_name: Mapped[str] = mapped_column(String(128))
+    doctor_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     department: Mapped[str] = mapped_column(String(64))
     encounter_date: Mapped[str] = mapped_column(String(32))
     bp_systolic: Mapped[int] = mapped_column(Integer, default=120)
@@ -96,6 +98,7 @@ class ClinicPrescription(TenantScoped, Base):
     patient_id: Mapped[str] = mapped_column(String(36), ForeignKey("clinic_patients.id", ondelete="CASCADE"), index=True)
     patient_name: Mapped[str] = mapped_column(String(128))
     doctor_name: Mapped[str] = mapped_column(String(128))
+    doctor_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     issue_date: Mapped[str] = mapped_column(String(32))
     medication_name: Mapped[str] = mapped_column(String(128))
     dosage: Mapped[str] = mapped_column(String(64))  # e.g. 500mg
@@ -121,6 +124,7 @@ class ClinicLabOrder(TenantScoped, Base):
     patient_id: Mapped[str] = mapped_column(String(36), ForeignKey("clinic_patients.id", ondelete="CASCADE"), index=True)
     patient_name: Mapped[str] = mapped_column(String(128))
     doctor_name: Mapped[str] = mapped_column(String(128))
+    doctor_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     test_name: Mapped[str] = mapped_column(String(128))  # CBC, صورة دم كاملة, أشعة سينية الصدر
     category: Mapped[str] = mapped_column(String(64))  # مختبر / أشعة
     specimen_barcode: Mapped[str] = mapped_column(String(64), index=True)
@@ -204,3 +208,50 @@ class ClinicInsuranceClaim(TenantScoped, Base):
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[str] = mapped_column(Text, default="")
+
+
+class ClinicCareTeam(TenantScoped, Base):
+    """The clinicians caring for a patient: they read and write the patient's clinical record (#113)."""
+    __tablename__ = "clinic_care_team"
+    __table_args__ = (
+        Index("ux_clinic_care_team_active", "tenant_id", "patient_id", "user_id", unique=True, postgresql_where=text("ended_at IS NULL")),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    patient_id: Mapped[str] = mapped_column(String(36), ForeignKey("clinic_patients.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(16), default="attending", server_default="attending")  # attending, consultant, nurse, other
+    added_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ClinicAccessGrant(TenantScoped, Base):
+    """Break-glass: a clinician outside the care team opens one patient's record for a short window,
+    with a reason; the privacy officer reviews it (#113)."""
+    __tablename__ = "clinic_access_grants"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    patient_id: Mapped[str] = mapped_column(String(36), ForeignKey("clinic_patients.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    reason: Mapped[str] = mapped_column(Text)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ClinicAccessLog(TenantScoped, Base):
+    """One row per read of clinical data: who, which patient (none for a list), how access was granted (#113)."""
+    __tablename__ = "clinic_access_log"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    user_name: Mapped[str] = mapped_column(String(128), default="", server_default="")
+    patient_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    resource: Mapped[str] = mapped_column(String(16))  # patient, encounters, prescriptions, lab_orders
+    how: Mapped[str] = mapped_column(String(16))  # all, team, break_glass, queue, setting
+    rows: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)

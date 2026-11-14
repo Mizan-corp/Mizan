@@ -3195,6 +3195,81 @@ MIGRATIONS = [
     ("v78_owner_email_log_unique", """
         CREATE UNIQUE INDEX IF NOT EXISTS owner_email_log_kind_ref_key ON owner_email_log (kind, ref);
     """),
+    # Patient-level clinical access (#113): the clinicians on a patient's care team read the record,
+    # others only through a logged, reviewed break-glass grant; every clinical read is logged.
+    ("v79_clinic_patient_access", """
+        ALTER TABLE clinic_appointments ADD COLUMN IF NOT EXISTS doctor_user_id uuid REFERENCES users(id) ON DELETE SET NULL;
+        ALTER TABLE clinic_encounters ADD COLUMN IF NOT EXISTS doctor_user_id uuid REFERENCES users(id) ON DELETE SET NULL;
+        ALTER TABLE clinic_prescriptions ADD COLUMN IF NOT EXISTS doctor_user_id uuid REFERENCES users(id) ON DELETE SET NULL;
+        ALTER TABLE clinic_lab_orders ADD COLUMN IF NOT EXISTS doctor_user_id uuid REFERENCES users(id) ON DELETE SET NULL;
+        CREATE INDEX IF NOT EXISTS ix_clinic_appointments_doctor_user_id ON clinic_appointments (doctor_user_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_encounters_doctor_user_id ON clinic_encounters (doctor_user_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_prescriptions_doctor_user_id ON clinic_prescriptions (doctor_user_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_lab_orders_doctor_user_id ON clinic_lab_orders (doctor_user_id);
+        CREATE TABLE IF NOT EXISTS clinic_care_team (
+            id varchar(36) PRIMARY KEY,
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            patient_id varchar(36) NOT NULL REFERENCES clinic_patients(id) ON DELETE CASCADE,
+            user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            role varchar(16) NOT NULL DEFAULT 'attending',
+            added_by uuid,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            ended_at timestamptz
+        );
+        CREATE INDEX IF NOT EXISTS ix_clinic_care_team_tenant_id ON clinic_care_team (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_care_team_patient_id ON clinic_care_team (patient_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_care_team_user_id ON clinic_care_team (user_id);
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_clinic_care_team_active ON clinic_care_team (tenant_id, patient_id, user_id) WHERE ended_at IS NULL;
+        CREATE TABLE IF NOT EXISTS clinic_access_grants (
+            id varchar(36) PRIMARY KEY,
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            patient_id varchar(36) NOT NULL REFERENCES clinic_patients(id) ON DELETE CASCADE,
+            user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            reason text NOT NULL,
+            starts_at timestamptz NOT NULL DEFAULT now(),
+            expires_at timestamptz NOT NULL,
+            revoked_at timestamptz,
+            reviewed_by uuid,
+            reviewed_at timestamptz,
+            review_note text
+        );
+        CREATE INDEX IF NOT EXISTS ix_clinic_access_grants_tenant_id ON clinic_access_grants (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_access_grants_patient_id ON clinic_access_grants (patient_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_access_grants_user_id ON clinic_access_grants (user_id);
+        CREATE TABLE IF NOT EXISTS clinic_access_log (
+            id varchar(36) PRIMARY KEY,
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            user_id uuid,
+            user_name varchar(128) NOT NULL DEFAULT '',
+            patient_id varchar(36),
+            resource varchar(16) NOT NULL,
+            how varchar(16) NOT NULL,
+            rows integer NOT NULL DEFAULT 0,
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_clinic_access_log_tenant_id ON clinic_access_log (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_access_log_user_id ON clinic_access_log (user_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_access_log_patient_id ON clinic_access_log (patient_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_access_log_created_at ON clinic_access_log (created_at);
+        ALTER TABLE clinic_care_team ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE clinic_care_team FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON clinic_care_team;
+        CREATE POLICY tenant_isolation ON clinic_care_team
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        ALTER TABLE clinic_access_grants ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE clinic_access_grants FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON clinic_access_grants;
+        CREATE POLICY tenant_isolation ON clinic_access_grants
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        ALTER TABLE clinic_access_log ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE clinic_access_log FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON clinic_access_log;
+        CREATE POLICY tenant_isolation ON clinic_access_log
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
+    # Existing clinics keep access to their patients: records whose doctor_name is exactly an active
+    # user's name in the workspace are linked to that user, who joins the patient's care team.
+    ("v79b_clinic_care_team_backfill", "python:app.activities.healthcare.modules.healthcare_clinic.migrate:backfill_care_team"),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

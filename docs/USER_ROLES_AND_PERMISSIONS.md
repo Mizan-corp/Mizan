@@ -22,10 +22,31 @@ One permission system (ADR-006 phase 3, `shared/backend/app/platform/permissions
 
 ## 2. Clinical records
 
-Clinical roles (`doctor`, `nurse`, `lab_tech`, `pharmacist`) are marked `is_clinical`; clinical
-screens and records require clinical permissions that non-clinical roles don't hold. An
-emergency "break-glass" override was designed but isn't built (its unused endpoints were
-removed in #94); until it is, access to clinical records is only through clinical roles.
+Clinical roles (`doctor`, `nurse`, `lab_tech`, `pharmacist`) are marked `is_clinical`. Access to a
+patient's clinical record (encounters, diagnoses, vitals, notes, prescriptions, lab orders,
+allergies, chronic conditions, blood group) is decided **per patient** (#113,
+`healthcare_clinic/service.py`):
+
+| Who | Reads / writes clinical data of |
+|---|---|
+| `clinic:doctor` or `clinic:nurse` | The patients whose **care team** they are on (`clinic_care_team`), plus any patient opened by **break-glass** for 60 minutes |
+| … with the module setting `patient_access` = `all` (small clinics) | Every patient |
+| `clinic:all_patients` | Every patient |
+| `clinic:dispense` without `clinic:doctor`/`clinic:nurse` (pharmacist) | Every prescription: the pharmacy queue |
+| `clinic:lab` without `clinic:doctor`/`clinic:nurse` (lab technician) | Every lab order: the lab queue |
+| Anyone else in the clinic (reception, billing) | No clinical data: the patient list shows demographics with clinical fields hidden; appointments, invoices and claims as before |
+
+- The umbrella `clinic` permission does **not** open clinical records.
+- A doctor joins the care team when an appointment is booked with them (`doctor_user_id`) or
+  when they register the patient; `clinic:manage` holders add and remove members. Nobody can put
+  **themselves** on the team of a patient they don't already reach (that is what break-glass is
+  for).
+- **Break-glass** (`clinic:doctor`/`clinic:nurse`): a reason of at least 10 characters opens one
+  patient for 60 minutes; it is audited and notified to `clinic:privacy` holders.
+- `clinic:privacy` (the privacy officer) reads the clinical access log and reviews or revokes
+  break-glass grants (the clinic's «الخصوصية والوصول» tab).
+- Standard roles: `manager` holds `clinic:all_patients` and `clinic:privacy`; `admin` holds every
+  permission; doctors and nurses hold neither. Workspaces' own roles get them only when granted.
 
 ## 3. Permissions from the extension platform
 

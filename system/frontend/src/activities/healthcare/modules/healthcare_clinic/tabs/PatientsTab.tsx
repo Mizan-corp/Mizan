@@ -9,9 +9,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/kit/table";
-import { AlertCircle, UserPlus, Users } from "lucide-react";
+import { useState } from "react";
+import { AlertCircle, Lock, ShieldAlert, UserPlus, Users, UsersRound } from "lucide-react";
 import { sound } from "@/lib/sound";
+import { useAuth } from "@/stores/auth";
 import { useClinic } from "../ClinicContext";
+import BreakGlassDialog from "../components/BreakGlassDialog";
+import CareTeamDialog from "../components/CareTeamDialog";
+
+type PatientRef = { id: string; full_name: string };
 
 export default function PatientsTab() {
   const c = useClinic();
@@ -19,6 +25,10 @@ export default function PatientsTab() {
     filteredPatients, setIsPatientModalOpen, setIsBookingOpen,
     setBookingForm, setIsRxModalOpen, setRxForm, bookingForm, rxForm,
   } = c;
+  const can = useAuth((s) => s.can);
+  const clinician = can("clinic:doctor|clinic:nurse");
+  const [breakGlassFor, setBreakGlassFor] = useState<PatientRef | null>(null);
+  const [careTeamFor, setCareTeamFor] = useState<PatientRef | null>(null);
   return (
     <Card className="border-border/70 overflow-hidden shadow-xs bg-card/80">
       <div className="p-4 border-b border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/10">
@@ -59,7 +69,19 @@ export default function PatientsTab() {
           {filteredPatients.map((pat: any) => (
             <TableRow key={pat.id} className="hover:bg-primary/[0.03] transition-colors border-b border-border/40">
               <TableCell>
-                <div className="font-bold text-foreground text-xs">{pat.full_name}</div>
+                <div className="font-bold text-foreground text-xs flex items-center gap-1.5">
+                  {pat.full_name}
+                  {!pat.clinical_access && (
+                    <span title="الملف الطبي مقيد: لست ضمن فريق رعاية المريض" aria-label="الملف الطبي مقيد">
+                      <Lock className="size-3 text-muted-foreground" />
+                    </span>
+                  )}
+                  {pat.access === "break_glass" && (
+                    <Badge variant="outline" className="text-[10px] border-destructive/40 text-destructive-ink bg-destructive/10">
+                      وصول طارئ
+                    </Badge>
+                  )}
+                </div>
                 <Badge variant="outline" className="num text-[10px] mt-0.5 text-primary border-primary/30 bg-primary/5">
                   {pat.patient_mrn}
                 </Badge>
@@ -69,17 +91,30 @@ export default function PatientsTab() {
                 <div className="num text-[11px] text-muted-foreground">{pat.national_id}</div>
               </TableCell>
               <TableCell className="text-center">
-                <span className="px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 text-xs font-bold">
-                  {pat.blood_group}
-                </span>
+                {pat.clinical_access ? (
+                  <span className="px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 text-xs font-bold">
+                    {pat.blood_group}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-muted-foreground">—</span>
+                )}
                 <div className="num text-[11px] text-muted-foreground mt-0.5">{pat.date_of_birth} ({pat.gender})</div>
               </TableCell>
               <TableCell>
-                <div className="text-xs text-destructive-ink font-medium flex items-center gap-1">
-                  <AlertCircle className="size-3 shrink-0" />
-                  {pat.allergies}
-                </div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">{pat.chronic_conditions}</div>
+                {pat.clinical_access ? (
+                  <>
+                    <div className="text-xs text-destructive-ink font-medium flex items-center gap-1">
+                      <AlertCircle className="size-3 shrink-0" />
+                      {pat.allergies}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">{pat.chronic_conditions}</div>
+                  </>
+                ) : (
+                  <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                    <Lock className="size-3 shrink-0" />
+                    بيانات سريرية مقيدة
+                  </div>
+                )}
               </TableCell>
               <TableCell>
                 <div className="text-xs font-medium text-foreground">{pat.insurance_provider}</div>
@@ -88,7 +123,7 @@ export default function PatientsTab() {
                 </div>
               </TableCell>
               <TableCell className="text-center">
-                <div className="flex items-center justify-center gap-1">
+                <div className="flex flex-wrap items-center justify-center gap-1">
                   <Button
                     size="sm"
                     variant="outline"
@@ -107,6 +142,28 @@ export default function PatientsTab() {
                   <Button
                     size="sm"
                     variant="outline"
+                    onClick={() => setCareTeamFor({ id: pat.id, full_name: pat.full_name })}
+                    aria-label={`فريق رعاية ${pat.full_name}`}
+                    className="text-[10px] h-7 px-2 border-primary/30 text-foreground hover:bg-primary/5 gap-1"
+                  >
+                    <UsersRound className="size-3" />
+                    الفريق
+                  </Button>
+                  {clinician && !pat.clinical_access && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => setBreakGlassFor({ id: pat.id, full_name: pat.full_name })}
+                      className="text-[10px] h-7 px-2 gap-1"
+                    >
+                      <ShieldAlert className="size-3" />
+                      وصول طارئ
+                    </Button>
+                  )}
+                  {pat.clinical_access && (
+                  <Button
+                    size="sm"
+                    variant="outline"
                     onClick={() => {
                       setRxForm({
                         ...rxForm,
@@ -119,12 +176,15 @@ export default function PatientsTab() {
                   >
                     روشتة e-Rx
                   </Button>
+                  )}
                 </div>
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
+      <BreakGlassDialog patient={breakGlassFor} onClose={() => setBreakGlassFor(null)} />
+      <CareTeamDialog patient={careTeamFor} onClose={() => setCareTeamFor(null)} />
     </Card>
   );
 }

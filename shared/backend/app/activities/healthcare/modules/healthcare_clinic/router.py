@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import date, datetime, UTC
+from datetime import date, datetime, timedelta, UTC
 from decimal import Decimal
 from typing import Any
 
@@ -20,8 +20,12 @@ from app.activities.general.modules.sales.models.sale import Sale, SaleItem, Sal
 from app.platform.auth.models.user import User
 from app.activities.general.modules.inventory.models.warehouse import Warehouse
 from app.platform.audit.service import log as audit_log
+from app.platform.permissions.access import can
 from app.activities.healthcare.modules.healthcare_clinic.models import (
+    ClinicAccessGrant,
+    ClinicAccessLog,
     ClinicAppointment,
+    ClinicCareTeam,
     ClinicEncounter,
     ClinicInpatientBed,
     ClinicInsuranceClaim,
@@ -30,6 +34,12 @@ from app.activities.healthcare.modules.healthcare_clinic.models import (
     ClinicPatient,
     ClinicPrescription,
 )
+from app.activities.healthcare.modules.healthcare_clinic.schemas import (
+    BreakGlassRequest,
+    BreakGlassReview,
+    CareTeamAdd,
+)
+from app.activities.healthcare.modules.healthcare_clinic import service as access
 
 
 async def get_current_tenant_id(user: User = Depends(get_current_user)) -> uuid.UUID:
@@ -128,8 +138,9 @@ class PatientUpdate(BaseModel):
 
 class AppointmentCreate(BaseModel):
     patient_id: str
-    patient_name: str
-    doctor_name: str
+    patient_name: str = ""
+    doctor_user_id: str | None = None
+    doctor_name: str = ""
     department: str
     appointment_date: str
     time_slot: str
@@ -458,6 +469,275 @@ async def get_clinic_summary(
     }
 
 
+# ─── Patient-level clinical access (#113) ───────────────────────────────────
+def _row(obj) -> dict[str, Any]:
+    return {c.key: getattr(obj, c.key) for c in obj.__mapper__.column_attrs}
+
+
+def _patient_out(patient: ClinicPatient, how: str | None) -> dict[str, Any]:
+    """The patient's demographics for everyone in the clinic; clinical fields only with access."""
+    out = _row(patient)
+    if not how:
+        for f in access.CLINICAL_FIELDS:
+            out[f] = None
+    out["clinical_access"] = bool(how)
+    out["access"] = how
+    return out
+
+
+async def _clinical_list(db: AsyncSession, user: User, model, resource: str, patient_id: str | None,
+                         queue_perm: str | None, filters: list, limit: int, offset: int) -> list:
+    """A clinical list: one patient's rows (with access), the rows of the patients the user reaches,
+    or a whole work queue (pharmacy, lab). Every read that returns rows is logged."""
+    query = select(model).where(model.tenant_id == user.tenant_id, *filters)
+    if queue_perm and access.queue_reader(user, queue_perm):
+        how = "queue"
+    elif patient_id:
+        how = await access.require_clinical_access(db, user, patient_id)
+    else:
+        how = await access.access_scope(db, user)
+        if how is None:
+            return []
+        if how == "team":
+            query = query.where(access.accessible_condition(user, model.patient_id))
+    if patient_id:
+        query = query.where(model.patient_id == patient_id)
+    rows = (await db.execute(query.order_by(model.created_at.desc()).offset(offset).limit(limit))).scalars().all()
+    if rows or patient_id:
+        await access.log_access(db, user, resource, how, patient_id, len(rows))
+    return list(rows)
+
+
+async def _get_patient_or_404(db: AsyncSession, tenant_id, patient_id: str) -> ClinicPatient:
+    patient = (await db.execute(
+        select(ClinicPatient).where(ClinicPatient.id == patient_id, ClinicPatient.tenant_id == tenant_id)
+    )).scalar_one_or_none()
+    if not patient:
+        raise HTTPException(status_code=404, detail="الملف الطبي للمريض غير موجود")
+    return patient
+
+
+def _require_privacy(user: User) -> None:
+    if not can(user, "clinic:privacy"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="لا تملك صلاحية مسؤول الخصوصية الطبية (clinic:privacy)")
+
+
+@router.get("/clinicians")
+async def list_clinicians(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Users of the workspace who act clinically (clinic:doctor or clinic:nurse), for booking and care teams."""
+    return await access.clinicians(db, current_user.tenant_id)
+
+
+@router.post("/patients/{patient_id}/break-glass")
+async def break_glass(
+    patient_id: str,
+    payload: BreakGlassRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not access.is_clinician(current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="الوصول الطارئ متاح للأطباء وطاقم التمريض فقط")
+    reason = payload.reason.strip()
+    if len(reason) < 10:
+        raise HTTPException(status_code=400, detail="اذكر سبب الوصول الطارئ بوضوح (10 أحرف على الأقل)")
+    patient = await _get_patient_or_404(db, current_user.tenant_id, patient_id)
+    now = datetime.now(UTC)
+    grant = ClinicAccessGrant(
+        tenant_id=current_user.tenant_id, patient_id=patient.id, user_id=current_user.id, reason=reason,
+        starts_at=now, expires_at=now + timedelta(minutes=access.BREAK_GLASS_MINUTES),
+    )
+    db.add(grant)
+    await db.flush()
+    await audit_log(
+        db, "clinic_access_grant", "break_glass", current_user.id, current_user.full_name, None,
+        {"grant_id": grant.id, "patient_id": patient.id, "reason": reason, "expires_at": grant.expires_at.isoformat()},
+        f"وصول طارئ إلى الملف الطبي للمريض {patient.full_name} — السبب: {reason}",
+    )
+    await access.notify_privacy_officers(
+        db, current_user.tenant_id, "وصول طارئ إلى ملف طبي",
+        f"{current_user.full_name} فتح الملف الطبي للمريض {patient.full_name} بالوصول الطارئ. السبب: {reason}",
+        {"grant_id": grant.id, "patient_id": patient.id},
+    )
+    await db.commit()
+    return {"id": grant.id, "patient_id": patient.id, "expires_at": grant.expires_at,
+            "detail": f"تم فتح الملف الطبي لمدة {access.BREAK_GLASS_MINUTES} دقيقة، ويُسجَّل الوصول ويُراجع"}
+
+
+@router.get("/patients/{patient_id}/care-team")
+async def list_care_team(
+    patient_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _get_patient_or_404(db, current_user.tenant_id, patient_id)
+    if not _has_clinic_perm(current_user, "clinic:manage"):
+        await access.require_clinical_access(db, current_user, patient_id)
+    rows = (await db.execute(
+        select(ClinicCareTeam, User.full_name, User.username)
+        .join(User, User.id == ClinicCareTeam.user_id)
+        .where(ClinicCareTeam.patient_id == patient_id, ClinicCareTeam.tenant_id == current_user.tenant_id,
+               ClinicCareTeam.ended_at.is_(None))
+        .order_by(ClinicCareTeam.created_at)
+    )).all()
+    return [{"id": m.id, "user_id": str(m.user_id), "full_name": name or username, "role": m.role,
+             "created_at": m.created_at} for m, name, username in rows]
+
+
+@router.post("/patients/{patient_id}/care-team")
+async def add_care_team_member(
+    patient_id: str,
+    payload: CareTeamAdd,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: User = Depends(require_clinic_manage),
+):
+    patient = await _get_patient_or_404(db, current_user.tenant_id, patient_id)
+    person = await access.clinician(db, current_user.tenant_id, payload.user_id)
+    await access.refuse_self_assignment(db, current_user, patient.id, person["id"])
+    member = await access.add_to_care_team(db, current_user.tenant_id, patient.id, uuid.UUID(person["id"]),
+                                           payload.role, current_user.id)
+    if not member:
+        raise HTTPException(status_code=409, detail="هذا المستخدم ضمن فريق رعاية المريض بالفعل")
+    await audit_log(
+        db, "clinic_care_team", "add_member", current_user.id, current_user.full_name, None,
+        {"patient_id": patient.id, "user_id": person["id"], "role": payload.role},
+        f"إضافة {person['full_name']} إلى فريق رعاية المريض {patient.full_name}",
+    )
+    await db.commit()
+    return {"id": member.id, "user_id": person["id"], "full_name": person["full_name"], "role": member.role,
+            "created_at": member.created_at}
+
+
+@router.delete("/patients/{patient_id}/care-team/{member_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_care_team_member(
+    patient_id: str,
+    member_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _: User = Depends(require_clinic_manage),
+):
+    patient = await _get_patient_or_404(db, current_user.tenant_id, patient_id)
+    member = (await db.execute(select(ClinicCareTeam).where(
+        ClinicCareTeam.id == member_id, ClinicCareTeam.patient_id == patient.id,
+        ClinicCareTeam.tenant_id == current_user.tenant_id, ClinicCareTeam.ended_at.is_(None),
+    ))).scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=404, detail="العضو غير موجود في فريق رعاية المريض")
+    member.ended_at = datetime.now(UTC)
+    await audit_log(
+        db, "clinic_care_team", "remove_member", current_user.id, current_user.full_name, None,
+        {"patient_id": patient.id, "user_id": str(member.user_id), "member_id": member.id},
+        f"إزالة عضو من فريق رعاية المريض {patient.full_name}",
+    )
+    await db.commit()
+
+
+@router.get("/access-log")
+async def list_access_log(
+    patient_id: str | None = None,
+    user_id: uuid.UUID | None = None,
+    since: datetime | None = None,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_privacy(current_user)
+    query = (
+        select(ClinicAccessLog, ClinicPatient.full_name)
+        .outerjoin(ClinicPatient, ClinicPatient.id == ClinicAccessLog.patient_id)
+        .where(ClinicAccessLog.tenant_id == current_user.tenant_id)
+    )
+    if patient_id:
+        query = query.where(ClinicAccessLog.patient_id == patient_id)
+    if user_id:
+        query = query.where(ClinicAccessLog.user_id == user_id)
+    if since:
+        query = query.where(ClinicAccessLog.created_at >= since)
+    total = await db.scalar(select(func.count()).select_from(query.subquery()))
+    rows = (await db.execute(query.order_by(ClinicAccessLog.created_at.desc()).offset(offset).limit(limit))).all()
+    return {"total": total or 0, "items": [{**_row(r), "patient_name": name} for r, name in rows]}
+
+
+@router.get("/break-glass")
+async def list_break_glass(
+    unreviewed: bool = False,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_privacy(current_user)
+    query = (
+        select(ClinicAccessGrant, ClinicPatient.full_name, User.full_name)
+        .join(ClinicPatient, ClinicPatient.id == ClinicAccessGrant.patient_id)
+        .join(User, User.id == ClinicAccessGrant.user_id)
+        .where(ClinicAccessGrant.tenant_id == current_user.tenant_id)
+    )
+    if unreviewed:
+        query = query.where(ClinicAccessGrant.reviewed_at.is_(None))
+    rows = (await db.execute(query.order_by(ClinicAccessGrant.starts_at.desc()).offset(offset).limit(limit))).all()
+    now = datetime.now(UTC)
+
+    def state(g: ClinicAccessGrant) -> str:
+        if g.revoked_at:
+            return "revoked"
+        return "active" if g.expires_at > now else "expired"
+
+    return [{**_row(g), "patient_name": patient_name, "user_name": user_name, "state": state(g)}
+            for g, patient_name, user_name in rows]
+
+
+async def _grant_or_404(db: AsyncSession, tenant_id, grant_id: str) -> ClinicAccessGrant:
+    grant = (await db.execute(select(ClinicAccessGrant).where(
+        ClinicAccessGrant.id == grant_id, ClinicAccessGrant.tenant_id == tenant_id,
+    ))).scalar_one_or_none()
+    if not grant:
+        raise HTTPException(status_code=404, detail="طلب الوصول الطارئ غير موجود")
+    return grant
+
+
+@router.post("/break-glass/{grant_id}/review")
+async def review_break_glass(
+    grant_id: str,
+    payload: BreakGlassReview,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_privacy(current_user)
+    grant = await _grant_or_404(db, current_user.tenant_id, grant_id)
+    grant.reviewed_by = current_user.id
+    grant.reviewed_at = datetime.now(UTC)
+    grant.review_note = payload.note.strip() or None
+    await audit_log(
+        db, "clinic_access_grant", "review", current_user.id, current_user.full_name, None,
+        {"grant_id": grant.id, "note": grant.review_note}, "مراجعة وصول طارئ إلى ملف طبي",
+    )
+    await db.commit()
+    return _row(grant)
+
+
+@router.post("/break-glass/{grant_id}/revoke")
+async def revoke_break_glass(
+    grant_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _require_privacy(current_user)
+    grant = await _grant_or_404(db, current_user.tenant_id, grant_id)
+    if not grant.revoked_at:
+        grant.revoked_at = datetime.now(UTC)
+        await audit_log(
+            db, "clinic_access_grant", "revoke", current_user.id, current_user.full_name, None,
+            {"grant_id": grant.id}, "إلغاء وصول طارئ إلى ملف طبي",
+        )
+        await db.commit()
+    return _row(grant)
+
+
 # ─── Patients Master Index (EMR) ────────────────────────────────────────────
 @router.get("/patients")
 async def list_patients(
@@ -480,8 +760,12 @@ async def list_patients(
             )
         )
     query = query.order_by(ClinicPatient.created_at.desc()).offset(offset).limit(limit)
-    q = await db.execute(query)
-    return q.scalars().all()
+    patients = (await db.execute(query)).scalars().all()
+    reach = await access.access_by_patient(db, current_user, [p.id for p in patients])
+    if reach:
+        hows = set(reach.values())
+        await access.log_access(db, current_user, "patient", hows.pop() if len(hows) == 1 else "team", None, len(reach))
+    return [_patient_out(p, reach.get(p.id)) for p in patients]
 
 
 @router.post("/patients")
@@ -529,9 +813,14 @@ async def create_patient(
         {"patient_mrn": patient.patient_mrn, "full_name": patient.full_name},
         f"تسجيل مريض جديد: {patient.full_name} ({patient.patient_mrn})",
     )
+    if access.is_clinician(current_user):
+        # A clinician registering a patient is caring for them.
+        await db.flush()
+        await access.add_to_care_team(db, tenant_id, patient.id, current_user.id,
+                                      "attending" if can(current_user, "clinic:doctor") else "nurse", current_user.id)
     await db.commit()
     await db.refresh(patient)
-    return patient
+    return _patient_out(patient, await access.clinical_access(db, current_user, patient.id))
 
 
 @router.get("/patients/{patient_id}")
@@ -541,13 +830,11 @@ async def get_patient(
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
 ):
-    q = await db.execute(
-        select(ClinicPatient).where(ClinicPatient.id == patient_id, ClinicPatient.tenant_id == tenant_id)
-    )
-    patient = q.scalar_one_or_none()
-    if not patient:
-        raise HTTPException(status_code=404, detail="الملف الطبي للمريض غير موجود")
-    return patient
+    patient = await _get_patient_or_404(db, tenant_id, patient_id)
+    how = await access.clinical_access(db, current_user, patient.id)
+    if how:
+        await access.log_access(db, current_user, "patient", how, patient.id, 1)
+    return _patient_out(patient, how)
 
 
 @router.put("/patients/{patient_id}")
@@ -566,9 +853,11 @@ async def update_patient(
     if not patient:
         raise HTTPException(status_code=404, detail="الملف الطبي للمريض غير موجود")
 
-    for k, v in payload.model_dump(exclude_unset=True).items():
-        if v is not None:
-            setattr(patient, k, v)
+    changes = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    if any(f in changes for f in access.CLINICAL_FIELDS):
+        await access.require_clinical_access(db, current_user, patient.id)
+    for k, v in changes.items():
+        setattr(patient, k, v)
     patient.updated_by = current_user.full_name
 
     await audit_log(
@@ -583,7 +872,7 @@ async def update_patient(
     )
     await db.commit()
     await db.refresh(patient)
-    return patient
+    return _patient_out(patient, await access.clinical_access(db, current_user, patient.id))
 
 
 @router.delete("/patients/{patient_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -666,12 +955,19 @@ async def create_appointment(
     if not patient:
         raise HTTPException(status_code=404, detail="المريض غير مسجل في قاعدة البيانات الطبية")
 
+    doctor = await access.clinician(db, tenant_id, payload.doctor_user_id) if payload.doctor_user_id else None
+    if doctor:
+        await access.refuse_self_assignment(db, current_user, patient.id, doctor["id"])
+    doctor_name = doctor["full_name"] if doctor else payload.doctor_name.strip()
+    if not doctor_name:
+        raise HTTPException(status_code=400, detail="اختر الطبيب المعالج للموعد")
+
     ref = f"APT-{uuid.uuid4().hex[:6].upper()}"
     q_count = await db.execute(
         select(func.count(ClinicAppointment.id)).where(
             ClinicAppointment.tenant_id == tenant_id,
             ClinicAppointment.appointment_date == payload.appointment_date,
-            ClinicAppointment.doctor_name == payload.doctor_name,
+            ClinicAppointment.doctor_name == doctor_name,
         )
     )
     queue_no = (q_count.scalar() or 0) + 1
@@ -681,7 +977,8 @@ async def create_appointment(
         appointment_ref=ref,
         patient_id=patient.id,
         patient_name=patient.full_name,
-        doctor_name=payload.doctor_name,
+        doctor_name=doctor_name,
+        doctor_user_id=uuid.UUID(doctor["id"]) if doctor else None,
         department=payload.department,
         appointment_date=payload.appointment_date,
         time_slot=payload.time_slot,
@@ -692,6 +989,9 @@ async def create_appointment(
         created_by=current_user.full_name,
     )
     db.add(appt)
+    if doctor:
+        await access.add_to_care_team(db, tenant_id, patient.id, appt.doctor_user_id,
+                                      "attending" if doctor["is_doctor"] else "nurse", current_user.id)
     await audit_log(
         db,
         "clinic_appointment",
@@ -861,12 +1161,7 @@ async def list_encounters(
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
 ):
-    query = select(ClinicEncounter).where(ClinicEncounter.tenant_id == tenant_id)
-    if patient_id:
-        query = query.where(ClinicEncounter.patient_id == patient_id)
-    query = query.order_by(ClinicEncounter.created_at.desc()).offset(offset).limit(limit)
-    q = await db.execute(query)
-    return q.scalars().all()
+    return await _clinical_list(db, current_user, ClinicEncounter, "encounters", patient_id, None, [], limit, offset)
 
 
 @router.post("/encounters")
@@ -883,6 +1178,7 @@ async def create_encounter(
     )).scalar_one_or_none()
     if not patient:
         raise HTTPException(status_code=404, detail="المريض غير مسجل في النظام")
+    await access.require_clinical_access(db, current_user, patient.id)
 
     ref = f"ENC-{uuid.uuid4().hex[:6].upper()}"
     encounter = ClinicEncounter(
@@ -891,6 +1187,7 @@ async def create_encounter(
         patient_id=patient.id,
         patient_name=patient.full_name,
         doctor_name=payload.doctor_name,
+        doctor_user_id=current_user.id,
         department=payload.department,
         encounter_date=payload.encounter_date,
         bp_systolic=payload.bp_systolic,
@@ -931,14 +1228,9 @@ async def list_prescriptions(
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
 ):
-    query = select(ClinicPrescription).where(ClinicPrescription.tenant_id == tenant_id)
-    if patient_id:
-        query = query.where(ClinicPrescription.patient_id == patient_id)
-    if status_filter:
-        query = query.where(ClinicPrescription.status == status_filter)
-    query = query.order_by(ClinicPrescription.created_at.desc()).offset(offset).limit(limit)
-    q = await db.execute(query)
-    return q.scalars().all()
+    filters = [ClinicPrescription.status == status_filter] if status_filter else []
+    return await _clinical_list(db, current_user, ClinicPrescription, "prescriptions", patient_id,
+                                "clinic:dispense", filters, limit, offset)
 
 
 @router.post("/prescriptions")
@@ -954,6 +1246,7 @@ async def create_prescription(
     )).scalar_one_or_none()
     if not patient:
         raise HTTPException(status_code=404, detail="المريض غير مسجل في النظام")
+    await access.require_clinical_access(db, current_user, patient.id)
 
     # Drug allergy cross-check
     if patient.allergies and "لا توجد" not in patient.allergies:
@@ -974,6 +1267,7 @@ async def create_prescription(
         patient_id=patient.id,
         patient_name=patient.full_name,
         doctor_name=payload.doctor_name,
+        doctor_user_id=current_user.id,
         issue_date=payload.issue_date,
         medication_name=payload.medication_name,
         dosage=payload.dosage,
@@ -1112,14 +1406,9 @@ async def list_lab_orders(
     tenant_id: str = Depends(get_current_tenant_id),
     current_user: User = Depends(get_current_user),
 ):
-    query = select(ClinicLabOrder).where(ClinicLabOrder.tenant_id == tenant_id)
-    if patient_id:
-        query = query.where(ClinicLabOrder.patient_id == patient_id)
-    if status_filter:
-        query = query.where(ClinicLabOrder.status == status_filter)
-    query = query.order_by(ClinicLabOrder.created_at.desc()).offset(offset).limit(limit)
-    q = await db.execute(query)
-    return q.scalars().all()
+    filters = [ClinicLabOrder.status == status_filter] if status_filter else []
+    return await _clinical_list(db, current_user, ClinicLabOrder, "lab_orders", patient_id,
+                                "clinic:lab", filters, limit, offset)
 
 
 @router.post("/lab-orders")
@@ -1135,6 +1424,7 @@ async def create_lab_order(
     )).scalar_one_or_none()
     if not patient:
         raise HTTPException(status_code=404, detail="المريض غير مسجل في النظام")
+    await access.require_clinical_access(db, current_user, patient.id)
 
     ref = f"LAB-{uuid.uuid4().hex[:6].upper()}"
     order = ClinicLabOrder(
@@ -1143,6 +1433,7 @@ async def create_lab_order(
         patient_id=patient.id,
         patient_name=patient.full_name,
         doctor_name=payload.doctor_name,
+        doctor_user_id=current_user.id,
         test_name=payload.test_name,
         category=payload.category,
         specimen_barcode=payload.specimen_barcode or f"SPEC-{uuid.uuid4().hex[:4].upper()}",

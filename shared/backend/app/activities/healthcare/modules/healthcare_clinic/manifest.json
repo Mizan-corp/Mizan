@@ -26,7 +26,22 @@
     "clinic:nurse",
     "clinic:dispense",
     "clinic:lab",
-    "clinic:billing"
+    "clinic:billing",
+    "clinic:all_patients",
+    "clinic:privacy"
+  ],
+  "settings_schema": [
+    {
+      "key": "patient_access",
+      "label": "الوصول إلى الملفات الطبية",
+      "type": "select",
+      "default": "team",
+      "options": [
+        "team",
+        "all"
+      ],
+      "description": "team: يطّلع الطبيب والممرض على ملفات المرضى الذين في فريق رعايتهم فقط (ومن يملك صلاحية جميع المرضى)، وغيرهم بالوصول الطارئ المسجّل. all: يطّلع كل طبيب وممرض على جميع المرضى (للعيادات الصغيرة)."
+    }
   ],
   "permissions": [
     {
@@ -68,6 +83,16 @@
       "id": "clinic:billing",
       "name": "فواتير العيادة",
       "name_en": "Clinic billing"
+    },
+    {
+      "id": "clinic:all_patients",
+      "name": "الاطلاع على ملفات جميع المرضى",
+      "name_en": "All patients' clinical records"
+    },
+    {
+      "id": "clinic:privacy",
+      "name": "مسؤول الخصوصية الطبية",
+      "name_en": "Clinical privacy officer"
     },
     {
       "id": "clinical",
