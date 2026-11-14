@@ -13,6 +13,7 @@ import { useState } from "react";
 import { AlertCircle, Lock, ShieldAlert, UserPlus, Users, UsersRound } from "lucide-react";
 import { sound } from "@/lib/sound";
 import { useClinic } from "../ClinicContext";
+import QueryState from "../components/QueryState";
 import ListPager from "../components/ListPager";
 import BreakGlassDialog from "../components/BreakGlassDialog";
 import CareTeamDialog from "../components/CareTeamDialog";
@@ -55,6 +56,7 @@ export default function PatientsTab() {
         )}
       </div>
 
+      <QueryState query={data.queries.patients} what="ملفات المرضى">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/30 hover:bg-muted/30 border-b border-border/60">
@@ -186,6 +188,7 @@ export default function PatientsTab() {
         </TableBody>
       </Table>
       <ListPager paging={paging.patients} total={data.patientsTotal} pages={data.patientsPages} />
+      </QueryState>
       <BreakGlassDialog patient={breakGlassFor} onClose={() => setBreakGlassFor(null)} />
       <CareTeamDialog patient={careTeamFor} onClose={() => setCareTeamFor(null)} />
     </Card>

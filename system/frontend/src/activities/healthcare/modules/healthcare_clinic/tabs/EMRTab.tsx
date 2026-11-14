@@ -4,6 +4,7 @@ import { Card } from "@/components/kit/card";
 import { HeartPulse, Plus } from "lucide-react";
 import { sound } from "@/lib/sound";
 import { useClinic } from "../ClinicContext";
+import QueryState from "../components/QueryState";
 
 export default function EMRTab() {
   const c = useClinic();
@@ -35,6 +36,7 @@ export default function EMRTab() {
         )}
       </div>
 
+      <QueryState query={c.data.queries.encounters} what="الكشوفات السريرية" className="">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {filteredEncounters.map((enc) => (
           <Card key={enc.id} className="p-4 border-border/70 space-y-3 bg-card/80 shadow-xs hover:border-primary/40 transition-colors">
@@ -96,7 +98,13 @@ export default function EMRTab() {
             </div>
           </Card>
         ))}
+        {filteredEncounters.length === 0 && (
+          <p className="md:col-span-2 py-8 text-center text-xs text-muted-foreground rounded-xl border border-dashed border-border">
+            {c.search.trim() ? "لا توجد كشوفات تطابق البحث." : "لا توجد كشوفات سريرية لمرضاك بعد."}
+          </p>
+        )}
       </div>
+      </QueryState>
     </div>
   );
 }

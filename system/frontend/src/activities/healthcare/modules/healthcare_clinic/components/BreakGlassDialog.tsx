@@ -6,6 +6,7 @@ import { useToast } from "@/components/ui";
 import { Button } from "@/components/kit/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/kit/dialog";
 import { Textarea } from "@/components/kit/textarea";
+import { errorMessage } from "../useClinicActions";
 
 const MIN_REASON = 10;
 
@@ -40,8 +41,8 @@ export default function BreakGlassDialog({
         queryClient.invalidateQueries({ queryKey: [key] });
       }
       close();
-    } catch (err: any) {
-      toast("error", err?.response?.data?.detail || err?.message || "تعذر فتح الوصول الطارئ");
+    } catch (err) {
+      toast("error", errorMessage(err, "تعذر فتح الوصول الطارئ"));
     } finally {
       setBusy(false);
     }

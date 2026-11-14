@@ -44,6 +44,15 @@ is read and written per patient; the rules are in `service.py`:
   open one), the page parts (`ClinicHeader`, `ClinicKpis`, `HealthcareSuiteNav`, `ClinicTabsBar`,
   `StandaloneModuleView`), and the #113 dialogs (`BreakGlassDialog`, `CareTeamDialog`).
 
+## Errors and feedback (#48)
+
+Every list on the screen goes through `components/QueryState.tsx`: a loading line while it
+loads, and on failure the shared `ErrorBox` with the server's Arabic message and «إعادة المحاولة»
+(never a silent empty list); smaller lists (care team, clinicians, patient picker, privacy tables)
+use `InlineRetry`. Changes go through `useClinicMutation` / `useDialogMutation`
+(`useClinicActions.ts`): `toast("success", …)` or `toast("error", <server detail>)`; a dialog
+stays open on an error so the user can correct it, and its submit button waits while sending.
+
 ## Search and pagination (#39)
 
 `GET /clinic/patients` (search: name, MRN, national id, phone) and `GET /clinic/appointments`

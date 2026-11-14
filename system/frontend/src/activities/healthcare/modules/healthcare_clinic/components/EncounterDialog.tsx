@@ -2,7 +2,7 @@ import { useState } from "react";
 import { HeartPulse } from "lucide-react";
 import { api } from "@/lib/api";
 import { Input } from "@/components/kit/input";
-import { useClinicMutation } from "../useClinicActions";
+import { useDialogMutation } from "../useClinicActions";
 import type { PatientRef } from "../types";
 import { ClinicModal, ModalActions } from "./ClinicModal";
 import PatientPicker from "./PatientPicker";
@@ -17,7 +17,7 @@ const VITALS = [
 
 // Documents a clinical encounter (POST /clinic/encounters, clinic:doctor + access to the patient).
 export default function EncounterDialog({ patient, onClose }: { patient?: PatientRef; onClose: () => void }) {
-  const run = useClinicMutation();
+  const { run, busy } = useDialogMutation();
   const [form, setForm] = useState({
     doctor_name: "د. هشام الشناوي",
     department: "الباطنة العامة",
@@ -38,7 +38,7 @@ export default function EncounterDialog({ patient, onClose }: { patient?: Patien
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!picked) return;
-    await run(
+    const ok = await run(
       () => api.post("/clinic/encounters", {
         patient_id: picked.id,
         patient_name: picked.full_name,
@@ -59,7 +59,7 @@ export default function EncounterDialog({ patient, onClose }: { patient?: Patien
       "تعذر حفظ الكشف السريري على الخادم",
       ["encounters"],
     );
-    onClose();
+    if (ok) onClose(); // on an error the form stays open to correct it
   };
 
   return (
@@ -115,7 +115,7 @@ export default function EncounterDialog({ patient, onClose }: { patient?: Patien
           />
         </div>
 
-        <ModalActions onCancel={onClose} submitLabel="حفظ الكشف الطبي" />
+        <ModalActions busy={busy} onCancel={onClose} submitLabel="حفظ الكشف الطبي" />
       </form>
     </ClinicModal>
   );

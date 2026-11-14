@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Calendar } from "lucide-react";
 import { api } from "@/lib/api";
 import { Input } from "@/components/kit/input";
-import { useClinicMutation } from "../useClinicActions";
+import { errorMessage, useDialogMutation } from "../useClinicActions";
+import { InlineRetry } from "./QueryState";
 import { CLINIC_KEYS } from "../useClinicData";
 import type { Clinician, PatientRef } from "../types";
 import { ClinicModal, ModalActions } from "./ClinicModal";
@@ -12,7 +13,7 @@ import PatientPicker from "./PatientPicker";
 
 // Books a consultation (POST /clinic/appointments); the chosen doctor joins the care team (#113).
 export default function BookAppointmentDialog({ patient, onClose }: { patient?: PatientRef; onClose: () => void }) {
-  const run = useClinicMutation();
+  const { run, busy } = useDialogMutation();
   const [picked, setPicked] = useState<PatientRef | null>(patient ?? null);
   const [form, setForm] = useState({
     doctor_user_id: "",
@@ -24,10 +25,11 @@ export default function BookAppointmentDialog({ patient, onClose }: { patient?: 
   });
   const set = (patch: Partial<typeof form>) => setForm({ ...form, ...patch });
 
-  const { data: clinicians = [] } = useQuery<Clinician[]>({
+  const cliniciansQuery = useQuery<Clinician[]>({
     queryKey: CLINIC_KEYS.clinicians,
     queryFn: () => api.get("/clinic/clinicians"),
   });
+  const clinicians = cliniciansQuery.data ?? [];
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +76,12 @@ export default function BookAppointmentDialog({ patient, onClose }: { patient?: 
                 <option key={d.id} value={d.id}>{d.full_name}{d.role ? ` — ${d.role}` : ""}</option>
               ))}
             </select>
-            <p className="text-[10px] text-muted-foreground mt-1">يُضاف الطبيب إلى فريق رعاية المريض</p>
+            {cliniciansQuery.isError ? (
+              <InlineRetry message={errorMessage(cliniciansQuery.error, "تعذر تحميل قائمة الأطباء")}
+                onRetry={() => void cliniciansQuery.refetch()} />
+            ) : (
+              <p className="text-[10px] text-muted-foreground mt-1">يُضاف الطبيب إلى فريق رعاية المريض</p>
+            )}
           </div>
         </div>
 
@@ -100,7 +107,7 @@ export default function BookAppointmentDialog({ patient, onClose }: { patient?: 
             onChange={(e) => set({ chief_complaint: e.target.value })} className="h-9 text-xs" />
         </div>
 
-        <ModalActions onCancel={onClose} submitLabel="تأكيد الحجز وقيد الانتظار" />
+        <ModalActions busy={busy} onCancel={onClose} submitLabel="تأكيد الحجز وقيد الانتظار" />
       </form>
     </ClinicModal>
   );

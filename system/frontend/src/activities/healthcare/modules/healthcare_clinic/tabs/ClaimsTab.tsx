@@ -1,6 +1,7 @@
 import { Badge } from "@/components/kit/badge";
 import { ShieldCheck } from "lucide-react";
 import { useClinic } from "../ClinicContext";
+import QueryState from "../components/QueryState";
 import { moneyEGP } from "../format";
 
 
@@ -20,6 +21,7 @@ export default function ClaimsTab() {
         </div>
       </div>
 
+      <QueryState query={c.data.queries.claims} what="مطالبات التأمين" className="">
       <div className="overflow-x-auto rounded-xl border border-border/70 bg-card/80 shadow-xs">
         <table className="w-full text-xs">
           <thead className="bg-muted/30 border-b border-border/60">
@@ -55,6 +57,7 @@ export default function ClaimsTab() {
           </tbody>
         </table>
       </div>
+      </QueryState>
     </div>
   );
 }

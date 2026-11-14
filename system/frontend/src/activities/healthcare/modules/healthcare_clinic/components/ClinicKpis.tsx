@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Bed, Calendar, Microscope, Users } from "lucide-react";
 import { Card } from "@/components/kit/card";
 import { useClinic } from "../ClinicContext";
+import QueryState from "./QueryState";
 
 function Kpi({ label, icon, value, children }: { label: string; icon: ReactNode; value: ReactNode; children: ReactNode }) {
   return (
@@ -20,8 +21,9 @@ function Kpi({ label, icon, value, children }: { label: string; icon: ReactNode;
 
 // Today's operational figures (GET /clinic/summary).
 export default function ClinicKpis() {
-  const { summary } = useClinic().data;
+  const { summary, queries } = useClinic().data;
   return (
+    <QueryState query={{ ...queries.summary, isLoading: false }} what="مؤشرات اليوم" className="">
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       <Kpi label="مواعيد وكشوفات اليوم" icon={<Calendar className="size-4" />} value={summary.today_appointments_count}>
         <span className="num font-semibold text-primary">{summary.waiting_queue_count}</span> في صالة الانتظار
@@ -36,5 +38,6 @@ export default function ClinicKpis() {
         بانتظار الاعتماد المخبري
       </Kpi>
     </div>
+    </QueryState>
   );
 }

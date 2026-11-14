@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui";
@@ -35,6 +36,23 @@ export function useClinicMutation() {
       toast("error", errorMessage(err, failure));
       return false;
     }
+  };
+}
+
+/** A dialog's submit: the mutation plus a busy flag (the submit button waits). */
+export function useDialogMutation() {
+  const run = useClinicMutation();
+  const [busy, setBusy] = useState(false);
+  return {
+    busy,
+    run: async (...args: Parameters<typeof run>) => {
+      setBusy(true);
+      try {
+        return await run(...args);
+      } finally {
+        setBusy(false);
+      }
+    },
   };
 }
 

@@ -4,6 +4,7 @@ import { Card } from "@/components/kit/card";
 import { Microscope, Pill, Plus } from "lucide-react";
 import { sound } from "@/lib/sound";
 import { useClinic } from "../ClinicContext";
+import QueryState from "../components/QueryState";
 
 export default function RxLabsTab() {
   const c = useClinic();
@@ -34,6 +35,7 @@ export default function RxLabsTab() {
           )}
         </div>
 
+        <QueryState query={c.data.queries.prescriptions} what="الروشتات">
         <div className="divide-y divide-border/40">
           {filteredRx.map((rx) => (
             <div key={rx.id} className="p-4 space-y-2 hover:bg-primary/[0.02] transition">
@@ -85,7 +87,13 @@ export default function RxLabsTab() {
               </div>
             </div>
           ))}
+          {filteredRx.length === 0 && (
+            <p className="py-8 text-center text-xs text-muted-foreground">
+              {c.search.trim() ? "لا توجد روشتات تطابق البحث." : "لا توجد روشتات بعد."}
+            </p>
+          )}
         </div>
+        </QueryState>
       </Card>
 
       {/* Diagnostic Labs */}
@@ -110,6 +118,7 @@ export default function RxLabsTab() {
           )}
         </div>
 
+        <QueryState query={c.data.queries.labOrders} what="طلبات المختبر">
         <div className="divide-y divide-border/40">
           {filteredLabs.map((lab) => (
             <div key={lab.id} className="p-4 space-y-2 hover:bg-primary/[0.02] transition">
@@ -162,7 +171,13 @@ export default function RxLabsTab() {
               </div>
             </div>
           ))}
+          {filteredLabs.length === 0 && (
+            <p className="py-8 text-center text-xs text-muted-foreground">
+              {c.search.trim() ? "لا توجد طلبات فحص تطابق البحث." : "لا توجد طلبات فحص بعد."}
+            </p>
+          )}
         </div>
+        </QueryState>
       </Card>
     </div>
   );

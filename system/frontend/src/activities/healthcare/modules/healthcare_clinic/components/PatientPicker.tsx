@@ -7,6 +7,8 @@ import { CLINIC_KEYS } from "../useClinicData";
 import { useDebounced } from "../useDebounced";
 import type { Page, Patient, PatientRef } from "../types";
 import { labelClass, selectClass } from "./formStyles";
+import { InlineRetry } from "./QueryState";
+import { errorMessage } from "../useClinicActions";
 
 const PICKER_SIZE = 20;
 
@@ -24,7 +26,7 @@ export default function PatientPicker({
 }) {
   const [query, setQuery] = useState("");
   const search = useDebounced(query.trim(), 300);
-  const { data, isFetching, isError } = useQuery<Page<Patient>>({
+  const { data, isFetching, isError, error, refetch } = useQuery<Page<Patient>>({
     queryKey: [...CLINIC_KEYS.patients, "picker", search],
     queryFn: () => api.get("/clinic/patients", { search: search || undefined, page: 1, page_size: PICKER_SIZE }),
   });
@@ -59,6 +61,9 @@ export default function PatientPicker({
           <option key={p.id} value={p.id}>{p.full_name}{p.patient_mrn ? ` — ${p.patient_mrn}` : ""}</option>
         ))}
       </select>
+      {isError && (
+        <InlineRetry message={errorMessage(error, "تعذر البحث في ملفات المرضى")} onRetry={() => void refetch()} />
+      )}
       {data && data.total > found.length && (
         <p className="text-[10px] text-muted-foreground mt-1">
           تظهر أول <span className="num">{found.length}</span> من <span className="num">{data.total}</span> نتيجة؛ اكتب للتضييق.

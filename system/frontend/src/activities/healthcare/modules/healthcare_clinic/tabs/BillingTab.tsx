@@ -3,6 +3,7 @@ import { Badge } from "@/components/kit/badge";
 import { Button } from "@/components/kit/button";
 import { FileText, Printer } from "lucide-react";
 import { useClinic } from "../ClinicContext";
+import QueryState from "../components/QueryState";
 import { moneyEGP } from "../format";
 import { ClinicInvoiceReceiptModal, type ClinicInvoiceReceiptData } from "@app/features/modules/SpecializedReceiptModals";
 
@@ -25,6 +26,7 @@ export default function BillingTab() {
         </div>
       </div>
 
+      <QueryState query={c.data.queries.invoices} what="الفواتير" className="">
       <div className="overflow-x-auto rounded-xl border border-border/70 bg-card/80 shadow-xs">
         <table className="w-full text-xs">
           <thead className="bg-muted/30 border-b border-border/60">
@@ -99,6 +101,7 @@ export default function BillingTab() {
           </tbody>
         </table>
       </div>
+      </QueryState>
 
       <ClinicInvoiceReceiptModal
         open={!!printData}

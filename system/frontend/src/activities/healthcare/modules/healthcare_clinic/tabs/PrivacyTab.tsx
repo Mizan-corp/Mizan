@@ -9,6 +9,8 @@ import { Card } from "@/components/kit/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/kit/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/kit/table";
 import { Textarea } from "@/components/kit/textarea";
+import { errorMessage } from "../useClinicActions";
+import { InlineRetry } from "../components/QueryState";
 
 interface AccessLogRow {
   id: string;
@@ -88,8 +90,8 @@ export default function PrivacyTab() {
       setReviewing(null);
       setNote("");
       refreshGrants();
-    } catch (err: any) {
-      toast("error", err?.message || "تعذر تسجيل المراجعة");
+    } catch (err) {
+      toast("error", errorMessage(err, "تعذر تسجيل المراجعة"));
     }
   };
 
@@ -98,8 +100,8 @@ export default function PrivacyTab() {
       await api.post(`/clinic/break-glass/${g.id}/revoke`);
       toast("success", "تم إلغاء الوصول الطارئ");
       refreshGrants();
-    } catch (err: any) {
-      toast("error", err?.message || "تعذر إلغاء الوصول");
+    } catch (err) {
+      toast("error", errorMessage(err, "تعذر إلغاء الوصول"));
     }
   };
 
@@ -143,7 +145,7 @@ export default function PrivacyTab() {
             {grants.isLoading ? (
               <TableRow><TableCell colSpan={5} className="text-center text-xs text-muted-foreground py-6">جارٍ التحميل...</TableCell></TableRow>
             ) : grants.error ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-xs text-destructive-ink py-6">{(grants.error as Error).message}</TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center text-xs text-destructive-ink py-6"><InlineRetry message={errorMessage(grants.error, "تعذر تحميل حالات الوصول الطارئ")} onRetry={() => void grants.refetch()} /></TableCell></TableRow>
             ) : (grants.data ?? []).length === 0 ? (
               <TableRow><TableCell colSpan={5} className="text-center text-xs text-muted-foreground py-6">لا توجد حالات وصول طارئ {unreviewedOnly ? "بانتظار المراجعة" : ""}</TableCell></TableRow>
             ) : (
@@ -210,7 +212,7 @@ export default function PrivacyTab() {
             {log.isLoading ? (
               <TableRow><TableCell colSpan={6} className="text-center text-xs text-muted-foreground py-6">جارٍ التحميل...</TableCell></TableRow>
             ) : log.error ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-xs text-destructive-ink py-6">{(log.error as Error).message}</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center text-xs text-destructive-ink py-6"><InlineRetry message={errorMessage(log.error, "تعذر تحميل سجل الاطلاع")} onRetry={() => void log.refetch()} /></TableCell></TableRow>
             ) : (log.data?.items ?? []).length === 0 ? (
               <TableRow><TableCell colSpan={6} className="text-center text-xs text-muted-foreground py-6">لا توجد قراءات مسجلة بعد</TableCell></TableRow>
             ) : (

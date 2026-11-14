@@ -4,6 +4,7 @@ import { Card } from "@/components/kit/card";
 import { Bed, CheckCircle2, UserPlus } from "lucide-react";
 import { sound } from "@/lib/sound";
 import { useClinic } from "../ClinicContext";
+import QueryState from "../components/QueryState";
 import { moneyEGP } from "../format";
 
 
@@ -36,6 +37,7 @@ export default function BedsTab() {
         </div>
       </div>
 
+      <QueryState query={c.data.queries.beds} what="الأسرّة" className="">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {beds.map((b) => (
           <Card
@@ -115,7 +117,13 @@ export default function BedsTab() {
             </div>
           </Card>
         ))}
+        {beds.length === 0 && (
+          <p className="md:col-span-3 py-8 text-center text-xs text-muted-foreground rounded-xl border border-dashed border-border">
+            لا توجد أسرّة معرفة بعد.
+          </p>
+        )}
       </div>
+      </QueryState>
     </div>
   );
 }

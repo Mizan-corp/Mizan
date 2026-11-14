@@ -12,6 +12,7 @@ import {
 import { Calendar, CheckCircle2, Plus } from "lucide-react";
 import { sound } from "@/lib/sound";
 import { useClinic } from "../ClinicContext";
+import QueryState from "../components/QueryState";
 import ListPager from "../components/ListPager";
 import { moneyEGP } from "../format";
 
@@ -46,6 +47,7 @@ export default function AppointmentsTab() {
         )}
       </div>
 
+      <QueryState query={data.queries.appointments} what="المواعيد">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/30 hover:bg-muted/30 border-b border-border/60">
@@ -166,6 +168,7 @@ export default function AppointmentsTab() {
                 </TableBody>
               </Table>
               <ListPager paging={paging.appointments} total={data.appointmentsTotal} pages={data.appointmentsPages} />
+      </QueryState>
             </Card>
   );
 }

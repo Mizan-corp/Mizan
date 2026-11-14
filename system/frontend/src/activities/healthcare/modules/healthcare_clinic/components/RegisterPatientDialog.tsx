@@ -2,7 +2,7 @@ import { useState } from "react";
 import { UserPlus } from "lucide-react";
 import { api } from "@/lib/api";
 import { Input } from "@/components/kit/input";
-import { useClinicMutation } from "../useClinicActions";
+import { useDialogMutation } from "../useClinicActions";
 import { ClinicModal, ModalActions } from "./ClinicModal";
 import { labelClass, selectClass } from "./formStyles";
 
@@ -10,7 +10,7 @@ const BLOOD_GROUPS = ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"];
 
 // Opens a patient's file in the master patient index (POST /clinic/patients, clinic:manage).
 export default function RegisterPatientDialog({ onClose }: { onClose: () => void }) {
-  const run = useClinicMutation();
+  const { run, busy } = useDialogMutation();
   const [form, setForm] = useState({
     full_name: "",
     national_id: "",
@@ -29,7 +29,7 @@ export default function RegisterPatientDialog({ onClose }: { onClose: () => void
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const mrn = `MRN-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    await run(
+    const ok = await run(
       () => api.post("/clinic/patients", {
         patient_mrn: mrn,
         full_name: form.full_name,
@@ -48,7 +48,7 @@ export default function RegisterPatientDialog({ onClose }: { onClose: () => void
       "تعذر حفظ ملف المريض على الخادم",
       ["patients", "summary"],
     );
-    onClose();
+    if (ok) onClose(); // on an error the form stays open to correct it
   };
 
   return (
@@ -127,7 +127,7 @@ export default function RegisterPatientDialog({ onClose }: { onClose: () => void
           </div>
         </div>
 
-        <ModalActions onCancel={onClose} submitLabel="تسجيل الملف الطبي" />
+        <ModalActions busy={busy} onCancel={onClose} submitLabel="تسجيل الملف الطبي" />
       </form>
     </ClinicModal>
   );

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pill } from "lucide-react";
 import { api } from "@/lib/api";
 import { Input } from "@/components/kit/input";
-import { useClinicMutation } from "../useClinicActions";
+import { useDialogMutation } from "../useClinicActions";
 import type { PatientRef } from "../types";
 import { ClinicModal, ModalActions } from "./ClinicModal";
 import PatientPicker from "./PatientPicker";
@@ -10,7 +10,7 @@ import { labelClass } from "./formStyles";
 
 // Issues an e-prescription to the pharmacy queue (POST /clinic/prescriptions, clinic:doctor).
 export default function PrescriptionDialog({ patient, onClose }: { patient?: PatientRef; onClose: () => void }) {
-  const run = useClinicMutation();
+  const { run, busy } = useDialogMutation();
   const [form, setForm] = useState({
     doctor_name: "د. هشام الشناوي",
     issue_date: "2026-11-05",
@@ -26,7 +26,7 @@ export default function PrescriptionDialog({ patient, onClose }: { patient?: Pat
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!picked) return;
-    await run(
+    const ok = await run(
       () => api.post("/clinic/prescriptions", {
         patient_id: picked.id,
         patient_name: picked.full_name,
@@ -42,7 +42,7 @@ export default function PrescriptionDialog({ patient, onClose }: { patient?: Pat
       "تعذر إصدار الروشتة على الخادم",
       ["prescriptions"],
     );
-    onClose();
+    if (ok) onClose(); // on an error the form stays open to correct it
   };
 
   return (
@@ -76,7 +76,7 @@ export default function PrescriptionDialog({ patient, onClose }: { patient?: Pat
           <Input value={form.instructions} onChange={(e) => set({ instructions: e.target.value })} className="h-9 text-xs" />
         </div>
 
-        <ModalActions onCancel={onClose} submitLabel="إصدار وإرسال للصيدلية" />
+        <ModalActions busy={busy} onCancel={onClose} submitLabel="إصدار وإرسال للصيدلية" />
       </form>
     </ClinicModal>
   );

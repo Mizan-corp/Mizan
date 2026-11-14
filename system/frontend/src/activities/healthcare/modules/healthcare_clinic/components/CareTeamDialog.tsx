@@ -8,6 +8,8 @@ import { Button } from "@/components/kit/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/kit/dialog";
 import { useAuth } from "@/stores/auth";
 import type { Clinician } from "../types";
+import { errorMessage } from "../useClinicActions";
+import { InlineRetry } from "./QueryState";
 
 
 interface CareTeamMember {
@@ -43,16 +45,17 @@ export default function CareTeamDialog({
   const [busy, setBusy] = useState(false);
   const key = ["clinic-care-team", patient?.id];
 
-  const { data: members = [], isLoading, error } = useQuery<CareTeamMember[]>({
+  const { data: members = [], isLoading, error, refetch } = useQuery<CareTeamMember[]>({
     queryKey: key,
     queryFn: () => api.get(`/clinic/patients/${patient!.id}/care-team`),
     enabled: !!patient,
   });
-  const { data: clinicians = [] } = useQuery<Clinician[]>({
+  const cliniciansQuery = useQuery<Clinician[]>({
     queryKey: ["clinic-clinicians"],
     queryFn: () => api.get("/clinic/clinicians"),
     enabled: !!patient && manage,
   });
+  const clinicians = cliniciansQuery.data ?? [];
   const candidates = clinicians.filter((c) => !members.some((m) => m.user_id === c.id));
 
   const refresh = () => {
@@ -69,8 +72,8 @@ export default function CareTeamDialog({
       toast("success", "تمت الإضافة إلى فريق الرعاية");
       setUserId("");
       refresh();
-    } catch (err: any) {
-      toast("error", err?.response?.data?.detail || err?.message || "تعذرت الإضافة إلى فريق الرعاية");
+    } catch (err) {
+      toast("error", errorMessage(err, "تعذرت الإضافة إلى فريق الرعاية"));
     } finally {
       setBusy(false);
     }
@@ -82,8 +85,8 @@ export default function CareTeamDialog({
       await api.del(`/clinic/patients/${patient.id}/care-team/${member.id}`);
       toast("success", `أُزيل ${member.full_name} من فريق الرعاية`);
       refresh();
-    } catch (err: any) {
-      toast("error", err?.response?.data?.detail || err?.message || "تعذرت الإزالة من فريق الرعاية");
+    } catch (err) {
+      toast("error", errorMessage(err, "تعذرت الإزالة من فريق الرعاية"));
     }
   };
 
@@ -103,8 +106,8 @@ export default function CareTeamDialog({
         {isLoading ? (
           <p className="text-xs text-muted-foreground py-4 text-center">جارٍ التحميل...</p>
         ) : error ? (
-          <p className="text-xs text-destructive-ink py-4 text-center">
-            {(error as Error).message || "تعذر تحميل فريق الرعاية"}
+          <p className="py-4 text-center">
+            <InlineRetry message={errorMessage(error, "تعذر تحميل فريق الرعاية")} onRetry={() => void refetch()} />
           </p>
         ) : members.length === 0 ? (
           <p className="text-xs text-muted-foreground py-4 text-center">لا يوجد أعضاء في فريق الرعاية بعد.</p>
@@ -144,6 +147,10 @@ export default function CareTeamDialog({
                   </option>
                 ))}
               </select>
+              {cliniciansQuery.isError && (
+                <InlineRetry message={errorMessage(cliniciansQuery.error, "تعذر تحميل الأطباء والممرضين")}
+                  onRetry={() => void cliniciansQuery.refetch()} />
+              )}
             </div>
             <div>
               <label htmlFor="care-team-role" className="block text-muted-foreground mb-1">الدور</label>

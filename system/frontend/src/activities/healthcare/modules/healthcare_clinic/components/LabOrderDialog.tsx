@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Microscope } from "lucide-react";
 import { api } from "@/lib/api";
 import { Input } from "@/components/kit/input";
-import { useClinicMutation } from "../useClinicActions";
+import { useDialogMutation } from "../useClinicActions";
 import type { PatientRef } from "../types";
 import { ClinicModal, ModalActions } from "./ClinicModal";
 import PatientPicker from "./PatientPicker";
@@ -18,7 +18,7 @@ const LAB_CATEGORIES = [
 
 // Sends a lab or imaging order to the lab queue (POST /clinic/lab-orders, clinic:doctor).
 export default function LabOrderDialog({ patient, onClose }: { patient?: PatientRef; onClose: () => void }) {
-  const run = useClinicMutation();
+  const { run, busy } = useDialogMutation();
   const [form, setForm] = useState(() => ({
     doctor_name: "د. هشام الشناوي",
     test_name: "صورة دم كاملة (CBC)",
@@ -32,7 +32,7 @@ export default function LabOrderDialog({ patient, onClose }: { patient?: Patient
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!picked) return;
-    await run(
+    const ok = await run(
       () => api.post("/clinic/lab-orders", {
         patient_id: picked.id,
         patient_name: picked.full_name,
@@ -46,7 +46,7 @@ export default function LabOrderDialog({ patient, onClose }: { patient?: Patient
       "تعذر إرسال طلب الفحص إلى الخادم",
       ["labs"],
     );
-    onClose();
+    if (ok) onClose(); // on an error the form stays open to correct it
   };
 
   return (
@@ -75,7 +75,7 @@ export default function LabOrderDialog({ patient, onClose }: { patient?: Patient
           </div>
         </div>
 
-        <ModalActions onCancel={onClose} submitLabel="إرسال أمر الفحص" submitClassName="bg-purple-600 hover:bg-purple-500 text-white font-semibold" />
+        <ModalActions busy={busy} onCancel={onClose} submitLabel="إرسال أمر الفحص" submitClassName="bg-purple-600 hover:bg-purple-500 text-white font-semibold" />
       </form>
     </ClinicModal>
   );
