@@ -72,27 +72,10 @@ export default function SalesPage() {
   });
 
   function handleDownloadPdf(invoiceId: string, invoiceNum: string) {
-    const token = localStorage.getItem("mizan.token") ?? localStorage.getItem("vendora.token");
-    fetch(`/api/invoices/${invoiceId}/pdf`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("فشل تحميل ملف الفاتورة");
-        return res.blob();
-      })
-      .then((blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `invoice-${invoiceNum}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-      })
-      .catch((err) => {
-        toast("error", err.message || "تعذر تحميل الفاتورة");
-      });
+    // Through the API client: the API's own address and the session, on every host (#118).
+    downloadExport(`/invoices/${invoiceId}/pdf`, undefined, `invoice-${invoiceNum}.pdf`).catch((err) =>
+      toast("error", err instanceof Error && err.message ? err.message : "تعذر تحميل الفاتورة"),
+    );
   }
 
   const confirmQuotation = useMutation({

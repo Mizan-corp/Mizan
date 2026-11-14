@@ -239,8 +239,12 @@ async def _make_pdf(html_response, title: str, filename: str, db, paper_size_ove
     ps = await get_paper_size(db, paper_size_override)
     invoice_footer = f"{company} | {title} | {doc_num}"
     html = wrap_pdf(body, title, ps, company, doc_num, invoice_footer)
-    pdf_bytes = await html_to_pdf(html, zoom=1.0 if ps.upper() == "A4" else 2.0)
-    return Response(content=pdf_bytes, media_type="application/pdf",
+    from app.platform.printing.fallback import pdf_or_page
+
+    content, media, ext = await pdf_or_page(html, zoom=1.0 if ps.upper() == "A4" else 2.0)
+    if ext != "pdf":
+        filename = filename.rsplit(".", 1)[0] + ".html"
+    return Response(content=content, media_type=media,
                     headers={"Content-Disposition": f'inline; filename="{filename}"'})
 
 

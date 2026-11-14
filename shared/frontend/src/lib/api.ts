@@ -168,8 +168,10 @@ export async function downloadExport(path: string, params?: Record<string, strin
   URL.revokeObjectURL(a.href);
 }
 
+/** The session's token on every request, as request() sends it: a session handed over from the
+ * owner panel lives only in the app, with no cookie, so a same-origin download without it was
+ * refused (401, #118). */
 function authHeaders(): Record<string, string> {
   const token = useAuth.getState().token;
-  if (token && !isSameOrigin()) return { Authorization: `Bearer ${token}` };
-  return {};
+  return token ? { Authorization: `Bearer ${token}` } : {};
 }
