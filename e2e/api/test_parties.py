@@ -4,7 +4,7 @@ import uuid
 
 from helpers import uid, to_uuid
 
-from conftest import customer, supplier, wh, product, subcategory, db  # noqa: F401
+from conftest import customer, supplier, wh, product, subcategory, db, safe  # noqa: F401
 
 
 # ---------------- customers ----------------
@@ -33,13 +33,13 @@ def test_customer_crud(admin_api, reg):
     assert r.status_code in (200, 204), r.text[:200]
 
 
-def test_customer_balance_and_payment(admin_api, reg, customer, db):
+def test_customer_balance_and_payment(admin_api, reg, customer, db, safe):
     r = admin_api.put(f"/customers/{customer['id']}/balance",
                       json={"balance": "250", "note": "e2e-set"})
     admin_api.ok(r, 200)
 
     p = admin_api.post(f"/customers/{customer['id']}/payments",
-                       json={"amount": "100", "note": "e2e-pay"})
+                       json={"amount": "100", "note": "e2e-pay", "safe_id": safe["id"]})
     pay = admin_api.ok(p, 200, 201)
     reg.add("payment", pay.get("id", to_uuid(pay)) if pay else uuid.uuid4())
     # The audit trail points at the payment it records.
@@ -72,11 +72,16 @@ def test_supplier_crud(admin_api, reg):
     ledger = admin_api.ok(admin_api.get(f"/suppliers/{su['id']}/ledger"))
     assert "transactions" in ledger or "items" in ledger or isinstance(ledger, list)
 
-    tx = admin_api.ok(admin_api.post(f"/suppliers/{su['id']}/transactions",
-                                     json={"amount": 50, "type": "debit", "notes": "e2e"}), 200, 201)
+    admin_api.ok(admin_api.post(f"/suppliers/{su['id']}/transactions",
+                                json={"amount": 50, "type": "debit", "notes": "e2e"}), 200, 201)
+    # a payment must say which safe or wallet paid it
+    r = admin_api.post(f"/suppliers/{su['id']}/transactions", json={"amount": 10, "type": "credit"})
+    assert r.status_code == 400, r.text[:200]
 
+    # a supplier with movements is deactivated, not deleted (ADR-014 D4)
     r = admin_api.delete(f"/suppliers/{su['id']}")
-    assert r.status_code == 204, r.text[:200]
+    assert r.status_code == 409, r.text[:200]
+    admin_api.ok(admin_api.post(f"/suppliers/{su['id']}/deactivate"))
 
 
 def test_supplier_transaction_type_validation(admin_api, supplier):

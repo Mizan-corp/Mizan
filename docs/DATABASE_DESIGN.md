@@ -63,6 +63,27 @@ Besides the ERP's own records, every workspace has (all tenant-scoped, with RLS)
 | `drawer_transactions.customer_payment_id` | The customer receipt a drawer deposit recorded; cancelling the row adds a negative receipt and puts the debt back. |
 | `products.avg_cost` | Weighted moving average cost, per workspace (not per branch), started from `cost_price`. Every costed receipt (purchase, opening stock, a return at the cost the line left at, an adjustment with a cost) recomputes it in `inventory.services.stock.apply_movement`; every other movement and every sale line (`sale_items.unit_cost`) is recorded at it, whatever the client sends. `cost_price` stays the last purchase price. |
 
+### Money documents: where the money went (ADR-014 D4, migration `v81_money_flows_finance`)
+
+Every payment names the safe or wallet its money moved through, and safes and wallets change only
+through `finance/services/safes.py`, `wallets.record_wallet_tx` and `finance/services/payments.py`
+(`money_in` / `money_out`; payments other than expenses never take a safe or wallet below zero).
+A bank account, used for bank transfers and cheques, is a safe with `safe_type = 'bank'`.
+
+| Table | Columns | Meaning |
+|---|---|---|
+| `safes` | `safe_type` | `permanent`, `temporary` or `bank` (CHECK) |
+| `safe_transactions` | `ref_type`, `ref_id` | The document behind each movement: `expense`, `expense_cancel`, `customer_payment`, `supplier_payment`, `purchase`, `payroll`, `hr_advance` |
+| `wallet_transactions` | `tx_type`, `ref_id` | Same idea (`tx_type` carries the document kind); resetting a wallet is an `adjustment` row |
+| `expenses` | `status`, `cancelled_at`, `cancelled_by`, `cancel_reason` | `draft` → `approved` (money leaves the safe/wallet) or `rejected`; an approved expense is `cancelled`, which puts the money back, never deleted. Approving needs a safe or wallet. Payroll expenses have `payment_method = 'payroll'` and are managed from payroll |
+| `customers` | `is_active` | A customer with sales, payments or adjustments is deactivated, not deleted |
+| `customer_payments` | `method`, `safe_id`, `wallet_id`, `shift_id` | Where a receipt went: the cashier's open drawer (`shift_id`) or a safe/wallet. `customer_id` no longer cascades on delete. Amounts may be negative (reversals) |
+| `customer_adjustments` (new) | `kind` (`opening`/`adjustment`), `amount` (signed), `balance_before`, `balance_after`, `note`, `created_by` | Every balance change that isn't a sale or payment (`PUT /customers/{id}/balance`) |
+| `supplier_transactions` | `type`, `method`, `safe_id`, `wallet_id`, `purchase_id`, `created_by` | `type` is `debit` (we owe more: an invoice) or `credit` (a payment, from a safe/wallet). The unused duplicate `tx_type` column was dropped; `supplier_id` no longer cascades |
+| `purchase_orders` | `safe_id`, `wallet_id` | Where `amount_paid` comes from; it leaves at receipt |
+| `hr_advances` | `safe_id`, `wallet_id` | An advance (`record_type = 'سلفة'`) is paid out from here; `خصم` and `مكافأة` move no cash |
+| `hr_payroll_periods` | `safe_id`, `wallet_id`, `paid_amount`, `expense_id` | Approving records the salaries expense (no money); paying moves `paid_amount` out once; a paid month can't be reopened, reopening an approved one cancels `expense_id` |
+
 ## 3. Platform Tables (not tenant-scoped)
 
 These belong to Mizan itself, not to a workspace, and have no RLS policy. Only the owner,

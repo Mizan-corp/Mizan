@@ -120,6 +120,7 @@ async def financial_ledger(
         LEFT JOIN users u ON dt.created_by = u.id
         WHERE dt.created_at BETWEEN :start AND :end
         AND dt.type IN ('expense', 'deposit', 'withdrawal')
+        AND dt.cancelled_at IS NULL
     """
     params = {'start': start, 'end': end}
     if warehouse_id:
