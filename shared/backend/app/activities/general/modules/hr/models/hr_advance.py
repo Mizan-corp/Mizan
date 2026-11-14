@@ -21,6 +21,9 @@ class HrAdvance(TenantScoped, Base):
     date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    record_type: Mapped[str] = mapped_column(Text, default="advance")  # advance/salary_advance/loan
+    record_type: Mapped[str] = mapped_column(Text, default="سلفة")  # سلفة (advance) / خصم (deduction) / مكافأة (bonus)
+    # An advance's cash leaves this safe or wallet; deductions and bonuses move no cash.
+    safe_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("safes.id"), nullable=True)
+    wallet_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("payment_wallets.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
