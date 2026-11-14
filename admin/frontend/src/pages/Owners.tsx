@@ -128,7 +128,7 @@ function OwnerDialog({ id, onClose }: { id: string; onClose: () => void }) {
                body="They get a new temporary password (also for their workspace logins) and are signed out everywhere." confirmLabel="Reset password"
                onConfirm={() => reset.mutateAsync(id).then((r) => setPassword(r.password))} />
       <Confirm open={confirm === "disable"} onClose={() => setConfirm(null)} title="Disable this owner account?" danger
-               body="They can't sign in to the owner panel and are signed out. Their workspaces keep running." confirmLabel="Disable"
+               body="They can't sign in to the owner panel or to their own logins in their workspaces, and every session ends. Their staff keep working. Enabling restores those logins." confirmLabel="Disable"
                onConfirm={() => active.mutateAsync({ id, active: false })} />
       <Confirm open={confirm === "delete"} onClose={() => setConfirm(null)} title="Delete this owner account?" danger
                body="It has no workspaces left. This can't be undone." confirmLabel="Delete"
