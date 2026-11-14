@@ -5,20 +5,11 @@ Accepted and done (2026-11-13). Production moved at 15:48 UTC; the Vercel projec
 store, the domain on Vercel and the Vercel secrets and workflows were removed the same day. Neon
 is kept read-only for a few days as a fallback.
 
-**Temporarily back on Vercel (2026-11-13, 16:34 UTC onward):** `homie` went offline (power or
-connection) 40 minutes after the move. Production was restored on Vercel + Neon: 8 projects
-recreated (same names, linked to GitHub, deploying `master`; each builds only when its folder or
-`shared/` changes), Cloudflare DNS pointing `allmizan.live` and `*.allmizan.live` at Vercel
-(DNS-only; `_acme-challenge` delegated to Vercel for the wildcard certificate), Neon writable, and
-`migrate-neon.yml` migrating it on each push. "Deploy (server)" is disabled. Writes made on the
-server between 15:52 and 16:34 UTC are only in its database. To return: copy Neon to the server,
-point DNS back at the tunnel, re-enable the server workflow, remove the Vercel bits again.
-
-**Back on the server (2026-11-13, evening).** `homie` returned after a power cut (idle beforehand,
-log cut mid-stream, every service came back by itself on boot). The owner chose to move
-production back at once: Vercel's GitHub links removed, the temporary Vercel files and
-`migrate-neon.yml` deleted, "Deploy (server)" re-enabled, Neon copied to the server and set
-read-only, DNS pointed at the tunnel again. A UPS and off-site backups are the next safeguards. Replaces the hosting parts of ADR-003 and ADR-008 (the domains
+A power cut on homie (2026-11-13, 16:34 UTC) sent production back to Vercel + Neon for a few
+hours; it returned to the server the same evening (Neon copied back and kept read-only, DNS on
+the tunnel again, the temporary Vercel files removed). The Vercel projects stay unlinked as a
+fallback; how to use it is in the operations notes. A UPS and off-site backups are the next
+safeguards. Replaces the hosting parts of ADR-003 and ADR-008 (the domains
 and the four products stay as they were).
 
 ## Context

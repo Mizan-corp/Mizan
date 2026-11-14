@@ -6,10 +6,12 @@ The folder layout below (`modules/<home_activity>/<module_id>/`, variants inside
 is superseded by ADR-010: each activity is one folder (`activities/<activity>/modules/`,
 `variants/`, `themes/`). Everything else here still holds.
 
-Proposed (2026-11-10). Agreed with the owner in a structured review on 2026-11-10 (the full
-question-by-question record is in the **Decision log** at the end). Phases 1–5 are built (see the
-implementation notes); 6–9 are not started. Once accepted
-it replaces the module conventions in `AGENTS.md`. Related: #94 (act as one role at a time),
+Accepted (2026-11-10, agreed with the owner in a structured review; the full question-by-question
+record is in the **Decision log** at the end). Built: phases 0–5, 7 for free modules and themes
+(ADR-007 milestone 2, ADR-012) and 9 (#107, ADR-012). Remaining: 6's sandbox for code modules
+(waits for Mizan's own cluster), 7's paid listings and payouts (wait for Paymob, #65), and 8 for
+the activities not yet moved (restaurant in progress). It replaces the module conventions in
+`AGENTS.md`. Related: #94 (act as one role at a time),
 #89 (updates for installed servers), #91 (bring your own database), #92 (device limits).
 
 ## Goals (as set by the owner)
