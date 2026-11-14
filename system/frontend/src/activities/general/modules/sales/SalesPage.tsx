@@ -30,19 +30,29 @@ interface SaleRow {
   id: string; invoice_number: string; total: string; net_total: string; paid_amount: string;
   status: string; is_credit: boolean; created_at: string; customer_name: string | null;
   customer_phone?: string | null; payment_method: string | null; sale_mode: string;
+  return_of?: string | null; returns_total?: string | number | null;
 }
 interface SaleItemRow {
   product_id?: string; product_name: string; qty: number;
   unit_price: string; discount: string; returned_qty?: number;
 }
+interface SaleReturnRef { id: string; invoice_number: string; net_total: number; created_at: string | null }
 interface SaleDetail extends SaleRow {
   items?: SaleItemRow[];
+  returns?: SaleReturnRef[];
+  return_of_number?: string | null;
 }
+
+const fullyReturned = (s: SaleRow): boolean =>
+  s.status === "confirmed" && Number(s.returns_total ?? 0) > 0 && Number(s.returns_total) >= Number(s.net_total);
 
 const statusLabel = (s: SaleRow): string =>
   s.status === "cancelled" ? "ملغاة"
   : s.status === "quotation" ? "عرض سعر"
   : s.status === "draft" ? "مسودة"
+  : s.status === "returned" ? "مستند مرتجع"
+  : fullyReturned(s) ? "مرتجعة بالكامل"
+  : Number(s.returns_total ?? 0) > 0 ? "مرتجعة جزئياً"
   : s.is_credit ? "آجل"
   : "مكتملة";
 
@@ -79,16 +89,22 @@ export default function SalesPage() {
   }
 
   const confirmQuotation = useMutation({
-    mutationFn: (id: string) => api.post(`/sales/${id}/confirm-quotation`),
+    // A draft is confirmed as a sale; a quotation becomes a sale paid into the user's drawer.
+    mutationFn: (row: SaleRow) =>
+      row.status === "draft" ? api.put(`/sales/${row.id}/confirm`) : api.post(`/sales/${row.id}/confirm-quotation`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["sales"] }); qc.invalidateQueries({ queryKey: ["sale"] }); },
+    onError: (e) => toast("error", (e as Error).message),
   });
   const cancelSale = useMutation({
     mutationFn: (id: string) => api.put(`/sales/${id}/cancel`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["sales"] }); qc.invalidateQueries({ queryKey: ["sale"] }); },
   });
   const fullReturn = useMutation({
-    mutationFn: (id: string) => api.post(`/sales/${id}/return`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["sales"] }); qc.invalidateQueries({ queryKey: ["sale"] }); },
+    mutationFn: (id: string) => api.post<{ doc_number?: string }>(`/sales/${id}/return`),
+    onSuccess: (res) => {
+      if (res?.doc_number) toast("success", `تم تسجيل المرتجع ${res.doc_number}`);
+      qc.invalidateQueries({ queryKey: ["sales"] }); qc.invalidateQueries({ queryKey: ["sale"] });
+    },
   });
   const partialReturn = useMutation({
     mutationFn: (id: string) =>
@@ -97,7 +113,11 @@ export default function SalesPage() {
           .map(([product_id, q]) => ({ product_id, qty: Number(q) }))
           .filter((i) => i.qty > 0),
       }),
-    onSuccess: () => { setReturnQty({}); qc.invalidateQueries({ queryKey: ["sales"] }); qc.invalidateQueries({ queryKey: ["sale"] }); },
+    onSuccess: (res) => {
+      const doc = (res as { doc_number?: string } | undefined)?.doc_number;
+      if (doc) toast("success", `تم تسجيل المرتجع ${doc}`);
+      setReturnQty({}); qc.invalidateQueries({ queryKey: ["sales"] }); qc.invalidateQueries({ queryKey: ["sale"] });
+    },
   });
 
   const list = useQuery({
@@ -119,7 +139,8 @@ export default function SalesPage() {
       ),
     [list.data, view],
   );
-  const sold = rows.filter((r) => r.status !== "cancelled" && r.status !== "quotation");
+  // Return documents are not sales: they reduce the sales they point to.
+  const sold = rows.filter((r) => r.status !== "cancelled" && r.status !== "quotation" && r.status !== "returned");
   const totalSales = sold.reduce((s, r) => s + Number(r.total), 0);
   const outstanding = sold.reduce((s, r) => s + (Number(r.total) - Number(r.paid_amount)), 0);
 
@@ -209,7 +230,7 @@ export default function SalesPage() {
                   <TableCell>
                     <div className="flex flex-col">
                       <Money value={Number(inv.total)} className="font-medium" />
-                      {inv.is_credit && inv.status !== "cancelled" && (
+                      {inv.is_credit && inv.status === "confirmed" && (
                         <span className="text-xs text-warning-ink">
                           متبقي <Money value={Number(inv.total) - Number(inv.paid_amount)} currency={false} />
                         </span>
@@ -244,7 +265,7 @@ export default function SalesPage() {
                             إرسال بالبريد
                           </DropdownMenuItem>
                           {(inv.status === "quotation" || inv.status === "draft") && (
-                            <DropdownMenuItem disabled={confirmQuotation.isPending} onClick={() => confirmQuotation.mutate(inv.id)}>
+                            <DropdownMenuItem disabled={confirmQuotation.isPending} onClick={() => confirmQuotation.mutate(inv)}>
                               تحويل لفاتورة
                             </DropdownMenuItem>
                           )}
@@ -270,7 +291,7 @@ export default function SalesPage() {
       <Sheet open={!!detailId} onOpenChange={(o) => !o && setDetailId(null)}>
         <SheetContent side="left" className="w-full overflow-y-auto sm:max-w-lg">
           <SheetHeader>
-            <SheetTitle className="num">فاتورة {d?.invoice_number ?? ""}</SheetTitle>
+            <SheetTitle className="num">{d?.status === "returned" ? "مرتجع" : "فاتورة"} {d?.invoice_number ?? ""}</SheetTitle>
             <SheetDescription>
               {d ? `${d.sale_mode === "retail" ? "تجزئة" : "جملة"} · ${dateTime(d.created_at)}` : ""}
             </SheetDescription>
@@ -320,27 +341,71 @@ export default function SalesPage() {
                 </Table>
               </div>
 
-              {d.status !== "cancelled" && (
+              {d.status === "returned" && d.return_of && (
+                <div className="flex items-center justify-between gap-2 rounded-xl border p-3 text-sm">
+                  <span className="text-muted-foreground">مرتجع من الفاتورة</span>
+                  <button
+                    type="button"
+                    className="num font-mono font-semibold text-primary hover:underline"
+                    onClick={() => setDetailId(d.return_of ?? null)}
+                  >
+                    {d.return_of_number ?? "—"}
+                  </button>
+                </div>
+              )}
+
+              {(d.returns ?? []).length > 0 && (
+                <div className="rounded-xl border p-3">
+                  <p className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                    <Undo2 className="size-4" /> المرتجعات
+                    <span className="num ms-auto text-xs font-normal text-muted-foreground">
+                      الإجمالي {moneyEGP(d.returns_total ?? 0)}
+                    </span>
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    {(d.returns ?? []).map((r) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        className="flex items-center justify-between gap-2 rounded-md px-1.5 py-1 text-sm hover:bg-muted/60"
+                        onClick={() => setDetailId(r.id)}
+                      >
+                        <span className="num font-mono">{r.invoice_number}</span>
+                        <span className="num text-muted-foreground">{moneyEGP(r.net_total)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {d.status === "confirmed" && !fullyReturned(d) && (
                 <div className="rounded-xl border p-3">
                   <p className="mb-2 flex items-center gap-2 text-sm font-semibold">
                     <Undo2 className="size-4" /> مرتجع جزئي
                   </p>
                   <div className="flex flex-col gap-2">
-                    {(d.items ?? []).map((it, i) => (
-                      <div key={i} className="flex items-center justify-between gap-2 text-sm">
-                        <span className="min-w-0 flex-1 truncate">
-                          {it.product_name} <span className="num text-muted-foreground">(مبيع {it.qty})</span>
-                        </span>
-                        <input
-                          className="num w-20 rounded-md border bg-transparent p-1.5 text-center"
-                          inputMode="decimal"
-                          placeholder="0"
-                          value={returnQty[it.product_id ?? ""] ?? ""}
-                          onChange={(e) => setReturnQty((r) => ({ ...r, [it.product_id ?? ""]: e.target.value }))}
-                          aria-label={`كمية مرتجع ${it.product_name}`}
-                        />
-                      </div>
-                    ))}
+                    {(d.items ?? []).map((it, i) => {
+                      const left = Number(it.qty) - Number(it.returned_qty ?? 0);
+                      return (
+                        <div key={i} className="flex items-center justify-between gap-2 text-sm">
+                          <span className="min-w-0 flex-1 truncate">
+                            {it.product_name}{" "}
+                            <span className="num text-muted-foreground">
+                              (مبيع {it.qty}{Number(it.returned_qty ?? 0) > 0 ? ` · مرتجع ${it.returned_qty}` : ""})
+                            </span>
+                          </span>
+                          <input
+                            className="num w-20 rounded-md border bg-transparent p-1.5 text-center disabled:opacity-50"
+                            inputMode="decimal"
+                            placeholder="0"
+                            disabled={left <= 0}
+                            value={returnQty[it.product_id ?? ""] ?? ""}
+                            onChange={(e) => setReturnQty((r) => ({ ...r, [it.product_id ?? ""]: e.target.value }))}
+                            aria-label={`كمية مرتجع ${it.product_name} (المتبقي ${left})`}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                   {partialReturn.isError && <p className="mt-2 text-sm text-destructive-ink">{(partialReturn.error as Error).message}</p>}
                   <Button
@@ -380,15 +445,15 @@ export default function SalesPage() {
                   <Mail className="size-4" />
                   إرسال بريد
                 </Button>
-                {d.status !== "cancelled" && (
-                  <>
-                    <Button variant="outline" disabled={fullReturn.isPending} onClick={() => detailId && fullReturn.mutate(detailId)}>
-                      مرتجع كامل
-                    </Button>
-                    <Button variant="destructive" disabled={cancelSale.isPending} onClick={() => detailId && cancelSale.mutate(detailId)}>
-                      إلغاء الفاتورة
-                    </Button>
-                  </>
+                {d.status === "confirmed" && !fullyReturned(d) && (
+                  <Button variant="outline" disabled={fullReturn.isPending} onClick={() => detailId && fullReturn.mutate(detailId)}>
+                    {Number(d.returns_total ?? 0) > 0 ? "إرجاع المتبقي" : "مرتجع كامل"}
+                  </Button>
+                )}
+                {d.status === "confirmed" && Number(d.returns_total ?? 0) === 0 && (
+                  <Button variant="destructive" disabled={cancelSale.isPending} onClick={() => detailId && cancelSale.mutate(detailId)}>
+                    إلغاء الفاتورة
+                  </Button>
                 )}
               </div>
               {(cancelSale.isError || fullReturn.isError || partialReturn.isError) && (

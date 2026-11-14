@@ -81,7 +81,11 @@ async def print_sale(sale_id: uuid.UUID,
     if is_return:
         doc_label = "مستند مرتجع"
         orig_inv = None
-        if str(sale['invoice_number']).startswith("RET-"):
+        if sale.get('return_of'):
+            # A return document names the sale it returns (ADR-014 D4).
+            orig_inv = h((await db.execute(text("SELECT invoice_number FROM sales WHERE id = :id"),
+                                           {"id": sale['return_of']})).scalar() or "")
+        elif str(sale['invoice_number']).startswith("RET-"):
             for ln in (sale.get('notes') or '').split(','):
                 if 'مرتجع جزئي من' in ln:
                     orig_inv = ln.split('مرتجع جزئي من')[-1].strip()
@@ -90,7 +94,8 @@ async def print_sale(sale_id: uuid.UUID,
             orig_inv = h(sale['invoice_number'])
 
         subtotal = sum(float(i['qty']) * float(i['unit_price']) - float(i.get('discount',0)) for i in items)
-        total = subtotal
+        # A return document's net total includes its share of the invoice discount.
+        total = float(sale['net_total']) if sale.get('return_of') else subtotal
 
         rows_html = ""
         for idx, it in enumerate(items, 1):
