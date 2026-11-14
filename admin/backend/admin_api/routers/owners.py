@@ -21,6 +21,7 @@ from app.dependencies import require_superadmin
 from app.platform.auth.models.owner import OwnerAccount
 from app.platform.auth.models.user import User
 from app.platform.auth.security import hash_password
+from app.platform.auth.services.owners import bypass_rls
 from app.platform.billing.models import BillingInvoice
 from app.platform.tenancy.models import Tenant
 
@@ -113,11 +114,26 @@ class Active(BaseModel):
 @router.post("/{owner_id}/active")
 async def set_active(owner_id: uuid.UUID, body: Active, request: Request, db: AsyncSession = Depends(get_db),
                      admin: User = Depends(require_superadmin)):
-    """Disable (sign-in refused, sessions end) or enable an owner account. Their workspaces keep running."""
+    """Disable or enable an owner account. Disabling refuses their sign-in and ends their sessions,
+    and does the same for their own logins in their workspaces (otherwise they'd still run them as
+    admin); the workspaces keep running for their staff. Enabling turns back on only the logins
+    this disabled."""
     o = await _get(db, owner_id)
-    o.is_active = body.active
-    if not body.active:
-        o.tokens_valid_after = datetime.now(UTC)
+    now = datetime.now(UTC)
+    settings_ = dict(o.settings or {})
+    if not body.active and o.is_active:
+        await bypass_rls(db)
+        ids = (await db.execute(select(User.id).where(User.owner_account_id == o.id, User.is_active.is_(True)))).scalars().all()
+        if ids:
+            await db.execute(update(User).where(User.id.in_(ids)).values(is_active=False, tokens_valid_after=now))
+        settings_["disabled_logins"] = [str(i) for i in ids]
+        o.tokens_valid_after = now
+    elif body.active and not o.is_active:
+        ids = [uuid.UUID(i) for i in settings_.pop("disabled_logins", [])]
+        if ids:
+            await bypass_rls(db)
+            await db.execute(update(User).where(User.id.in_(ids)).values(is_active=True))
+    o.is_active, o.settings = body.active, settings_
     await db.commit()
     await record(db, admin, "owner_enabled" if body.active else "owner_disabled", request=request, owner=o.login)
     return _out(o, count=await db.scalar(select(func.count()).select_from(Tenant).where(Tenant.owner_account_id == o.id)))

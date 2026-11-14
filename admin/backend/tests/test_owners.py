@@ -103,6 +103,49 @@ async def test_reset_password_and_disable():
         await db.close()
 
 
+async def test_disabling_an_owner_closes_their_workspace_logins_too():
+    """A disabled owner could still run their workspace as admin with the same password; now
+    their own workspace logins are disabled with them, and only those come back on enabling."""
+    from fastapi import FastAPI
+    from httpx import ASGITransport, AsyncClient as Client
+
+    from app.platform.auth.routes import owner_login
+
+    owner, tenants = await make_owner(2)
+    h = await admin_headers()
+    db = await _session()
+    try:  # one login the workspace had already switched off itself: it must stay off
+        other = await db.scalar(select(User).where(User.owner_account_id == owner.id, User.tenant_id == tenants[1].id))
+        other.is_active = False
+        await db.commit()
+    finally:
+        await db.close()
+
+    erp = FastAPI()
+    erp.include_router(owner_login.router)
+    erp.dependency_overrides[owner_login.login_limiter] = lambda: None
+    async with client() as c, Client(transport=ASGITransport(app=erp), base_url="http://test") as sign_in:
+        assert (await c.post(f"/admoon/owners/{owner.id}/active", headers=h, json={"active": False})).status_code == 200
+        r = await sign_in.post("/account/login", json={"login": owner.login, "password": "secret123"})
+        assert r.status_code == 403 and "موقوف" in r.json()["detail"]  # not "go to your workspace"
+        db = await _session()
+        try:
+            states = {u.tenant_id: u.is_active for u in (await db.execute(select(User).where(User.owner_account_id == owner.id))).scalars()}
+            assert states == {tenants[0].id: False, tenants[1].id: False}
+        finally:
+            await db.close()
+        assert (await sign_in.post("/account/login", json={"login": owner.login, "password": "wrong"})).status_code == 401
+
+        assert (await c.post(f"/admoon/owners/{owner.id}/active", headers=h, json={"active": True})).status_code == 200
+        assert (await sign_in.post("/account/login", json={"login": owner.login, "password": "secret123"})).status_code == 200
+        db = await _session()
+        try:
+            states = {u.tenant_id: u.is_active for u in (await db.execute(select(User).where(User.owner_account_id == owner.id))).scalars()}
+            assert states == {tenants[0].id: True, tenants[1].id: False}  # only what disabling switched off
+        finally:
+            await db.close()
+
+
 async def test_send_reset_code_needs_a_verified_email(monkeypatch):
     from app.platform.notifications import service as mail
 

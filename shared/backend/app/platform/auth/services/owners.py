@@ -39,8 +39,10 @@ async def bypass_rls(db: AsyncSession) -> None:
 
 async def authenticate_owner(db: AsyncSession, login: str, password: str) -> OwnerAccount:
     owner = await db.scalar(select(OwnerAccount).where(OwnerAccount.login == normalize_login(login)))
-    if not owner or not owner.is_active or not verify_password(password, owner.password_hash):
+    if not owner or not verify_password(password, owner.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="اسم الدخول أو كلمة المرور غير صحيحة")
+    if not owner.is_active:  # said only after the password matched, so it reveals nothing to guessers
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="هذا الحساب موقوف. تواصل مع دعم ميزان.")
     owner.last_login_at = datetime.now(UTC)
     return owner
 

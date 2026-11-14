@@ -31,6 +31,8 @@ async def owner_login(data: OwnerLogin, db: AsyncSession = Depends(get_db), _=De
     try:
         owner = await authenticate_owner(db, data.login, data.password)
     except HTTPException as owner_error:
+        if owner_error.status_code == 403:  # a disabled owner: not an employee to redirect
+            raise
         # Not an owner: an employee with the right password learns where to sign in.
         try:
             user = await auth_service.authenticate(db, data.login.strip(), data.password)
