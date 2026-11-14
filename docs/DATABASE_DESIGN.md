@@ -84,6 +84,10 @@ A bank account, used for bank transfers and cheques, is a safe with `safe_type =
 | `hr_advances` | `safe_id`, `wallet_id` | An advance (`record_type = 'سلفة'`) is paid out from here; `خصم` and `مكافأة` move no cash |
 | `hr_payroll_periods` | `safe_id`, `wallet_id`, `paid_amount`, `expense_id` | Approving records the salaries expense (no money); paying moves `paid_amount` out once; a paid month can't be reopened, reopening an approved one cancels `expense_id` |
 
+### Clinic invoices (ADR-014 D4; migration `v82`)
+
+`clinic_invoices.sale_id`: a clinic invoice is one `sales` row (the patient's share), made at its first payment. Every payment is a `sale_payments` line on it, and cash goes into the cashier's open drawer. A payment can't be zero or more than what is left. Before, each payment made a new sale with the same invoice number; the migration links each invoice to the first of those.
+
 ## 3. Platform Tables (not tenant-scoped)
 
 These belong to Mizan itself, not to a workspace, and have no RLS policy. Only the owner,
