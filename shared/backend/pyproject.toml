@@ -25,6 +25,7 @@ dependencies = [
     "firebase-admin==6.6.0",
     "redis[hiredis]==5.2.1",
     "packaging==24.2",
+    "tzdata>=2024.1",  # time zones (Africa/Cairo) where the system has none: containers, Windows installs
 ]
 
 [tool.setuptools.packages.find]

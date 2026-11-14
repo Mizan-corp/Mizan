@@ -19,7 +19,7 @@ permissions:
 jobs:
   build:
     name: Image (${{ matrix.image }})
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, ci]   # waits for CI only; latitude-e6530
     strategy:
       matrix:
         image: [api, web]
