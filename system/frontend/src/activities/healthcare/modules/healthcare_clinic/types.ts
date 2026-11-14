@@ -51,7 +51,10 @@ export interface Appointment {
   doctor_name: string;
   doctor_user_id: string | null;
   department: string;
+  department_id?: string | null;
+  room_id?: string | null;
   appointment_date: string;
+  /** "HH:MM" (24h) since #36; older appointments may hold "10:30 AM". */
   time_slot: string;
   queue_number: number;
   status: AppointmentStatus;
@@ -172,7 +175,46 @@ export interface Clinician {
   is_doctor: boolean;
 }
 
-export type ClinicTab = "appointments" | "patients" | "emr" | "rx_labs" | "beds" | "billing" | "claims" | "privacy";
+export type ClinicTab = "appointments" | "patients" | "emr" | "rx_labs" | "beds" | "billing" | "claims" | "privacy" | "scheduling";
+
+/** Department master (#36). */
+export interface Department {
+  id: string;
+  code: string;
+  name: string;
+  specialty_code: string;
+  active: boolean;
+}
+
+export interface Room {
+  id: string;
+  name: string;
+  department_id: string | null;
+  active: boolean;
+}
+
+/** A doctor's weekly roster row; weekday 0 = Monday … 6 = Sunday. */
+export interface DoctorSchedule {
+  id: string;
+  doctor_user_id: string;
+  doctor_name: string;
+  department_id: string;
+  department_name: string | null;
+  room_id: string | null;
+  room_name: string | null;
+  weekday: number;
+  weekday_name: string;
+  start_time: string;
+  end_time: string;
+  slot_minutes: number;
+  active: boolean;
+}
+
+/** GET /clinic/schedule/slots */
+export interface SlotList {
+  has_roster: boolean;
+  slots: { time: string; minutes: number; available: boolean; department_id: string; room_id: string | null; room_name: string | null }[];
+}
 
 /** A page of a server-side list (GET /clinic/patients, /clinic/appointments; #39). */
 export interface Page<T> {

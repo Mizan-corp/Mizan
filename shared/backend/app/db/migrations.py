@@ -3391,6 +3391,68 @@ MIGRATIONS = [
         WHERE jsonb_typeof(ci.charges) = 'array'
           AND (ci.charges::text LIKE '%صرف دواء:%' OR ci.charges::text LIKE '%رسوم فحص مخبري:%');
     """),
+    # #36: department master, examination rooms and doctors' weekly rosters; appointments name their
+    # department and room. The department name stays in clinic_appointments.department for older
+    # records and lists.
+    ("v85_clinic_departments_rosters", """
+        CREATE TABLE IF NOT EXISTS clinic_departments (
+            id varchar(36) PRIMARY KEY,
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            code varchar(16) NOT NULL,
+            name varchar(64) NOT NULL,
+            specialty_code varchar(32) NOT NULL DEFAULT '',
+            active boolean NOT NULL DEFAULT true,
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_clinic_departments_tenant_id ON clinic_departments (tenant_id);
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_clinic_departments_code ON clinic_departments (tenant_id, code);
+        CREATE TABLE IF NOT EXISTS clinic_rooms (
+            id varchar(36) PRIMARY KEY,
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            name varchar(64) NOT NULL,
+            department_id varchar(36) REFERENCES clinic_departments(id) ON DELETE SET NULL,
+            active boolean NOT NULL DEFAULT true,
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_clinic_rooms_tenant_id ON clinic_rooms (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_rooms_department_id ON clinic_rooms (department_id);
+        CREATE TABLE IF NOT EXISTS clinic_doctor_schedules (
+            id varchar(36) PRIMARY KEY,
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            doctor_user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            department_id varchar(36) NOT NULL REFERENCES clinic_departments(id) ON DELETE CASCADE,
+            room_id varchar(36) REFERENCES clinic_rooms(id) ON DELETE SET NULL,
+            weekday integer NOT NULL CHECK (weekday BETWEEN 0 AND 6),
+            start_time varchar(5) NOT NULL,
+            end_time varchar(5) NOT NULL,
+            slot_minutes integer NOT NULL DEFAULT 15,
+            active boolean NOT NULL DEFAULT true,
+            created_at timestamptz NOT NULL DEFAULT now()
+        );
+        CREATE INDEX IF NOT EXISTS ix_clinic_doctor_schedules_tenant_id ON clinic_doctor_schedules (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_doctor_schedules_doctor_user_id ON clinic_doctor_schedules (doctor_user_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_doctor_schedules_department_id ON clinic_doctor_schedules (department_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_doctor_schedules_room_id ON clinic_doctor_schedules (room_id);
+        ALTER TABLE clinic_appointments ADD COLUMN IF NOT EXISTS department_id varchar(36) REFERENCES clinic_departments(id) ON DELETE SET NULL;
+        ALTER TABLE clinic_appointments ADD COLUMN IF NOT EXISTS room_id varchar(36) REFERENCES clinic_rooms(id) ON DELETE SET NULL;
+        CREATE INDEX IF NOT EXISTS ix_clinic_appointments_department_id ON clinic_appointments (department_id);
+        CREATE INDEX IF NOT EXISTS ix_clinic_appointments_room_id ON clinic_appointments (room_id);
+        ALTER TABLE clinic_departments ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE clinic_departments FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON clinic_departments;
+        CREATE POLICY tenant_isolation ON clinic_departments
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        ALTER TABLE clinic_rooms ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE clinic_rooms FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON clinic_rooms;
+        CREATE POLICY tenant_isolation ON clinic_rooms
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        ALTER TABLE clinic_doctor_schedules ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE clinic_doctor_schedules FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON clinic_doctor_schedules;
+        CREATE POLICY tenant_isolation ON clinic_doctor_schedules
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

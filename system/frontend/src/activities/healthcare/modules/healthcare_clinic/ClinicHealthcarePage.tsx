@@ -22,6 +22,7 @@ import EMRTab from "./tabs/EMRTab";
 import PatientsTab from "./tabs/PatientsTab";
 import PrivacyTab from "./tabs/PrivacyTab";
 import RxLabsTab from "./tabs/RxLabsTab";
+import SchedulingTab from "./tabs/SchedulingTab";
 
 const TAB_VIEWS: Record<ClinicTab, () => React.JSX.Element> = {
   appointments: AppointmentsTab,
@@ -32,6 +33,7 @@ const TAB_VIEWS: Record<ClinicTab, () => React.JSX.Element> = {
   billing: BillingTab,
   claims: ClaimsTab,
   privacy: PrivacyTab,
+  scheduling: SchedulingTab,
 };
 
 const includes = (value: string | null | undefined, q: string) => (value ?? "").toLowerCase().includes(q);
@@ -62,7 +64,7 @@ export default function ClinicHealthcarePage() {
   const tabParam = searchParams.get("tab");
   const activeModuleKey = moduleSlug || (tabParam && HEALTHCARE_MODULES_MAP[tabParam] ? tabParam : null);
   const validTabs = ["appointments", "patients", "emr", "rx_labs", "labs", "beds",
-    ...(perms.billing ? ["billing", "claims"] : []), ...(perms.privacy ? ["privacy"] : [])];
+    ...(perms.billing ? ["billing", "claims"] : []), ...(perms.privacy ? ["privacy"] : []), ...(perms.manage ? ["scheduling"] : [])];
   const tab: ClinicTab = tabParam && validTabs.includes(tabParam)
     ? (tabParam === "labs" ? "rx_labs" : (tabParam as ClinicTab))
     : "appointments";

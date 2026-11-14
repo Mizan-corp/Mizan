@@ -35,6 +35,47 @@ class ClinicPatient(TenantScoped, Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
+class ClinicDepartment(TenantScoped, Base):
+    """Department master (#36): the clinic's departments and their specialty codes."""
+    __tablename__ = "clinic_departments"
+    __table_args__ = (Index("ux_clinic_departments_code", "tenant_id", "code", unique=True),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    code: Mapped[str] = mapped_column(String(16))
+    name: Mapped[str] = mapped_column(String(64))
+    specialty_code: Mapped[str] = mapped_column(String(32), default="", server_default="")
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ClinicRoom(TenantScoped, Base):
+    """Examination / consultation rooms (#36)."""
+    __tablename__ = "clinic_rooms"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String(64))
+    department_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("clinic_departments.id", ondelete="SET NULL"), nullable=True, index=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ClinicDoctorSchedule(TenantScoped, Base):
+    """A doctor's weekly roster (#36): on `weekday` (0 = Monday … 6 = Sunday, Python's weekday()),
+    from start_time to end_time ("HH:MM"), in a department and room, in slots of slot_minutes."""
+    __tablename__ = "clinic_doctor_schedules"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    doctor_user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    department_id: Mapped[str] = mapped_column(String(36), ForeignKey("clinic_departments.id", ondelete="CASCADE"), index=True)
+    room_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("clinic_rooms.id", ondelete="SET NULL"), nullable=True, index=True)
+    weekday: Mapped[int] = mapped_column(Integer)
+    start_time: Mapped[str] = mapped_column(String(5))
+    end_time: Mapped[str] = mapped_column(String(5))
+    slot_minutes: Mapped[int] = mapped_column(Integer, default=15, server_default="15")
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class ClinicAppointment(TenantScoped, Base):
     """Physician Appointment Scheduling & Queuing (HLT-02)."""
     __tablename__ = "clinic_appointments"
@@ -45,9 +86,11 @@ class ClinicAppointment(TenantScoped, Base):
     patient_name: Mapped[str] = mapped_column(String(128))
     doctor_name: Mapped[str] = mapped_column(String(128), index=True)
     doctor_user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
-    department: Mapped[str] = mapped_column(String(64))  # باطنة، أطفال، عظام، جراحة، جلدية
+    department: Mapped[str] = mapped_column(String(64))  # the department's name (kept for older records and lists)
+    department_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("clinic_departments.id", ondelete="SET NULL"), nullable=True, index=True)
+    room_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("clinic_rooms.id", ondelete="SET NULL"), nullable=True, index=True)
     appointment_date: Mapped[str] = mapped_column(String(32))
-    time_slot: Mapped[str] = mapped_column(String(32))  # 10:30 AM
+    time_slot: Mapped[str] = mapped_column(String(32))  # "HH:MM" (24h) since #36; older rows may hold "10:30 AM"
     queue_number: Mapped[int] = mapped_column(Integer, default=1)
     status: Mapped[str] = mapped_column(String(32), default="scheduled")  # scheduled, waiting, in_consultation, completed, cancelled, no_show
     consultation_fee: Mapped[float] = mapped_column(Float, default=250.0)

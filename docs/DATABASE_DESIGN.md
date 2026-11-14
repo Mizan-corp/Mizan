@@ -39,6 +39,12 @@ free-text `doctor_name`: the clinician the record belongs to (v79; v79b linked e
 whose `doctor_name` is exactly one active user's name, and put that user on the patient's care
 team).
 
+Since v85 (#36) `clinic_appointments` also has `department_id` (→ `clinic_departments`) and
+`room_id` (→ `clinic_rooms`), both nullable with `ON DELETE SET NULL`; `department` keeps the
+department's name. New bookings store `time_slot` as `HH:MM` (24h); older rows keep their free text
+("10:30 AM"), which the booking rules still read. No two non-cancelled appointments overlap for the
+same doctor or the same room on a date (checked by the API: each lasts its doctor's roster slot).
+
 Besides the ERP's own records, every workspace has (all tenant-scoped, with RLS):
 
 | Table | What it holds |
@@ -51,6 +57,9 @@ Besides the ERP's own records, every workspace has (all tenant-scoped, with RLS)
 | `clinic_care_team` | A patient's care team (#113): `patient_id` → `clinic_patients`, `user_id` → `users`, `role` (`attending`, `consultant`, `nurse`, `other`), `added_by`, `created_at`, `ended_at` (members are ended, not deleted); one active membership per (patient, user) |
 | `clinic_access_grants` | Break-glass grants (#113): patient, user, `reason`, `starts_at`, `expires_at` (60 minutes), `revoked_at`, `reviewed_by`/`reviewed_at`/`review_note` |
 | `clinic_access_log` | One row per read of clinical data (#113): `user_id`, `user_name`, `patient_id` (`NULL` for a list), `resource` (`patient`, `encounters`, `prescriptions`, `lab_orders`), `how` (`all`, `setting`, `team`, `break_glass`, `queue`), `rows`; no foreign key to the patient, so it outlives the record |
+| `clinic_departments` | Department master (#36, v85): `code` (unique per workspace), `name`, `specialty_code`, `active`; a clinic with none gets the usual departments on its first read |
+| `clinic_rooms` | Examination rooms (#36): `name`, `department_id` (→ `clinic_departments`, nullable: shared), `active` |
+| `clinic_doctor_schedules` | Doctors' weekly rosters (#36): `doctor_user_id` → `users`, `department_id`, `room_id`, `weekday` (0 = Monday … 6 = Sunday), `start_time`/`end_time` (`HH:MM`), `slot_minutes`, `active`; rows of the same doctor or room don't overlap |
 | `activity_changes` | Owners' requests to change the workspace's activity and the Mizan team's decisions (#107); read across workspaces by the owner and admin APIs with `app.bypass` |
 
 ### Money documents in sales, POS and stock (ADR-014 D4, D5; migration `v80`)

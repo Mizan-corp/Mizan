@@ -596,7 +596,7 @@ async def test_p1_7_appointment_cancel_and_reschedule():
         assert resched_res.status_code == 200
         resched = resched_res.json()
         assert resched["appointment_date"] == "2026-11-15"
-        assert resched["time_slot"] == "11:30 AM"
+        assert resched["time_slot"] == "11:30"  # normalised to 24h (#36)
         assert resched["reschedule_count"] == 1
         assert "2026-11-12" in resched["rescheduled_from"]
 

@@ -78,8 +78,8 @@ export default function AppointmentsTab() {
                 <div className="text-[11px] text-muted-foreground">{a.department}</div>
               </TableCell>
               <TableCell className="text-center">
-                <div className="num text-xs text-foreground">{a.appointment_date}</div>
-                <div className="num text-[11px] text-muted-foreground">{a.time_slot}</div>
+                <div className="num block text-xs text-foreground">{a.appointment_date}</div>
+                <div className="num block text-[11px] text-muted-foreground">{a.time_slot}</div>
               </TableCell>
               <TableCell className="num text-xs font-bold text-foreground text-left">
                 {moneyEGP(a.consultation_fee)}

@@ -73,6 +73,26 @@ them all, and the standard clinical roles don't hold it. The table of who does w
 name). `GET /clinic/summary` returns the money figures only to `clinic:billing`. Migration
 `v84_clinic_role_separation`; tests `system/backend/tests/test_clinic_role_separation.py`.
 
+## Departments, rooms and rosters (#36)
+
+- `GET /clinic/departments` (seeds the usual departments for a clinic with none), `POST`/`PUT
+  /clinic/departments/{id}`; `GET/POST/PUT /clinic/rooms`; `GET/POST/PUT/DELETE /clinic/schedules`
+  (doctors' weekly rosters: weekday 0 = Monday … 6 = Sunday, `HH:MM` times, slot length). Reading is
+  open to the clinic; changes need `clinic:manage`. Roster rows of the same doctor or room don't overlap.
+- Booking: `GET /clinic/clinicians?department_id=` lists the department's rostered doctors,
+  `GET /clinic/schedule/slots?doctor_user_id=&date=` the doctor's slots that day and whether each is
+  free. `POST /clinic/appointments` takes `department_id` (and keeps `department` = its name), puts a
+  rostered doctor's appointment inside the roster (its department and room), stores `time_slot` as
+  `HH:MM` ("11:30 AM" is still read) and refuses (409) an appointment overlapping another
+  non-cancelled one of the same doctor or room; rescheduling follows the same rules. A doctor with
+  no roster is booked at any time, as before. Logic in `scheduling.py`, routes in
+  `routes/scheduling.py`; screen: the «الأقسام والجداول» tab (`tabs/SchedulingTab.tsx`) and the
+  booking dialog. Migration `v85_clinic_departments_rosters`; tests
+  `system/backend/tests/test_clinic_scheduling.py`.
+
+Route guards are in `guards.py` (shared by `router.py` and `routes/`); the route areas in
+`routes/` are included by `router.py` under `/clinic`.
+
 Migrations: `v79_clinic_patient_access` (tables and columns), `v79b_clinic_care_team_backfill`
 (`migrate.py`: links existing records to users by exact doctor name). Tests:
 `system/backend/tests/test_clinic_patient_access.py`.

@@ -173,6 +173,13 @@
       "label": "الروشتات والوصفات الرقمية",
       "icon": "Pill",
       "permission": ""
+    },
+    {
+      "id": "healthcare_clinic.clinic_scheduling",
+      "path": "/clinic?tab=scheduling",
+      "label": "الأقسام وجداول الأطباء",
+      "icon": "Building2",
+      "permission": "clinic:manage"
     }
   ],
   "widgets": [],
