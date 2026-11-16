@@ -28,6 +28,30 @@ spec:
           ports: [{containerPort: 15433}]
           resources: {requests: {memory: 8Mi}, limits: {memory: 32Mi}}
 ---
+# latitude's side of the database, used only after a failover (deploy/failover): forwards to the
+# standby container (promoted to primary) on latitude. The watchdog scales it to 1 and points the
+# Service's selector at it; releases don't run while homie is fenced, so this file doesn't undo that.
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: pg-bridge-latitude, namespace: mizan}
+spec:
+  replicas: 0
+  selector: {matchLabels: {app: pg-bridge-latitude}}
+  template:
+    metadata: {labels: {app: pg-bridge-latitude}}
+    spec:
+      nodeSelector: {mizan/role: control}   # latitude
+      hostNetwork: true
+      containers:
+        - name: socat
+          image: alpine/socat:1.8.0.3
+          env:
+            - name: HOST_IP
+              valueFrom: {fieldRef: {fieldPath: status.hostIP}}
+          args: ["-d", "TCP-LISTEN:15433,bind=$(HOST_IP),fork,reuseaddr", "TCP:127.0.0.1:15432"]
+          ports: [{containerPort: 15433}]
+          resources: {requests: {memory: 8Mi}, limits: {memory: 32Mi}}
+---
 apiVersion: v1
 kind: Service
 metadata: {name: postgres, namespace: mizan}

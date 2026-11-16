@@ -1,0 +1,13 @@
+[Unit]
+Description=Mizan failover guard (owns homie's tunnel; fences homie when latitude is the primary)
+Documentation=https://github.com/ammar0xff/Mizan/blob/master/deploy/failover/README.md
+After=docker.service network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/sbin/mizan-guard.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

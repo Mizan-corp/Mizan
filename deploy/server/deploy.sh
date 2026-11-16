@@ -7,6 +7,11 @@
 set -eu
 TAG="$1"
 cd /srv/mizan
+if [ -f /var/lib/mizan/fenced ]; then
+  # latitude took over the database (deploy/failover): this copy is stale; never migrate or serve it.
+  echo "homie is fenced ($(cat /var/lib/mizan/fenced)): not releasing. See deploy/failover/README.md." >&2
+  exit 1
+fi
 for repo in mizan-api mizan-web; do
   docker image inspect "ghcr.io/ammar0xff/$repo:$TAG" >/dev/null 2>&1 || docker pull -q "ghcr.io/ammar0xff/$repo:$TAG"
 done
