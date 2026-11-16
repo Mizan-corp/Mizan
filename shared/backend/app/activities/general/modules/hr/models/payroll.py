@@ -70,6 +70,8 @@ class HrPayrollEntry(TenantScoped, Base):
     bonus_days: Mapped[int | None] = mapped_column(nullable=True)
     bonus_payment: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     bonuses: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    # The bonuses added to the net (the hr bonus records, or what a manager typed): what payroll reads.
+    bonus: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True, default=0)
     deductions: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     advances: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     drawer_variance: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)

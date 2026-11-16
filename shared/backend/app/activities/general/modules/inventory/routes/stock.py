@@ -115,8 +115,16 @@ async def get_balance_breakdown(product_id: uuid.UUID, db: AsyncSession = Depend
     return [dict(r._mapping) for r in rows.fetchall()]
 
 
+def _refuse_purchase_return(*items: StockMovementCreate) -> None:
+    """Goods go back to a supplier only through a purchase return, which also settles the supplier."""
+    if any(str(i.movement_type) == "return_out" for i in items):
+        from fastapi import HTTPException
+        raise HTTPException(400, "مرتجع المشتريات يُسجَّل من شاشة المشتريات (أمر الشراء) وليس كحركة مخزون")
+
+
 @router.post("/movements", response_model=StockMovementOut)
 async def add_movement(data: StockMovementCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("inventory")), _=Depends(require_open_period)):
+    _refuse_purchase_return(data)
     mv = await stock_service.record_movement(db, data, current_user.id)
     await db.commit()
     await db.refresh(mv)
@@ -184,6 +192,7 @@ async def bulk_adjustment(data: list[StockMovementCreate], db: AsyncSession = De
     from fastapi import HTTPException
     if len(data) > 500:
         raise HTTPException(400, "Too many items (max 500)")
+    _refuse_purchase_return(*data)
     for item in data:
         await stock_service.record_movement(db, item, current_user.id)
         await audit_log(db, "stock", "adjustment", current_user.id, current_user.full_name, None, {"product_id": str(item.product_id), "qty": float(item.qty), "type": item.movement_type}, "تسوية مخزون")

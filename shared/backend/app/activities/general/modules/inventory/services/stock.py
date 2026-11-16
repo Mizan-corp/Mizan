@@ -63,7 +63,12 @@ def is_inbound(movement_type) -> bool:
 # Inbound movements whose cost changes the average (ADR-014 D5). A transfer only moves stock between
 # branches; the average is kept for the whole workspace.
 COSTED_IN_TYPES = ("opening_stock", "purchase", "return_in", "adjustment_in")
+# Outbound stock that leaves at the cost it came in at, not at the average: goods sent back to a
+# supplier. The average is recalculated without them.
+COSTED_OUT_TYPES = ("return_out",)
 _AVG_PLACES = Decimal("0.0001")
+# Movements that change the stock's value without a document of their own (announced as stock.adjusted).
+ADJUSTMENT_TYPES = ("adjustment_in", "adjustment_out", "damage")
 
 
 async def _movement_cost(db: AsyncSession, product_id, movement_type, qty, unit_cost) -> Decimal:
@@ -74,10 +79,12 @@ async def _movement_cost(db: AsyncSession, product_id, movement_type, qty, unit_
     kind = str(movement_type).split(".")[-1]
     cost = Decimal(str(unit_cost)) if unit_cost is not None else None
     costed = kind in COSTED_IN_TYPES and cost is not None and cost > 0
+    costed_out = kind in COSTED_OUT_TYPES and cost is not None and cost > 0
     # Only a costed receipt locks the product (outgoing stock already holds its balance row lock;
-    # locking the product too would deadlock against a receipt).
+    # locking the product too would deadlock against a receipt). A return to a supplier locks the
+    # products first, before touching any balance, so it takes locks in the same order as a receipt.
     row = (await db.execute(text("SELECT avg_cost, cost_price FROM products WHERE id = :pid"
-                                 + (" FOR UPDATE" if costed else "")), {"pid": product_id})).one_or_none()
+                                 + (" FOR UPDATE" if costed or costed_out else "")), {"pid": product_id})).one_or_none()
     if row is None:
         return cost or Decimal("0")
     avg = Decimal(str(row.avg_cost or 0))
@@ -95,6 +102,16 @@ async def _movement_cost(db: AsyncSession, product_id, movement_type, qty, unit_
             new_avg = (on_hand * avg + qty * cost) / (on_hand + qty)
         await db.execute(text("UPDATE products SET avg_cost = :a WHERE id = :pid"),
                          {"a": new_avg.quantize(_AVG_PLACES), "pid": product_id})
+        return cost
+    if costed_out:
+        on_hand = Decimal(str((await db.execute(
+            text("SELECT COALESCE(SUM(qty), 0) FROM stock_balances WHERE product_id = :pid"), {"pid": product_id}
+        )).scalar() or 0))
+        left = on_hand - Decimal(str(qty))
+        if left > 0 and avg > 0:
+            new_avg = max(Decimal("0"), (on_hand * avg - Decimal(str(qty)) * cost) / left)
+            await db.execute(text("UPDATE products SET avg_cost = :a WHERE id = :pid"),
+                             {"a": new_avg.quantize(_AVG_PLACES), "pid": product_id})
         return cost
     return avg.quantize(Decimal("0.01"))
 
@@ -132,6 +149,11 @@ async def apply_movement(db: AsyncSession, *, product_id, warehouse_id, movement
 
     await db.flush()
     results = await emit("inventory.after_movement", db, movement=mv, inbound=inbound, lot=lot)
+    if str(movement_type).split(".")[-1] in ADJUSTMENT_TYPES:
+        # Stock written up or off by hand: modules that follow it (the ledger, ADR-014 D3) post it here.
+        from app.framework.events import notify
+
+        await notify("stock.adjusted", db, movement=mv, user_id=created_by)
     return mv, (results[0] or []) if results else []
 
 

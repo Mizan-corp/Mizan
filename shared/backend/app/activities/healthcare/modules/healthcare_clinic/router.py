@@ -13,6 +13,7 @@ from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.framework.activation import require_module
+from app.framework.events import notify
 from app.db.base import get_db
 from app.dependencies import get_current_user
 from app.activities.general.modules.inventory.models.product import Category, Product
@@ -293,7 +294,8 @@ async def _record_invoice_payment(
         inv.sale_id = sale.id
     sale.paid_amount = (sale.paid_amount or Decimal("0")) + amount
     sale.last_paid_at = datetime.now(UTC)
-    await add_sale_payment(db, sale.id, method, amount)
+    payment_id = await add_sale_payment(db, sale.id, method, amount)
+    shift = None
     if method == "cash":
         shift = (await db.execute(
             select(Shift).where(
@@ -306,6 +308,13 @@ async def _record_invoice_payment(
                                      created_by=current_user.id, note=f"سداد فاتورة {inv.invoice_ref}"))
             if not sale.shift_id:
                 sale.shift_id = shift.id
+    # The ledger posts the invoice (once) and this payment, in this transaction (ADR-014 D3).
+    await db.flush()
+    await notify("clinic.invoice_paid", db, user_id=current_user.id, invoice={
+        "id": uuid.UUID(str(inv.id)), "tenant_id": t_uuid, "invoice_ref": inv.invoice_ref, "patient_name": inv.patient_name,
+        "patient_amount": Decimal(str(inv.patient_amount or 0)), "insurance_amount": Decimal(str(inv.insurance_amount or 0)),
+        "paid_before": Decimal(str(inv.paid_amount or 0)) - amount, "warehouse_id": sale.warehouse_id,
+    }, payment={"id": payment_id, "amount": amount, "method": method, "shift_id": shift.id if shift else None})
     return sale
 
 

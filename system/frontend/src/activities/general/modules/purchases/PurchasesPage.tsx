@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PackageCheck, Plus, X } from "lucide-react";
+import { PackageCheck, Plus, Undo2, X } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
 import { dateTime, D, money, moneyEGP } from "@/lib/format";
@@ -15,6 +15,8 @@ interface Supplier { id: string; name: string }
 interface Warehouse { id: string; name: string }
 interface Product { id: string; name: string; code: string | null; cost_price: string }
 interface LineItem { product: Product; qty: string; unit_cost: string }
+interface Returnable { product_id: string; product_name: string | null; unit_cost: string; received: string; returned: string; returnable: string }
+interface ReturnInfo { returns: { id: string; return_number: string; total: string; created_at: string }[]; returnable: Returnable[] }
 
 export default function PurchasesPage() {
   const qc = useQueryClient();
@@ -28,6 +30,10 @@ export default function PurchasesPage() {
   const [receiving, setReceiving] = useState<PO | null>(null);
   const [paidNow, setPaidNow] = useState("");
   const [paySource, setPaySource] = useState("");
+  const [returning, setReturning] = useState<PO | null>(null);
+  const [retQty, setRetQty] = useState<Record<string, string>>({});
+  const [refund, setRefund] = useState("");
+  const [refundSource, setRefundSource] = useState("");
 
   const list = useQuery({
     queryKey: ["purchases", page],
@@ -90,6 +96,27 @@ export default function PurchasesPage() {
   });
   const paying = Number.isFinite(Number(paidNow)) && Number(paidNow) > 0;
 
+  const retInfo = useQuery({
+    queryKey: ["purchase-returns", returning?.id],
+    queryFn: () => api.get<ReturnInfo>(`/purchases/${returning!.id}/returns`),
+    enabled: !!returning,
+  });
+  const retLines = (retInfo.data?.returnable ?? []).filter((r) => D(retQty[r.product_id] || "0").gt(0));
+  const retTotal = retLines.reduce((s, r) => s.plus(D(retQty[r.product_id]).times(D(r.unit_cost))), D(0));
+  const refunding = Number.isFinite(Number(refund)) && Number(refund) > 0;
+  const closeReturn = () => { setReturning(null); setRetQty({}); setRefund(""); setRefundSource(""); };
+  const doReturn = useMutation({
+    mutationFn: () =>
+      api.post(`/purchases/${returning!.id}/returns`, {
+        items: retLines.map((r) => ({ product_id: r.product_id, qty: D(retQty[r.product_id]).toNumber() })),
+        ...(refunding ? { refund_amount: Number(refund), ...sourceFields(refundSource) } : {}),
+      }),
+    onSuccess: () => {
+      closeReturn();
+      for (const key of ["purchases", "safes", "wallets", "suppliers", "stock"]) qc.invalidateQueries({ queryKey: [key] });
+    },
+  });
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -145,6 +172,11 @@ export default function PurchasesPage() {
                         <PackageCheck size={16} /> استلام
                       </Button>
                     )}
+                    {po.status === "received" && (
+                      <Button variant="outline" onClick={() => setReturning(po)}>
+                        <Undo2 size={16} /> مرتجع للمورد
+                      </Button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -187,6 +219,72 @@ export default function PurchasesPage() {
           {receive.isError && <ErrorBox message={(receive.error as Error).message} />}
           <Button type="submit" className="w-full h-11 font-bold" disabled={receive.isPending || (paying && !paySource)}>
             {receive.isPending ? <Spinner /> : "تأكيد الاستلام"}
+          </Button>
+        </form>
+      </Modal>
+
+      <Modal open={!!returning} onClose={closeReturn} title={`مرتجع مشتريات — ${returning?.po_number ?? ""}`}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!doReturn.isPending && retLines.length && (!refunding || refundSource)) doReturn.mutate();
+          }}
+          className="flex flex-col gap-4"
+        >
+          <p className="text-xs text-muted">
+            ترجع البضاعة للمورد بتكلفتها في أمر الشراء وتخرج من المخزن. تُخصم القيمة من رصيد المورد، أو تدخل الخزنة أو المحفظة إن استرددت المبلغ نقداً.
+          </p>
+          {retInfo.isLoading ? (
+            <Skeleton className="h-16 w-full" />
+          ) : retInfo.isError ? (
+            <ErrorBox message={(retInfo.error as Error).message} onRetry={() => retInfo.refetch()} />
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-line">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-line text-xs text-muted">
+                    <th className="p-2 text-start">المنتج</th>
+                    <th className="p-2 text-start">المتاح للإرجاع</th>
+                    <th className="p-2 text-start">تكلفة الوحدة</th>
+                    <th className="p-2 text-start">الكمية المرتجعة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {retInfo.data?.returnable.map((r) => (
+                    <tr key={r.product_id} className="border-b border-line/60 last:border-0">
+                      <td className="p-2 font-semibold">{r.product_name ?? "—"}</td>
+                      <td className="num p-2">{D(r.returnable).toString()}</td>
+                      <td className="num p-2">{money(r.unit_cost)}</td>
+                      <td className="p-2">
+                        <input className="num w-20 rounded-md border border-line bg-surface p-1.5 text-center" inputMode="decimal"
+                          disabled={D(r.returnable).lte(0)} value={retQty[r.product_id] ?? ""} aria-label="الكمية المرتجعة"
+                          onChange={(e) => setRetQty((q) => ({ ...q, [r.product_id]: e.target.value }))} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-semibold text-muted">قيمة المرتجع</span>
+            <span className="num font-black">{moneyEGP(retTotal)}</span>
+          </div>
+          <div>
+            <label htmlFor="ret-refund" className="mb-1 block text-sm font-medium">المسترد نقداً من المورد (ج.م) — اختياري</label>
+            <Input id="ret-refund" className="num font-bold" inputMode="decimal" placeholder="0.00" value={refund}
+                   onChange={(e) => setRefund(e.target.value)} />
+          </div>
+          {refunding && (
+            <div>
+              <label htmlFor="ret-source" className="mb-1 block text-sm font-medium">استُلم في *</label>
+              <PaySourceSelect id="ret-source" value={refundSource} onChange={setRefundSource} />
+            </div>
+          )}
+          {doReturn.isError && <ErrorBox message={(doReturn.error as Error).message} />}
+          <Button type="submit" className="w-full h-11 font-bold"
+                  disabled={doReturn.isPending || !retLines.length || (refunding && !refundSource)}>
+            {doReturn.isPending ? <Spinner /> : "تأكيد المرتجع"}
           </Button>
         </form>
       </Modal>

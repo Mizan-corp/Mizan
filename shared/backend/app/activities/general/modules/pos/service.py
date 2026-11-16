@@ -115,6 +115,29 @@ async def close_shift(db: AsyncSession, shift_id: uuid.UUID, closing_balance: De
     }
 
 
+async def _deposit_to_safe(db: AsyncSession, shift: Shift, amount: Decimal, manager_id, user_id) -> None:
+    """The cash a manager takes out of the drawer when closing a shift (ADR-014 D4) goes into the
+    workspace's safe, as a deposit for that shift (the ledger moves it from the branch drawer to the
+    safe). The close request names no safe, so this happens only when the workspace has exactly one
+    active cash safe; with none or several the amount stays recorded on the shift and nothing moves."""
+    from app.activities.general.modules.finance.services import safes
+    from app.platform.auth.models.user import User
+
+    if not amount or amount <= 0:
+        return
+    safe_ids = (await db.execute(sqlt(
+        "SELECT id FROM safes WHERE is_active AND COALESCE(safe_type, 'cash') <> 'bank' ORDER BY created_at, id"
+    ))).scalars().all()
+    if len(safe_ids) != 1:
+        return
+    user = await db.get(User, user_id)
+    note = "إيداع نقدية وردية عند الإغلاق بحضور المدير"
+    await safes.deposit(db, safe_ids[0], amount, user, shift_id=shift.id, warehouse_id=shift.warehouse_id,
+                        received_by_id=manager_id, notes=note)
+    await notify("safe.deposited", db, movement_id=uuid.uuid4(), safe_id=safe_ids[0], amount=amount,
+                 shift_id=shift.id, note=note, user_id=user_id)
+
+
 async def close_shift_with_manager(db: AsyncSession, shift_id: uuid.UUID, data, current_user_id: uuid.UUID) -> dict:
     """Close shift with manager override. Verifies manager credentials first."""
     from app.platform.auth.security import verify_password
@@ -153,6 +176,7 @@ async def close_shift_with_manager(db: AsyncSession, shift_id: uuid.UUID, data, 
 
     # Apply variance to payroll as deduction/bonus
     await _record_payroll_variance(db, shift_id, difference, current_user_id, current_user_id)
+    await _deposit_to_safe(db, shift, deposit_amount, data.manager_id, current_user_id)
 
     await notify("shift.closed", db, shift=shift, user_id=current_user_id)
     await db.commit()

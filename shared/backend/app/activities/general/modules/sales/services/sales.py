@@ -79,11 +79,14 @@ def _d(v) -> Decimal:
     return Decimal(str(v or 0))
 
 
-async def _add_payment(db, sale_id, method: str, amount: Decimal, wallet_id=None, safe_id=None) -> None:
-    """One line of how a sale was paid (or, on a return document, refunded)."""
+async def _add_payment(db, sale_id, method: str, amount: Decimal, wallet_id=None, safe_id=None) -> uuid.UUID:
+    """One line of how a sale was paid (or, on a return document, refunded). Returns its id."""
+    payment_id = uuid.uuid4()
     await db.execute(text(
-        "INSERT INTO sale_payments (sale_id, method, amount, wallet_id, safe_id) VALUES (:sid, :m, :amt, :wid, :safe)"
-    ), {"sid": sale_id, "m": method, "amt": amount, "wid": wallet_id, "safe": safe_id})
+        "INSERT INTO sale_payments (id, sale_id, method, amount, wallet_id, safe_id) "
+        "VALUES (:id, :sid, :m, :amt, :wid, :safe)"
+    ), {"id": payment_id, "sid": sale_id, "m": method, "amt": amount, "wid": wallet_id, "safe": safe_id})
+    return payment_id
 
 
 async def _change_customer_balance(db, customer_id, delta: Decimal) -> None:

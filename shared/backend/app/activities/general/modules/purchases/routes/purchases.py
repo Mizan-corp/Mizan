@@ -6,7 +6,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_open_period, require_perm
 from app.platform.auth.models.user import User
-from app.activities.general.modules.purchases.schemas.purchase import PurchaseCreate, PurchaseReceive, PurchaseUpdate, QuickProductCreate
+from app.activities.general.modules.purchases.schemas.purchase import (
+    PurchaseCreate,
+    PurchaseReceive,
+    PurchaseReturnCreate,
+    PurchaseUpdate,
+    QuickProductCreate,
+)
 from app.activities.general.modules.purchases.schemas.supplier_price import (
     SupplierPriceComparison,
     SupplierPriceCreate,
@@ -49,6 +55,20 @@ async def update_purchase(po_id: uuid.UUID, data: PurchaseUpdate, db: AsyncSessi
 async def receive_purchase(po_id: uuid.UUID, data: PurchaseReceive = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("purchases", "inventory"))):
     """Receive PO. Optionally pass overridden items with actual received qty/cost."""
     return await purchase_service.receive_purchase(db, po_id, data or PurchaseReceive(), current_user)
+
+
+@router.get("/{po_id}/returns")
+async def list_purchase_returns(po_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    """The order's returns to the supplier, and what can still be returned per product."""
+    return await purchase_service.list_purchase_returns(db, po_id)
+
+
+@router.post("/{po_id}/returns", status_code=201)
+async def create_purchase_return(po_id: uuid.UUID, data: PurchaseReturnCreate, db: AsyncSession = Depends(get_db),
+                                 current_user: User = Depends(require_perm("purchases", "inventory")), _=Depends(require_open_period)):
+    """Return received goods to the supplier: stock out at the cost it came in at, and the supplier's
+    balance goes down by the value (or a refund goes into a safe or wallet)."""
+    return await purchase_service.create_purchase_return(db, po_id, data, current_user)
 
 
 @router.get("/price-history/{product_id}")

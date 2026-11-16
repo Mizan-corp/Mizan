@@ -16,7 +16,7 @@ def _num(v) -> float:
 
 
 async def accounts_tree(db: AsyncSession, tenant_id: uuid.UUID) -> list[dict]:
-    await ensure_chart(db, tenant_id)
+    await ensure_chart(db, tenant_id, complete=True)
     rows = (await db.execute(text(
         "SELECT id, code, name, name_en, type, parent_id, is_group, role, active FROM acc_accounts "
         "WHERE tenant_id = :t ORDER BY code"), {"t": tenant_id})).mappings().all()

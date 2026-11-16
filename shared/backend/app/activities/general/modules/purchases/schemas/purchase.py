@@ -57,3 +57,18 @@ class QuickProductCreate(BaseModel):
     wholesale_price: Decimal = 0
     company: str | None = None
     subcategory_id: uuid.UUID | None = None
+
+
+class PurchaseReturnItemIn(BaseModel):
+    product_id: uuid.UUID
+    qty: Decimal = Field(..., gt=0)
+
+
+class PurchaseReturnCreate(BaseModel):
+    """Goods sent back to the supplier from a received order. `refund_amount` is what the supplier
+    paid back now, into a safe or wallet; the rest lowers what we owe them."""
+    items: list[PurchaseReturnItemIn] = Field(..., min_length=1)
+    refund_amount: Decimal | None = Field(None, ge=0)
+    safe_id: uuid.UUID | None = None
+    wallet_id: uuid.UUID | None = None
+    notes: str | None = None
