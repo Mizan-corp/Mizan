@@ -103,6 +103,22 @@ A bank account, used for bank transfers and cheques, is a safe with `safe_type =
 
 `clinic_invoices.sale_id`: a clinic invoice is one `sales` row (the patient's share), made at its first payment. Every payment is a `sale_payments` line on it, and cash goes into the cashier's open drawer. A payment can't be zero or more than what is left. Before, each payment made a new sale with the same invoice number; the migration links each invoice to the first of those.
 
+### The ledger (ADR-014 D1, D2, D7; migration `v90_accounting_ledger`, module `accounting`)
+
+Tenant tables with RLS (`tenant_isolation`, USING and WITH CHECK). Money is `numeric(14,2)`.
+Written only by `accounting/services/posting.py` (`post` / `reverse`), in the transaction of the
+document that caused them. Posting starts when a workspace enables the module (no backfill; the
+opening entry is step 4).
+
+| Table | Columns | Meaning |
+|---|---|---|
+| `acc_accounts` | `code` (unique per workspace), `name`, `name_en`, `type` (`asset`/`liability`/`equity`/`income`/`expense`), `parent_id`, `is_group`, `role` (unique per workspace when set), `active` | The chart of accounts, copied from `accounting/charts/eg_standard.json` on first use. Posting rules find accounts by `role`; group accounts take no postings |
+| `acc_entries` | `number` (`JE-000001`, per workspace), `date`, `source_type`, `source_id`, `event` (unique together per workspace), `memo`, `warehouse_id`, `created_by`, `reverses_id` | One journal entry. Never updated (trigger `acc_entries_immutable`) and never deleted by the app; corrected by a reversing entry (`event = 'reverse'`, `reverses_id`). `warehouse_id`/`created_by` carry no foreign key so deleting a branch or user never touches posted rows |
+| `acc_lines` | `entry_id`, `account_id`, `debit`, `credit` (exactly one positive, CHECK), `party_type` (`customer`/`supplier`/`employee`), `party_id`, `warehouse_id` | The entry's lines. The deferred constraint triggers `acc_lines_balanced` / `acc_entries_balanced` refuse, at commit, an entry whose debits ≠ credits or total 0; `acc_lines_immutable` refuses updates |
+| `acc_money_accounts` | `kind` (`safe`/`wallet`/`drawer`/`default_bank`), `ref_id`, `account_id` (unique per workspace, kind, ref) | The sub-account of each safe (bank safes under the bank group, others under the cash group), payment wallet, branch cashier drawer (`ref_id` = warehouse) and the default bank account, created on first use |
+| `financial_categories` | `account_id` | The account a category posts to; none → other income / other expenses |
+| `accounting_periods` | `reopened_by`, `reopened_at`, `reopen_reason` | Months close in order (every earlier month since the first entry or first closed month); reopening needs a reason (also in the audit log) and later months reopened first. Posting into a closed month is refused by the posting service |
+
 ## 3. Platform Tables (not tenant-scoped)
 
 These belong to Mizan itself, not to a workspace, and have no RLS policy. Only the owner,
