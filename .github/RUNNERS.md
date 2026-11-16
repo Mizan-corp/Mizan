@@ -7,7 +7,7 @@ with a $0 spending limit: past them, jobs don't start until the month resets; th
 | Runner | Labels | Runs | Where |
 |---|---|---|---|
 | `latitude-ci` | `self-hosted, ci, latitude` | CI (`ci.yml`), the release's "wait for CI" step | latitude-e6530 (Tailscale), `~/mizan-runner`: the runner in an Ubuntu 22.04 container with its own Docker (dind), so CI's ports never touch the laptop's containers |
-| `homie` | `self-hosted, homie` | The release (`deploy-server.yml`), scheduled jobs (`jobs.yml`) | The production server, `/srv/actions-runner` |
+| `homie` | `homie` only | The release (`deploy-server.yml`), scheduled jobs (`jobs.yml`) | The production server, `/srv/actions-runner` |
 
 GitHub-hosted runners remain only for the installers (`installers.yml`: Windows and macOS builds,
 on tags).
@@ -31,3 +31,7 @@ old one. To start over: `docker compose down && docker volume rm mizan-runner_ci
 
 **Uptime** isn't a GitHub workflow: checking every 5 minutes would use the free minutes several
 times over. It runs as a Cloudflare Worker (ADR-011).
+
+**homie's runner has only the label `homie`** (it was registered without the default `self-hosted`, `Linux`
+and `X64` labels). A job asking for `[self-hosted, homie]` matches no runner and waits in the queue
+forever, with no error. Use `runs-on: homie`. The scheduled jobs were stuck this way from 14 to 16 Nov 2026.
