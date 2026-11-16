@@ -10,6 +10,7 @@ from app.core.exceptions import BusinessError
 from app.activities.general.modules.sales.models.sale import Sale, SaleItem, SaleStatus
 from app.activities.general.modules.pos.models import DrawerTransaction, DrawerTxType, Shift
 from app.activities.general.modules.inventory.models.stock import MovementType
+from app.framework.events import notify
 from app.framework.hooks import emit
 from app.activities.general.modules.inventory.services.stock import get_balance
 
@@ -21,6 +22,8 @@ async def _sale_event(db, event: str, sale, lines, **extra) -> list:
     status = getattr(sale.status, "value", sale.status)
     if event == "sale.confirmed" and status != "confirmed":
         return []
+    # Modules of the workspace that follow sales (the ledger, ADR-014 D3), in this transaction.
+    await notify(event, db, sale=sale, lines=lines, **extra)
     data = {"id": str(sale.id), "invoice_number": sale.invoice_number,
             "customer_id": str(sale.customer_id) if sale.customer_id else None,
             "branch_id": str(sale.warehouse_id) if sale.warehouse_id else None,
@@ -854,6 +857,7 @@ async def cancel_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID) 
             await safe_service.withdraw(db, safe_id, amount, note, await db.get(User, user_id))
         # cash through a drawer: handled above; bank / cheque: recorded only, nothing to move back yet.
 
+    await notify("sale.cancelled", db, sale=sale, user_id=user_id)
     await db.commit()
     await db.refresh(sale)
     return sale

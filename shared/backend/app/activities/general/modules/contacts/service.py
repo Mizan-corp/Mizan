@@ -7,6 +7,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
+from app.framework.events import notify
 from app.activities.general.modules.contacts.models.customer_payment import CustomerPayment
 from app.activities.general.modules.contacts.models.party import Customer
 from app.activities.general.modules.sales.models.sale import Sale
@@ -71,10 +72,13 @@ async def receive_payment(db: AsyncSession, customer_id: uuid.UUID, amount: Deci
     if shift is not None:
         from app.activities.general.modules.pos.models import DrawerTransaction, DrawerTxType
 
-        db.add(DrawerTransaction(shift_id=shift.id, type=DrawerTxType.deposit, amount=amount, note=label, created_by=user.id))
+        # Linked to the receipt, so cancelling the drawer row reverses the receipt.
+        db.add(DrawerTransaction(shift_id=shift.id, type=DrawerTxType.deposit, amount=amount, note=label, created_by=user.id,
+                                 customer_payment_id=payment.id))
     else:
         await payments.money_in(db, amount, safe_id=safe_id, wallet_id=wallet_id, ref_type="customer_payment",
                                 ref_id=payment.id, note=label, user_id=user.id)
+    await notify("customer_payment.received", db, payment=payment, user_id=user.id)
     return payment
 
 
@@ -101,6 +105,7 @@ async def adjust_balance(db: AsyncSession, customer_id: uuid.UUID, new_balance: 
                         {"customer_id": str(customer_id), "kind": kind, "amount": float(delta),
                          "balance_before": float(before), "balance_after": float(new_balance)},
                         f"تسوية رصيد {customer.name}")
+        await notify("customer_adjustment.created", db, adjustment=adjustment, user_id=user.id)
     return {"id": str(customer_id), "balance": float(new_balance),
             "adjustment_id": str(adjustment.id) if adjustment else None,
             "kind": adjustment.kind if adjustment else None, "amount": float(delta)}
