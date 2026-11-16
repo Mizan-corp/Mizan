@@ -1,6 +1,6 @@
 """Accounting: the events it posts journal entries for (app/framework/events.py). Each runs in the
 transaction of the document that raised it, only in workspaces where accounting is active."""
-from app.activities.general.modules.accounting.posting import finance, inventory, payroll, pos, purchases, receipts, sales
+from app.activities.general.modules.accounting.posting import clinic, finance, inventory, payroll, pos, purchases, receipts, sales
 
 LISTENERS = {
     "sale.confirmed": sales.on_sale_confirmed,
@@ -27,4 +27,5 @@ LISTENERS = {
     "payroll.reopened": payroll.on_payroll_reopened,
     "payroll.paid": payroll.on_payroll_paid,
     "hr_advance.paid": payroll.on_hr_advance_paid,
+    "clinic.invoice_paid": clinic.on_clinic_invoice_paid,
 }
