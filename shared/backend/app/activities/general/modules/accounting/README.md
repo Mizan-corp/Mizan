@@ -2,10 +2,11 @@
 
 `accounting`: a business module of the `general` activity, depending on `finance`. Off by default:
 the owner enables it (ADR-014, answer 2). Design: [ADR-014](../../../../../../../docs/decisions/ADR-014-double-entry-accounting.md).
-Steps 2 and 3 of D12 are built: the ledger core and the posting rules for sales, returns, POS and
-drawers, customer receipts, safes and wallets and expenses (step 2), then purchases, supplier
+Steps 2 to 4 of D12 are built: the ledger core and the posting rules for sales, returns, POS and
+drawers, customer receipts, safes and wallets and expenses (step 2); purchases, supplier
 payments, purchase returns, stock adjustments, payroll, HR advances, clinic invoices and the
-manager's shift deposit (step 3).
+manager's shift deposit (step 3); the reports (D8), the opening entry (D10) and the year-end
+closing (D7) (step 4).
 
 ## Parts
 
@@ -15,7 +16,11 @@ manager's shift deposit (step 3).
 | `charts/eg_standard.json` | The standard Egyptian chart (Arabic + English), copied into a workspace on first use |
 | `services/chart.py` | `ensure_chart` (idempotent copy), `add_missing_accounts` (accounts the standard chart gained since, added by role; used when a role is missing and by the chart read), `account_by_role`, `money_account` (safe / wallet / branch drawer sub-accounts, created lazily), `default_bank_account`, `category_account` |
 | `services/posting.py` | `post()` and `reverse()`: the only writers of entries |
-| `services/ledger.py` | Reads: account tree, entries, entry detail, trial balance |
+| `services/ledger.py` | Reads: account tree, entries, entry detail (its `trial_balance` calls `reports.trial_balance`) |
+| `services/reports.py` | The reports of D8 and the reconciliation, from the ledger tables only |
+| `services/opening.py` | The opening entry (D10): plan, preview, post |
+| `services/closing.py` | The year-end closing entry (D7) and its reversal |
+| `services/settings.py` | `acc_settings` (migration `v92_accounting_settings`): `fiscal_year_start`, `start_date` |
 | `posting/*.py` | One posting function per event: `sales`, `pos`, `receipts`, `finance` (step 2); `purchases`, `inventory`, `payroll`, `clinic` (step 3) |
 | `listeners.py` | The events it listens to (`app/framework/events.py`): they run only in workspaces where accounting is active, in the document's transaction |
 | `router.py` | The API (below) |
@@ -110,7 +115,7 @@ Decisions where the design was open:
   shift, through `finance.services.safes.deposit`) only when the workspace has exactly one active
   non-bank safe; with none or several it stays recorded as `deposit_amount` on the shift and nothing moves.
 
-Not posted yet (later steps of D12): the opening entry (step 4), insurance claim approval and payment
+Not posted yet (later steps of D12): insurance claim approval and payment
 (the insurer's receivable stays open), stock movements entered by hand with type `purchase`, `sale`,
 `return_in` or `opening_stock` through `POST /stock/movements`, cancelling a clinic invoice's sale,
 and money modules outside general sales (hotel, storefront, school…).
@@ -125,9 +130,100 @@ and money modules outside general sales (hotel, storefront, school…).
 | `PUT /accounting/categories/{id}/account` | `accounting:settings` | A financial category's account (income ↔ income, expense ↔ expense) |
 | `GET /accounting/entries?from&to&source_type&account_id&page&page_size` | `accounting:view` | Entries, newest first, with totals and whether reversed |
 | `GET /accounting/entries/{id}` | `accounting:view` | One entry and its lines |
-| `GET /accounting/trial-balance?from&to` | `accounting:view` | Debits, credits and balance per account, and the totals |
+| `GET /accounting/trial-balance?from&to&warehouse_id&include_zero&include_closing` | `accounting:view` | Opening, period debit and credit, closing per account, group roll-up, totals |
+| `GET /accounting/income-statement?from&to&warehouse_id&include_closing` | `accounting:view` | Revenue to net profit |
+| `GET /accounting/balance-sheet?as_of&warehouse_id&include_closing` | `accounting:view` | Assets, liabilities, equity at a date |
+| `GET /accounting/general-ledger/{account_id}?from&to&warehouse_id&include_closing&page&page_size` | `accounting:view` | One account's lines with a running balance |
+| `GET /accounting/party-statement/{customer\|supplier\|employee}/{id}?from&to&warehouse_id&page&page_size` | `accounting:view` | A party's lines with a running balance, and the operational balance to reconcile with |
+| `GET /accounting/reconciliation` | `accounting:view` | The ledger against the operational balances (flags only) |
+| `GET /accounting/settings` | `accounting:view` | `fiscal_year_start`, `start_date` |
+| `PUT /accounting/settings` | `accounting:settings` | `fiscal_year_start` (1-12); refused while a year-end closing is in force |
+| `GET /accounting/opening/preview?date` | `accounting:view` | The opening entry's lines and totals, nothing posted |
+| `POST /accounting/opening` `{date}` | `accounting:settings` | Post the opening entry |
+| `POST /accounting/year-end?year=YYYY` | `accounting:close` | Post the year-end closing entry |
+| `POST /accounting/year-end/reverse?year=YYYY` | `accounting:close` | Reverse a year's closing entry (the only way to reopen its months) |
 
 No route edits or deletes an entry. Manual journal entries and screens come in step 5.
+
+## Reports (D8)
+
+Every report reads `acc_accounts`, `acc_entries` and `acc_lines` only, takes a date range and an
+optional branch (`warehouse_id` on the lines: a line with no branch, such as a customer receipt into a
+safe, is left out of a branch report, so a branch trial balance or balance sheet need not balance
+and says so with `balanced: false` / `difference`), and returns JSON with Arabic and English names.
+Balances are debit minus credit; reports show them in the account's natural direction. The shapes are
+typed in `system/frontend/src/activities/general/modules/accounting/api.ts`.
+
+- **Trial balance.** Per account (groups roll their children up, `level` for indentation): `opening`
+  = debit − credit of entries before `from`; `debit` / `credit` in `from..to`; `closing` = opening +
+  debit − credit, also split into `closing_debit` / `closing_credit`. Accounts with no lines at all
+  are hidden unless `include_zero`. `totals` add the postable accounts; `balanced` is true when
+  period debits = credits and the opening and closing sides agree.
+- **Income statement** (period only; the year-end closing is left out unless `include_closing=true`).
+  Sections are chosen by role and group, never by code: `revenue` = income accounts except sales returns
+  and the "other income" group; `sales_returns` = role `sales_returns` (debit − credit); `net_sales` =
+  revenue − returns; `cogs` = role `cogs`; `gross_profit` = net sales − cogs; `operating_expenses` =
+  the group holding `salaries_expense` (so sub-accounts added there count); `operating_profit` = gross
+  profit − operating expenses; `other_income` = the group holding `other_income`; `other_expenses` =
+  every other expense (cash shortage, other expenses, custom); `net_profit` = operating profit + other
+  income − other expenses. Lines list non-zero accounts.
+- **Balance sheet** at `as_of` (default today; every entry up to it). Assets = debit − credit, liabilities
+  and equity = credit − debit. Equity adds the profit not yet closed into retained earnings, computed
+  from the income and expense accounts: `prior_years_profit` (before the fiscal year of `as_of`, which
+  starts on `fiscal_year_start`) and `current_year_profit` (from that start to `as_of`). With the
+  year-end entry posted both are zero for the closed year. `balanced` is `|assets − (liabilities +
+  equity)| < 0.01`; otherwise `difference` is the gap.
+- **General ledger** of an account (a group takes its sub-accounts): lines in date, entry-number order;
+  `balance` runs from `opening_balance` (before `from`) in the account's natural direction; each line
+  carries `entry_id`, `number`, `source_type` / `source_id` / `event`, `memo`, `party_*`, `warehouse_id`.
+  Paged; `closing_balance` and the totals cover the whole range.
+- **Party statement** for a customer, supplier or employee: the lines carrying that party. The balance
+  is what the party owes us (debit − credit) for a customer or employee and what we owe them (credit −
+  debit) for a supplier, the sign of `customers.balance` / `suppliers.balance`; `ledger_balance` is the
+  whole ledger's, `difference` = operational − ledger and `matches` says whether they agree.
+- **Reconciliation** (a check; it changes nothing): receivables vs Σ `customers.balance`, payables vs Σ
+  `suppliers.balance`, each safe/bank and each wallet vs its money account, inventory vs Σ on-hand
+  quantity × average cost (`products.avg_cost`, else `cost_price`; difference under 1.00 is rounding),
+  and up to 50 customers/suppliers whose own balance differs. Cashier drawers are not compared: a
+  drawer's cash is the open shift's, which the ledger only learns from the opening entry. Employee
+  advances are not compared (HR keeps no open-advance balance). A workspace that never posted an
+  opening entry will show differences until it does.
+
+## Opening entry (D10)
+
+`GET /accounting/opening/preview` shows it; `POST /accounting/opening` posts it as source `opening`,
+event `opening` (`accounting:settings`). The start date goes to `acc_settings.start_date`.
+
+Lines (each is the operational balance **less what the ledger already holds** for that account or party,
+so on an empty ledger it is the balance itself and after documents were already posted it adds only the
+missing part):
+
+| Section | Debit | Credit | Party / branch |
+|---|---|---|---|
+| customers | receivables, customer balance > 0 | receivables, balance < 0 | customer |
+| suppliers | payables, balance < 0 | payables, balance > 0 | supplier |
+| safes, banks, wallets | its money account (created if needed) | | |
+| drawers | each branch's drawer: the open shifts' initial amount + cash sales and deposits − returns, expenses, withdrawals, revenue delivery (wallet rows excluded, cancelled rows excluded) | | branch |
+| inventory | inventory: Σ on-hand quantity × average cost per branch (a product with no cost is skipped and listed in `skipped_no_cost`) | | branch |
+| equity | opening balance equity (role `opening_equity`) when credits exceed debits | the same when debits exceed credits | |
+
+Rules: the date can't be in the future, must be on or before the first existing entry of the workspace
+(opening entries themselves don't count), and its month must be open; only one opening entry may be in
+force: a second POST is refused until the first is reversed through the normal reversal, then a new one
+is built from the then-current balances (each round has its own source id, so the same call is
+idempotent). Employee advances are not carried.
+
+## Year-end closing (D7)
+
+Fiscal year `YYYY` starts on the first day of month `fiscal_year_start` of YYYY and ends a year less a day
+later (the calendar year by default). `POST /accounting/year-end?year=YYYY` needs every month from the
+year's start (or the first entry's month, if later) to its end to be closed, and the year to be over.
+It posts one entry dated the last day (source `year_end`, event `close`; the only entry allowed into a
+closed month): each income and expense account's balance for the year (per branch) is cleared and the
+profit or loss goes to retained earnings (role `retained_earnings`), per branch. It is refused when the
+year is already closed; `POST /accounting/year-end/reverse` reverses it. While a closing is in force the
+months it covers can't be reopened (`/periods/{month}/reopen`) and `fiscal_year_start` can't change.
+Reports take `include_closing=false` to show the closed year's profit.
 
 Permissions (D11): `accounting:view`, `accounting:journal`, `accounting:close`,
 `accounting:settings`; the accountant role holds all four, the manager holds view, the admin

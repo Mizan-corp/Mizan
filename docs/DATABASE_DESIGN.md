@@ -117,12 +117,14 @@ Tenant tables with RLS. A return sends received goods of a purchase order back t
 events and add no columns. The standard chart gains two roles, `inventory_loss` (expense 54) and
 `insurance_receivables` (asset 127); existing workspaces get them the first time a rule needs them.
 
-### The ledger (ADR-014 D1, D2, D7; migration `v90_accounting_ledger`, module `accounting`)
+### The ledger (ADR-014 D1, D2, D7, D10; migrations `v90_accounting_ledger`, `v92_accounting_settings`, module `accounting`)
 
 Tenant tables with RLS (`tenant_isolation`, USING and WITH CHECK). Money is `numeric(14,2)`.
 Written only by `accounting/services/posting.py` (`post` / `reverse`), in the transaction of the
-document that caused them. Posting starts when a workspace enables the module (no backfill; the
-opening entry is step 4).
+document that caused them. Posting starts when a workspace enables the module (no backfill); the
+opening entry (D10, `source_type = 'opening'`) and the year-end closing entry (D7, `source_type =
+'year_end'`) are posted by `services/opening.py` and `services/closing.py` through the same service. The
+reports (D8) only read these tables.
 
 | Table | Columns | Meaning |
 |---|---|---|
@@ -130,6 +132,7 @@ opening entry is step 4).
 | `acc_entries` | `number` (`JE-000001`, per workspace), `date`, `source_type`, `source_id`, `event` (unique together per workspace), `memo`, `warehouse_id`, `created_by`, `reverses_id` | One journal entry. Never updated (trigger `acc_entries_immutable`) and never deleted by the app; corrected by a reversing entry (`event = 'reverse'`, `reverses_id`). `warehouse_id`/`created_by` carry no foreign key so deleting a branch or user never touches posted rows |
 | `acc_lines` | `entry_id`, `account_id`, `debit`, `credit` (exactly one positive, CHECK), `party_type` (`customer`/`supplier`/`employee`), `party_id`, `warehouse_id` | The entry's lines. The deferred constraint triggers `acc_lines_balanced` / `acc_entries_balanced` refuse, at commit, an entry whose debits ≠ credits or total 0; `acc_lines_immutable` refuses updates |
 | `acc_money_accounts` | `kind` (`safe`/`wallet`/`drawer`/`default_bank`), `ref_id`, `account_id` (unique per workspace, kind, ref) | The sub-account of each safe (bank safes under the bank group, others under the cash group), payment wallet, branch cashier drawer (`ref_id` = warehouse) and the default bank account, created on first use |
+| `acc_settings` | `fiscal_year_start` (1-12, default 1), `start_date` (set by the opening entry); one row per workspace (`uq_acc_settings_tenant`), created on first write | The first month of the fiscal year (D7) and the date the ledger starts (D10). Defaults apply while there is no row |
 | `financial_categories` | `account_id` | The account a category posts to; none → other income / other expenses |
 | `accounting_periods` | `reopened_by`, `reopened_at`, `reopen_reason` | Months close in order (every earlier month since the first entry or first closed month); reopening needs a reason (also in the audit log) and later months reopened first. Posting into a closed month is refused by the posting service |
 
