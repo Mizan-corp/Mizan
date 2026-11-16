@@ -9,6 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BusinessError
+from app.framework.events import notify
 from app.activities.general.modules.hr.services.payroll_engine import calculate_payroll as calc_engine
 
 
@@ -321,6 +322,11 @@ async def approve_payroll_period(db: AsyncSession, month: str, current_user_id: 
         )).scalar_one()
     await db.execute(text("UPDATE hr_payroll_periods SET expense_id=:e WHERE month=:m"), {"e": expense_id, "m": month})
 
+    # The ledger posts the month's salaries in this transaction, keyed by the expense of this approval
+    # (a reopened month makes a new one, so each approval has its own entry; ADR-014 D3).
+    if expense_id is not None:
+        await notify("payroll.approved", db, period_id=period["id"], month=month, expense_id=expense_id,
+                     user_id=current_user_id)
     await update_period_status(db, month, "approved", current_user_id)
     return float(total)
 
@@ -350,6 +356,9 @@ async def pay_payroll_period(db: AsyncSession, month: str, current_user_id: str,
     if period.get("expense_id"):
         await db.execute(text("UPDATE expenses SET safe_id=:sid, wallet_id=:wid, amount=:amt WHERE id=:id"),
                          {"sid": safe_id, "wid": wallet_id, "amt": total, "id": period["expense_id"]})
+    if total > 0:
+        await notify("payroll.paid", db, period_id=period["id"], month=month, safe_id=safe_id, wallet_id=wallet_id,
+                     user_id=current_user_id)
     await update_period_status(db, month, "paid", current_user_id)
     return float(total)
 
@@ -363,6 +372,11 @@ async def reopen_payroll_period(db: AsyncSession, month: str, current_user_id: s
         raise BusinessError("لا يمكن إعادة فتح شهر تم صرفه")
     if period is None:
         return
+    # An approved (never paid) month's salaries entry in the ledger is reversed; the expense below
+    # was never posted on its own (payroll is posted with payroll), so nothing is reversed twice.
+    if status == "approved" and period.get("expense_id"):
+        await notify("payroll.reopened", db, period_id=period["id"], month=month, expense_id=period["expense_id"],
+                     user_id=current_user_id)
     # The month's pending salaries expense (expenses approved before v81 are found by their marker).
     await db.execute(text("""
         UPDATE expenses SET status='cancelled', cancelled_at=now(), cancelled_by=:by,

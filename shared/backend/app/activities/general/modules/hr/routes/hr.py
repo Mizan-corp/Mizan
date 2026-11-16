@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.db.base import get_db
+from app.framework.events import notify
 from app.dependencies import get_print_user, get_current_user, require_perm
 from app.platform.auth.models.user import User
 from app.activities.general.modules.hr.schemas import (
@@ -309,6 +310,9 @@ async def add_advance(data: AdvanceCreate, db: AsyncSession = Depends(get_db), c
         name = (await db.execute(text("SELECT name FROM hr_employees WHERE id=:id"), {"id": data.employee_id})).scalar() or ""
         await payments.money_out(db, data.amount, safe_id=safe_id, wallet_id=wallet_id, ref_type="hr_advance",
                                  ref_id=advance_id, note=f"سلفة {name}".strip(), user_id=current_user.id)
+        # Cash handed to the employee now: the ledger posts it in this transaction (ADR-014 D3).
+        await notify("hr_advance.paid", db, advance_id=advance_id, employee_id=data.employee_id, amount=data.amount,
+                     safe_id=safe_id, wallet_id=wallet_id, note=data.note, user_id=current_user.id)
     await db.execute(text("""
         INSERT INTO hr_audit_log (action_type, entity_type, entity_id, performed_by, reason, details)
         VALUES ('create', 'advance', :eid, :by, :note, CAST(:det AS jsonb))
