@@ -1,0 +1,10 @@
+[Unit]
+Description=Mizan scheduled jobs: 09:00 Cairo (owner trial and renewal emails)
+
+[Timer]
+OnCalendar=*-*-* 07:00:00 UTC
+Persistent=true
+Unit=mizan-cron@daily.service
+
+[Install]
+WantedBy=timers.target

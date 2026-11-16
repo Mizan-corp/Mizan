@@ -18,6 +18,7 @@ internet ─ Cloudflare (DNS, TLS, *.allmizan.live) ─ tunnel ─┬─ api   (
 | `nginx.conf`, `mizan-*.conf` | The apps by host: `allmizan.live` and `dev.` the website, `/owner/` and `/admin/` the panels, any other host the ERP. |
 | `deploy.sh` | A release: pull, back up, migrate (`manage.py db migrate --production`), switch; keeps the previous release for rollback (`deploy.sh <previous tag>`). |
 | `backup.sh`, `mizan-backup.{service,timer}` | Nightly `pg_dump` to `/mnt/media/backups/mizan` (another partition), 14 kept. |
+| `mizan-cron.sh`, `mizan-cron@.service`, `mizan-cron-{hourly,six-hourly,nightly,weekly,daily}.timer` | The scheduled platform jobs (Paymob reconcile hourly, subscription expiry every 6 h, nightly clean-up and storage, weekly stale data, daily owner emails). Each is a POST to the API on loopback with `CRON_SECRET`; results in `journalctl -t mizan-cron`; a failure emails the owner (once per 6 h per group). Replaces GitHub's scheduler, which fired only 4 to 10 times a day. The release copies `mizan-cron.sh`; the units are installed once: `sudo cp mizan-cron@.service mizan-cron-*.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now mizan-cron-{hourly,six-hourly,nightly,weekly,daily}.timer`. Run a group by hand: `sudo systemctl start mizan-cron@nightly`, or one job: `/srv/mizan/mizan-cron.sh measure_storage`. |
 
 ## Releasing
 

@@ -1,19 +1,14 @@
-# Scheduled platform jobs, called over HTTPS on the production APIs (Mizan's server, ADR-011).
-# Each call is authenticated by the CRON_SECRET secret, the same value as CRON_SECRET in the
-# server's /srv/mizan/mizan.env. Job list: app/platform/automation_worker/runner.py (JOB_REGISTRY).
+# Run one platform job by hand (Actions > Jobs > Run workflow). The five schedules now run from the server's
+# own systemd timers (deploy/server/mizan-cron.sh, ADR-011): GitHub's scheduler is best effort and fired
+# only 4 to 10 times a day instead of about 30. Each call is authenticated by CRON_SECRET, the same value as
+# CRON_SECRET in the server's /srv/mizan/mizan.env. Job list: app/platform/automation_worker/runner.py (JOB_REGISTRY).
 name: Jobs
 
 on:
-  schedule:
-    - cron: "15 * * * *"   # hourly: Paymob invoices whose callback never came (#67)
-    - cron: "0 */6 * * *"  # trials and subscriptions ending
-    - cron: "0 22 * * *"   # nightly (00:00 Cairo): shifts, digest, module data, storage
-    - cron: "0 1 * * 0"    # weekly: stale data
-    - cron: "0 7 * * *"    # daily (09:00 Cairo): trial and renewal emails to owners (#72)
   workflow_dispatch:
     inputs:
       job:
-        description: "One job (e.g. paymob_reconcile, measure_storage); empty runs the hourly one"
+        description: "One job (e.g. paymob_reconcile, measure_storage); empty runs paymob_reconcile"
         required: false
 
 permissions: {}
@@ -29,16 +24,7 @@ jobs:
     steps:
       - name: Pick the jobs
         id: pick
-        run: |
-          case "${{ github.event.schedule }}" in
-            "15 * * * *")  jobs="paymob_reconcile community_webhooks" ;;
-            "0 */6 * * *") jobs="enforce_subscription_expiry" ;;
-            "0 22 * * *")  jobs="auto_close_shifts generate_daily_metrics_digest purge_removed_module_data measure_storage" ;;
-            "0 1 * * 0")   jobs="cleanup_system_stale_data" ;;
-            "0 7 * * *")   jobs="owner_billing_reminders" ;;
-            *)             jobs="${{ inputs.job || 'paymob_reconcile' }}" ;;
-          esac
-          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+        run: echo "jobs=${{ inputs.job || 'paymob_reconcile' }}" >> "$GITHUB_OUTPUT"
 
       - name: Run
         run: |

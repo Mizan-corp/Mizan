@@ -1,0 +1,10 @@
+[Unit]
+Description=Mizan scheduled jobs: Sundays 03:00 Cairo (stale data)
+
+[Timer]
+OnCalendar=Sun *-*-* 01:00:00 UTC
+Persistent=true
+Unit=mizan-cron@weekly.service
+
+[Install]
+WantedBy=timers.target

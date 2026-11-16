@@ -69,3 +69,10 @@ unreachable over Tailscale **and** Cloudflare (the witness) shows no tunnel conn
 3 minutes; it writes `primary=latitude` to a KV flag first. homie's guard owns homie's tunnel: it stops
 it after 90 s without Cloudflare, and keeps homie fenced (no tunnel, no API, no releases) while the flag
 says latitude. Switching back is manual. Details and runbook: `deploy/failover/README.md`.
+
+### Scheduled jobs run from the server (2026-11-16)
+GitHub's scheduler is best effort: it fired the five schedules (about 30 runs a day) only 4 to 10 times a
+day, with gaps of 4 to 5 hours, and a wrong runner label (`[self-hosted, homie]`, while homie's runner has
+only `homie`) left every run queued from 14 to 16 Nov. The schedules now run from systemd timers on homie
+(`deploy/server/mizan-cron.sh`), calling the API on loopback: reliable, free, independent of GitHub and of
+the tunnel. `.github/workflows/jobs.yml` keeps only a manual run.

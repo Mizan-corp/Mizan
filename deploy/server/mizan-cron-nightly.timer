@@ -1,0 +1,10 @@
+[Unit]
+Description=Mizan scheduled jobs: 00:00 Cairo (shifts, digest, module data, storage)
+
+[Timer]
+OnCalendar=*-*-* 22:00:00 UTC
+Persistent=true
+Unit=mizan-cron@nightly.service
+
+[Install]
+WantedBy=timers.target
