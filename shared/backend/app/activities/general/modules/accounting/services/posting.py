@@ -72,11 +72,30 @@ async def find(db: AsyncSession, tenant_id: uuid.UUID, source_type: str, source_
         Entry.event == event))).scalar_one_or_none()
 
 
+async def active_source(db: AsyncSession, tenant_id: uuid.UUID, kind: str, key: str, event: str) -> tuple[Entry | None, uuid.UUID]:
+    """For entries that may be posted again after being reversed (the opening entry, a year-end
+    closing): the entry of this `kind` and `key` that is still in force (None if there is none), and
+    the source id the next one would use. Each round gets its own source id, so a reversal frees
+    the document to be posted anew while the same call twice stays idempotent."""
+    n = 0
+    while True:
+        source_id = uuid.uuid5(tenant_id, f"{kind}:{key}:{n}")
+        entry = await find(db, tenant_id, kind, source_id, event)
+        if entry is None:
+            return None, source_id
+        if not await db.scalar(text("SELECT 1 FROM acc_entries WHERE reverses_id = :id"), {"id": entry.id}):
+            return entry, source_id
+        n += 1
+
+
 async def post(db: AsyncSession, tenant_id: uuid.UUID, source_type: str, source_id: uuid.UUID, event: str,
                on: date, lines: list[PostLine], memo: str | None = None, warehouse_id: uuid.UUID | None = None,
-               user_id: uuid.UUID | None = None, reverses_id: uuid.UUID | None = None) -> Entry | None:
+               user_id: uuid.UUID | None = None, reverses_id: uuid.UUID | None = None,
+               allow_closed: bool = False) -> Entry | None:
     """Post one entry. Lines of zero are dropped; nothing at all to post returns None. The same
-    (source_type, source_id, event) posted again returns the existing entry."""
+    (source_type, source_id, event) posted again returns the existing entry. `allow_closed` is for
+    the year-end closing entry (D7) only: it is dated the last day of a fiscal year whose months
+    are all closed."""
     existing = await find(db, tenant_id, source_type, source_id, event)
     if existing is not None:
         return existing
@@ -101,7 +120,7 @@ async def post(db: AsyncSession, tenant_id: uuid.UUID, source_type: str, source_
             raise BusinessError(f"لا يمكن الترحيل على الحساب التجميعي «{a.name}»")
         if not a.active:
             raise BusinessError(f"الحساب «{a.name}» موقوف")
-    if await period_closed(db, tenant_id, on):
+    if not allow_closed and await period_closed(db, tenant_id, on):
         raise BusinessError(f"الفترة المحاسبية {on.strftime('%Y-%m')} مغلقة — لا يمكن تسجيل قيود بتاريخ {on.isoformat()}. "
                             "أعد فتح الشهر أولاً (صلاحية إقفال الفترات) أو استخدم تاريخاً في فترة مفتوحة")
     entry = Entry(id=uuid.uuid4(), tenant_id=tenant_id, number=await _next_number(db, tenant_id), date=on,
@@ -117,7 +136,7 @@ async def post(db: AsyncSession, tenant_id: uuid.UUID, source_type: str, source_
 
 
 async def reverse(db: AsyncSession, entry: Entry, on: date | None = None, user_id: uuid.UUID | None = None,
-                  memo: str | None = None) -> Entry | None:
+                  memo: str | None = None, allow_closed: bool = False) -> Entry | None:
     """The reversing entry of `entry` (event 'reverse', lines swapped), dated `on` (default
     today). Idempotent: reversing twice returns the first reversal."""
     rows = (await db.execute(select(Line).where(Line.entry_id == entry.id))).scalars().all()
@@ -125,7 +144,8 @@ async def reverse(db: AsyncSession, entry: Entry, on: date | None = None, user_i
                       warehouse_id=r.warehouse_id) for r in rows]
     return await post(db, entry.tenant_id, entry.source_type, entry.source_id, "reverse", on or today(), lines,
                       memo=memo or f"عكس القيد {entry.number}" + (f" — {entry.memo}" if entry.memo else ""),
-                      warehouse_id=entry.warehouse_id, user_id=user_id, reverses_id=entry.id)
+                      warehouse_id=entry.warehouse_id, user_id=user_id, reverses_id=entry.id,
+                      allow_closed=allow_closed)
 
 
 async def reverse_source(db: AsyncSession, tenant_id: uuid.UUID, source_type: str, source_id, event: str,

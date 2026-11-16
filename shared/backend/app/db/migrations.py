@@ -3753,6 +3753,26 @@ MIGRATIONS = [
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
             WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    ("v92_accounting_settings", """
+        CREATE TABLE IF NOT EXISTS acc_settings (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                REFERENCES tenants(id) ON DELETE CASCADE,
+            fiscal_year_start integer NOT NULL DEFAULT 1,
+            start_date date,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now(),
+            CONSTRAINT uq_acc_settings_tenant UNIQUE (tenant_id),
+            CONSTRAINT ck_acc_settings_fy_start CHECK (fiscal_year_start BETWEEN 1 AND 12)
+        );
+        CREATE INDEX IF NOT EXISTS ix_acc_settings_tenant_id ON acc_settings (tenant_id);
+        ALTER TABLE acc_settings ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE acc_settings FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON acc_settings;
+        CREATE POLICY tenant_isolation ON acc_settings
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

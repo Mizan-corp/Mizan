@@ -9,6 +9,8 @@
 - Branch and user ids are kept without foreign keys: an entry is never updated, so deleting a
   branch or a user must not try to null them.
 - `acc_money_accounts`: which sub-account holds the money of each safe, wallet and branch drawer.
+- `acc_settings`: one row per workspace: the first month of the fiscal year and the date the ledger
+  starts (set by the opening entry, D10).
 
 The tables keep the short `acc_` prefix the ADR names them with.
 """
@@ -16,7 +18,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func, text
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -87,3 +89,19 @@ class MoneyAccount(TenantScoped, Base):
     ref_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("acc_accounts.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Settings(TenantScoped, Base):
+    """The workspace's accounting settings (one row, created on first use): the first month of the
+    fiscal year (1-12, default January, D7) and the date the ledger starts (D10)."""
+    __tablename__ = "acc_settings"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", name="uq_acc_settings_tenant"),
+        CheckConstraint("fiscal_year_start BETWEEN 1 AND 12", name="ck_acc_settings_fy_start"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    fiscal_year_start: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default=text("1"))
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
