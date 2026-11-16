@@ -31,11 +31,46 @@ async def _lock(db: AsyncSession, key: str) -> None:
     await db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": key})
 
 
-async def ensure_chart(db: AsyncSession, tenant_id: uuid.UUID) -> bool:
+async def add_missing_accounts(db: AsyncSession, tenant_id: uuid.UUID) -> int:
+    """Add the standard chart's accounts a workspace doesn't have yet (the chart gains accounts with
+    new roles over time; existing workspaces get them here, never changing what they already have).
+    An account is missing when no account of the workspace has its role. Idempotent; returns how
+    many it added. Runs in the caller's transaction."""
+    await _lock(db, f"acc_chart:{tenant_id}")
+    rows = (await db.execute(select(Account.code, Account.id, Account.role).where(Account.tenant_id == tenant_id))).all()
+    by_code = {r.code: r.id for r in rows}
+    roles = {r.role for r in rows if r.role}
+    added = 0
+    for a in load_chart()["accounts"]:
+        role = a.get("role")
+        if not role or role in roles:
+            continue
+        parent_id = by_code.get(a["parent"]) if a.get("parent") else None
+        if a.get("parent") and parent_id is None:
+            continue
+        code, n = a["code"], 0
+        while code in by_code:  # the workspace already uses this number for one of its own accounts
+            n += 1
+            code = f"{a['code']}{n}"
+        acc = Account(id=uuid.uuid4(), tenant_id=tenant_id, code=code, name=a["name"], name_en=a.get("name_en"),
+                      type=a["type"], parent_id=parent_id, is_group=bool(a.get("group")), role=role, active=True)
+        db.add(acc)
+        by_code[code] = acc.id
+        roles.add(role)
+        added += 1
+    if added:
+        await db.flush()
+    return added
+
+
+async def ensure_chart(db: AsyncSession, tenant_id: uuid.UUID, *, complete: bool = False) -> bool:
     """Copy the standard chart into the workspace if it has no accounts yet. Returns whether it
-    copied. Runs in the caller's transaction."""
+    copied. `complete` also adds accounts the standard chart gained since (reads use it; posting
+    adds them when a role is missing, see account_by_role). Runs in the caller's transaction."""
     exists = await db.scalar(text("SELECT 1 FROM acc_accounts WHERE tenant_id = :t LIMIT 1"), {"t": tenant_id})
     if exists:
+        if complete:
+            await add_missing_accounts(db, tenant_id)
         return False
     await _lock(db, f"acc_chart:{tenant_id}")
     if await db.scalar(text("SELECT 1 FROM acc_accounts WHERE tenant_id = :t LIMIT 1"), {"t": tenant_id}):
@@ -53,7 +88,10 @@ async def ensure_chart(db: AsyncSession, tenant_id: uuid.UUID) -> bool:
 
 async def account_by_role(db: AsyncSession, tenant_id: uuid.UUID, role: str) -> Account:
     await ensure_chart(db, tenant_id)
-    acc = (await db.execute(select(Account).where(Account.tenant_id == tenant_id, Account.role == role))).scalar_one_or_none()
+    q = select(Account).where(Account.tenant_id == tenant_id, Account.role == role)
+    acc = (await db.execute(q)).scalar_one_or_none()
+    if acc is None and await add_missing_accounts(db, tenant_id):
+        acc = (await db.execute(q)).scalar_one_or_none()
     if acc is None:
         raise BusinessError(f"لا يوجد في دليل الحسابات حساب بالدور «{role}». راجع إعداد دليل الحسابات")
     return acc

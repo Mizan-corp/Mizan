@@ -19,6 +19,7 @@
     {"code": "1251", "parent": "125", "name": "الخزائن والأدراج والمحافظ", "name_en": "Safes, drawers and wallets", "type": "asset", "group": true, "role": "cash_group"},
     {"code": "1252", "parent": "125", "name": "البنوك", "name_en": "Banks", "type": "asset", "group": true, "role": "bank_group"},
     {"code": "126", "parent": "12", "name": "ضريبة القيمة المضافة — مدخلات", "name_en": "VAT input", "type": "asset", "role": "vat_input"},
+    {"code": "127", "parent": "12", "name": "جهات التأمين (مدينون)", "name_en": "Insurance receivables", "type": "asset", "role": "insurance_receivables"},
     {"code": "2", "name": "الخصوم", "name_en": "Liabilities", "type": "liability", "group": true},
     {"code": "21", "parent": "2", "name": "الموردون", "name_en": "Suppliers (payables)", "type": "liability", "role": "payables"},
     {"code": "22", "parent": "2", "name": "رواتب وأجور مستحقة", "name_en": "Salaries payable", "type": "liability", "role": "salaries_payable"},
@@ -47,6 +48,7 @@
     {"code": "528", "parent": "52", "name": "مصروفات إدارية وعمومية", "name_en": "General and administrative", "type": "expense"},
     {"code": "529", "parent": "52", "name": "مصروفات بنكية وعمولات", "name_en": "Bank charges and fees", "type": "expense", "role": "bank_charges"},
     {"code": "53", "parent": "5", "name": "عجز النقدية", "name_en": "Cash shortage", "type": "expense", "role": "cash_shortage"},
+    {"code": "54", "parent": "5", "name": "عجز وتلف المخزون", "name_en": "Inventory shortage and damage", "type": "expense", "role": "inventory_loss"},
     {"code": "59", "parent": "5", "name": "مصروفات أخرى", "name_en": "Other expenses", "type": "expense", "role": "other_expenses"}
   ]
 }
