@@ -17,6 +17,7 @@ def load_all_models() -> None:
     import app.platform.notifications.models.notification
     import app.platform.auth.models.owner
     import app.activities.general.modules.hr.models.employee
+    import app.activities.general.modules.accounting.models
     import app.activities.general.modules.finance.models.expense
     import app.activities.general.modules.finance.models.financial_category
     import app.activities.general.modules.hr.models.hr_advance

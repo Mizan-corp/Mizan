@@ -1,5 +1,6 @@
 """Accounting periods — month-end closing."""
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,14 +55,51 @@ async def list_periods(db: AsyncSession = Depends(get_db), _=Depends(get_current
     return [dict(r._mapping) for r in rows.fetchall()]
 
 
+def _months_between(first: str, last: str) -> list[str]:
+    """Every month from `first` to `last` included ("YYYY-MM")."""
+    y, m = int(first[:4]), int(first[5:7])
+    out = []
+    while f"{y:04d}-{m:02d}" <= last:
+        out.append(f"{y:04d}-{m:02d}")
+        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+    return out
+
+
+def _previous(month: str) -> str:
+    y, m = int(month[:4]), int(month[5:7])
+    return f"{y - 1:04d}-12" if m == 1 else f"{y:04d}-{m - 1:02d}"
+
+
+def _check_month(month: str) -> None:
+    import re
+
+    if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", month):
+        raise BusinessError("صيغة الشهر غير صحيحة (YYYY-MM)")
+
+
 @router.post("/{month}/close")
-async def close_period(month: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("finance"))):
+async def close_period(month: str, db: AsyncSession = Depends(get_db),
+                       current_user: User = Depends(require_perm("accounting:close", "finance"))):
+    """Close a past month. Every earlier month since the books began (the first journal entry,
+    or the first month ever closed) must be closed first (ADR-014 D7)."""
+    _check_month(month)
     await ensure_period_table(db)
     if month >= current_month():
         raise BusinessError("لا يمكن إغلاق الشهر الحالي أو المستقبلي")
     existing = (await db.execute(text("SELECT status FROM accounting_periods WHERE month=:m"), {"m": month})).scalar_one_or_none()
     if existing == "closed":
         raise BusinessError(f"شهر {month} مغلق بالفعل")
+    first = await db.scalar(text("""
+        SELECT MIN(m) FROM (
+            SELECT to_char(MIN(date), 'YYYY-MM') AS m FROM acc_entries
+            UNION ALL SELECT MIN(month) FROM accounting_periods
+        ) x
+    """))
+    if first and first < month:
+        closed = set((await db.execute(text("SELECT month FROM accounting_periods WHERE status = 'closed'"))).scalars().all())
+        missing = [m for m in _months_between(first, _previous(month)) if m not in closed]
+        if missing:
+            raise BusinessError(f"أغلق الأشهر السابقة أولاً بالترتيب: {', '.join(missing[:6])}{' …' if len(missing) > 6 else ''}")
     await db.execute(text("""
         INSERT INTO accounting_periods (month, status, closed_by, closed_at)
         VALUES (:m, 'closed', :by, now())
@@ -71,15 +109,35 @@ async def close_period(month: str, db: AsyncSession = Depends(get_db), current_u
     return {"detail": f"شهر {month} مغلق"}
 
 
+class ReopenRequest(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=500)
+
+
 @router.post("/{month}/reopen")
-async def reopen_period(month: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("finance"))):
+async def reopen_period(month: str, data: ReopenRequest, db: AsyncSession = Depends(get_db),
+                        current_user: User = Depends(require_perm("accounting:close", "finance"))):
+    """Reopen a closed month, with a reason, logged. Later closed months are reopened first, so
+    the closed months always run back from the latest one without gaps."""
+    from app.platform.audit.service import log as audit_log
+
+    _check_month(month)
     await ensure_period_table(db)
     existing = (await db.execute(text("SELECT status FROM accounting_periods WHERE month=:m"), {"m": month})).scalar_one_or_none()
     if not existing or existing != "closed":
         raise BusinessError(f"شهر {month} غير مغلق")
+    later = (await db.execute(text(
+        "SELECT month FROM accounting_periods WHERE status = 'closed' AND month > :m ORDER BY month DESC"
+    ), {"m": month})).scalars().all()
+    if later:
+        raise BusinessError(f"أعد فتح الأشهر اللاحقة أولاً: {', '.join(later)}")
+    reason = data.reason.strip()
     await db.execute(text("""
-        UPDATE accounting_periods SET status='open', closed_by=NULL, closed_at=NULL, updated_at=now() WHERE month=:m
-    """), {"m": month})
+        UPDATE accounting_periods SET status='open', closed_by=NULL, closed_at=NULL, updated_at=now(),
+            reopened_by=:by, reopened_at=now(), reopen_reason=:reason
+        WHERE month=:m
+    """), {"m": month, "by": current_user.id, "reason": reason})
+    await audit_log(db, "accounting_period", "reopen", current_user.id, current_user.full_name, None,
+                    {"month": month, "reason": reason}, f"إعادة فتح شهر {month}: {reason}")
     await db.commit()
     return {"detail": f"شهر {month} مفتوح"}
 

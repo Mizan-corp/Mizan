@@ -15,6 +15,7 @@ Turns on: `core`, `contacts`, `inventory`, `operations`, `sales`, `purchases`, `
 
 | Module | Name | Status | What it does |
 |---|---|---|---|
+| `accounting` | Accounting (double-entry ledger) | **active** | دليل الحسابات ودفتر اليومية بالقيد المزدوج: قيود تلقائية للمبيعات والمرتجعات والدرج والخزائن والمحافظ وتحصيلات العملاء والمصروفات،… |
 | `assets` | Asset management | *planned* |  |
 | `contacts` | Contacts & Partners | **active** | سجل الموردين والعملاء، كشوف الحسابات التفصيلية، حدود الائتمان وسقوف المديونية، وأرصدة الذمم. |
 | `customer_portal` | Customer portal | *planned* |  |

@@ -3552,6 +3552,154 @@ MIGRATIONS = [
         CREATE POLICY tenant_isolation ON clinic_images
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    # ADR-014 D1/D2/D7 (step 2): the ledger. The chart of accounts, journal entries and their
+    # lines, the ledger account of each safe, wallet and branch drawer, and each financial
+    # category's account. An entry is never updated, and must balance when its transaction
+    # commits (a deferred constraint trigger). Reopening a closed month keeps its reason.
+    ("v90_accounting_ledger", """
+        CREATE TABLE IF NOT EXISTS acc_accounts (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                REFERENCES tenants(id) ON DELETE CASCADE,
+            code varchar(32) NOT NULL,
+            name text NOT NULL,
+            name_en text,
+            type varchar(16) NOT NULL CHECK (type IN ('asset', 'liability', 'equity', 'income', 'expense')),
+            parent_id uuid REFERENCES acc_accounts(id),
+            is_group boolean NOT NULL DEFAULT false,
+            role varchar(48),
+            active boolean NOT NULL DEFAULT true,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            CONSTRAINT uq_acc_accounts_code UNIQUE (tenant_id, code)
+        );
+        CREATE INDEX IF NOT EXISTS ix_acc_accounts_tenant_id ON acc_accounts (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_acc_accounts_parent_id ON acc_accounts (parent_id);
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_acc_accounts_role ON acc_accounts (tenant_id, role) WHERE role IS NOT NULL;
+
+        CREATE TABLE IF NOT EXISTS acc_entries (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                REFERENCES tenants(id) ON DELETE CASCADE,
+            number varchar(32) NOT NULL,
+            date date NOT NULL,
+            source_type varchar(48) NOT NULL,
+            source_id uuid NOT NULL,
+            event varchar(48) NOT NULL,
+            memo text,
+            warehouse_id uuid,
+            created_by uuid,
+            reverses_id uuid REFERENCES acc_entries(id),
+            created_at timestamptz NOT NULL DEFAULT now(),
+            CONSTRAINT uq_acc_entries_source UNIQUE (tenant_id, source_type, source_id, event),
+            CONSTRAINT uq_acc_entries_number UNIQUE (tenant_id, number)
+        );
+        CREATE INDEX IF NOT EXISTS ix_acc_entries_tenant_id ON acc_entries (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_acc_entries_date ON acc_entries (tenant_id, date);
+        CREATE INDEX IF NOT EXISTS ix_acc_entries_reverses_id ON acc_entries (reverses_id) WHERE reverses_id IS NOT NULL;
+
+        CREATE TABLE IF NOT EXISTS acc_lines (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                REFERENCES tenants(id) ON DELETE CASCADE,
+            entry_id uuid NOT NULL REFERENCES acc_entries(id) ON DELETE CASCADE,
+            account_id uuid NOT NULL REFERENCES acc_accounts(id),
+            debit numeric(14,2) NOT NULL DEFAULT 0 CHECK (debit >= 0),
+            credit numeric(14,2) NOT NULL DEFAULT 0 CHECK (credit >= 0),
+            party_type varchar(16) CHECK (party_type IN ('customer', 'supplier', 'employee')),
+            party_id uuid,
+            warehouse_id uuid,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            CONSTRAINT acc_lines_one_side CHECK ((debit > 0 AND credit = 0) OR (credit > 0 AND debit = 0))
+        );
+        CREATE INDEX IF NOT EXISTS ix_acc_lines_tenant_id ON acc_lines (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_acc_lines_entry_id ON acc_lines (entry_id);
+        CREATE INDEX IF NOT EXISTS ix_acc_lines_account_id ON acc_lines (account_id);
+        CREATE INDEX IF NOT EXISTS ix_acc_lines_party ON acc_lines (party_type, party_id) WHERE party_id IS NOT NULL;
+
+        CREATE TABLE IF NOT EXISTS acc_money_accounts (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                REFERENCES tenants(id) ON DELETE CASCADE,
+            kind varchar(16) NOT NULL CHECK (kind IN ('safe', 'wallet', 'drawer', 'default_bank')),
+            ref_id uuid NOT NULL,
+            account_id uuid NOT NULL REFERENCES acc_accounts(id),
+            created_at timestamptz NOT NULL DEFAULT now(),
+            CONSTRAINT uq_acc_money_accounts_ref UNIQUE (tenant_id, kind, ref_id)
+        );
+        CREATE INDEX IF NOT EXISTS ix_acc_money_accounts_tenant_id ON acc_money_accounts (tenant_id);
+
+        CREATE OR REPLACE FUNCTION acc_check_entry_balanced() RETURNS trigger LANGUAGE plpgsql AS $$
+        DECLARE
+            eid uuid;
+            d numeric;
+            c numeric;
+        BEGIN
+            IF TG_TABLE_NAME = 'acc_entries' THEN
+                eid := NEW.id;
+            ELSIF TG_OP = 'DELETE' THEN
+                eid := OLD.entry_id;
+            ELSE
+                eid := NEW.entry_id;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM acc_entries WHERE id = eid) THEN
+                RETURN NULL;
+            END IF;
+            SELECT COALESCE(SUM(debit), 0), COALESCE(SUM(credit), 0) INTO d, c FROM acc_lines WHERE entry_id = eid;
+            IF d <> c OR d <= 0 THEN
+                RAISE EXCEPTION 'acc_entry_unbalanced: entry % has debit % and credit %', eid, d, c
+                    USING ERRCODE = '23514';
+            END IF;
+            RETURN NULL;
+        END $$;
+        DROP TRIGGER IF EXISTS acc_lines_balanced ON acc_lines;
+        CREATE CONSTRAINT TRIGGER acc_lines_balanced AFTER INSERT OR UPDATE OR DELETE ON acc_lines
+            DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION acc_check_entry_balanced();
+        DROP TRIGGER IF EXISTS acc_entries_balanced ON acc_entries;
+        CREATE CONSTRAINT TRIGGER acc_entries_balanced AFTER INSERT ON acc_entries
+            DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION acc_check_entry_balanced();
+
+        CREATE OR REPLACE FUNCTION acc_refuse_update() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN
+            RAISE EXCEPTION 'acc_posted_immutable: posted journal entries are never changed; reverse them instead'
+                USING ERRCODE = '23514';
+        END $$;
+        DROP TRIGGER IF EXISTS acc_entries_immutable ON acc_entries;
+        CREATE TRIGGER acc_entries_immutable BEFORE UPDATE ON acc_entries
+            FOR EACH ROW EXECUTE FUNCTION acc_refuse_update();
+        DROP TRIGGER IF EXISTS acc_lines_immutable ON acc_lines;
+        CREATE TRIGGER acc_lines_immutable BEFORE UPDATE ON acc_lines
+            FOR EACH ROW EXECUTE FUNCTION acc_refuse_update();
+
+        ALTER TABLE acc_accounts ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE acc_accounts FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON acc_accounts;
+        CREATE POLICY tenant_isolation ON acc_accounts
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        ALTER TABLE acc_entries ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE acc_entries FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON acc_entries;
+        CREATE POLICY tenant_isolation ON acc_entries
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        ALTER TABLE acc_lines ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE acc_lines FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON acc_lines;
+        CREATE POLICY tenant_isolation ON acc_lines
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        ALTER TABLE acc_money_accounts ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE acc_money_accounts FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON acc_money_accounts;
+        CREATE POLICY tenant_isolation ON acc_money_accounts
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+
+        ALTER TABLE financial_categories ADD COLUMN IF NOT EXISTS account_id uuid REFERENCES acc_accounts(id) ON DELETE SET NULL;
+        ALTER TABLE accounting_periods ADD COLUMN IF NOT EXISTS reopened_by uuid REFERENCES users(id);
+        ALTER TABLE accounting_periods ADD COLUMN IF NOT EXISTS reopened_at timestamptz;
+        ALTER TABLE accounting_periods ADD COLUMN IF NOT EXISTS reopen_reason text;
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

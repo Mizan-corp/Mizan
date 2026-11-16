@@ -1,7 +1,8 @@
 # ADR-014: Double-entry accounting
 
 ## Status
-Accepted (2026-11-14) by the owner. Answers #25. Building in the order of D12.
+Accepted; step 1 built (#132–#134); step 2 built (ledger core). Accepted by the owner on 2026-11-14;
+answers #25; built in the order of D12.
 
 ## Context
 Mizan has no accounting ledger. Money is tracked in about ten separate places:

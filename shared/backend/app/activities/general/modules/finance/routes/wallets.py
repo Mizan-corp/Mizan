@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
+from app.framework.events import notify
 from app.dependencies import get_current_user, require_perm, verify_warehouse_access
 from app.platform.auth.models.user import User
 from app.activities.general.modules.finance.schemas.wallet import WalletCreate, WalletUpdate
@@ -102,6 +103,8 @@ async def reset_wallet_balance(wid: uuid.UUID, db: AsyncSession = Depends(get_db
         raise HTTPException(404, "المحفظة غير موجودة")
     if old_balance != 0:
         await wallets_service.record_wallet_tx(db, wid, -old_balance, "adjustment", None, "تصفير الرصيد", current_user.id)
+        await notify("wallet.balance_reset", db, movement_id=uuid.uuid4(), wallet_id=wid, old_balance=old_balance,
+                     user_id=current_user.id)
     await db.commit()
 
 

@@ -9,6 +9,7 @@ from sqlalchemy import text as sqlt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BusinessError, ForbiddenError, NotFoundError
+from app.framework.events import notify
 from app.activities.general.modules.pos.models import DrawerTransaction, DrawerTxType, Shift, ShiftStatus
 
 if TYPE_CHECKING:
@@ -103,6 +104,7 @@ async def close_shift(db: AsyncSession, shift_id: uuid.UUID, closing_balance: De
     shift.closed_by = closed_by
     shift.closed_at = datetime.now(UTC)
 
+    await notify("shift.closed", db, shift=shift, user_id=closed_by)
     await db.commit()
     await db.refresh(shift)
 
@@ -152,6 +154,7 @@ async def close_shift_with_manager(db: AsyncSession, shift_id: uuid.UUID, data, 
     # Apply variance to payroll as deduction/bonus
     await _record_payroll_variance(db, shift_id, difference, current_user_id, current_user_id)
 
+    await notify("shift.closed", db, shift=shift, user_id=current_user_id)
     await db.commit()
     await db.refresh(shift)
 
@@ -305,6 +308,7 @@ async def transfer_drawer(db: AsyncSession, shift_id: uuid.UUID, to_user_id: uui
     # Apply variance to payroll as deduction/bonus (same as close_shift_with_manager)
     difference = amount - expected
     await _record_payroll_variance(db, shift_id, difference, actor, actor)
+    await notify("shift.closed", db, shift=shift, user_id=actor)
 
     # Prevent duplicate open shifts for the receiver
     existing = await db.execute(
@@ -385,12 +389,16 @@ async def add_transaction(db: AsyncSession, shift_id: uuid.UUID, tx_type: Drawer
     # Customer debt payment, linked to its drawer row so cancelling the row reverses it.
     if customer_id and tx_type == DrawerTxType.deposit:
         from app.activities.general.modules.contacts.models.customer_payment import CustomerPayment
+        on_wallet = bool(wallet_id and payment_method == "wallet")
         payment = CustomerPayment(
             id=uuid.uuid4(),
             customer_id=customer_id,
             amount=amount,
             note=note,
             created_by=created_by,
+            method="wallet" if on_wallet else "cash",
+            wallet_id=wallet_id if on_wallet else None,
+            shift_id=None if on_wallet else shift_id,
         )
         db.add(payment)
         await db.flush()
@@ -398,7 +406,10 @@ async def add_transaction(db: AsyncSession, shift_id: uuid.UUID, tx_type: Drawer
         await db.execute(sqlt(
             "UPDATE customers SET balance = GREATEST(0, COALESCE(balance,0) - :amt) WHERE id = :cid",
         ), {"amt": float(amount), "cid": customer_id})
+        await notify("customer_payment.received", db, payment=payment, user_id=created_by)
 
+    await db.flush()
+    await notify("drawer.transaction_added", db, tx=dt, shift=shift, user_id=created_by)
     await db.commit()
     await db.refresh(dt)
     return dt
@@ -431,6 +442,8 @@ async def revenue_delivery(db: AsyncSession, shift_id: uuid.UUID, data, current_
         created_by=current_user.id,
     )
     db.add(dt)
+    await db.flush()
+    await notify("drawer.revenue_delivered", db, tx=dt, shift=shift, safe_id=data.safe_id, user_id=current_user.id)
 
     # Credit the safe
     safe_name = (await db.execute(sqlt("SELECT name FROM safes WHERE id=:id"), {"id": data.safe_id})).scalar() or ""
@@ -519,6 +532,7 @@ async def delete_drawer_transaction(db: AsyncSession, tx_id: uuid.UUID, current_
 
     await db.execute(sqlt("UPDATE drawer_transactions SET cancelled_at = now(), cancelled_by = :uid WHERE id = :id"),
                      {"uid": current_user_id, "id": tx_id})
+    await notify("drawer.transaction_cancelled", db, tx=tx, user_id=current_user_id)
     await db.commit()
 
 

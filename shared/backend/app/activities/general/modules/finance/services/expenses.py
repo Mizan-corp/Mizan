@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
+from app.framework.events import notify
 from app.activities.general.modules.finance.services import safes
 from app.activities.general.modules.finance.services.wallets import record_wallet_tx
 
@@ -63,6 +64,7 @@ async def decide(db: AsyncSession, expense_id: uuid.UUID, approved: bool, notes:
         await record_wallet_tx(db, wallet_id, -amount, "expense", expense_id, note, user.id)
     else:
         await safes.pay_expense(db, safe_id, amount, note, user.id, expense_id)
+    await notify("expense.approved", db, expense=dict(row), user_id=user.id)
     return dict(row)
 
 
@@ -100,4 +102,5 @@ async def cancel(db: AsyncSession, expense_id: uuid.UUID, reason: str | None, us
         UPDATE expenses SET status = 'cancelled', cancelled_at = now(), cancelled_by = :by, cancel_reason = :reason
         WHERE id = :id RETURNING *
     """), {"by": user.id, "reason": reason, "id": expense_id})).mappings().first()
+    await notify("expense.cancelled", db, expense=dict(updated), user_id=user.id)
     return dict(updated)

@@ -6,6 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
+from app.framework.events import notify
 from app.dependencies import get_current_user, require_is_manager, require_perm
 from app.platform.auth.models.user import User
 from app.activities.general.modules.finance.schemas.safe import SafeCreate, SafeDepositCreate, SafeTransferCreate, SafeUpdate, SafeWithdrawCreate
@@ -43,6 +44,8 @@ async def update_safe(safe_id: uuid.UUID, data: SafeUpdate, db: AsyncSession = D
 async def transfer_to_safe(data: SafeTransferCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("finance"))):
     """Transfer balance from a payment wallet to a permanent safe."""
     await safes_service.transfer_from_wallet(db, data.from_wallet_id, data.to_safe_id, data.amount, data.note, current_user)
+    await notify("wallet.transferred_to_safe", db, movement_id=uuid.uuid4(), wallet_id=data.from_wallet_id,
+                 safe_id=data.to_safe_id, amount=data.amount, note=data.note, user_id=current_user.id)
     await db.commit()
     return {"ok": True}
 
@@ -57,6 +60,8 @@ async def deposit_to_safe(
     """Record a cash deposit to a safe."""
     result = await safes_service.deposit(db, safe_id, data.amount, current_user, shift_id=data.shift_id,
                                          warehouse_id=data.warehouse_id, received_by_id=data.received_by_id, notes=data.notes)
+    await notify("safe.deposited", db, movement_id=uuid.uuid4(), safe_id=safe_id, amount=data.amount,
+                 shift_id=data.shift_id, note=f"{result['doc_number']} {data.notes or ''}".strip(), user_id=current_user.id)
     await db.commit()
     return result
 
@@ -69,6 +74,8 @@ async def withdraw_from_safe(
     current_user: User = Depends(require_is_manager)
 ):
     balance = await safes_service.withdraw(db, safe_id, data.amount, data.note, current_user)
+    await notify("safe.withdrawn", db, movement_id=uuid.uuid4(), safe_id=safe_id, amount=data.amount, note=data.note,
+                 user_id=current_user.id)
     await db.commit()
     return {"balance": balance}
 

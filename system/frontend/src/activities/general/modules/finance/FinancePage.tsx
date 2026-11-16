@@ -967,13 +967,20 @@ function PeriodsWorkspace() {
     queryFn: () => api.get<Period[]>("/periods"),
   });
 
+  const [reopening, setReopening] = useState<string | null>(null);
+  const [reopenReason, setReopenReason] = useState("");
+
   const act = useMutation({
     mutationFn: ({ month, verb }: { month: string; verb: "close" | "reopen" }) => {
       sound.click();
-      return api.post(`/periods/${month}/${verb}`);
+      return verb === "reopen"
+        ? api.post(`/periods/${month}/reopen`, { reason: reopenReason.trim() })
+        : api.post(`/periods/${month}/close`);
     },
     onSuccess: () => {
       sound.success();
+      setReopening(null);
+      setReopenReason("");
       qc.invalidateQueries({ queryKey: ["periods"] });
     },
     onError: () => sound.error(),
@@ -984,7 +991,8 @@ function PeriodsWorkspace() {
       <div className="rounded-2xl border border-line bg-card p-5 shadow-xs">
         <h2 className="text-base font-bold text-ink">إقفال الفترات المالية</h2>
         <p className="text-xs text-muted mt-1 leading-relaxed">
-          يسجّل إقفال الشهر أن حساباته رُوجعت. منع التسجيل في شهر مغلق من كل الشاشات يأتي مع دفتر القيود (ADR-014).
+          يُقفل الشهر بعد مراجعة حساباته، بالترتيب: لا يُقفل شهر قبل إقفال ما قبله. لا تُسجَّل قيود في دفتر اليومية بتاريخ
+          شهر مغلق، وإعادة الفتح تتطلب سبباً يُحفظ في السجل.
         </p>
       </div>
 
@@ -1037,7 +1045,11 @@ function PeriodsWorkspace() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => act.mutate({ month: p.month, verb: "reopen" })}
+                        onClick={() => {
+                          act.reset();
+                          setReopenReason("");
+                          setReopening(p.month);
+                        }}
                         disabled={act.isPending}
                         className="font-bold text-xs gap-1.5 h-8"
                       >
@@ -1061,7 +1073,40 @@ function PeriodsWorkspace() {
           </table>
         </div>
       )}
-      {act.isError && <ErrorBox message={(act.error as Error).message} />}
+      {act.isError && !reopening && <ErrorBox message={(act.error as Error).message} />}
+
+      <Modal open={!!reopening} onClose={() => setReopening(null)} title={`إعادة فتح شهر ${reopening ?? ""}`}>
+        <form
+          onSubmit={(ev) => {
+            ev.preventDefault();
+            if (reopening && !act.isPending) act.mutate({ month: reopening, verb: "reopen" });
+          }}
+          className="flex flex-col gap-4"
+        >
+          <p className="text-xs text-muted leading-relaxed">
+            بعد إعادة الفتح يمكن تسجيل قيود بتاريخ هذا الشهر من جديد. يُحفظ السبب ومن أعاد الفتح في سجل المراجعة.
+          </p>
+          <div>
+            <label htmlFor="reopen-reason" className="mb-1 block text-xs font-semibold text-muted">سبب إعادة الفتح</label>
+            <Input
+              id="reopen-reason"
+              value={reopenReason}
+              onChange={(ev) => setReopenReason(ev.target.value)}
+              required
+              minLength={3}
+            />
+          </div>
+          {act.isError && <ErrorBox message={(act.error as Error).message} />}
+          <Button
+            type="submit"
+            variant="danger"
+            className="w-full h-11 font-bold text-xs rounded-xl"
+            disabled={act.isPending || reopenReason.trim().length < 3}
+          >
+            {act.isPending ? <Spinner /> : "تأكيد إعادة الفتح"}
+          </Button>
+        </form>
+      </Modal>
     </div>
   );
 }
