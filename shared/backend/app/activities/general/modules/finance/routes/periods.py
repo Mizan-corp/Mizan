@@ -130,6 +130,11 @@ async def reopen_period(month: str, data: ReopenRequest, db: AsyncSession = Depe
     ), {"m": month})).scalars().all()
     if later:
         raise BusinessError(f"أعد فتح الأشهر اللاحقة أولاً: {', '.join(later)}")
+    from app.activities.general.modules.accounting.services.closing import closed_year_blocking
+
+    closing_entry = await closed_year_blocking(db, current_user.tenant_id, month)
+    if closing_entry:
+        raise BusinessError(f"لا يمكن إعادة فتح {month}: سنته المالية مقفلة بالقيد {closing_entry}. اعكس قيد إقفال السنة أولاً")
     reason = data.reason.strip()
     await db.execute(text("""
         UPDATE accounting_periods SET status='open', closed_by=NULL, closed_at=NULL, updated_at=now(),
