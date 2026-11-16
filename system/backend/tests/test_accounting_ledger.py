@@ -356,8 +356,8 @@ async def test_posting_twice_is_idempotent_and_unbalanced_entries_are_refused():
         eid = uuid.uuid4()
         await s.execute(text("INSERT INTO acc_entries (id, tenant_id, number, date, source_type, source_id, event) "
                              "VALUES (:id, :t, 'X-1', CURRENT_DATE, 'manual', :id, 'manual')"), {"id": eid, "t": tid})
-        await s.execute(text("INSERT INTO acc_lines (tenant_id, entry_id, account_id, debit) VALUES (:t, :e, :a, 5)"),
-                        {"t": tid, "e": eid, "a": cash})
+        await s.execute(text("INSERT INTO acc_lines (id, tenant_id, entry_id, account_id, debit, credit) "
+                             "VALUES (:id, :t, :e, :a, 5, 0)"), {"id": uuid.uuid4(), "t": tid, "e": eid, "a": cash})
         with pytest.raises(DBAPIError, match="acc_entry_unbalanced"):
             await s.commit()
     async with AsyncSessionLocal() as s:
