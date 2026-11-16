@@ -1,6 +1,6 @@
 """Accounting: the events it posts journal entries for (app/framework/events.py). Each runs in the
 transaction of the document that raised it, only in workspaces where accounting is active."""
-from app.activities.general.modules.accounting.posting import finance, pos, receipts, sales
+from app.activities.general.modules.accounting.posting import finance, pos, purchases, receipts, sales
 
 LISTENERS = {
     "sale.confirmed": sales.on_sale_confirmed,
@@ -18,4 +18,8 @@ LISTENERS = {
     "safe.withdrawn": finance.on_safe_withdrawn,
     "wallet.transferred_to_safe": finance.on_wallet_to_safe,
     "wallet.balance_reset": finance.on_wallet_reset,
+    "purchase.received": purchases.on_purchase_received,
+    "purchase.returned": purchases.on_purchase_returned,
+    "supplier.payment": purchases.on_supplier_payment,
+    "supplier.charge": purchases.on_supplier_charge,
 }

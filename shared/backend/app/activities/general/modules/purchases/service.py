@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BusinessError, NotFoundError
 from app.core.pagination import Page
+from app.framework.events import notify
 from app.activities.general.modules.inventory.models.product import Product, Subcategory
 from app.activities.general.modules.purchases.models.purchase import POStatus, PurchaseOrder, PurchaseOrderItem
 from app.activities.general.modules.inventory.models.stock import MovementType
@@ -31,7 +32,7 @@ async def get_purchase_suggestions(db: AsyncSession) -> list[dict[str, Any]]:
             p.id, p.name, p.barcode as sku, p.cost_price, p.reorder_point, p.reorder_qty,
             COALESCE(SUM(CASE WHEN sm.movement_type IN ('purchase','transfer_in','adjustment_in','return_in','opening_stock')
                               THEN sm.qty ELSE 0 END)
-                     - SUM(CASE WHEN sm.movement_type IN ('sale','transfer_out','adjustment_out','damage')
+                     - SUM(CASE WHEN sm.movement_type IN ('sale','transfer_out','adjustment_out','damage','return_out')
                               THEN sm.qty ELSE 0 END), 0) AS total_stock,
             p.unit
         FROM products p
@@ -40,7 +41,7 @@ async def get_purchase_suggestions(db: AsyncSession) -> list[dict[str, Any]]:
         GROUP BY p.id
         HAVING COALESCE(SUM(CASE WHEN sm.movement_type IN ('purchase','transfer_in','adjustment_in','return_in','opening_stock')
                                   THEN sm.qty ELSE 0 END)
-                       - SUM(CASE WHEN sm.movement_type IN ('sale','transfer_out','adjustment_out','damage')
+                       - SUM(CASE WHEN sm.movement_type IN ('sale','transfer_out','adjustment_out','damage','return_out')
                                   THEN sm.qty ELSE 0 END), 0) <= p.reorder_point
         ORDER BY total_stock ASC
     """))
@@ -237,14 +238,14 @@ async def receive_purchase(
         await db.execute(text("SELECT 1 FROM suppliers WHERE id = :sid FOR UPDATE"), {"sid": po.supplier_id})
         # The full invoice as a debit (we owe them), the payment as a credit.
         await db.execute(text("""
-            INSERT INTO supplier_transactions (supplier_id, amount, type, reference_doc, notes, purchase_id, created_by)
-            VALUES (:sid, :amt, 'debit', :ref, 'فاتورة مشتريات', :po, :uid)
+            INSERT INTO supplier_transactions (id, supplier_id, amount, type, reference_doc, notes, purchase_id, created_by)
+            VALUES (gen_random_uuid(), :sid, :amt, 'debit', :ref, 'فاتورة مشتريات', :po, :uid)
         """), {"sid": po.supplier_id, "amt": total_cost, "ref": po.po_number, "po": po.id, "uid": current_user.id})
         if amount_paid > 0:
             await db.execute(text("""
                 INSERT INTO supplier_transactions
-                    (supplier_id, amount, type, reference_doc, notes, purchase_id, created_by, method, safe_id, wallet_id)
-                VALUES (:sid, :amt, 'credit', :ref, 'دفعة عند الاستلام', :po, :uid, :method, :safe, :wallet)
+                    (id, supplier_id, amount, type, reference_doc, notes, purchase_id, created_by, method, safe_id, wallet_id)
+                VALUES (gen_random_uuid(), :sid, :amt, 'credit', :ref, 'دفعة عند الاستلام', :po, :uid, :method, :safe, :wallet)
             """), {"sid": po.supplier_id, "amt": amount_paid, "ref": po.po_number, "po": po.id, "uid": current_user.id,
                    "method": "wallet" if po.wallet_id else "cash", "safe": po.safe_id, "wallet": po.wallet_id})
         await db.execute(text(
@@ -271,6 +272,11 @@ async def receive_purchase(
         }
     ))
 
+    # The ledger posts the receipt (and what was paid with it) in this transaction (ADR-014 D3).
+    await notify("purchase.received", db, user_id=current_user.id, purchase={
+        "id": po.id, "tenant_id": po.tenant_id, "po_number": po.po_number, "supplier_id": po.supplier_id,
+        "warehouse_id": po.warehouse_id, "total": total_cost, "amount_paid": amount_paid,
+        "safe_id": po.safe_id if amount_paid > 0 else None, "wallet_id": po.wallet_id if amount_paid > 0 else None})
     await db.commit()
     return {"detail": "Received", "po_number": po.po_number}
 
@@ -298,8 +304,8 @@ async def record_supplier_transaction(db: AsyncSession, supplier_id: uuid.UUID, 
     else:
         method, safe_id, wallet_id = None, None, None
     row = (await db.execute(text("""
-        INSERT INTO supplier_transactions (supplier_id, amount, type, reference_doc, notes, method, safe_id, wallet_id, created_by)
-        VALUES (:sid, :amount, :type, :ref, :notes, :method, :safe, :wallet, :uid)
+        INSERT INTO supplier_transactions (id, supplier_id, amount, type, reference_doc, notes, method, safe_id, wallet_id, created_by)
+        VALUES (gen_random_uuid(), :sid, :amount, :type, :ref, :notes, :method, :safe, :wallet, :uid)
         RETURNING *
     """), {"sid": supplier_id, "amount": amount, "type": tx_type, "ref": reference_doc, "notes": notes,
            "method": method, "safe": safe_id, "wallet": wallet_id, "uid": user.id})).mappings().one()
@@ -309,6 +315,9 @@ async def record_supplier_transaction(db: AsyncSession, supplier_id: uuid.UUID, 
                                  user_id=user.id)
     delta = amount if tx_type == "debit" else -amount
     await db.execute(text("UPDATE suppliers SET balance = balance + :delta WHERE id = :id"), {"delta": delta, "id": supplier_id})
+    # A payment or a manual charge on the supplier's account (ADR-014 D3): the ledger posts it here.
+    await notify("supplier.payment" if tx_type == "credit" else "supplier.charge", db, transaction=dict(row),
+                 user_id=user.id)
     return dict(row)
 
 
@@ -491,3 +500,132 @@ async def delete_supplier_price(
 
     sp.is_active = False
     await db.commit()
+
+
+# ── Purchase returns (ADR-014 D3, step 3) ───────────────────────────────────
+
+async def _po_quantities(db: AsyncSession, po_id: uuid.UUID) -> dict[uuid.UUID, dict[str, Decimal]]:
+    """Per product of a purchase order: what was received, its average cost on that order, and what
+    has already gone back to the supplier."""
+    received = (await db.execute(text("""
+        SELECT product_id, SUM(qty_received) AS qty, SUM(qty_received * unit_cost) AS value
+        FROM purchase_order_items WHERE po_id = :po GROUP BY product_id
+    """), {"po": po_id})).all()
+    returned = {r.product_id: Decimal(str(r.qty)) for r in (await db.execute(text("""
+        SELECT i.product_id, SUM(i.qty) AS qty FROM purchase_return_items i
+        JOIN purchase_returns r ON r.id = i.return_id WHERE r.po_id = :po GROUP BY i.product_id
+    """), {"po": po_id})).all()}
+    out = {}
+    for r in received:
+        qty = Decimal(str(r.qty or 0))
+        cost = (Decimal(str(r.value or 0)) / qty).quantize(Decimal("0.01")) if qty > 0 else Decimal("0")
+        out[r.product_id] = {"received": qty, "returned": returned.get(r.product_id, Decimal("0")), "unit_cost": cost}
+    return out
+
+
+async def list_purchase_returns(db: AsyncSession, po_id: uuid.UUID) -> dict[str, Any]:
+    """The returns of a purchase order, and per product how much can still be returned."""
+    if not await db.scalar(text("SELECT 1 FROM purchase_orders WHERE id = :id"), {"id": po_id}):
+        raise NotFoundError()
+    rets = (await db.execute(text(
+        "SELECT * FROM purchase_returns WHERE po_id = :po ORDER BY created_at DESC"), {"po": po_id})).mappings().all()
+    items = (await db.execute(text("""
+        SELECT i.*, p.name AS product_name FROM purchase_return_items i JOIN products p ON p.id = i.product_id
+        WHERE i.return_id = ANY(:ids)
+    """), {"ids": [r["id"] for r in rets]})).mappings().all()
+    names = {r["id"]: r["product_name"] for r in (await db.execute(text(
+        "SELECT p.id, p.name AS product_name FROM products p WHERE p.id IN "
+        "(SELECT product_id FROM purchase_order_items WHERE po_id = :po)"), {"po": po_id})).mappings().all()}
+    quantities = await _po_quantities(db, po_id)
+    return {
+        "returns": [{**dict(r), "items": [dict(i) for i in items if i["return_id"] == r["id"]]} for r in rets],
+        "returnable": [{"product_id": pid, "product_name": names.get(pid), "unit_cost": q["unit_cost"],
+                        "received": q["received"], "returned": q["returned"],
+                        "returnable": max(Decimal("0"), q["received"] - q["returned"])}
+                       for pid, q in quantities.items()],
+    }
+
+
+async def create_purchase_return(db: AsyncSession, po_id: uuid.UUID, data: Any, current_user: User) -> dict[str, Any]:
+    """Send goods of a received purchase order back to the supplier. Each line leaves the warehouse at
+    the cost it came in at (movement return_out) and cannot exceed what was received and not yet
+    returned. What the goods were worth lowers the supplier's balance, except the part the supplier
+    pays back now into a safe or wallet (`refund_amount`). Callers commit through this function."""
+    from app.activities.general.modules.finance.services import payments
+    from app.activities.general.modules.inventory.services.stock import apply_movement, get_balance
+    from app.activities.general.modules.purchases.models.purchase_return import PurchaseReturn, PurchaseReturnItem
+
+    po = (await db.execute(select(PurchaseOrder).where(PurchaseOrder.id == po_id).with_for_update())).scalar_one_or_none()
+    if not po:
+        raise NotFoundError()
+    if po.status != POStatus.received:
+        raise BusinessError("لا يمكن إرجاع بضاعة من أمر شراء لم يُستلم بعد")
+
+    wanted: dict[uuid.UUID, Decimal] = {}
+    for item in data.items:
+        wanted[item.product_id] = wanted.get(item.product_id, Decimal("0")) + Decimal(str(item.qty))
+    quantities = await _po_quantities(db, po_id)
+    lines = []
+    for product_id, qty in sorted(wanted.items(), key=lambda kv: str(kv[0])):
+        q = quantities.get(product_id)
+        if q is None:
+            raise HTTPException(400, "الصنف ليس ضمن أمر الشراء هذا")
+        left = q["received"] - q["returned"]
+        if qty > left:
+            raise HTTPException(400, f"الكمية المرتجعة ({qty}) أكبر من المتاح للإرجاع ({left}) من هذا الصنف")
+        lines.append((product_id, qty, q["unit_cost"], (qty * q["unit_cost"]).quantize(Decimal("0.01"))))
+    total = sum((ln[3] for ln in lines), Decimal("0"))
+
+    refund = Decimal(str(data.refund_amount or 0))
+    if refund > total:
+        raise HTTPException(400, f"المبلغ المستردّ ({refund} ج.م) أكبر من قيمة المرتجع ({total} ج.م)")
+    if not po.supplier_id and refund != total:
+        raise HTTPException(400, "أمر شراء بلا مورد: يجب أن يُسترد كامل قيمة المرتجع نقداً في خزنة أو محفظة")
+    if refund > 0:
+        payments.check_source(data.safe_id, data.wallet_id, "حدد الخزنة أو المحفظة التي استُلم فيها المبلغ المستردّ")
+    else:
+        data.safe_id = data.wallet_id = None
+
+    # Products first, then balances: the same lock order as a receipt (see inventory stock._movement_cost).
+    await db.execute(text("SELECT id FROM products WHERE id = ANY(:ids) ORDER BY id FOR UPDATE"),
+                     {"ids": [ln[0] for ln in lines]})
+    for product_id, qty, _, _ in lines:
+        balance = await get_balance(db, product_id, po.warehouse_id, for_update=True)
+        if balance < qty:
+            name = await db.scalar(text("SELECT name FROM products WHERE id = :id"), {"id": product_id})
+            raise HTTPException(400, f"رصيد «{name}» في المخزن ({balance}) أقل من الكمية المرتجعة ({qty})")
+
+    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": f"purchase_returns:{po.tenant_id}"})
+    last = await db.scalar(text(
+        "SELECT COALESCE(MAX(CAST(substring(return_number FROM 5) AS integer)), 0) FROM purchase_returns "
+        "WHERE tenant_id = :t AND return_number ~ '^PRT-[0-9]+$'"), {"t": po.tenant_id})
+    ret = PurchaseReturn(return_number=f"PRT-{int(last) + 1:06d}", po_id=po.id, supplier_id=po.supplier_id,
+                         warehouse_id=po.warehouse_id, total=total, refund_amount=refund, safe_id=data.safe_id,
+                         wallet_id=data.wallet_id, notes=data.notes, created_by=current_user.id)
+    db.add(ret)
+    await db.flush()
+    for product_id, qty, cost, _ in lines:
+        db.add(PurchaseReturnItem(return_id=ret.id, product_id=product_id, qty=qty, unit_cost=cost))
+        await apply_movement(db, product_id=product_id, warehouse_id=po.warehouse_id,
+                             movement_type=MovementType.return_out, qty=qty, unit_cost=cost,
+                             created_by=current_user.id, ref_id=ret.id, ref_type="purchase_return",
+                             purchase_id=po.id, note=f"مرتجع مشتريات {ret.return_number} — {po.po_number}")
+    if refund > 0:
+        await payments.money_in(db, refund, safe_id=data.safe_id, wallet_id=data.wallet_id, ref_type="purchase_return",
+                                ref_id=ret.id, note=f"استرداد من مورد — مرتجع {ret.return_number}", user_id=current_user.id)
+    owed_less = total - refund
+    if po.supplier_id and owed_less > 0:
+        await db.execute(text("SELECT 1 FROM suppliers WHERE id = :sid FOR UPDATE"), {"sid": po.supplier_id})
+        await db.execute(text("""
+            INSERT INTO supplier_transactions (id, supplier_id, amount, type, reference_doc, notes, purchase_id, created_by)
+            VALUES (gen_random_uuid(), :sid, :amt, 'credit', :ref, 'مرتجع مشتريات', :po, :uid)
+        """), {"sid": po.supplier_id, "amt": owed_less, "ref": ret.return_number, "po": po.id, "uid": current_user.id})
+        await db.execute(text("UPDATE suppliers SET balance = balance - :amt WHERE id = :sid"),
+                         {"amt": owed_less, "sid": po.supplier_id})
+    await notify("purchase.returned", db, user_id=current_user.id, purchase_return={
+        "id": ret.id, "tenant_id": ret.tenant_id, "return_number": ret.return_number, "supplier_id": ret.supplier_id,
+        "warehouse_id": ret.warehouse_id, "total": total, "refund_amount": refund, "safe_id": ret.safe_id,
+        "wallet_id": ret.wallet_id})
+    await db.commit()
+    return {"id": str(ret.id), "return_number": ret.return_number, "total": total, "refund_amount": refund,
+            "supplier_balance_change": -owed_less if po.supplier_id else Decimal("0")}

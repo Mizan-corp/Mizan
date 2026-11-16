@@ -22,6 +22,7 @@ class MovementType(enum.StrEnum):
     damage         = "damage"
     adjustment_out = "adjustment_out"
     transfer_out   = "transfer_out"
+    return_out     = "return_out"   # goods sent back to a supplier (a purchase return)
 
     @property
     def is_in(self) -> bool:
@@ -29,7 +30,7 @@ class MovementType(enum.StrEnum):
 
 # Canonical tuples — import from here instead of redeclaring
 IN_TYPES = ("opening_stock", "purchase", "return_in", "adjustment_in", "transfer_in")
-OUT_TYPES = ("sale", "damage", "adjustment_out", "transfer_out")
+OUT_TYPES = ("sale", "damage", "adjustment_out", "transfer_out", "return_out")
 
 
 class StockMovement(TenantScoped, Base):

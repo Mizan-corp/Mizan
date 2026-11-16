@@ -113,7 +113,7 @@ async def export_stock(db: AsyncSession = Depends(get_db), _=Depends(require_per
         CROSS JOIN warehouses w
         LEFT JOIN LATERAL (
             SELECT SUM(CASE WHEN sm.movement_type IN ('purchase','transfer_in','return_in','opening_stock','adjustment_in') THEN sm.qty
-                           WHEN sm.movement_type IN ('sale','transfer_out','damage','adjustment_out') THEN -sm.qty
+                           WHEN sm.movement_type IN ('sale','transfer_out','damage','adjustment_out','return_out') THEN -sm.qty
                        END) as qty
             FROM stock_movements sm WHERE sm.product_id=p.id AND sm.warehouse_id=w.id
         ) s ON true

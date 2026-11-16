@@ -775,6 +775,7 @@ function MovementsAuditTab({ wid }: { wid: string }) {
     damage: { label: "بضاعة تالفة (−)", positive: false },
     adjustment_out: { label: "تسوية جرد بالنقص (−)", positive: false },
     transfer_out: { label: "تحويل صادر لفرع (−)", positive: false },
+    return_out: { label: "مرتجع مشتريات للمورد (−)", positive: false },
   };
 
   const movements = q.data?.items ?? [];

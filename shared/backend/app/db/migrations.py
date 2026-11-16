@@ -3700,6 +3700,59 @@ MIGRATIONS = [
         ALTER TABLE accounting_periods ADD COLUMN IF NOT EXISTS reopened_at timestamptz;
         ALTER TABLE accounting_periods ADD COLUMN IF NOT EXISTS reopen_reason text;
     """),
+
+    # ADR-014 D3 (step 3): purchase returns, goods sent back to a supplier from a received purchase
+    # order. The stock leaves with a new movement type, return_out (ADD VALUE IF NOT EXISTS, so
+    # running it twice, or on a database made from the models, does nothing).
+    ("v91_purchase_returns", """
+        ALTER TYPE movement_type_enum ADD VALUE IF NOT EXISTS 'return_out';
+
+        CREATE TABLE IF NOT EXISTS purchase_returns (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                REFERENCES tenants(id) ON DELETE CASCADE,
+            return_number varchar(32) NOT NULL,
+            po_id uuid NOT NULL REFERENCES purchase_orders(id),
+            supplier_id uuid REFERENCES suppliers(id) ON DELETE SET NULL,
+            warehouse_id uuid NOT NULL REFERENCES warehouses(id),
+            total numeric(14,2) NOT NULL DEFAULT 0,
+            refund_amount numeric(14,2) NOT NULL DEFAULT 0,
+            safe_id uuid REFERENCES safes(id),
+            wallet_id uuid REFERENCES payment_wallets(id),
+            notes text,
+            created_by uuid REFERENCES users(id) ON DELETE SET NULL,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            CONSTRAINT uq_purchase_returns_number UNIQUE (tenant_id, return_number)
+        );
+        CREATE INDEX IF NOT EXISTS ix_purchase_returns_tenant_id ON purchase_returns (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_purchase_returns_return_number ON purchase_returns (return_number);
+        CREATE INDEX IF NOT EXISTS ix_purchase_returns_po_id ON purchase_returns (po_id);
+
+        CREATE TABLE IF NOT EXISTS purchase_return_items (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                REFERENCES tenants(id) ON DELETE CASCADE,
+            return_id uuid NOT NULL REFERENCES purchase_returns(id) ON DELETE CASCADE,
+            product_id uuid NOT NULL REFERENCES products(id),
+            qty numeric(12,3) NOT NULL,
+            unit_cost numeric(12,2) NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS ix_purchase_return_items_tenant_id ON purchase_return_items (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_purchase_return_items_return_id ON purchase_return_items (return_id);
+
+        ALTER TABLE purchase_returns ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE purchase_returns FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON purchase_returns;
+        CREATE POLICY tenant_isolation ON purchase_returns
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        ALTER TABLE purchase_return_items ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE purchase_return_items FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON purchase_return_items;
+        CREATE POLICY tenant_isolation ON purchase_return_items
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

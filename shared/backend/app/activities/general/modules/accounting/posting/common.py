@@ -39,5 +39,12 @@ async def payment_account(db: AsyncSession, tenant_id: uuid.UUID, method: str | 
     return await chart.default_bank_account(db, tenant_id)
 
 
+async def source_account(db: AsyncSession, tenant_id: uuid.UUID, *, safe_id=None, wallet_id=None) -> uuid.UUID:
+    """The account of the safe (or bank account) or wallet a payment was made from or into."""
+    if wallet_id:
+        return await chart.money_account(db, tenant_id, "wallet", wallet_id)
+    return await chart.money_account(db, tenant_id, "safe", safe_id)
+
+
 async def role(db: AsyncSession, tenant_id: uuid.UUID, name: str) -> uuid.UUID:
     return (await chart.account_by_role(db, tenant_id, name)).id
