@@ -92,3 +92,24 @@ latitude is the primary and homie is fenced. To make homie the primary again, du
    `latitude_standby` on homie).
 5. Clear the fence: delete the KV key `primary`, `rm /var/lib/mizan/fenced` on homie and
    `/var/lib/mizan/promoted` on latitude, then `systemctl start mizan-guard` on homie.
+
+## The edge guard (latitude's link to the database)
+
+Cloudflare spreads requests between homie's connector and latitude's. latitude's API reaches the database
+on homie over Tailscale, so while that link is slow (it was seen on a relayed path at 2 to 3 seconds per
+round trip) about half of all requests hang or time out, and long jobs such as `measure_storage` fail
+with a Cloudflare 524. `mizan-edge-guard` (on latitude) watches the link and keeps the connector out of
+the tunnel while it is bad:
+
+- every 15 s it measures the median of three connects to homie's database bridge (`100.112.4.10:15433`);
+- **out:** 4 probes in a row at 400 ms or more (or no connection), so within about a minute: `kubectl -n mizan scale deploy/tunnel --replicas=0`; homie serves everything;
+- **back:** 12 probes in a row at 150 ms or less (3 minutes);
+- it only restores what it removed (`/var/lib/mizan/edge-guard-down`), never overrides a manual scale, and does nothing once latitude is the primary (`/var/lib/mizan/promoted`): then latitude must serve;
+- an email goes out on each change; `touch /var/lib/mizan/edge-guard-off` stands the guard down;
+- a release re-applies the manifest (tunnel at 1 replica); if the link is still bad the guard removes the connector again within a minute.
+
+If homie itself is down the probe fails too, so the guard also takes latitude out; that is harmless (the
+site has no database anyway) and the watchdog's promotion puts the connector back.
+
+Install: `install -m 755 mizan-edge-guard.sh /usr/local/sbin/ && install -m 644 mizan-edge-guard.service /etc/systemd/system/ && systemctl daemon-reload && systemctl enable --now mizan-edge-guard`.
+Check: `mizan-edge-guard.sh --once`. Test the decisions: `EDGE_FAKE_MS=900 DRY_RUN=1 INTERVAL=1 SLOW_CYCLES=2 mizan-edge-guard.sh`.
