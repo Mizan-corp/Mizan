@@ -18,6 +18,7 @@ from sqlalchemy.exc import DBAPIError
 
 from app.activities.general.modules.accounting.services import chart, ledger
 from app.activities.general.modules.accounting.services import posting
+from app.platform.tenancy.context import bind_tenant
 from app.activities.general.modules.contacts.models.party import Customer
 from app.activities.general.modules.finance.models.payment_wallet import PaymentWallet
 from app.activities.general.modules.inventory.models.product import Product
@@ -351,14 +352,16 @@ async def test_posting_twice_is_idempotent_and_unbalanced_entries_are_refused():
 
     # The database itself refuses an unbalanced entry at commit, and changes to posted lines.
     async with AsyncSessionLocal() as s:
+        await bind_tenant(s, tid)  # raw SQL goes through RLS like the app's own writes
         eid = uuid.uuid4()
-        await s.execute(text("INSERT INTO acc_entries (id, number, date, source_type, source_id, event) "
-                             "VALUES (:id, 'X-1', CURRENT_DATE, 'manual', :id, 'manual')"), {"id": eid})
-        await s.execute(text("INSERT INTO acc_lines (entry_id, account_id, debit) VALUES (:e, :a, 5)"),
-                        {"e": eid, "a": cash})
+        await s.execute(text("INSERT INTO acc_entries (id, tenant_id, number, date, source_type, source_id, event) "
+                             "VALUES (:id, :t, 'X-1', CURRENT_DATE, 'manual', :id, 'manual')"), {"id": eid, "t": tid})
+        await s.execute(text("INSERT INTO acc_lines (tenant_id, entry_id, account_id, debit) VALUES (:t, :e, :a, 5)"),
+                        {"t": tid, "e": eid, "a": cash})
         with pytest.raises(DBAPIError, match="acc_entry_unbalanced"):
             await s.commit()
     async with AsyncSessionLocal() as s:
+        await bind_tenant(s, tid)
         with pytest.raises(DBAPIError, match="acc_posted_immutable"):
             await s.execute(text("UPDATE acc_lines SET debit = 20 WHERE entry_id = :e AND debit > 0"), {"e": first.id})
 
