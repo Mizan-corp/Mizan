@@ -103,6 +103,20 @@ A bank account, used for bank transfers and cheques, is a safe with `safe_type =
 
 `clinic_invoices.sale_id`: a clinic invoice is one `sales` row (the patient's share), made at its first payment. Every payment is a `sale_payments` line on it, and cash goes into the cashier's open drawer. A payment can't be zero or more than what is left. Before, each payment made a new sale with the same invoice number; the migration links each invoice to the first of those.
 
+### Purchase returns (ADR-014 D3, step 3; migration `v91_purchase_returns`)
+
+Tenant tables with RLS. A return sends received goods of a purchase order back to the supplier.
+
+| Table | Columns | Meaning |
+|---|---|---|
+| `purchase_returns` | `return_number` (`PRT-000001`, per workspace), `po_id`, `supplier_id`, `warehouse_id`, `total` (at the cost the goods came in at), `refund_amount`, `safe_id`, `wallet_id`, `notes`, `created_by` | One return document. `refund_amount` is the part the supplier paid back into the safe or wallet; the rest (`total − refund_amount`) lowers the supplier's balance, recorded as a `credit` row in `supplier_transactions` (reference = the return number) |
+| `purchase_return_items` | `return_id`, `product_id`, `qty`, `unit_cost` | The lines. Per product, returns can't exceed what the order received minus what earlier returns took |
+| `stock_movements.movement_type` | new value `return_out` | The stock leaving with a return, at the line's cost (not the average); the product's average cost is recalculated without those units. The enum value is added with `ALTER TYPE … ADD VALUE IF NOT EXISTS` |
+
+`products` and the ledger need nothing else: stock adjustments, payroll, advances and clinic invoices are posted from
+events and add no columns. The standard chart gains two roles, `inventory_loss` (expense 54) and
+`insurance_receivables` (asset 127); existing workspaces get them the first time a rule needs them.
+
 ### The ledger (ADR-014 D1, D2, D7; migration `v90_accounting_ledger`, module `accounting`)
 
 Tenant tables with RLS (`tenant_isolation`, USING and WITH CHECK). Money is `numeric(14,2)`.

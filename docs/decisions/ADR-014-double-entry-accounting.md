@@ -1,7 +1,9 @@
 # ADR-014: Double-entry accounting
 
 ## Status
-Accepted; step 1 built (#132–#134); step 2 built (ledger core). Accepted by the owner on 2026-11-14;
+Accepted; step 1 built (#132–#134); step 2 built (ledger core); step 3 built (purchases, supplier
+payments and purchase returns, stock adjustments, payroll and advances, clinic invoices, the manager's
+shift deposit; insurance claims and the opening entry are still to come). Accepted by the owner on 2026-11-14;
 answers #25; built in the order of D12.
 
 ## Context
