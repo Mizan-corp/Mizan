@@ -62,3 +62,10 @@ HDD, home connection with a changing IP), the first node of a future cluster.
   minutes ran out: CI on latitude-e6530 (runner `latitude-ci`), the release and the scheduled jobs
   on homie. See `.github/RUNNERS.md`.
 - Details and operations: `deploy/server/README.md`.
+
+### Database failover (2026-11-16)
+homie's database streams to a standby on latitude. latitude promotes it only when homie's database is
+unreachable over Tailscale **and** Cloudflare (the witness) shows no tunnel connector from homie, for
+3 minutes; it writes `primary=latitude` to a KV flag first. homie's guard owns homie's tunnel: it stops
+it after 90 s without Cloudflare, and keeps homie fenced (no tunnel, no API, no releases) while the flag
+says latitude. Switching back is manual. Details and runbook: `deploy/failover/README.md`.

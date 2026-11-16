@@ -69,7 +69,9 @@ services:
 
   tunnel:
     image: cloudflare/cloudflared:latest
-    restart: unless-stopped
+    # Not restarted by Docker: mizan-guard (deploy/failover) starts it only when homie is certainly the
+    # primary database, and stops it when latitude may have taken over.
+    restart: "no"
     command: tunnel --no-autoupdate run
     env_file: mizan.env   # TUNNEL_TOKEN
     depends_on: [api, web]
