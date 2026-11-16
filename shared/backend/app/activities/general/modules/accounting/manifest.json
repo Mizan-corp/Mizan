@@ -1,0 +1,44 @@
+{
+  "id": "accounting",
+  "name": "المحاسبة العامة (القيود المزدوجة)",
+  "name_en": "Accounting (double-entry ledger)",
+  "activity": "general",
+  "kind": "business",
+  "status": "active",
+  "version": "0.2.0",
+  "icon": "BookOpen",
+  "description": "دليل الحسابات ودفتر اليومية بالقيد المزدوج: قيود تلقائية للمبيعات والمرتجعات والدرج والخزائن والمحافظ وتحصيلات العملاء والمصروفات، وميزان المراجعة، وإقفال الفترات.",
+  "dependencies": [
+    "core",
+    "finance"
+  ],
+  "permissions": [
+    {
+      "id": "accounting:view",
+      "name": "عرض الحسابات والقيود والتقارير المحاسبية",
+      "name_en": "View accounts, entries and accounting reports"
+    },
+    {
+      "id": "accounting:journal",
+      "name": "قيود اليومية اليدوية",
+      "name_en": "Manual journal entries"
+    },
+    {
+      "id": "accounting:close",
+      "name": "إقفال الفترات وإعادة فتحها",
+      "name_en": "Close and reopen periods"
+    },
+    {
+      "id": "accounting:settings",
+      "name": "إعداد دليل الحسابات وربط البنود",
+      "name_en": "Chart of accounts and account mapping"
+    }
+  ],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [],
+  "settings_schema": []
+}

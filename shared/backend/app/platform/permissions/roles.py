@@ -23,7 +23,7 @@ ROLE_DEFAULT_PERMISSIONS = {
     ],
     "manager": [
         "pos", "sales", "quotations", "inventory", "operations",
-        "customers", "reports", "archive", "shifts", "finance", "settings", "payroll",
+        "customers", "reports", "archive", "shifts", "finance", "settings", "payroll", "accounting:view",
         "clinic", "clinic:view", "clinic:manage", "clinic:billing", "clinic:all_patients", "clinic:privacy",
     ],
     "cashier": [
@@ -34,6 +34,7 @@ ROLE_DEFAULT_PERMISSIONS = {
     ],
     "accountant": [
         "reports", "finance", "archive", "customers", "inventory", "payroll",
+        "accounting:view", "accounting:journal", "accounting:close", "accounting:settings",
         "clinic:billing",
     ],
     "doctor": [
