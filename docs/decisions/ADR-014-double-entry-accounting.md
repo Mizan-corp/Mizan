@@ -6,7 +6,10 @@ payments and purchase returns, stock adjustments, payroll and advances, clinic i
 shift deposit, #146; insurance claims are still to come); step 4 built (reports, opening entry and
 year-end closing: D7, D8, D10); step 5 built (screens: chart of accounts, journal with manual entries
 and reversals, reports, period and year-end close, the opening wizard; the nightly reconciliation
-check of D8). Accepted by the owner on 2026-11-14;
+check of D8); step 6 built (VAT on documents, D6: workspace VAT settings, product tax codes, the tax
+stored per line and per document on sales, returns, purchases, purchase returns and expenses, VAT
+output / input postings, printed VAT and tax number, the VAT report; migration `v94_vat`). Accepted
+by the owner on 2026-11-14;
 answers #25; built in the order of D12.
 
 ## Context

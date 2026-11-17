@@ -30,6 +30,7 @@ import { D, dateTime, moneyEGP } from "@/lib/format";
 import { sound } from "@/lib/sound";
 import { Badge, Button, ErrorBox, Input, Modal, Select, Spinner } from "@/components/ui";
 import { PaySourceSelect, sourceFields } from "@app/components/PaySourceSelect";
+import { useVat } from "@app/lib/vat";
 
 interface Safe {
   id: string;
@@ -48,6 +49,8 @@ interface WalletRow {
 interface Expense {
   id: string;
   amount: string;
+  /** Input VAT included in amount (ADR-014 D6). */
+  tax_amount?: string;
   description: string;
   status: "draft" | "approved" | "rejected" | "cancelled";
   created_at: string;
@@ -583,6 +586,7 @@ function ExpensesWorkspace() {
   const [creating, setCreating] = useState(false);
   const emptyForm = {
     amount: "",
+    tax_amount: "",
     description: "",
     category_id: "",
     vendor_id: "",
@@ -592,6 +596,7 @@ function ExpensesWorkspace() {
     recurring_interval: "monthly",
   };
   const [form, setForm] = useState(emptyForm);
+  const vat = useVat();
   const [approving, setApproving] = useState<Expense | null>(null);
   const [approveSource, setApproveSource] = useState("");
   const [cancelling, setCancelling] = useState<Expense | null>(null);
@@ -622,6 +627,7 @@ function ExpensesWorkspace() {
       const src = sourceFields(form.source);
       return api.post("/expenses", {
         amount: D(form.amount).toNumber(),
+        tax_amount: vat.data?.vat_registered && form.tax_amount ? D(form.tax_amount).toNumber() : 0,
         description: form.description,
         category_id: form.category_id || undefined,
         vendor_id: form.vendor_id || undefined,
@@ -735,7 +741,10 @@ function ExpensesWorkspace() {
                         )}
                       </div>
                     </td>
-                    <td className="num p-3.5 font-black text-rose-600">{moneyEGP(e.amount)}</td>
+                    <td className="num p-3.5 font-black text-rose-600">
+                      {moneyEGP(e.amount)}
+                      {D(e.tax_amount ?? 0).gt(0) && <div className="text-[10px] font-normal text-muted">منها ضريبة {moneyEGP(e.tax_amount!)}</div>}
+                    </td>
                     <td className="p-3.5 text-muted text-xs">{e.category_name ?? "—"}</td>
                     <td className="p-3.5">
                       <Badge tone={EXPENSE_STATUS[e.status]?.tone ?? "muted"}>{EXPENSE_STATUS[e.status]?.label ?? e.status}</Badge>
@@ -866,6 +875,20 @@ function ExpensesWorkspace() {
                 onChange={(e) => setForm({ ...form, amount: e.target.value })}
               />
             </div>
+            {vat.data?.vat_registered && (
+              <div>
+                <label htmlFor="expense-tax" className="mb-1 block text-xs font-semibold text-muted">منها ضريبة قيمة مضافة (ج.م)</label>
+                <Input
+                  id="expense-tax"
+                  className="num"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={form.tax_amount}
+                  onChange={(e) => setForm({ ...form, tax_amount: e.target.value })}
+                />
+                <p className="mt-1 text-[11px] text-muted">من فاتورة المورد الضريبية؛ تُخصم كضريبة مدخلات.</p>
+              </div>
+            )}
             <div>
               <label className="mb-1 block text-xs font-semibold text-muted">طريقة الدفع</label>
               <Select

@@ -2,12 +2,13 @@
 
 `accounting`: a business module of the `general` activity, depending on `finance`. Off by default:
 the owner enables it (ADR-014, answer 2). Design: [ADR-014](../../../../../../../docs/decisions/ADR-014-double-entry-accounting.md).
-Steps 2 to 5 of D12 are built: the ledger core and the posting rules for sales, returns, POS and
+Every step of D12 is built: the ledger core and the posting rules for sales, returns, POS and
 drawers, customer receipts, safes and wallets and expenses (step 2); purchases, supplier
 payments, purchase returns, stock adjustments, payroll, HR advances, clinic invoices and the
 manager's shift deposit (step 3); the reports (D8), the opening entry (D10) and the year-end
 closing (D7) (step 4); manual journal entries (D9), reversals by hand (D1), the nightly
-reconciliation check (D8) and the screens (step 5).
+reconciliation check (D8) and the screens (step 5); VAT on documents, its postings and the VAT
+report (D6, step 6).
 
 ## Parts
 
@@ -24,6 +25,7 @@ reconciliation check (D8) and the screens (step 5).
 | `services/settings.py` | `acc_settings` (migration `v92_accounting_settings`): `fiscal_year_start`, `start_date` |
 | `services/journal.py` | Manual journal entries (D9): drafts, the posting rules, keeping the operational balances along; reversing manual and opening entries (D1) |
 | `services/nightly.py` | The nightly reconciliation check (D8), run by the automation job `accounting_reconciliation` |
+| `services/vat.py` | The VAT report (D6): output and input VAT from the ledger, the documents' VAT by tax code |
 | `posting/*.py` | One posting function per event: `sales`, `pos`, `receipts`, `finance` (step 2); `purchases`, `inventory`, `payroll`, `clinic` (step 3) |
 | `listeners.py` | The events it listens to (`app/framework/events.py`): they run only in workspaces where accounting is active, in the document's transaction |
 | `router.py` | The API (below) |
@@ -46,9 +48,9 @@ wallet movements) post on today's date in Africa/Cairo; an approved expense post
 
 | Event (who emits it) | Entry (source / event) | Debit | Credit |
 |---|---|---|---|
-| `sale.confirmed` (sales: POS sale, draft or quotation confirmed) | `sale` / `confirm` | each `sale_payments` line: its safe (`safe_id`), its wallet, the branch drawer (cash), the default bank (bank, cheque, card), or receivables with the customer as party (credit) | sales = the payment lines' total (the sale's `net_total`, after discounts) |
+| `sale.confirmed` (sales: POS sale, draft or quotation confirmed) | `sale` / `confirm` | each `sale_payments` line: its safe (`safe_id`), its wallet, the branch drawer (cash), the default bank (bank, cheque, card), or receivables with the customer as party (credit) | sales = the payment lines' total (the sale's `net_total`, after discounts) less the sale's `tax_amount`; VAT output = `tax_amount` (step 6) |
 | …its cost (same entry) | | cost of goods sold = Σ `sale_items.unit_cost × qty` | inventory |
-| `sale.returned` (full or partial return document) | `sale_return` / `confirm` | sales returns = the refund total | each refund line, as above |
+| `sale.returned` (full or partial return document) | `sale_return` / `confirm` | sales returns = the refund total less the return's `tax_amount`; VAT output = `tax_amount` | each refund line, as above |
 | …cost of the return (same entry) | | inventory | cost of goods sold |
 | `sale.cancelled` | `sale` / `reverse` | the sale's entry, reversed | |
 | `customer_payment.received` (customers screen, or a drawer deposit for a customer) | `customer_payment` / `confirm` | the safe / wallet / drawer of its shift's branch / default bank | receivables (party: customer) |
@@ -60,7 +62,7 @@ wallet movements) post on today's date in Africa/Cairo; an approved expense post
 | `drawer.transaction_cancelled` | `drawer_tx` (or `customer_payment`) / `reverse` | the row's entry (or its receipt's), reversed | |
 | `drawer.revenue_delivered` (drawer → safe) | `drawer_tx` / `revenue_delivery` | the safe | the branch drawer |
 | `shift.closed` (close, close with manager, hand-over) with a difference | `shift` / `close` | short: cash shortage; over: the drawer | short: the drawer; over: cash surplus |
-| `expense.approved` (not payroll) | `expense` / `approve` | the category's account, else other expenses | the safe or wallet it was paid from |
+| `expense.approved` (not payroll) | `expense` / `approve` | the category's account, else other expenses (`amount` − `tax_amount`); VAT input = `tax_amount` | the safe or wallet it was paid from (`amount`) |
 | `expense.cancelled` | `expense` / `reverse` | the approval, reversed | |
 | `safe.deposited` (`POST /safes/{id}/deposit`) with `shift_id` | `safe_movement` / `deposit` | the safe | that shift's branch drawer |
 | …without `shift_id` | | the safe | other income |
@@ -69,8 +71,8 @@ wallet movements) post on today's date in Africa/Cairo; an approved expense post
 | `wallet.balance_reset` (`POST /wallets/{id}/reset-balance`) | `wallet_movement` / `reset` | other expenses (positive balance) or the wallet | the wallet or other income |
 
 Safe and wallet movements that belong to a document (a sale into a safe, an expense, a receipt…)
-are posted with that document only, never twice. VAT lines are not posted yet: documents carry no
-tax data until step 6.
+are posted with that document only, never twice. VAT lines appear only for documents that carry VAT
+(step 6, below); a workspace that isn't VAT-registered posts exactly as before.
 
 ### Step 3: purchases, stock, payroll and clinics
 
@@ -79,10 +81,10 @@ document's transaction. The modules emit generic events and never import account
 
 | Event (who emits it) | Entry (source / event) | Debit | Credit |
 |---|---|---|---|
-| `purchase.received` (`receive_purchase`) | `purchase` / `receive` | inventory (lines × unit cost); and, for the amount paid at receipt, payables (party: supplier) | payables (party: supplier); and, for the amount paid, the safe or wallet it left from |
+| `purchase.received` (`receive_purchase`) | `purchase` / `receive` | inventory (the lines without VAT); VAT input (the order's `tax_amount`, step 6); and, for the amount paid at receipt, payables (party: supplier) | payables (party: supplier) for the whole invoice; and, for the amount paid, the safe or wallet it left from |
 | `supplier.payment` (`POST /suppliers/{id}/transactions`, `credit`) | `supplier_tx` / `payment` | payables (party: supplier) | the safe or wallet |
 | `supplier.charge` (the same route, `debit`) | `supplier_tx` / `charge` | other expenses | payables (party: supplier) |
-| `purchase.returned` (`POST /purchases/{id}/returns`) | `purchase_return` / `confirm` | payables (party: supplier) for what lowers the balance; the safe or wallet for a refund | inventory (at the cost the goods came in at) |
+| `purchase.returned` (`POST /purchases/{id}/returns`) | `purchase_return` / `confirm` | payables (party: supplier) for what lowers the balance; the safe or wallet for a refund | inventory (at the cost the goods came in at, without VAT); VAT input (the return's `tax_amount`) |
 | `stock.adjusted` (`apply_movement` of type `adjustment_out` or `damage`) | `stock_movement` / `adjust` | inventory shortage and damage (`inventory_loss`) | inventory, at the movement's unit cost (the average cost when none was given) |
 | …`adjustment_in` | | inventory | other income |
 | `payroll.approved` (`approve_payroll_period`) | `payroll` (id: the approval's salaries expense) / `approve` | salaries expense = net + withheld | salaries payable per employee (net, party: employee); employee advances per employee (advances recovered, party: employee); other income (deductions, lateness and absence withheld) |
@@ -123,6 +125,35 @@ Not posted yet (later steps of D12): insurance claim approval and payment
 `return_in` or `opening_stock` through `POST /stock/movements`, cancelling a clinic invoice's sale,
 and money modules outside general sales (hotel, storefront, school…).
 
+### Step 6: VAT (D6)
+
+The tax data lives on the documents (sales, purchases and finance modules; the rule and the rates
+are in `app/platform/settings/vat.py`, the settings in `store_settings`, see
+`app/platform/settings/README.md`); the ledger posts what they store:
+
+| Document | VAT line | Side |
+|---|---|---|
+| Sale confirmed (POS, draft, quotation) | VAT output = `sales.tax_amount`; sales get `net_total − tax_amount` | credit |
+| Sale return | VAT output = the return's `tax_amount`; sales returns get the refund less it | debit |
+| Sale cancelled | the sale's entry reversed, VAT included | |
+| Purchase received | VAT input = `purchase_orders.tax_amount`; inventory gets the value without VAT | debit |
+| Purchase return | VAT input = `purchase_returns.tax_amount`; inventory is credited without VAT | credit |
+| Expense approved | VAT input = `expenses.tax_amount`; the category's account gets `amount − tax_amount` | debit |
+
+The chart has carried `vat_output` (23, liability) and `vat_input` (126, asset) since step 1;
+`account_by_role` adds them through `add_missing_accounts` in a workspace that lacks them. The
+average cost (D5) takes the purchase cost without VAT in a registered workspace (the movement's
+`unit_cost` is the line's net value ÷ quantity, and `cost_price` is set to it too).
+
+**The VAT report** (`GET /accounting/vat-report?from&to`, `accounting:view`; the "ضريبة القيمة
+المضافة" tab of the reports screen, with a month picker): from the ledger, output VAT = credits − debits
+on `vat_output` (split into sales, returns and other entries), input VAT = debits − credits on
+`vat_input` (purchases, purchase returns, expenses, other), `net_payable` = output − input
+(negative: a credit carried forward), and `by_month`. Beside it, `by_code` adds up the documents'
+stored line values and VAT per tax code (sales, sale returns, purchases, purchase returns; expenses
+as one row), by the Cairo date each was issued; cancelled sales are left out there (the ledger has
+their reversal). The year-end closing never touches the VAT accounts, and the report ignores it.
+
 ## API (`/accounting`, guarded by the module)
 
 | Route | Permission | What |
@@ -139,6 +170,7 @@ and money modules outside general sales (hotel, storefront, school…).
 | `GET /accounting/general-ledger/{account_id}?from&to&warehouse_id&include_closing&page&page_size` | `accounting:view` | One account's lines with a running balance |
 | `GET /accounting/party-statement/{customer\|supplier\|employee}/{id}?from&to&warehouse_id&page&page_size` | `accounting:view` | A party's lines with a running balance, and the operational balance to reconcile with |
 | `GET /accounting/reconciliation` | `accounting:view` | The ledger against the operational balances (flags only) |
+| `GET /accounting/vat-report?from&to` | `accounting:view` | Output VAT, input VAT, net payable (ledger) and the documents' VAT by tax code (D6) |
 | `GET /accounting/settings` | `accounting:view` | `fiscal_year_start`, `start_date` |
 | `PUT /accounting/settings` | `accounting:settings` | `fiscal_year_start` (1-12); refused while a year-end closing is in force |
 | `GET /accounting/opening/preview?date` | `accounting:view` | The opening entry's lines and totals, nothing posted |
@@ -216,7 +248,7 @@ module too (App.tsx), so a workspace without accounting sees nothing of it.
 |---|---|---|---|
 | `screens/JournalPage.tsx` | `/accounting/journal` | view or journal | Posted entries with filters (date, source, account) and the entry detail (lines, source document link, reverses / reversed by, reverse); drafts and the manual entry form (balance shown as typed, party picker on receivables / payables / employee accounts, save, post) |
 | `screens/AccountsPage.tsx` | `/accounting/accounts` | view (settings to edit) | The chart as a tree with today's balances; add a sub-account, rename, stop; the financial categories' accounts |
-| `screens/ReportsPage.tsx` | `/accounting/reports?tab=` | view | Trial balance, income statement, balance sheet, general ledger (paged, running balance), party statement, reconciliation; date range and branch; CSV and print |
+| `screens/ReportsPage.tsx` | `/accounting/reports?tab=` | view | Trial balance, income statement, balance sheet, general ledger (paged, running balance), party statement, reconciliation, VAT (`tab=vat`: per month or range); date range and branch; CSV and print |
 | `screens/PeriodsPage.tsx` | `/accounting/periods` | close or settings | Months (close in order; reopen with a reason), fiscal years (close, reverse the closing), the fiscal year's first month, the opening entry |
 | `screens/OpeningPage.tsx` | `/accounting/opening` | settings | The opening wizard: start date, preview (lines, products skipped for having no cost), post. Every accounting screen shows a reminder while no opening entry is in force |
 

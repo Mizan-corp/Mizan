@@ -14,13 +14,6 @@
   "is_core": true,
   "settings_schema": [
     {
-      "key": "default_tax_rate",
-      "label": "نسبة ضريبة القيمة المضافة الافتراضية (%)",
-      "type": "number",
-      "default": 14,
-      "description": "نسبة الضريبة المحتسبة تلقائياً على فواتير المبيعات"
-    },
-    {
       "key": "allow_manual_discount",
       "label": "السماح بالخصم اليدوي عند البيع",
       "type": "boolean",

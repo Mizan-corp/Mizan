@@ -1,7 +1,8 @@
 """Posting rules for expenses, safes and wallets (ADR-014 D3).
 
 Expense approved (source 'expense', event 'approve'), dated the expense's date (today if later):
-    Dr the category's expense account, else other expenses / Cr the safe or wallet it was paid from
+    Dr the category's expense account, else other expenses (the amount less its tax_amount), Dr VAT
+    input (the expense's tax_amount, ADR-014 D6) / Cr the safe or wallet it was paid from
 Expense cancelled: the reversing entry of the approval.
 
 Safe and wallet movements made by hand (source 'safe_movement' / 'wallet_movement'). Movements
@@ -42,7 +43,12 @@ async def on_expense_approved(db: AsyncSession, *, expense: dict, user_id=None, 
     on = expense.get("date") or today()
     if isinstance(on, date) and on > today():
         on = today()
-    await post(db, tid, "expense", expense["id"], "approve", on, [dr(account, amount), cr(money, amount)],
+    # Input VAT on the expense's invoice (ADR-014 D6): the category gets the amount without it.
+    tax = min(Decimal(str(expense.get("tax_amount") or 0)), amount)
+    lines = [dr(account, amount - tax), cr(money, amount)]
+    if tax > 0:
+        lines.append(dr(await role(db, tid, "vat_input"), tax))
+    await post(db, tid, "expense", expense["id"], "approve", on, lines,
                memo=f"مصروف: {expense.get('description') or ''}".strip(), warehouse_id=expense.get("warehouse_id"),
                user_id=user_id)
 

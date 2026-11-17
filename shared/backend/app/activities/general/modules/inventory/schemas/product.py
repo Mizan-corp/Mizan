@@ -2,7 +2,12 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
+
+# VAT codes (ADR-014 D6); the rates are in app/platform/settings/vat.py.
+TaxCode = Literal["standard", "zero", "exempt"]
 
 
 class CategoryCreate(BaseModel):
@@ -52,6 +57,7 @@ class ProductCreate(BaseModel):
     reorder_point: Decimal = Field(default=Decimal("0"), ge=0)
     reorder_qty: Decimal = Field(default=Decimal("0"), ge=0)
     reorder_level: int = Field(default=5, ge=0)
+    tax_code: TaxCode = "standard"
     # Values of the fields the activity's variants and the workspace add (framework/fields.py).
     extra: dict = Field(default_factory=dict)
 
@@ -76,6 +82,7 @@ class ProductUpdate(BaseModel):
     reorder_level: int | None = Field(default=None, ge=0)
     stock_status: str | None = None
     description: str | None = None
+    tax_code: TaxCode | None = None
 
     @field_validator("retail_price", "wholesale_price", "cost_price", "reorder_point", "reorder_qty")
     @classmethod
@@ -108,6 +115,7 @@ class ProductOut(BaseModel):
     reorder_qty: Decimal
     reorder_level: int = 5
     stock_status: str = "untracked"
+    tax_code: str = "standard"
     created_at: datetime
     updated_at: datetime
     extra: dict = Field(default_factory=dict)

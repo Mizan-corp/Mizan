@@ -23,6 +23,8 @@ class PurchaseCreate(BaseModel):
     safe_id: uuid.UUID | None = None
     wallet_id: uuid.UUID | None = None
     received_by_name: str | None = None
+    # Whether the unit costs include VAT (ADR-014 D6); omitted: the workspace's setting at receipt.
+    prices_include_vat: bool | None = None
     items: list[PurchaseItemCreate] = []
 
 
@@ -47,6 +49,8 @@ class PurchaseReceive(BaseModel):
     amount_paid: Decimal | None = Field(None, ge=0)
     safe_id: uuid.UUID | None = None
     wallet_id: uuid.UUID | None = None
+    # Whether the unit costs include VAT (ADR-014 D6); omitted: what the order says, else the setting.
+    prices_include_vat: bool | None = None
 
 
 class QuickProductCreate(BaseModel):

@@ -3,6 +3,7 @@ import { Button } from "@/components/kit/button";
 import { Modal } from "@/components/ui";
 import { moneyEGP } from "@/lib/format";
 import { sound } from "@/lib/sound";
+import { lineTax, rateOf, useVat } from "@app/lib/vat";
 
 export interface SchoolPaymentReceiptData {
   receipt_no: string;
@@ -188,7 +189,6 @@ export interface DiningTableReceiptData {
   openedAt?: string;
   subtotal: number;
   serviceChargePercent?: number;
-  vatPercent?: number;
 }
 
 export function RestaurantGuestCheckModal({
@@ -200,6 +200,9 @@ export function RestaurantGuestCheckModal({
   onClose: () => void;
   data: DiningTableReceiptData | null;
 }) {
+  // VAT only for a VAT-registered workspace, at the settings' rate and by the same rule as stored
+  // documents (ADR-014 D6); never a fixed 14 % added afterwards.
+  const vatSettings = useVat();
   if (!data) return null;
 
   function handlePrint() {
@@ -209,8 +212,11 @@ export function RestaurantGuestCheckModal({
 
   const subtotal = data.subtotal || 380.0;
   const serviceCharge = (subtotal * (data.serviceChargePercent ?? 12)) / 100;
-  const vat = (subtotal * (data.vatPercent ?? 14)) / 100;
-  const total = subtotal + serviceCharge + vat;
+  const registered = !!vatSettings.data?.vat_registered;
+  const taxed = lineTax(subtotal + serviceCharge, "standard", rateOf(vatSettings.data, "standard"), registered,
+                        vatSettings.data?.prices_include_vat ?? true);
+  const vat = taxed.tax.toNumber();
+  const total = taxed.gross.toNumber();
 
   return (
     <Modal open={open} onClose={onClose} title={`بون حساب طاولة ${data.tableNumber} (Guest Check)`}>
@@ -271,10 +277,12 @@ export function RestaurantGuestCheckModal({
               <span>خدمة الصالة ({data.serviceChargePercent ?? 12}%):</span>
               <span className="num font-semibold">{moneyEGP(serviceCharge)}</span>
             </div>
-            <div className="flex justify-between text-muted-foreground">
-              <span>ضريبة القيمة المضافة ({data.vatPercent ?? 14}%):</span>
-              <span className="num font-semibold">{moneyEGP(vat)}</span>
-            </div>
+            {registered && (
+              <div className="flex justify-between text-muted-foreground">
+                <span>{vatSettings.data?.prices_include_vat ? "منها ضريبة القيمة المضافة" : "ضريبة القيمة المضافة"}:</span>
+                <span className="num font-semibold">{moneyEGP(vat)}</span>
+              </div>
+            )}
             <div className="flex justify-between border-t-2 border-border pt-2 text-sm font-black text-amber-600 dark:text-amber-400">
               <span>الإجمالي المطلوب:</span>
               <span className="num font-black">{moneyEGP(total)}</span>

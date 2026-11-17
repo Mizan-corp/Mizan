@@ -112,11 +112,16 @@ async def _render_invoice_html(db: AsyncSession, invoice_id: uuid.UUID, tenant_i
     if not COLOR.match(str(primary_color or "")):
         primary_color = "#0f766e"
 
-    # Compute calculations
+    # The document's stored amounts (ADR-014 D6): VAT is shown only when the sale carries VAT data,
+    # and never estimated from the total.
+    from app.platform.settings.vat import format_tax_number
+
     gross_total = float(sale.get("total") or 0)
     net_total = float(sale.get("net_total") or gross_total)
-    discount = gross_total - net_total if gross_total > net_total else 0.0
-    tax_amount = round(net_total * 0.14 / 1.14, 2)  # Included standard 14% VAT estimate
+    has_vat = any(it.get("tax_code") for it in items)
+    tax_amount = float(sale.get("tax_amount") or 0) if has_vat else 0.0
+    discount = float(sale.get("discount_amount") or 0) + sum(float(it.get("discount") or 0) for it in items)
+    tax_id = format_tax_number(tax_id) if has_vat else ""
 
     items_html_rows = ""
     for idx, it in enumerate(items, 1):
@@ -141,7 +146,7 @@ async def _render_invoice_html(db: AsyncSession, invoice_id: uuid.UUID, tenant_i
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <title>فاتورة ضريبية - {sale.get('invoice_number')}</title>
+  <title>{'فاتورة ضريبية' if has_vat else 'فاتورة'} - {sale.get('invoice_number')}</title>
   <style>
     @page {{ size: A4 portrait; margin: 12mm; }}
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
@@ -170,10 +175,10 @@ async def _render_invoice_html(db: AsyncSession, invoice_id: uuid.UUID, tenant_i
   <div class="header">
     <div>
       {logo_img}
-      <div class="company-sub">{store_address} {f"| هاتف: {store_phone}" if store_phone else ""} {f"| س.ت: {tax_id}" if tax_id else ""}</div>
+      <div class="company-sub">{store_address} {f"| هاتف: {store_phone}" if store_phone else ""} {f"| رقم التسجيل الضريبي: {tax_id}" if tax_id else ""}</div>
     </div>
     <div class="invoice-badge">
-      <div class="invoice-title">فاتورة بيع رسمية</div>
+      <div class="invoice-title">{'فاتورة ضريبية' if has_vat else 'فاتورة بيع'}</div>
       <div class="invoice-meta">رقم الفاتورة: <b>{sale.get('invoice_number')}</b></div>
       <div class="invoice-meta">التاريخ: {_format_ar_date(sale.get('created_at'))}</div>
     </div>
@@ -213,7 +218,8 @@ async def _render_invoice_html(db: AsyncSession, invoice_id: uuid.UUID, tenant_i
   <div class="totals-box">
     <div class="total-row"><span>المجموع الفرعي:</span> <span>{gross_total:,.2f} ج.م</span></div>
     {f'<div class="total-row"><span>إجمالي الخصم:</span> <span>{discount:,.2f} ج.م</span></div>' if discount > 0 else ''}
-    <div class="total-row"><span>شامل ضريبة القيمة المضافة:</span> <span>{tax_amount:,.2f} ج.م</span></div>
+    {f'<div class="total-row"><span>الإجمالي قبل الضريبة:</span> <span>{net_total - tax_amount:,.2f} ج.م</span></div>' if has_vat else ''}
+    {f'<div class="total-row"><span>ضريبة القيمة المضافة:</span> <span>{tax_amount:,.2f} ج.م</span></div>' if has_vat else ''}
     <div class="total-row total-grand"><span>الصافي النهائي:</span> <span>{net_total:,.2f} ج.م</span></div>
   </div>
 

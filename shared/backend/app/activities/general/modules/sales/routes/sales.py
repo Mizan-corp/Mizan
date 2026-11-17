@@ -206,6 +206,7 @@ async def print_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=D
             "unit_price": float(item.unit_price),
             "discount": float(item.discount),
             "total": float(item.qty) * float(item.unit_price) - float(item.discount),
+            "tax_code": item.tax_code, "tax_rate": float(item.tax_rate or 0), "tax_amount": float(item.tax_amount or 0),
         })
 
     customer = None
@@ -216,7 +217,9 @@ async def print_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=D
     settings = {r.key: r.value for r in settings_rows}
 
     subtotal = sum(i["total"] for i in items_out)
-    total = subtotal - float(sale.discount_amount)
+    # The stored totals (ADR-014 D6): VAT is never worked out again here.
+    total = float(sale.net_total or 0)
+    has_vat = any(i.tax_code is not None for i in sale.items)
 
     return {
         "store": {"name": settings.get("store_name", ""), "address": settings.get("store_address", ""), "phone": settings.get("store_phone", ""), "logo_url": settings.get("logo_url", "")},
@@ -230,6 +233,10 @@ async def print_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=D
         "subtotal": subtotal,
         "discount": float(sale.discount_amount),
         "total": total,
+        "vat": has_vat,
+        "tax_amount": float(sale.tax_amount or 0),
+        "total_before_vat": round(total - float(sale.tax_amount or 0), 2),
+        "tax_number": settings.get("tax_number", "") if has_vat else "",
         "notes": sale.notes or "",
         "created_by_name": (await db.execute(text("SELECT full_name FROM users WHERE id=:id"), {"id": sale.created_by})).scalar() if sale.created_by else "",
     }
@@ -243,7 +250,8 @@ async def get_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Dep
                 COALESCE(json_agg(json_build_object(
                  'id', si.id, 'product_id', si.product_id, 'product_name', p.name,
                  'qty', si.qty, 'unit_price', si.unit_price, 'unit_cost', si.unit_cost,
-                 'discount', si.discount
+                 'discount', si.discount, 'tax_code', si.tax_code, 'tax_rate', si.tax_rate,
+                 'tax_amount', si.tax_amount, 'net_amount', si.net_amount
                 )) FILTER (WHERE si.id IS NOT NULL), '[]'::json) as items
         FROM sales s
         LEFT JOIN customers c ON c.id = s.customer_id

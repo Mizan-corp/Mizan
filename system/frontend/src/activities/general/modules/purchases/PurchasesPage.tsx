@@ -6,16 +6,19 @@ import { api } from "@/lib/api";
 import { dateTime, D, money, moneyEGP } from "@/lib/format";
 import { Badge, Button, Empty, ErrorBox, Input, Modal, Select, Spinner } from "@/components/ui";
 import { PaySourceSelect, sourceFields } from "@app/components/PaySourceSelect";
+import { useVat } from "@app/lib/vat";
 
 interface PO {
   id: string; po_number: string; supplier_name: string | null; status: string; amount_paid: string | null;
   total: string | null; created_at: string; notes: string | null;
+  /** VAT stored at receipt (ADR-014 D6). */
+  tax_amount?: string | null;
 }
 interface Supplier { id: string; name: string }
 interface Warehouse { id: string; name: string }
 interface Product { id: string; name: string; code: string | null; cost_price: string }
 interface LineItem { product: Product; qty: string; unit_cost: string }
-interface Returnable { product_id: string; product_name: string | null; unit_cost: string; received: string; returned: string; returnable: string }
+interface Returnable { product_id: string; product_name: string | null; unit_cost: string; unit_tax?: string; received: string; returned: string; returnable: string }
 interface ReturnInfo { returns: { id: string; return_number: string; total: string; created_at: string }[]; returnable: Returnable[] }
 
 export default function PurchasesPage() {
@@ -77,15 +80,20 @@ export default function PurchasesPage() {
     },
   });
 
+  // VAT (ADR-014 D6): whether this order's unit costs include VAT; the workspace's setting by default.
+  const vat = useVat();
+  const [costsIncludeVat, setCostsIncludeVat] = useState<boolean | null>(null);
   const receive = useMutation({
     mutationFn: () =>
       api.post(`/purchases/${receiving!.id}/receive`, {
         items: [],
         amount_paid: paying ? Number(paidNow) : 0,
         ...(paying ? sourceFields(paySource) : {}),
+        ...(vat.data?.vat_registered ? { prices_include_vat: costsIncludeVat ?? vat.data.prices_include_vat } : {}),
       }),
     onSuccess: () => {
       setReceiving(null);
+      setCostsIncludeVat(null);
       setPaidNow("");
       setPaySource("");
       qc.invalidateQueries({ queryKey: ["purchases"] });
@@ -102,7 +110,9 @@ export default function PurchasesPage() {
     enabled: !!returning,
   });
   const retLines = (retInfo.data?.returnable ?? []).filter((r) => D(retQty[r.product_id] || "0").gt(0));
-  const retTotal = retLines.reduce((s, r) => s.plus(D(retQty[r.product_id]).times(D(r.unit_cost))), D(0));
+  // The order's VAT comes back with the goods, in proportion (the server's figure is exact).
+  const retTotal = retLines.reduce((s, r) => s.plus(D(retQty[r.product_id]).times(D(r.unit_cost).plus(D(r.unit_tax ?? 0)))), D(0));
+  const retHasVat = retLines.some((r) => D(r.unit_tax ?? 0).gt(0));
   const refunding = Number.isFinite(Number(refund)) && Number(refund) > 0;
   const closeReturn = () => { setReturning(null); setRetQty({}); setRefund(""); setRefundSource(""); };
   const doReturn = useMutation({
@@ -153,7 +163,10 @@ export default function PurchasesPage() {
                 <tr key={po.id} className="border-b border-line/60 last:border-0 hover:bg-elevated">
                   <td className="num p-3 font-bold" dir="ltr">{po.po_number}</td>
                   <td className="p-3">{po.supplier_name ?? "—"}</td>
-                  <td className="num p-3 font-bold">{po.total ? moneyEGP(po.total) : "—"}</td>
+                  <td className="num p-3 font-bold">
+                    {po.total ? moneyEGP(po.total) : "—"}
+                    {D(po.tax_amount ?? 0).gt(0) && <div className="text-[10px] font-normal text-muted">ضريبة مدخلات {moneyEGP(po.tax_amount!)}</div>}
+                  </td>
                   <td className="p-3">
                     <Badge tone={po.status === "received" ? "success" : po.status === "cancelled" ? "danger" : "brand"}>
                       {po.status === "received" ? "مستلم" : po.status === "cancelled" ? "ملغي" : po.status === "partial" ? "جزئي" : "مسودة"}
@@ -210,6 +223,13 @@ export default function PurchasesPage() {
             <Input id="po-paid" className="num font-bold" inputMode="decimal" placeholder="0.00" value={paidNow}
                    onChange={(e) => setPaidNow(e.target.value)} />
           </div>
+          {vat.data?.vat_registered && (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={costsIncludeVat ?? vat.data.prices_include_vat}
+                     onChange={(e) => setCostsIncludeVat(e.target.checked)} />
+              تكلفة الأصناف في الأمر شاملة ضريبة القيمة المضافة (تُسجّل الضريبة كضريبة مدخلات، والمخزون بالتكلفة قبل الضريبة)
+            </label>
+          )}
           {paying && (
             <div>
               <label htmlFor="po-source" className="mb-1 block text-sm font-medium">دُفع من *</label>
@@ -267,7 +287,7 @@ export default function PurchasesPage() {
             </div>
           )}
           <div className="flex items-center justify-between text-sm">
-            <span className="font-semibold text-muted">قيمة المرتجع</span>
+            <span className="font-semibold text-muted">قيمة المرتجع{retHasVat ? " (شاملة الضريبة، تقريبية)" : ""}</span>
             <span className="num font-black">{moneyEGP(retTotal)}</span>
           </div>
           <div>

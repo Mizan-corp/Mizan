@@ -116,8 +116,8 @@ export interface Range {
 }
 
 /** From / to dates and a branch. `single`: one date only ("as of", the balance sheet). */
-export function RangeFilters({ value, onChange, single = false, children }: {
-  value: Range; onChange: (r: Range) => void; single?: boolean; children?: ReactNode;
+export function RangeFilters({ value, onChange, single = false, branch = true, children }: {
+  value: Range; onChange: (r: Range) => void; single?: boolean; branch?: boolean; children?: ReactNode;
 }) {
   const branches = useBranches();
   return (
@@ -132,13 +132,15 @@ export function RangeFilters({ value, onChange, single = false, children }: {
         <label htmlFor="acc-to" className="mb-1 block text-xs font-medium text-muted">{single ? "في تاريخ" : "إلى تاريخ"}</label>
         <Input id="acc-to" type="date" className="w-40" value={value.to} onChange={(e) => onChange({ ...value, to: e.target.value })} />
       </div>
-      <div>
-        <label htmlFor="acc-branch" className="mb-1 block text-xs font-medium text-muted">الفرع</label>
-        <Select id="acc-branch" className="w-44" value={value.warehouse_id} onChange={(e) => onChange({ ...value, warehouse_id: e.target.value })}>
-          <option value="">كل الفروع</option>
-          {branches.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </Select>
-      </div>
+      {branch && (
+        <div>
+          <label htmlFor="acc-branch" className="mb-1 block text-xs font-medium text-muted">الفرع</label>
+          <Select id="acc-branch" className="w-44" value={value.warehouse_id} onChange={(e) => onChange({ ...value, warehouse_id: e.target.value })}>
+            <option value="">كل الفروع</option>
+            {branches.data?.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </Select>
+        </div>
+      )}
       {children}
     </div>
   );

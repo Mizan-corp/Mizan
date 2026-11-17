@@ -12,6 +12,7 @@ import {
 import { api } from "@/lib/api";
 import { sound } from "@/lib/sound";
 import { Button } from "@/components/ui";
+import { lineTax, rateOf, useVat } from "@app/lib/vat";
 
 interface ThermalReceiptSettingsModalProps {
   isOpen: boolean;
@@ -28,6 +29,11 @@ export function ThermalReceiptSettingsModal({
   const [paperWidth, setPaperWidth] = useState<"80mm" | "58mm">("80mm");
   const [autoPrint, setAutoPrint] = useState(true);
   const [showTaxQr, setShowTaxQr] = useState(true);
+  // The sample receipt shows VAT the way real receipts do (ADR-014 D6): only for a VAT-registered
+  // workspace, computed by the same rule as the stored amounts.
+  const vat = useVat();
+  const registered = !!vat.data?.vat_registered;
+  const sample = lineTax(250, "standard", rateOf(vat.data, "standard"), registered, vat.data?.prices_include_vat ?? true);
   const [cashDrawerPulse, setCashDrawerPulse] = useState(true);
   const [headerNote, setHeaderNote] = useState("أهلاً وسهلاً بكم — نسعد بخدمتكم دائماً");
   const [footerNote, setFooterNote] = useState("البضاعة المباعة ترد وتستبدل خلال 14 يوماً بموجب الفاتورة");
@@ -373,17 +379,21 @@ export function ThermalReceiptSettingsModal({
 
                 {/* Totals */}
                 <div className="space-y-1 border-b border-dashed border-stone-400 pb-2 mb-2 text-[11px]">
-                  <div className="flex justify-between">
-                    <span>المجموع الخاضع للضريبة:</span>
-                    <span>219.30 ج.م</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>ضريبة القيمة المضافة (14%):</span>
-                    <span>30.70 ج.م</span>
-                  </div>
+                  {registered && (
+                    <>
+                      <div className="flex justify-between">
+                        <span>الإجمالي قبل الضريبة:</span>
+                        <span>{sample.net.toFixed(2)} ج.م</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>ضريبة القيمة المضافة:</span>
+                        <span>{sample.tax.toFixed(2)} ج.م</span>
+                      </div>
+                    </>
+                  )}
                   <div className="flex justify-between text-sm font-black pt-1 border-t border-stone-300">
                     <span>الإجمالي النهائي:</span>
-                    <span>250.00 ج.م</span>
+                    <span>{sample.gross.toFixed(2)} ج.م</span>
                   </div>
                   <div className="flex justify-between text-stone-600 text-[10px]">
                     <span>طريقة الدفع:</span>
@@ -392,7 +402,7 @@ export function ThermalReceiptSettingsModal({
                 </div>
 
                 {/* QR Code */}
-                {showTaxQr && (
+                {showTaxQr && registered && (
                   <div className="flex flex-col items-center justify-center my-3 gap-1">
                     {/* SVG Tax QR placeholder */}
                     <div className="p-2 bg-white rounded border border-stone-300 shadow-sm">

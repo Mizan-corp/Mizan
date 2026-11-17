@@ -27,6 +27,8 @@ class ExpenseCreate(BaseModel):
     category_id: UUID | None = None
     warehouse_id: UUID | None = None
     amount: Decimal = Field(..., gt=0)
+    # Input VAT included in amount (ADR-014 D6), from the supplier's tax invoice; registered workspaces only.
+    tax_amount: Decimal = Field(default=Decimal("0"), ge=0)
     description: str = Field(..., min_length=1)
     date: date_type | None = None
     payment_method: str | None = None
@@ -43,6 +45,7 @@ class ExpenseUpdate(BaseModel):
     category_id: UUID | None = None
     warehouse_id: UUID | None = None
     amount: Decimal | None = Field(None, gt=0)
+    tax_amount: Decimal | None = Field(None, ge=0)
     description: str | None = Field(None, min_length=1)
     date: date_type | None = None
     payment_method: str | None = None

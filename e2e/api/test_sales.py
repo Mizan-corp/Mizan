@@ -210,3 +210,37 @@ def test_invoice_email_needs_a_real_address(admin_api, reg, product, wh):
         assert r.status_code == 400, r.text[:200]
     sent = admin_api.ok(admin_api.post(f"/invoices/{s['id']}/send", json={"email": "buyer@mizan.test"}))
     assert "buyer@mizan.test" in sent["message"]
+
+
+def _printed(api, sale_id) -> str:
+    token = api.ok(api.post("/auth/print-token"))["token"]
+    r = api.get(f"/print/sale/{sale_id}", params={"token": token})
+    assert r.status_code == 200, r.text[:200]
+    return r.text
+
+
+def test_vat_registered_sale_stores_and_prints_its_vat(admin_api, reg, product, wh):
+    """ADR-014 D6: a VAT-registered workspace stores each sale's VAT (prices include it by default)
+    and prints it with the tax number; switching registration off goes back to no VAT at all."""
+    before = admin_api.ok(admin_api.get("/settings/vat"))
+    r = admin_api.put("/settings", json={"tax_number": "12-34"})
+    assert r.status_code == 422, r.text[:200]
+    try:
+        admin_api.ok(admin_api.put("/settings", json={"vat_registered": True, "prices_include_vat": True,
+                                                      "tax_number": "100-200-300"}))
+        assert admin_api.ok(admin_api.get("/settings/vat"))["tax_number"] == "100200300"
+        s = admin_api.ok(admin_api.post("/sales", json=_sale_payload(product, wh, items=[_item(product, price="114")])))
+        reg.add("sale", s["id"])
+        assert float(s["net_total"]) == 114 and float(s["tax_amount"]) == 14
+        assert s["items"][0]["tax_code"] == "standard" and float(s["items"][0]["net_amount"]) == 100
+        page = _printed(admin_api, s["id"])
+        assert "فاتورة ضريبية" in page and "100-200-300" in page
+    finally:
+        admin_api.ok(admin_api.put("/settings", json={"vat_registered": before["vat_registered"],
+                                                      "prices_include_vat": before["prices_include_vat"],
+                                                      "tax_number": before["tax_number"]}))
+    s = admin_api.ok(admin_api.post("/sales", json=_sale_payload(product, wh)))
+    reg.add("sale", s["id"])
+    if not before["vat_registered"]:
+        assert float(s["tax_amount"]) == 0 and s["items"][0]["tax_code"] is None
+        assert "ضريبة" not in _printed(admin_api, s["id"])

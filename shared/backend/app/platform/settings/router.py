@@ -169,6 +169,7 @@ async def update_settings(data: dict[str, Any], db: AsyncSession = Depends(get_d
 
     from app.platform.settings.models import StoreSetting
     items = data.get("settings") if isinstance(data.get("settings"), dict) else data
+    items = await _check_vat_settings(db, dict(items))
     for key, value in items.items():
         if key == "settings" and isinstance(value, dict):
             continue
@@ -182,6 +183,45 @@ async def update_settings(data: dict[str, Any], db: AsyncSession = Depends(get_d
             db.add(StoreSetting(key=key, value=str_value))
     await db.commit()
     return {"detail": "Settings updated"}
+
+
+VAT_KEYS = ("vat_registered", "prices_include_vat", "tax_number")
+
+
+async def _check_vat_settings(db: AsyncSession, items: dict) -> dict:
+    """The VAT settings (ADR-014 D6), checked: the tax number is 9 digits (dashes and spaces are
+    dropped), the two switches are stored as "true"/"false", and VAT registration needs a tax number
+    (sent now or already saved)."""
+    from app.platform.settings import vat
+
+    if not any(k in items for k in VAT_KEYS):
+        return items
+    if "tax_number" in items:
+        try:
+            items["tax_number"] = vat.clean_tax_number(items["tax_number"])
+        except ValueError as e:
+            raise HTTPException(422, str(e)) from None
+    for key in ("vat_registered", "prices_include_vat"):
+        if key in items:
+            items[key] = "true" if str(items[key]).strip().lower() in ("1", "true", "yes", "on") else "false"
+    if items.get("vat_registered") == "true":
+        number = items["tax_number"] if "tax_number" in items else (await vat.vat_settings(db)).tax_number
+        if not number:
+            raise HTTPException(422, "أدخل رقم التسجيل الضريبي قبل تفعيل ضريبة القيمة المضافة")
+    return items
+
+
+@router.get("/vat")
+async def get_vat_settings(db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)):
+    """The workspace's VAT settings and the tax codes with their rates (ADR-014 D6), for the screens
+    that show or compute VAT (the point of sale, the product form, the settings screen)."""
+    from app.platform.settings import vat
+
+    s = await vat.vat_settings(db)
+    return {"vat_registered": s.registered, "prices_include_vat": s.prices_include_vat,
+            "tax_number": s.tax_number, "tax_number_display": vat.format_tax_number(s.tax_number),
+            "codes": [{"code": c, "label": vat.TAX_LABELS[c], "rate": float(r)} for c, r in vat.TAX_RATES.items()],
+            "default_code": vat.DEFAULT_TAX_CODE}
 
 
 @router.get("/product-options")

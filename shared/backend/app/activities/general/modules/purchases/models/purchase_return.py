@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,6 +24,8 @@ class PurchaseReturn(TenantScoped, Base):
     warehouse_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id"), nullable=False)
     total: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0)
     refund_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0)
+    # The VAT in `total` (ADR-014 D6), taken from the order's lines in proportion.
+    tax_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0, server_default=text("0"))
     safe_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("safes.id"), nullable=True)
     wallet_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("payment_wallets.id"), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -41,5 +43,9 @@ class PurchaseReturnItem(TenantScoped, Base):
     product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"))
     qty: Mapped[Decimal] = mapped_column(Numeric(12, 3), nullable=False)
     unit_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    tax_code: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    tax_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=0, server_default=text("0"))
+    tax_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0, server_default=text("0"))
+    net_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2), nullable=True)
 
     ret: Mapped["PurchaseReturn"] = relationship(back_populates="items")

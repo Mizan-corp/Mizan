@@ -42,6 +42,35 @@ def _sub(text_: str) -> str:
     return f'<div style="font-size:8.5px;color:#6b7280;margin-top:1px">{text_}</div>' if text_ else ""
 
 
+def _vat_rows(sale: dict, items: list[dict]) -> str:
+    """The stored VAT of a document (ADR-014 D6), never worked out again: the value before VAT, the
+    VAT and the total, as rows of the totals table. Empty when the document has no VAT data (the
+    workspace wasn't VAT-registered when it was issued)."""
+    if not any(i.get("tax_code") for i in items):
+        return ""
+    tax = float(sale.get("tax_amount") or 0)
+    total = float(sale.get("net_total") or 0)
+    cell = "padding:4px 12px;font-size:10px;border-bottom:1px solid #e8e8e8;white-space:nowrap"
+    return (f'<tr><td style="{cell};color:#555">الإجمالي قبل الضريبة</td><td style="{cell};font-weight:700;text-align:left">{ar_egp(total - tax)}</td></tr>'
+            f'<tr><td style="{cell};color:#555">ضريبة القيمة المضافة</td><td style="{cell};font-weight:700;text-align:left">{ar_egp(tax)}</td></tr>')
+
+
+def _tax_number_line(sale_items: list[dict], s: dict) -> str:
+    from app.platform.settings.vat import format_tax_number
+
+    if not any(i.get("tax_code") for i in sale_items) or not s.get("tax_number"):
+        return ""
+    return f'<div class="party-detail">رقم التسجيل الضريبي: <span dir="ltr">{h(format_tax_number(s.get("tax_number")))}</span></div>'
+
+
+def _line_tax(it: dict) -> str:
+    if not it.get("tax_code"):
+        return ""
+    rate = float(it.get("tax_rate") or 0)
+    label = {"zero": "صفر", "exempt": "معفى"}.get(it["tax_code"], f"{rate:g}%")
+    return _sub(f"ض.ق.م {h(label)}: {ar_egp(float(it.get('tax_amount') or 0))}")
+
+
 @router.get("/sale/{sale_id}", response_class=HTMLResponse)
 async def print_sale(sale_id: uuid.UUID,
                      db: AsyncSession = Depends(get_db), _=Depends(get_print_user)):
@@ -102,7 +131,7 @@ async def print_sale(sale_id: uuid.UUID,
             line = float(it['qty']) * float(it['unit_price']) - float(it.get('discount',0))
             rows_html += f"""<tr>
               <td style="color:#9ca3af;font-size:9px;text-align:center;white-space:nowrap">{idx}</td>
-              <td><div class="td-name">{h(it['product_name'])}</div>{_sub(_extra_text(it.get('extra'), line_fields))}</td>
+              <td><div class="td-name">{h(it['product_name'])}</div>{_sub(_extra_text(it.get('extra'), line_fields))}{_line_tax(it)}</td>
               <td style="text-align:center;white-space:nowrap;color:#374151">{ar_egp(float(it['unit_price']))}</td>
               <td style="text-align:center;white-space:nowrap;color:#374151">{ar_num(float(it['qty']), 0)}</td>
               <td style="text-align:center;white-space:nowrap;color:#6b7280">{h(it.get('unit',''))}</td>
@@ -152,6 +181,7 @@ async def print_sale(sale_id: uuid.UUID,
         <div class="party-label">العميل</div>
         <div class="party-name">{customer_name}</div>
         {f'<div class="party-detail">{customer_detail}</div>' if customer_detail else ''}
+        {_tax_number_line(items, s)}
       </td>
     </tr>
   </table>
@@ -170,6 +200,7 @@ async def print_sale(sale_id: uuid.UUID,
   {pmt_html}
   <div class="totals-section" style="margin-top:6px">
     <table style="border-collapse:collapse;border:1px solid #ccc;width:auto">
+      {_vat_rows(sale, items)}
       <tr style="background:#111">
         <td style="padding:6px 12px;font-size:10px;font-weight:600;color:rgba(255,255,255,.7);white-space:nowrap">إجمالي المرتجع</td>
         <td style="padding:6px 12px;font-size:13px;font-weight:900;color:#fff;white-space:nowrap;text-align:left">{ar_egp(total)}</td>
@@ -180,7 +211,8 @@ async def print_sale(sale_id: uuid.UUID,
 </div>"""
         return HTMLResponse(wrap(body, f"{doc_label} — {sale['invoice_number']}"))
 
-    doc_label = "عرض سعر" if is_q else "فاتورة مبيعات"
+    has_vat = any(i.get("tax_code") for i in items)
+    doc_label = "عرض سعر" if is_q else ("فاتورة ضريبية" if has_vat else "فاتورة مبيعات")
     "جملة" if sale.get('sale_mode') == 'wholesale' else "قطاعي"
     st_map = {"confirmed": ("مؤكدة","b-green"), "quotation": ("عرض سعر","b-yellow"),
               "returned": ("مرتجعة","b-red"), "cancelled": ("ملغاة","b-red")}
@@ -188,14 +220,15 @@ async def print_sale(sale_id: uuid.UUID,
 
     subtotal = sum(float(i['qty']) * float(i['unit_price']) - float(i.get('discount',0)) for i in items)
     disc = float(sale.get('discount_amount', 0))
-    total = subtotal - disc
+    # What the document says it costs (with VAT added on top when prices exclude it).
+    total = float(sale.get('net_total') or 0) if items else subtotal - disc
 
     rows_html = ""
     for idx, it in enumerate(items, 1):
         line = float(it['qty']) * float(it['unit_price']) - float(it.get('discount',0))
         rows_html += f"""<tr>
           <td style="color:#9ca3af;font-size:9px;text-align:center;white-space:nowrap">{idx}</td>
-          <td><div class="td-name">{h(it['product_name'])}</div>{_sub(_extra_text(it.get('extra'), line_fields))}</td>
+          <td><div class="td-name">{h(it['product_name'])}</div>{_sub(_extra_text(it.get('extra'), line_fields))}{_line_tax(it)}</td>
           <td style="text-align:center;white-space:nowrap;color:#374151">{ar_egp(float(it['unit_price']))}</td>
           <td style="text-align:center;white-space:nowrap;color:#374151">{ar_num(float(it['qty']), 0)}</td>
           <td style="text-align:center;white-space:nowrap;color:#6b7280">{h(it.get('unit',''))}</td>
@@ -221,6 +254,7 @@ async def print_sale(sale_id: uuid.UUID,
         <div class="party-label">صادرة من</div>
         <div class="party-name">{h(sale.get('warehouse_name','—'))}</div>
         <div class="party-detail">{h(store['name'])}</div>
+        {_tax_number_line(items, s)}
       </td>
       <td style="width:16%;padding:6px 10px;border:1px solid #ccc;border-right:none;vertical-align:middle;text-align:center">
         <div class="party-label">الحالة</div>
@@ -249,8 +283,9 @@ async def print_sale(sale_id: uuid.UUID,
         <td style="padding:4px 12px;font-size:10px;border-bottom:1px solid #e8e8e8;font-weight:700;white-space:nowrap;min-width:90px;text-align:left">{ar_egp(subtotal)}</td>
       </tr>
       {f'<tr><td style="padding:4px 12px;font-size:10px;border-bottom:1px solid #e8e8e8;color:#555;white-space:nowrap">الخصم{f" ({round(disc/subtotal*100, 1):.1f}%)" if subtotal > 0 else ""}</td><td style="padding:4px 12px;font-size:10px;border-bottom:1px solid #e8e8e8;font-weight:700;white-space:nowrap;color:#dc2626;text-align:left">({ar_egp(disc)})</td></tr>' if disc else ''}
+      {_vat_rows(sale, items)}
       <tr style="background:#111">
-        <td style="padding:6px 12px;font-size:10px;font-weight:600;color:rgba(255,255,255,.7);white-space:nowrap">الإجمالي</td>
+        <td style="padding:6px 12px;font-size:10px;font-weight:600;color:rgba(255,255,255,.7);white-space:nowrap">{'الإجمالي شامل الضريبة' if has_vat else 'الإجمالي'}</td>
         <td style="padding:6px 12px;font-size:13px;font-weight:900;color:#fff;white-space:nowrap;text-align:left">{ar_egp(total)}</td>
       </tr>
     </table>

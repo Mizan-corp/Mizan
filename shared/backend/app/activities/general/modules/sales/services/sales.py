@@ -79,6 +79,26 @@ def _d(v) -> Decimal:
     return Decimal(str(v or 0))
 
 
+async def _apply_vat(db, sale: Sale, items) -> None:
+    """The VAT of each line and of the sale (ADR-014 D6), from the products' tax codes now and the
+    workspace's settings (app/platform/settings/vat.py): each line gets its code, rate, tax and value
+    without VAT, the sale its tax_amount, and net_total becomes what the customer pays. With prices
+    including VAT (the default) or no VAT registration that is the same total as before; with prices
+    excluding VAT the tax is added on top. Discounts come first (the invoice discount is shared over
+    the lines)."""
+    from app.platform.settings import vat
+
+    settings = await vat.vat_settings(db)
+    codes = await vat.product_tax_codes(db, [i.product_id for i in items]) if settings.registered else {}
+    taxes = vat.document_taxes([(_d(i.qty) * _d(i.unit_price) - _d(i.discount), codes.get(i.product_id)) for i in items],
+                               _d(sale.discount_amount), settings)
+    for item, t in zip(items, taxes, strict=True):
+        item.tax_code, item.tax_rate, item.tax_amount, item.net_amount = t.tax_code, t.tax_rate, t.tax, t.net
+    sale.tax_amount = sum((t.tax for t in taxes), Decimal("0"))
+    if items:
+        sale.net_total = sum((t.gross for t in taxes), Decimal("0"))
+
+
 async def _add_payment(db, sale_id, method: str, amount: Decimal, wallet_id=None, safe_id=None) -> uuid.UUID:
     """One line of how a sale was paid (or, on a return document, refunded). Returns its id."""
     payment_id = uuid.uuid4()
@@ -184,9 +204,10 @@ async def create_quotation(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sal
     )
     db.add(sale)
     await db.flush()
-    for item in data.items:
-        db.add(SaleItem(sale_id=sale.id, product_id=item.product_id, qty=item.qty,
-                        unit_price=item.unit_price, unit_cost=item.unit_cost, discount=item.discount))
+    lines = [SaleItem(sale_id=sale.id, product_id=item.product_id, qty=item.qty,
+                      unit_price=item.unit_price, unit_cost=item.unit_cost, discount=item.discount) for item in data.items]
+    db.add_all(lines)
+    await _apply_vat(db, sale, lines)
     # Auto-archive within same transaction
     from app.platform.archive.models import ArchivedDocument, DocType
     db.add(ArchivedDocument(doc_number=sale.invoice_number, doc_type=DocType.quotation,
@@ -221,6 +242,10 @@ async def update_quotation(db: AsyncSession, sale_id: uuid.UUID, data) -> None:
             (await db.execute(text("SELECT discount_amount FROM sales WHERE id = :id"), {"id": sale_id})).scalar() or 0)
         await db.execute(text("UPDATE sales SET total = :t, net_total = :n, discount_amount = :d WHERE id = :id"),
                          {"t": gross, "n": gross - line_discounts - invoice_discount, "d": invoice_discount, "id": sale_id})
+        sale = (await db.execute(select(Sale).options(selectinload(Sale.items)).where(Sale.id == sale_id)
+                                 .execution_options(populate_existing=True))).scalar_one()
+        await _apply_vat(db, sale, sale.items)
+        await db.flush()
     if "notes" in sent:
         await db.execute(text("UPDATE sales SET notes = :v WHERE id = :id"), {"v": data.notes, "id": sale_id})
     if "customer_id" in sent:
@@ -256,6 +281,7 @@ async def confirm_quotation(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.
 
     sale.status = SaleStatus.confirmed
     sale.invoice_number = await _invoice_number(db)
+    await _apply_vat(db, sale, sale.items)  # the invoice's VAT is the codes' at the time it is issued
     from app.platform.archive.models import ArchivedDocument, DocType
     doc = ArchivedDocument(
         doc_type=DocType.sale_invoice,
@@ -352,10 +378,10 @@ async def create_draft_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sa
     )
     db.add(sale)
     await db.flush()
-    for item in data.items:
-        db.add(SaleItem(sale_id=sale.id, product_id=item.product_id, qty=item.qty,
-                        unit_price=item.unit_price, unit_cost=item.unit_cost,
-                        discount=item.discount))
+    lines = [SaleItem(sale_id=sale.id, product_id=item.product_id, qty=item.qty, unit_price=item.unit_price,
+                      unit_cost=item.unit_cost, discount=item.discount) for item in data.items]
+    db.add_all(lines)
+    await _apply_vat(db, sale, lines)
     await db.commit()
     result = await db.execute(select(Sale).options(selectinload(Sale.items)).where(Sale.id == sale.id))
     return result.scalar_one()
@@ -390,6 +416,7 @@ async def confirm_draft_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid
     new_inv = await _invoice_number(db)
     sale.status = SaleStatus.confirmed
     sale.invoice_number = new_inv
+    await _apply_vat(db, sale, sale.items)  # the invoice's VAT is the codes' at the time it is issued
     # The money is taken now, as for a POS sale (it used to confirm with nothing recorded).
     await _record_payments(db, sale, user_id)
     db.add(ArchivedDocument(doc_number=new_inv, doc_type=DocType.sale_invoice,
@@ -552,13 +579,14 @@ async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
     net_total = gross_total - total_discount - Decimal(str(data.discount_amount))
     sale.total = Decimal(str(gross_total))
     sale.net_total = Decimal(str(net_total))
+    await _apply_vat(db, sale, sale_items)
     await _record_payments(db, sale, cashier_id, payments=getattr(data, "payments", None),
                            paid_amount=getattr(data, "paid_amount", None))
 
     # Auto-archive within the same transaction
     from app.platform.archive.models import ArchivedDocument, DocType
     db.add(ArchivedDocument(doc_number=sale.invoice_number, doc_type=DocType.sale_invoice,
-                            amount=Decimal(str(net_total)), ref_id=sale.id, created_by=cashier_id,
+                            amount=sale.net_total, ref_id=sale.id, created_by=cashier_id,
                             metadata_={"items_count": len(data.items), "mode": str(data.sale_mode)}))
 
     _hooks = await _sale_event(db, "sale.confirmed", sale, sale_items)
@@ -678,7 +706,20 @@ async def _make_return(db, orig: Sale, wanted: dict[str, Decimal] | None, user_i
     if _d(orig.discount_amount) and before_invoice_discount > 0:
         inv_share = (_d(orig.discount_amount) * (gross - line_disc) / before_invoice_discount).quantize(_CENT)
     net = gross - line_disc - inv_share
-    if fully:
+    # A sale issued with VAT data (ADR-014 D6): each returned line takes its part of what the original
+    # line cost and of its tax, in proportion to the quantity (never the product's code today), so
+    # returning everything gives back exactly the sale's total and its VAT.
+    vat_doc = any(oi.tax_code is not None for oi in orig.items)
+    from app.platform.settings.vat import portion
+
+    taxes: list[tuple[Decimal, Decimal]] = []  # (tax, value without VAT) per returned line
+    if vat_doc:
+        for oi, q, before in lines:
+            pay = portion(_d(oi.net_amount) + _d(oi.tax_amount), before, q, _d(oi.qty))
+            tax = portion(_d(oi.tax_amount), before, q, _d(oi.qty))
+            taxes.append((tax, pay - tax))
+        net = sum((t + n for t, n in taxes), Decimal("0"))
+    elif fully:
         # The last return refunds exactly what is left of the sale (no rounding drift).
         net = _d(orig.net_total) - _d(orig.returns_total)
         inv_share = gross - line_disc - net
@@ -719,6 +760,7 @@ async def _make_return(db, orig: Sale, wanted: dict[str, Decimal] | None, user_i
         customer_id=orig.customer_id, warehouse_id=orig.warehouse_id, cashier_id=user_id, created_by=user_id,
         shift_id=target_shift or orig.shift_id, sale_mode=orig.sale_mode, status=SaleStatus.returned,
         total=gross, discount_amount=inv_share, net_total=net, paid_amount=net, returns_total=Decimal("0"),
+        tax_amount=sum((t for t, _ in taxes), Decimal("0")),
         is_credit=any(m == "credit" and v > 0 for (m, _), v in refunds.items()),
         payment_method=first[0] if first else (orig.payment_method or "cash"),
         wallet_id=next((w for (m, w), v in refunds.items() if m == "wallet" and v > 0), None),
@@ -727,9 +769,11 @@ async def _make_return(db, orig: Sale, wanted: dict[str, Decimal] | None, user_i
     db.add(ret)
     await db.flush()
 
-    for oi, qty, before in lines:
+    for n, (oi, qty, before) in enumerate(lines):
+        tax, value = taxes[n] if vat_doc else (Decimal("0"), None)
         db.add(SaleItem(sale_id=ret.id, product_id=oi.product_id, qty=qty, unit_price=oi.unit_price,
-                        unit_cost=oi.unit_cost, discount=(_d(oi.discount) * qty / _d(oi.qty)).quantize(_CENT)))
+                        unit_cost=oi.unit_cost, discount=(_d(oi.discount) * qty / _d(oi.qty)).quantize(_CENT),
+                        tax_code=oi.tax_code, tax_rate=_d(oi.tax_rate), tax_amount=tax, net_amount=value))
         # Back into stock at the cost the line left at, into the batches it came from.
         for part, lot in _return_lots(oi, qty, skip=before):
             await apply_movement(db, product_id=oi.product_id, warehouse_id=orig.warehouse_id,

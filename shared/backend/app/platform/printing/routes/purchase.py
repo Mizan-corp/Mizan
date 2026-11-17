@@ -40,6 +40,19 @@ async def print_purchase(po_id: uuid.UUID,
     """), {"id": po_id})
     items = [dict(r._mapping) for r in items_row.fetchall()]
     total = sum(float(i['qty_ordered']) * float(i['unit_cost']) for i in items)
+    # A received order with VAT data (ADR-014 D6): its stored value without VAT, its VAT, the total.
+    has_vat = any(i.get('tax_code') for i in items)
+    vat_html, tax_no = "", ""
+    if has_vat:
+        from app.platform.settings.vat import format_tax_number
+
+        net = sum(float(i.get('net_amount') or 0) for i in items)
+        tax = float(po.get('tax_amount') or 0)
+        total = net + tax
+        vat_html = (f'<div class="t-line"><span class="t-lbl">الإجمالي قبل الضريبة</span><span class="t-val">{ar_egp(net)}</span></div>'
+                    f'<div class="t-line"><span class="t-lbl">ضريبة القيمة المضافة (مدخلات)</span><span class="t-val">{ar_egp(tax)}</span></div>')
+        if s.get('tax_number'):
+            tax_no = f'<div class="party-detail">رقم التسجيل الضريبي: <span dir="ltr">{h(format_tax_number(s.get("tax_number")))}</span></div>'
     st_map = {"draft": ("مسودة","b-yellow"), "received": ("مستلم","b-green"), "cancelled": ("ملغي","b-red")}
     st_lbl, st_cls = st_map.get(po.get('status',''), (po.get('status',''), 'b-blue'))
 
@@ -67,6 +80,7 @@ async def print_purchase(po_id: uuid.UUID,
       <div class="party-label">الجهة المُشترية</div>
 <div class="party-name">{h(store['name'])}</div>
        <div class="party-detail">{h('  ·  '.join(filter(None,[store.get('phone',''),store.get('address','')])))}</div>
+       {tax_no}
     </div>
   </div>
   <div class="meta-row">
@@ -86,6 +100,7 @@ async def print_purchase(po_id: uuid.UUID,
     <tbody>{rows_html}</tbody>
   </table>
   <div class="totals-section"><div class="totals-box">
+    {vat_html}
     <div class="t-grand"><span class="t-lbl">إجمالي أمر الشراء</span><span class="t-val">{ar_egp(total)}</span></div>
   </div></div>
   {f'<div class="notes-box"><div class="n-lbl">ملاحظات</div><div class="n-txt">{h(po["notes"])}</div></div>' if po.get('notes') else ''}

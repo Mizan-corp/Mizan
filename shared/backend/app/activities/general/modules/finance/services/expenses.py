@@ -17,6 +17,21 @@ PAYROLL_MANAGED = "مصروف الرواتب يُدار من شاشة الروا
 FINAL_STATUSES = ("approved", "cancelled")
 
 
+async def check_tax(db: AsyncSession, amount, tax) -> Decimal:
+    """An expense's input VAT (ADR-014 D6): optional, only in a VAT-registered workspace, and less
+    than the amount it is part of."""
+    tax = Decimal(str(tax or 0))
+    if not tax:
+        return Decimal("0")
+    from app.platform.settings.vat import vat_settings
+
+    if not (await vat_settings(db)).registered:
+        raise HTTPException(400, "المنشأة غير مسجلة في ضريبة القيمة المضافة: لا تُسجَّل ضريبة على المصروف")
+    if tax >= Decimal(str(amount or 0)):
+        raise HTTPException(400, "ضريبة المصروف يجب أن تكون أقل من مبلغه (المبلغ شامل الضريبة)")
+    return tax.quantize(Decimal("0.01"))
+
+
 async def decide(db: AsyncSession, expense_id: uuid.UUID, approved: bool, notes: str | None, user, *,
                  safe_id: uuid.UUID | None = None, wallet_id: uuid.UUID | None = None) -> dict:
     """Approve (and pay) or reject an expense, in one transaction.
