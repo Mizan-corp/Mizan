@@ -4,10 +4,12 @@ import { Calculator, CheckCircle2, Coins, FileText, LockOpen, Send } from "lucid
 import { Skeleton } from "@/components/kit/skeleton";
 import { api, openPrintDoc } from "@/lib/api";
 import { money, moneyEGP } from "@/lib/format";
-import { Badge, Button, Card, ErrorBox, Modal, Spinner, useToast } from "@/components/ui";
+import { Badge, Button, Card, ConfirmDialog, ErrorBox, Modal, Spinner, useToast } from "@/components/ui";
+import { useAuth } from "@/stores/auth";
 import { PaySourceSelect, sourceFields } from "@app/components/PaySourceSelect";
 
-interface Period { id: string; month: string; status: "draft" | "review" | "approved" | "paid" }
+// A month nobody calculated yet is a draft without an id (reading it creates nothing).
+interface Period { id: string | null; month: string; status: "draft" | "review" | "approved" | "paid" }
 interface Entry {
   id: string; employee_id: string; emp_name: string; net_salary: string;
   base_salary: string; bonuses: string; deductions: string; advances: string;
@@ -19,16 +21,14 @@ export default function PayrollPage() {
   const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [paying, setPaying] = useState(false);
   const [paySource, setPaySource] = useState("");
+  const [reopening, setReopening] = useState(false);
+  const can = useAuth((s) => s.can);
+  const canApprove = can("payroll:approve");
+  const canPay = can("payroll:pay");
 
   const period = useQuery({
     queryKey: ["payroll-period", month],
-    queryFn: async () => {
-      try {
-        return await api.get<Period>("/hr/payroll/period", { month });
-      } catch {
-        return null;
-      }
-    },
+    queryFn: () => api.get<Period>("/hr/payroll/period", { month }),
     retry: false,
   });
   const entries = useQuery({
@@ -67,14 +67,14 @@ export default function PayrollPage() {
   });
   const reopen = useMutation({
     mutationFn: () => api.post(`/hr/payroll/period/reopen?month=${month}`),
-    onSuccess: () => invalidate("تمت إعادة فتح الشهر"),
+    onSuccess: () => { setReopening(false); invalidate("تمت إعادة فتح الشهر"); },
   });
 
   const status = period.data?.status ?? "draft";
   const stepIndex = { draft: 0, review: 1, approved: 2, paid: 3 }[status] ?? 0;
   const totalNet = (entries.data ?? []).reduce((s, e) => s + Number(e.net_salary), 0);
   const busy = calc.isPending || submit.isPending || approve.isPending || pay.isPending || reopen.isPending;
-  const firstError = (calc.error ?? submit.error ?? approve.error ?? reopen.error) as Error | null;
+  const firstError = (period.error ?? calc.error ?? submit.error ?? approve.error ?? reopen.error) as Error | null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -113,8 +113,8 @@ export default function PayrollPage() {
               {i < 3 && <span className="text-muted">←</span>}
             </div>
           ))}
-          {status !== "draft" && status !== "paid" && (
-            <Button variant="ghost" className="text-xs" onClick={() => reopen.mutate()} disabled={busy}>
+          {status !== "draft" && status !== "paid" && canApprove && (
+            <Button variant="ghost" className="text-xs" onClick={() => setReopening(true)} disabled={busy}>
               <LockOpen size={16} /> إعادة فتح
             </Button>
           )}
@@ -133,16 +133,31 @@ export default function PayrollPage() {
               <Button onClick={() => submit.mutate()}><Send size={16} /> تقديم للمراجعة</Button>
             </div>
           ) : status === "review" ? (
-            <Button onClick={() => approve.mutate()}><CheckCircle2 size={16} /> اعتماد</Button>
-          ) : (
+            canApprove ? (
+              <Button onClick={() => approve.mutate()}><CheckCircle2 size={16} /> اعتماد</Button>
+            ) : (
+              <Badge tone="warning">بانتظار الاعتماد من صاحب صلاحية اعتماد الرواتب</Badge>
+            )
+          ) : canPay ? (
             <Button variant="danger" onClick={() => setPaying(true)}><Coins size={16} /> صرف الرواتب</Button>
+          ) : (
+            <Badge tone="warning">معتمد — بانتظار الصرف من صاحب صلاحية صرف الرواتب</Badge>
           )}
         </div>
         {firstError && <div className="mt-3"><ErrorBox message={firstError.message} /></div>}
         {status === "approved" && (
-          <p className="mt-3 text-xs text-muted">الاعتماد يسجّل الرواتب مصروفًا بانتظار الصرف؛ المبلغ يخرج من الخزنة عند الصرف.</p>
+          <p className="mt-3 text-xs text-muted">الاعتماد يسجّل الرواتب مصروفًا بانتظار الصرف؛ المبلغ يخرج من الخزنة عند الصرف. لا تتغير رواتب الشهر ولا حضوره ولا سلفه بعد الاعتماد إلا بإعادة فتحه.</p>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={reopening}
+        onClose={() => setReopening(false)}
+        onConfirm={() => reopen.mutate()}
+        title={`إعادة فتح رواتب ${month}`}
+        message="يُلغى مصروف الرواتب المعتمد ويُعكس قيده، ويعود الشهر مسودة يمكن تعديلها وإعادة حسابها ثم اعتمادها من جديد."
+        confirmLabel="إعادة فتح الشهر"
+      />
 
       <Modal open={paying} onClose={() => setPaying(false)} title={`صرف رواتب ${month}`}>
         <form
