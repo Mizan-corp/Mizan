@@ -36,7 +36,7 @@ A module is ready when all of these hold:
 
 | Module | Verdict | Size | Notes |
 |---|---|---|---|
-| accounting | ready, small work | S | ADR-014 steps 1–6 |
+| accounting | ready, small work | S | ADR-014 steps 1–6 built (#146–#152) |
 | sales | not ready | L | price/stock checks, offline duplicates, numbering |
 | pos | not ready | M | hand-made drawer rows, revenue delivery |
 | inventory | not ready | L | clamped balances, unposted manual movements, missing screens |
@@ -56,6 +56,34 @@ A module is ready when all of these hold:
 - **PLAT-4** 500 answers carried the exception text (SQL and values); validation logs carried submitted data — #154.
 - **FIN-1** `PUT /permissions/{id}` allowed granting `admin` (escalation); the users screen couldn't save most permissions — #154.
 - **SET-1** `GET /settings` returned every workspace's settings without sign-in — #151.
+- **STO-0** the first storefront taken out of service (status `planned`, not mounted, not offered) — #156.
+- **Phase A** (#162, integrating #157–#161, 2026-11-17):
+  - sales: SAL-1 to SAL-9; pos: POS-1, POS-2, POS-3, POS-7; PLAT-6 for sales and safe deposits
+    (`doc_counters`); PLAT-9 for `sales` and `shifts`.
+  - inventory: INV-1, INV-2, INV-3, INV-5, INV-6, INV-7 (part of INV-8); operations: OPS-1 (goods
+    receipt removed: 410, through purchases), OPS-2, OPS-3; purchases: PUR-1, PUR-2 (parts of PUR-3, 5, 7).
+  - hr: HR-1 to HR-8, HR-10, HR-11; PLAT-5 for HR's reports.
+  - reporting: REP-1 to REP-7, REP-11, REP-13, REP-16, REP-17 (parts of REP-8, 9, 10, 12, 14, 15, 18).
+  - finance: FIN-2 to FIN-8, FIN-10 to FIN-13 (parts of FIN-14, 15); contacts: CON-1 to CON-6 (part of CON-7).
+  - New permissions: `sales:cancel`, `sales:return`, `sales:override_price`, `sales:negative_stock`,
+    `inventory:opening`, `purchases` (wider defaults), `payroll:approve`, `payroll:pay`,
+    `reports:finance`. Migrations v95 to v99 keep what a workspace's own roles could already do.
+
+## What remains after phase A
+- **Phase B (permissions, validation, error codes):** SAL-10, SAL-12; POS-4 (manager password brute
+  force), POS-5, POS-10; INV-4, the rest of INV-8; the rest of PUR-3, PUR-5, PUR-7; OPS-5, OPS-6; PLAT-5
+  for the other print builders (`/print/inventory` has no permission or branch check yet); PLAT-6 for
+  operations (helper `app/platform/archive/numbering.py`); the rest of PLAT-7; PLAT-8 (time zone:
+  `require_open_period`, POS); FIN-15 rest; CON-7 rest; REP-18 rest; ACC-3.
+- **Phase C (screens and completeness):** SAL-11 (sales screen); POS-6 (summary by `sale_payments`),
+  POS-8, POS-9; INV-9, INV-10, INV-11; PUR-4 (order lifecycle, partial receipt); OPS-4 (stock requests);
+  FIN-9 (strict balance, recurring expenses), FIN-14 rest (categories, vendors, reject/edit expense,
+  wallet reset); HR-9 (unrecovered advances), HR-12 (rules in settings, money in Decimal), HR-15
+  (screens); REP-8/9/10/12/14/15 rest and screens for profit, cash flow, aging, ledgers, overview;
+  price-override control on the POS screen; operations numbering; the pharmacy batches posting.
+- **Phase D (tests and performance):** permission and isolation tests for every route; HR-13 (paging,
+  bulk loads), HR-14 (audit); ACC-1 (numbering counter), ACC-2 (e2e for accounting); PLAT-9 rest; old
+  idempotency keys clean-up; a test of simultaneous requests with one idempotency key.
 
 ## Order of work
 1. **Phase A — blockers and money/stock corruption** (one PR per module, tests that fail on the old
