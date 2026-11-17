@@ -43,17 +43,60 @@ async def get_balance(db: AsyncSession, product_id: uuid.UUID, warehouse_id: uui
 
 
 async def _update_stock_balance(db: AsyncSession, product_id: uuid.UUID, warehouse_id: uuid.UUID, delta: Decimal):
-    """Atomically update stock_balances by delta (can be positive or negative)."""
+    """Atomically update stock_balances by delta (can be positive or negative). Never clamped: the
+    balance is always the sum of the movements (an out-movement is checked before, see
+    _check_available)."""
     await db.execute(text("""
         INSERT INTO stock_balances (product_id, warehouse_id, qty, updated_at)
-        VALUES (:pid, :wid, GREATEST(:delta, 0), now())
+        VALUES (:pid, :wid, :delta, now())
         ON CONFLICT (product_id, warehouse_id) DO UPDATE SET
-            qty = GREATEST(stock_balances.qty + :delta, 0),
+            qty = stock_balances.qty + :delta,
             updated_at = now()
     """), {"pid": product_id, "wid": warehouse_id, "delta": delta})
 
 
 IN_TYPES = ("opening_stock", "purchase", "return_in", "adjustment_in", "transfer_in")
+OUT_TYPES = ("sale", "damage", "adjustment_out", "transfer_out", "return_out")
+
+
+def _qty_text(q) -> str:
+    return f"{Decimal(str(q)).normalize():f}"
+
+
+async def is_untracked(db: AsyncSession, product_id: uuid.UUID) -> bool:
+    """A product whose stock isn't tracked (a service, or a product never stocked anywhere): decided
+    by the product itself (`products.stock_status`), never by a missing per-warehouse status row."""
+    status = await db.scalar(text("SELECT stock_status FROM products WHERE id = :id"), {"id": product_id})
+    return status == "untracked"
+
+
+async def negative_stock_allowed(db: AsyncSession) -> bool:
+    """Whether the workspace lets stock go below zero: the inventory setting
+    `prevent_negative_stock` (on by default) switched off."""
+    from app.framework.loader import registry
+
+    try:
+        value = (await registry.get_settings(db, "inventory"))["values"].get("prevent_negative_stock", True)
+    except KeyError:
+        return False
+    return str(value).strip().lower() in ("false", "0", "no", "off")
+
+
+async def _check_available(db: AsyncSession, product_id, warehouse_id, qty, kind: str, allow_negative: bool) -> None:
+    """Before stock leaves: lock the balance row and refuse when it doesn't cover the quantity, unless
+    the product is untracked, the caller allows it (a document that decided so) or the workspace
+    allows negative stock."""
+    if kind in COSTED_OUT_TYPES:
+        # Same lock order as a receipt: the product first, then the balance (see _movement_cost).
+        await db.execute(text("SELECT 1 FROM products WHERE id = :pid FOR UPDATE"), {"pid": product_id})
+    balance = await get_balance(db, product_id, warehouse_id, for_update=True)
+    qty = Decimal(str(qty))
+    if balance >= qty or allow_negative:
+        return
+    if await is_untracked(db, product_id) or await negative_stock_allowed(db):
+        return
+    name = await db.scalar(text("SELECT name FROM products WHERE id = :id"), {"id": product_id}) or ""
+    raise BusinessError(f"الرصيد غير كافٍ من «{name}» في هذا المخزن: المتاح {_qty_text(balance)} والمطلوب {_qty_text(qty)}")
 
 
 def is_inbound(movement_type) -> bool:
@@ -69,6 +112,10 @@ COSTED_OUT_TYPES = ("return_out",)
 _AVG_PLACES = Decimal("0.0001")
 # Movements that change the stock's value without a document of their own (announced as stock.adjusted).
 ADJUSTMENT_TYPES = ("adjustment_in", "adjustment_out", "damage")
+# What may be entered by hand (POST /stock/movements, /stock/adjustment/bulk). Opening stock needs its
+# own permission; purchases, sales, returns and transfers only come from their documents.
+HAND_TYPES = ADJUSTMENT_TYPES
+OPENING_TYPE = "opening_stock"
 
 
 async def _movement_cost(db: AsyncSession, product_id, movement_type, qty, unit_cost) -> Decimal:
@@ -118,15 +165,23 @@ async def _movement_cost(db: AsyncSession, product_id, movement_type, qty, unit_
 
 async def apply_movement(db: AsyncSession, *, product_id, warehouse_id, movement_type, qty, unit_cost=None,
                          unit_price=None, created_by=None, ref_id=None, ref_type=None, sale_id=None,
-                         purchase_id=None, note=None, lot: dict | None = None) -> tuple[StockMovement, list]:
+                         purchase_id=None, note=None, lot: dict | None = None,
+                         allow_negative: bool = False) -> tuple[StockMovement, list]:
     """The one way stock changes: the movement, its balance, and the inventory variant's rules
     (batches: a pharmacy receives stock into a batch and takes it out by first expiry, ADR-006
     phase 4). `lot` carries batch details for stock coming in. Returns the movement and the
     batches it was taken from or put into (empty when the workspace doesn't track batches).
 
+    Stock going out is checked first (_check_available): a tracked product can't go below zero
+    unless the workspace allows negative stock or the caller passes `allow_negative`. The balance
+    is never clamped, so it always equals the sum of the movements.
+
     The movement's unit_cost is decided here (ADR-014 D5): the given cost for costed inbound
     stock (purchases, opening stock, returns at the sold line's cost, adjustments with a cost),
     the product's average cost for everything else, including every sale."""
+    kind = str(movement_type).split(".")[-1]
+    if kind in OUT_TYPES:
+        await _check_available(db, product_id, warehouse_id, qty, kind, allow_negative)
     unit_cost = await _movement_cost(db, product_id, movement_type, qty, unit_cost)
     mv = StockMovement(
         product_id=product_id, warehouse_id=warehouse_id, movement_type=movement_type, qty=qty,
@@ -149,8 +204,9 @@ async def apply_movement(db: AsyncSession, *, product_id, warehouse_id, movement
 
     await db.flush()
     results = await emit("inventory.after_movement", db, movement=mv, inbound=inbound, lot=lot)
-    if str(movement_type).split(".")[-1] in ADJUSTMENT_TYPES:
-        # Stock written up or off by hand: modules that follow it (the ledger, ADR-014 D3) post it here.
+    if kind in ADJUSTMENT_TYPES or kind == OPENING_TYPE:
+        # Stock written up or off by hand, or opening stock: modules that follow it (the ledger,
+        # ADR-014 D3) post it here (opening stock only once the ledger has its opening entry).
         from app.framework.events import notify
 
         await notify("stock.adjusted", db, movement=mv, user_id=created_by)
@@ -169,24 +225,69 @@ async def record_movement(db: AsyncSession, data, created_by: uuid.UUID, ref_id=
     return mv
 
 
-async def transfer_stock(db: AsyncSession, data, created_by: uuid.UUID):
-    """Transfer stock between warehouses — uses maintained balances for validation."""
+async def transfer_stock(db: AsyncSession, data, user) -> dict:
+    """Move stock from one warehouse to another: a transfer_out and its transfer_in (the same batches
+    arrive, for workspaces that track them), with one reference and an audit entry. The source must
+    hold the quantity, whatever the negative-stock setting. Callers check warehouse access and commit."""
+    from app.activities.general.modules.inventory.models.warehouse import Warehouse
+    from app.core.exceptions import NotFoundError
+    from app.platform.audit.service import log as audit_log
+
+    if data.from_warehouse_id == data.to_warehouse_id:
+        raise BusinessError("لا يمكن التحويل من المخزن إلى نفسه — اختر مخزناً آخر للوجهة")
+    names = {}
+    for wid in (data.from_warehouse_id, data.to_warehouse_id):
+        w = (await db.execute(select(Warehouse).where(Warehouse.id == wid))).scalar_one_or_none()
+        if not w:
+            raise NotFoundError("المخزن غير موجود")
+        if not w.is_active:
+            raise BusinessError(f"المخزن «{w.name}» موقوف")
+        names[wid] = w.name
+    product = await db.scalar(select(Product.name).where(Product.id == data.product_id))
+    if product is None:
+        raise NotFoundError("الصنف غير موجود")
     balance = await get_balance(db, data.product_id, data.from_warehouse_id, for_update=True)
     if balance < data.qty:
-        raise BusinessError(f"Insufficient stock: available {balance}")
+        raise BusinessError(f"الرصيد غير كافٍ من «{product}» في المخزن «{names[data.from_warehouse_id]}»: "
+                            f"المتاح {_qty_text(balance)} والمطلوب {_qty_text(data.qty)}")
+    ref_id = uuid.uuid4()
+    _, taken = await apply_movement(db, product_id=data.product_id, warehouse_id=data.from_warehouse_id,
+                                    movement_type=MovementType.transfer_out, qty=data.qty, note=data.note,
+                                    created_by=user.id, ref_id=ref_id, ref_type="transfer")
+    for lot in taken or [None]:
+        await apply_movement(db, product_id=data.product_id, warehouse_id=data.to_warehouse_id,
+                             movement_type=MovementType.transfer_in, qty=lot["qty"] if lot else data.qty,
+                             note=data.note, created_by=user.id, ref_id=ref_id, ref_type="transfer", lot=lot)
+    await audit_log(db, "stock", "transfer", user.id, user.full_name, ref_id,
+                    {"product_id": str(data.product_id), "qty": str(data.qty),
+                     "from": str(data.from_warehouse_id), "to": str(data.to_warehouse_id)},
+                    f"تحويل {_qty_text(data.qty)} من «{product}» من {names[data.from_warehouse_id]} إلى {names[data.to_warehouse_id]}")
+    return {"ref_id": ref_id, "product": product, "qty": data.qty}
 
-    from app.activities.general.modules.inventory.schemas.stock import StockMovementCreate
-    out = StockMovementCreate(
-        product_id=data.product_id, warehouse_id=data.from_warehouse_id,
-        movement_type=MovementType.transfer_out, qty=data.qty, note=data.note,
-    )
-    in_ = StockMovementCreate(
-        product_id=data.product_id, warehouse_id=data.to_warehouse_id,
-        movement_type=MovementType.transfer_in, qty=data.qty, note=data.note,
-    )
-    await record_movement(db, out, created_by)
-    await record_movement(db, in_, created_by)
-    await db.commit()
+
+async def recompute_avg_cost(db: AsyncSession, product_id: uuid.UUID) -> Decimal:
+    """Rebuild products.avg_cost by replaying the product's remaining movements in order, with the same
+    rule as _movement_cost (used after movements were removed by a stock reset). A product left with no
+    costed receipt gets 0, i.e. it is valued at its listed cost again."""
+    rows = (await db.execute(text(
+        "SELECT movement_type::text AS kind, qty, unit_cost FROM stock_movements WHERE product_id = :pid "
+        "ORDER BY created_at, id"), {"pid": product_id})).all()
+    on_hand, avg = Decimal("0"), Decimal("0")
+    for r in rows:
+        qty, cost = Decimal(str(r.qty or 0)), Decimal(str(r.unit_cost or 0))
+        if r.kind in COSTED_IN_TYPES and cost > 0:
+            avg = cost if on_hand <= 0 or avg == 0 else (on_hand * avg + qty * cost) / (on_hand + qty)
+            on_hand += qty
+        elif r.kind in COSTED_OUT_TYPES and cost > 0:
+            left = on_hand - qty
+            if left > 0 and avg > 0:
+                avg = max(Decimal("0"), (on_hand * avg - qty * cost) / left)
+            on_hand = left
+        else:
+            on_hand += qty if r.kind in IN_TYPES else -qty
+    avg = avg.quantize(_AVG_PLACES)
+    await db.execute(text("UPDATE products SET avg_cost = :a WHERE id = :pid"), {"a": avg, "pid": product_id})
+    return avg
 
 
 async def get_low_stock(db: AsyncSession, warehouse_id: uuid.UUID, threshold: Decimal = Decimal("5")):
@@ -207,7 +308,9 @@ async def get_valuation(db: AsyncSession, warehouse_id: uuid.UUID):
     """Get inventory valuation — uses maintained balances for O(n) query (n = products with stock)."""
     result = await db.execute(
         select(
-            func.sum(StockBalance.qty * Product.cost_price).label("cost_value"),
+            # At the average cost the ledger values stock at (ADR-014 D5); the listed cost only for a
+            # product that never had a costed receipt.
+            func.sum(StockBalance.qty * func.coalesce(func.nullif(Product.avg_cost, 0), Product.cost_price, 0)).label("cost_value"),
             func.sum(StockBalance.qty * Product.retail_price).label("retail_value"),
             func.count(Product.id).label("product_count"),
         )

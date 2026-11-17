@@ -60,17 +60,11 @@ async def _quotation_number(db) -> str:
 
 
 async def _is_untracked(db, product_id, warehouse_id=None) -> bool:
-    from sqlalchemy import text as sqlt
-    if warehouse_id:
-        wh_row = await db.execute(sqlt(
-            "SELECT status FROM warehouse_product_status WHERE product_id=:pid AND warehouse_id=:wid"
-        ), {"pid": product_id, "wid": warehouse_id})
-        wh_status = wh_row.scalar()
-        if wh_status is not None:
-            return wh_status != 'tracked'
-        return True
-    row = await db.execute(sqlt("SELECT stock_status FROM products WHERE id=:id"), {"id": product_id})
-    return row.scalar() != 'tracked'
+    # Decided by the product (inventory INV-1): a product tracked anywhere is checked in every
+    # warehouse, also where it has no per-warehouse status row yet.
+    from app.activities.general.modules.inventory.services.stock import is_untracked
+
+    return await is_untracked(db, product_id)
 
 _CENT = Decimal("0.01")
 
@@ -424,7 +418,7 @@ def _return_lots(item, qty: Decimal, skip: Decimal = Decimal("0")) -> list[tuple
     return out
 
 
-async def _take_stock(db: AsyncSession, item, warehouse_id, sale_id, user_id) -> list:
+async def _take_stock(db: AsyncSession, item, warehouse_id, sale_id, user_id, allow_negative: bool = False) -> list:
     """A sale line leaves stock through the one stock path (apply_movement), at the product's
     average cost. The batches it came from (if the workspace tracks batches) are kept on the
     line's extra values."""
@@ -433,7 +427,7 @@ async def _take_stock(db: AsyncSession, item, warehouse_id, sale_id, user_id) ->
     mv, lots = await apply_movement(
         db, product_id=item.product_id, warehouse_id=warehouse_id, movement_type=MovementType.sale,
         qty=item.qty, unit_price=item.unit_price, created_by=user_id,
-        ref_id=sale_id, ref_type="sale", sale_id=sale_id,
+        ref_id=sale_id, ref_type="sale", sale_id=sale_id, allow_negative=allow_negative,
     )
     # The cost of the line is the product's average cost now, never what the client sent (D5).
     item.unit_cost = mv.unit_cost
@@ -546,7 +540,7 @@ async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
     # The activity's sale rules (ADR-006 phase 4): e.g. a pharmacy's prescription checks.
     await emit("pos.before_confirm", db, sale=sale, lines=sale_items)
     for si in sale_items:
-        await _take_stock(db, si, data.warehouse_id, sale.id, cashier_id)
+        await _take_stock(db, si, data.warehouse_id, sale.id, cashier_id, allow_negative=allow_neg)
     await emit("pos.after_confirm", db, sale=sale, lines=sale_items)
 
     net_total = gross_total - total_discount - Decimal(str(data.discount_amount))

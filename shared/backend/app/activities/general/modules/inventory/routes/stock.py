@@ -29,6 +29,7 @@ async def create_warehouse(data: WarehouseCreate, db: AsyncSession = Depends(get
     if current_user.tenant_id:
         from app.platform.billing.services.plan_gating import check_branch_creation_limit
         await check_branch_creation_limit(db, current_user.tenant_id)
+    await warehouses_service.ensure_code_free(db, data.code)
     w = Warehouse(code=data.code, name=data.name, warehouse_type=data.warehouse_type)
     db.add(w)
     await db.commit()
@@ -37,17 +38,12 @@ async def create_warehouse(data: WarehouseCreate, db: AsyncSession = Depends(get
 
 
 @router.put("/warehouses/{wh_id}")
-async def update_warehouse(wh_id: uuid.UUID, data: WarehouseUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("settings"))):
-    result = await db.execute(select(Warehouse).where(Warehouse.id == wh_id))
-    w = result.scalar_one_or_none()
-    if not w:
-        from app.core.exceptions import NotFoundError
-        raise NotFoundError()
-    for k, v in data.model_dump(exclude_none=True).items():
-        setattr(w, k, v)
+async def update_warehouse(wh_id: uuid.UUID, data: WarehouseUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("settings"))):
+    """Edit a warehouse. One that still holds stock (or an open shift) can't be deactivated."""
+    w = await warehouses_service.update(db, wh_id, data, current_user)
     await db.commit()
     await db.refresh(w)
-    return {"id": str(w.id), "code": w.code, "name": w.name}
+    return {"id": str(w.id), "code": w.code, "name": w.name, "warehouse_type": w.warehouse_type, "is_active": w.is_active}
 
 
 @router.delete("/warehouses/{wh_id}", status_code=204)
@@ -115,17 +111,51 @@ async def get_balance_breakdown(product_id: uuid.UUID, db: AsyncSession = Depend
     return [dict(r._mapping) for r in rows.fetchall()]
 
 
-def _refuse_purchase_return(*items: StockMovementCreate) -> None:
-    """Goods go back to a supplier only through a purchase return, which also settles the supplier."""
-    if any(str(i.movement_type) == "return_out" for i in items):
-        from fastapi import HTTPException
-        raise HTTPException(400, "مرتجع المشتريات يُسجَّل من شاشة المشتريات (أمر الشراء) وليس كحركة مخزون")
+_DOCUMENT_TYPES = {
+    "purchase": "المشتريات تُسجَّل باستلام أمر شراء من شاشة المشتريات",
+    "return_out": "مرتجع المشتريات يُسجَّل من شاشة المشتريات (أمر الشراء)",
+    "sale": "المبيعات تُسجَّل بفاتورة بيع",
+    "return_in": "مرتجع المبيعات يُسجَّل من الفاتورة الأصلية",
+    "transfer_in": "التحويل بين المخازن يُسجَّل من شاشة التحويل أو إذن الصرف",
+    "transfer_out": "التحويل بين المخازن يُسجَّل من شاشة التحويل أو إذن الصرف",
+}
+
+
+async def _check_hand_movement(db: AsyncSession, user: User, item: StockMovementCreate) -> None:
+    """A movement entered by hand: only adjustments and damage (they post to the ledger as
+    stock.adjusted); opening stock with its own permission; everything else comes from its document.
+    The warehouse must exist, be active and be one the user works in; the product must exist."""
+    from fastapi import HTTPException
+
+    from app.activities.general.modules.inventory.models.product import Product
+    from app.core.exceptions import NotFoundError
+    from app.platform.permissions.access import can
+
+    kind = str(item.movement_type)
+    if kind in _DOCUMENT_TYPES:
+        raise HTTPException(400, f"لا تُسجَّل حركة من هذا النوع يدوياً — {_DOCUMENT_TYPES[kind]}")
+    if kind == stock_service.OPENING_TYPE and not can(user, "inventory:opening"):
+        raise HTTPException(403, "تسجيل الرصيد الافتتاحي يتطلب صلاحية «الرصيد الافتتاحي للمخزون»")
+    if kind != stock_service.OPENING_TYPE and kind not in stock_service.HAND_TYPES:
+        raise HTTPException(400, "نوع الحركة غير مسموح يدوياً")
+    w = (await db.execute(select(Warehouse).where(Warehouse.id == item.warehouse_id))).scalar_one_or_none()
+    if not w:
+        raise NotFoundError("المخزن غير موجود")
+    if not w.is_active:
+        raise HTTPException(400, f"المخزن «{w.name}» موقوف")
+    await verify_warehouse_access(db, user, item.warehouse_id)
+    if not await db.scalar(select(Product.id).where(Product.id == item.product_id)):
+        raise NotFoundError("الصنف غير موجود")
 
 
 @router.post("/movements", response_model=StockMovementOut)
 async def add_movement(data: StockMovementCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("inventory")), _=Depends(require_open_period)):
-    _refuse_purchase_return(data)
+    """A stock adjustment, damage or (with `inventory:opening`) opening stock, entered by hand."""
+    await _check_hand_movement(db, current_user, data)
     mv = await stock_service.record_movement(db, data, current_user.id)
+    await audit_log(db, "stock", "adjustment", current_user.id, current_user.full_name, mv.id,
+                    {"product_id": str(data.product_id), "warehouse_id": str(data.warehouse_id),
+                     "qty": str(data.qty), "type": str(data.movement_type)}, "حركة مخزون يدوية")
     await db.commit()
     await db.refresh(mv)
     return mv
@@ -137,7 +167,8 @@ async def reset_warehouse_stock(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_perm("settings")),
 ):
-    """Delete all stock movements for a warehouse (reset inventory)."""
+    """Delete a warehouse's hand-entered stock movements while it is being set up (see
+    warehouses_service.reset_stock: refused once documents, transfers or the ledger involve them)."""
     await warehouses_service.reset_stock(db, warehouse_id, current_user)
     await db.commit()
 
@@ -149,7 +180,7 @@ async def list_movements(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("inventory")),
 ):
     await verify_warehouse_access(db, current_user, warehouse_id)
     from math import ceil
@@ -186,35 +217,45 @@ async def list_movements(
 
 @router.post("/adjustment/bulk")
 async def bulk_adjustment(data: list[StockMovementCreate], db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("inventory")), _=Depends(require_open_period)):
-    """Bulk stock adjustment — equivalent to Qt's AddStockDialog / bulk_add_stock().
-    Body: [{"product_id": "...", "warehouse_id": "...", "movement_type": "adjustment_in", "qty": 10, "note": "..."}]
-    """
+    """Several hand-entered movements at once (adjustments, damage, opening stock with its permission),
+    all or none. Body: [{"product_id", "warehouse_id", "movement_type": "adjustment_in", "qty": 10, "note"}]"""
     from fastapi import HTTPException
     if len(data) > 500:
-        raise HTTPException(400, "Too many items (max 500)")
-    _refuse_purchase_return(*data)
+        raise HTTPException(400, "عدد البنود كبير جداً (الحد الأقصى 500)")
     for item in data:
-        await stock_service.record_movement(db, item, current_user.id)
-        await audit_log(db, "stock", "adjustment", current_user.id, current_user.full_name, None, {"product_id": str(item.product_id), "qty": float(item.qty), "type": item.movement_type}, "تسوية مخزون")
+        await _check_hand_movement(db, current_user, item)
+    for item in data:
+        mv = await stock_service.record_movement(db, item, current_user.id)
+        await audit_log(db, "stock", "adjustment", current_user.id, current_user.full_name, mv.id,
+                        {"product_id": str(item.product_id), "warehouse_id": str(item.warehouse_id),
+                         "qty": str(item.qty), "type": str(item.movement_type)}, "تسوية مخزون")
     await db.commit()
-    return {"detail": f"{len(data)} movements recorded"}
+    return {"detail": f"تم تسجيل {len(data)} حركة"}
 
 
 @router.post("/transfer")
 async def transfer(data: TransferRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("inventory"))):
-    await stock_service.transfer_stock(db, data, current_user.id)
-    return {"detail": "Transfer completed"}
+    """Move stock between two different warehouses, both of which the user works in."""
+    from fastapi import HTTPException
+    if data.from_warehouse_id == data.to_warehouse_id:
+        raise HTTPException(400, "لا يمكن التحويل من المخزن إلى نفسه — اختر مخزناً آخر للوجهة")
+    await verify_warehouse_access(db, current_user, data.from_warehouse_id)
+    await verify_warehouse_access(db, current_user, data.to_warehouse_id)
+    result = await stock_service.transfer_stock(db, data, current_user)
+    await db.commit()
+    return {"detail": "تم التحويل", "ref_id": str(result["ref_id"])}
 
 
 @router.get("/low-stock")
-async def low_stock(warehouse_id: uuid.UUID, threshold: Decimal = Decimal("5"), db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def low_stock(warehouse_id: uuid.UUID, threshold: Decimal = Query(Decimal("5"), ge=0, le=Decimal("1000000")), db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("inventory", "purchases"))):
     await verify_warehouse_access(db, current_user, warehouse_id)
     rows = await stock_service.get_low_stock(db, warehouse_id, threshold)
     return [{"product_id": str(p.id), "product_name": p.name, "current_qty": qty, "unit": p.unit} for p, qty in rows]
 
 
 @router.get("/valuation")
-async def valuation(warehouse_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def valuation(warehouse_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("inventory", "reports"))):
+    """The warehouse's stock at average cost (as the ledger values it) and at retail price."""
     await verify_warehouse_access(db, current_user, warehouse_id)
     row = await stock_service.get_valuation(db, warehouse_id)
     return {"total_cost_value": row.cost_value or 0, "total_retail_value": row.retail_value or 0, "product_count": row.product_count or 0}

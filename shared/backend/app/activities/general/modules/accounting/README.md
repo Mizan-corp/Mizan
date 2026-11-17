@@ -85,6 +85,8 @@ document's transaction. The modules emit generic events and never import account
 | `purchase.returned` (`POST /purchases/{id}/returns`) | `purchase_return` / `confirm` | payables (party: supplier) for what lowers the balance; the safe or wallet for a refund | inventory (at the cost the goods came in at) |
 | `stock.adjusted` (`apply_movement` of type `adjustment_out` or `damage`) | `stock_movement` / `adjust` | inventory shortage and damage (`inventory_loss`) | inventory, at the movement's unit cost (the average cost when none was given) |
 | …`adjustment_in` | | inventory | other income |
+| …`opening_stock`, only once the ledger's opening entry is in force (before it, the opening entry takes the stock in) | | inventory | opening balance equity |
+| `stock.resetting` (a warehouse's stock reset) | refuses (409) when one of its movements is posted or the opening entry is in force | | |
 | `payroll.approved` (`approve_payroll_period`) | `payroll` (id: the approval's salaries expense) / `approve` | salaries expense = net + withheld | salaries payable per employee (net, party: employee); employee advances per employee (advances recovered, party: employee); other income (deductions, lateness and absence withheld) |
 | `payroll.reopened` (reopening an approved, unpaid month) | `payroll` / `reverse` | the approval's entry, reversed | |
 | `payroll.paid` (`pay_payroll_period`) | `payroll` (id: the period) / `pay` | salaries payable per employee (party: employee) | the safe or wallet it was paid from |
@@ -107,7 +109,9 @@ Decisions where the design was open:
   (deductions خصم, lateness, absence) is other income. Each approval is keyed by its salaries expense,
   so a reopened and re-approved month has its own entry. A month whose net total is 0 posts nothing.
   Deductions and bonuses move no cash and post nothing by themselves.
-- Stock adjustments: opening stock is left to the opening entry (step 4); purchases, sales, returns
+- Stock adjustments: opening stock before the opening entry is left to it (step 4), after it posts
+  to opening balance equity; stock can no longer be entered by hand as a purchase, sale, return or
+  transfer (inventory refuses them); purchases, sales, returns
   are posted with their documents; transfers between branches post nothing (one inventory account).
   A product with no cost at all (average and list cost 0) adjusts with nothing to post.
 - Clinics: revenue is posted once, at the first payment the ledger sees, with the patient's whole unpaid
@@ -119,8 +123,8 @@ Decisions where the design was open:
   non-bank safe; with none or several it stays recorded as `deposit_amount` on the shift and nothing moves.
 
 Not posted yet (later steps of D12): insurance claim approval and payment
-(the insurer's receivable stays open), stock movements entered by hand with type `purchase`, `sale`,
-`return_in` or `opening_stock` through `POST /stock/movements`, cancelling a clinic invoice's sale,
+(the insurer's receivable stays open), cancelling a clinic invoice's sale, a pharmacy batch received
+through `POST /pharmacy/batches` (a `purchase` movement with no purchase order),
 and money modules outside general sales (hotel, storefront, school…).
 
 ## API (`/accounting`, guarded by the module)

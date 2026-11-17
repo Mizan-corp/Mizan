@@ -23,6 +23,7 @@ LISTENERS = {
     "supplier.payment": purchases.on_supplier_payment,
     "supplier.charge": purchases.on_supplier_charge,
     "stock.adjusted": inventory.on_stock_adjusted,
+    "stock.resetting": inventory.on_stock_resetting,
     "payroll.approved": payroll.on_payroll_approved,
     "payroll.reopened": payroll.on_payroll_reopened,
     "payroll.paid": payroll.on_payroll_paid,

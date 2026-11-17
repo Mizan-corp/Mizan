@@ -11,10 +11,10 @@ class StockMovementCreate(BaseModel):
     product_id: uuid.UUID
     warehouse_id: uuid.UUID
     movement_type: MovementType
-    qty: Decimal = Field(..., gt=0)
-    unit_cost: Decimal = Decimal("0")
-    unit_price: Decimal = Decimal("0")
-    note: str | None = None
+    qty: Decimal = Field(..., gt=0, le=Decimal("999999999"))
+    unit_cost: Decimal = Field(Decimal("0"), ge=0, le=Decimal("9999999999"))
+    unit_price: Decimal = Field(Decimal("0"), ge=0, le=Decimal("9999999999"))
+    note: str | None = Field(None, max_length=1000)
     # Batch tracking (pharmacies, ADR-006 phase 4): which batch the stock comes in as.
     batch_number: str | None = Field(None, max_length=64)
     expiry_date: date | None = None
@@ -23,7 +23,7 @@ class StockMovementCreate(BaseModel):
     def note_required_for_damage(cls, v, info):
         movement_type = info.data.get('movement_type') if hasattr(info, 'data') else None
         if movement_type in ('damage', 'adjustment_out') and not v:
-            raise ValueError('note is required for damage and adjustment movements')
+            raise ValueError('اكتب سبب التالف أو التسوية بالنقص في الملاحظات')
         return v
 
 
@@ -56,5 +56,5 @@ class TransferRequest(BaseModel):
     product_id: uuid.UUID
     from_warehouse_id: uuid.UUID
     to_warehouse_id: uuid.UUID
-    qty: Decimal = Field(..., gt=0)
-    note: str | None = None
+    qty: Decimal = Field(..., gt=0, le=Decimal("999999999"))
+    note: str | None = Field(None, max_length=1000)

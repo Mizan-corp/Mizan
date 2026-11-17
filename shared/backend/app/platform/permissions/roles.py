@@ -22,7 +22,7 @@ ROLE_DEFAULT_PERMISSIONS = {
         "clinic:doctor", "clinic:nurse", "clinic:dispense", "clinic:lab", "clinic:billing",
     ],
     "manager": [
-        "pos", "sales", "quotations", "inventory", "operations",
+        "pos", "sales", "quotations", "inventory", "inventory:opening", "operations",
         "customers", "reports", "archive", "shifts", "finance", "settings", "payroll", "accounting:view",
         "clinic", "clinic:view", "clinic:manage", "clinic:billing", "clinic:all_patients", "clinic:privacy",
     ],
