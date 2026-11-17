@@ -62,9 +62,6 @@
           "screen": "ecommerce.ecommerce"
         },
         {
-          "screen": "storefront.storefront"
-        },
-        {
           "screen": "healthcare_clinic.clinic"
         },
         {

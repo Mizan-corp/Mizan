@@ -105,9 +105,9 @@ async def test_active_modules_live_on_the_workspace():
     try:
         async with AsyncSessionLocal() as db:
             await bind_tenant(db, tid)
-            await set_active_modules(db, ["storefront"])
+            await set_active_modules(db, ["pos"])
             active = await get_active_modules(db)
-            assert {"core", "storefront", "inventory"} <= set(active)  # inventory: a dependency
+            assert {"core", "pos", "inventory"} <= set(active)  # inventory: a dependency
             stored = await db.scalar(text("SELECT active_modules FROM tenants WHERE id = :t"), {"t": tid})
             assert set(stored) == set(active)
     finally:
