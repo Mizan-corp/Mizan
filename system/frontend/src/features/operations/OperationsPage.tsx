@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, PackagePlus, Send } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
 import { D, dateTime } from "@/lib/format";
 import { Button, Card, Empty, ErrorBox, Input, Select, Spinner } from "@/components/ui";
+import { useAuth } from "@/stores/auth";
+import { useTenantNav } from "@app/lib/tenant";
 
 interface Warehouse { id: string; name: string }
 interface Product { id: string; name: string; code: string | null; cost_price: string }
@@ -81,7 +84,7 @@ export default function OperationsPage() {
         ))}
       </div>
       {tab === "dispatch" && <DispatchForm />}
-      {tab === "receipt" && <ReceiptForm />}
+      {tab === "receipt" && <ReceiptNotice />}
       {tab === "request" && <RequestForm />}
       {tab === "history" && <History />}
     </div>
@@ -163,55 +166,23 @@ function DispatchForm() {
   );
 }
 
-function ReceiptForm() {
-  const qc = useQueryClient();
-  const wh = useWarehouses();
-  const warehouses = Array.isArray(wh.data) ? wh.data : [];
-  const [warehouseId, setWarehouseId] = useState("");
-  const [supplierName, setSupplierName] = useState("");
-  const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState<Line[]>([]);
-
-  const effectiveWh = warehouseId || warehouses[0]?.id || "";
-
-  const run = useMutation({
-    mutationFn: () =>
-      api.post("/operations/goods-receipt", {
-        warehouse_id: effectiveWh,
-        supplier_name: supplierName || undefined,
-        notes: notes || undefined,
-        items: lines.map((l) => ({
-          product_id: l.product.id,
-          qty: D(l.qty).toNumber(),
-          unit_cost: D(l.unit_cost || l.product.cost_price).toNumber(),
-        })),
-      }),
-    onSuccess: () => { setLines([]); setSupplierName(""); setNotes(""); qc.invalidateQueries({ queryKey: ["operations"] }); },
-  });
-
+/** Goods from a supplier come in through a purchase order: the supplier is owed the amount and the
+ * stock's value reaches the ledger. The receipt that used to be here did neither (OPS-1). */
+function ReceiptNotice() {
+  const { tenantTo } = useTenantNav();
+  const { can } = useAuth();
   return (
     <Card className="max-w-2xl space-y-3">
-      <p className="flex items-center gap-2 font-bold"><PackagePlus size={18} /> استلام بضاعة من مورد — يضاف للمخزن بالتكلفة</p>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs text-muted mb-1 block">المستودع المستلم:</label>
-          <Select value={effectiveWh} onChange={(e) => setWarehouseId(e.target.value)}>
-            {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-          </Select>
-        </div>
-        <div>
-          <label className="text-xs text-muted mb-1 block">المورد:</label>
-          <Input placeholder="اسم المورد (اختياري)" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} />
-        </div>
-      </div>
-      <ProductSearch onPick={(p) => !lines.find((l) => l.product.id === p.id) && setLines((ls) => [...ls, { product: p, qty: "", unit_cost: p.cost_price }])} />
-      <Lines lines={lines} setLines={setLines} showCost />
-      <Input placeholder="ملاحظات" value={notes} onChange={(e) => setNotes(e.target.value)} />
-      {run.isError && <ErrorBox message={(run.error as Error).message} />}
-      {run.isSuccess && <Card className="border-success/40 bg-success/10 p-3 text-sm text-success-ink">تم تسجيل الاستلام بنجاح</Card>}
-      <Button className="w-full" disabled={run.isPending || !lines.length || lines.some((l) => !l.qty) || !effectiveWh} onClick={() => run.mutate()}>
-        {run.isPending ? <Spinner /> : "تسجيل الاستلام"}
-      </Button>
+      <p className="flex items-center gap-2 font-bold"><PackagePlus size={18} /> استلام بضاعة من مورد</p>
+      <p className="text-sm text-muted">
+        يُسجَّل استلام البضاعة من المورد بأمر شراء من شاشة المشتريات: تدخل الكميات المخزن بتكلفتها، ويُضاف المبلغ
+        إلى حساب المورد، ويُرحَّل المخزون إلى الدفاتر. لنقل بضاعة بين الفروع استخدم «إذن صرف».
+      </p>
+      {can("purchases") && (
+        <Link to={tenantTo("/purchases")} className="inline-flex rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-brand-ink">
+          الانتقال إلى المشتريات
+        </Link>
+      )}
     </Card>
   );
 }

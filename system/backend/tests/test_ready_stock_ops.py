@@ -302,3 +302,26 @@ async def test_valuation_is_at_average_cost():
     async with _client() as c:
         r = await c.get("/stock/valuation", params={"warehouse_id": str(env["a"])}, headers=env["h"]["manager"])
     assert r.status_code == 200 and D(str(r.json()["total_cost_value"])) == D("1600")
+
+
+# ── OPS ──────────────────────────────────────────────────────────────────────────────────────────
+
+async def test_goods_receipt_without_a_purchase_is_gone_and_operations_check_branches():
+    env = await _env()
+    item = [{"product_id": str(env["product"]), "qty": "2", "unit_cost": "70", "note": None}]
+    async with _client() as c:
+        r = await c.post("/operations/goods-receipt", json={"warehouse_id": str(env["a"]), "items": item},
+                         headers=env["h"]["manager"])
+        assert r.status_code == 410 and "المشتريات" in r.json()["detail"]
+        r = await c.post("/operations/dispatch", json={"from_warehouse_id": str(env["a"]), "to_warehouse_id": str(env["b"]),
+                                                       "items": item}, headers=env["h"]["storekeeper"])
+        assert r.status_code == 403
+        r = await c.post("/operations/stock-request", json={"from_warehouse_id": str(env["a"]), "to_warehouse_id": str(env["b"]),
+                                                            "items": item}, headers=env["h"]["storekeeper"])
+        assert r.status_code == 403
+        r = await c.post("/operations/dispatch", json={"from_warehouse_id": str(env["a"]), "to_warehouse_id": str(env["b"]),
+                                                       "items": item, "notes": None}, headers=env["h"]["manager"])
+        assert r.status_code == 200, r.text
+        r = await c.get("/operations/", headers=env["h"]["accountant"])
+        assert r.status_code == 403
+    assert await _balance(env, env["product"], env["a"]) == D("8")
