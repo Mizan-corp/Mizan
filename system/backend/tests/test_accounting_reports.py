@@ -605,3 +605,40 @@ async def test_every_report_is_isolated_per_workspace():
     current_tenant_id.set(t)
     async with AsyncSessionLocal() as s:
         assert (await reports.trial_balance(s, t))["totals"]["debit"] > 0
+
+
+# ── steps 3 and 4 together ────────────────────────────────────────────────────────────────────
+
+async def test_reconciliation_agrees_after_purchases_payments_returns_and_damage():
+    """After the opening entry, the step-3 postings keep the ledger equal to the operational balances:
+    a purchase of 10 x 70 with 200 paid, a supplier payment of 150, a return of 4 and 2 units damaged."""
+    from tests import test_accounting_postings_2 as p2
+
+    env = await p2._env()
+    t, sup = env["tenant_id"], env["supplier_id"]
+    async with AsyncSessionLocal() as s:
+        await opening.create(s, t, TODAY, env["cashier_id"])
+        await s.commit()
+    po = await p2._receive(env)
+    async with AsyncSessionLocal() as s:
+        user = await p2._user(s, env)
+        await p2.purchase_service.record_supplier_transaction(s, sup, D("150"), "credit", user, safe_id=env["safe_id"])
+        await s.commit()
+    async with AsyncSessionLocal() as s:
+        user = await p2._user(s, env)
+        await p2.purchase_service.create_purchase_return(s, po, p2.PurchaseReturnCreate(
+            items=[p2.PurchaseReturnItemIn(product_id=env["product_id"], qty=D("4"))]), user)
+    async with AsyncSessionLocal() as s:
+        await apply_movement(s, product_id=env["product_id"], warehouse_id=env["warehouse_id"],
+                             movement_type=MovementType.damage, qty=D("2"), note="تالف")
+        await s.commit()
+
+    async with AsyncSessionLocal() as s:
+        rec = await reports.reconciliation(s, t)
+        tb = await reports.trial_balance(s, t, TODAY, TODAY)
+    items = {i["key"]: i for i in rec["items"]}
+    assert rec["ok"] is True and rec["differences"] == [] and rec["parties"] == [], rec["differences"]
+    assert items["payables"]["ledger"] == 70.0                      # 700 - 200 - 150 - 280
+    assert items[f"safe:{env['safe_id']}"]["ledger"] == 650.0       # 1000 - 200 - 150
+    assert abs(items["inventory"]["ledger"] - 3420.0 + 2 * 3420.0 / 56) < 0.02   # 3000 + 700 - 280 - 2 x avg
+    assert tb["balanced"] is True
