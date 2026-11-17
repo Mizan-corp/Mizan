@@ -11,6 +11,10 @@
 - `acc_money_accounts`: which sub-account holds the money of each safe, wallet and branch drawer.
 - `acc_settings`: one row per workspace: the first month of the fiscal year and the date the ledger
   starts (set by the opening entry, D10).
+- `acc_drafts` / `acc_draft_lines`: manual journal entries being written (D9). Kept apart from
+  `acc_entries`, which are immutable and must balance at commit: a draft is edited freely and may be
+  unbalanced until it is posted. Posting writes a normal entry (source `manual`, the draft's id,
+  event `post`) and keeps the draft, read-only, with `status = 'posted'` and its `entry_id`.
 
 The tables keep the short `acc_` prefix the ADR names them with.
 """
@@ -105,3 +109,42 @@ class Settings(TenantScoped, Base):
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class Draft(TenantScoped, Base):
+    """A manual journal entry not posted yet (D9), or one posted from here (`status` posted, kept
+    read-only with the entry it became)."""
+    __tablename__ = "acc_drafts"
+    __table_args__ = (CheckConstraint("status IN ('draft', 'posted')", name="ck_acc_drafts_status"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    memo: Mapped[str | None] = mapped_column(Text, nullable=True)
+    warehouse_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft", server_default=text("'draft'"))
+    entry_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("acc_entries.id"), nullable=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    posted_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class DraftLine(TenantScoped, Base):
+    __tablename__ = "acc_draft_lines"
+    __table_args__ = (
+        CheckConstraint("debit >= 0 AND credit >= 0", name="ck_acc_draft_lines_amounts"),
+        CheckConstraint("party_type IS NULL OR party_type IN ('customer', 'supplier', 'employee')",
+                        name="ck_acc_draft_lines_party"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    draft_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("acc_drafts.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default=text("0"))
+    account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("acc_accounts.id"), nullable=False)
+    debit: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0"), server_default=text("0"))
+    credit: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0"), server_default=text("0"))
+    party_type: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    party_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    warehouse_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)

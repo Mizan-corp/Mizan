@@ -1,6 +1,8 @@
 """Accounting: request and response schemas."""
 import uuid
 from datetime import date as Date
+from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -29,3 +31,25 @@ class OpeningCreate(BaseModel):
 
 class SettingsUpdate(BaseModel):
     fiscal_year_start: int = Field(..., ge=1, le=12)
+
+
+class DraftLineIn(BaseModel):
+    account_id: uuid.UUID
+    debit: Decimal = Field(Decimal("0"), ge=0, max_digits=14, decimal_places=2)
+    credit: Decimal = Field(Decimal("0"), ge=0, max_digits=14, decimal_places=2)
+    party_type: Literal["customer", "supplier", "employee"] | None = None
+    party_id: uuid.UUID | None = None
+    warehouse_id: uuid.UUID | None = None
+
+
+class DraftIn(BaseModel):
+    """A manual journal entry (D9): saved as a draft, posted later."""
+    date: Date
+    memo: str | None = Field(None, max_length=500)
+    warehouse_id: uuid.UUID | None = None
+    lines: list[DraftLineIn] = Field(default_factory=list, max_length=200)
+
+
+class ReverseIn(BaseModel):
+    date: Date | None = None  # today for a manual entry, the entry's own date for the opening entry
+    memo: str | None = Field(None, max_length=300)
