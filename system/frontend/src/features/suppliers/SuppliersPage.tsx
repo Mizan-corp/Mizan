@@ -19,6 +19,7 @@ import { Button, Card, Empty, ErrorBox, Input, Modal, Select, Spinner, useToast 
 import { sound } from "@/lib/sound";
 import { RecordFormFields, cleanExtra, missingRequired, useRecordForm, type ExtraValues } from "@app/framework/forms";
 import { PaySourceSelect, sourceFields } from "@app/components/PaySourceSelect";
+import { useAuth } from "@/stores/auth";
 
 interface Supplier {
   id: string;
@@ -42,6 +43,10 @@ interface LedgerEntry {
 
 export default function SuppliersPage() {
   const qc = useQueryClient();
+  const { can } = useAuth();
+  // Suppliers are managed with "purchases"; payments and charges on their accounts need "finance".
+  const canManage = can("purchases");
+  const canPay = can("finance");
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", address: "", notes: "" });
@@ -151,16 +156,18 @@ export default function SuppliersPage() {
           </p>
         </div>
 
-        <Button
-          onClick={() => {
-            sound.click();
-            setCreating(true);
-          }}
-          className="gap-2 font-semibold"
-        >
-          <Plus className="size-4" />
-          مورد جديد
-        </Button>
+        {canManage && (
+          <Button
+            onClick={() => {
+              sound.click();
+              setCreating(true);
+            }}
+            className="gap-2 font-semibold"
+          >
+            <Plus className="size-4" />
+            مورد جديد
+          </Button>
+        )}
       </div>
 
       {/* AP Financial Summary Cards */}
@@ -320,7 +327,7 @@ export default function SuppliersPage() {
                             كشف حساب
                           </Button>
 
-                          <Button
+                          {canManage && <Button
                             variant="ghost"
                             className="h-8 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
                             onClick={() => setActive.mutate(s)}
@@ -329,9 +336,9 @@ export default function SuppliersPage() {
                           >
                             <Power className="size-3.5" />
                             {s.is_active ? "إيقاف" : "تفعيل"}
-                          </Button>
+                          </Button>}
 
-                          {isDue ? (
+                          {!canPay ? null : isDue ? (
                             <Button
                               size="sm"
                               className="h-8 gap-1.5 px-2.5 text-xs font-semibold shadow-xs"

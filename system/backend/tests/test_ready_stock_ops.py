@@ -325,3 +325,58 @@ async def test_goods_receipt_without_a_purchase_is_gone_and_operations_check_bra
         r = await c.get("/operations/", headers=env["h"]["accountant"])
         assert r.status_code == 403
     assert await _balance(env, env["product"], env["a"]) == D("8")
+
+
+# ── PUR ──────────────────────────────────────────────────────────────────────────────────────────
+
+async def test_purchasing_and_paying_suppliers_are_separate_permissions():
+    env = await _env()
+    sup = str(env["supplier"])
+    pay = {"amount": "100", "type": "credit", "safe_id": str(env["safe"])}
+    po_body = {"warehouse_id": str(env["a"]), "supplier_id": sup,
+               "items": [{"product_id": str(env["product"]), "qty": "5", "unit_cost": "70"}]}
+    async with _client() as c:
+        # A storekeeper buys and receives, but pays nobody from a safe.
+        r = await c.post(f"/suppliers/{sup}/transactions", json=pay, headers=env["h"]["storekeeper"])
+        assert r.status_code == 403
+        r = await c.post("/purchases", json=po_body, headers=env["h"]["storekeeper"])
+        assert r.status_code == 200, r.text
+        po = r.json()["id"]
+        r = await c.post(f"/purchases/{po}/receive", json={"amount_paid": "50", "safe_id": str(env["safe"])},
+                         headers=env["h"]["storekeeper"])
+        assert r.status_code == 403
+        r = await c.post(f"/purchases/{po}/receive", json={"amount_paid": "0"}, headers=env["h"]["storekeeper"])
+        assert r.status_code == 200, r.text
+        # The accountant pays.
+        r = await c.post(f"/suppliers/{sup}/transactions", json=pay, headers=env["h"]["accountant"])
+        assert r.status_code == 201, r.text
+        # PUR-2: the list carries each order's total.
+        r = await c.get("/purchases", headers=env["h"]["accountant"])
+        assert r.status_code == 200
+        row = next(x for x in r.json()["items"] if x["id"] == po)
+        assert D(str(row["total"])) == D("350.00")
+        # Unknown references are a 404, not a 500.
+        r = await c.post("/purchases", json={**po_body, "supplier_id": str(uuid.uuid4())}, headers=env["h"]["manager"])
+        assert r.status_code == 404
+    assert await _scalar(env, "SELECT balance FROM suppliers WHERE id = :s", s=env["supplier"]) == D("250.00")
+    assert await _scalar(env, "SELECT balance FROM safes WHERE id = :s", s=env["safe"]) == D("900.00")
+
+
+async def test_v96_keeps_workspace_roles_purchasing_but_not_paying():
+    from app.db.migrations import MIGRATIONS
+
+    env = await _env()
+    rid = uuid.uuid4()
+    current_tenant_id.set(None)
+    async with AsyncSessionLocal() as s:
+        await s.execute(text("SELECT set_config('app.bypass', 'on', true)"))
+        await s.execute(text(
+            "INSERT INTO sys_roles (id, tenant_id, code, name, name_en, is_system, is_clinical, grants) "
+            "VALUES (:id, :t, :c, 'أمين', 'keeper', false, false, CAST(:g AS jsonb))"),
+            {"id": rid, "t": env["tenant_id"], "c": f"ws-{rid.hex[:8]}", "g": json.dumps(["inventory", "settings"])})
+        sql = dict(MIGRATIONS)["v96_ready_stock_ops"]
+        for stmt in (x for x in sql.split(";") if x.strip()):
+            await s.execute(text(stmt))
+        grants = (await s.execute(text("SELECT grants FROM sys_roles WHERE id = :id"), {"id": rid})).scalar()
+        await s.rollback()
+    assert set(grants) == {"inventory", "settings", "purchases", "inventory:opening"}

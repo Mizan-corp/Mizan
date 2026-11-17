@@ -80,6 +80,21 @@ and `manager` hold it. The clinical roles hold their own permissions only.
   `v84_clinic_role_separation` removed the umbrella `clinic` from the copies of the five clinical
   roles (keeping `clinic:view`).
 
+## 2a. Stock, purchases and paying suppliers
+
+| Action | Permission | storekeeper | accountant | manager | admin |
+|---|---|:-:|:-:|:-:|:-:|
+| Adjustments and damage by hand, transfers, movements, valuation | `inventory` | ✓ | ✓ | ✓ | ✓ |
+| Opening stock by hand | `inventory:opening` | | | ✓ | ✓ |
+| Dispatch and stock requests | `operations` | ✓ | | ✓ | ✓ |
+| Purchase orders, receipts, purchase returns, suppliers and their prices | `purchases` | ✓ | ✓ | ✓ | ✓ |
+| Paying a supplier or charging their account, paying on receipt, a refund on a return | `finance` (with `purchases` for the order) | | ✓ | ✓ | ✓ |
+
+Every write on stock also needs access to the warehouse (`verify_warehouse_access`: assigned
+warehouses, or `supervise` / managers for all). Migration `v96_ready_stock_ops` gave workspaces' own
+roles holding `inventory` the new `purchases`, and those also holding `settings` `inventory:opening`;
+none got `finance` from it.
+
 ## 3. Permissions from the extension platform
 
 | Permission | Who holds it by default | What it allows |

@@ -47,7 +47,7 @@
       "path": "/suppliers",
       "label": "الموردون (AP)",
       "icon": "Truck",
-      "permission": "inventory|purchases"
+      "permission": "purchases|finance"
     }
   ],
   "widgets": [],

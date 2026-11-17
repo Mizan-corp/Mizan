@@ -3828,6 +3828,27 @@ MIGRATIONS = [
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
             WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+
+    # Stock and purchases made production-ready (PRODUCTION_READINESS INV-2, PUR-1). Purchase orders,
+    # receipts, returns and suppliers move from `inventory` to `purchases`, and supplier payments and
+    # charges to `finance`; opening stock gets its own `inventory:opening`. The standard roles are
+    # re-synced from roles.py by ensure_standard_roles; this keeps the workspaces' own roles (and the
+    # personal copies v54 made) able to do what they did: a role holding `inventory` gets `purchases`
+    # (not `finance`: paying suppliers is no longer a storekeeper's), and one holding `inventory` and
+    # `settings` (a manager's) gets `inventory:opening`.
+    ("v96_ready_stock_ops", """
+        UPDATE sys_roles r SET grants = (
+            SELECT COALESCE(jsonb_agg(DISTINCT g ORDER BY g), '[]'::jsonb)
+            FROM jsonb_array_elements_text(r.grants || '["purchases"]'::jsonb) AS e(g)
+        ), updated_at = now()
+        WHERE r.tenant_id IS NOT NULL AND r.grants ? 'inventory' AND NOT r.grants ? 'purchases';
+        UPDATE sys_roles r SET grants = (
+            SELECT COALESCE(jsonb_agg(DISTINCT g ORDER BY g), '[]'::jsonb)
+            FROM jsonb_array_elements_text(r.grants || '["inventory:opening"]'::jsonb) AS e(g)
+        ), updated_at = now()
+        WHERE r.tenant_id IS NOT NULL AND r.grants ? 'inventory' AND r.grants ? 'settings'
+          AND NOT r.grants ? 'inventory:opening';
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables
