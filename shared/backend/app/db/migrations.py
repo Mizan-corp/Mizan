@@ -4022,6 +4022,41 @@ MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS ix_expenses_tenant_date ON expenses (tenant_id, date);
         CREATE INDEX IF NOT EXISTS ix_customer_payments_sale_id ON customer_payments (sale_id) WHERE sale_id IS NOT NULL;
     """),
+
+    # Phase B, inventory and purchases (INV-4, PUR-6). A barcode belongs to one active product of a
+    # workspace and a subcategory name to one subcategory of its category: the unique indexes are made
+    # only where the existing data allows (a workspace with duplicates keeps them, the service refuses
+    # new ones and says which product holds the barcode). The purchases indexes exist in databases
+    # built from the baseline and v19; made here too, by the same names, for any that lack them.
+    ("v101_b_stock_pur", """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM products WHERE is_active AND barcode IS NOT NULL AND barcode <> ''
+                           GROUP BY tenant_id, barcode HAVING COUNT(*) > 1) THEN
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_products_tenant_barcode_active ON products (tenant_id, barcode)
+                    WHERE is_active AND barcode IS NOT NULL AND barcode <> '';
+            ELSE
+                RAISE NOTICE 'v101: active products share a barcode; uq_products_tenant_barcode_active not made';
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_subcategories_category_name') THEN
+                IF NOT EXISTS (SELECT 1 FROM subcategories GROUP BY tenant_id, category_id, name HAVING COUNT(*) > 1) THEN
+                    ALTER TABLE subcategories ADD CONSTRAINT uq_subcategories_category_name UNIQUE (tenant_id, category_id, name);
+                ELSE
+                    RAISE NOTICE 'v101: subcategories share a name in one category; uq_subcategories_category_name not made';
+                END IF;
+            END IF;
+        END $$;
+        CREATE INDEX IF NOT EXISTS idx_purchase_order_items_po_id ON purchase_order_items (po_id);
+        CREATE INDEX IF NOT EXISTS idx_purchase_order_items_product_id ON purchase_order_items (product_id);
+        CREATE INDEX IF NOT EXISTS idx_sup_tx_supplier ON supplier_transactions (supplier_id);
+        CREATE INDEX IF NOT EXISTS idx_pph_product ON purchase_price_history (product_id);
+        CREATE INDEX IF NOT EXISTS idx_purchase_orders_supplier_id ON purchase_orders (supplier_id);
+        -- Collections are inserted with raw SQL: the defaults v4 declared (tables made by create_all lacked them).
+        ALTER TABLE product_collections ALTER COLUMN is_active SET DEFAULT true;
+        ALTER TABLE product_collections ALTER COLUMN retail_price SET DEFAULT 0;
+        ALTER TABLE product_collections ALTER COLUMN wholesale_price SET DEFAULT 0;
+        ALTER TABLE collection_items ALTER COLUMN qty SET DEFAULT 1;
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

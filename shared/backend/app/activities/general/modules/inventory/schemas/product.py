@@ -4,16 +4,22 @@ from decimal import Decimal
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 # VAT codes (ADR-014 D6); the rates are in app/platform/settings/vat.py.
 TaxCode = Literal["standard", "zero", "exempt"]
 
+# The columns' limits (models/product.py): longer input is a 422, never a database error.
+PRICE_MAX = Decimal("9999999999")  # Numeric(12, 2)
+QTY_MAX = Decimal("999999999")  # Numeric(12, 3)
+_TRIM = {"str_strip_whitespace": True}
+
 
 class CategoryCreate(BaseModel):
-    name: str
-    code: str | None = None
-    image_url: str | None = None
+    model_config = _TRIM
+    name: str = Field(..., min_length=1, max_length=128)
+    code: str | None = Field(None, max_length=32)
+    image_url: str | None = Field(None, max_length=512)
 
 
 class CategoryOut(BaseModel):
@@ -25,9 +31,10 @@ class CategoryOut(BaseModel):
 
 
 class SubcategoryCreate(BaseModel):
+    model_config = _TRIM
     category_id: uuid.UUID
-    name: str
-    code: str | None = None
+    name: str = Field(..., min_length=1, max_length=128)
+    code: str | None = Field(None, max_length=32)
 
 
 class SubcategoryOut(BaseModel):
@@ -39,58 +46,53 @@ class SubcategoryOut(BaseModel):
 
 
 class ProductCreate(BaseModel):
+    model_config = _TRIM
     subcategory_id: uuid.UUID
-    name: str
-    code: str | None = None
-    barcode: str | None = None
-    unit: str = "عدد"
-    retail_price: Decimal = Field(default=Decimal("0"), ge=0)
-    wholesale_price: Decimal = Field(default=Decimal("0"), ge=0)
-    cost_price: Decimal = Field(default=Decimal("0"), ge=0)
-    company: str | None = None
-    size: str | None = None
-    product_type: str | None = None
-    material: str | None = None
-    image_url: str | None = None
-    description: str | None = None
-    shelf_number: str | None = None
-    reorder_point: Decimal = Field(default=Decimal("0"), ge=0)
-    reorder_qty: Decimal = Field(default=Decimal("0"), ge=0)
-    reorder_level: int = Field(default=5, ge=0)
+    name: str = Field(..., min_length=1, max_length=256)
+    code: str | None = Field(None, max_length=32)
+    barcode: str | None = Field(None, max_length=64)
+    unit: str = Field("عدد", min_length=1, max_length=32)
+    retail_price: Decimal = Field(default=Decimal("0"), ge=0, le=PRICE_MAX)
+    wholesale_price: Decimal = Field(default=Decimal("0"), ge=0, le=PRICE_MAX)
+    cost_price: Decimal = Field(default=Decimal("0"), ge=0, le=PRICE_MAX)
+    company: str | None = Field(None, max_length=128)
+    size: str | None = Field(None, max_length=64)
+    product_type: str | None = Field(None, max_length=64)
+    material: str | None = Field(None, max_length=64)
+    image_url: str | None = Field(None, max_length=512)
+    description: str | None = Field(None, max_length=5000)
+    shelf_number: str | None = Field(None, max_length=32)
+    reorder_point: Decimal = Field(default=Decimal("0"), ge=0, le=QTY_MAX)
+    reorder_qty: Decimal = Field(default=Decimal("0"), ge=0, le=QTY_MAX)
+    reorder_level: int = Field(default=5, ge=0, le=1_000_000_000)
     tax_code: TaxCode = "standard"
     # Values of the fields the activity's variants and the workspace add (framework/fields.py).
     extra: dict = Field(default_factory=dict)
 
 
 class ProductUpdate(BaseModel):
-    name: str | None = None
-    code: str | None = None
-    barcode: str | None = None
-    unit: str | None = None
-    retail_price: Decimal | None = None
-    wholesale_price: Decimal | None = None
-    cost_price: Decimal | None = None
+    model_config = _TRIM
+    name: str | None = Field(None, min_length=1, max_length=256)
+    code: str | None = Field(None, max_length=32)
+    barcode: str | None = Field(None, max_length=64)
+    unit: str | None = Field(None, min_length=1, max_length=32)
+    retail_price: Decimal | None = Field(None, ge=0, le=PRICE_MAX)
+    wholesale_price: Decimal | None = Field(None, ge=0, le=PRICE_MAX)
+    cost_price: Decimal | None = Field(None, ge=0, le=PRICE_MAX)
     subcategory_id: uuid.UUID | None = None
-    company: str | None = None
-    size: str | None = None
-    product_type: str | None = None
-    material: str | None = None
-    shelf_number: str | None = None
+    company: str | None = Field(None, max_length=128)
+    size: str | None = Field(None, max_length=64)
+    product_type: str | None = Field(None, max_length=64)
+    material: str | None = Field(None, max_length=64)
+    shelf_number: str | None = Field(None, max_length=32)
     is_active: bool | None = None
-    reorder_point: Decimal | None = None
-    reorder_qty: Decimal | None = None
-    reorder_level: int | None = Field(default=None, ge=0)
+    reorder_point: Decimal | None = Field(None, ge=0, le=QTY_MAX)
+    reorder_qty: Decimal | None = Field(None, ge=0, le=QTY_MAX)
+    reorder_level: int | None = Field(default=None, ge=0, le=1_000_000_000)
     # "untracked": stock isn't followed for this product (a service); sales don't check its balance.
     stock_status: str | None = Field(default=None, pattern="^(tracked|untracked)$")
-    description: str | None = None
+    description: str | None = Field(None, max_length=5000)
     tax_code: TaxCode | None = None
-
-    @field_validator("retail_price", "wholesale_price", "cost_price", "reorder_point", "reorder_qty")
-    @classmethod
-    def prices_non_negative(cls, v):
-        if v is not None and v < 0:
-            raise ValueError("must be >= 0")
-        return v
     # Values of the fields the activity's variants and the workspace add (framework/fields.py).
     extra: dict | None = None
 
@@ -104,9 +106,11 @@ class ProductOut(BaseModel):
     unit: str
     retail_price: Decimal
     wholesale_price: Decimal
-    cost_price: Decimal
+    # Costs: null for a user who sells or moves stock but may not see costs (INV-8, see
+    # services/products.COST_PERMISSIONS).
+    cost_price: Decimal | None = None
     # The workspace's weighted average cost (ADR-014 D5); 0 until the first costed receipt.
-    avg_cost: Decimal = Decimal("0")
+    avg_cost: Decimal | None = Decimal("0")
     company: str | None
     size: str | None
     product_type: str | None
@@ -134,7 +138,8 @@ class ProductOutWithBalance(ProductOut):
 
 
 class ProductBarcodeCreate(BaseModel):
-    barcode: str
+    model_config = _TRIM
+    barcode: str = Field(..., min_length=1, max_length=64)
     is_primary: bool = False
 
 
@@ -152,3 +157,8 @@ class ProductWithBarcodes(ProductOut):
 
 class MoveProduct(BaseModel):
     subcategory_id: uuid.UUID
+
+
+class BulkReorderLevelIn(BaseModel):
+    product_ids: list[uuid.UUID] = Field(..., min_length=1, max_length=500)
+    reorder_level: int = Field(5, ge=0, le=1_000_000_000)

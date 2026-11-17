@@ -114,6 +114,16 @@ and `sales:return` respectively, so they keep what they did; workspaces' own rol
 | Purchase orders, receipts, purchase returns, suppliers and their prices | `purchases` | ✓ | ✓ | ✓ | ✓ |
 | Paying a supplier or charging their account, paying on receipt, a refund on a return | `finance` (with `purchases` for the order) | | ✓ | ✓ | ✓ |
 
+**Reading the catalogue (phase B, INV-8, PUR-5).** Products, categories, subcategories, collections
+and stock balances are read with any of `inventory`, `purchases`, `operations`, `pos`, `sales`,
+`quotations`, `reports`, so a cashier finds what to sell (price and the branch's stock). Costs
+(`cost_price`, `avg_cost`) are shown only to `inventory`, `purchases` or `reports`; the others get
+`null`, at the till's scan too. A product's movement log needs `inventory`. Purchase orders, their
+costs, price history, supplier prices, suggestions and a supplier's ledger need `purchases` or
+`finance`. Until phase B any signed-in user read all of these with their costs. No permission was
+added, so no role needed a migration: a workspace role that read products with none of these
+permissions (none of the standard roles) can't any more.
+
 Every write on stock also needs access to the warehouse (`verify_warehouse_access`: assigned
 warehouses, or `supervise` / managers for all). Migration `v96_ready_stock_ops` gave workspaces' own
 roles holding `inventory` the new `purchases`, and those also holding `settings` `inventory:opening`;

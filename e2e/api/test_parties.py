@@ -70,10 +70,16 @@ def test_supplier_crud(admin_api, reg):
     assert upd["name"].endswith("-R")
 
     ledger = admin_api.ok(admin_api.get(f"/suppliers/{su['id']}/ledger"))
-    assert "transactions" in ledger or "items" in ledger or isinstance(ledger, list)
+    assert ledger["items"] == [] and ledger["total"] == 0
 
     admin_api.ok(admin_api.post(f"/suppliers/{su['id']}/transactions",
                                 json={"amount": 50, "type": "debit", "notes": "e2e"}), 200, 201)
+    admin_api.ok(admin_api.post(f"/suppliers/{su['id']}/transactions",
+                                json={"amount": 20, "type": "debit", "notes": "e2e"}), 200, 201)
+    # Paged, with what we owe after each line over the whole account.
+    page = admin_api.ok(admin_api.get(f"/suppliers/{su['id']}/ledger", params={"page_size": 1, "page": 2}))
+    assert page["total"] == 2 and page["pages"] == 2 and float(page["items"][0]["balance"]) == 70
+    assert admin_api.get(f"/suppliers/{uuid.uuid4()}/ledger").status_code == 404
     # a payment must say which safe or wallet paid it
     r = admin_api.post(f"/suppliers/{su['id']}/transactions", json={"amount": 10, "type": "credit"})
     assert r.status_code == 400, r.text[:200]
@@ -82,6 +88,18 @@ def test_supplier_crud(admin_api, reg):
     r = admin_api.delete(f"/suppliers/{su['id']}")
     assert r.status_code == 409, r.text[:200]
     admin_api.ok(admin_api.post(f"/suppliers/{su['id']}/deactivate"))
+
+
+def test_supplier_input_is_bounded(admin_api):
+    assert admin_api.post("/suppliers", json={"name": "E2E-x", "type": "anything"}).status_code == 422
+    assert admin_api.post("/suppliers", json={"name": "x" * 129}).status_code == 422
+    assert admin_api.get("/suppliers", params={"type": "anything"}).status_code == 422
+
+
+def test_cashier_reads_no_supplier_accounts(cashier_api, supplier):
+    assert cashier_api.get("/suppliers").status_code == 403
+    assert cashier_api.get(f"/suppliers/{supplier['id']}/ledger").status_code == 403
+    assert cashier_api.get("/purchases").status_code == 403
 
 
 def test_supplier_transaction_type_validation(admin_api, supplier):

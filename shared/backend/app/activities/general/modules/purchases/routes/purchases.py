@@ -25,21 +25,26 @@ from app.activities.general.modules.purchases import service as purchase_service
 router = APIRouter(prefix="/purchases", tags=["purchases"])
 
 
+# Orders, their costs, price history and supplier prices are read by purchasing and by finance (PUR-5).
+can_read = require_perm("purchases", "finance")
+
+
 @router.get("/suggestions")
-async def purchase_suggestions(db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases"))):
-    """Products where total stock across all warehouses <= reorder_point."""
+async def purchase_suggestions(db: AsyncSession = Depends(get_db), _=Depends(can_read)):
+    """Active tracked products whose stock across all warehouses is at or below their reorder point
+    (at most 500, lowest stock first)."""
     return await purchase_service.get_purchase_suggestions(db)
 
 
 @router.get("")
 async def list_purchases(page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200), db: AsyncSession = Depends(get_db),
-                         _=Depends(require_perm("purchases"))):
+                         _=Depends(can_read)):
     """Purchase orders, newest first, each with its total (received quantities once received)."""
     return await purchase_service.list_purchases(db, page, page_size)
 
 
 @router.get("/{po_id}")
-async def get_purchase(po_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases"))):
+async def get_purchase(po_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(can_read)):
     return await purchase_service.get_purchase(db, po_id)
 
 
@@ -65,9 +70,10 @@ async def update_purchase(po_id: uuid.UUID, data: PurchaseUpdate, db: AsyncSessi
 
 
 @router.post("/{po_id}/receive")
-async def receive_purchase(po_id: uuid.UUID, data: PurchaseReceive = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("purchases"))):
+async def receive_purchase(po_id: uuid.UUID, data: PurchaseReceive = None, db: AsyncSession = Depends(get_db),
+                           current_user: User = Depends(require_perm("purchases")), _=Depends(require_open_period)):
     """Receive a draft order: its stock comes in and the supplier is owed the total. Paying part of it
-    now (`amount_paid` > 0, from a safe or wallet) also needs `finance`."""
+    now (`amount_paid` > 0, from a safe or wallet) also needs `finance`. Refused in a closed month."""
     data = data or PurchaseReceive()
     warehouse_id, planned = await purchase_service.order_warehouse(db, po_id)
     await verify_warehouse_access(db, current_user, warehouse_id)
@@ -77,7 +83,7 @@ async def receive_purchase(po_id: uuid.UUID, data: PurchaseReceive = None, db: A
 
 
 @router.get("/{po_id}/returns")
-async def list_purchase_returns(po_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases"))):
+async def list_purchase_returns(po_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(can_read)):
     """The order's returns to the supplier, and what can still be returned per product."""
     return await purchase_service.list_purchase_returns(db, po_id)
 
@@ -95,7 +101,7 @@ async def create_purchase_return(po_id: uuid.UUID, data: PurchaseReturnCreate, d
 
 
 @router.get("/price-history/{product_id}")
-async def price_history(product_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases"))):
+async def price_history(product_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(can_read)):
     return await purchase_service.get_price_history(db, product_id)
 
 
@@ -126,7 +132,7 @@ async def quick_add_product(data: QuickProductCreate, db: AsyncSession = Depends
 
 # ── Supplier Prices ────────────────────────────────────────────────────────
 @router.get("/supplier-prices/product/{product_id}", response_model=SupplierPriceComparison)
-async def get_product_supplier_prices(product_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases"))):
+async def get_product_supplier_prices(product_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(can_read)):
     """Get all supplier prices for a product with comparison."""
     return await purchase_service.get_product_supplier_prices(db, product_id)
 

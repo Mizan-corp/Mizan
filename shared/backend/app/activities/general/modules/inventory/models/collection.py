@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,9 +18,10 @@ class ProductCollection(TenantScoped, Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    retail_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
-    wholesale_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # The database defaults too: the routes insert with raw SQL (v101 sets them on older tables).
+    retail_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, server_default=text("0"))
+    wholesale_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0, server_default=text("0"))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -32,5 +33,5 @@ class CollectionItem(TenantScoped, Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     collection_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("product_collections.id", ondelete="CASCADE"))
     product_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("products.id"))
-    qty: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=1)
+    qty: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=1, server_default=text("1"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
