@@ -95,7 +95,7 @@ and `manager` hold it. The clinical roles hold their own permissions only.
 Manager approvals (POS-4) used to rest on `users.is_manager` alone. Now the approver's acting role
 must hold `supervise`, or the user must be flagged a manager **and** hold `shifts` (so managers
 flagged before keep approving). Ten approval requests per user every 5 minutes; five wrong passwords
-for one manager, or by one user, lock approvals for 15 minutes. A drawer is handed over (`shifts`)
+by one user lock that user's approvals for 15 minutes (not their colleagues'). A drawer is handed over (`shifts`)
 only to an active user holding `shifts` who works in the shift's branch.
 
 Until v95 cancelling and returning needed only `sales`. The personal copies of the manager and cashier

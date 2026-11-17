@@ -42,8 +42,8 @@ and password (`verify_approver` in `service.py`):
   default), or who is flagged a manager (`users.is_manager`) and holds `shifts`. A manager may approve
   their own request (a one-person shop); the approval is in the audit log (`close_with_manager`,
   `revenue_delivery`).
-- **Guessing is stopped**: 10 approval requests per user every 5 minutes; 5 wrong passwords for one
-  manager of a workspace, or by one user, lock approvals for 15 minutes (429). Counted in Redis when
+- **Guessing is stopped**: 10 approval requests per user every 5 minutes; 5 wrong passwords by one
+  user lock that user's approvals for 15 minutes (429); colleagues are not locked out. Counted in Redis when
   `REDIS_URL` is set, otherwise per process.
 
 ## Closing and handing over (POS-5)

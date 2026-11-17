@@ -147,13 +147,14 @@ async def test_manager_passwords_are_locked_after_repeated_failures():
         for _ in range(5):
             r = await c.post(url, json={**body, "manager_password": "wrong"}, headers=env["h"]["cashier"])
             assert r.status_code == 403 and r.json()["detail"] == "كلمة مرور المدير غير صحيحة"
-        # Locked now, even with the right password, for this manager of the workspace…
+        # Locked now for the user who guessed, even with the right password…
         r = await c.post(url, json={**body, "manager_password": PASSWORD}, headers=env["h"]["cashier"])
         assert r.status_code == 429 and "إيقاف" in r.json()["detail"], r.text
+        # …but not for a colleague: one cashier can't lock everyone's approvals on purpose…
         r = await c.post(url.replace(str(env["shift"]), str(env["shift2"])), json={**body, "manager_password": PASSWORD},
                          headers=env["h"]["cashier2"])
-        assert r.status_code == 429
-        # …and for the user who tried, whichever manager they name next.
+        assert r.status_code == 200, r.text
+        # …and the guesser stays locked whichever manager they name next.
         other = await _user(env, "manager", manager=True)
         r = await c.post(url, json={**body, "manager_id": str(other["id"]), "manager_password": PASSWORD},
                          headers=env["h"]["cashier"])

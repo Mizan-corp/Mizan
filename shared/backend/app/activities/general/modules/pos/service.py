@@ -163,9 +163,10 @@ async def _deposit_to_safe(db: AsyncSession, shift: Shift, amount: Decimal, mana
 # ─── Manager approvals (POS-4) ─────────────────────────────────────────────────────────────────
 # A manager approves at the counter by typing their password (closing with a manager, revenue
 # delivery). Guessing it is slowed and then stopped: each user may ask for APPROVAL_ATTEMPTS a
-# window, and APPROVAL_FAILURES wrong passwords for one manager of a workspace, or by one user,
-# lock approvals for the rest of the window. Counted in Redis when REDIS_URL is set (every
-# worker), otherwise per process.
+# window, and APPROVAL_FAILURES wrong passwords by one user lock that user's approvals for the rest
+# of the window, whichever manager they name. The lock is the guesser's only: counting per manager
+# across the workspace would let one cashier lock every colleague's approvals on purpose. Counted in
+# Redis when REDIS_URL is set (every worker), otherwise per process.
 APPROVAL_ATTEMPTS = RateLimiter(max_requests=10, window_seconds=300)
 APPROVAL_FAILURES = RateLimiter(max_requests=5, window_seconds=900)
 APPROVAL_LOCKED = "تم إيقاف اعتماد المدير مؤقتاً بعد محاولات خاطئة متكررة — حاول مرة أخرى بعد 15 دقيقة"
@@ -205,7 +206,7 @@ async def verify_approver(db: AsyncSession, manager_id: uuid.UUID, password: str
 
     tid = actor.tenant_id
     await APPROVAL_ATTEMPTS.hit(f"pos-approve:user:{actor.id}")
-    keys = (f"pos-approve-fail:{tid}:{manager_id}", f"pos-approve-fail:user:{actor.id}")
+    keys = (f"pos-approve-fail:user:{actor.id}",)
     for key in keys:
         if await APPROVAL_FAILURES.count(key) >= APPROVAL_FAILURES.max_requests:
             raise HTTPException(429, APPROVAL_LOCKED, headers={"Retry-After": str(APPROVAL_FAILURES.window_seconds)})
