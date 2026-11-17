@@ -69,7 +69,13 @@ HTML-escaped (`printing.routes.h`).
 
 Typed: `days_in_month` (1–31), `grace_period_minutes`, `late_penalty_multiplier`,
 `missing_checkout_penalty_hours`, `apply_missing_checkout_penalty`, `overtime_enabled`,
-`weekend_paid`; anything else is a 422. A bad stored value falls back to the default.
+`weekend_paid`; anything else is a 422. A bad stored value falls back to the default. Each
+workspace has its own values (`(tenant_id, key)` is unique; migration `v102_b_platform` removed the
+baseline's primary key on `key` alone, which let only one workspace save a setting of a name).
+
+The default month, "today" (the last day counted in the current month, an advance's date) and the
+dates printed on reports come from the workspace's clock (`app/platform/tenancy/clock.py`), not the
+server's.
 
 ## Tests
 

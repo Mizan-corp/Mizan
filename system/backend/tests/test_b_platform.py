@@ -178,6 +178,17 @@ async def test_new_customers_get_the_default_credit_limit():
         assert float(r.json()["credit_limit"]) == 750
 
 
+async def test_two_workspaces_save_the_same_hr_setting():
+    """Fails on a database built from the baseline before v102: hr_settings' key was its primary key
+    across workspaces, so the second workspace's save was a 500."""
+    a, b = await _scenario(), await _scenario()
+    async with _client() as c:
+        for env in (a, b):
+            r = await c.put("/hr/settings", json={"settings": {"days_in_month": 26}},
+                            headers=_auth(env["users"]["manager"], env["tenant_id"]))
+            assert r.status_code == 200, r.text[:200]
+
+
 async def test_customer_search_has_an_index():
     async with AsyncSessionLocal() as s:
         found = (await s.execute(text(
