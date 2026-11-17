@@ -138,6 +138,22 @@ reports (D8) only read these tables.
 | `financial_categories` | `account_id` | The account a category posts to; none → other income / other expenses |
 | `accounting_periods` | `reopened_by`, `reopened_at`, `reopen_reason` | Months close in order (every earlier month since the first entry or first closed month); reopening needs a reason (also in the audit log) and later months reopened first. Posting into a closed month is refused by the posting service |
 
+### VAT on documents (ADR-014 D6, step 6; migration `v94_vat`)
+
+No new tables. The settings (`vat_registered`, `tax_number`, `prices_include_vat`) are rows of
+`store_settings`; the rates and the rule are in `app/platform/settings/vat.py`. Every amount is
+stored when the document is made and never recomputed; existing rows keep tax 0 and a `NULL` line
+code / net ("recorded before VAT data"), so history is not rewritten.
+
+| Table | Columns | Meaning |
+|---|---|---|
+| `products` | `tax_code` varchar(16) NOT NULL DEFAULT `'standard'`, CHECK in (`standard`, `zero`, `exempt`) | The product's VAT code; every existing product became `standard` |
+| `sale_items`, `purchase_order_items`, `purchase_return_items` | `tax_code` (NULL: no VAT on the document), `tax_rate` numeric(5,2) default 0, `tax_amount` default 0, `net_amount` (NULL before v94) | The line's code and rate at the time of the document, its VAT, and its value after every discount without VAT; `net_amount + tax_amount` is what the line costs. Return lines copy the original line's code and rate and take its value and VAT in proportion |
+| `sales` | `tax_amount` numeric(12,2) NOT NULL DEFAULT 0 | The sum of the lines' VAT; `net_total − tax_amount` is the value before VAT. Return documents carry their own |
+| `purchase_orders` | `tax_amount` NOT NULL DEFAULT 0, `prices_include_vat` boolean (NULL until received) | The order's VAT at receipt and whether its unit costs included VAT |
+| `purchase_returns` | `tax_amount` numeric(14,2) NOT NULL DEFAULT 0 | The VAT in `total` |
+| `expenses` | `tax_amount` numeric(14,2) NOT NULL DEFAULT 0 | Input VAT included in `amount` (registered workspaces only, less than `amount`) |
+
 ## 3. Platform Tables (not tenant-scoped)
 
 These belong to Mizan itself, not to a workspace, and have no RLS policy. Only the owner,
