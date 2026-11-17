@@ -4,7 +4,7 @@ permissions and bad input. Each test sells in its own new branch, so the figures
 (`/reports/ledger` is the finance module's cash ledger, not a report of this module.)"""
 from datetime import date
 
-from conftest import admin_api, cashier_api, owner_api, product, wh  # noqa: F401
+from conftest import admin_api, cashier_api, ensure_shift, owner_api, product, wh  # noqa: F401
 
 
 def _today() -> str:
@@ -22,6 +22,7 @@ def _sell(api, reg, product, wh, qty: int, discount: str = "0") -> dict:
 
 def _scenario(api, reg, product, wh) -> None:
     """In the branch: 2 × 100 with 20 off the invoice (180), and 1 × 100 returned (net 0)."""
+    ensure_shift(api, reg, wh["id"])  # cash goes into the seller's open shift in the branch
     _sell(api, reg, product, wh, 2, "20")
     s = _sell(api, reg, product, wh, 1)
     api.ok(api.post(f"/sales/{s['id']}/partial-return", json={"items": [{"product_id": product["id"], "qty": 1}]}))

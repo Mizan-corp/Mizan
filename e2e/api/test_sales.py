@@ -264,18 +264,17 @@ def test_vat_registered_sale_stores_and_prints_its_vat(admin_api, reg, product, 
         admin_api.ok(admin_api.put("/settings", json={"vat_registered": True, "prices_include_vat": True,
                                                       "tax_number": "100-200-300"}))
         assert admin_api.ok(admin_api.get("/settings/vat"))["tax_number"] == "100200300"
-        s = admin_api.ok(admin_api.post("/sales", json=_sale_payload(product, wh, items=[_item(product, price="114")])))
-        reg.add("sale", s["id"])
-        assert float(s["net_total"]) == 114 and float(s["tax_amount"]) == 14
-        assert s["items"][0]["tax_code"] == "standard" and float(s["items"][0]["net_amount"]) == 100
+        # At the product's listed price (100, VAT included): 87.72 + 12.28.
+        s = _sell(admin_api, reg, product, wh)
+        assert float(s["net_total"]) == 100 and float(s["tax_amount"]) == 12.28
+        assert s["items"][0]["tax_code"] == "standard" and float(s["items"][0]["net_amount"]) == 87.72
         page = _printed(admin_api, s["id"])
         assert "فاتورة ضريبية" in page and "100-200-300" in page
     finally:
         admin_api.ok(admin_api.put("/settings", json={"vat_registered": before["vat_registered"],
                                                       "prices_include_vat": before["prices_include_vat"],
                                                       "tax_number": before["tax_number"]}))
-    s = admin_api.ok(admin_api.post("/sales", json=_sale_payload(product, wh)))
-    reg.add("sale", s["id"])
+    s = _sell(admin_api, reg, product, wh)
     if not before["vat_registered"]:
         assert float(s["tax_amount"]) == 0 and s["items"][0]["tax_code"] is None
         assert "ضريبة" not in _printed(admin_api, s["id"])

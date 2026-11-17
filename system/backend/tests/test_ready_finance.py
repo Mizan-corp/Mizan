@@ -213,7 +213,7 @@ async def test_ledger_totals_cover_the_whole_range_and_payments_are_not_multipli
     env = await _ws()
     h = env["h"]
     two_lines = [SaleItemCreate(product_id=env["product_id"], qty=D("1"), unit_price=D("100")),
-                 SaleItemCreate(product_id=env["product_id"], qty=D("2"), unit_price=D("50"))]
+                 SaleItemCreate(product_id=env["product_id"], qty=D("1"), unit_price=D("100"))]  # at the listed price
     # 200 of lines less 20 discount = 180: 100 cash + 80 wallet (two lines × two payments)
     await _sale(env, items=two_lines, discount_amount=D("20"),
                 payments=[SplitPaymentItem(method="cash", amount=D("100")),

@@ -130,6 +130,10 @@ async def _env(stock: Decimal = Decimal("50")) -> dict:
         await apply_movement(s, product_id=ids["product"], warehouse_id=ids["wh"],
                              movement_type=MovementType.opening_stock, qty=stock, unit_cost=Decimal("60"),
                              created_by=ids["manager"])
+        # The second branch sells too: a tracked product is checked in every branch (inventory INV-1).
+        await apply_movement(s, product_id=ids["product"], warehouse_id=ids["wh2"],
+                             movement_type=MovementType.opening_stock, qty=Decimal("50"), unit_cost=Decimal("60"),
+                             created_by=ids["manager"])
         await s.commit()
     current_tenant_id.set(None)
     env = {"tid": tid, **ids}
