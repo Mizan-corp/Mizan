@@ -110,6 +110,9 @@ async def create_workspace(payload: dict, *, admin_username: str, admin_password
             created = True
             if demo:
                 await seed_workspace(db, tenant.id, admin.id, tenant.sector, tenant.scale, tenant.active_modules)
+        from app.activities.general.modules.finance.services.safes import ensure_default_safe
+
+        await ensure_default_safe(db, tenant.id)  # expenses and receipts need a safe from the first day
         await set_active_modules(db, tenant.active_modules, preset_id=SECTOR_TO_PRESET.get(tenant.sector))
         existing = set((await db.scalars(select(StoreSetting.key).where(StoreSetting.tenant_id == tenant.id))).all())
         for key, value in (("store_name", tenant.name), ("currency", "EGP")):

@@ -151,5 +151,8 @@ async def create_workspace(
 
     if demo_data:
         await seed_workspace(db, tenant.id, admin.id, sector, scale, modules)
+    from app.activities.general.modules.finance.services.safes import ensure_default_safe
+
+    await ensure_default_safe(db, tenant.id)  # expenses and receipts need a safe from the first day
     await set_active_modules(db, modules, preset_id=SECTOR_TO_PRESET.get(sector))
     return tenant, admin
