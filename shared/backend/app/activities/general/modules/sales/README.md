@@ -9,7 +9,9 @@
 sales
 
 ## Dependencies
-core, inventory
+core, inventory, contacts (customers and their payments), finance (wallets, safes), pos (shifts and
+the cash drawer). Installing sales from the module centre adds them, and what they need in turn
+(`with_dependencies` in `app/framework/activation.py`).
 
 ## VAT (ADR-014 D6, step 6)
 A sale's VAT is worked out once, when the document is made (POS sale, draft or quotation) and again
@@ -62,3 +64,13 @@ create / update / confirm / delete, cancel, full and partial return, allowed sto
 ## Balances
 A customer's balance is never clamped at zero: below zero the workspace owes the customer, as the
 ledger's receivables say.
+
+## Invoices (PDF and email)
+`GET /invoices/{id}/pdf` needs `sales` or `pos` and the sale's branch (404 for another workspace's
+sale). `POST /invoices/{id}/send` (`sales`, the sale's branch) is rate limited: 10 per user every 10
+minutes and 100 per workspace an hour (429, `app/core/ratelimit.py`; in Redis when `REDIS_URL` is
+set, per process otherwise). The address is required (≤ 254 characters, subject ≤ 200).
+
+## Errors
+Every answer is in Arabic (cancel: «تم إلغاء الفاتورة», return: «تم إرجاع الفاتورة»); the offline
+key lives in `sales.local_id`, never in the notes.
