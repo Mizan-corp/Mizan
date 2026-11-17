@@ -89,6 +89,14 @@ and `manager` hold it. The clinical roles hold their own permissions only.
 | `sales:cancel` | manager, admin | Cancel a confirmed sale |
 | `sales:override_price` | manager, admin | Sell at another price than the product's, only while the POS setting `allow_price_override` is on; discounts when the sales setting `allow_manual_discount` is off |
 | `sales:negative_stock` | manager, admin | Sell more than the branch's stock while the inventory setting `prevent_negative_stock` is on |
+| `shifts` / `pos` | cashier, manager, admin (pharmacist: `pos`) | Read a drawer (current shift, summary, rows, last amount): one's own, or any in reach for managers and `supervise` holders |
+| `supervise` (or the manager flag with `shifts`) | manager, admin | Approve at the counter with one's password: closing a shift with a manager, revenue delivery to a safe |
+
+Manager approvals (POS-4) used to rest on `users.is_manager` alone. Now the approver's acting role
+must hold `supervise`, or the user must be flagged a manager **and** hold `shifts` (so managers
+flagged before keep approving). Ten approval requests per user every 5 minutes; five wrong passwords
+by one user lock that user's approvals for 15 minutes (not their colleagues'). A drawer is handed over (`shifts`)
+only to an active user holding `shifts` who works in the shift's branch.
 
 Until v95 cancelling and returning needed only `sales`. The personal copies of the manager and cashier
 roles (`manager-1a2b3c4d`, `cashier-…`) that held `sales` were given `sales:cancel` + `sales:return`
@@ -102,13 +110,15 @@ and `sales:return` respectively, so they keep what they did; workspaces' own rol
 | Adjustments and damage by hand, transfers, movements, valuation | `inventory` | ✓ | ✓ | ✓ | ✓ |
 | Opening stock by hand | `inventory:opening` | | | ✓ | ✓ |
 | Dispatch and stock requests | `operations` | ✓ | | ✓ | ✓ |
+| Cancel a dispatch (the stock goes back to the source) | `operations:cancel` | | | ✓ | ✓ |
 | Purchase orders, receipts, purchase returns, suppliers and their prices | `purchases` | ✓ | ✓ | ✓ | ✓ |
 | Paying a supplier or charging their account, paying on receipt, a refund on a return | `finance` (with `purchases` for the order) | | ✓ | ✓ | ✓ |
 
 Every write on stock also needs access to the warehouse (`verify_warehouse_access`: assigned
 warehouses, or `supervise` / managers for all). Migration `v96_ready_stock_ops` gave workspaces' own
 roles holding `inventory` the new `purchases`, and those also holding `settings` `inventory:opening`;
-none got `finance` from it.
+none got `finance` from it. `operations:cancel` is new (a dispatch couldn't be undone before), so
+workspaces' own roles get it only when their admin grants it.
 
 ## 3. Permissions from the extension platform
 

@@ -26,6 +26,7 @@ ROLE_DEFAULT_PERMISSIONS = {
         "customers", "reports", "reports:finance", "archive", "shifts", "finance", "settings", "payroll",
         "payroll:approve", "payroll:pay", "accounting:view",
         "sales:cancel", "sales:return", "sales:override_price", "sales:negative_stock",
+        "operations:cancel",
         "clinic", "clinic:view", "clinic:manage", "clinic:billing", "clinic:all_patients", "clinic:privacy",
     ],
     "cashier": [

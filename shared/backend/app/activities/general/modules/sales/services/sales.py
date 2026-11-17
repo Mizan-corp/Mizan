@@ -876,7 +876,7 @@ async def return_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID, 
     _hooks = await _sale_event(db, "sale.returned", sale, [], returned=ret)
     await db.commit()
     _send(_hooks)
-    return {"detail": "Returned", "invoice_number": sale.invoice_number, "amount": ret.net_total,
+    return {"detail": "تم إرجاع الفاتورة", "invoice_number": sale.invoice_number, "amount": ret.net_total,
             "doc_number": ret.invoice_number, "sale_id": str(ret.id)}
 
 

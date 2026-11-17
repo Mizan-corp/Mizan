@@ -5,13 +5,15 @@ import { ClipboardList, PackagePlus, Send } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
 import { D, dateTime } from "@/lib/format";
-import { Button, Card, Empty, ErrorBox, Input, Select, Spinner } from "@/components/ui";
+import { Badge, Button, Card, ConfirmDialog, Empty, ErrorBox, Input, Select, Spinner } from "@/components/ui";
+import { newLocalId } from "@app/lib/offline";
 import { useAuth } from "@/stores/auth";
 import { useTenantNav } from "@app/lib/tenant";
 
 interface Warehouse { id: string; name: string }
 interface Product { id: string; name: string; code: string | null; cost_price: string }
-interface OpRow { id?: string; doc_number?: string; doc_type?: string; created_at?: string; [k: string]: unknown }
+interface OpRow { id: string; doc_number: string; doc_type: string; status?: string | null; created_at: string; metadata?: Record<string, unknown> | null }
+interface OpPage { items: OpRow[]; total: number; page: number; pages: number }
 interface Line { product: Product; qty: string; unit_cost: string }
 
 function ProductSearch({ onPick }: { onPick: (p: Product) => void }) {
@@ -109,6 +111,8 @@ function DispatchForm() {
   const [to, setTo] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
+  // One id per document being written: a retry (double click, lost answer) returns the same document.
+  const [clientId, setClientId] = useState(newLocalId);
 
   const effectiveFrom = from || warehouses[0]?.id || "";
   const effectiveTo = to || (warehouses[1]?.id ?? warehouses[0]?.id ?? "");
@@ -121,8 +125,9 @@ function DispatchForm() {
         to_warehouse_id: effectiveTo,
         notes: notes || undefined,
         items: lines.map((l) => ({ product_id: l.product.id, qty: D(l.qty).toNumber(), note: null })),
+        client_id: clientId,
       }),
-    onSuccess: () => { setLines([]); setNotes(""); qc.invalidateQueries({ queryKey: ["operations"] }); },
+    onSuccess: () => { setLines([]); setNotes(""); setClientId(newLocalId()); qc.invalidateQueries({ queryKey: ["operations"] }); },
   });
 
   return (
@@ -195,6 +200,8 @@ function RequestForm() {
   const [to, setTo] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
+  // One id per document being written: a retry (double click, lost answer) returns the same document.
+  const [clientId, setClientId] = useState(newLocalId);
 
   const effectiveFrom = from || warehouses[0]?.id || "";
   const effectiveTo = to || (warehouses[1]?.id ?? warehouses[0]?.id ?? "");
@@ -207,8 +214,9 @@ function RequestForm() {
         to_warehouse_id: effectiveTo,
         notes: notes || undefined,
         items: lines.map((l) => ({ product_id: l.product.id, qty: D(l.qty).toNumber() })),
+        client_id: clientId,
       }),
-    onSuccess: () => { setLines([]); setNotes(""); qc.invalidateQueries({ queryKey: ["operations"] }); },
+    onSuccess: () => { setLines([]); setNotes(""); setClientId(newLocalId()); qc.invalidateQueries({ queryKey: ["operations"] }); },
   });
 
   return (
@@ -252,9 +260,31 @@ function RequestForm() {
   );
 }
 
+const STATUS_LABELS: Record<string, { label: string; tone: "muted" | "success" | "warning" | "danger" }> = {
+  done: { label: "تم", tone: "success" },
+  pending: { label: "قيد الانتظار", tone: "warning" },
+  cancelled: { label: "ملغى", tone: "danger" },
+};
+
+const PAGE_SIZE = 50;
+
 function History() {
-  const q = useQuery({ queryKey: ["operations"], queryFn: () => api.get<OpRow[]>("/operations/") });
-  const items: OpRow[] = Array.isArray(q.data) ? q.data : ((q.data as any)?.items ?? []);
+  const qc = useQueryClient();
+  const { can } = useAuth();
+  const [page, setPage] = useState(1);
+  const [cancelling, setCancelling] = useState<OpRow | null>(null);
+  const q = useQuery({
+    queryKey: ["operations", page],
+    queryFn: () => api.get<OpPage>("/operations/", { page, page_size: PAGE_SIZE }),
+  });
+  const cancel = useMutation({
+    mutationFn: (row: OpRow) => api.post(`/operations/${row.id}/cancel`, {}),
+    onSuccess: () => { setCancelling(null); qc.invalidateQueries({ queryKey: ["operations"] }); },
+    onError: () => setCancelling(null),
+  });
+  const items = q.data?.items ?? [];
+  const pages = q.data?.pages ?? 1;
+  const canCancel = can("operations:cancel");
 
   return q.isLoading ? (
     <div className="flex flex-col gap-2" aria-busy="true" aria-label="جارٍ التحميل">
@@ -266,29 +296,65 @@ function History() {
   ) : !items.length ? (
     <Empty text="لا توجد عمليات" />
   ) : (
-    <div className="overflow-x-auto rounded-xl border border-line bg-card">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-line text-xs text-muted bg-secondary/20">
-            <th className="p-3 text-start">المستند</th>
-            <th className="p-3 text-start">النوع</th>
-            <th className="p-3 text-start">التاريخ</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.slice(0, 60).map((r, i) => (
-            <tr key={(r.id as string) ?? i} className="border-b border-line/60 last:border-0 hover:bg-secondary/10 transition-colors">
-              <td className="num p-3 font-bold text-foreground" dir="ltr">{r.doc_number ?? "—"}</td>
-              <td className="p-3">
-                <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-foreground">
-                  {DOC_TYPE_LABELS[String(r.doc_type)] ?? String(r.doc_type ?? "—")}
-                </span>
-              </td>
-              <td className="p-3 text-xs text-muted">{r.created_at ? dateTime(String(r.created_at)) : "—"}</td>
+    <div className="flex flex-col gap-3">
+      {cancel.isError && <ErrorBox message={(cancel.error as Error).message} />}
+      <div className="overflow-x-auto rounded-xl border border-line bg-card">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-line text-xs text-muted bg-secondary/20">
+              <th className="p-3 text-start">المستند</th>
+              <th className="p-3 text-start">النوع</th>
+              <th className="p-3 text-start">الحالة</th>
+              <th className="p-3 text-start">التاريخ</th>
+              {canCancel && <th className="p-3 text-start"><span className="sr-only">إجراءات</span></th>}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {items.map((r) => {
+              const status = r.status ? STATUS_LABELS[r.status] : undefined;
+              return (
+                <tr key={r.id} className="border-b border-line/60 last:border-0 hover:bg-secondary/10 transition-colors">
+                  <td className="num p-3 font-bold text-foreground" dir="ltr">{r.doc_number ?? "—"}</td>
+                  <td className="p-3">
+                    <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-foreground">
+                      {DOC_TYPE_LABELS[String(r.doc_type)] ?? String(r.doc_type ?? "—")}
+                    </span>
+                  </td>
+                  <td className="p-3">{status ? <Badge tone={status.tone}>{status.label}</Badge> : "—"}</td>
+                  <td className="p-3 text-xs text-muted">{r.created_at ? dateTime(String(r.created_at)) : "—"}</td>
+                  {canCancel && (
+                    <td className="p-3 text-end">
+                      {r.doc_type === "dispatch_order" && r.status !== "cancelled" && (
+                        <Button variant="ghost" className="h-8 text-danger" disabled={cancel.isPending} onClick={() => setCancelling(r)}>
+                          إلغاء الإذن
+                        </Button>
+                      )}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex items-center justify-between text-xs text-muted">
+        <span>إجمالي المستندات: <span className="num">{q.data?.total ?? 0}</span></span>
+        {pages > 1 && (
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" className="h-8" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>السابق</Button>
+            <span className="num">{page} / {pages}</span>
+            <Button variant="ghost" className="h-8" disabled={page >= pages} onClick={() => setPage((p) => p + 1)}>التالي</Button>
+          </div>
+        )}
+      </div>
+      <ConfirmDialog
+        open={!!cancelling}
+        onClose={() => setCancelling(null)}
+        onConfirm={() => cancelling && cancel.mutate(cancelling)}
+        title="إلغاء إذن الصرف"
+        message={`ستعود كميات الإذن ${cancelling?.doc_number ?? ""} من مخزن الوجهة إلى مخزن المصدر. لا يمكن التراجع عن الإلغاء.`}
+        confirmLabel="إلغاء الإذن"
+      />
     </div>
   );
 }

@@ -165,7 +165,7 @@ def require_perm(*perms: str):
 
         if can(current_user, *perms):
             return current_user
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="ليس لديك صلاحية لهذه العملية")
     return checker
 
 

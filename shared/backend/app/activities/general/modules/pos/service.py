@@ -5,9 +5,11 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
 from sqlalchemy import text as sqlt
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BusinessError, ForbiddenError, NotFoundError
+from app.core.ratelimit import RateLimiter
 from app.framework.events import notify
 from app.activities.general.modules.pos.models import DrawerTransaction, DrawerTxType, Shift, ShiftStatus
 
@@ -36,11 +38,13 @@ async def _record_payroll_variance(db: AsyncSession, shift_id, difference, curre
     """Record shift variance as payroll advance/deduction."""
     if difference == 0:
         return
-    note = f"فرق عجز/زيادة الدرج — وردية {shift_id}"
     record_type = "خصم" if difference < 0 else "مكافأة"
     shift = await db.get(Shift, shift_id)
     if not shift or not shift.cashier_id:
         return
+    branch = (await db.execute(sqlt("SELECT name FROM warehouses WHERE id = :id"), {"id": shift.warehouse_id})).scalar()
+    opened = shift.started_at.strftime("%Y-%m-%d") if shift.started_at else ""
+    note = f"فرق عجز/زيادة الدرج — وردية {branch or 'الفرع'} {opened}".strip()
     emp_id = await _find_employee_by_user_id(db, shift.cashier_id)
     if emp_id:
         await db.execute(sqlt("""
@@ -108,6 +112,7 @@ async def close_shift(db: AsyncSession, shift_id: uuid.UUID, closing_balance: De
     if shift.cashier_id and shift.cashier_id != closed_by:
         raise ForbiddenError("الدرج مسجل باسم موظف آخر — لا يمكنك إغلاقه")
 
+    keep = _next_day_drawer(closing_balance, next_day_drawer)
     summary = await compute_summary(db, shift_id)
     expected = summary["expected_balance"]
     difference = closing_balance - expected
@@ -116,7 +121,7 @@ async def close_shift(db: AsyncSession, shift_id: uuid.UUID, closing_balance: De
     shift.closing_balance = closing_balance
     shift.expected_balance = expected
     shift.difference = difference
-    shift.next_day_drawer = next_day_drawer if next_day_drawer is not None else closing_balance
+    shift.next_day_drawer = keep
     shift.notes = notes
     shift.closed_by = closed_by
     shift.closed_at = datetime.now(UTC)
@@ -155,16 +160,92 @@ async def _deposit_to_safe(db: AsyncSession, shift: Shift, amount: Decimal, mana
                  shift_id=shift.id, note=note, user_id=user_id)
 
 
-async def close_shift_with_manager(db: AsyncSession, shift_id: uuid.UUID, data, current_user_id: uuid.UUID) -> dict:
-    """Close shift with manager override. Verifies manager credentials first."""
-    from app.platform.auth.security import verify_password
+# ─── Manager approvals (POS-4) ─────────────────────────────────────────────────────────────────
+# A manager approves at the counter by typing their password (closing with a manager, revenue
+# delivery). Guessing it is slowed and then stopped: each user may ask for APPROVAL_ATTEMPTS a
+# window, and APPROVAL_FAILURES wrong passwords by one user lock that user's approvals for the rest
+# of the window, whichever manager they name. The lock is the guesser's only: counting per manager
+# across the workspace would let one cashier lock every colleague's approvals on purpose. Counted in
+# Redis when REDIS_URL is set (every worker), otherwise per process.
+APPROVAL_ATTEMPTS = RateLimiter(max_requests=10, window_seconds=300)
+APPROVAL_FAILURES = RateLimiter(max_requests=5, window_seconds=900)
+APPROVAL_LOCKED = "تم إيقاف اعتماد المدير مؤقتاً بعد محاولات خاطئة متكررة — حاول مرة أخرى بعد 15 دقيقة"
+NOT_AN_APPROVER = "المدير غير موجود أو لا يملك صلاحية اعتماد الورديات"
+
+
+def can_approve(user) -> bool:
+    """Who approves at the counter: a role that supervises shifts (`supervise`: managers by
+    default), or a user flagged as a manager whose role holds `shifts`."""
+    from app.platform.permissions.access import can
+
+    return can(user, "supervise") or (bool(user.is_manager) and can(user, "shifts"))
+
+
+async def _actor(db: AsyncSession, actor) -> "User":
     from app.platform.auth.models.user import User
 
-    mgr = await db.get(User, data.manager_id)
-    if not mgr or not mgr.is_manager:
-        raise BusinessError("المدير غير موجود أو ليس لديه صلاحية المدير")
-    if not verify_password(data.manager_password, mgr.password_hash):
+    from app.platform.permissions.access import load_acting
+
+    if isinstance(actor, User):
+        if not hasattr(actor, "effective_permissions"):  # not loaded by a route (a direct call)
+            await load_acting(db, actor)
+        return actor
+    user = await db.get(User, actor)
+    if user is None:
+        raise NotFoundError("المستخدم غير موجود")
+    await load_acting(db, user)
+    return user
+
+
+async def verify_approver(db: AsyncSession, manager_id: uuid.UUID, password: str, actor) -> "User":
+    """The manager approving `actor`'s request with their password: an active user of this
+    workspace who can approve (can_approve). Rate limited and locked after repeated failures."""
+    from app.platform.auth.models.user import User
+    from app.platform.auth.security import verify_password
+    from app.platform.permissions.access import load_acting
+
+    tid = actor.tenant_id
+    await APPROVAL_ATTEMPTS.hit(f"pos-approve:user:{actor.id}")
+    keys = (f"pos-approve-fail:user:{actor.id}",)
+    for key in keys:
+        if await APPROVAL_FAILURES.count(key) >= APPROVAL_FAILURES.max_requests:
+            raise HTTPException(429, APPROVAL_LOCKED, headers={"Retry-After": str(APPROVAL_FAILURES.window_seconds)})
+    if manager_id == actor.id:
+        mgr = actor
+    else:
+        mgr = (await db.execute(select(User).where(User.id == manager_id))).scalar_one_or_none()
+        if mgr is not None:
+            await load_acting(db, mgr)
+    if mgr is None or not mgr.is_active or mgr.tenant_id != tid or not can_approve(mgr):
+        raise BusinessError(NOT_AN_APPROVER)
+    if not verify_password(password or "", mgr.password_hash):
+        for key in keys:
+            await APPROVAL_FAILURES.add(key)
         raise ForbiddenError("كلمة مرور المدير غير صحيحة")
+    for key in keys:
+        await APPROVAL_FAILURES.reset(key)
+    return mgr
+
+
+def _next_day_drawer(closing: Decimal, next_day_drawer: Decimal | None) -> Decimal:
+    """What stays in the drawer for the next shift: all of it unless said, never below zero nor
+    more than was counted (POS-5: a larger amount made the deposit to the safe negative)."""
+    if next_day_drawer is None:
+        return closing
+    if next_day_drawer < 0:
+        raise BusinessError("المبلغ المتروك في الدرج لا يمكن أن يكون سالباً")
+    if next_day_drawer > closing:
+        raise BusinessError("المبلغ المتروك في الدرج أكبر من الرصيد الفعلي عند الإغلاق")
+    return next_day_drawer
+
+
+async def close_shift_with_manager(db: AsyncSession, shift_id: uuid.UUID, data, actor) -> dict:
+    """Close a shift with a manager present: the manager approves with their password
+    (verify_approver) and receives the cash taken out of the drawer."""
+    actor = await _actor(db, actor)
+    current_user_id = actor.id
+    keep = _next_day_drawer(data.closing_balance, data.next_day_drawer)
+    mgr = await verify_approver(db, data.manager_id, data.manager_password, actor)
 
     result = await db.execute(select(Shift).where(Shift.id == shift_id).with_for_update())
     shift = result.scalar_one_or_none()
@@ -178,23 +259,29 @@ async def close_shift_with_manager(db: AsyncSession, shift_id: uuid.UUID, data, 
     closing = data.closing_balance
     difference = closing - expected
 
-    deposit_amount = closing - (data.next_day_drawer if data.next_day_drawer is not None else closing)
+    deposit_amount = closing - keep
 
     shift.status = ShiftStatus.closed
     shift.closing_balance = closing
     shift.expected_balance = expected
     shift.difference = difference
-    shift.next_day_drawer = data.next_day_drawer if data.next_day_drawer is not None else closing
+    shift.next_day_drawer = keep
     shift.notes = data.notes
     shift.closed_by = current_user_id
-    shift.deposit_received_by = data.manager_id
+    shift.deposit_received_by = mgr.id
     shift.deposit_amount = deposit_amount
     shift.closed_at = datetime.now(UTC)
 
     # Apply variance to payroll as deduction/bonus
     await _record_payroll_variance(db, shift_id, difference, current_user_id, current_user_id)
-    await _deposit_to_safe(db, shift, deposit_amount, data.manager_id, current_user_id)
+    await _deposit_to_safe(db, shift, deposit_amount, mgr.id, current_user_id)
 
+    from app.platform.audit.service import log as audit_log
+
+    await audit_log(db, "shift", "close_with_manager", current_user_id, actor.full_name, shift.id,
+                    {"closing_balance": str(closing), "expected_balance": str(expected), "next_day_drawer": str(keep),
+                     "deposit_amount": str(deposit_amount), "approved_by": mgr.full_name},
+                    f"إغلاق وردية باعتماد {mgr.full_name}")
     await notify("shift.closed", db, shift=shift, user_id=current_user_id)
     await db.commit()
     await db.refresh(shift)
@@ -214,7 +301,7 @@ async def compute_summary(db: AsyncSession, shift_id: uuid.UUID) -> dict:
     """
     shift = await db.get(Shift, shift_id)
     if not shift:
-        raise NotFoundError("Shift not found")
+        raise NotFoundError("الوردية غير موجودة")
 
     live = (DrawerTransaction.shift_id == shift_id, DrawerTransaction.cancelled_at.is_(None))
     tx_count = await db.execute(select(func.count()).where(*live))
@@ -321,25 +408,70 @@ async def compute_summary(db: AsyncSession, shift_id: uuid.UUID) -> dict:
     }
 
 
+async def _receiver(db: AsyncSession, to_user_id: uuid.UUID, shift: Shift):
+    """Who takes over a drawer (POS-5): an active user of this workspace, not the shift's own
+    cashier, whose role holds `shifts`, and who works in the shift's branch (assigned to it, or a
+    manager / `supervise` holder)."""
+    from app.platform.auth.models.user import User, user_warehouses
+    from app.platform.permissions.access import can, load_acting
+
+    if to_user_id == shift.cashier_id:
+        raise BusinessError("لا يمكن تسليم العهدة إلى صاحب الوردية نفسه")
+    user = (await db.execute(select(User).where(User.id == to_user_id))).scalar_one_or_none()
+    if user is None or not user.is_active or user.tenant_id != shift.tenant_id:
+        raise NotFoundError("المستلم غير موجود أو موقوف")
+    await load_acting(db, user)
+    if not can(user, "shifts"):
+        raise BusinessError(f"{user.full_name} لا يملك صلاحية الورديات والدرج")
+    if not (user.is_manager or can(user, "supervise")):
+        assigned = (await db.execute(select(user_warehouses.c.warehouse_id).where(
+            user_warehouses.c.user_id == user.id, user_warehouses.c.warehouse_id == shift.warehouse_id))).first()
+        if assigned is None:
+            raise BusinessError(f"{user.full_name} غير مسند إلى فرع هذه الوردية")
+    return user
+
+
 async def transfer_drawer(db: AsyncSession, shift_id: uuid.UUID, to_user_id: uuid.UUID, amount: Decimal, from_user_id: uuid.UUID | None, notes: str | None = None, closed_by: uuid.UUID | None = None) -> Shift:
-    """Hand over drawer to another user: close current shift + open new one."""
+    """Hand over a drawer to another user: close the current shift and open theirs with the
+    amount handed over. `from_user_id` None: a manager or supervisor hands over someone's drawer.
+    The receiver is checked (_receiver); the shift, the new shift and the handover document name
+    people by name, and the document is made by whoever did it (closed_by)."""
+    from app.platform.archive.models import ArchivedDocument, DocType
+    from app.platform.auth.models.user import User
+
     result = await db.execute(select(Shift).where(Shift.id == shift_id).with_for_update())
     shift = result.scalar_one_or_none()
     if not shift:
-        raise NotFoundError("Shift not found")
+        raise NotFoundError("الوردية غير موجودة")
     if shift.status != ShiftStatus.open:
         raise BusinessError("الوردية غير مفتوحة")
     # None = admin/privileged bypass; otherwise enforce ownership
     if from_user_id is not None and shift.cashier_id and shift.cashier_id != from_user_id:
         raise ForbiddenError("الدرج مسجل باسم موظف آخر")
+    if amount is None or amount < 0:
+        raise BusinessError("المبلغ المسلَّم لا يمكن أن يكون سالباً")
+    receiver = await _receiver(db, to_user_id, shift)
+    # Prevent duplicate open shifts for the receiver
+    existing = await db.execute(
+        select(Shift.id).where(
+            Shift.warehouse_id == shift.warehouse_id,
+            Shift.cashier_id == to_user_id,
+            Shift.status == ShiftStatus.open
+        ).with_for_update()
+    )
+    if existing.scalar_one_or_none():
+        raise BusinessError("المستلم لديه وردية مفتوحة بالفعل في هذا الفرع — يرجى إغلاقها أولاً")
 
     actor = closed_by or from_user_id or shift.cashier_id
+    giver = (await db.execute(select(User.full_name).where(User.id == shift.cashier_id))).scalar() or ""
+    actor_name = (await db.execute(select(User.full_name).where(User.id == actor))).scalar() or ""
+    extra = f" — {notes}" if notes else ""
     shift.status = ShiftStatus.closed
     shift.closing_balance = amount
     shift.next_day_drawer = amount
     shift.closed_by = actor
     shift.closed_at = datetime.now(UTC)
-    shift.notes = f"تسليم عهدة إلى {to_user_id}. {notes or ''}"
+    shift.notes = f"تسليم عهدة إلى {receiver.full_name}{extra}"
     # Compute and store expected_balance for audit trail
     summary = await compute_summary(db, shift_id)
     expected = summary["expected_balance"]
@@ -351,47 +483,37 @@ async def transfer_drawer(db: AsyncSession, shift_id: uuid.UUID, to_user_id: uui
     await _record_payroll_variance(db, shift_id, difference, actor, actor)
     await notify("shift.closed", db, shift=shift, user_id=actor)
 
-    # Prevent duplicate open shifts for the receiver
-    existing = await db.execute(
-        select(Shift).where(
-            Shift.warehouse_id == shift.warehouse_id,
-            Shift.cashier_id == to_user_id,
-            Shift.status == ShiftStatus.open
-        ).with_for_update()
-    )
-    if existing.scalar_one_or_none():
-        raise BusinessError("المستلم لديه وردية مفتوحة بالفعل في هذا الفرع — يرجى إغلاقها أولاً")
-
     new_shift = Shift(
         cashier_id=to_user_id,
         initial_amount=amount,
         warehouse_id=shift.warehouse_id,
         supervisor_id=shift.supervisor_id,
-        notes=f"استلام عهدة من {from_user_id}",
+        notes=f"استلام عهدة من {giver}" if giver else "استلام عهدة",
     )
     db.add(new_shift)
 
-    # Archive handover document
-    from app.platform.archive.models import ArchivedDocument, DocType
-    from app.platform.auth.models.user import User
-    from_user = (await db.execute(select(User.full_name).where(User.id == from_user_id))).scalar()
-    to_user = (await db.execute(select(User.full_name).where(User.id == to_user_id))).scalar()
     doc_number = f"HND-{datetime.now(UTC).strftime('%m%d%H%M%S')}-{uuid.uuid4().hex[:4]}"
     db.add(ArchivedDocument(
         doc_number=doc_number,
         doc_type=DocType.shift_handover,
         amount=amount,
         ref_id=shift.id,
-        created_by=from_user_id,
+        created_by=actor,
         metadata_={
-            "from_user": str(from_user_id) if from_user_id else "",
-            "to_user": str(to_user_id) if to_user_id else "",
-            "from_user_name": from_user or str(from_user_id),
-            "to_user_name": to_user or str(to_user_id),
+            "from_user": str(shift.cashier_id) if shift.cashier_id else "",
+            "to_user": str(to_user_id),
+            "from_user_name": giver,
+            "to_user_name": receiver.full_name,
+            "handed_over_by": actor_name,
             "amount": float(amount),
             "notes": notes or "",
         }
     ))
+    from app.platform.audit.service import log as audit_log
+
+    await audit_log(db, "shift", "transfer", actor, actor_name, shift.id,
+                    {"to": receiver.full_name, "from": giver, "amount": str(amount), "expected_balance": str(expected),
+                     "doc_number": doc_number}, f"تسليم عهدة إلى {receiver.full_name}")
 
     await db.commit()
     await db.refresh(new_shift)
@@ -498,15 +620,10 @@ async def revenue_delivery(db: AsyncSession, shift_id: uuid.UUID, data, current_
     shift of a branch they reach) into an active safe (POS-2)."""
     from app.activities.general.modules.finance.services import safes
     from app.dependencies import verify_warehouse_access
-    from app.platform.auth.security import verify_password
-    from app.platform.auth.models.user import User
     from app.platform.permissions.access import can
 
-    mgr = await db.get(User, data.manager_id)
-    if not mgr or not mgr.is_manager or not mgr.is_active:
-        raise BusinessError("المدير غير موجود أو ليس لديه صلاحية المدير")
-    if not verify_password(data.manager_password, mgr.password_hash):
-        raise ForbiddenError("كلمة مرور المدير غير صحيحة")
+    current_user = await _actor(db, current_user)
+    mgr = await verify_approver(db, data.manager_id, data.manager_password, current_user)
 
     result = await db.execute(select(Shift).where(Shift.id == shift_id).with_for_update())
     shift = result.scalar_one_or_none()

@@ -9,7 +9,7 @@
 retail
 
 ## Dependencies
-core, inventory
+core, inventory, contacts (customer payments at the drawer), finance (safes and wallets).
 
 ## VAT (ADR-014 D6, step 6)
 The point of sale shows the VAT the server will store (`system/frontend/src/lib/vat.ts`, same rule
@@ -34,3 +34,27 @@ total to collect when they don't. The receipt (`/print/sale/{id}`) prints the st
   user's own shift (managers and `supervise`: a shift of a branch they reach), with a manager's
   password.
 - A customer paying at the drawer lowers their balance without clamping at zero.
+
+## Manager approvals (POS-4)
+Closing with a manager (`/shifts/{id}/close-with-manager`) and revenue delivery take a manager's id
+and password (`verify_approver` in `service.py`):
+- **Who approves**: an active user of the workspace whose acting role holds `supervise` (managers by
+  default), or who is flagged a manager (`users.is_manager`) and holds `shifts`. A manager may approve
+  their own request (a one-person shop); the approval is in the audit log (`close_with_manager`,
+  `revenue_delivery`).
+- **Guessing is stopped**: 10 approval requests per user every 5 minutes; 5 wrong passwords by one
+  user lock that user's approvals for 15 minutes (429); colleagues are not locked out. Counted in Redis when
+  `REDIS_URL` is set, otherwise per process.
+
+## Closing and handing over (POS-5)
+- `next_day_drawer` (what stays for the next shift) is between 0 and the counted closing balance;
+  closing with a manager deposits the rest.
+- `/shifts/{id}/transfer` hands the drawer only to an active user of the workspace, not the shift's
+  own cashier, whose role holds `shifts` and who works in the shift's branch (assigned, or a manager /
+  `supervise` holder), with no open shift there. The closed shift, the new one and the `HND-` handover
+  document name people (no ids in notes); the document is made by whoever handed over, and audited.
+
+## Reading drawers (POS-10)
+`/shifts/current`, `/shifts/last-drawer`, `/shifts/{id}/summary` and `/shifts/{id}/transactions`
+need `shifts` or `pos`; a shift of someone else only for managers and `supervise` holders, always
+within the branches the user reaches. Errors are in Arabic.

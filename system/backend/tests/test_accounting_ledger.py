@@ -258,7 +258,10 @@ async def test_drawer_rows_shift_difference_and_revenue_delivery():
         await pos_service.delete_drawer_transaction(s, dep.id, env["cashier_id"])
     # Money from the drawer to the safe (manager authorisation is checked by the route's service).
     async with AsyncSessionLocal() as s:
+        from tests.test_ready_sales_pos import _grant
+
         await s.execute(text("UPDATE users SET is_manager = true WHERE id = :id"), {"id": env["cashier_id"]})
+        await _grant(s, env["cashier_id"], env["tenant_id"], "cashier")  # approves by role (POS-4)
         await s.commit()
     async with AsyncSessionLocal() as s:
         user = await _user(s, env)

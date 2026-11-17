@@ -461,8 +461,20 @@ async def test_clinic_invoice_paid_in_two_parts_posts_revenue_once():
     assert await _count("SELECT count(*) FROM sale_payments") == 2  # one sale, one line per payment
 
 
+async def _approver(env) -> None:
+    """The manager-cashier approves at the counter by role (POS-4: `supervise`, or the manager flag
+    with `shifts`)."""
+    from tests.test_ready_sales_pos import _grant
+
+    async with AsyncSessionLocal() as s:
+        await bind_tenant(s, env["tenant_id"])
+        await _grant(s, env["cashier_id"], env["tenant_id"], "cashier")
+        await s.commit()
+
+
 async def test_manager_close_deposits_the_cash_taken_out_into_the_one_safe():
     env = await _env()
+    await _approver(env)
     async with AsyncSessionLocal() as s:
         await pos_service.close_shift_with_manager(s, env["shift_id"], SimpleNamespace(
             manager_id=env["cashier_id"], manager_password="Pass123!", closing_balance=D("1000"),
@@ -476,6 +488,7 @@ async def test_manager_close_deposits_the_cash_taken_out_into_the_one_safe():
 
 async def test_manager_close_leaves_the_deposit_when_the_safe_is_ambiguous():
     env = await _env()
+    await _approver(env)
     async with AsyncSessionLocal() as s:
         await bind_tenant(s, env["tenant_id"])
         await s.execute(text("INSERT INTO safes (id, tenant_id, name, balance) VALUES (:id, :t, 'خزنة ثانية', 0)"),
