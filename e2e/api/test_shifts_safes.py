@@ -79,9 +79,19 @@ def test_shift_transfer_and_revenue_delivery(admin_api, owner_api, cashier_api, 
     summary = admin_api.ok(admin_api.get(f"/shifts/{sh['id']}/summary"))
     assert float(summary["expected_balance"]) == 70
 
+    # The drawer goes only to someone who can take it (POS-5): an active user with `shifts` who
+    # works in the shift's branch.
+    r = admin_api.post(f"/shifts/{sh['id']}/transfer", json={"amount": "40", "to_user_id": target["id"]})
+    assert r.status_code == 400, r.text[:200]
+    r = admin_api.post(f"/shifts/{sh['id']}/transfer",
+                       json={"amount": "40", "to_user_id": "00000000-0000-0000-0000-000000000000"})
+    assert r.status_code == 404, r.text[:200]
+    admin_api.ok(admin_api.put(f"/users/{target['id']}/warehouses", json={"warehouse_ids": [wh["id"]]}))
     t = admin_api.ok(admin_api.post(f"/shifts/{sh['id']}/transfer",
-                                    json={"amount": "40", "to_user_id": target["id"]}))
+                                    json={"amount": "40", "to_user_id": target["id"], "notes": "e2e"}))
     assert t.get("status") == "open" and t.get("cashier_id") == target["id"]
+    assert target["id"] not in (t.get("notes") or "")  # names, not ids
+    admin_api.ok(admin_api.put(f"/users/{target['id']}/warehouses", json={"warehouse_ids": []}))
 
     safes = admin_api.ok(owner_api.get("/safes"))
     row = next(s for s in safes if s["id"] == safe["id"])
@@ -91,6 +101,17 @@ def test_shift_transfer_and_revenue_delivery(admin_api, owner_api, cashier_api, 
 def test_shift_close_with_manager(owner_api, reg, wh):
     mgr = owner_api.ok(owner_api.get("/auth/me"))
     sh = open_shift(owner_api, reg, wh["id"], initial="0")
+    # A wrong password is refused (and counted: five lock approvals for 15 minutes, POS-4); the
+    # drawer left for tomorrow is between zero and the count (POS-5).
+    r = owner_api.post(f"/shifts/{sh['id']}/close-with-manager",
+                       json={"closing_balance": "0", "manager_id": mgr["id"], "manager_password": "wrong-password"})
+    assert r.status_code == 403, r.text[:200]
+    r = owner_api.post(f"/shifts/{sh['id']}/close-with-manager",
+                       json={"closing_balance": "0", "next_day_drawer": "50", "manager_id": mgr["id"],
+                             "manager_password": "E2eOwner9!"})
+    assert r.status_code == 400, r.text[:200]
+    assert owner_api.post(f"/shifts/{sh['id']}/close", json={"closing_balance": "0",
+                                                              "next_day_drawer": "-1"}).status_code == 422
     closed = owner_api.ok(owner_api.post(f"/shifts/{sh['id']}/close-with-manager",
                                          json={"closing_balance": "0",
                                                "manager_id": mgr["id"],
