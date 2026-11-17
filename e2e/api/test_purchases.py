@@ -81,3 +81,15 @@ def test_purchase_quick_add_and_suggestions(owner_api, reg, wh, supplier, produc
         "name": f"E2E-QUICK-{uid('p')}", "unit": "عدد", "cost_price": 1, "retail_price": 3}))
     reg.add("product", quick["id"])
     assert float(quick["cost_price"]) == 1
+
+def test_purchase_reads_and_unknown_references(owner_api, product):
+    import uuid
+
+    for path in (f"/purchases/{uuid.uuid4()}", f"/purchases/price-history/{uuid.uuid4()}",
+                 f"/purchases/supplier-prices/product/{uuid.uuid4()}"):
+        r = owner_api.get(path)
+        assert r.status_code == 404, (path, r.text[:200])
+    assert owner_api.get("/purchases", params={"page_size": 201}).status_code == 422
+    assert owner_api.post("/purchases/quick-add-product", json={"name": "E2E-x", "retail_price": "-1"}).status_code == 422
+    sug = owner_api.ok(owner_api.get("/purchases/suggestions"))
+    assert len(sug) <= 500

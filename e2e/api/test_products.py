@@ -4,7 +4,7 @@ import uuid
 
 from helpers import uid, to_uuid
 
-from conftest import product, category, subcategory, wh  # noqa: F401  (fixtures)
+from conftest import product, category, subcategory, wh, cashier_api  # noqa: F401  (fixtures)
 
 
 def _prod_payload(sub_id: str, name: str | None = None, barcode: str | None = None):
@@ -143,3 +143,69 @@ def test_quick_add_product(admin_api, reg, subcategory):
     prod = admin_api.ok(r, 200, 201)
     reg.add("product", prod["id"])
     assert float(prod["cost_price"]) == 1
+
+# ---------------- validation, uniqueness, permissions (INV-4, INV-8, INV-11) ----------------
+def test_duplicates_are_409_and_long_input_422(admin_api, reg, category, subcategory, product):
+    assert admin_api.post("/categories", json={"name": category["name"]}).status_code == 409
+    r = admin_api.post("/subcategories", json={"category_id": category["id"], "name": subcategory["name"]})
+    assert r.status_code == 409, r.text[:200]
+    r = admin_api.post("/subcategories", json={"category_id": str(uuid.uuid4()), "name": "E2E-x"})
+    assert r.status_code == 404
+    # A barcode belongs to one active product, as its main barcode or an extra one.
+    r = admin_api.post("/products", json=_prod_payload(subcategory["id"], barcode=product["barcode"]))
+    assert r.status_code == 409, r.text[:200]
+    other = admin_api.ok(admin_api.post("/products", json=_prod_payload(subcategory["id"])), 200, 201)
+    reg.add("product", other["id"])
+    assert admin_api.post(f"/products/{other['id']}/barcodes", json={"barcode": product["barcode"]}).status_code == 409
+    for field, value in (("name", "x" * 257), ("unit", "x" * 33), ("barcode", "1" * 65), ("retail_price", "-1")):
+        r = admin_api.post("/products", json={**_prod_payload(subcategory["id"]), field: value})
+        assert r.status_code == 422, (field, r.text[:200])
+    r = admin_api.get(f"/products/{uuid.uuid4()}")
+    assert r.status_code == 404 and r.json()["detail"] == "الصنف غير موجود"
+    assert admin_api.get("/products", params={"page_size": 501}).status_code == 422
+    assert admin_api.ok(admin_api.get("/products"))["size"] == 50
+    r = admin_api.post("/products/bulk-reorder-level", json={"product_ids": [product["id"]], "reorder_level": -1})
+    assert r.status_code == 422
+
+
+def test_inactive_products_are_not_found_by_barcode(admin_api, reg, subcategory):
+    p = admin_api.ok(admin_api.post("/products", json=_prod_payload(subcategory["id"])), 200, 201)
+    reg.add("product", p["id"])
+    assert admin_api.get(f"/products/barcode/{p['barcode']}").status_code == 200
+    assert admin_api.delete(f"/products/{p['id']}").status_code == 204
+    assert admin_api.get(f"/products/barcode/{p['barcode']}").status_code == 404
+    # ... and its barcode may be given to a new product.
+    q = admin_api.ok(admin_api.post("/products", json=_prod_payload(subcategory["id"], barcode=p["barcode"])), 200, 201)
+    reg.add("product", q["id"])
+    assert admin_api.ok(admin_api.get(f"/products/barcode/{p['barcode']}"))["id"] == q["id"]
+
+
+def test_cashier_finds_products_to_sell_without_costs(cashier_api, admin_api, product):
+    """The POS product search and scan: prices and stock, never costs; no movement log."""
+    page = cashier_api.ok(cashier_api.get("/products", params={"search": product["name"], "page_size": 40}))
+    row = next(x for x in page["items"] if x["id"] == product["id"])
+    assert float(row["retail_price"]) == 100 and row["cost_price"] is None and row["avg_cost"] is None
+    got = cashier_api.ok(cashier_api.get(f"/products/barcode/{product['barcode']}"))
+    assert got["cost_price"] is None
+    scan = cashier_api.ok(cashier_api.get(f"/pos/scan/{product['barcode']}"))
+    assert scan["product"]["id"] == product["id"] and scan["product"]["cost_price"] is None
+    assert cashier_api.get("/categories").status_code == 200
+    assert cashier_api.get(f"/products/{product['id']}/movements").status_code == 403
+    # Stock roles see the costs.
+    assert float(admin_api.ok(admin_api.get(f"/products/{product['id']}"))["cost_price"]) == 70
+
+
+def test_collections_crud_and_checks(admin_api, reg, product, wh):
+    item = {"product_id": product["id"], "qty": "2"}
+    coll = admin_api.ok(admin_api.post("/collections", json={"name": f"E2E-COLL-{uid('k')}", "retail_price": "150",
+                                                             "items": [item]}), 201)
+    reg.add("collection", coll["id"])
+    lst = admin_api.ok(admin_api.get("/collections"))
+    assert any(c["id"] == coll["id"] for c in lst["items"])
+    admin_api.ok(admin_api.put(f"/collections/{coll['id']}", json={"name": coll["name"], "items": [item]}))
+    av = admin_api.ok(admin_api.get(f"/collections/{coll['id']}/availability", params={"warehouse_id": wh["id"]}))
+    assert "can_make" in av
+    assert admin_api.post("/collections", json={"name": "E2E-x", "items": [{**item, "product_id": str(uuid.uuid4())}]}).status_code == 404
+    assert admin_api.post("/collections", json={"name": "E2E-x", "retail_price": "-1"}).status_code == 422
+    assert admin_api.put(f"/collections/{uuid.uuid4()}", json={"name": "E2E-x"}).status_code == 404
+    assert admin_api.delete(f"/collections/{coll['id']}").status_code == 204
