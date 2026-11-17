@@ -112,7 +112,7 @@ async def set_category_account(category_id: uuid.UUID, data: CategoryAccount, db
 
 @router.get("/entries")
 async def list_entries(date_from: date | None = Query(None, alias="from"), date_to: date | None = Query(None, alias="to"),
-                       source_type: str | None = None, account_id: uuid.UUID | None = None,
+                       source_type: Annotated[str | None, Query(max_length=32)] = None, account_id: uuid.UUID | None = None,
                        page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200),
                        db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("accounting:view"))):
     await company_scope(db, user)  # the journal covers every branch
