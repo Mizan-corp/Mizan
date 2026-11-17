@@ -16,7 +16,9 @@
   "description": "إصدار الفواتير الفوري، دعم قارئ الباركود، الشاشات اللمسية، إدارة أدراج الكاشير والورديات.",
   "dependencies": [
     "core",
-    "inventory"
+    "inventory",
+    "contacts",
+    "finance"
   ],
   "is_core": false,
   "settings_schema": [

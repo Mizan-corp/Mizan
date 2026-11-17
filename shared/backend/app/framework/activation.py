@@ -356,6 +356,20 @@ async def get_active_preset(db: AsyncSession) -> str:
     return DEFAULT_PRESET
 
 
+def with_dependencies(modules: list[str]) -> list[str]:
+    """The modules and everything they need, directly or through others (sales needs pos, which
+    needs finance…), in order: each module first, then what it adds. Unknown ids are kept."""
+    index = manifest_index()
+    out = list(dict.fromkeys(modules))
+    i = 0
+    while i < len(out):
+        for dep in index.get(out[i], {}).get("dependencies", []):
+            if dep not in out:
+                out.append(dep)
+        i += 1
+    return out
+
+
 async def set_active_modules(db: AsyncSession, modules: list[str], preset_id: str | None = None) -> None:
     """Save the current workspace's active modules (with their dependencies) and preset."""
     from app.platform.tenancy.context import current_tenant_id
@@ -365,11 +379,7 @@ async def set_active_modules(db: AsyncSession, modules: list[str], preset_id: st
     if tid is None:
         raise HTTPException(status_code=400, detail="لا توجد منشأة محددة")
 
-    clean_mods = canonical_modules(["core", *modules])
-    for mod_id in list(clean_mods):
-        for dep in manifest_index().get(mod_id, {}).get("dependencies", []):
-            if dep not in clean_mods:
-                clean_mods.append(dep)
+    clean_mods = with_dependencies(canonical_modules(["core", *modules]))
 
     tenant = await db.get(Tenant, tid)
     if tenant is None:

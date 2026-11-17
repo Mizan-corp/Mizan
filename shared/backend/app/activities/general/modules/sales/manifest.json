@@ -9,7 +9,10 @@
   "description": "إصدار أوامر البيع وعروض الأسعار، الفواتير الضريبية، المرتجعات، وتتبع مدفوعات العملاء.",
   "dependencies": [
     "core",
-    "inventory"
+    "inventory",
+    "contacts",
+    "finance",
+    "pos"
   ],
   "is_core": true,
   "settings_schema": [

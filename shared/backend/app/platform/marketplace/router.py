@@ -13,6 +13,7 @@ from app.framework.activation import (
     get_active_modules,
     get_active_preset,
     set_active_modules,
+    with_dependencies,
 )
 from app.catalog import canonical_module
 from app.framework.loader import registry
@@ -142,7 +143,8 @@ async def toggle_module(
     if not ok:
         raise HTTPException(status_code=403, detail=reason)
     active = list(await get_active_modules(db))
-    added = [module_id] + [d for d in _catalog()[module_id].dependencies if d not in active]
+    # What the module needs, and what those need in turn (sales: pos, finance, contacts…).
+    added = [module_id] + [mid for mid in with_dependencies([module_id])[1:] if mid not in active]
     for mid in added:
         ok, reason = installable(mid, activity)
         if not ok:
