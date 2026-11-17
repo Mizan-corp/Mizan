@@ -42,7 +42,7 @@ for job in $jobs; do
   else host=api.allmizan.live; path=/modules/automation/cron/$job; fi
   code=$(curl -s -m 280 -o "$out" -w '%{http_code}' -X POST -H "Host: $host" -H "X-Cron-Secret: $SECRET" "$API$path" 2>/dev/null)
   [ -n "$code" ] || code=000
-  msg=$(head -c 240 "$out" | tr '\n' ' ')
+  msg=$(head -c 240 "$out" | iconv -c -f utf-8 -t utf-8 2>/dev/null | tr '\n' ' ')   # drop a character cut in half (the journal would store a blob)
   if [ "$code" = 200 ]; then logger -t mizan-cron "$job -> 200 $msg"
   else logger -t mizan-cron -p user.err "$job -> $code $msg"; failed="$failed $job($code)"; fi
 done
