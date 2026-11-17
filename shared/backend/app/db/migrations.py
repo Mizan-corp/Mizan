@@ -3828,6 +3828,71 @@ MIGRATIONS = [
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
             WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+
+    # Sales and POS ready for production (Phase A). Document numbers per workspace (PLAT-6/SAL-4):
+    # each workspace's counters start after the highest number it already used from the global
+    # sequence. The POS's own id for a sale (SAL-2). One open shift per cashier and branch (POS-3):
+    # older duplicates (the POS only ever used the newest) are closed first. Personal copies of the
+    # manager and cashier roles keep cancelling and returning (SAL-7). Indexes of PLAT-9.
+    ("v95_ready_sales_pos", """
+        CREATE TABLE IF NOT EXISTS doc_counters (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                REFERENCES tenants(id) ON DELETE CASCADE,
+            doc_type varchar(16) NOT NULL,
+            last_value bigint NOT NULL DEFAULT 0,
+            updated_at timestamptz DEFAULT now(),
+            CONSTRAINT uq_doc_counters_tenant_type UNIQUE (tenant_id, doc_type)
+        );
+        CREATE INDEX IF NOT EXISTS ix_doc_counters_tenant_id ON doc_counters (tenant_id);
+        ALTER TABLE doc_counters ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE doc_counters FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON doc_counters;
+        CREATE POLICY tenant_isolation ON doc_counters
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        INSERT INTO doc_counters (tenant_id, doc_type, last_value)
+        SELECT tenant_id, split_part(num, '-', 1), MAX(split_part(num, '-', 2)::bigint)
+        FROM (
+            SELECT tenant_id, invoice_number AS num FROM sales
+             WHERE invoice_number ~ '^(INV|RET|QUO|DRF)-[0-9]{1,18}$'
+            UNION ALL
+            SELECT tenant_id, doc_number FROM archived_documents
+             WHERE doc_number ~ '^(INV|RET|QUO|DRF|DEP)-[0-9]{1,18}$'
+            UNION ALL
+            SELECT tenant_id, doc_number FROM safe_deposits
+             WHERE doc_number ~ '^DEP-[0-9]{1,18}$'
+        ) given
+        WHERE tenant_id IS NOT NULL
+        GROUP BY tenant_id, split_part(num, '-', 1)
+        ON CONFLICT (tenant_id, doc_type) DO UPDATE SET last_value = GREATEST(doc_counters.last_value, EXCLUDED.last_value);
+
+        ALTER TABLE sales ADD COLUMN IF NOT EXISTS local_id uuid;
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_sales_local_id ON sales (tenant_id, cashier_id, local_id) WHERE local_id IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS ix_sales_warehouse_id ON sales (warehouse_id);
+        CREATE INDEX IF NOT EXISTS ix_sales_status ON sales (status);
+        CREATE INDEX IF NOT EXISTS ix_shifts_cashier_id ON shifts (cashier_id);
+
+        UPDATE shifts s
+           SET status = 'closed', closed_at = now(),
+               notes = COALESCE(s.notes || ' — ', '') || 'أُغلقت تلقائياً: وردية مفتوحة مكررة لنفس الكاشير والفرع'
+          FROM (SELECT id, row_number() OVER (PARTITION BY tenant_id, cashier_id, warehouse_id
+                                             ORDER BY started_at DESC, id DESC) AS rn
+                  FROM shifts
+                 WHERE status = 'open' AND cashier_id IS NOT NULL AND warehouse_id IS NOT NULL) d
+         WHERE s.id = d.id AND d.rn > 1;
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_shifts_open_cashier_warehouse ON shifts (tenant_id, cashier_id, warehouse_id)
+            WHERE status = 'open';
+
+        UPDATE sys_roles
+           SET grants = (SELECT jsonb_agg(DISTINCT g ORDER BY g)
+                           FROM jsonb_array_elements_text(grants || '["sales:cancel", "sales:return"]'::jsonb) g)
+         WHERE tenant_id IS NOT NULL AND code LIKE 'manager-%' AND grants @> '["sales"]'::jsonb;
+        UPDATE sys_roles
+           SET grants = (SELECT jsonb_agg(DISTINCT g ORDER BY g)
+                           FROM jsonb_array_elements_text(grants || '["sales:return"]'::jsonb) g)
+         WHERE tenant_id IS NOT NULL AND code LIKE 'cashier-%' AND grants @> '["sales"]'::jsonb;
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

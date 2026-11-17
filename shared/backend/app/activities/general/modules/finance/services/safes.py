@@ -53,8 +53,9 @@ async def deposit(db: AsyncSession, safe_id: uuid.UUID, amount: Decimal, user, *
                   received_by_id=None, notes: str | None = None) -> dict:
     """A cash deposit into a safe, with its numbered document archived."""
     safe = await _lock_safe(db, safe_id)
-    seq = (await db.execute(text("SELECT nextval('invoice_seq')"))).scalar()
-    doc_number = f"DEP-{seq:06d}"
+    from app.platform.archive.numbering import next_number
+
+    doc_number = await next_number(db, "DEP")  # counted per workspace (PLAT-6)
 
     received_by_name = ""
     if received_by_id:
