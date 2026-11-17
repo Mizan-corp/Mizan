@@ -150,7 +150,7 @@ def test_cancel_sale(admin_api, reg, product, wh):
     s = _sell(admin_api, reg, product, wh)
     r = admin_api.put(f"/sales/{s['id']}/cancel")
     body = admin_api.ok(r, 200)
-    assert body["detail"] == "Cancelled" and body.get("invoice_number")
+    assert body["detail"] == "تم إلغاء الفاتورة" and body.get("invoice_number")
 
 
 def test_cancel_needs_the_cancel_permission(admin_api, cashier_api, reg, product, wh):
