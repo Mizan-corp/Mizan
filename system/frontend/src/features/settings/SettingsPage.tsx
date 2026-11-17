@@ -20,6 +20,7 @@ import { api } from "@/lib/api";
 import { Button, Card, ErrorBox, Input, Select, Spinner } from "@/components/ui";
 import { useAuth } from "@/stores/auth";
 import { useModulesStore } from "@app/stores/modules";
+import { useVat } from "@app/lib/vat";
 
 interface Settings {
   store_name?: string;
@@ -65,6 +66,8 @@ export default function SettingsPage() {
   const hasStorefront = useModulesStore((s) => s.hasModule("storefront"));
   const q = useQuery({ queryKey: ["settings"], queryFn: () => api.get<Settings>("/settings") });
   const uq = useQuery({ queryKey: ["user-settings"], queryFn: () => api.get<{ settings: UserSettings }>("/users/me/settings") });
+  // The VAT settings come from the signed-in endpoint (the workspace's own values, checked).
+  const vatq = useVat();
 
   const [form, setForm] = useState<Settings>({});
   const [dirty, setDirty] = useState(false);
@@ -80,8 +83,12 @@ export default function SettingsPage() {
   const coverInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (q.data && !dirty) setForm(q.data);
-  }, [q.data, dirty]);
+    if (q.data && !dirty) {
+      const v = vatq.data;
+      setForm(v ? { ...q.data, vat_registered: String(v.vat_registered), prices_include_vat: String(v.prices_include_vat),
+                    tax_number: v.tax_number_display || v.tax_number } : q.data);
+    }
+  }, [q.data, vatq.data, dirty]);
 
   useEffect(() => {
     if (uq.data && !udirty) setUform(uq.data.settings ?? {});
