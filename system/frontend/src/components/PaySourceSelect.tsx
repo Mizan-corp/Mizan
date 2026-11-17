@@ -5,8 +5,11 @@ import { Select } from "@/components/ui";
 
 /** Where a payment's money comes from or goes to (ADR-014 D4): a safe — a bank account is a safe of
  * type bank — or a payment wallet. The value is "safe:<id>", "wallet:<id>" or "" (none chosen). */
-interface SafeRow { id: string; name: string; safe_type: string; balance: string }
-interface WalletRow { id: string; name: string; balance: string }
+interface SafeRow { id: string; name: string; safe_type: string; balance?: string }
+interface WalletRow { id: string; name: string; balance?: string }
+
+/** The balance is sent only to holders of finance or reports. */
+const withBalance = (name: string, balance?: string) => (balance != null ? `${name} — ${moneyEGP(balance)}` : name);
 
 export function sourceFields(value: string): { safe_id: string | null; wallet_id: string | null } {
   const [kind, id] = value.split(":");
@@ -35,21 +38,21 @@ export function PaySourceSelect({
       {!!cash.length && (
         <optgroup label="الخزائن">
           {cash.map((s) => (
-            <option key={s.id} value={`safe:${s.id}`}>{s.name} — {moneyEGP(s.balance)}</option>
+            <option key={s.id} value={`safe:${s.id}`}>{withBalance(s.name, s.balance)}</option>
           ))}
         </optgroup>
       )}
       {!!banks.length && (
         <optgroup label="الحسابات البنكية">
           {banks.map((s) => (
-            <option key={s.id} value={`safe:${s.id}`}>{s.name} — {moneyEGP(s.balance)}</option>
+            <option key={s.id} value={`safe:${s.id}`}>{withBalance(s.name, s.balance)}</option>
           ))}
         </optgroup>
       )}
       {!!wallets.data?.length && (
         <optgroup label="المحافظ">
           {wallets.data.map((w) => (
-            <option key={w.id} value={`wallet:${w.id}`}>{w.name} — {moneyEGP(w.balance)}</option>
+            <option key={w.id} value={`wallet:${w.id}`}>{withBalance(w.name, w.balance)}</option>
           ))}
         </optgroup>
       )}

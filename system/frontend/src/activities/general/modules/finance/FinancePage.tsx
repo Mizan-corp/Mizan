@@ -3,14 +3,12 @@
  * Page: الإدارة المالية (/finance)
  * Archetype: Treasury & expenses console
  * User: المدير المالي، رئيس الحسابات، والمحاسب
- * Purpose: حركة الخزينة والمصروفات، الخزائن والمحافظ، اعتماد المصروفات وإلغاؤها، وإقفال الفترات.
- * There is no general ledger yet: the journal and trial balance come with ADR-014 (D9).
+ * Purpose: حركة الخزينة والمصروفات، الخزائن والمحافظ (إنشاء وتعديل وإيقاف)، اعتماد المصروفات وإلغاؤها، وإقفال الفترات.
+ * The journal, trial balance and reports are the accounting module's screens (ADR-014).
  */
 import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeftRight,
-  Banknote,
   Landmark,
   Lock,
   LockOpen,
@@ -26,30 +24,20 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
-import { D, dateTime, moneyEGP } from "@/lib/format";
+import { D, date as fmtDate, dateTime, moneyEGP } from "@/lib/format";
 import { sound } from "@/lib/sound";
 import { Badge, Button, ErrorBox, Input, Modal, Select, Spinner } from "@/components/ui";
 import { PaySourceSelect, sourceFields } from "@app/components/PaySourceSelect";
-
-interface Safe {
-  id: string;
-  name: string;
-  safe_type: string;
-  balance: string;
-}
-
-interface WalletRow {
-  id: string;
-  name: string;
-  type: string;
-  balance: string;
-}
+import type { PeriodMonth, Safe, WalletRow } from "./api";
+import { PeriodsWorkspace } from "./components/PeriodsWorkspace";
+import { TreasuryWorkspace } from "./components/TreasuryWorkspace";
 
 interface Expense {
   id: string;
   amount: string;
   description: string;
   status: "draft" | "approved" | "rejected" | "cancelled";
+  date: string;
   created_at: string;
   is_recurring: boolean;
   payment_method: string | null;
@@ -72,11 +60,6 @@ interface FinCategory {
 interface Vendor {
   id: string;
   name: string;
-}
-
-interface Period {
-  month: string;
-  status: string;
 }
 
 interface CashEntry {
@@ -110,15 +93,14 @@ export default function FinancePage() {
   // Load high-level treasury and accounting periods for the ribbon
   const safes = useQuery({ queryKey: ["safes"], queryFn: () => api.get<Safe[]>("/safes") });
   const wallets = useQuery({ queryKey: ["wallets"], queryFn: () => api.get<WalletRow[]>("/wallets") });
-  const periods = useQuery({ queryKey: ["periods"], queryFn: () => api.get<Period[]>("/periods") });
+  const periods = useQuery({ queryKey: ["periods"], queryFn: () => api.get<PeriodMonth[]>("/periods") });
 
   const totalVaults = (safes.data ?? []).reduce((acc, s) => acc + Number(s.balance || 0), 0);
   const totalWallets = (wallets.data ?? []).reduce((acc, w) => acc + Number(w.balance || 0), 0);
   const totalLiquidity = totalVaults + totalWallets;
 
-  const currentMonthStr = new Date().toISOString().slice(0, 7);
-  const currentPeriod = periods.data?.find((p) => p.month === currentMonthStr) ?? {
-    month: currentMonthStr,
+  const currentPeriod = periods.data?.find((p) => p.current) ?? {
+    month: new Date().toISOString().slice(0, 7),
     status: "open",
   };
 
@@ -226,7 +208,7 @@ export default function FinancePage() {
 
       {/* ── Active Workspaces ── */}
       {activeTab === "cash" && <CashMovementsWorkspace />}
-      {activeTab === "treasury" && <TreasuryWorkspace safes={safes.data ?? []} wallets={wallets.data ?? []} />}
+      {activeTab === "treasury" && <TreasuryWorkspace />}
       {activeTab === "expenses" && <ExpensesWorkspace />}
       {activeTab === "periods" && <PeriodsWorkspace />}
     </div>
@@ -369,199 +351,6 @@ function CashMovementsWorkspace() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════
-   2. TREASURY & VAULTS WORKSPACE
-   ════════════════════════════════════════════════════════════ */
-function TreasuryWorkspace({ safes, wallets }: { safes: Safe[]; wallets: WalletRow[] }) {
-  const qc = useQueryClient();
-  const [modal, setModal] = useState<{ kind: "deposit" | "withdraw" | "transfer"; target: Safe } | null>(null);
-  const [amount, setAmount] = useState("");
-  const [note, setNote] = useState("");
-  const [toSafe, setToSafe] = useState("");
-
-  const act = useMutation({
-    mutationFn: () => {
-      sound.click();
-      const a = D(amount).toNumber();
-      const id = modal!.target.id;
-      if (modal!.kind === "deposit") return api.post(`/safes/${id}/deposit`, { amount: a, notes: note || null });
-      if (modal!.kind === "withdraw") return api.post(`/safes/${id}/withdraw`, { amount: a, note: note || null });
-      return api.post("/safes/transfer", { from_wallet_id: id, to_safe_id: toSafe, amount: a, note: note || null });
-    },
-    onSuccess: () => {
-      sound.success();
-      setModal(null);
-      setAmount("");
-      setNote("");
-      qc.invalidateQueries({ queryKey: ["safes"] });
-      qc.invalidateQueries({ queryKey: ["wallets"] });
-    },
-    onError: () => sound.error(),
-  });
-
-  return (
-    <div className="space-y-6">
-      {/* Central Safes Grid */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-base font-bold text-ink">الخزائن المركزية والنقدية</h2>
-            <p className="text-xs text-muted">إدارة الخزائن النقدية، السحب، الإيداع، ومطابقة الأرصدة</p>
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {safes.map((s) => (
-            <div
-              key={s.id}
-              className="rounded-2xl border border-line bg-card p-5 space-y-4 shadow-xs hover:border-primary/40 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2 font-bold text-ink">
-                  <Banknote className="size-5 text-amber-500" /> {s.name}
-                </span>
-                <Badge tone="muted">
-                  {s.safe_type === "bank" ? "حساب بنكي" : s.safe_type === "permanent" ? "خزينة دائمة" : "خزينة وردية"}
-                </Badge>
-              </div>
-
-              <div>
-                <span className="text-xs text-muted block mb-1">الرصيد الفعلي الحالي</span>
-                <p className="num text-2xl font-black text-primary">{moneyEGP(s.balance)}</p>
-              </div>
-
-              <div className="flex gap-2 pt-2 border-t border-line/60">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 font-bold text-xs"
-                  onClick={() => setModal({ kind: "deposit", target: s })}
-                >
-                  إيداع نقدي
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1 font-bold text-xs"
-                  onClick={() => setModal({ kind: "withdraw", target: s })}
-                >
-                  سحب نقدي
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Payment Wallets & Bank Accounts */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-base font-bold text-ink">محافظ الدفع والتحويل الإلكتروني</h2>
-            <p className="text-xs text-muted">أرصدة فودافون كاش، إنستاباي، والتحويلات البنكية المباشرة</p>
-          </div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {wallets.map((w) => (
-            <div
-              key={w.id}
-              className="rounded-2xl border border-line bg-card p-5 space-y-4 shadow-xs hover:border-indigo-500/40 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2 font-bold text-ink">
-                  <Wallet className="size-5 text-indigo-500" /> {w.name}
-                </span>
-                <Badge tone="brand">{w.type}</Badge>
-              </div>
-
-              <div>
-                <span className="text-xs text-muted block mb-1">الرصيد الرقمي المتاح</span>
-                <p className="num text-xl font-black text-ink">{moneyEGP(w.balance)}</p>
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full font-bold text-xs gap-1.5"
-                onClick={() => setModal({ kind: "transfer", target: w as unknown as Safe })}
-              >
-                <ArrowLeftRight className="size-3.5" />
-                <span>تحويل الرصيد إلى خزنة</span>
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Operation Modal */}
-      <Modal
-        open={!!modal}
-        onClose={() => setModal(null)}
-        title={
-          modal?.kind === "deposit"
-            ? `إيداع نقدي في ${modal.target.name}`
-            : modal?.kind === "withdraw"
-            ? `سحب نقدي من ${modal?.target.name}`
-            : `تحويل رصيد من ${modal?.target.name} إلى خزنة`
-        }
-      >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!act.isPending && amount && (modal?.kind !== "transfer" || toSafe)) act.mutate();
-          }}
-          className="flex flex-col gap-4"
-        >
-          {modal?.kind === "transfer" && (
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted">الخزينة المستلمة *</label>
-              <Select value={toSafe} onChange={(e) => setToSafe(e.target.value)}>
-                <option value="">— اختر الخزينة —</option>
-                {safes.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          )}
-
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted">المبلغ المراد نقله (ج.م) *</label>
-            <Input
-              autoFocus
-              className="num text-lg font-bold"
-              inputMode="decimal"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted">ملاحظات وسند الصرف</label>
-            <Input
-              placeholder="مثال: تسوية نقدية بموجب إذن تسليم رقم..."
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </div>
-
-          {act.isError && <ErrorBox message={(act.error as Error).message} />}
-
-          <Button
-            type="submit"
-            className="w-full h-11 font-bold text-xs rounded-xl"
-            disabled={act.isPending || !amount || (modal?.kind === "transfer" && !toSafe)}
-          >
-            {act.isPending ? <Spinner /> : "تأكيد العملية وترحيل الرصيد"}
-          </Button>
-        </form>
-      </Modal>
     </div>
   );
 }
@@ -740,7 +529,7 @@ function ExpensesWorkspace() {
                     <td className="p-3.5">
                       <Badge tone={EXPENSE_STATUS[e.status]?.tone ?? "muted"}>{EXPENSE_STATUS[e.status]?.label ?? e.status}</Badge>
                     </td>
-                    <td className="p-3.5 text-xs text-muted font-mono">{dateTime(e.created_at)}</td>
+                    <td className="p-3.5 text-xs text-muted font-mono">{e.date ? fmtDate(e.date) : dateTime(e.created_at)}</td>
                     <td className="p-3.5">
                       <div className="flex items-center justify-end gap-1.5">
                         {e.status === "draft" && (
@@ -950,160 +739,6 @@ function ExpensesWorkspace() {
             disabled={create.isPending || !form.amount || !form.description}
           >
             {create.isPending ? <Spinner /> : "حفظ المصروف"}
-          </Button>
-        </form>
-      </Modal>
-    </div>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════
-   4. ACCOUNTING PERIODS CLOSING WORKSPACE
-   ════════════════════════════════════════════════════════════ */
-function PeriodsWorkspace() {
-  const qc = useQueryClient();
-  const list = useQuery({
-    queryKey: ["periods"],
-    queryFn: () => api.get<Period[]>("/periods"),
-  });
-
-  const [reopening, setReopening] = useState<string | null>(null);
-  const [reopenReason, setReopenReason] = useState("");
-
-  const act = useMutation({
-    mutationFn: ({ month, verb }: { month: string; verb: "close" | "reopen" }) => {
-      sound.click();
-      return verb === "reopen"
-        ? api.post(`/periods/${month}/reopen`, { reason: reopenReason.trim() })
-        : api.post(`/periods/${month}/close`);
-    },
-    onSuccess: () => {
-      sound.success();
-      setReopening(null);
-      setReopenReason("");
-      qc.invalidateQueries({ queryKey: ["periods"] });
-    },
-    onError: () => sound.error(),
-  });
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="rounded-2xl border border-line bg-card p-5 shadow-xs">
-        <h2 className="text-base font-bold text-ink">إقفال الفترات المالية</h2>
-        <p className="text-xs text-muted mt-1 leading-relaxed">
-          يُقفل الشهر بعد مراجعة حساباته، بالترتيب: لا يُقفل شهر قبل إقفال ما قبله. لا تُسجَّل قيود في دفتر اليومية بتاريخ
-          شهر مغلق، وإعادة الفتح تتطلب سبباً يُحفظ في السجل.
-        </p>
-      </div>
-
-      {list.isLoading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-12 w-full rounded-xl" />
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-14 w-full rounded-xl" />
-          ))}
-        </div>
-      ) : list.isError ? (
-        <ErrorBox message={(list.error as Error).message} onRetry={() => list.refetch()} />
-      ) : !list.data?.length ? (
-        <div className="flex flex-col items-center justify-center p-16 text-center border-2 border-dashed border-line rounded-2xl bg-card">
-          <CalendarCheck className="size-12 text-muted mb-2 stroke-1" />
-          <h3 className="text-base font-bold text-ink">لا توجد فترات محاسبية مؤرشفة</h3>
-          <p className="text-xs text-muted mt-1">يتم إنشاء الفترات تلقائياً مع بدء كل شهر مالي جديد.</p>
-        </div>
-      ) : (
-        <div className="rounded-2xl border border-line bg-card overflow-hidden shadow-xs">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line bg-elevated/50 text-xs font-bold text-muted">
-                <th className="p-3.5 text-start font-mono">الشهر</th>
-                <th className="p-3.5 text-start">الحالة</th>
-                <th className="p-3.5 text-end">الإجراء</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line/60">
-              {list.data.map((p) => (
-                <tr key={p.month} className="hover:bg-elevated/40 transition-colors">
-                  <td className="num p-3.5 font-bold text-ink" dir="ltr">
-                    {p.month}
-                  </td>
-                  <td className="p-3.5">
-                    <Badge tone={p.status === "closed" ? "danger" : "success"}>
-                      {p.status === "closed" ? (
-                        <span className="flex items-center gap-1.5">
-                          <Lock className="size-3" /> مقفلة
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1.5">
-                          <LockOpen className="size-3" /> مفتوحة
-                        </span>
-                      )}
-                    </Badge>
-                  </td>
-                  <td className="p-3.5 text-end">
-                    {p.status === "closed" ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          act.reset();
-                          setReopenReason("");
-                          setReopening(p.month);
-                        }}
-                        disabled={act.isPending}
-                        className="font-bold text-xs gap-1.5 h-8"
-                      >
-                        <LockOpen className="size-3.5" /> إعادة فتح الفترة
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => act.mutate({ month: p.month, verb: "close" })}
-                        disabled={act.isPending}
-                        className="font-bold text-xs gap-1.5 h-8"
-                      >
-                        <Lock className="size-3.5" /> إقفال الشهر
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {act.isError && !reopening && <ErrorBox message={(act.error as Error).message} />}
-
-      <Modal open={!!reopening} onClose={() => setReopening(null)} title={`إعادة فتح شهر ${reopening ?? ""}`}>
-        <form
-          onSubmit={(ev) => {
-            ev.preventDefault();
-            if (reopening && !act.isPending) act.mutate({ month: reopening, verb: "reopen" });
-          }}
-          className="flex flex-col gap-4"
-        >
-          <p className="text-xs text-muted leading-relaxed">
-            بعد إعادة الفتح يمكن تسجيل قيود بتاريخ هذا الشهر من جديد. يُحفظ السبب ومن أعاد الفتح في سجل المراجعة.
-          </p>
-          <div>
-            <label htmlFor="reopen-reason" className="mb-1 block text-xs font-semibold text-muted">سبب إعادة الفتح</label>
-            <Input
-              id="reopen-reason"
-              value={reopenReason}
-              onChange={(ev) => setReopenReason(ev.target.value)}
-              required
-              minLength={3}
-            />
-          </div>
-          {act.isError && <ErrorBox message={(act.error as Error).message} />}
-          <Button
-            type="submit"
-            variant="danger"
-            className="w-full h-11 font-bold text-xs rounded-xl"
-            disabled={act.isPending || reopenReason.trim().length < 3}
-          >
-            {act.isPending ? <Spinner /> : "تأكيد إعادة الفتح"}
           </Button>
         </form>
       </Modal>
