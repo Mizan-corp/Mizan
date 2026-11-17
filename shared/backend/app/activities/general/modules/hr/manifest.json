@@ -26,6 +26,16 @@
       "id": "payroll",
       "name": "الموظفون والرواتب",
       "name_en": "Employees and payroll"
+    },
+    {
+      "id": "payroll:approve",
+      "name": "اعتماد الرواتب وإعادة فتح الشهر",
+      "name_en": "Approve and reopen payroll months"
+    },
+    {
+      "id": "payroll:pay",
+      "name": "صرف الرواتب",
+      "name_en": "Pay payroll months"
     }
   ],
   "screens": [
