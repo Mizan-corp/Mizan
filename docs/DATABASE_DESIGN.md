@@ -88,7 +88,7 @@ A bank account, used for bank transfers and cheques, is a safe with `safe_type =
 | Table | Columns | Meaning |
 |---|---|---|
 | `safes` | `safe_type` | `permanent`, `temporary` or `bank` (CHECK) |
-| `safe_transactions` | `ref_type`, `ref_id` | The document behind each movement: `expense`, `expense_cancel`, `customer_payment`, `supplier_payment`, `purchase`, `payroll`, `hr_advance` |
+| `safe_transactions` | `ref_type`, `ref_id` | The document behind each movement: `expense`, `expense_cancel`, `customer_payment`, `supplier_payment`, `purchase`, `payroll`, `hr_advance`, `hr_advance_cancel` |
 | `wallet_transactions` | `tx_type`, `ref_id` | Same idea (`tx_type` carries the document kind); resetting a wallet is an `adjustment` row |
 | `expenses` | `status`, `cancelled_at`, `cancelled_by`, `cancel_reason` | `draft` → `approved` (money leaves the safe/wallet) or `rejected`; an approved expense is `cancelled`, which puts the money back, never deleted. Approving needs a safe or wallet. Payroll expenses have `payment_method = 'payroll'` and are managed from payroll |
 | `customers` | `is_active` | A customer with sales, payments or adjustments is deactivated, not deleted |
@@ -96,8 +96,9 @@ A bank account, used for bank transfers and cheques, is a safe with `safe_type =
 | `customer_adjustments` (new) | `kind` (`opening`/`adjustment`), `amount` (signed), `balance_before`, `balance_after`, `note`, `created_by` | Every balance change that isn't a sale or payment (`PUT /customers/{id}/balance`) |
 | `supplier_transactions` | `type`, `method`, `safe_id`, `wallet_id`, `purchase_id`, `created_by` | `type` is `debit` (we owe more: an invoice) or `credit` (a payment, from a safe/wallet). The unused duplicate `tx_type` column was dropped; `supplier_id` no longer cascades |
 | `purchase_orders` | `safe_id`, `wallet_id` | Where `amount_paid` comes from; it leaves at receipt |
-| `hr_advances` | `safe_id`, `wallet_id` | An advance (`record_type = 'سلفة'`) is paid out from here; `خصم` and `مكافأة` move no cash |
-| `hr_payroll_periods` | `safe_id`, `wallet_id`, `paid_amount`, `expense_id` | Approving records the salaries expense (no money); paying moves `paid_amount` out once; a paid month can't be reopened, reopening an approved one cancels `expense_id` |
+| `hr_advances` | `safe_id`, `wallet_id`, `status`, `cancelled_at`, `cancelled_by`, `cancel_reason` (v97) | An advance (`record_type = 'سلفة'`) is paid out from here; `خصم` and `مكافأة` move no cash. A record is `cancelled`, never deleted: a cancelled advance's cash goes back (`hr_advance_cancel`) and its entry is reversed; payroll ignores cancelled records |
+| `hr_payroll_periods` | `safe_id`, `wallet_id`, `paid_amount`, `expense_id`, `approved_amount` (v97) | Approving records the salaries expense (no money) and `approved_amount`; paying moves exactly `approved_amount` out once (refused if the entries no longer add up to it) and leaves the expense's amount alone; a paid month can't be reopened, reopening an approved one cancels `expense_id` |
+| `hr_payroll_entries` | `base_pay` (v97) | The engine's prorated base salary for the days worked; an entry's manual adjustments compose the net from it. Entries change only while the month is `draft` or `review` |
 
 ### Clinic invoices (ADR-014 D4; migration `v82`)
 
