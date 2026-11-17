@@ -208,10 +208,14 @@ async def _rows(sql: str, **params) -> list:
 
 
 async def _print(sale_id) -> str:
+    from types import SimpleNamespace
+
     from app.platform.printing.routes.sale import print_sale
 
+    # Printing needs the sale's permission (PLAT-5): a manager holding `sales`.
+    printer = SimpleNamespace(id=uuid.uuid4(), is_manager=True, effective_permissions=frozenset({"sales"}))
     async with AsyncSessionLocal() as s:
-        return (await print_sale(sale_id, s, None)).body.decode()
+        return (await print_sale(sale_id, s, printer)).body.decode()
 
 
 @db_only

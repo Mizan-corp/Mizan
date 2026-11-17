@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime
 
 from fastapi import Depends
 from fastapi.responses import HTMLResponse
@@ -8,17 +7,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_print_user
+from app.platform.tenancy import clock
 
-from . import _make_pdf, ar_egp, fmt_date, fmt_dt, get_settings, h, router, top_band, wrap
+from . import _make_pdf, PaperSize, ar_egp, as_uuid, fmt_date, fmt_dt, get_settings, guard, h, not_found, router, store_of, top_band, wrap
 
 
 @router.get("/archive/{doc_id}", response_class=HTMLResponse)
 async def print_archive_doc(doc_id: uuid.UUID,
-                             db: AsyncSession = Depends(get_db), _=Depends(get_print_user)):
+                             db: AsyncSession = Depends(get_db), user=Depends(get_print_user)):
+    """An archived document: `archive`, and the branch it names, if any."""
     s = await get_settings(db)
-    store = {"name": s.get("store_name",""), "address": s.get("store_address",""),
-             "phone": s.get("store_phone",""), "logo_url": s.get("logo_url",""),
-             "contacts": s.get("contact_phones") or []}
+    store = store_of(s)
     row = await db.execute(text("""
         SELECT ad.*, u.full_name as created_by_name
         FROM archived_documents ad LEFT JOIN users u ON u.id = ad.created_by
@@ -26,7 +25,7 @@ async def print_archive_doc(doc_id: uuid.UUID,
     """), {"id": doc_id})
     doc = row.fetchone()
     if not doc:
-        return HTMLResponse("Not found", 404)
+        raise not_found()
     doc = dict(doc._mapping)
     _raw_meta = doc.get('metadata_') or doc.get('metadata') or {}
     if isinstance(_raw_meta, str):
@@ -37,6 +36,9 @@ async def print_archive_doc(doc_id: uuid.UUID,
             meta = {}
     else:
         meta = _raw_meta or {}
+    if not isinstance(meta, dict):
+        meta = {}
+    await guard(db, user, ("archive",), [as_uuid(meta.get("warehouse_id"))], "ليس لديك صلاحية الأرشيف")
 
     type_labels = {
         'sale_invoice': 'فاتورة مبيعات', 'quotation': 'عرض سعر',
@@ -49,7 +51,7 @@ async def print_archive_doc(doc_id: uuid.UUID,
 
     details_html = ""
     for k, v in meta.items():
-        if v and k not in ('warehouse_id',):
+        if v and k not in ('warehouse_id', 'from_user', 'to_user', 'notes') and not isinstance(v, (list, dict)):
             label_map = {'supplier': 'المورد', 'from_warehouse': 'من مخزن', 'to_warehouse': 'إلى مخزن',
                          'items_count': 'عدد الأصناف', 'received_by': 'استلم', 'from_user_name': 'المُسلِّم',
                          'to_user_name': 'المُستلِم', 'amount': 'المبلغ', 'notes': 'ملاحظات'}
@@ -68,14 +70,14 @@ async def print_archive_doc(doc_id: uuid.UUID,
   {f'<div class="notes-box"><div class="n-lbl">ملاحظات</div><div class="n-txt">{h(meta.get("notes",""))}</div></div>' if meta.get('notes') else ''}
 </div>
 <div style="border-top:2px solid #94a3b8;padding:12px 36px;background:#f8fafc;display:flex;justify-content:space-between">
-  <div style="font-size:10px;color:#6b7280">طُبع: {datetime.now().strftime('%Y/%m/%d  %H:%M')}</div>
+  <div style="font-size:10px;color:#6b7280">طُبع: {clock.stamp()}</div>
   <div style="font-size:10px;color:#6b7280">{h(store.get('name',''))}</div>
 </div>"""
     return HTMLResponse(wrap(body, f"{doc_label} — {doc['doc_number']}"))
 
 
 @router.get("/pdf/archive/{doc_id}")
-async def pdf_archive(doc_id: uuid.UUID, paper_size: str = None,
+async def pdf_archive(doc_id: uuid.UUID, paper_size: PaperSize = None,
                       db: AsyncSession = Depends(get_db), user=Depends(get_print_user)):
     html_resp = await print_archive_doc(doc_id, db, user)
     return await _make_pdf(html_resp, "مستند أرشيف", f"archive_{doc_id}.pdf", db, paper_size)

@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,20 +8,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.base import get_db
 from app.dependencies import get_print_user
 from app.activities.general.modules.pos.service import compute_summary
+from app.platform.permissions.access import can
 
-from . import _make_pdf, ar_egp, ar_num, fmt_date, fmt_dt, get_settings, h, router, top_band, wrap
+from . import _make_pdf, PaperSize, ar_egp, ar_num, fmt_date, fmt_dt, get_settings, guard, h, not_found, router, store_of, top_band, wrap
 
 
 @router.get("/shift/{shift_id}", response_class=HTMLResponse)
 async def print_shift_summary(shift_id: uuid.UUID,
-                               db: AsyncSession = Depends(get_db), _=Depends(get_print_user)):
+                               db: AsyncSession = Depends(get_db), user=Depends(get_print_user)):
+    """A shift's hand-over sheet: the cashier's own shift, or any shift for a manager or a holder of
+    `supervise` (as the shift summary), in a branch the user reaches."""
     s = await get_settings(db)
-    store = {"name": s.get("store_name", ""), "phone": s.get("store_phone", ""),
-             "logo_url": s.get("logo_url", ""), "contacts": s.get("contact_phones") or []}
+    store = store_of(s)
 
-    summary = await compute_summary(db, shift_id)
-
-    shift_row = await db.execute(text("""
+    shift_row = (await db.execute(text("""
         SELECT sh.*, u.full_name as cashier_name, w.name as wh_name,
                m.full_name as receiver_name
         FROM shifts sh
@@ -29,8 +29,15 @@ async def print_shift_summary(shift_id: uuid.UUID,
         LEFT JOIN users m ON m.id = sh.closed_by
         LEFT JOIN warehouses w ON w.id = sh.warehouse_id
         WHERE sh.id = :id
-    """), {"id": shift_id})
-    shift = dict(shift_row.fetchone()._mapping)
+    """), {"id": shift_id})).fetchone()
+    if shift_row is None:
+        raise not_found("الوردية")
+    shift = dict(shift_row._mapping)
+    if shift["cashier_id"] != user.id and not (user.is_manager or can(user, "supervise")):
+        raise HTTPException(status_code=403, detail="لا يمكنك طباعة وردية موظف آخر")
+    await guard(db, user, ("shifts", "pos", "supervise"), [shift.get("warehouse_id")])
+
+    summary = await compute_summary(db, shift_id)
 
     handover_row = await db.execute(text("""
         SELECT metadata FROM archived_documents
@@ -110,57 +117,6 @@ async def print_shift_summary(shift_id: uuid.UUID,
     cash_in = float(summary.get("cash_in_drawer", 0))
     total_all = cash_in + sum(wallet_totals.values())
     TX_AR = {"deposit": "دواخل", "expense": "خوارج", "withdrawal": "سحب"}
-
-    all_ops = []
-    for s2 in sales:
-        items = s2.get("items", [])
-        if len(items) == 1:
-            it = items[0]
-            all_ops.append({"time": s2["created_at"], "type": "مبيعات",
-                            "ref": f"{h(it['product_name'])} ({ar_num(float(it['qty']),0)} {h(it['unit'])} × {ar_egp(float(it['unit_price']))})",
-                            "party": h(s2["customer"]), "payment": h(s2["wallet_name"] or "نقدي"),
-                            "credit": float(s2["total"]), "debit": 0, "sub": []})
-        else:
-            all_ops.append({"time": s2["created_at"], "type": "مبيعات",
-                            "ref": h(s2["invoice_number"]), "party": h(s2["customer"]),
-                            "payment": h(s2["wallet_name"] or "نقدي"),
-                            "credit": float(s2["total"]), "debit": 0, "sub": items})
-    for r2 in returns:
-        all_ops.append({"time": r2["created_at"], "type": "مرتجع", "ref": h(r2["invoice_number"]),
-                        "party": "", "payment": "—", "credit": 0, "debit": float(r2["total"]), "sub": []})
-    for t2 in txns:
-        is_in = t2["type"] == "deposit"
-        all_ops.append({"time": t2["created_at"], "type": TX_AR.get(t2["type"], t2["type"]),
-                        "ref": h(t2.get("note") or "—"), "party": "",
-                        "payment": h(t2.get("wallet_name") or "نقدي"),
-                        "credit": float(t2["amount"]) if is_in else 0,
-                        "debit": float(t2["amount"]) if not is_in else 0, "sub": []})
-    all_ops.sort(key=lambda x: x["time"])
-
-    def op_row(op):
-        rows = f"""
-        <tr>
-          <td style="font-size:9px;color:#555;white-space:nowrap">{fmt_dt(op['time'])}</td>
-          <td><span style="font-size:9px;font-weight:700;padding:1px 5px;border:1px solid {'#166534' if op['credit']>0 else '#991b1b'};color:{'#166534' if op['credit']>0 else '#991b1b'}">{op['type']}</span></td>
-          <td style="font-size:10px">{op['ref']}</td>
-          <td style="font-size:10px;color:#555">{op['party'] or '—'}</td>
-          <td style="font-size:10px;color:#555">{op['payment']}</td>
-          <td style="text-align:left;font-weight:700;font-size:10px;color:#166534;white-space:nowrap">{ar_egp(op['credit']) if op['credit'] else ''}</td>
-          <td style="text-align:left;font-weight:700;font-size:10px;color:#991b1b;white-space:nowrap">{ar_egp(op['debit']) if op['debit'] else ''}</td>
-        </tr>"""
-        for it in op.get("sub", []):
-            rows += f"""
-        <tr style="background:#f9f9f9">
-          <td></td><td></td>
-          <td style="font-size:9px;color:#555;padding-right:16px">↳ {h(it['product_name'])}</td>
-          <td style="font-size:9px;color:#555;text-align:center">{ar_num(float(it['qty']),0)} {h(it['unit'])}</td>
-          <td style="font-size:9px;color:#555">{ar_egp(float(it['unit_price']))}</td>
-          <td style="text-align:left;font-size:9px;color:#166534;white-space:nowrap">{ar_egp(float(it['line_total']))}</td>
-          <td></td>
-        </tr>"""
-        return rows
-
-    "".join(op_row(op) for op in all_ops)
 
     wallet_summary_html = "".join(f"""
         <tr><td style="padding:3px 10px;font-size:10px;border-bottom:1px solid #eee">{h(wn)}</td>
@@ -318,7 +274,7 @@ async def print_shift_summary(shift_id: uuid.UUID,
 
 
 @router.get("/pdf/shift/{shift_id}")
-async def pdf_shift(shift_id: uuid.UUID, paper_size: str = None,
+async def pdf_shift(shift_id: uuid.UUID, paper_size: PaperSize = None,
                     db: AsyncSession = Depends(get_db), user=Depends(get_print_user)):
     html_resp = await print_shift_summary(shift_id, db, user)
     return await _make_pdf(html_resp, "تسليم عهدة الوردية", f"shift_{shift_id}.pdf", db, paper_size)

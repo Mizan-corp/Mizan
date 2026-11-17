@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime
 
 from fastapi import Depends
 from fastapi.responses import HTMLResponse
@@ -8,17 +7,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_print_user
+from app.platform.tenancy import clock
 
-from . import _make_pdf, ar_egp, ar_num, fmt_date, get_settings, h, router, top_band, wrap
+from . import _make_pdf, PaperSize, ar_egp, ar_num, fmt_date, get_settings, guard, h, not_found, router, store_of, top_band, wrap
 
 
 @router.get("/purchase/{po_id}", response_class=HTMLResponse)
 async def print_purchase(po_id: uuid.UUID,
-                         db: AsyncSession = Depends(get_db), _=Depends(get_print_user)):
+                         db: AsyncSession = Depends(get_db), user=Depends(get_print_user)):
+    """A purchase order or received invoice: `purchases`, in a branch the user reaches."""
     s = await get_settings(db)
-    store = {"name": s.get("store_name",""), "address": s.get("store_address",""),
-             "phone": s.get("store_phone",""), "logo_url": s.get("logo_url",""),
-             "contacts": s.get("contact_phones") or []}
+    store = store_of(s)
     row = await db.execute(text("""
         SELECT po.*, sup.name as supplier_name, sup.phone as supplier_phone, sup.address as supplier_address,
                w.name as warehouse_name, u.full_name as created_by_name,
@@ -31,8 +30,9 @@ async def print_purchase(po_id: uuid.UUID,
     """), {"id": po_id})
     po = row.fetchone()
     if not po:
-        return HTMLResponse("Not found", 404)
+        raise not_found("أمر الشراء")
     po = dict(po._mapping)
+    await guard(db, user, ("purchases",), [po.get("warehouse_id")], "ليس لديك صلاحية طباعة المشتريات")
     items_row = await db.execute(text("""
         SELECT poi.*, p.name as product_name, p.unit
         FROM purchase_order_items poi JOIN products p ON p.id = poi.product_id
@@ -84,7 +84,7 @@ async def print_purchase(po_id: uuid.UUID,
     </div>
   </div>
   <div class="meta-row">
-    <div class="meta-cell"><div class="m-lbl">الحالة</div><div class="m-val"><span class="badge {st_cls}">{st_lbl}</span></div></div>
+    <div class="meta-cell"><div class="m-lbl">الحالة</div><div class="m-val"><span class="badge {st_cls}">{h(st_lbl)}</span></div></div>
     <div class="meta-cell"><div class="m-lbl">المخزن</div><div class="m-val">{h(po.get('warehouse_name','—'))}</div></div>
     {f'<div class="meta-cell"><div class="m-lbl">أنشأه</div><div class="m-val">{h(po["created_by_name"])}</div></div>' if po.get('created_by_name') else ''}
   {f'<div class="meta-cell"><div class="m-lbl">المبلغ المدفوع</div><div class="m-val" style="color:#16a34a;font-weight:900">{ar_egp(float(po["amount_paid"] or 0))}</div></div>' if po.get('amount_paid') else ''}
@@ -107,7 +107,7 @@ async def print_purchase(po_id: uuid.UUID,
 </div>
 <div class="doc-footer">
   <div class="sig"><div class="sig-name">توقيع المورد</div><div class="sig-line">الاسم والتوقيع</div></div>
-  <div class="footer-mid"><div class="stamp-circle">الختم</div><div class="footer-meta">طُبع: {datetime.now().strftime('%Y/%m/%d  %H:%M')}</div></div>
+  <div class="footer-mid"><div class="stamp-circle">الختم</div><div class="footer-meta">طُبع: {clock.stamp()}</div></div>
   <div class="sig"><div class="sig-name">{h(po.get("received_by_name") or "المستلم")}</div><div class="sig-line">الاسم والتوقيع</div></div>
 </div>
 {f'<div style="margin:0 36px 16px;padding:12px 16px;background:#f0fdf4;border:1.5px solid #94a3b8;border-radius:10px;display:flex;justify-content:space-between"><span style="font-size:11px;color:#6b7280">المبلغ المدفوع</span><span style="font-size:15px;font-weight:900;color:#16a34a">{ar_egp(float(po["amount_paid"] or 0))}</span></div>' if po.get("amount_paid") else ''}
@@ -117,7 +117,7 @@ async def print_purchase(po_id: uuid.UUID,
 
 
 @router.get("/pdf/purchase/{po_id}")
-async def pdf_purchase(po_id: uuid.UUID, paper_size: str = None,
+async def pdf_purchase(po_id: uuid.UUID, paper_size: PaperSize = None,
                        db: AsyncSession = Depends(get_db), user=Depends(get_print_user)):
     html_resp = await print_purchase(po_id, db, user)
     return await _make_pdf(html_resp, "فاتورة مشتريات", f"purchase_{po_id}.pdf", db, paper_size)
