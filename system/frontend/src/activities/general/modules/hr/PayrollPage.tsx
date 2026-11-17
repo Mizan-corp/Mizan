@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Calculator, CheckCircle2, Coins, FileText, LockOpen, Send } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
-import { api, openPrintDoc } from "@/lib/api";
+import { api } from "@/lib/api";
+import { printDocument } from "@app/lib/documents";
 import { money, moneyEGP } from "@/lib/format";
 import { Badge, Button, Card, ConfirmDialog, ErrorBox, Modal, Spinner, useToast } from "@/components/ui";
 import { useAuth } from "@/stores/auth";
@@ -88,7 +89,7 @@ export default function PayrollPage() {
             onChange={(e) => setMonth(e.target.value)}
             aria-label="الشهر"
           />
-          <Button variant="outline" onClick={() => openPrintDoc("/hr/payroll/report/monthly", { month })}>
+          <Button variant="outline" onClick={() => printDocument("/hr/payroll/report/monthly", { month })}>
             <FileText size={16} /> تقرير الشهر
           </Button>
         </div>
@@ -216,7 +217,7 @@ export default function PayrollPage() {
                   <td className="num p-3 font-black text-brand">{money(e.net_salary)}</td>
                   <td className="p-3">
                     <button
-                      onClick={() => openPrintDoc(`/hr/payroll/report/employee/${e.employee_id}`, { month, report_type: "ticket" })}
+                      onClick={() => printDocument(`/hr/payroll/report/employee/${e.employee_id}`, { month, report_type: "ticket" })}
                       className="text-xs font-semibold text-brand hover:underline"
                     >
                       قسيمة
