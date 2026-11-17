@@ -108,9 +108,16 @@ async def _upsert_setting(db: AsyncSession, key: str, value: Any) -> None:
 
 @router.get("/manifest.json", include_in_schema=False)
 async def pwa_manifest(db: AsyncSession = Depends(get_db)):
-    """Dynamic PWA manifest using logo from settings."""
+    """Dynamic PWA manifest using logo from settings. The request carries no sign-in, so no workspace is
+    bound: the login role would read every workspace's rows (RLS bypassed) and show whichever came
+    first. Mizan's own branding is served then; the app's real manifest is the static
+    manifest.webmanifest."""
     import os
-    rows = (await db.execute(text("SELECT key, value FROM store_settings WHERE key IN ('store_name','logo_url','logo_icon_192','logo_icon_512','theme_color','theme_primary','theme_bg')"))).fetchall()
+
+    from app.platform.tenancy.context import current_tenant_id
+    rows = [] if current_tenant_id.get() is None else (await db.execute(text(
+        "SELECT key, value FROM store_settings WHERE key IN ('store_name','logo_url','logo_icon_192','logo_icon_512',"
+        "'theme_color','theme_primary','theme_bg')"))).fetchall()
     s = {r.key: r.value for r in rows}
     name = s.get("store_name") or "ميزان"
     logo = s.get("logo_url") or ""
@@ -139,8 +146,9 @@ async def pwa_manifest(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("")
-async def get_settings(db: AsyncSession = Depends(get_db)):
-    """Public endpoint — returns store settings for login page and app."""
+async def get_settings(db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)):
+    """The signed-in workspace's store settings. It used to be public: without a sign-in no workspace is
+    bound, so it returned every workspace's settings merged (the login role bypasses RLS)."""
     import json as _json
 
     from app.platform.settings.models import StoreSetting
