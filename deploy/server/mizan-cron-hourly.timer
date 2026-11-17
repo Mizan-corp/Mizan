@@ -1,0 +1,10 @@
+[Unit]
+Description=Mizan scheduled jobs: every hour at :15 (Paymob reconcile, community webhooks)
+
+[Timer]
+OnCalendar=*-*-* *:15:00 UTC
+Persistent=true
+Unit=mizan-cron@hourly.service
+
+[Install]
+WantedBy=timers.target

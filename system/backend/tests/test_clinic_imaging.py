@@ -100,7 +100,7 @@ async def test_upload_view_and_links(private_dir, monkeypatch):
         # Tampered: refused. Pointing another user's token at the file: refused (signature).
         token = img["url"].rsplit("/", 1)[1]
         payload, mac = token.split(".")
-        assert (await c.get(f"/clinic/media/{payload}.{mac[:-1]}A")).status_code == 403
+        assert (await c.get(f"/clinic/media/{payload}.{('B' if mac[0] == 'A' else 'A') + mac[1:]}")).status_code == 403
         forged = signed.sign("other-purpose", {"k": "image", "id": img["id"], "u": str(env["users"]["doc_a"].id),
                                                "t": env["tenant_id"]}, 300)
         assert (await c.get(f"/clinic/media/{forged}")).status_code == 403
