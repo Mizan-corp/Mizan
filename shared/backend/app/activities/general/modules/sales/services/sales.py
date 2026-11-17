@@ -77,10 +77,11 @@ async def _audit(db, actor, entity_type: str, action: str, entity_id, changes: d
     await audit_log(db, entity_type, action, actor.id, getattr(actor, "full_name", None), entity_id, changes, note)
 
 
-async def _check_stock(db, items, warehouse_id, actor) -> None:
+async def _check_stock(db, items, warehouse_id, actor) -> bool:
     """Each tracked line is in stock in the branch (balance rows locked, in product order), unless
     the server allows selling below it (SAL-1: never a flag from the client). A shortage that is
-    allowed is recorded in the audit log."""
+    allowed is recorded in the audit log. Returns whether one was allowed: the stock path
+    (inventory's apply_movement, which knows only the workspace setting) is then told so."""
     allowed = None
     for item in sorted(items, key=lambda i: str(i.product_id)):
         if await _is_untracked(db, item.product_id, warehouse_id):
@@ -98,6 +99,7 @@ async def _check_stock(db, items, warehouse_id, actor) -> None:
             "product_name": name, "warehouse_id": str(warehouse_id), "balance_before": float(balance),
             "sold_qty": float(item.qty), "deficit": float(item.qty - balance),
         }, f"بيع بأكثر من الرصيد المتاح لـ {name}")
+    return bool(allowed)
 
 
 
@@ -343,11 +345,11 @@ async def confirm_quotation(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.
     quotation_number = sale.invoice_number
 
     sorted_items = sorted(sale.items, key=lambda i: str(i.product_id))
-    await _check_stock(db, sorted_items, sale.warehouse_id, actor)
+    allow_neg = await _check_stock(db, sorted_items, sale.warehouse_id, actor)
 
     await emit("pos.before_confirm", db, sale=sale, lines=sorted_items)
     for item in sorted_items:
-        await _take_stock(db, item, sale.warehouse_id, sale.id, user_id)
+        await _take_stock(db, item, sale.warehouse_id, sale.id, user_id, allow_negative=allow_neg)
     await emit("pos.after_confirm", db, sale=sale, lines=sorted_items)
 
     sale.status = SaleStatus.confirmed
@@ -474,11 +476,11 @@ async def confirm_draft_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid
         cash=checks.cash_involved(is_credit=sale.is_credit, wallet_id=sale.wallet_id, payment_method=sale.payment_method))
 
     sorted_items = sorted(sale.items, key=lambda i: str(i.product_id))
-    await _check_stock(db, sorted_items, sale.warehouse_id, actor)
+    allow_neg = await _check_stock(db, sorted_items, sale.warehouse_id, actor)
 
     await emit("pos.before_confirm", db, sale=sale, lines=sorted_items)
     for item in sorted_items:
-        await _take_stock(db, item, sale.warehouse_id, sale.id, user_id)
+        await _take_stock(db, item, sale.warehouse_id, sale.id, user_id, allow_negative=allow_neg)
     await emit("pos.after_confirm", db, sale=sale, lines=sorted_items)
 
     new_inv = await _invoice_number(db)
@@ -580,7 +582,7 @@ async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID, actor=None)
     shift_id = await checks.sale_shift(db, cashier_id, data.warehouse_id, data.shift_id, cash=checks.cash_involved(
         payments=payments, is_credit=data.is_credit, paid_amount=data.paid_amount, wallet_id=data.wallet_id,
         payment_method=data.payment_method))
-    await _check_stock(db, sorted_items, data.warehouse_id, actor)
+    allow_neg = await _check_stock(db, sorted_items, data.warehouse_id, actor)
 
     sale = Sale(
         invoice_number=await _invoice_number(db),
