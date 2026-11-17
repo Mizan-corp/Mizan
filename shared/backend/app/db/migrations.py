@@ -3951,6 +3951,32 @@ MIGRATIONS = [
         WHERE r.tenant_id IS NOT NULL AND r.grants ? 'inventory' AND r.grants ? 'settings'
           AND NOT r.grants ? 'inventory:opening';
     """),
+
+    # HR production readiness: an entry keeps the engine's prorated base (edits start from it), a
+    # period its approved total (paying pays exactly it), advances can be cancelled; the defaults
+    # the models declare (tables made by create_all lacked them).
+    ("v97_ready_hr", """
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS base_pay numeric(12,2);
+        ALTER TABLE hr_payroll_entries ALTER COLUMN bonuses SET DEFAULT 0;
+        ALTER TABLE hr_payroll_entries ALTER COLUMN status SET DEFAULT 'draft';
+        ALTER TABLE hr_payroll_periods ALTER COLUMN status SET DEFAULT 'draft';
+        ALTER TABLE hr_payroll_periods ADD COLUMN IF NOT EXISTS approved_amount numeric(14,2);
+        UPDATE hr_payroll_periods p
+           SET approved_amount = COALESCE(p.paid_amount, (SELECT e.amount FROM expenses e WHERE e.id = p.expense_id), 0)
+         WHERE p.status IN ('approved', 'paid') AND p.approved_amount IS NULL;
+        ALTER TABLE hr_advances ADD COLUMN IF NOT EXISTS status varchar(16) NOT NULL DEFAULT 'active';
+        ALTER TABLE hr_advances ADD COLUMN IF NOT EXISTS cancelled_at timestamptz;
+        ALTER TABLE hr_advances ADD COLUMN IF NOT EXISTS cancelled_by uuid REFERENCES users(id);
+        ALTER TABLE hr_advances ADD COLUMN IF NOT EXISTS cancel_reason text;
+        ALTER TABLE hr_advances ALTER COLUMN date SET DEFAULT CURRENT_DATE;
+        -- Approving and paying a month are permissions of their own now (payroll:approve,
+        -- payroll:pay): a workspace's own roles that could do both keep them. (The ids are
+        -- concatenated so no ':name' reads as a bind parameter.)
+        UPDATE sys_roles
+           SET grants = grants || jsonb_build_array('payroll:' || 'approve', 'payroll:' || 'pay')
+         WHERE tenant_id IS NOT NULL AND grants @> '["payroll"]'::jsonb
+           AND NOT grants @> jsonb_build_array('payroll:' || 'approve');
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

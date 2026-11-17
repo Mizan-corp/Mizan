@@ -13,7 +13,7 @@ Reopening an approved, unpaid month: the reversing entry of the approval ('payro
 Payroll paid (source 'payroll', id: the period, event 'pay'): Dr salaries payable (party: employee,
 their net) / Cr the safe or wallet it was paid from.
 HR advance (سلفة) paid out (source 'hr_advance', event 'pay'): Dr employee advances (party: employee) /
-Cr the safe or wallet. Deductions (خصم) and bonuses (مكافأة) move no cash and post nothing by
+Cr the safe or wallet; cancelling it ('hr_advance.cancelled') reverses that entry. Deductions (خصم) and bonuses (مكافأة) move no cash and post nothing by
 themselves: they enter the ledger through payroll.
 """
 import uuid
@@ -101,3 +101,8 @@ async def on_hr_advance_paid(db: AsyncSession, *, advance_id, employee_id, amoun
                [dr(await role(db, tid, "employee_advances"), amount, party_type="employee", party_id=employee_id),
                 cr(await source_account(db, tid, safe_id=safe_id, wallet_id=wallet_id), amount)],
                memo="سلفة موظف" + (f" — {note}" if note else ""), user_id=_uid(user_id))
+
+
+async def on_hr_advance_cancelled(db: AsyncSession, *, advance_id, user_id=None, **_) -> None:
+    await reverse_source(db, tenant_of(), "hr_advance", advance_id, "pay", user_id=_uid(user_id),
+                         memo="إلغاء سلفة موظف")

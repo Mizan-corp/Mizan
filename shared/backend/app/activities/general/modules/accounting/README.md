@@ -93,6 +93,7 @@ document's transaction. The modules emit generic events and never import account
 | `payroll.reopened` (reopening an approved, unpaid month) | `payroll` / `reverse` | the approval's entry, reversed | |
 | `payroll.paid` (`pay_payroll_period`) | `payroll` (id: the period) / `pay` | salaries payable per employee (party: employee) | the safe or wallet it was paid from |
 | `hr_advance.paid` (`POST /hr/advances`, kind سلفة) | `hr_advance` / `pay` | employee advances (party: employee) | the safe or wallet |
+| `hr_advance.cancelled` (`POST /hr/advances/{id}/cancel`, an advance) | `hr_advance` / `reverse` | the advance's entry, reversed | |
 | `clinic.invoice_paid` (`POST /clinic/invoices/{id}/pay`) | `clinic_invoice` / `revenue`, once | receivables (the patient's share not yet paid, no party); insurance receivables (the insurer's share) | sales (patient's + insurer's share) |
 | …each payment | `clinic_payment` (id: the `sale_payments` row) / `confirm` | cash: the drawer of the branch of the cashier's open shift; bank, card, wallet…: the default bank | receivables |
 | `safe.deposited` from `close_shift_with_manager` | `safe_movement` / `deposit` | the safe | the shift's branch drawer |

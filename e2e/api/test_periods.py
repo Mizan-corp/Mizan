@@ -35,8 +35,14 @@ def test_hr_payroll_period_lifecycle(owner_api, reg):
     p = owner_api.ok(owner_api.get(f"/hr/payroll/period?month={month}"))
     assert p.get("month") == month or p.get("status") in ("draft", "submitted", "approved", "paid")
     assert "status" in p
-    reg.add("hr_period", p["id"])
+    # Reading a month creates nothing: an untouched month is a draft without an id.
+    if p["id"]:
+        reg.add("hr_period", p["id"])
     submit = owner_api.post(f"/hr/payroll/period/submit?month={month}")
     assert submit.status_code in (200, 201, 400), submit.text[:200]
+    if not p["id"]:
+        p = owner_api.ok(owner_api.get(f"/hr/payroll/period?month={month}"))
+        if p["id"]:
+            reg.add("hr_period", p["id"])
     approve = owner_api.post(f"/hr/payroll/period/approve?month={month}")
     assert approve.status_code in (200, 201, 400), approve.text[:200]

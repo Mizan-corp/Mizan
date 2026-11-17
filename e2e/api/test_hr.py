@@ -89,6 +89,19 @@ def test_hr_advances(owner_api, reg, safe):
     reg.add("advance", adv.get("id") or "")
     rows = owner_api.ok(owner_api.get("/hr/advances", params={"employee_id": e["id"]}))
     assert isinstance(rows, list)
+    # an unknown kind is refused; cancelling puts the cash back, once
+    r = owner_api.post("/hr/advances", json={"employee_id": e["id"], "amount": "5", "record_type": "x"})
+    assert r.status_code == 422, r.text[:200]
+    def balance() -> float:
+        safes = owner_api.ok(owner_api.get("/safes"))
+        rows = safes if isinstance(safes, list) else safes.get("items", safes.get("data", []))
+        return float(next(x for x in rows if x["id"] == safe["id"])["balance"])
+
+    before = balance()
+    cancelled = owner_api.ok(owner_api.post(f"/hr/advances/{adv['id']}/cancel", json={"reason": "e2e"}))
+    assert cancelled["status"] == "cancelled"
+    assert balance() == before + 200
+    assert owner_api.post(f"/hr/advances/{adv['id']}/cancel").status_code == 409
 
 
 def test_hr_import_csv_and_no_device_sync(owner_api):
@@ -117,6 +130,10 @@ def test_payroll_full_flow(owner_api, reg, safe):
     adj = owner_api.ok(owner_api.put(f"/hr/payroll/{mine[0]['id']}",
                                      json={"bonus": "100"}))
     assert adj is not None
+    # the status is the month's, never set by hand
+    r = owner_api.put(f"/hr/payroll/{mine[0]['id']}", json={"bonus": "100", "status": "paid"})
+    assert r.status_code == 422, r.text[:200]
+    assert owner_api.get("/hr/payroll/period", params={"month": "2026-13"}).status_code == 422
 
     period = owner_api.ok(owner_api.get("/hr/payroll/period", params={"month": month}))
     reg.add("hr_period", period["id"])
@@ -126,6 +143,9 @@ def test_payroll_full_flow(owner_api, reg, safe):
         assert sub["detail"] == "submitted"
         appr = owner_api.ok(owner_api.post("/hr/payroll/period/approve", params={"month": month}))
         assert appr["detail"] == "approved"
+        # an approved month's entries are frozen
+        r = owner_api.put(f"/hr/payroll/{mine[0]['id']}", json={"bonus": "999"})
+        assert r.status_code == 409, r.text[:200]
         exps = owner_api.ok(owner_api.get("/expenses", params={"search": "رواتب"}))
         for x in (exps if isinstance(exps, list) else exps.get("data", [])):
             if x.get("notes") == f"HR payroll month {month}":

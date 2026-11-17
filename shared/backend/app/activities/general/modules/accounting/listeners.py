@@ -28,5 +28,6 @@ LISTENERS = {
     "payroll.reopened": payroll.on_payroll_reopened,
     "payroll.paid": payroll.on_payroll_paid,
     "hr_advance.paid": payroll.on_hr_advance_paid,
+    "hr_advance.cancelled": payroll.on_hr_advance_cancelled,
     "clinic.invoice_paid": clinic.on_clinic_invoice_paid,
 }
