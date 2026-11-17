@@ -64,6 +64,18 @@
           "label": "الخزينة وتحصيل الفنيين الميداني"
         },
         {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
+        },
+        {
           "screen": "core.settings",
           "label": "إعدادات أنواع الأعطال والصيانة"
         },

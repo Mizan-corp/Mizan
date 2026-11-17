@@ -1,6 +1,6 @@
-// Accounting: this module's API calls (paths under /accounting), used by its screens. The screens
-// (chart of accounts, journal, reports, period close) come in ADR-014 step 5; for now this file
-// holds the shapes of the report endpoints (ADR-014 D8, D10), all read from the ledger only.
+// Accounting: the shapes of this module's API (paths under /accounting), used by its screens
+// (ADR-014 step 5): the chart, the journal and its drafts (D9), the reports (D8, all read from the
+// ledger only), the opening entry (D10) and the periods (D7).
 // Amounts are numbers rounded to the piastre; dates are ISO strings (YYYY-MM-DD).
 
 export type AccountType = "asset" | "liability" | "equity" | "income" | "expense";
@@ -192,6 +192,7 @@ export interface OpeningPreview {
   total_debit: number;
   total_credit: number;
   balanced: boolean;
+  sections: Record<string, { count: number; debit: number; credit: number }>;
   skipped_no_cost: { product_id: string; name: string; code: string | null; qty: number }[];
   notes: string[];
   can_post: boolean;
@@ -203,4 +204,194 @@ export interface OpeningPreview {
 export interface AccountingSettings {
   fiscal_year_start: number;
   start_date: string | null;
+}
+
+export interface EntryRef {
+  id: string;
+  number: string;
+  date: string;
+}
+
+/** GET /accounting/settings: the settings plus the state the screens need. */
+export interface AccountingState extends AccountingSettings {
+  /** null: no opening entry in force, the opening wizard is offered. */
+  opening_entry: EntryRef | null;
+  first_entry_date: string | null;
+  year_end_closings: (EntryRef & { memo: string | null })[];
+}
+
+/** GET /accounting/accounts: the chart as a tree. */
+export interface AccountNode extends AccountRef {
+  parent_id: string | null;
+  is_group: boolean;
+  role: string | null;
+  active: boolean;
+  /** The sub-account of a safe, wallet, branch drawer or the default bank (created automatically). */
+  money_kind: "safe" | "wallet" | "drawer" | "default_bank" | null;
+  children: AccountNode[];
+}
+
+export type PartyType = "customer" | "supplier" | "employee";
+
+/** GET /accounting/entries?from&to&source_type&account_id&page&page_size */
+export interface EntryRow {
+  id: string;
+  number: string;
+  date: string;
+  source_type: string;
+  source_id: string;
+  event: string;
+  memo: string | null;
+  warehouse_id: string | null;
+  reverses_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  amount: number;
+  reversed: boolean;
+}
+
+export interface Paged<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface EntryLine {
+  id: string;
+  account_id: string;
+  account_code: string;
+  account_name: string;
+  debit: number;
+  credit: number;
+  party_type: PartyType | null;
+  party_id: string | null;
+  party_name: string | null;
+  warehouse_id: string | null;
+}
+
+/** GET /accounting/entries/{id} */
+export interface EntryDetail extends Omit<EntryRow, "amount" | "reversed"> {
+  reversed_by: string | null;
+  reversed_by_entry: EntryRef | null;
+  reverses_entry: EntryRef | null;
+  created_by_name: string | null;
+  /** The document's number or description (invoice number, PO number, the draft's memo…). */
+  source_ref: string | null;
+  lines: EntryLine[];
+}
+
+export interface DraftLine {
+  account_id: string;
+  account_code: string | null;
+  account_name: string | null;
+  account_role: string | null;
+  debit: number;
+  credit: number;
+  party_type: PartyType | null;
+  party_id: string | null;
+  party_name: string | null;
+  warehouse_id: string | null;
+}
+
+/** GET /accounting/drafts/{id}: `problems` lists what stops it from being posted (empty: it can be). */
+export interface Draft {
+  id: string;
+  date: string;
+  memo: string | null;
+  warehouse_id: string | null;
+  status: "draft" | "posted";
+  entry: EntryRef | null;
+  lines: DraftLine[];
+  total_debit: number;
+  total_credit: number;
+  difference: number;
+  balanced: boolean;
+  problems: string[];
+  updated_at: string;
+}
+
+/** GET /accounting/drafts?status */
+export interface DraftRow {
+  id: string;
+  date: string;
+  memo: string | null;
+  status: "draft" | "posted";
+  entry_id: string | null;
+  entry_number: string | null;
+  created_by_name: string | null;
+  updated_at: string;
+  debit: number;
+  credit: number;
+  line_count: number;
+  balanced: boolean;
+}
+
+/** The body of POST /accounting/drafts and PUT /accounting/drafts/{id}. */
+export interface DraftPayload {
+  date: string;
+  memo: string | null;
+  warehouse_id: string | null;
+  lines: {
+    account_id: string;
+    debit: string;
+    credit: string;
+    party_type: PartyType | null;
+    party_id: string | null;
+    warehouse_id: string | null;
+  }[];
+}
+
+export interface PostResult {
+  draft_id: string;
+  entry: EntryRef;
+  already: boolean;
+}
+
+export interface ReverseResult {
+  reversed: string;
+  entry: EntryRef;
+  already: boolean;
+}
+
+export interface PeriodMonth {
+  month: string;
+  status: "open" | "closed";
+  closed_at: string | null;
+  closed_by_name: string | null;
+  reopened_at: string | null;
+  reopened_by_name: string | null;
+  reopen_reason: string | null;
+  current: boolean;
+  can_close: boolean;
+  can_reopen: boolean;
+}
+
+export interface FiscalYear {
+  year: number;
+  from: string;
+  to: string;
+  over: boolean;
+  open_months: string[];
+  closing_entry: EntryRef | null;
+}
+
+/** GET /accounting/periods: newest month first. */
+export interface PeriodsOverview {
+  current_month: string;
+  fiscal_year_start: number;
+  months: PeriodMonth[];
+  years: FiscalYear[];
+}
+
+export interface FinancialCategory {
+  id: string;
+  name: string;
+  type: "income" | "expense" | string;
+  account_id: string | null;
+}
+
+export interface Branch {
+  id: string;
+  name: string;
 }

@@ -69,6 +69,18 @@
           "label": "الخزائن ومتابعة الشيكات والذمم"
         },
         {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
+        },
+        {
           "screen": "reporting.reports",
           "label": "تقارير أعمار الديون والمبيعات"
         }

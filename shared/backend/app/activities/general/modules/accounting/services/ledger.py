@@ -16,8 +16,9 @@ def _num(v) -> float:
 async def accounts_tree(db: AsyncSession, tenant_id: uuid.UUID) -> list[dict]:
     await ensure_chart(db, tenant_id, complete=True)
     rows = (await db.execute(text(
-        "SELECT id, code, name, name_en, type, parent_id, is_group, role, active FROM acc_accounts "
-        "WHERE tenant_id = :t ORDER BY code"), {"t": tenant_id})).mappings().all()
+        "SELECT a.id, a.code, a.name, a.name_en, a.type, a.parent_id, a.is_group, a.role, a.active, m.kind AS money_kind "
+        "FROM acc_accounts a LEFT JOIN acc_money_accounts m ON m.account_id = a.id AND m.tenant_id = :t "
+        "WHERE a.tenant_id = :t ORDER BY a.code"), {"t": tenant_id})).mappings().all()
     nodes = {r["id"]: {**dict(r), "children": []} for r in rows}
     roots = []
     for node in nodes.values():
@@ -67,8 +68,11 @@ async def get_entry(db: AsyncSession, tenant_id: uuid.UUID, entry_id: uuid.UUID)
         raise NotFoundError("القيد غير موجود")
     lines = (await db.execute(text("""
         SELECT l.id, l.account_id, a.code AS account_code, a.name AS account_name, l.debit, l.credit,
-               l.party_type, l.party_id, l.warehouse_id
+               l.party_type, l.party_id, l.warehouse_id, COALESCE(pc.name, ps.name, pe.name) AS party_name
         FROM acc_lines l JOIN acc_accounts a ON a.id = l.account_id
+        LEFT JOIN customers pc ON l.party_type = 'customer' AND pc.id = l.party_id
+        LEFT JOIN suppliers ps ON l.party_type = 'supplier' AND ps.id = l.party_id
+        LEFT JOIN hr_employees pe ON l.party_type = 'employee' AND pe.id = l.party_id
         WHERE l.entry_id = :id ORDER BY l.debit DESC, a.code
     """), {"id": entry_id})).mappings().all()
     reversed_by = (await db.execute(text("SELECT id, number, date FROM acc_entries WHERE reverses_id = :id"),

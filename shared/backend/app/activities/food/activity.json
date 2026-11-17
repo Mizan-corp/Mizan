@@ -68,6 +68,18 @@
           "label": "الخزائن وتكاليف التشغيل الصناعي"
         },
         {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
+        },
+        {
           "screen": "reporting.reports",
           "label": "تقارير التكاليف الصناعية والإنتاجية"
         }

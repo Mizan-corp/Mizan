@@ -68,6 +68,18 @@
           "label": "الخزينة والاشتراكات المجدولة"
         },
         {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
+        },
+        {
           "screen": "reporting.reports",
           "label": "تقارير تجديد الاشتراكات"
         }

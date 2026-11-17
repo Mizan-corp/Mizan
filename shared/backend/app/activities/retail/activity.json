@@ -101,6 +101,18 @@
               "label": "الخزائن والمصروفات"
             },
             {
+              "screen": "accounting.journal"
+            },
+            {
+              "screen": "accounting.accounts"
+            },
+            {
+              "screen": "accounting.reports"
+            },
+            {
+              "screen": "accounting.periods"
+            },
+            {
               "screen": "finance.customers",
               "label": "العملاء والآجل"
             },
@@ -191,6 +203,18 @@
         {
           "screen": "finance.finance",
           "label": "الخزائن والمصروفات"
+        },
+        {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
         },
         {
           "screen": "reporting.reports",
