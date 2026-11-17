@@ -4,7 +4,7 @@ import uuid
 
 from helpers import uid, to_uuid
 
-from conftest import customer, supplier, wh, product, subcategory, db, safe  # noqa: F401
+from conftest import customer, supplier, wh, product, subcategory, db, safe, cashier_api  # noqa: F401
 
 
 # ---------------- customers ----------------
@@ -88,3 +88,42 @@ def test_supplier_transaction_type_validation(admin_api, supplier):
     r = admin_api.post(f"/suppliers/{supplier['id']}/transactions",
                        json={"amount": 1, "type": "bad"})
     assert r.status_code == 422
+
+def test_customer_statement_is_paged_with_a_running_balance(admin_api, reg, customer, safe):
+    admin_api.ok(admin_api.put(f"/customers/{customer['id']}/balance", json={"balance": "300", "note": "e2e"}))
+    pay = admin_api.ok(admin_api.post(f"/customers/{customer['id']}/payments",
+                                      json={"amount": "100", "safe_id": safe["id"]}))
+    reg.add("payment", pay["id"])
+    page = admin_api.ok(admin_api.get(f"/customers/{customer['id']}/ledger", params={"page_size": 1}))
+    assert page["total"] == 2 and page["pages"] == 2 and len(page["items"]) == 1
+    assert page["items"][0]["type"] == "opening" and page["items"][0]["balance"] == 300.0
+    last = admin_api.ok(admin_api.get(f"/customers/{customer['id']}/ledger", params={"page_size": 1, "page": 2}))
+    assert last["items"][0]["type"] == "payment" and last["items"][0]["balance"] == 200.0
+    acct = admin_api.ok(admin_api.get(f"/customers/{customer['id']}/account"))
+    assert acct["balance_due"] == 200.0 and acct["total_paid"] == 100.0
+    assert admin_api.get("/customers/00000000-0000-0000-0000-000000000000/ledger").status_code == 404
+    summary = admin_api.ok(admin_api.get("/customers/summary", params={"search": customer["name"]}))
+    assert summary["total"] == 1 and float(summary["total_due"]) == 200.0
+
+
+def test_customer_receipt_is_idempotent_and_reversible(admin_api, cashier_api, reg, customer, safe, db):
+    admin_api.ok(admin_api.put(f"/customers/{customer['id']}/balance", json={"balance": "50"}))
+    body = {"amount": "20", "safe_id": safe["id"], "client_id": str(uuid.uuid4())}
+    first = admin_api.ok(admin_api.post(f"/customers/{customer['id']}/payments", json=body))
+    again = admin_api.ok(admin_api.post(f"/customers/{customer['id']}/payments", json=body))
+    reg.add("payment", first["id"])
+    assert first["id"] == again["id"]
+    assert cashier_api.post(f"/customers/payments/{first['id']}/reverse", json={"reason": "e2e"}).status_code == 403
+    rev = admin_api.ok(admin_api.post(f"/customers/payments/{first['id']}/reverse", json={"reason": "e2e خطأ"}))
+    reg.add("payment", rev["id"])
+    assert rev["amount"] == -20.0 and rev["reverses_id"] == first["id"]
+    assert admin_api.post(f"/customers/payments/{first['id']}/reverse", json={"reason": "e2e خطأ"}).status_code == 409
+    bal = db.one("SELECT balance FROM customers WHERE id = %s", (customer["id"],))[0]
+    assert float(bal) == 50.0
+
+
+def test_cashier_cannot_write_off_or_remove_customers(cashier_api, customer):
+    assert cashier_api.put(f"/customers/{customer['id']}/balance", json={"balance": "0"}).status_code == 403
+    assert cashier_api.post(f"/customers/{customer['id']}/deactivate").status_code == 403
+    assert cashier_api.delete(f"/customers/{customer['id']}").status_code == 403
+    assert cashier_api.put(f"/customers/{customer['id']}", json={"name": None}).status_code == 422

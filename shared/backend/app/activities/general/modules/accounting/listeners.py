@@ -7,6 +7,7 @@ LISTENERS = {
     "sale.returned": sales.on_sale_returned,
     "sale.cancelled": sales.on_sale_cancelled,
     "customer_payment.received": receipts.on_customer_payment,
+    "customer_payment.reversed": receipts.on_customer_payment_reversed,
     "customer_adjustment.created": receipts.on_customer_adjustment,
     "drawer.transaction_added": pos.on_drawer_transaction,
     "drawer.transaction_cancelled": pos.on_drawer_cancelled,

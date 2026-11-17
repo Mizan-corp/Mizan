@@ -1,20 +1,24 @@
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
-from app.activities.general.modules.contacts.models.customer_payment import CustomerAdjustment, CustomerPayment
+from app.framework import idempotency
 from app.activities.general.modules.contacts.models.party import Customer
-from app.activities.general.modules.sales.models.sale import Sale, SaleStatus
+from app.activities.general.modules.finance.services.access import require_finance_or_manager
 from app.platform.auth.models.user import User
-from app.activities.general.modules.contacts.schemas import CustomerCreate, CustomerPaymentCreate, CustomerUpdate, SetBalanceRequest
+from app.activities.general.modules.contacts.schemas import (CustomerCreate, CustomerPaymentCreate, CustomerUpdate, PaymentReverse,
+                                                             SetBalanceRequest)
 from app.activities.general.modules.contacts import service as contacts_service
 
 router = APIRouter(tags=["parties"])
+
+NOT_FOUND = contacts_service.CUSTOMER_NOT_FOUND
 
 
 async def _clean_extra(db: AsyncSession, extra: dict | None, current: dict | None = None) -> dict:
@@ -25,26 +29,46 @@ async def _clean_extra(db: AsyncSession, extra: dict | None, current: dict | Non
     return await clean_extra(db, "customer", extra, await workspace_activity(db), current=current)
 
 
-# ── Customers ────────────────────────────────────────────────────────────────
-@router.get("/customers")
-async def list_customers(search: str | None = None, include_inactive: bool = False, limit: int = Query(200, le=1000), offset: int = Query(0, ge=0), db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
-    from sqlalchemy import text as sqlt
+def _filters(search: str | None, include_inactive: bool) -> tuple[str, dict]:
     params: dict = {}
     where_parts = ["1=1"] if include_inactive else ["c.is_active"]
     if search:
-        where_parts.append("c.name ILIKE :search")
+        where_parts.append("(c.name ILIKE :search OR c.phone ILIKE :search)")
         params["search"] = f"%{search}%"
-    where = " AND ".join(where_parts)
-    # Add basic pagination to avoid returning an unbounded result set
-    params.update({"limit": limit, "offset": offset})
-    rows = await db.execute(sqlt(f"""
+    return " AND ".join(where_parts), params
+
+
+# ── Customers ────────────────────────────────────────────────────────────────
+@router.get("/customers")
+async def list_customers(search: Annotated[str | None, Query(max_length=128)] = None, include_inactive: bool = False,
+                         limit: int = Query(200, ge=1, le=1000), offset: int = Query(0, ge=0),
+                         db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    """Customers by name (the POS and every picker use it; a bare list, paged by limit/offset).
+    The totals of the same filter are at /customers/summary."""
+    where, params = _filters(search, include_inactive)
+    rows = await db.execute(text(f"""
         SELECT c.*, c.balance AS balance_due
         FROM customers c
         WHERE {where}
-        ORDER BY c.name
+        ORDER BY c.name, c.id
         LIMIT :limit OFFSET :offset
-    """    ), params)
+    """), {**params, "limit": limit, "offset": offset})
     return [dict(r._mapping) for r in rows.fetchall()]
+
+
+@router.get("/customers/summary")
+async def customers_summary(search: Annotated[str | None, Query(max_length=128)] = None, include_inactive: bool = False,
+                            db: AsyncSession = Depends(get_db), _=Depends(require_perm("customers"))):
+    """What the customer list's cards show, over every customer of the filter (not one page)."""
+    where, params = _filters(search, include_inactive)
+    row = (await db.execute(text(f"""
+        SELECT COUNT(*) AS total,
+               COUNT(*) FILTER (WHERE c.balance > 0) AS debtors,
+               COALESCE(SUM(c.balance) FILTER (WHERE c.balance > 0), 0) AS total_due,
+               COUNT(*) FILTER (WHERE c.credit_limit > 0 AND c.balance > c.credit_limit) AS over_limit
+        FROM customers c WHERE {where}
+    """), params)).mappings().one()
+    return dict(row)
 
 
 @router.post("/customers")
@@ -65,10 +89,11 @@ async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_d
 
 @router.put("/customers/{cid}")
 async def update_customer(cid: uuid.UUID, data: CustomerUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("customers"))):
+    """Change only the fields sent. The balance changes through payments and adjustments only."""
     result = await db.execute(select(Customer).where(Customer.id == cid))
     c = result.scalar_one_or_none()
     if not c:
-        raise NotFoundError()
+        raise NotFoundError(NOT_FOUND)
     changes = data.model_dump(exclude_unset=True)
     if "extra" in changes:
         changes["extra"] = await _clean_extra(db, changes["extra"], current=c.extra)
@@ -80,56 +105,9 @@ async def update_customer(cid: uuid.UUID, data: CustomerUpdate, db: AsyncSession
 
 
 @router.get("/customers/{cid}/account")
-async def customer_account(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
-    """Customer ledger: total invoiced, total paid, balance due."""
-    from sqlalchemy import text as sqlt
-    c = (await db.execute(select(Customer).where(Customer.id == cid))).scalar_one_or_none()
-    if not c:
-        raise NotFoundError()
-
-    r = await db.execute(sqlt("""
-        SELECT
-            COALESCE((
-                SELECT SUM(invoice_net)
-                FROM (
-                    SELECT s.id,
-                           SUM(si.qty * si.unit_price - si.discount) - COALESCE(s.discount_amount, 0) AS invoice_net
-                    FROM sales s
-                    JOIN sale_items si ON si.sale_id = s.id
-                    WHERE s.customer_id = :cid AND s.is_credit = true AND s.status = 'confirmed'
-                    GROUP BY s.id, s.discount_amount
-                ) inv
-            ), 0) AS total_invoiced,
-            COALESCE((
-                SELECT SUM(invoice_net)
-                FROM (
-                    SELECT s.id,
-                           SUM(si.qty * si.unit_price - si.discount) AS invoice_net
-                    FROM sales s
-                    JOIN sale_items si ON si.sale_id = s.id
-                    WHERE s.customer_id = :cid AND s.status = 'returned' AND s.is_credit = true
-                    GROUP BY s.id
-                ) ret
-            ), 0) AS total_returned,
-            COALESCE((SELECT SUM(amount) FROM customer_payments WHERE customer_id = :cid), 0)
-            AS total_paid,
-            COALESCE((SELECT SUM(amount) FROM customer_adjustments WHERE customer_id = :cid), 0)
-            AS total_adjustments
-    """), {"cid": cid})
-    agg = dict(r.fetchone()._mapping)
-
-    return {
-        "customer_id": str(cid),
-        "customer_name": c.name,
-        "phone": c.phone,
-        "total_invoiced": float(agg["total_invoiced"]),
-        "total_returned": float(agg["total_returned"]),
-        "total_paid": float(agg["total_paid"]),
-        "total_adjustments": float(agg["total_adjustments"]),
-        "balance_due": float(agg["total_invoiced"] - agg["total_returned"] - agg["total_paid"] + agg["total_adjustments"]),
-        "balance": float(c.balance or 0),
-        "credit_limit": float(c.credit_limit) if c.credit_limit else None,
-    }
+async def customer_account(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("customers", "finance"))):
+    """The statement's totals: invoiced on credit, returned, paid, adjusted, and the balance due."""
+    return await contacts_service.account(db, cid)
 
 
 @router.get("/customers/{cid}/ledger")
@@ -137,102 +115,32 @@ async def customer_ledger(
     cid: uuid.UUID,
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=500),
+    newest_first: bool = False,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_perm("customers", "finance")),
 ):
-    """Full chronological ledger: invoices + returns + payments with pagination."""
-    from sqlalchemy.orm import selectinload
-
-    sales_count_q = select(func.count()).select_from(Sale).where(
-        Sale.customer_id == cid,
-        Sale.status.in_([SaleStatus.confirmed, SaleStatus.returned]),
-        Sale.is_credit,
-    )
-    sales_total = (await db.execute(sales_count_q)).scalar() or 0
-
-    payments_count_q = select(func.count()).select_from(CustomerPayment).where(
-        CustomerPayment.customer_id == cid,
-    )
-    payments_total = (await db.execute(payments_count_q)).scalar() or 0
-
-    offset = (page - 1) * page_size
-
-    sales = (await db.execute(
-        select(Sale).options(selectinload(Sale.items))
-        .where(Sale.customer_id == cid,
-               Sale.status.in_([SaleStatus.confirmed, SaleStatus.returned]),
-               Sale.is_credit)
-        .order_by(Sale.created_at.asc())
-        .offset(offset).limit(page_size)
-    )).scalars().all()
-
-    payments = (await db.execute(
-        select(CustomerPayment).where(CustomerPayment.customer_id == cid)
-        .order_by(CustomerPayment.created_at.desc())
-        .offset(offset).limit(page_size)
-    )).scalars().all()
-
-    entries = []
-    for s in sales:
-        total = sum(float(i.qty) * float(i.unit_price) - float(i.discount) for i in s.items)
-        entries.append({
-            "type": "invoice" if s.status == SaleStatus.confirmed else "return",
-            "ref": s.invoice_number,
-            "amount": total,
-            "date": s.created_at.isoformat(),
-            "items_count": len(s.items),
-        })
-    for p in payments:
-        entries.append({
-            "type": "payment",
-            "ref": str(p.id)[:8],
-            "amount": float(p.amount),
-            "note": p.note,
-            "method": p.method,
-            "date": p.created_at.isoformat(),
-        })
-    adjustments = (await db.execute(
-        select(CustomerAdjustment).where(CustomerAdjustment.customer_id == cid)
-        .order_by(CustomerAdjustment.created_at.desc())
-        .offset(offset).limit(page_size)
-    )).scalars().all()
-    for a in adjustments:
-        entries.append({
-            "type": a.kind,  # opening / adjustment
-            "ref": str(a.id)[:8],
-            "amount": float(a.amount),
-            "note": a.note,
-            "date": a.created_at.isoformat(),
-        })
-    entries.sort(key=lambda e: e["date"])
-
-    return [*entries, {
-        "__pagination": {
-            "page": page,
-            "page_size": page_size,
-            "sales_total": sales_total,
-            "payments_total": payments_total,
-            "sales_pages": max(1, (sales_total + page_size - 1) // page_size),
-            "payments_pages": max(1, (payments_total + page_size - 1) // page_size),
-        },
-    }]
+    """The customer's statement: credit invoices, returns, receipts (and their reversals) and
+    adjustments in date order, with the balance after each line; {items, total, page, pages}."""
+    return await contacts_service.statement(db, cid, page, page_size, newest_first)
 
 
 @router.put("/customers/{cid}/balance")
-async def set_customer_balance(cid: uuid.UUID, data: SetBalanceRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("customers"))):
-    """Opening balance or correction: the difference is recorded as an adjustment, never overwritten."""
+async def set_customer_balance(cid: uuid.UUID, data: SetBalanceRequest, db: AsyncSession = Depends(get_db),
+                               current_user: User = Depends(require_finance_or_manager)):
+    """Opening balance or correction: the difference is recorded as an adjustment, never overwritten.
+    Lowering a balance writes off debt, so it needs `finance` or a manager, not `customers`."""
     result = await contacts_service.adjust_balance(db, cid, data.balance, data.note, current_user)
     await db.commit()
     return result
 
 
 @router.delete("/customers/{cid}")
-async def delete_customer(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("customers"))):
+async def delete_customer(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_finance_or_manager)):
     """Only a customer with no sales, payments or adjustments is deleted; others are deactivated."""
     result = await db.execute(select(Customer).where(Customer.id == cid).with_for_update())
     c = result.scalar_one_or_none()
     if not c:
-        raise NotFoundError()
+        raise NotFoundError(NOT_FOUND)
     if await contacts_service.has_transactions(db, cid):
         raise HTTPException(409, "لا يمكن حذف عميل له معاملات (مبيعات أو دفعات أو تسويات). يمكنك إيقافه بدلًا من ذلك")
     await db.delete(c)
@@ -241,34 +149,60 @@ async def delete_customer(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _=
 
 
 @router.post("/customers/{cid}/deactivate")
-async def deactivate_customer(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("customers"))):
+async def deactivate_customer(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_finance_or_manager)):
     return await _set_active(db, cid, False)
 
 
 @router.post("/customers/{cid}/activate")
-async def activate_customer(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("customers"))):
+async def activate_customer(cid: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_finance_or_manager)):
     return await _set_active(db, cid, True)
 
 
 async def _set_active(db: AsyncSession, cid: uuid.UUID, active: bool) -> dict:
     c = (await db.execute(select(Customer).where(Customer.id == cid))).scalar_one_or_none()
     if not c:
-        raise NotFoundError()
+        raise NotFoundError(NOT_FOUND)
     c.is_active = active
     await db.commit()
     return {"id": str(cid), "is_active": active}
 
 
-@router.post("/customers/{cid}/payments")
-async def add_payment(cid: uuid.UUID, data: CustomerPaymentCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("customers"))):
-    """Record a payment received from customer.  If sale_id is provided, the payment is attributed to that invoice."""
-    p = await contacts_service.receive_payment(db, cid, data.amount, current_user, sale_id=data.sale_id, note=data.note,
-                                               method=data.method, safe_id=data.safe_id, wallet_id=data.wallet_id)
-    await db.commit()
-    await db.refresh(p)
+def _payment_out(p) -> dict:
     return {"id": str(p.id), "amount": float(p.amount), "note": p.note, "sale_id": str(p.sale_id) if p.sale_id else None,
             "method": p.method, "safe_id": str(p.safe_id) if p.safe_id else None,
             "wallet_id": str(p.wallet_id) if p.wallet_id else None, "shift_id": str(p.shift_id) if p.shift_id else None,
+            "reverses_id": str(p.reverses_id) if p.reverses_id else None,
             "created_at": p.created_at.isoformat()}
 
 
+@router.post("/customers/{cid}/payments")
+async def add_payment(cid: uuid.UUID, data: CustomerPaymentCreate, db: AsyncSession = Depends(get_db),
+                      current_user: User = Depends(require_perm("customers")),
+                      idempotency_key: str | None = Header(None, alias="Idempotency-Key")):
+    """Record a payment received from customer. With sale_id it pays that credit invoice (never more
+    than is due on it). A retry with the same Idempotency-Key or client_id returns the first receipt."""
+    key = idempotency.key_of(idempotency_key, data.client_id)
+    payload = {"customer_id": cid, **data.model_dump(exclude={"client_id"})}
+    if (replay := await idempotency.claim(db, "customer.payment", key, payload, current_user.id)) is not None:
+        return replay
+    p = await contacts_service.receive_payment(db, cid, data.amount, current_user, sale_id=data.sale_id, note=data.note,
+                                               method=data.method, safe_id=data.safe_id, wallet_id=data.wallet_id)
+    await db.flush()
+    await db.refresh(p)
+    result = _payment_out(p)
+    await idempotency.remember(db, "customer.payment", key, result)
+    await db.commit()
+    return result
+
+
+@router.post("/customers/payments/{pid}/reverse")
+async def reverse_payment(pid: uuid.UUID, data: PaymentReverse, db: AsyncSession = Depends(get_db),
+                          current_user: User = Depends(require_perm("finance"))):
+    """Undo a receipt into a safe or wallet: the money goes back out, the customer owes it again,
+    the ledger entry is reversed. Needs `finance`."""
+    reversal = await contacts_service.reverse_payment(db, pid, data.reason.strip(), current_user)
+    await db.flush()
+    await db.refresh(reversal)
+    out = _payment_out(reversal)
+    await db.commit()
+    return out
