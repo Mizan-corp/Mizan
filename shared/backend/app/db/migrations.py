@@ -4022,6 +4022,29 @@ MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS ix_expenses_tenant_date ON expenses (tenant_id, date);
         CREATE INDEX IF NOT EXISTS ix_customer_payments_sale_id ON customer_payments (sale_id) WHERE sale_id IS NOT NULL;
     """),
+
+    # Phase B, platform (CON-7): customer search (`name ILIKE '%…%'`, the POS and every picker) by a
+    # trigram index when the server offers pg_trgm (PostgreSQL's contrib, a trusted extension the
+    # database owner may create); without it, a btree on lower(name) for prefix searches and ordering.
+    # Both guarded: the migration never fails on a server without the extension.
+    ("v102_b_platform", """
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_trgm') THEN
+                BEGIN
+                    CREATE EXTENSION IF NOT EXISTS pg_trgm;
+                EXCEPTION WHEN insufficient_privilege THEN
+                    RAISE NOTICE 'pg_trgm not created: %', SQLERRM;
+                END;
+            END IF;
+            IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
+                CREATE INDEX IF NOT EXISTS ix_customers_name_trgm ON customers USING gin (name gin_trgm_ops);
+                CREATE INDEX IF NOT EXISTS ix_customers_phone_trgm ON customers USING gin (phone gin_trgm_ops);
+            ELSE
+                CREATE INDEX IF NOT EXISTS ix_customers_name_lower ON customers (tenant_id, lower(name));
+            END IF;
+        END $$;
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

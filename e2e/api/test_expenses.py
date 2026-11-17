@@ -133,3 +133,14 @@ def test_category_type_is_an_enum_and_edits_are_partial(owner_api, reg):
     assert upd["name"] == c["name"] and upd["color"] == "#123456" and upd["type"] == "income"
     assert owner_api.put("/financial-categories/00000000-0000-0000-0000-000000000000",
                          json={"name": "x"}).status_code == 404
+
+
+def test_a_rejected_expense_is_not_approved_later(owner_api, reg, safe):
+    """FIN-15: a rejected expense is closed: approving it would pay what was refused."""
+    e = owner_api.ok(owner_api.post("/expenses", json={"amount": "12", "description": "e2e rejected"}), 200, 201)
+    reg.add("expense", e["id"])
+    rejected = owner_api.ok(owner_api.post(f"/expenses/{e['id']}/approve", json={"approved": False}))
+    assert rejected["status"] == "rejected"
+    again = owner_api.post(f"/expenses/{e['id']}/approve", json={"approved": True, "safe_id": safe["id"]})
+    assert again.status_code == 409, again.text[:200]
+    assert owner_api.put(f"/expenses/{e['id']}", json={"amount": "13"}).status_code == 409

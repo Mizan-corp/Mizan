@@ -73,7 +73,11 @@ async def customers_summary(search: Annotated[str | None, Query(max_length=128)]
 
 @router.post("/customers")
 async def create_customer(data: CustomerCreate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("customers"))):
+    """A customer. Without `credit_limit` in the request it gets the workspace's default credit limit
+    (setting `default_credit_limit`; 0: none); `credit_limit: null` sent on purpose means no limit."""
     payload = data.model_dump()
+    if "credit_limit" not in data.model_fields_set:
+        payload["credit_limit"] = await contacts_service.default_credit_limit(db)
     payload["extra"] = await _clean_extra(db, payload.get("extra"))
     from app.platform.community.events import deliver_soon, publish
 

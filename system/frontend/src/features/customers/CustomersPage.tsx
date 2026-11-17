@@ -140,13 +140,15 @@ export default function CustomersPage() {
 
   const save = useMutation({
     mutationFn: () => {
-      const body = {
+      const body: Record<string, unknown> = {
         name: form.name.trim(),
         phone: form.phone.trim() || null,
         credit_limit: form.credit_limit ? D(form.credit_limit).toFixed(2) : null,
         address: form.address.trim() || null,
         extra: cleanExtra(extra),
       };
+      // A new customer without a limit typed gets the workspace's default credit limit (contacts setting).
+      if (formFor === "new" && !form.credit_limit) delete body.credit_limit;
       return formFor === "new" ? api.post("/customers", body) : api.put(`/customers/${(formFor as Customer).id}`, body);
     },
     onSuccess: () => {
@@ -445,7 +447,7 @@ export default function CustomersPage() {
                        onChange={(e) => setForm({ ...form, phone: e.target.value })} />
               ),
               credit_limit: (
-                <Input id="f-customer-credit_limit" className="num text-xs" inputMode="decimal" placeholder="مثال: 50000" value={form.credit_limit}
+                <Input id="f-customer-credit_limit" className="num text-xs" inputMode="decimal" placeholder={formFor === "new" ? "فارغ: الحد الافتراضي للمنشأة" : "فارغ: بلا حد"} value={form.credit_limit}
                        onChange={(e) => setForm({ ...form, credit_limit: e.target.value })} />
               ),
               address: <Input id="f-customer-address" maxLength={500} value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />,

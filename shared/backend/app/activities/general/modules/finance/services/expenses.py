@@ -15,6 +15,9 @@ from app.activities.general.modules.finance.services.wallets import record_walle
 SOURCE_REQUIRED = "حدد الخزنة أو المحفظة التي يُصرف منها المصروف قبل اعتماده"
 PAYROLL_MANAGED = "مصروف الرواتب يُدار من شاشة الرواتب"
 FINAL_STATUSES = ("approved", "cancelled")
+# What a decision may leave: approving or rejecting only a draft. A rejected expense is closed (it
+# can be deleted, or entered again as a new draft); approving it later would pay what was refused.
+DECIDABLE = ("draft",)
 
 
 async def check_tax(db: AsyncSession, amount, tax) -> Decimal:
@@ -36,8 +39,8 @@ async def decide(db: AsyncSession, expense_id: uuid.UUID, approved: bool, notes:
                  safe_id: uuid.UUID | None = None, wallet_id: uuid.UUID | None = None) -> dict:
     """Approve (and pay) or reject an expense, in one transaction.
 
-    An approved expense is final: approving or rejecting it again would pay twice or leave the
-    money spent on a rejected expense. Approving needs the money's source: a wallet, or a safe
+    Only a draft is decided. An approved expense is final: approving or rejecting it again would pay
+    twice or leave the money spent on a rejected expense; a rejected one is closed too. Approving needs the money's source: a wallet, or a safe
     (a bank account is a safe of type bank); the source can be given here if the draft lacks it.
     """
     current = (await db.execute(text("SELECT * FROM expenses WHERE id = :id FOR UPDATE"), {"id": expense_id})).mappings().first()
@@ -47,6 +50,10 @@ async def decide(db: AsyncSession, expense_id: uuid.UUID, approved: bool, notes:
         raise HTTPException(409, "المصروف معتمد بالفعل وتم صرفه")
     if current["status"] == "cancelled":
         raise HTTPException(409, "المصروف ملغى")
+    if current["status"] == "rejected":
+        raise HTTPException(409, "المصروف مرفوض. سجّله من جديد كمسودة إن أردت اعتماده")
+    if current["status"] not in DECIDABLE:
+        raise HTTPException(409, "لا يمكن اتخاذ قرار في هذا المصروف")
 
     if not approved:
         row = (await db.execute(text("""

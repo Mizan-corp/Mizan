@@ -167,8 +167,10 @@ class NewCustomer(BaseModel):
 async def create_customer(data: NewCustomer, inst: Installation = Depends(installation), db: AsyncSession = Depends(get_db)):
     inst.need("customers:write")
     from app.activities.general.modules.contacts.models.party import Customer
+    from app.activities.general.modules.contacts.service import default_credit_limit
 
-    c = Customer(name=data.name.strip(), phone=data.phone, address=data.address)
+    c = Customer(name=data.name.strip(), phone=data.phone, address=data.address,
+                 credit_limit=await default_credit_limit(db))
     db.add(c)
     await db.commit()
     return {"id": str(c.id), "name": c.name, "phone": c.phone, "address": c.address}

@@ -1,4 +1,4 @@
-"""Financial categories + permissions + shift close with manager"""
+"""Financial categories, users' permissions, the drawer movements by category, the audit log."""
 import uuid
 from datetime import date
 from typing import Annotated
@@ -55,17 +55,25 @@ async def update_category(cat_id: uuid.UUID, data: FinancialCategoryUpdate, db: 
 @router.delete("/financial-categories/{cat_id}", status_code=204)
 async def delete_category(cat_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("finance"))):
     """An unused category is deleted; one that expenses or drawer movements carry is stopped instead,
-    so their history keeps its category."""
+    so their history keeps its category. The use is checked first: drawer movements' foreign key is
+    ON DELETE SET NULL, so a delete went through and cleared their category."""
     from sqlalchemy.exc import IntegrityError
 
-    if not await db.scalar(text("SELECT 1 FROM financial_categories WHERE id = :id"), {"id": cat_id}):
+    if not await db.scalar(text("SELECT 1 FROM financial_categories WHERE id = :id FOR UPDATE"), {"id": cat_id}):
         raise NotFoundError(CATEGORY_NOT_FOUND)
-    try:
-        async with db.begin_nested():
-            await db.execute(text("DELETE FROM financial_categories WHERE id=:id"), {'id': cat_id})
-    except IntegrityError:
-        await db.execute(text("UPDATE financial_categories SET is_active = false, updated_at = now() WHERE id = :id"),
-                         {"id": cat_id})
+    used = await db.scalar(text("""
+        SELECT EXISTS (SELECT 1 FROM expenses WHERE category_id = :id)
+            OR EXISTS (SELECT 1 FROM drawer_transactions WHERE category_id = :id)
+    """), {"id": cat_id})
+    stop = text("UPDATE financial_categories SET is_active = false, updated_at = now() WHERE id = :id")
+    if used:
+        await db.execute(stop, {"id": cat_id})
+    else:
+        try:
+            async with db.begin_nested():
+                await db.execute(text("DELETE FROM financial_categories WHERE id=:id"), {'id': cat_id})
+        except IntegrityError:  # another table refers to it
+            await db.execute(stop, {"id": cat_id})
     await db.commit()
 
 
