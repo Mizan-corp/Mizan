@@ -1,15 +1,61 @@
-"""Export endpoints — Excel download for accounting tables."""
+"""Excel exports. Columns have Arabic titles, money and quantities are number cells and dates are
+date cells; at most EXPORT_LIMIT rows. Sales, stock, expenses and purchases follow the user's
+branches (scope.py); stock costs only with `reports:finance`."""
 import io
+import uuid
+from datetime import date, datetime
+from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.activities.general.modules.reporting.scope import FINANCE, TZ, TZ_NAME, branch_scope, day_range
 from app.db.base import get_db
 from app.dependencies import require_perm
+from app.platform.auth.models.user import User
+from app.platform.permissions.access import can
 
 router = APIRouter(prefix="/export", tags=["export"])
+
+EXPORT_LIMIT = 50000
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+TITLES = {
+    "name": "الاسم", "company": "الشركة", "unit": "الوحدة", "retail_price": "سعر البيع", "wholesale_price": "سعر الجملة",
+    "cost_price": "سعر التكلفة", "category": "التصنيف", "subcategory": "التصنيف الفرعي", "stock_status": "تتبع المخزون",
+    "invoice_number": "رقم الفاتورة", "date": "التاريخ", "customer": "العميل", "total": "الإجمالي",
+    "discount_amount": "خصم الفاتورة", "net_total": "الصافي", "paid_amount": "المدفوع", "is_credit": "آجل",
+    "payment_method": "طريقة الدفع", "cashier": "الكاشير", "status": "الحالة", "warehouse": "الفرع", "qty": "الكمية",
+    "stock_value": "قيمة المخزون بالتكلفة", "phone": "الهاتف", "balance": "الرصيد", "credit_limit": "حد الائتمان",
+    "description": "البيان", "amount": "المبلغ", "vendor": "المورد", "is_recurring": "متكرر", "po_number": "رقم أمر الشراء",
+    "supplier": "المورد", "total_cost": "إجمالي التكلفة",
+}
+STATUSES = {"confirmed": "مؤكدة", "returned": "مرتجع", "draft": "مسودة", "approved": "معتمد", "rejected": "مرفوض",
+            "cancelled": "ملغى", "received": "مستلم", "partial": "مستلم جزئيًا", "pending": "قيد الانتظار",
+            "tracked": "متتبع", "untracked": "غير متتبع"}
+MONEY_FORMAT = "#,##0.00"
+
+
+def _cell(ws, row: int, col: int, val, key: str) -> None:
+    if isinstance(val, bool):
+        ws.cell(row=row, column=col, value="نعم" if val else "لا")
+    elif isinstance(val, (Decimal, float, int)):
+        c = ws.cell(row=row, column=col, value=float(val) if isinstance(val, Decimal) else val)
+        if key != "qty" and not isinstance(val, int):
+            c.number_format = MONEY_FORMAT
+    elif isinstance(val, datetime):
+        c = ws.cell(row=row, column=col, value=val.astimezone(TZ).replace(tzinfo=None) if val.tzinfo else val)
+        c.number_format = "yyyy-mm-dd hh:mm"
+    elif isinstance(val, date):
+        ws.cell(row=row, column=col, value=val).number_format = "yyyy-mm-dd"
+    elif val is None:
+        ws.cell(row=row, column=col, value="")
+    else:
+        val = getattr(val, "value", val)
+        text_val = str(val)
+        ws.cell(row=row, column=col, value=STATUSES.get(text_val, text_val) if key in ("status", "stock_status") else text_val)
 
 
 async def _to_excel(rows: list[dict], sheet_name: str = "Sheet1") -> bytes:
@@ -18,28 +64,24 @@ async def _to_excel(rows: list[dict], sheet_name: str = "Sheet1") -> bytes:
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = sheet_name
-    header_fill = PatternFill(start_color="1e3a5f", end_color="1e3a5f", fill_type="solid")
-    header_font = Font(bold=True, color="ffffff", size=11)
-    if not rows:
-        wb.save(buf := io.BytesIO())
-        return buf.getvalue()
-    headers = list(rows[0].keys())
-    for ci, h in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=ci, value=h)
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal="center")
-    for ri, row in enumerate(rows, 2):
-        for ci, h in enumerate(headers, 1):
-            val = row[h]
-            if isinstance(val, float):
-                ws.cell(row=ri, column=ci, value=val).number_format = '#,##0.00'
-            else:
-                ws.cell(row=ri, column=ci, value=str(val) if val is not None else '')
-    for ci in range(1, len(headers) + 1):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(ci)].width = 20
+    ws.sheet_view.rightToLeft = True
+    if rows:
+        keys = list(rows[0].keys())
+        for ci, k in enumerate(keys, 1):
+            cell = ws.cell(row=1, column=ci, value=TITLES.get(k, k))
+            cell.fill = PatternFill(start_color="1e3a5f", end_color="1e3a5f", fill_type="solid")
+            cell.font = Font(bold=True, color="ffffff", size=11)
+            cell.alignment = Alignment(horizontal="center")
+            ws.column_dimensions[openpyxl.utils.get_column_letter(ci)].width = 20
+        for ri, row in enumerate(rows, 2):
+            for ci, k in enumerate(keys, 1):
+                _cell(ws, ri, ci, row[k], k)
     wb.save(buf := io.BytesIO())
     return buf.getvalue()
+
+
+def _download(data: bytes, filename: str) -> StreamingResponse:
+    return StreamingResponse(io.BytesIO(data), media_type=XLSX, headers={"Content-Disposition": f"attachment; filename={filename}"})
 
 
 async def _with_fields(db: AsyncSession, record: str, rows) -> list[dict]:
@@ -61,6 +103,26 @@ async def _with_fields(db: AsyncSession, record: str, rows) -> list[dict]:
     return out
 
 
+def _dates(column: str, from_date: date | None, to_date: date | None, params: dict, local: bool = True) -> str:
+    """A date filter on a timestamp column (whole days in the workspace's time zone) or a date column."""
+    if not (from_date or to_date):
+        return ""
+    if local:
+        start, end = day_range(from_date or date(2000, 1, 1), to_date or datetime.now(TZ).date())
+        params.update(fd=start, td=end)
+        return f" AND {column} >= :fd AND {column} < :td"
+    sql = ""
+    if from_date:
+        sql += f" AND {column} >= :fd"
+        params["fd"] = from_date
+    if to_date:
+        sql += f" AND {column} <= :td"
+        params["td"] = to_date
+    if from_date and to_date:
+        day_range(from_date, to_date)
+    return sql
+
+
 @router.get("/products")
 async def export_products(db: AsyncSession = Depends(get_db), _=Depends(require_perm("inventory"))):
     rows = (await db.execute(text("""
@@ -69,134 +131,101 @@ async def export_products(db: AsyncSession = Depends(get_db), _=Depends(require_
         FROM products p
         LEFT JOIN subcategories s ON s.id = p.subcategory_id
         LEFT JOIN categories c ON c.id = s.category_id
-        ORDER BY p.name
-    """))).mappings().fetchall()
-    data = await _with_fields(db, "product", rows)
-    excel = await _to_excel(data, "المنتجات")
-    return StreamingResponse(io.BytesIO(excel), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                             headers={"Content-Disposition": "attachment; filename=products.xlsx"})
+        ORDER BY p.name LIMIT :lim
+    """), {"lim": EXPORT_LIMIT})).mappings().fetchall()
+    return _download(await _to_excel(await _with_fields(db, "product", rows), "المنتجات"), "products.xlsx")
 
 
 @router.get("/sales")
-async def export_sales(from_date: str = Query(None), to_date: str = Query(None), db: AsyncSession = Depends(get_db), _=Depends(require_perm("reports"))):
-    params = {}
-    whr = ["s.status IN ('confirmed','returned')"]
-    if from_date:
-        whr.append("DATE(s.created_at) >= :fd")
-        params["fd"] = from_date
-    if to_date:
-        whr.append("DATE(s.created_at) <= :td")
-        params["td"] = to_date
+async def export_sales(from_date: date | None = None, to_date: date | None = None, warehouse_id: uuid.UUID | None = None,
+                       db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("reports"))):
+    scope = await branch_scope(db, user, warehouse_id)
+    params: dict = {"lim": EXPORT_LIMIT}
+    where = ("(s.status = 'confirmed' OR (s.status = 'returned' AND s.return_of IS NOT NULL))"
+             + scope.sql("s.warehouse_id", params) + _dates("s.created_at", from_date, to_date, params))
     rows = (await db.execute(text(f"""
-        SELECT s.invoice_number, CAST(s.created_at AS date) as date, c.name as customer,
+        SELECT s.invoice_number, (s.created_at AT TIME ZONE '{TZ_NAME}')::date AS date, c.name as customer,
                s.total, s.discount_amount, s.net_total, s.paid_amount, s.is_credit,
-               s.payment_method, u.full_name as cashier, s.status, w.name as warehouse, s.extra
+               s.payment_method, u.full_name as cashier, CAST(s.status AS text) AS status, w.name as warehouse, s.extra
         FROM sales s
         LEFT JOIN customers c ON c.id = s.customer_id
         LEFT JOIN users u ON u.id = s.cashier_id
         LEFT JOIN warehouses w ON w.id = s.warehouse_id
-        WHERE {' AND '.join(whr)}
-        ORDER BY s.created_at DESC
+        WHERE {where}
+        ORDER BY s.created_at DESC LIMIT :lim
     """), params)).mappings().fetchall()
-    data = await _with_fields(db, "sale", rows)
-    excel = await _to_excel(data, "المبيعات")
-    return StreamingResponse(io.BytesIO(excel), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                             headers={"Content-Disposition": "attachment; filename=sales.xlsx"})
+    return _download(await _to_excel(await _with_fields(db, "sale", rows), "المبيعات"), "sales.xlsx")
 
 
 @router.get("/stock")
-async def export_stock(db: AsyncSession = Depends(get_db), _=Depends(require_perm("inventory"))):
-    rows = (await db.execute(text("""
-        SELECT p.name, p.company, w.name as warehouse, COALESCE(s.qty,0) as qty, p.unit,
-               p.retail_price, p.cost_price, (COALESCE(s.qty,0) * p.cost_price) as stock_value, p.extra
-        FROM products p
-        CROSS JOIN warehouses w
-        LEFT JOIN LATERAL (
-            SELECT SUM(CASE WHEN sm.movement_type IN ('purchase','transfer_in','return_in','opening_stock','adjustment_in') THEN sm.qty
-                           WHEN sm.movement_type IN ('sale','transfer_out','damage','adjustment_out','return_out') THEN -sm.qty
-                       END) as qty
-            FROM stock_movements sm WHERE sm.product_id=p.id AND sm.warehouse_id=w.id
-        ) s ON true
-        WHERE p.stock_status='tracked'
-        ORDER BY p.name, w.name
-    """))).mappings().fetchall()
-    data = await _with_fields(db, "product", rows)
-    excel = await _to_excel(data, "المخزون")
-    return StreamingResponse(io.BytesIO(excel), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                             headers={"Content-Disposition": "attachment; filename=stock.xlsx"})
+async def export_stock(warehouse_id: uuid.UUID | None = None, db: AsyncSession = Depends(get_db),
+                       user: User = Depends(require_perm("inventory"))):
+    from app.activities.general.modules.inventory.models.stock import IN_TYPES
+
+    scope = await branch_scope(db, user, warehouse_id)
+    params: dict = {"lim": EXPORT_LIMIT, "ins": list(IN_TYPES)}
+    cost = (", COALESCE(NULLIF(p.avg_cost, 0), p.cost_price, 0) AS cost_price, "
+            "COALESCE(b.qty, 0) * COALESCE(NULLIF(p.avg_cost, 0), p.cost_price, 0) AS stock_value") if can(user, FINANCE) else ""
+    rows = (await db.execute(text(f"""
+        WITH b AS (
+            SELECT product_id, warehouse_id,
+                   SUM(CASE WHEN CAST(movement_type AS text) = ANY(:ins) THEN qty ELSE -qty END) AS qty
+            FROM stock_movements GROUP BY product_id, warehouse_id
+        )
+        SELECT p.name, p.company, w.name AS warehouse, COALESCE(b.qty, 0) AS qty, p.unit, p.retail_price{cost}, p.extra
+        FROM products p CROSS JOIN warehouses w
+        LEFT JOIN b ON b.product_id = p.id AND b.warehouse_id = w.id
+        WHERE p.stock_status = 'tracked'{scope.sql('w.id', params)}
+        ORDER BY p.name, w.name LIMIT :lim
+    """), params)).mappings().fetchall()
+    return _download(await _to_excel(await _with_fields(db, "product", rows), "المخزون"), "stock.xlsx")
 
 
 @router.get("/customers")
-async def export_customers(db: AsyncSession = Depends(get_db), _=Depends(require_perm("sales"))):
+async def export_customers(db: AsyncSession = Depends(get_db), _=Depends(require_perm("customers"))):
     rows = (await db.execute(text("""
-        SELECT c.name, c.phone, c.balance, c.credit_limit, c.extra
-        FROM customers c
-        ORDER BY c.name
-    """))).mappings().fetchall()
-    data = await _with_fields(db, "customer", rows)
-    excel = await _to_excel(data, "العملاء")
-    return StreamingResponse(io.BytesIO(excel), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                             headers={"Content-Disposition": "attachment; filename=customers.xlsx"})
+        SELECT c.name, c.phone, c.balance, c.credit_limit, c.extra FROM customers c ORDER BY c.name LIMIT :lim
+    """), {"lim": EXPORT_LIMIT})).mappings().fetchall()
+    return _download(await _to_excel(await _with_fields(db, "customer", rows), "العملاء"), "customers.xlsx")
 
 
 @router.get("/suppliers")
 async def export_suppliers(db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases"))):
     rows = (await db.execute(text("""
-        SELECT s.name, s.phone, s.balance, s.extra
-        FROM suppliers s
-        ORDER BY s.name
-    """))).mappings().fetchall()
-    data = await _with_fields(db, "supplier", rows)
-    excel = await _to_excel(data, "الموردون")
-    return StreamingResponse(io.BytesIO(excel), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                             headers={"Content-Disposition": "attachment; filename=suppliers.xlsx"})
+        SELECT s.name, s.phone, s.balance, s.extra FROM suppliers s ORDER BY s.name LIMIT :lim
+    """), {"lim": EXPORT_LIMIT})).mappings().fetchall()
+    return _download(await _to_excel(await _with_fields(db, "supplier", rows), "الموردون"), "suppliers.xlsx")
 
 
 @router.get("/expenses")
-async def export_expenses(from_date: str = Query(None), to_date: str = Query(None), db: AsyncSession = Depends(get_db), _=Depends(require_perm("finance"))):
-    params = {}
-    whr = ["1=1"]
-    if from_date:
-        whr.append("DATE(e.date) >= :fd")
-        params["fd"] = from_date
-    if to_date:
-        whr.append("DATE(e.date) <= :td")
-        params["td"] = to_date
+async def export_expenses(from_date: date | None = None, to_date: date | None = None, warehouse_id: uuid.UUID | None = None,
+                          db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("finance"))):
+    scope = await branch_scope(db, user, warehouse_id)
+    params: dict = {"lim": EXPORT_LIMIT}
+    where = "true" + scope.sql("e.warehouse_id", params) + _dates("e.date", from_date, to_date, params, local=False)
     rows = (await db.execute(text(f"""
-        SELECT e.date, e.description, e.amount, ev.name as vendor, e.status,
-               e.payment_method, e.is_recurring
-        FROM expenses e
-        LEFT JOIN expense_vendors ev ON ev.id = e.vendor_id
-        WHERE {' AND '.join(whr)}
-        ORDER BY e.date DESC
+        SELECT e.date, e.description, e.amount, ev.name as vendor, e.status, e.payment_method, e.is_recurring
+        FROM expenses e LEFT JOIN expense_vendors ev ON ev.id = e.vendor_id
+        WHERE {where}
+        ORDER BY e.date DESC LIMIT :lim
     """), params)).mappings().fetchall()
-    data = [dict(r) for r in rows]
-    excel = await _to_excel(data, "المصروفات")
-    return StreamingResponse(io.BytesIO(excel), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                             headers={"Content-Disposition": "attachment; filename=expenses.xlsx"})
+    return _download(await _to_excel([dict(r) for r in rows], "المصروفات"), "expenses.xlsx")
 
 
 @router.get("/purchases")
-async def export_purchases(from_date: str = Query(None), to_date: str = Query(None), db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases"))):
-    params = {}
-    whr = ["1=1"]
-    if from_date:
-        whr.append("DATE(p.created_at) >= :fd")
-        params["fd"] = from_date
-    if to_date:
-        whr.append("DATE(p.created_at) <= :td")
-        params["td"] = to_date
+async def export_purchases(from_date: date | None = None, to_date: date | None = None, warehouse_id: uuid.UUID | None = None,
+                           db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("purchases"))):
+    scope = await branch_scope(db, user, warehouse_id)
+    params: dict = {"lim": EXPORT_LIMIT}
+    where = "true" + scope.sql("p.warehouse_id", params) + _dates("p.created_at", from_date, to_date, params)
     rows = (await db.execute(text(f"""
-        SELECT p.po_number, CAST(p.created_at AS date) as date, s.name as supplier,
+        SELECT p.po_number, (p.created_at AT TIME ZONE '{TZ_NAME}')::date AS date, s.name as supplier,
                COALESCE((SELECT SUM(qty_ordered * unit_cost) FROM purchase_order_items WHERE po_id = p.id), 0) as total_cost,
-               p.status, w.name as warehouse
+               CAST(p.status AS text) AS status, w.name as warehouse
         FROM purchase_orders p
         LEFT JOIN suppliers s ON s.id = p.supplier_id
         LEFT JOIN warehouses w ON w.id = p.warehouse_id
-        WHERE {' AND '.join(whr)}
-        ORDER BY p.created_at DESC
+        WHERE {where}
+        ORDER BY p.created_at DESC LIMIT :lim
     """), params)).mappings().fetchall()
-    data = [dict(r) for r in rows]
-    excel = await _to_excel(data, "المشتريات")
-    return StreamingResponse(io.BytesIO(excel), media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                             headers={"Content-Disposition": "attachment; filename=purchases.xlsx"})
+    return _download(await _to_excel([dict(r) for r in rows], "المشتريات"), "purchases.xlsx")

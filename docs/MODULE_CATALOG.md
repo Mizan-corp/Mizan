@@ -30,7 +30,7 @@ Turns on: `core`, `contacts`, `inventory`, `operations`, `sales`, `purchases`, `
 | `projects` | Project management | *planned* |  |
 | `purchases` | Purchases & Procurement | **active** | أوامر الشراء، استلام البضائع، سجل أسعار الموردين التاريخية، ومتابعة فواتير الشراء. |
 | `quality` | Quality management | *planned* |  |
-| `reporting` | Reporting engine | **active** |  |
+| `reporting` | Reporting engine | **active** | تقارير المبيعات والأرباح والمخزون والتدفق النقدي وأعمار الديون، محدودة بفروع المستخدم. |
 | `sales` | Sales & Invoicing | **active** | إصدار أوامر البيع وعروض الأسعار، الفواتير الضريبية، المرتجعات، وتتبع مدفوعات العملاء. |
 | `scheduling` | Scheduling engine | *planned* |  |
 | `storefront` | Tenant Storefront & Omnichannel Ordering | **active** | متجر إلكتروني ذكي متعدد المستأجرين مع كتالوج منتجات تفاعلي، سلة شراء ديناميكية، حساب مصاريف التوصيل، أكواد الخصم، دعم طرق الدفع المصرية… |
