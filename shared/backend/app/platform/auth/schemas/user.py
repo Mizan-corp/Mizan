@@ -24,7 +24,12 @@ class UserUpdate(BaseModel):
     full_name: str | None = Field(None, min_length=1, max_length=128)
     role: str | None = None
     is_manager: bool | None = None
-    default_warehouse_id: str | None = None
+    default_warehouse_id: uuid.UUID | None = None
+
+    @field_validator("default_warehouse_id", mode="before")
+    @classmethod
+    def empty_is_none(cls, v):
+        return None if v == "" else v
 
     @field_validator("role")
     @classmethod
@@ -35,7 +40,7 @@ class UserUpdate(BaseModel):
 
 
 class SetUserWarehouses(BaseModel):
-    warehouse_ids: list[str] = []
+    warehouse_ids: list[uuid.UUID] = Field(default_factory=list, max_length=500)
 
 
 class UserPasswordUpdate(BaseModel):

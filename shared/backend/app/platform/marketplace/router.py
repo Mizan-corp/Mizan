@@ -1,6 +1,7 @@
 """API endpoints for Mizan Modular App Engine."""
 from __future__ import annotations
 
+import uuid
 from dataclasses import asdict
 from typing import Any
 
@@ -204,7 +205,7 @@ async def retention(db: AsyncSession = Depends(get_db), _=Depends(require_perm("
 
 
 @router.get("/retention/{retention_id}/export")
-async def retention_export(retention_id: str, db: AsyncSession = Depends(get_db), _=Depends(require_perm("settings"))):
+async def retention_export(retention_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("settings"))):
     """The export taken before deleting a module's data (gzip JSON)."""
     from fastapi.responses import Response
     from sqlalchemy import text as sqltext
