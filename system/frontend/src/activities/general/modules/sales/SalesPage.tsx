@@ -25,6 +25,7 @@ import { Skeleton } from "@/components/kit/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/kit/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/kit/tabs";
 import { Input, Modal, useToast } from "@/components/ui";
+import { useAuth } from "@/stores/auth";
 
 interface SaleRow {
   id: string; invoice_number: string; total: string; net_total: string; paid_amount: string;
@@ -65,6 +66,9 @@ export default function SalesPage() {
   const [view, setView] = useState("invoices");
   const [detailId, setDetailId] = useState<string | null>(null);
   const [returnQty, setReturnQty] = useState<Record<string, string>>({});
+  // Cancelling is a manager's; returns are refunded from the user's own open shift (SAL-7).
+  const canCancel = useAuth((s) => s.can("sales:cancel"));
+  const canReturn = useAuth((s) => s.can("sales:return"));
   const [sendEmailOpen, setSendEmailOpen] = useState(false);
   const [targetEmail, setTargetEmail] = useState("");
 
@@ -378,7 +382,7 @@ export default function SalesPage() {
                 </div>
               )}
 
-              {d.status === "confirmed" && !fullyReturned(d) && (
+              {canReturn && d.status === "confirmed" && !fullyReturned(d) && (
                 <div className="rounded-xl border p-3">
                   <p className="mb-2 flex items-center gap-2 text-sm font-semibold">
                     <Undo2 className="size-4" /> مرتجع جزئي
@@ -445,12 +449,12 @@ export default function SalesPage() {
                   <Mail className="size-4" />
                   إرسال بريد
                 </Button>
-                {d.status === "confirmed" && !fullyReturned(d) && (
+                {canReturn && d.status === "confirmed" && !fullyReturned(d) && (
                   <Button variant="outline" disabled={fullReturn.isPending} onClick={() => detailId && fullReturn.mutate(detailId)}>
                     {Number(d.returns_total ?? 0) > 0 ? "إرجاع المتبقي" : "مرتجع كامل"}
                   </Button>
                 )}
-                {d.status === "confirmed" && Number(d.returns_total ?? 0) === 0 && (
+                {canCancel && d.status === "confirmed" && Number(d.returns_total ?? 0) === 0 && (
                   <Button variant="destructive" disabled={cancelSale.isPending} onClick={() => detailId && cancelSale.mutate(detailId)}>
                     إلغاء الفاتورة
                   </Button>

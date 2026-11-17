@@ -35,7 +35,7 @@ import { Button, ConfirmDialog, ErrorBox, Input, Modal, Select, Spinner, useToas
 import { Stagger, StaggerItem } from "@/components/motion";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/kit/input-group";
 import { Kbd } from "@/components/kit/kbd";
-import { enqueueSale, listQueue, replayQueue, removeSale, type QueuedSale } from "@app/lib/offline";
+import { enqueueSale, listQueue, newLocalId, replayQueue, removeSale, type QueuedSale } from "@app/lib/offline";
 import { sound } from "@/lib/sound";
 import { useBranch } from "@app/components/AppShell";
 import { useBarcodeScanner } from "./hooks/useBarcodeScanner";
@@ -61,13 +61,18 @@ interface SaleResult { id: string; invoice_number: string; extra?: Record<string
 interface HeldBill { id: string; cart: CartItem[]; mode: "retail" | "wholesale"; at: string }
 
 const HELD_KEY = "mizan.held_bills";
+
+/** The price a line is sold at: wholesale when it has one, else retail (as the server decides). */
+function listedPrice(p: Pick<Product, "retail_price" | "wholesale_price">, mode: "retail" | "wholesale") {
+  return mode === "wholesale" && D(p.wholesale_price || "0").gt(0) ? D(p.wholesale_price) : D(p.retail_price || "0");
+}
 const LEGACY_HELD_KEY = "vendora.held_bills";
 
 function buildSaleBody(args: {
   warehouseId: string; shiftId: string | null; mode: "retail" | "wholesale";
   customerId: string; cart: CartItem[]; isCredit: boolean; cashInput: string;
   split: SplitPart[]; walletId: string; paidSoFar: { toString: () => string }; total: { toString: () => string };
-  extra?: Record<string, string>;
+  extra?: Record<string, string>; localId: string;
 }) {
   const payments = args.split.length
     ? [
@@ -89,7 +94,7 @@ function buildSaleBody(args: {
     items: args.cart.map((i) => ({
       product_id: i.product.id,
       qty: i.qty,
-      unit_price: D(args.mode === "wholesale" ? i.product.wholesale_price : i.product.retail_price).toNumber(),
+      unit_price: listedPrice(i.product, args.mode).toNumber(),
       discount: D(i.discount).toNumber(),
     })),
     is_credit: args.isCredit,
@@ -99,6 +104,9 @@ function buildSaleBody(args: {
     payments,
     // The sale's own fields (a pharmacy's prescription), only those filled in.
     extra: Object.fromEntries(Object.entries(args.extra ?? {}).filter(([, v]) => v?.trim())),
+    // The device's id for this sale, the same on every retry and in the offline queue: the
+    // server records it once (SAL-2).
+    local_id: args.localId,
   };
 }
 
@@ -233,7 +241,7 @@ export default function PosPage() {
   const rxNeeds = pharmacy ? prescriptionNeeds(cart.map((i) => i.product)) : { rx: [], controlled: [], required: [] };
   const rxMissing = rxNeeds.required.some((k) => !rx[k]?.trim());
 
-  const unitPrice = (p: Product) => D(mode === "wholesale" ? p.wholesale_price : p.retail_price);
+  const unitPrice = (p: Product) => listedPrice(p, mode);
   const total = useMemo(
     () => cart.reduce((s, i) => s.plus(unitPrice(i.product).times(i.qty).minus(D(i.discount))), D(0)),
     [cart, mode],
@@ -374,25 +382,40 @@ export default function PosPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [cart, payOpen, resumeOpen, confirmClear, hardwareModalOpen, shortcutsModalOpen, shiftMissing, shift.isLoading, total, isCredit, customerId, rxMissing, selectedId, lastSale, saleDone]);
 
-  const body = () =>
-    buildSaleBody({
+  // One id per sale being checked out: kept while the same cart is retried (a lost answer, a
+  // double click), new once the cart changes or the sale is done.
+  const localIdRef = useRef<string | null>(null);
+  useEffect(() => { localIdRef.current = null; }, [cart, mode, customerId, isCredit]);
+
+  const body = () => {
+    if (!localIdRef.current) localIdRef.current = newLocalId();
+    return buildSaleBody({
       warehouseId, shiftId: shift.data?.id ?? null, mode, customerId, cart,
       isCredit, cashInput, split, walletId, paidSoFar, total, extra: pharmacy ? rx : undefined,
+      localId: localIdRef.current,
     });
+  };
 
   const checkout = useMutation({
     mutationFn: async (): Promise<SaleResult> => {
+      const payload = body();
       try {
-        return await api.post<SaleResult>("/sales", body());
+        return await api.post<SaleResult>("/sales", payload);
       } catch (err) {
         if (typeof err === "object" && err !== null && !("status" in err)) {
-          await enqueueSale(body());
+          // The same payload (and local_id): if the server did record it, the replay finds it.
+          await enqueueSale(payload);
+          localIdRef.current = null;
+          setCart([]); setPayOpen(false); setCashInput(""); setSplit([]);
+          setIsCredit(false); setCustomerId(""); setWalletId(""); setRx({});
+          refreshQueue();
           throw new ApiError(0, "لا يوجد اتصال — تم حفظ الفاتورة محلياً وستُزامن تلقائياً");
         }
         throw err;
       }
     },
     onSuccess: (r) => {
+      localIdRef.current = null;
       sound.success();
       setSaleDone(r);
       setLastSale(r);
@@ -635,7 +658,7 @@ export default function PosPage() {
           ) : (
             <Stagger className="grid grid-cols-2 gap-2.5 @sm:grid-cols-3 @xl:grid-cols-4" key={search}>
               {products.data!.items.map((p) => {
-                const currentPrice = mode === "wholesale" ? p.wholesale_price : p.retail_price;
+                const currentPrice = listedPrice(p, mode).toString();
                 const inCart = cart.find((i) => i.product.id === p.id);
                 return (
                   <StaggerItem key={p.id} className="h-full">
