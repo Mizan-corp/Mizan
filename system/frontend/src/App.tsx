@@ -50,8 +50,6 @@ const InsurancePage = lazy(() => import("@activities/insurance/modules/insurance
 const GovernmentPage = lazy(() => import("@activities/government/modules/government/GovernmentPage"));
 const EntertainmentPage = lazy(() => import("@activities/entertainment/modules/events/EntertainmentPage"));
 const OilGasPage = lazy(() => import("@activities/petroleum/modules/oil_gas/OilGasPage"));
-const StorefrontAdminPage = lazy(() => import("@activities/general/modules/storefront/StorefrontAdminPage"));
-const PublicStorefrontPage = lazy(() => import("@activities/general/modules/storefront/public/PublicStorefrontPage"));
 const TenantScopeLayout = lazy(() => import("@app/features/tenant/TenantScopeLayout"));
 const AccountingJournalPage = lazy(() => import("@activities/general/modules/accounting/screens/JournalPage"));
 const AccountingAccountsPage = lazy(() => import("@activities/general/modules/accounting/screens/AccountsPage"));
@@ -212,7 +210,6 @@ function renderErpChildRoutes(includeIndex: boolean = true) {
       <Route path="gov" element={<Guard perm="" module="government"><GovernmentPage /></Guard>} />
       <Route path="ent" element={<Guard perm="" module="events"><EntertainmentPage /></Guard>} />
       <Route path="oil" element={<Guard perm="" module="oil_gas"><OilGasPage /></Guard>} />
-      <Route path="storefront" element={<Guard perm="" module="storefront"><StorefrontAdminPage /></Guard>} />
       <Route path="pricing" element={<Guard perm=""><PricingPage /></Guard>} />
       <Route path="login" element={<LoginPage />} />
     </>
@@ -230,7 +227,6 @@ export default function App() {
     // The workspace's own address (<slug>.allmizan.live): every route is that workspace's.
     return (
       <Routes>
-        <Route path="/store/:tenantSlug" element={<Page><PublicStorefrontPage /></Page>} />
         <Route path="/c/:tenantSlug/*" element={<Navigate to="/" replace />} />
         <Route path="/" element={<Page><TenantScopeLayout /></Page>}>
           {renderErpChildRoutes()}
@@ -245,8 +241,6 @@ export default function App() {
           On-premise there are no owner accounts: /login is the workspace's own sign-in. */}
       <Route path="/login" element={IS_ON_PREMISE ? <LoginPage /> : <ToOwnerSignIn />} />
 
-      {/* Public Customer-Facing Storefront Routes */}
-      <Route path="/store/:tenantSlug" element={<Page><PublicStorefrontPage /></Page>} />
       <Route path="/store" element={<Navigate to="/" replace />} />
 
       {/* Pattern 1: Canonical Tenant Root at /c/:tenantSlug/* */}

@@ -7,7 +7,7 @@ const definition: ModuleDefinition = {
   id: "storefront",
   activity: "general",
   kind: "business",
-  status: "active",
+  status: "planned",
   screens: {},
   widgets: {},
 };

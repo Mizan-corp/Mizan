@@ -33,7 +33,7 @@ Turns on: `core`, `contacts`, `inventory`, `operations`, `sales`, `purchases`, `
 | `reporting` | Reporting engine | **active** |  |
 | `sales` | Sales & Invoicing | **active** | إصدار أوامر البيع وعروض الأسعار، الفواتير الضريبية، المرتجعات، وتتبع مدفوعات العملاء. |
 | `scheduling` | Scheduling engine | *planned* |  |
-| `storefront` | Tenant Storefront & Omnichannel Ordering | **active** | متجر إلكتروني ذكي متعدد المستأجرين مع كتالوج منتجات تفاعلي، سلة شراء ديناميكية، حساب مصاريف التوصيل، أكواد الخصم، دعم طرق الدفع المصرية… |
+| `storefront` | Tenant Storefront & Omnichannel Ordering | *planned* | موقع إلكتروني ومتجر لكل منشأة مع مصمم صفحات وقوالب (ADR-015). النسخة السابقة متوقفة حتى إعادة البناء. |
 | `subscription_billing` | Subscription billing | *planned* |  |
 | `supplier_portal` | Supplier portal | *planned* |  |
 | `workflow` | Workflow engine | *planned* |  |
