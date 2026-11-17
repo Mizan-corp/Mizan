@@ -1,5 +1,6 @@
 """Accounting: request and response schemas."""
 import uuid
+from datetime import date as Date
 
 from pydantic import BaseModel, Field
 
@@ -20,3 +21,11 @@ class AccountUpdate(BaseModel):
 
 class CategoryAccount(BaseModel):
     account_id: uuid.UUID | None = None
+
+
+class OpeningCreate(BaseModel):
+    date: Date | None = None  # the start date; today when omitted
+
+
+class SettingsUpdate(BaseModel):
+    fiscal_year_start: int = Field(..., ge=1, le=12)
