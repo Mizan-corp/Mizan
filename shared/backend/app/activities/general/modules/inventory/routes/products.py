@@ -1,12 +1,14 @@
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
-from app.dependencies import get_current_user, require_perm
+from app.dependencies import require_perm
 from app.platform.auth.models.user import User
 from app.activities.general.modules.inventory.schemas.product import (
+    BulkReorderLevelIn,
     CategoryCreate,
     CategoryOut,
     MoveProduct,
@@ -20,13 +22,18 @@ from app.activities.general.modules.inventory.schemas.product import (
     SubcategoryOut,
 )
 from app.activities.general.modules.inventory.services import products as product_service
+from app.activities.general.modules.inventory.services.products import READ_PERMISSIONS, for_viewer
 
 router = APIRouter(tags=["products"])
+
+# The catalogue is read by whoever sells, buys or moves stock (INV-8); costs only by those holding
+# inventory, purchases or reports (null for the others).
+can_read = require_perm(*READ_PERMISSIONS)
 
 
 # ── Categories ──────────────────────────────────────────────────────────────
 @router.get("/categories", response_model=list[CategoryOut])
-async def list_categories(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def list_categories(db: AsyncSession = Depends(get_db), _=Depends(can_read)):
     return await product_service.list_categories(db)
 
 
@@ -47,7 +54,7 @@ async def delete_category(cat_id: uuid.UUID, db: AsyncSession = Depends(get_db),
 
 # ── Subcategories ────────────────────────────────────────────────────────────
 @router.get("/subcategories", response_model=list[SubcategoryOut])
-async def list_subcategories(category_id: uuid.UUID | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def list_subcategories(category_id: uuid.UUID | None = None, db: AsyncSession = Depends(get_db), _=Depends(can_read)):
     return await product_service.list_subcategories(db, category_id)
 
 
@@ -64,15 +71,16 @@ async def update_subcategory(sub_id: uuid.UUID, data: SubcategoryCreate, db: Asy
 # ── Products ─────────────────────────────────────────────────────────────────
 @router.get("/products")
 async def list_products(
-    search: str | None = None,
+    search: str | None = Query(None, max_length=128),
     subcategory_id: uuid.UUID | None = None,
     category_id: uuid.UUID | None = None,
     warehouse_id: uuid.UUID | None = None,
     page: int = Query(1, ge=1),
-    page_size: int = Query(5000, ge=1, le=5000),
+    page_size: int = Query(50, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(can_read),
 ):
+    """A page of the active products with their stock and the total ({items, total, page, pages})."""
     return await product_service.list_products(
         db, search, subcategory_id, category_id, warehouse_id, page, page_size, current_user
     )
@@ -84,13 +92,18 @@ async def create_product(data: ProductCreate, db: AsyncSession = Depends(get_db)
 
 
 @router.get("/products/barcode/{barcode}", response_model=ProductOut)
-async def get_by_barcode(barcode: str, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
-    return await product_service.get_product_by_barcode(db, barcode)
+async def get_by_barcode(barcode: str, db: AsyncSession = Depends(get_db), current_user: User = Depends(can_read)):
+    """The active product with this barcode (its main one or an extra one)."""
+    if len(barcode) > 64:
+        raise HTTPException(404, product_service.NO_ACTIVE_PRODUCT_FOR_BARCODE)
+    p = await product_service.get_product_by_barcode(db, barcode)
+    return for_viewer(ProductOut.model_validate(p), current_user)
 
 
 @router.get("/products/{product_id}", response_model=ProductWithBarcodes)
-async def get_product(product_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
-    return await product_service.get_product(db, product_id)
+async def get_product(product_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(can_read)):
+    p = await product_service.get_product(db, product_id)
+    return for_viewer(ProductWithBarcodes.model_validate(p), current_user)
 
 
 @router.put("/products/{product_id}", response_model=ProductOut)
@@ -104,7 +117,10 @@ async def delete_product(product_id: uuid.UUID, db: AsyncSession = Depends(get_d
 
 
 @router.get("/products/{product_id}/movements")
-async def product_movements(product_id: uuid.UUID, from_date: str | None = None, to_date: str | None = None, page: int = Query(1, ge=1), page_size: int = Query(100, ge=1, le=1000), db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def product_movements(product_id: uuid.UUID, from_date: date | None = None, to_date: date | None = None,
+                            page: int = Query(1, ge=1), page_size: int = Query(100, ge=1, le=1000),
+                            db: AsyncSession = Depends(get_db), _=Depends(require_perm("inventory"))):
+    """The product's movement log (with costs): `inventory` only."""
     return await product_service.product_movements(db, product_id, from_date, to_date, page, page_size)
 
 
@@ -167,18 +183,13 @@ async def delete_barcode(
     await product_service.delete_barcode(db, barcode_id, current_user)
 
 
-class BulkReorderLevelIn(ProductUpdate.__base__):
-    product_ids: list[uuid.UUID]
-    reorder_level: int = 5
-
-
 @router.post("/products/bulk-reorder-level")
 async def bulk_set_reorder_level(
     data: BulkReorderLevelIn,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_perm("inventory")),
 ):
+    """Up to 500 products at once; ids that aren't the workspace's are not counted."""
     updated = await product_service.set_reorder_level(db, data.product_ids, data.reorder_level, current_user.tenant_id)
     await db.commit()
     return {"ok": True, "updated_count": updated, "reorder_level": data.reorder_level}
-
