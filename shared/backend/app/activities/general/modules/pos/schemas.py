@@ -1,14 +1,17 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.activities.general.modules.pos.models import DrawerTxType, ShiftStatus
+from app.activities.general.modules.pos.models import DrawerTxType, ManualDrawerTxType, ShiftStatus
+
+MAX_MONEY = Decimal("9999999999")
 
 
 class ShiftOpen(BaseModel):
-    initial_amount: Decimal = Field(..., ge=0, description="عهدة الدرج الافتتاحية")
+    initial_amount: Decimal = Field(..., ge=0, le=MAX_MONEY, description="عهدة الدرج الافتتاحية")
     warehouse_id: uuid.UUID
     supervisor_id: uuid.UUID | None = None
 
@@ -34,20 +37,22 @@ class TransferDrawerRequest(BaseModel):
 
 
 class RevenueDeliveryRequest(BaseModel):
-    amount: Decimal = Field(..., gt=0)
+    amount: Decimal = Field(..., gt=0, le=MAX_MONEY)
     safe_id: uuid.UUID
     manager_id: uuid.UUID
-    manager_password: str
-    notes: str | None = None
+    manager_password: str = Field(..., max_length=256)
+    notes: str | None = Field(default=None, max_length=1000)
 
 
 class DrawerTxCreate(BaseModel):
-    type: DrawerTxType
-    amount: Decimal = Field(..., gt=0)
-    note: str | None = None
+    # By hand only money in, an expense or money out (POS-1): sale and return rows come from
+    # their documents, revenue delivery from its own route.
+    type: ManualDrawerTxType
+    amount: Decimal = Field(..., gt=0, le=MAX_MONEY)
+    note: str | None = Field(default=None, max_length=1000)
     customer_id: uuid.UUID | None = None
     category_id: uuid.UUID | None = None
-    payment_method: str = "cash"
+    payment_method: Literal["cash", "wallet"] = "cash"
     wallet_id: uuid.UUID | None = None
 
 

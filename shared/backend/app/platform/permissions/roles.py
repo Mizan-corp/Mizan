@@ -24,10 +24,13 @@ ROLE_DEFAULT_PERMISSIONS = {
     "manager": [
         "pos", "sales", "quotations", "inventory", "operations",
         "customers", "reports", "archive", "shifts", "finance", "settings", "payroll", "accounting:view",
+        "sales:cancel", "sales:return", "sales:override_price", "sales:negative_stock",
         "clinic", "clinic:view", "clinic:manage", "clinic:billing", "clinic:all_patients", "clinic:privacy",
     ],
     "cashier": [
-        "pos", "sales", "quotations", "customers", "shifts",
+        # Returns at the counter, refunded from the cashier's own open shift; cancelling a sale,
+        # other prices and selling below stock are the manager's (SAL-1, SAL-7).
+        "pos", "sales", "quotations", "customers", "shifts", "sales:return",
     ],
     "storekeeper": [
         "inventory", "operations", "archive",

@@ -1,13 +1,14 @@
 import uuid
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.exceptions import BusinessError, NotFoundError
+from app.core.exceptions import NotFoundError
 from app.db.base import get_db
-from app.dependencies import get_current_user, require_is_manager, require_open_period, require_perm
+from app.dependencies import require_is_manager, require_open_period, require_perm, verify_warehouse_access
 from app.activities.general.modules.inventory.models.product import Product
 from app.activities.general.modules.sales.models.sale import Sale, SaleItem, SaleStatus
 from app.platform.auth.models.user import User
@@ -20,9 +21,32 @@ from app.activities.general.modules.sales.schemas import (
     UpdateSale,
 )
 from app.activities.general.modules.sales.services import sales as sale_service
-from app.platform.audit.service import log as audit_log
 
 router = APIRouter(prefix="/sales", tags=["sales"])
+
+# Reading sales: the sales screen or the POS (SAL-6).
+_read = require_perm("sales", "pos")
+
+
+async def _branches(db: AsyncSession, user: User) -> list[uuid.UUID] | None:
+    """The branches whose sales the user sees: all for managers and supervisors (None), else
+    the branches they are assigned (SAL-6)."""
+    from app.platform.auth.models.user import user_warehouses
+    from app.platform.permissions.access import can
+
+    if user.is_manager or can(user, "supervise"):
+        return None
+    return list((await db.execute(select(user_warehouses.c.warehouse_id)
+                                  .where(user_warehouses.c.user_id == user.id))).scalars().all())
+
+
+async def _sale_in_reach(db: AsyncSession, sale_id: uuid.UUID, user: User) -> Sale:
+    """The sale, in this workspace and in a branch the user reaches."""
+    sale = (await db.execute(select(Sale).where(Sale.id == sale_id))).scalar_one_or_none()
+    if not sale:
+        raise NotFoundError("الفاتورة غير موجودة")
+    await verify_warehouse_access(db, user, sale.warehouse_id)
+    return sale
 
 
 @router.post("", response_model=SaleOut)
@@ -30,8 +54,8 @@ async def create_sale(data: SaleCreate, db: AsyncSession = Depends(get_db), curr
     if current_user.tenant_id:
         from app.platform.billing.services.plan_gating import check_sales_volume_limit
         await check_sales_volume_limit(db, current_user.tenant_id)
-    sale = await sale_service.create_sale(db, data, current_user.id)
-    await audit_log(db, "sale", "create", current_user.id, current_user.full_name, sale.id, {"invoice_number": sale.invoice_number, "total": float(sale.total)}, f"فاتورة {sale.invoice_number}")
+    await verify_warehouse_access(db, current_user, data.warehouse_id)
+    sale = await sale_service.create_sale(db, data, current_user.id, actor=current_user)
 
     # Check stock after sale and notify manager if stock <= reorder_level
     product_ids = [item.product_id for item in data.items if hasattr(item, "product_id")]
@@ -49,49 +73,42 @@ async def create_sale(data: SaleCreate, db: AsyncSession = Depends(get_db), curr
 @router.post("/draft", response_model=SaleOut)
 async def create_draft(data: SaleCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("sales", "pos"))):
     """Save a draft sale — no stock deduction."""
-    sale = await sale_service.create_draft_sale(db, data, current_user.id)
-    return sale
+    await verify_warehouse_access(db, current_user, data.warehouse_id)
+    return await sale_service.create_draft_sale(db, data, current_user.id, actor=current_user)
 
 
 @router.get("/drafts", response_model=list[SaleOut])
-async def list_drafts(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
-    """List all draft sales."""
-    result = await db.execute(
-        select(Sale).options(selectinload(Sale.items))
-        .where(Sale.status == SaleStatus.draft)
-        .order_by(Sale.created_at.desc())
-    )
+async def list_drafts(limit: int = Query(100, ge=1, le=200), offset: int = Query(0, ge=0),
+                      db: AsyncSession = Depends(get_db), current_user: User = Depends(_read)):
+    """Draft sales, newest first, in the user's branches."""
+    q = select(Sale).options(selectinload(Sale.items)).where(Sale.status == SaleStatus.draft)
+    branches = await _branches(db, current_user)
+    if branches is not None:
+        q = q.where(Sale.warehouse_id.in_(branches))
+    result = await db.execute(q.order_by(Sale.created_at.desc()).limit(limit).offset(offset))
     return result.scalars().all()
 
 
 @router.put("/{sale_id}/confirm", response_model=SaleOut)
 async def confirm_draft(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("sales", "pos"))):
     """Confirm a draft sale — deduct stock, assign invoice number."""
-    sale = await sale_service.confirm_draft_sale(db, sale_id, current_user.id)
-    await audit_log(db, "sale", "confirm_draft", current_user.id, current_user.full_name, sale.id, {"invoice_number": sale.invoice_number}, f"تأكيد مسودة فاتورة {sale.invoice_number}")
-    return sale
+    await _sale_in_reach(db, sale_id, current_user)
+    return await sale_service.confirm_draft_sale(db, sale_id, current_user.id, actor=current_user)
 
 
 @router.delete("/{sale_id}", status_code=204)
 async def delete_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("sales"))):
     """Delete a draft or quotation."""
-    result = await db.execute(select(Sale).where(Sale.id == sale_id))
-    sale = result.scalar_one_or_none()
-    if not sale:
-        raise NotFoundError()
-    if sale.status not in (SaleStatus.draft, SaleStatus.quotation):
-        raise BusinessError("Only drafts and quotations can be deleted")
-    await db.execute(text("DELETE FROM archived_documents WHERE ref_id=:id AND doc_type IN ('sale_invoice','quotation')"), {"id": sale_id})
-    await db.delete(sale)
-    await db.commit()
+    await _sale_in_reach(db, sale_id, current_user)
+    await sale_service.delete_draft_or_quotation(db, sale_id, current_user.id, actor=current_user)
 
 
 @router.get("", response_model=list[SaleOut])
 async def list_sales(
-    from_date: str | None = None,
-    to_date: str | None = None,
+    from_date: date | None = None,
+    to_date: date | None = None,
     cashier_id: uuid.UUID | None = None,
-    status: str | None = None,
+    status: SaleStatus | None = None,
     product_search: str | None = None,
     search: str | None = None,
     page: int | None = Query(None, ge=1),
@@ -99,7 +116,7 @@ async def list_sales(
     limit: int = Query(50, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    current_user: User = Depends(_read),
 ):
     from sqlalchemy import text as sqlt
 
@@ -114,10 +131,13 @@ async def list_sales(
     if search and search.strip():
         term = f"%{search.strip()}%"
         q = q.where(or_(Sale.invoice_number.ilike(term), Customer.name.ilike(term)))
+    branches = await _branches(db, current_user)
+    if branches is not None:
+        q = q.where(Sale.warehouse_id.in_(branches))
     if from_date:
         q = q.where(Sale.created_at >= from_date)
     if to_date:
-        q = q.where(Sale.created_at <= to_date)
+        q = q.where(Sale.created_at < to_date + timedelta(days=1))  # the whole last day
     if cashier_id:
         q = q.where(Sale.cashier_id == cashier_id)
     if status:
@@ -158,25 +178,24 @@ async def list_sales(
 @router.post("/quotations", response_model=SaleOut)
 async def create_quotation(data: SaleCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("quotations", "sales"))):
     """إنشاء عرض سعر — لا يُخصم من المخزون."""
-    sale = await sale_service.create_quotation(db, data, current_user.id)
-    await audit_log(db, "quotation", "create", current_user.id, current_user.full_name, sale.id, {"invoice_number": sale.invoice_number}, f"عرض سعر {sale.invoice_number}")
-    return sale
+    await verify_warehouse_access(db, current_user, data.warehouse_id)
+    return await sale_service.create_quotation(db, data, current_user.id, actor=current_user)
 
 
 @router.post("/{sale_id}/confirm-quotation", response_model=SaleOut)
 async def confirm_quotation(sale_id: uuid.UUID, data: ConfirmQuotationRequest | None = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("quotations", "sales"))):
     """تحويل عرض السعر إلى فاتورة مبيعات مؤكدة — المقبوض يذهب إلى درج أو خزنة."""
-    sale = await sale_service.confirm_quotation(
+    await _sale_in_reach(db, sale_id, current_user)
+    return await sale_service.confirm_quotation(
         db, sale_id, current_user.id,
         destination=data.destination if data else "drawer",
         safe_id=data.safe_id if data else None,
+        actor=current_user,
     )
-    await audit_log(db, "quotation", "confirm", current_user.id, current_user.full_name, sale_id, {"destination": data.destination if data else "drawer"}, "تأكيد عرض السعر")
-    return sale
 
 
 @router.get("/{sale_id}/print")
-async def print_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def print_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(_read)):
     """بيانات الفاتورة/عرض السعر للطباعة — تشمل بيانات المتجر والعميل والمنتجات."""
     from sqlalchemy import select as sa_select
 
@@ -184,10 +203,9 @@ async def print_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=D
     from app.activities.general.modules.inventory.models.product import Product
     from app.platform.settings.models import StoreSetting
 
+    await _sale_in_reach(db, sale_id, current_user)
     result = await db.execute(sa_select(Sale).options(selectinload(Sale.items)).where(Sale.id == sale_id))
-    sale = result.scalar_one_or_none()
-    if not sale:
-        raise NotFoundError("Sale not found")
+    sale = result.scalar_one()
 
     # Enrich items with product names — single bulk query (avoids N+1)
     product_ids = list({item.product_id for item in sale.items})
@@ -234,8 +252,11 @@ async def print_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=D
         "created_by_name": (await db.execute(text("SELECT full_name FROM users WHERE id=:id"), {"id": sale.created_by})).scalar() if sale.created_by else "",
     }
 @router.get("/{sale_id}")
-async def get_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def get_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(_read)):
     from sqlalchemy import text as sqlt
+
+    if current_user is not None:  # (tests call the function directly)
+        await _sale_in_reach(db, sale_id, current_user)
 
     from app.activities.general.modules.contacts.models.customer_payment import CustomerPayment
     row = await db.execute(sqlt("""
@@ -254,7 +275,7 @@ async def get_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Dep
     """), {"id": sale_id})
     sale = row.fetchone()
     if not sale:
-        raise NotFoundError("Sale not found")
+        raise NotFoundError("الفاتورة غير موجودة")
     result = dict(sale._mapping)
     # Get payments linked to this sale
     payments = (await db.execute(
@@ -298,29 +319,34 @@ async def get_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Dep
 @router.put("/{sale_id}")
 async def update_sale(sale_id: uuid.UUID, data: UpdateSale, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("quotations"))):
     """Edit a quotation (status=quotation only)."""
-    await sale_service.update_quotation(db, sale_id, data)
-    await db.commit()
+    await _sale_in_reach(db, sale_id, current_user)
+    await sale_service.update_quotation(db, sale_id, data, current_user.id, actor=current_user)
     return {"id": str(sale_id)}
 
 
 @router.put("/{sale_id}/cancel")
-async def cancel_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("sales"))):
-    sale = await sale_service.cancel_sale(db, sale_id, current_user.id)
+async def cancel_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db),
+                      current_user: User = Depends(require_perm("sales:cancel"))):
+    """Cancel a confirmed sale (managers: `sales:cancel`, SAL-7)."""
+    await _sale_in_reach(db, sale_id, current_user)
+    sale = await sale_service.cancel_sale(db, sale_id, current_user.id, actor=current_user)
     return {"detail": "Cancelled", "invoice_number": sale.invoice_number}
 
 
 @router.post("/{sale_id}/return")
-async def return_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("sales"))):
-    """Full return of a confirmed sale."""
-    sale = await sale_service.return_sale(db, sale_id, current_user.id)
-    await audit_log(db, "sale", "return", current_user.id, current_user.full_name, sale_id, {}, f"إرجاع فاتورة {sale['invoice_number']}")
-    return sale
+async def return_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db),
+                      current_user: User = Depends(require_perm("sales:return"))):
+    """Full return of a confirmed sale; cash comes out of the user's own open shift (SAL-7)."""
+    await _sale_in_reach(db, sale_id, current_user)
+    return await sale_service.return_sale(db, sale_id, current_user.id, actor=current_user)
 
 
 @router.post("/{sale_id}/partial-return")
-async def partial_return(sale_id: uuid.UUID, data: PartialReturnRequest, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("sales"))):
+async def partial_return(sale_id: uuid.UUID, data: PartialReturnRequest, db: AsyncSession = Depends(get_db),
+                         current_user: User = Depends(require_perm("sales:return"))):
     """مرتجع جزئي — body: {items:[{product_id,qty}], shift_id?}"""
-    return await sale_service.partial_return_sale(db, sale_id, data.model_dump(), current_user.id)
+    await _sale_in_reach(db, sale_id, current_user)
+    return await sale_service.partial_return_sale(db, sale_id, data.model_dump(), current_user.id, actor=current_user)
 
 
 @router.put("/{sale_id}/items/{item_id}")

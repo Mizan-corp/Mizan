@@ -13,6 +13,7 @@ from app.activities.general.modules.inventory.models.stock import MovementType
 from app.framework.events import notify
 from app.framework.hooks import emit
 from app.activities.general.modules.inventory.services.stock import get_balance
+from app.activities.general.modules.sales.services import checks
 
 
 async def _sale_event(db, event: str, sale, lines, **extra) -> list:
@@ -48,14 +49,55 @@ def _send(ids: list) -> None:
 
 
 async def _invoice_number(db) -> str:
-    from sqlalchemy import text
-    seq = (await db.execute(text("SELECT nextval('invoice_seq')"))).scalar()
-    return f"INV-{seq:06d}"
+    """The workspace's next invoice number (PLAT-6: counted per workspace, under a row lock)."""
+    from app.platform.archive.numbering import next_number
+
+    return await next_number(db, "INV")
+
 
 async def _quotation_number(db) -> str:
-    from sqlalchemy import text
-    seq = (await db.execute(text("SELECT nextval('quotation_seq')"))).scalar()
-    return f"QUO-{seq:06d}"
+    from app.platform.archive.numbering import next_number
+
+    return await next_number(db, "QUO")
+
+
+async def _draft_number(db) -> str:
+    """Drafts have numbers of their own: an invoice number is given only when one is confirmed
+    (SAL-4: drafts used to take one, and another on confirming)."""
+    from app.platform.archive.numbering import next_number
+
+    return await next_number(db, "DRF")
+
+
+async def _audit(db, actor, entity_type: str, action: str, entity_id, changes: dict | None, note: str) -> None:
+    """The audit row, in the document's own transaction (SAL-5: rows written after the
+    service's commit were never committed)."""
+    from app.platform.audit.service import log as audit_log
+
+    await audit_log(db, entity_type, action, actor.id, getattr(actor, "full_name", None), entity_id, changes, note)
+
+
+async def _check_stock(db, items, warehouse_id, actor) -> None:
+    """Each tracked line is in stock in the branch (balance rows locked, in product order), unless
+    the server allows selling below it (SAL-1: never a flag from the client). A shortage that is
+    allowed is recorded in the audit log."""
+    allowed = None
+    for item in sorted(items, key=lambda i: str(i.product_id)):
+        if await _is_untracked(db, item.product_id, warehouse_id):
+            continue
+        balance = await get_balance(db, item.product_id, warehouse_id, for_update=True)
+        if balance >= item.qty:
+            continue
+        name = (await db.execute(text("SELECT name FROM products WHERE id = :id"), {"id": item.product_id})).scalar() \
+            or str(item.product_id)
+        if allowed is None:
+            allowed = await checks.negative_stock_allowed(db, actor)
+        if not allowed:
+            raise BusinessError(f"المخزون غير كافي لـ {name} (المتاح {balance})")
+        await _audit(db, actor, "product", "inventory_discrepancy", item.product_id, {
+            "product_name": name, "warehouse_id": str(warehouse_id), "balance_before": float(balance),
+            "sold_qty": float(item.qty), "deficit": float(item.qty - balance),
+        }, f"بيع بأكثر من الرصيد المتاح لـ {name}")
 
 
 
@@ -90,16 +132,13 @@ async def _add_payment(db, sale_id, method: str, amount: Decimal, wallet_id=None
 
 
 async def _change_customer_balance(db, customer_id, delta: Decimal) -> None:
-    """What the customer owes: + for a credit sale, - when it is returned or cancelled (never below
-    zero, as everywhere else balances go down)."""
+    """What the customer owes: + for a credit sale, - when it is returned or cancelled. Never
+    clamped at zero (SAL-8): below zero we owe the customer, and the ledger's receivables say the
+    same."""
     if not customer_id or not delta:
         return
-    if delta > 0:
-        await db.execute(text("UPDATE customers SET balance = COALESCE(balance,0) + :amt WHERE id = :cid"),
-                         {"amt": delta, "cid": customer_id})
-    else:
-        await db.execute(text("UPDATE customers SET balance = GREATEST(COALESCE(balance,0) - :amt, 0) WHERE id = :cid"),
-                         {"amt": -delta, "cid": customer_id})
+    await db.execute(text("UPDATE customers SET balance = COALESCE(balance,0) + :amt WHERE id = :cid"),
+                     {"amt": delta, "cid": customer_id})
 
 
 async def _check_credit_limit(db, customer_id, amount: Decimal) -> None:
@@ -162,18 +201,20 @@ async def _record_payments(db, sale: Sale, user_id, payments=None, paid_amount=N
     sale.paid_amount = paid
 
 
-async def create_quotation(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
-    """Create a quotation (عرض سعر) — no stock deduction, status=quotation."""
-    gross_total = sum(Decimal(str(i.qty)) * Decimal(str(i.unit_price)) for i in data.items)
-    total_discount = sum(Decimal(str(i.discount)) for i in data.items)
-    net_total = gross_total - total_discount - Decimal(str(data.discount_amount))
+async def create_quotation(db: AsyncSession, data, cashier_id: uuid.UUID, actor=None) -> Sale:
+    """Create a quotation (عرض سعر) — no stock deduction, status=quotation. No money moves, so it
+    belongs to no shift; its prices follow the same rules as a sale's."""
+    actor = await checks.load_actor(db, cashier_id, actor)
+    await checks.check_references(db, warehouse_id=data.warehouse_id, customer_id=data.customer_id)
+    await checks.check_prices(db, data.items, data.sale_mode, data.discount_amount, actor)
+    gross_total, net_total, _ = checks.totals(data.items, data.discount_amount)
 
     sale = Sale(
         invoice_number=await _quotation_number(db),
         customer_id=data.customer_id,
         warehouse_id=data.warehouse_id,
         cashier_id=cashier_id,
-        shift_id=data.shift_id,
+        shift_id=None,
         sale_mode=data.sale_mode,
         discount_amount=data.discount_amount,
         total=Decimal(str(gross_total)),
@@ -192,23 +233,36 @@ async def create_quotation(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sal
     db.add(ArchivedDocument(doc_number=sale.invoice_number, doc_type=DocType.quotation,
                             ref_id=sale.id, created_by=cashier_id,
                             metadata_={"items_count": len(data.items), "mode": data.sale_mode}))
+    await _audit(db, actor, "quotation", "create", sale.id, {"invoice_number": sale.invoice_number,
+                                                             "net_total": str(net_total)}, f"عرض سعر {sale.invoice_number}")
     await db.commit()
     result = await db.execute(select(Sale).options(selectinload(Sale.items)).where(Sale.id == sale.id))
     return result.scalar_one()
 
 
-async def update_quotation(db: AsyncSession, sale_id: uuid.UUID, data) -> None:
+async def update_quotation(db: AsyncSession, sale_id: uuid.UUID, data, user_id: uuid.UUID | None = None,
+                           actor=None) -> None:
     """Edit a quotation. Only what the request contains changes: leaving out items, notes or the
-    customer keeps them (it used to clear them). Totals follow create_quotation()."""
-    status = (await db.execute(text("SELECT status FROM sales WHERE id = :id FOR UPDATE"), {"id": sale_id})).scalar()
-    if status is None:
-        from app.core.exceptions import NotFoundError
-        raise NotFoundError()
-    if status != "quotation":
-        raise BusinessError("Only quotations can be edited")
+    customer keeps them (it used to clear them). Totals and prices follow create_quotation().
+    Commits, with its audit row."""
+    from app.core.exceptions import NotFoundError
+
+    row = (await db.execute(text("SELECT status, sale_mode, discount_amount, invoice_number FROM sales "
+                                 "WHERE id = :id FOR UPDATE"), {"id": sale_id})).first()
+    if row is None:
+        raise NotFoundError("عرض السعر غير موجود")
+    if row.status != "quotation":
+        raise BusinessError("لا يُعدَّل إلا عرض السعر")
+    actor = await checks.load_actor(db, user_id or (actor.id if actor else None), actor)
     sent = data.model_fields_set
+    if "customer_id" in sent:
+        await checks.check_references(db, customer_id=data.customer_id)
     if "items" in sent or "discount_amount" in sent:
         if "items" in sent:
+            if not data.items:
+                raise BusinessError("عرض السعر يحتاج صنفاً واحداً على الأقل")
+            await checks.check_prices(db, data.items, row.sale_mode,
+                                      data.discount_amount if "discount_amount" in sent else row.discount_amount, actor)
             await db.execute(text("DELETE FROM sale_items WHERE sale_id = :id"), {"id": sale_id})
             for item in data.items:
                 db.add(SaleItem(sale_id=sale_id, product_id=item.product_id, qty=item.qty, unit_price=item.unit_price,
@@ -217,37 +271,60 @@ async def update_quotation(db: AsyncSession, sale_id: uuid.UUID, data) -> None:
         rows = (await db.execute(text("SELECT qty, unit_price, discount FROM sale_items WHERE sale_id = :id"), {"id": sale_id})).all()
         gross = sum((Decimal(r.qty) * Decimal(r.unit_price) for r in rows), Decimal("0"))
         line_discounts = sum((Decimal(r.discount or 0) for r in rows), Decimal("0"))
-        invoice_discount = data.discount_amount if "discount_amount" in sent else Decimal(
-            (await db.execute(text("SELECT discount_amount FROM sales WHERE id = :id"), {"id": sale_id})).scalar() or 0)
+        invoice_discount = data.discount_amount if "discount_amount" in sent else Decimal(row.discount_amount or 0)
+        if "items" not in sent and invoice_discount > 0 \
+                and not await checks.setting_on(db, "sales", "allow_manual_discount", True) \
+                and not checks.can(actor, "sales:override_price"):
+            raise BusinessError("الخصم اليدوي غير مسموح في إعدادات المبيعات")
+        net = gross - line_discounts - invoice_discount
+        if net < 0:
+            raise BusinessError("الخصم أكبر من إجمالي الفاتورة")
         await db.execute(text("UPDATE sales SET total = :t, net_total = :n, discount_amount = :d WHERE id = :id"),
-                         {"t": gross, "n": gross - line_discounts - invoice_discount, "d": invoice_discount, "id": sale_id})
+                         {"t": gross, "n": net, "d": invoice_discount, "id": sale_id})
     if "notes" in sent:
         await db.execute(text("UPDATE sales SET notes = :v WHERE id = :id"), {"v": data.notes, "id": sale_id})
     if "customer_id" in sent:
         await db.execute(text("UPDATE sales SET customer_id = :v WHERE id = :id"), {"v": data.customer_id, "id": sale_id})
+    await _audit(db, actor, "quotation", "update", sale_id, {"fields": sorted(sent)}, f"تعديل عرض السعر {row.invoice_number}")
+    await db.commit()
+
+
+async def delete_draft_or_quotation(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID, actor=None) -> None:
+    """Delete a draft or a quotation (nothing was taken or paid); confirmed documents are
+    cancelled or returned, never deleted. Commits, with its audit row."""
+    from app.core.exceptions import NotFoundError
+
+    sale = (await db.execute(select(Sale).where(Sale.id == sale_id).with_for_update())).scalar_one_or_none()
+    if not sale:
+        raise NotFoundError("الفاتورة غير موجودة")
+    if sale.status not in (SaleStatus.draft, SaleStatus.quotation):
+        raise BusinessError("لا يُحذف إلا المسودات وعروض الأسعار — الفاتورة المؤكدة تُلغى أو تُرتجع")
+    actor = await checks.load_actor(db, user_id, actor)
+    await _audit(db, actor, "quotation" if sale.status == SaleStatus.quotation else "sale", "delete", sale_id,
+                 {"invoice_number": sale.invoice_number, "status": str(sale.status)}, f"حذف {sale.invoice_number}")
+    await db.execute(text("DELETE FROM archived_documents WHERE ref_id=:id AND doc_type IN ('sale_invoice','quotation')"),
+                     {"id": sale_id})
+    await db.delete(sale)
+    await db.commit()
 
 
 async def confirm_quotation(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID,
-                            destination: str = "drawer", safe_id: uuid.UUID | None = None) -> Sale:
+                            destination: str = "drawer", safe_id: uuid.UUID | None = None, actor=None) -> Sale:
     """Convert a quotation to a confirmed sale — deducts stock and records where the money went:
-    the user's drawer, a safe (through the finance safes service), or the customer's account."""
+    the user's own open shift in the quotation's branch, a safe (through the finance safes
+    service), or the customer's account."""
     result = await db.execute(select(Sale).options(selectinload(Sale.items)).where(Sale.id == sale_id).with_for_update())
     sale = result.scalar_one_or_none()
     if not sale:
         from app.core.exceptions import NotFoundError
-        raise NotFoundError("Quotation not found")
+        raise NotFoundError("عرض السعر غير موجود")
     if sale.status != SaleStatus.quotation:
-        raise BusinessError("Only quotations can be confirmed this way")
+        raise BusinessError("لا يُؤكَّد بهذه الطريقة إلا عرض السعر")
+    actor = await checks.load_actor(db, user_id, actor)
+    quotation_number = sale.invoice_number
 
     sorted_items = sorted(sale.items, key=lambda i: str(i.product_id))
-    for item in sorted_items:
-        if not await _is_untracked(db, item.product_id, sale.warehouse_id):
-            balance = await get_balance(db, item.product_id, sale.warehouse_id, for_update=True)
-            if balance < item.qty:
-                from sqlalchemy import text as sqlt
-                prod = await db.execute(sqlt("SELECT name FROM products WHERE id=:id"), {"id": item.product_id})
-                prod_name = prod.scalar() or str(item.product_id)
-                raise BusinessError(f"المخزون غير كافي لـ {prod_name}")
+    await _check_stock(db, sorted_items, sale.warehouse_id, actor)
 
     await emit("pos.before_confirm", db, sale=sale, lines=sorted_items)
     for item in sorted_items:
@@ -279,7 +356,6 @@ async def confirm_quotation(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.
         await _change_customer_balance(db, sale.customer_id, net_total)
         sale.paid_amount = Decimal("0")
     elif net_total:
-        from app.activities.general.modules.pos.models import ShiftStatus
         if destination == "safe":
             if not safe_id:
                 raise BusinessError("يجب اختيار خزنة لإيداع المقبوضات")
@@ -295,26 +371,20 @@ async def confirm_quotation(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.
                                        notes=f"تأكيد عرض سعر {sale.invoice_number}")
             await _add_payment(db, sale.id, "cash", net_total, safe_id=safe_id)
         else:
-            # drawer → user's own open shift in this warehouse
-            shift = (await db.execute(
-                select(Shift).where(
-                    Shift.warehouse_id == sale.warehouse_id,
-                    Shift.cashier_id == user_id,
-                    Shift.status == ShiftStatus.open,
-                ).order_by(Shift.started_at.desc()).limit(1)
-            )).scalar_one_or_none()
-            if not shift:
-                raise BusinessError("لا توجد وردية مفتوحة لك في هذا الفرع")
+            # drawer → user's own open shift in this warehouse (SAL-3)
+            shift_id = await checks.sale_shift(db, user_id, sale.warehouse_id, None, cash=True)
             db.add(DrawerTransaction(
-                shift_id=shift.id, type=DrawerTxType.sale,
+                shift_id=shift_id, type=DrawerTxType.sale,
                 amount=net_total, ref_id=sale.id, created_by=user_id,
                 note=f"تأكيد عرض سعر {sale.invoice_number}",
             ))
             await _add_payment(db, sale.id, "cash", net_total)
-            if not sale.shift_id:
-                sale.shift_id = shift.id
+            sale.shift_id = shift_id
         sale.paid_amount = net_total
 
+    await _audit(db, actor, "quotation", "confirm", sale.id,
+                 {"quotation": quotation_number, "invoice_number": sale.invoice_number, "destination": destination},
+                 f"تأكيد عرض السعر {quotation_number} — فاتورة {sale.invoice_number}")
     _hooks = await _sale_event(db, "sale.confirmed", sale, sorted_items)
     await db.commit()
     _send(_hooks)
@@ -322,18 +392,20 @@ async def confirm_quotation(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.
     return sale
 
 
-async def create_draft_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
-    """Create a draft sale — no stock deduction, status=draft, no archive."""
+async def create_draft_sale(db: AsyncSession, data, cashier_id: uuid.UUID, actor=None) -> Sale:
+    """Create a draft sale — no stock deduction, status=draft, no archive. It takes a draft number
+    (DRF-…); the invoice number comes when it is confirmed. Its money goes, when confirmed, into
+    the confirming user's own open shift."""
+    actor = await checks.load_actor(db, cashier_id, actor)
+    await checks.check_references(db, warehouse_id=data.warehouse_id, customer_id=data.customer_id,
+                                  wallet_ids=[data.wallet_id])
     if data.shift_id:
-        shift = await db.get(Shift, data.shift_id)
-        if not shift or shift.cashier_id != cashier_id:
-            raise BusinessError("هذه الوردية لا تخصك")
-    gross_total = sum(Decimal(str(i.qty)) * Decimal(str(i.unit_price)) for i in data.items)
-    total_discount = sum(Decimal(str(i.discount)) for i in data.items)
-    net_total = gross_total - total_discount - Decimal(str(data.discount_amount))
+        await checks.sale_shift(db, cashier_id, data.warehouse_id, data.shift_id, cash=False, require_setting=False)
+    await checks.check_prices(db, data.items, data.sale_mode, data.discount_amount, actor)
+    gross_total, net_total, _ = checks.totals(data.items, data.discount_amount)
 
     sale = Sale(
-        invoice_number=await _invoice_number(db),
+        invoice_number=await _draft_number(db),
         customer_id=data.customer_id,
         warehouse_id=data.warehouse_id,
         cashier_id=cashier_id,
@@ -356,31 +428,33 @@ async def create_draft_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sa
         db.add(SaleItem(sale_id=sale.id, product_id=item.product_id, qty=item.qty,
                         unit_price=item.unit_price, unit_cost=item.unit_cost,
                         discount=item.discount))
+    await _audit(db, actor, "sale", "create_draft", sale.id, {"draft_number": sale.invoice_number,
+                                                              "net_total": str(net_total)}, f"مسودة {sale.invoice_number}")
     await db.commit()
     result = await db.execute(select(Sale).options(selectinload(Sale.items)).where(Sale.id == sale.id))
     return result.scalar_one()
 
 
-async def confirm_draft_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID) -> Sale:
-    """Convert a draft sale to confirmed — assigns real invoice number, deducts stock."""
+async def confirm_draft_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID, actor=None) -> Sale:
+    """Convert a draft sale to confirmed — assigns real invoice number, deducts stock. The money
+    goes into the confirming user's own open shift in the draft's branch (SAL-3), not the shift
+    the draft was saved in (it may be closed, or someone else's)."""
     from app.core.exceptions import NotFoundError
     from app.platform.archive.models import ArchivedDocument, DocType
     result = await db.execute(select(Sale).options(selectinload(Sale.items)).where(Sale.id == sale_id).with_for_update())
     sale = result.scalar_one_or_none()
     if not sale:
-        raise NotFoundError("Draft sale not found")
+        raise NotFoundError("المسودة غير موجودة")
     if sale.status != SaleStatus.draft:
-        raise BusinessError("Only draft sales can be confirmed")
+        raise BusinessError("لا يُؤكَّد بهذه الطريقة إلا المسودة")
+    actor = await checks.load_actor(db, user_id, actor)
+    draft_number = sale.invoice_number
+    sale.shift_id = await checks.sale_shift(
+        db, user_id, sale.warehouse_id, None,
+        cash=checks.cash_involved(is_credit=sale.is_credit, wallet_id=sale.wallet_id, payment_method=sale.payment_method))
 
     sorted_items = sorted(sale.items, key=lambda i: str(i.product_id))
-    for item in sorted_items:
-        if not await _is_untracked(db, item.product_id, sale.warehouse_id):
-            balance = await get_balance(db, item.product_id, sale.warehouse_id, for_update=True)
-            if balance < item.qty:
-                from sqlalchemy import text as sqlt
-                prod = await db.execute(sqlt("SELECT name FROM products WHERE id=:id"), {"id": item.product_id})
-                prod_name = prod.scalar() or str(item.product_id)
-                raise BusinessError(f"المخزون غير كافي لـ {prod_name}")
+    await _check_stock(db, sorted_items, sale.warehouse_id, actor)
 
     await emit("pos.before_confirm", db, sale=sale, lines=sorted_items)
     for item in sorted_items:
@@ -395,6 +469,8 @@ async def confirm_draft_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid
     db.add(ArchivedDocument(doc_number=new_inv, doc_type=DocType.sale_invoice,
                             amount=sale.net_total, ref_id=sale.id, created_by=user_id,
                             metadata_={"items_count": len(sale.items)}))
+    await _audit(db, actor, "sale", "confirm_draft", sale.id, {"draft_number": draft_number, "invoice_number": new_inv},
+                 f"تأكيد مسودة {draft_number} — فاتورة {new_inv}")
     _hooks = await _sale_event(db, "sale.confirmed", sale, sorted_items)
     await db.commit()
     _send(_hooks)
@@ -446,73 +522,59 @@ async def _take_stock(db: AsyncSession, item, warehouse_id, sale_id, user_id) ->
     return lots
 
 
-async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
-    from sqlalchemy import text as sqlt
+async def _sale_with_items(db, sale_id) -> Sale:
+    return (await db.execute(select(Sale).options(selectinload(Sale.items)).where(Sale.id == sale_id))).scalar_one()
 
-    # Idempotency: if local_id provided (offline sync), check for duplicate
-    local_id = getattr(data, 'local_id', None)
-    notes_value = f"[local_id:{local_id}] {data.notes or ''}" if local_id else (data.notes or None)
+
+async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID, actor=None) -> Sale:
+    """A confirmed sale (POS). The server decides everything the client used to (SAL-1): prices,
+    discounts and stock follow the workspace's settings and the user's permissions; the money
+    goes into the user's own open shift in the sale's branch (SAL-3). A sale sent again with the
+    same `local_id` (the POS's offline queue, a retry) is the sale recorded the first time (SAL-2)."""
+    from app.platform.tenancy.context import current_tenant_id
+
+    actor = await checks.load_actor(db, cashier_id, actor)
+    tid = current_tenant_id.get()
+    if not tid and actor.tenant_id:
+        tid = actor.tenant_id
+        current_tenant_id.set(tid)
+
+    local_id = data.local_id
     if local_id:
-        existing = (await db.execute(sqlt(
-            "SELECT id FROM sales WHERE notes = :notes AND cashier_id = :cid AND created_at > NOW() - INTERVAL '1 hour'"
-        ), {"notes": notes_value, "cid": cashier_id})).scalar_one_or_none()
+        # Two copies of one sale arriving at once wait for each other; the second finds the first.
+        await db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"),
+                         {"k": f"sale-local:{tid}:{cashier_id}:{local_id}"})
+        existing = (await db.execute(select(Sale.id).where(Sale.cashier_id == cashier_id, Sale.local_id == local_id))).scalar()
         if existing:
-            return (await db.execute(
-                select(Sale).options(selectinload(Sale.items)).where(Sale.id == existing)
-            )).scalar_one()
+            await db.commit()
+            return await _sale_with_items(db, existing)
 
     # Sort items by product_id to prevent deadlocks (consistent lock ordering)
     sorted_items = sorted(data.items, key=lambda i: str(i.product_id))
-
-    # Verify shift ownership
-    if data.shift_id:
-        shift = await db.get(Shift, data.shift_id)
-        if not shift or shift.cashier_id != cashier_id:
-            raise BusinessError("هذه الوردية لا تخصك")
-    allow_neg = bool(getattr(data, "allow_negative_stock", False) or getattr(data, "is_offline_sync", False) or getattr(data, "local_id", None))
-    for item in sorted_items:
-        if not await _is_untracked(db, item.product_id, data.warehouse_id):
-            balance = await get_balance(db, item.product_id, data.warehouse_id, for_update=True)
-            if balance < item.qty:
-                from sqlalchemy import text as sqlt
-                prod = await db.execute(sqlt("SELECT name FROM products WHERE id=:id"), {"id": item.product_id})
-                prod_name = prod.scalar() or str(item.product_id)
-                if not allow_neg:
-                    raise BusinessError(f"المخزون غير كافي لـ {prod_name}")
-                # Through the audit service: the AuditLog model used here named columns the
-                # audit_log table writes elsewhere don't use (action/changes/note).
-                from app.platform.audit.service import log as audit_log
-
-                await audit_log(db, "product", "inventory_discrepancy", cashier_id, None, item.product_id, {
-                    "product_name": prod_name,
-                    "warehouse_id": str(data.warehouse_id),
-                    "balance_before": float(balance),
-                    "sold_qty": float(item.qty),
-                    "deficit": float(item.qty - balance),
-                }, f"عجز مخزون ناتج عن مزامنة غير متصلة لـ {prod_name}")
-
-    from app.platform.tenancy.context import current_tenant_id
-    tid = current_tenant_id.get()
-    if not tid and cashier_id:
-        from app.platform.auth.models.user import User
-        cashier_u = await db.get(User, cashier_id)
-        if cashier_u and cashier_u.tenant_id:
-            tid = cashier_u.tenant_id
-            current_tenant_id.set(tid)
+    payments = data.payments or None
+    await checks.check_references(db, warehouse_id=data.warehouse_id, customer_id=data.customer_id,
+                                  wallet_ids=[data.wallet_id, *[p.wallet_id for p in payments or []]])
+    await checks.check_prices(db, sorted_items, data.sale_mode, data.discount_amount, actor)
+    checks.totals(sorted_items, data.discount_amount)
+    shift_id = await checks.sale_shift(db, cashier_id, data.warehouse_id, data.shift_id, cash=checks.cash_involved(
+        payments=payments, is_credit=data.is_credit, paid_amount=data.paid_amount, wallet_id=data.wallet_id,
+        payment_method=data.payment_method))
+    await _check_stock(db, sorted_items, data.warehouse_id, actor)
 
     sale = Sale(
         invoice_number=await _invoice_number(db),
         tenant_id=tid,
+        local_id=local_id,
         customer_id=data.customer_id,
         warehouse_id=data.warehouse_id,
         cashier_id=cashier_id,
-        shift_id=data.shift_id,
+        shift_id=shift_id,
         sale_mode=data.sale_mode,
         discount_amount=data.discount_amount,
         is_credit=data.is_credit,
         payment_method=getattr(data, 'payment_method', 'cash') or 'cash',
         wallet_id=getattr(data, 'wallet_id', None),
-        notes=notes_value,
+        notes=data.notes or None,
         status=SaleStatus.confirmed,
         created_by=cashier_id,
     )
@@ -561,11 +623,12 @@ async def create_sale(db: AsyncSession, data, cashier_id: uuid.UUID) -> Sale:
                             amount=Decimal(str(net_total)), ref_id=sale.id, created_by=cashier_id,
                             metadata_={"items_count": len(data.items), "mode": str(data.sale_mode)}))
 
+    await _audit(db, actor, "sale", "create", sale.id, {"invoice_number": sale.invoice_number, "total": float(sale.total),
+                                                        "net_total": float(sale.net_total)}, f"فاتورة {sale.invoice_number}")
     _hooks = await _sale_event(db, "sale.confirmed", sale, sale_items)
     await db.commit()
     _send(_hooks)
-    result = await db.execute(select(Sale).options(selectinload(Sale.items)).where(Sale.id == sale.id))
-    return result.scalar_one()
+    return await _sale_with_items(db, sale.id)
 
 
 # ── Returns and cancellations (ADR-014 D4) ────────────────────────────────────────────────────
@@ -612,23 +675,21 @@ async def _refunded(db, sale_id) -> dict[tuple, Decimal]:
 
 
 async def _open_shift_for_refund(db, user_id, wanted, sale: Sale):
-    """The drawer cash refunds come out of: the shift asked for, else the user's open shift, else
-    the sale's shift while it is still open. Closed shifts are never written to."""
+    """The drawer cash refunds come out of: the user's own open shift in the sale's branch (the one
+    asked for must be that). Never another cashier's shift (SAL-7), never a closed one."""
     if wanted:
-        shift = await db.get(Shift, wanted)
-        if shift and shift.status == "open":
-            return shift.id
-    own = (await db.execute(text(
-        "SELECT id FROM shifts WHERE (cashier_id = :uid OR supervisor_id = :uid) AND status = 'open' "
-        "ORDER BY started_at DESC LIMIT 1"
-    ), {"uid": user_id})).scalar()
-    if own:
-        return own
-    if sale.shift_id:
-        shift = await db.get(Shift, sale.shift_id)
-        if shift and shift.status == "open":
-            return shift.id
-    return None
+        shift = (await db.execute(select(Shift).where(Shift.id == wanted).with_for_update(read=True))).scalar_one_or_none()
+        if shift is None:
+            from app.core.exceptions import NotFoundError
+            raise NotFoundError("الوردية غير موجودة")
+        if shift.cashier_id != user_id or shift.status != "open" or shift.warehouse_id != sale.warehouse_id:
+            raise BusinessError("يُصرف المرتجع من ورديتك المفتوحة في فرع الفاتورة فقط")
+        return shift.id
+    return (await db.execute(
+        select(Shift.id).where(Shift.cashier_id == user_id, Shift.warehouse_id == sale.warehouse_id,
+                               Shift.status == "open")
+        .order_by(Shift.started_at.desc()).limit(1).with_for_update(read=True)
+    )).scalar_one_or_none()
 
 
 async def _make_return(db, orig: Sale, wanted: dict[str, Decimal] | None, user_id, shift_id=None) -> tuple[Sale, bool]:
@@ -710,12 +771,13 @@ async def _make_return(db, orig: Sale, wanted: dict[str, Decimal] | None, user_i
     # Cash that went through a drawer comes back out of one; a sale made without a shift
     # recorded no drawer cash, so its refund records none either.
     if cash_refund > 0 and not target_shift and orig.shift_id:
-        raise BusinessError("لا توجد وردية مفتوحة لصرف المبلغ النقدي للمرتجع — افتح وردية أولاً")
+        raise BusinessError("لا توجد وردية مفتوحة لك في فرع الفاتورة لصرف المبلغ النقدي للمرتجع — افتح وردية أولاً")
 
-    seq = (await db.execute(text("SELECT nextval('invoice_seq')"))).scalar()
+    from app.platform.archive.numbering import next_number
+
     first = next((k for k, v in refunds.items() if v > 0), None)
     ret = Sale(
-        invoice_number=f"RET-{seq:06d}", return_of=orig.id,
+        invoice_number=await next_number(db, "RET"), return_of=orig.id,
         customer_id=orig.customer_id, warehouse_id=orig.warehouse_id, cashier_id=user_id, created_by=user_id,
         shift_id=target_shift or orig.shift_id, sale_mode=orig.sale_mode, status=SaleStatus.returned,
         total=gross, discount_amount=inv_share, net_total=net, paid_amount=net, returns_total=Decimal("0"),
@@ -759,14 +821,18 @@ async def _make_return(db, orig: Sale, wanted: dict[str, Decimal] | None, user_i
     return ret, fully
 
 
-async def return_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID, shift_id: uuid.UUID | None = None) -> dict:
+async def return_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID, shift_id: uuid.UUID | None = None,
+                      actor=None) -> dict:
     """Full return: everything on the sale not returned yet goes into one return document."""
     sale = (await db.execute(select(Sale).options(selectinload(Sale.items)).where(Sale.id == sale_id)
                              .with_for_update())).scalar_one_or_none()
     if not sale:
         from app.core.exceptions import NotFoundError
-        raise NotFoundError("Sale not found")
+        raise NotFoundError("الفاتورة غير موجودة")
+    actor = await checks.load_actor(db, user_id, actor)
     ret, _ = await _make_return(db, sale, None, user_id, shift_id)
+    await _audit(db, actor, "sale", "return", sale.id, {"return": ret.invoice_number, "amount": str(ret.net_total)},
+                 f"إرجاع فاتورة {sale.invoice_number} — {ret.invoice_number}")
     _hooks = await _sale_event(db, "sale.returned", sale, [], returned=ret)
     await db.commit()
     _send(_hooks)
@@ -774,18 +840,24 @@ async def return_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID, 
             "doc_number": ret.invoice_number, "sale_id": str(ret.id)}
 
 
-async def partial_return_sale(db: AsyncSession, sale_id: uuid.UUID, data: dict, current_user_id: uuid.UUID) -> dict:
+async def partial_return_sale(db: AsyncSession, sale_id: uuid.UUID, data: dict, current_user_id: uuid.UUID,
+                              actor=None) -> dict:
     orig = (await db.execute(select(Sale).options(selectinload(Sale.items)).where(Sale.id == sale_id)
                              .with_for_update())).scalar_one_or_none()
     if not orig:
         from app.core.exceptions import NotFoundError
-        raise NotFoundError("Sale not found")
+        raise NotFoundError("الفاتورة غير موجودة")
     wanted: dict[str, Decimal] = {}
     for i in data.get("items", []):
         wanted[str(i["product_id"])] = wanted.get(str(i["product_id"]), Decimal("0")) + _d(i["qty"])
     if not wanted:
-        raise BusinessError("No items")
+        raise BusinessError("اختر صنفاً واحداً على الأقل للإرجاع")
+    actor = await checks.load_actor(db, current_user_id, actor)
     ret, _ = await _make_return(db, orig, wanted, current_user_id, data.get("shift_id"))
+    await _audit(db, actor, "sale", "partial_return", orig.id,
+                 {"return": ret.invoice_number, "amount": str(ret.net_total),
+                  "items": {k: str(v) for k, v in wanted.items()}},
+                 f"مرتجع جزئي {ret.invoice_number} من {orig.invoice_number}")
     _hooks = await _sale_event(db, "sale.returned", orig, [], returned=ret)
     await db.commit()
     _send(_hooks)
@@ -793,7 +865,7 @@ async def partial_return_sale(db: AsyncSession, sale_id: uuid.UUID, data: dict, 
             "original": orig.invoice_number}
 
 
-async def cancel_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID) -> Sale:
+async def cancel_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID, actor=None) -> Sale:
     """Cancel a confirmed sale. Nothing is deleted: the sale becomes 'cancelled', its stock comes
     back, its drawer rows are cancelled (taking the cash out of the shift), wallet and safe
     payments are paid back out and the part on credit comes off the customer's balance. Its
@@ -805,9 +877,9 @@ async def cancel_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID) 
     sale = (await db.execute(select(Sale).where(Sale.id == sale_id).with_for_update())).scalar_one_or_none()
     if not sale:
         from app.core.exceptions import NotFoundError
-        raise NotFoundError("Sale not found")
-    if sale.status != SaleStatus.confirmed:
-        raise BusinessError("Only confirmed sales can be cancelled")
+        raise NotFoundError("الفاتورة غير موجودة")
+    if sale.status != SaleStatus.confirmed or sale.return_of is not None:
+        raise BusinessError("لا يُلغى إلا فاتورة مؤكدة")
     if sale.returns_total and Decimal(str(sale.returns_total)) > 0:
         raise BusinessError("تم إرجاع أجزاء من هذه الفاتورة مسبقاً — لا يمكن إلغاء الفاتورة")
 
@@ -860,6 +932,8 @@ async def cancel_sale(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID) 
             await safe_service.withdraw(db, safe_id, amount, note, await db.get(User, user_id))
         # cash through a drawer: handled above; bank / cheque: recorded only, nothing to move back yet.
 
+    await _audit(db, await checks.load_actor(db, user_id, actor), "sale", "cancel", sale.id,
+                 {"invoice_number": sale.invoice_number, "net_total": str(sale.net_total)}, note)
     await notify("sale.cancelled", db, sale=sale, user_id=user_id)
     await db.commit()
     await db.refresh(sale)

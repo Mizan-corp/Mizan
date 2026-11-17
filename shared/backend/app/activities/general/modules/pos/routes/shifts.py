@@ -25,10 +25,18 @@ from app.activities.general.modules.pos import service as shift_service
 router = APIRouter(prefix="/shifts", tags=["shifts"])
 
 
+async def _shift(db: AsyncSession, shift_id: uuid.UUID) -> Shift:
+    shift = await db.get(Shift, shift_id)
+    if not shift:
+        raise HTTPException(status_code=404, detail="الوردية غير موجودة")
+    return shift
+
+
 # ── Open ──────────────────────────────────────────────────────────────────────
 
 @router.post("/open", response_model=ShiftOut)
 async def open_shift(data: ShiftOpen, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("shifts"))):
+    await verify_warehouse_access(db, current_user, data.warehouse_id)
     shift = await shift_service.open_shift(db, current_user.id, data.warehouse_id, data.initial_amount, data.supervisor_id)
     out = ShiftOut.model_validate(shift)
     out.cashier_name = current_user.full_name
@@ -117,11 +125,12 @@ async def transfer_drawer(shift_id: uuid.UUID, data: TransferDrawerRequest, db: 
 
 @router.get("/{shift_id}/summary", response_model=ShiftSummary)
 async def shift_summary(shift_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    shift = await db.get(Shift, shift_id)
-    is_own = shift and shift.cashier_id == current_user.id
+    shift = await _shift(db, shift_id)
+    is_own = shift.cashier_id == current_user.id
     is_privileged = current_user.is_manager or can(current_user, "supervise")
-    if shift and not is_own and not is_privileged:
+    if not is_own and not is_privileged:
         raise HTTPException(status_code=403, detail="لا يمكنك الاطلاع على وردية موظف آخر")
+    await verify_warehouse_access(db, current_user, shift.warehouse_id)
     return await shift_service.compute_summary(db, shift_id)
 
 
@@ -129,6 +138,7 @@ async def shift_summary(shift_id: uuid.UUID, db: AsyncSession = Depends(get_db),
 
 @router.post("/{shift_id}/transactions", response_model=DrawerTxOut)
 async def add_transaction(shift_id: uuid.UUID, data: DrawerTxCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("shifts"))):
+    await verify_warehouse_access(db, current_user, (await _shift(db, shift_id)).warehouse_id)
     return await shift_service.add_transaction(
         db, shift_id, data.type, data.amount, current_user.id,
         note=data.note, category_id=data.category_id,
@@ -139,11 +149,12 @@ async def add_transaction(shift_id: uuid.UUID, data: DrawerTxCreate, db: AsyncSe
 
 @router.get("/{shift_id}/transactions", response_model=list[DrawerTxOut])
 async def list_transactions(shift_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
-    shift = await db.get(Shift, shift_id)
-    is_own = shift and shift.cashier_id == current_user.id
+    shift = await _shift(db, shift_id)
+    is_own = shift.cashier_id == current_user.id
     is_privileged = current_user.is_manager or can(current_user, "supervise")
-    if shift and not is_own and not is_privileged:
+    if not is_own and not is_privileged:
         raise HTTPException(status_code=403, detail="لا يمكنك الاطلاع على وردية موظف آخر")
+    await verify_warehouse_access(db, current_user, shift.warehouse_id)
     result = await db.execute(
         select(DrawerTransaction).where(DrawerTransaction.shift_id == shift_id).order_by(DrawerTransaction.created_at)
     )
