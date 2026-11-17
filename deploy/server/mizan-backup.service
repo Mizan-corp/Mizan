@@ -1,8 +1,10 @@
 [Unit]
-Description=Back up Mizan's database (deploy/server/backup.sh)
+Description=Back up Mizan's database (deploy/server/backup.sh), then copy it off-site (backup-offsite.sh)
 Requires=docker.service
-After=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
 
 [Service]
 Type=oneshot
 ExecStart=/srv/mizan/backup.sh
+ExecStart=/srv/mizan/backup-offsite.sh
