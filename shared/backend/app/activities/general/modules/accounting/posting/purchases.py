@@ -1,14 +1,15 @@
 """Posting rules for purchases, supplier accounts and purchase returns (ADR-014 D3, step 3).
 
 Purchase received (source 'purchase', event 'receive'), one entry, dated today:
-    Dr inventory (the lines at their unit cost) / Cr payables (party: the supplier)
+    Dr inventory (the lines at their unit cost, without VAT), Dr VAT input (the order's tax_amount,
+    ADR-014 D6) / Cr payables (party: the supplier) for the whole invoice
     and, for the amount paid at receipt: Dr payables (party) / Cr the safe or wallet it left from
 Supplier payment (source 'supplier_tx', event 'payment'): Dr payables (party) / Cr the safe or wallet
 Supplier charge, a debit entered by hand (source 'supplier_tx', event 'charge'): "we owe more"
     without goods (an invoice for a service, a fee): Dr other expenses / Cr payables (party)
 Purchase return (source 'purchase_return', event 'confirm'), at the cost the goods came in at:
     Dr payables (party) for what lowers the supplier's balance, and Dr the safe or wallet for what
-    the supplier paid back / Cr inventory
+    the supplier paid back / Cr inventory (without VAT), Cr VAT input (the return's tax_amount)
 A purchase order with no supplier posts its payables with no party.
 """
 from decimal import Decimal
@@ -32,7 +33,10 @@ async def on_purchase_received(db: AsyncSession, *, purchase: dict, user_id=None
     payables = await role(db, tid, "payables")
     party = _party(purchase.get("supplier_id"))
     wh = purchase.get("warehouse_id")
-    lines = [dr(await role(db, tid, "inventory"), total, warehouse_id=wh), cr(payables, total, warehouse_id=wh, **party)]
+    tax = Decimal(str(purchase.get("tax_amount") or 0))
+    lines = [dr(await role(db, tid, "inventory"), total - tax, warehouse_id=wh), cr(payables, total, warehouse_id=wh, **party)]
+    if tax:
+        lines.append(dr(await role(db, tid, "vat_input"), tax, warehouse_id=wh))
     if paid > 0:
         money = await source_account(db, tid, safe_id=purchase.get("safe_id"), wallet_id=purchase.get("wallet_id"))
         lines += [dr(payables, paid, warehouse_id=wh, **party), cr(money, paid, warehouse_id=wh)]
@@ -73,7 +77,10 @@ async def on_purchase_returned(db: AsyncSession, *, purchase_return: dict, user_
         return
     refund = Decimal(str(purchase_return.get("refund_amount") or 0))
     wh = purchase_return.get("warehouse_id")
-    lines = [cr(await role(db, tid, "inventory"), total, warehouse_id=wh)]
+    tax = Decimal(str(purchase_return.get("tax_amount") or 0))
+    lines = [cr(await role(db, tid, "inventory"), total - tax, warehouse_id=wh)]
+    if tax:
+        lines.append(cr(await role(db, tid, "vat_input"), tax, warehouse_id=wh))
     if refund > 0:
         money = await source_account(db, tid, safe_id=purchase_return.get("safe_id"),
                                      wallet_id=purchase_return.get("wallet_id"))

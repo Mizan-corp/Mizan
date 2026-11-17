@@ -3,10 +3,13 @@
 Sale confirmed (source 'sale', event 'confirm'), one entry:
     Dr  each payment line's money account (drawer / safe / wallet / bank), or receivables
         with the customer as party for the part on credit
-    Cr  sales (net of discounts: the sum of the payment lines, which is the sale's net_total)
+    Cr  sales (net of discounts and of VAT: the sum of the payment lines, which is the sale's
+        net_total, less its tax_amount)
+    Cr  VAT output (the sale's tax_amount, ADR-014 D6; none when the workspace isn't VAT-registered)
     Dr  cost of goods sold / Cr inventory, at the lines' average cost (SaleItem.unit_cost x qty)
 Return document (source 'sale_return', event 'confirm'):
-    Dr  sales returns / Cr each refund line's money account or receivables
+    Dr  sales returns (without VAT), Dr VAT output (the return's tax_amount) / Cr each refund
+        line's money account or receivables
     Dr  inventory / Cr cost of goods sold, at the cost the lines left at
 Sale cancelled: the reversing entry of the sale's entry.
 """
@@ -53,7 +56,10 @@ async def on_sale_confirmed(db: AsyncSession, *, sale, user_id=None, **_) -> Non
     tid = tenant_of(sale)
     await db.flush()
     lines, revenue = await _money_lines(db, tid, sale, await _payments(db, sale.id), debit=True)
-    lines.append(cr(await role(db, tid, "sales"), revenue))
+    tax = Decimal(str(sale.tax_amount or 0))
+    lines.append(cr(await role(db, tid, "sales"), revenue - tax))
+    if tax:
+        lines.append(cr(await role(db, tid, "vat_output"), tax))
     cost = await _cost(db, sale.id)
     if cost > 0:
         lines += [dr(await role(db, tid, "cogs"), cost), cr(await role(db, tid, "inventory"), cost)]
@@ -68,7 +74,10 @@ async def on_sale_returned(db: AsyncSession, *, sale, returned=None, user_id=Non
     tid = tenant_of(ret)
     await db.flush()
     lines, refunded = await _money_lines(db, tid, ret, await _payments(db, ret.id), debit=False)
-    lines.append(dr(await role(db, tid, "sales_returns"), refunded))
+    tax = Decimal(str(ret.tax_amount or 0))
+    lines.append(dr(await role(db, tid, "sales_returns"), refunded - tax))
+    if tax:
+        lines.append(dr(await role(db, tid, "vat_output"), tax))
     cost = await _cost(db, ret.id)
     if cost > 0:
         lines += [dr(await role(db, tid, "inventory"), cost), cr(await role(db, tid, "cogs"), cost)]

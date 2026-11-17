@@ -148,6 +148,17 @@ async def party_statement(party_type: str, party_id: uuid.UUID, date_from: date 
     return out
 
 
+@router.get("/vat-report")
+async def vat_report(date_from: date | None = Query(None, alias="from"), date_to: date | None = Query(None, alias="to"),
+                     db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("accounting:view"))):
+    """Output VAT, input VAT and the net payable from the ledger, with the documents' VAT by tax code (D6)."""
+    from app.activities.general.modules.accounting.services.vat import vat_report as build
+
+    out = await build(db, user.tenant_id, date_from, date_to)
+    await db.commit()
+    return out
+
+
 @router.get("/reconciliation")
 async def reconciliation(db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("accounting:view"))):
     """The ledger against the operational balances (customers, suppliers, safes, wallets, stock): flags only."""
