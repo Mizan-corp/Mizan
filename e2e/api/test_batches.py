@@ -6,7 +6,7 @@ from datetime import date, timedelta
 import pytest
 from helpers import uid
 
-from conftest import admin_api, owner_api, reg, db, wh  # noqa: F401
+from conftest import admin_api, owner_api, reg, db, wh, ensure_shift  # noqa: F401
 
 
 @pytest.fixture
@@ -54,6 +54,7 @@ def test_pharmacy_stock_is_kept_in_batches(owner_api, reg, wh, pharmacy, db):
         owner_api.ok(stock_in(batch, expiry, qty))
     assert _lots(owner_api, drug["id"], wh["id"]) == {"SOON": 3, "OLD": 5, "LATER": 4}
 
+    ensure_shift(owner_api, reg, wh["id"])  # the sales' cash goes into the seller's open shift
     sale = owner_api.ok(owner_api.post("/sales", json={
         "warehouse_id": wh["id"], "items": [{"product_id": drug["id"], "qty": 4, "unit_price": 20}]}))
     reg.add("sale", sale["id"])
