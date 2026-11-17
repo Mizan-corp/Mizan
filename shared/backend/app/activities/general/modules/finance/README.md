@@ -35,7 +35,7 @@ Permission: `finance` (declared here). Reports read with `finance` or `reports`.
   per attempt.
 - **Branches**: reads that cover branches (`/reports/ledger`, `/wallets/summary`, `/expenses`,
   `/expenses/summary`, `/financial-ledger`) check `verify_warehouse_access` for the branch asked
-  for; without one, a user who neither has the manager flag nor `supervise` sees only their own
+  for; without one, a user who has neither the manager flag, `supervise` nor `finance` (accountants) sees only their own
   branches (and, for expenses, the company-wide ones) (`services/access.py`).
 - **Periods** (`services/periods.py`): every month from the first one the books know to the
   current month (Africa/Cairo). With accounting on, the books start at the first journal entry

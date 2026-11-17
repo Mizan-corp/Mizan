@@ -56,8 +56,9 @@ def _client() -> AsyncClient:
 
 async def _ws(accounting: bool = False) -> dict:
     """The ledger tests' workspace (a branch, an open shift, a customer, a wallet, a safe of 1000, a
-    product), a second branch, and users with headers: admin (manager), accountant (finance, limited
-    to the first branch), boss (manager flag without finance), cashier (customers)."""
+    product), a second branch, and users with headers: admin (manager), accountant (finance: every branch, though assigned to the
+    first), boss (manager flag without finance), cashier (customers), doctor (reports without finance,
+    limited to the first branch)."""
     env = await _env(accounting)
     t = env["tenant_id"]
     wh2 = uuid.uuid4()
@@ -68,7 +69,8 @@ async def _ws(accounting: bool = False) -> dict:
         await s.execute(text("INSERT INTO warehouses (id, tenant_id, code, name, is_active) VALUES (:id, :t, :c, 'فرع ٢', true)"),
                         {"id": wh2, "t": t, "c": f"W2-{t.hex[:6]}"})
         for name, role, manager in (("admin", "admin", True), ("accountant", "accountant", False),
-                                    ("boss", "cashier", True), ("cashier", "cashier", False)):
+                                    ("boss", "cashier", True), ("cashier", "cashier", False),
+                                    ("doctor", "doctor", False)):
             u = User(id=uuid.uuid4(), tenant_id=t, username=f"{name}_{t.hex[:8]}", full_name=name, role=role,
                      password_hash=hash_password("Pass12345!"), permissions=standard_permissions(role),
                      is_active=True, is_manager=manager)
@@ -76,6 +78,7 @@ async def _ws(accounting: bool = False) -> dict:
             users[name] = u
         await give_roles(s)
         await s.execute(user_warehouses.insert().values(user_id=users["accountant"].id, warehouse_id=env["warehouse_id"]))
+        await s.execute(user_warehouses.insert().values(user_id=users["doctor"].id, warehouse_id=env["warehouse_id"]))
         await s.commit()
     current_tenant_id.set(t)
     env["warehouse2_id"] = wh2
@@ -257,10 +260,12 @@ async def test_expense_reads_are_typed_permissioned_and_branch_scoped():
         assert (await c.get("/expenses", params={"status": "paid"}, headers=h["admin"])).status_code == 422
         s = await c.get("/expenses/summary", params={"date_from": today, "date_to": today}, headers=h["admin"])
         assert s.status_code == 200 and s.json()["count"] == 3
-        # the accountant is limited to the first branch: its expenses and the company-wide one
+        # the accountant answers for the company's money: every branch, though assigned to the first
         mine = (await c.get("/expenses", headers=h["accountant"])).json()
-        assert {e["description"] for e in mine["data"]} == {"فرع ١", "عام"}
-        assert (await c.get("/expenses/summary", headers=h["accountant"])).json()["count"] == 2
+        assert {e["description"] for e in mine["data"]} == {"فرع ١", "فرع ٢", "عام"}
+        assert (await c.get("/expenses/summary", headers=h["accountant"])).json()["count"] == 3
+        # someone with reports but not finance is limited to their branch (and the company-wide one)
+        assert (await c.get("/expenses/summary", headers=h["doctor"])).json()["count"] == 2
         assert (await c.get("/expenses", headers=h["cashier"])).status_code == 403
         assert (await c.get("/expense-vendors", headers=h["cashier"])).status_code == 403
         assert (await c.get(f"/safes/{env['safe_id']}/history", headers=h["cashier"])).status_code == 403

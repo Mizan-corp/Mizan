@@ -1,7 +1,8 @@
 """Who reads which money: the permissions and branches the finance routes check.
 
 Balances, histories and money reports need `finance` (`reports` for the summaries). A user who
-neither supervises every branch (the manager flag or `supervise`) nor names a branch they may use
+neither supervises every branch (the manager flag, `supervise`, or `finance`: accountants answer for
+the company's money) nor names a branch they may use
 sees only their own branches: `branch_scope` gives the list to filter on (None: every branch).
 """
 import uuid
@@ -23,7 +24,7 @@ def can(user, *perms: str) -> bool:
 
 
 def supervises(user) -> bool:
-    return bool(getattr(user, "is_manager", False)) or can(user, "supervise")
+    return bool(getattr(user, "is_manager", False)) or can(user, "supervise") or can(user, "finance")
 
 
 def sees_balances(user) -> bool:
