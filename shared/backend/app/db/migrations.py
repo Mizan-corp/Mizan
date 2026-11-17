@@ -3892,6 +3892,12 @@ MIGRATIONS = [
            SET grants = (SELECT jsonb_agg(DISTINCT g ORDER BY g)
                            FROM jsonb_array_elements_text(grants || '["sales:return"]'::jsonb) g)
          WHERE tenant_id IS NOT NULL AND code LIKE 'cashier-%' AND grants @> '["sales"]'::jsonb;
+        -- A workspace's own roles could cancel and return with `sales` alone: they keep both (their
+        -- admin can take them away), as the other readiness migrations keep what roles could do.
+        UPDATE sys_roles
+           SET grants = (SELECT jsonb_agg(DISTINCT g ORDER BY g)
+                           FROM jsonb_array_elements_text(grants || '["sales:cancel", "sales:return"]'::jsonb) g)
+         WHERE tenant_id IS NOT NULL AND code LIKE 'ws-%' AND grants @> '["sales"]'::jsonb;
     """),
 ]
 
