@@ -43,11 +43,14 @@ import { ThermalReceiptSettingsModal } from "./components/ThermalReceiptSettings
 import { PosKeyboardShortcutsModal } from "./components/PosKeyboardShortcutsModal";
 import { DrugInfo, PrescriptionPanel, prescriptionNeeds } from "@activities/pharmacy/variants/pos";
 import { useWorkspaceProfile, variantOf } from "@app/lib/workspace";
+import { documentTaxes, sumTaxes, useVat, type TaxCode } from "@app/lib/vat";
 
 interface Warehouse { id: string; name: string }
 interface Product {
   id: string; name: string; barcode: string | null; code: string | null; unit: string;
   retail_price: string; wholesale_price: string; image_url: string | null;
+  /** VAT code (ADR-014 D6); the rates come from /settings/vat. */
+  tax_code?: TaxCode;
   /** The branch's stock (from /products with warehouse_id); undefined when not known. */
   current_qty?: string | number | null;
   /** Values of the activity's product fields (a drug's scientific name, prescription flags…). */
@@ -234,10 +237,15 @@ export default function PosPage() {
   const rxMissing = rxNeeds.required.some((k) => !rx[k]?.trim());
 
   const unitPrice = (p: Product) => D(mode === "wholesale" ? p.wholesale_price : p.retail_price);
-  const total = useMemo(
-    () => cart.reduce((s, i) => s.plus(unitPrice(i.product).times(i.qty).minus(D(i.discount))), D(0)),
-    [cart, mode],
+  // VAT as the server will store it (ADR-014 D6): with prices including VAT (the default) the total
+  // is unchanged and shows the tax it contains; with prices excluding VAT the tax is added on top.
+  const vat = useVat();
+  const vatTotals = useMemo(
+    () => sumTaxes(documentTaxes(cart.map((i) => ({ amount: unitPrice(i.product).times(i.qty).minus(D(i.discount)),
+                                                     code: i.product.tax_code ?? null })), 0, vat.data)),
+    [cart, mode, vat.data],
   );
+  const total = vatTotals.gross;
 
   const subtotalBeforeDiscount = useMemo(
     () => cart.reduce((s, i) => s.plus(unitPrice(i.product).times(i.qty)), D(0)),
@@ -856,8 +864,14 @@ export default function PosPage() {
                     <span className="num font-mono">-{money(totalDiscount)} ج.م</span>
                   </div>
                 )}
+                {vat.data?.vat_registered && cart.length > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>{vat.data.prices_include_vat ? "منها ضريبة القيمة المضافة" : "ضريبة القيمة المضافة"}</span>
+                    <span className="num font-mono">{vat.data.prices_include_vat ? "" : "+"}{money(vatTotals.tax)} ج.م</span>
+                  </div>
+                )}
                 <div className="flex items-baseline justify-between pt-1 border-t border-border/40">
-                  <span className="text-xs font-bold text-foreground">الإجمالي الصافي</span>
+                  <span className="text-xs font-bold text-foreground">{vat.data?.vat_registered ? "الإجمالي شامل الضريبة" : "الإجمالي الصافي"}</span>
                   <div className="text-end">
                     <span className="num font-mono text-2xl font-black text-foreground tracking-tight">
                       {money(total)}

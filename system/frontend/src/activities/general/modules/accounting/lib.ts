@@ -195,6 +195,14 @@ export function monthLabel(month: string): string {
   return `${MONTHS_AR[m - 1] ?? month} ${month.slice(0, 4)}`;
 }
 
+/** "2026-02" → the month's first and last day (a VAT return is filed per month). */
+export function monthRange(month: string): { from: string; to: string } {
+  const y = Number(month.slice(0, 4));
+  const m = Number(month.slice(5, 7));
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return { from: `${month}-01`, to: `${month}-${String(last).padStart(2, "0")}` };
+}
+
 /** Today in Egypt as YYYY-MM-DD (the posting date the server uses). */
 export function todayCairo(now: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);

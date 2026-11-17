@@ -35,7 +35,14 @@ interface Settings {
   login_support_contact?: string;
   theme_primary?: string;
   login_show_powered_by?: string | boolean;
+  // VAT (ADR-014 D6): stored as "true" / "false"; the tax number as 9 digits.
+  vat_registered?: string | boolean;
+  prices_include_vat?: string | boolean;
+  tax_number?: string;
 }
+
+const on = (v: string | boolean | undefined, fallback: boolean) =>
+  v === undefined || v === "" ? fallback : v === true || v === "true";
 
 interface UserSettings {
   theme?: string;
@@ -96,6 +103,9 @@ export default function SettingsPage() {
         login_support_contact: form.login_support_contact,
         theme_primary: form.theme_primary,
         login_show_powered_by: form.login_show_powered_by === false ? "false" : "true",
+        vat_registered: on(form.vat_registered, false) ? "true" : "false",
+        prices_include_vat: on(form.prices_include_vat, true) ? "true" : "false",
+        tax_number: form.tax_number ?? "",
       }),
     onSuccess: () => {
       setDirty(false);
@@ -770,6 +780,70 @@ export default function SettingsPage() {
                   />
                 </div>
               ))}
+            </div>
+          </Card>
+
+          <Card className="p-6 bg-[#FFFFFF] border border-[#DECFC0] rounded-2xl space-y-4">
+            <div>
+              <h2 className="text-base font-semibold text-[#262321]">ضريبة القيمة المضافة</h2>
+              <p className="text-xs text-[#77716E] mt-0.5">
+                تُحسب الضريبة لكل سطر عند إصدار المستند وتُحفظ معه، وتظهر على الفواتير والإيصالات مع رقم التسجيل الضريبي.
+                التغيير يسري على المستندات الجديدة فقط.
+              </p>
+            </div>
+            <label className="flex items-center gap-3 text-sm text-[#262321] cursor-pointer">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded text-[#651E2C] border-[#DECFC0]"
+                checked={on(form.vat_registered, false)}
+                onChange={(e) => {
+                  setForm({ ...form, vat_registered: e.target.checked ? "true" : "false" });
+                  setDirty(true);
+                }}
+              />
+              المنشأة مسجلة في ضريبة القيمة المضافة
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="tax-number" className="mb-1 block text-xs font-semibold text-[#262321]">
+                  رقم التسجيل الضريبي (9 أرقام)
+                </label>
+                <Input
+                  id="tax-number"
+                  dir="ltr"
+                  inputMode="numeric"
+                  placeholder="123-456-789"
+                  value={form.tax_number ?? ""}
+                  onChange={(e) => {
+                    setForm({ ...form, tax_number: e.target.value });
+                    setDirty(true);
+                  }}
+                />
+                {form.tax_number && form.tax_number.replace(/[\s-]/g, "").length !== 9 && (
+                  <p className="mt-1 text-[11px] text-red-700">الرقم يتكون من 9 أرقام، ويمكن كتابته بشرطات</p>
+                )}
+              </div>
+              <div>
+                <span className="mb-1 block text-xs font-semibold text-[#262321]">أسعار البيع</span>
+                <label className="flex items-center gap-3 text-sm text-[#262321] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded text-[#651E2C] border-[#DECFC0]"
+                    disabled={!on(form.vat_registered, false)}
+                    checked={on(form.prices_include_vat, true)}
+                    onChange={(e) => {
+                      setForm({ ...form, prices_include_vat: e.target.checked ? "true" : "false" });
+                      setDirty(true);
+                    }}
+                  />
+                  الأسعار شاملة الضريبة
+                </label>
+                <p className="mt-1 text-[11px] text-[#77716E]">
+                  {on(form.prices_include_vat, true)
+                    ? "سعر 114 ج.م لصنف خاضع = 100 قبل الضريبة + 14 ضريبة."
+                    : "سعر 100 ج.م لصنف خاضع تُضاف إليه 14 ج.م ضريبة عند البيع."}
+                </p>
+              </div>
             </div>
           </Card>
 

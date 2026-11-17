@@ -940,7 +940,6 @@ export default function RestaurantTablesPage() {
                           openedAt: selectedTable.opened_at || undefined,
                           subtotal: selectedTable.order_total || 240.0,
                           serviceChargePercent: 12,
-                          vatPercent: 14,
                         });
                       }}
                     >

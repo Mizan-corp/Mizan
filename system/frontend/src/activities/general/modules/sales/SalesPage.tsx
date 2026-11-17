@@ -31,6 +31,8 @@ interface SaleRow {
   status: string; is_credit: boolean; created_at: string; customer_name: string | null;
   customer_phone?: string | null; payment_method: string | null; sale_mode: string;
   return_of?: string | null; returns_total?: string | number | null;
+  /** VAT stored on the document (ADR-014 D6). */
+  tax_amount?: string | number | null;
 }
 interface SaleItemRow {
   product_id?: string; product_name: string; qty: number;
@@ -308,7 +310,10 @@ export default function SalesPage() {
               <div className="grid grid-cols-3 gap-2">
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">الإجمالي</p>
-                  <p className="num text-sm font-semibold">{moneyEGP(d.total)}</p>
+                  <p className="num text-sm font-semibold">{moneyEGP(d.net_total ?? d.total)}</p>
+                  {Number(d.tax_amount ?? 0) > 0 && (
+                    <p className="num text-[11px] text-muted-foreground">منها ضريبة {moneyEGP(d.tax_amount ?? 0)}</p>
+                  )}
                 </div>
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">المدفوع</p>

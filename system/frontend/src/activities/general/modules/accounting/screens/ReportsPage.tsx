@@ -1,17 +1,17 @@
 // The accounting reports (ADR-014 D8), all read from the ledger: trial balance, income statement,
 // balance sheet, general ledger per account, a customer's / supplier's / employee's statement, and
-// the reconciliation of the ledger with the operational balances. Date range and branch filters;
-// each exports to CSV or prints.
+// the reconciliation of the ledger with the operational balances, and the VAT report (D6). Date
+// range and branch filters; each exports to CSV or prints.
 import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { CheckCircle2, TriangleAlert } from "lucide-react";
 import { api } from "@/lib/api";
 import { date as fmtDate } from "@/lib/format";
-import { Badge, Button, Empty, ErrorBox, Select } from "@/components/ui";
+import { Badge, Button, Empty, ErrorBox, Input, Select } from "@/components/ui";
 import type { BalanceSheet, BalanceSheetRow, GeneralLedger, IncomeStatement, LinesPage, PartyStatement, PartyType, Reconciliation,
-  StatementEntryLine, TrialBalance } from "../api";
-import { type Cell, fiscalYearOf, fiscalYearRange, PARTY_LABEL, sourceLabel, todayCairo } from "../lib";
+  StatementEntryLine, TrialBalance, VatCodeRow, VatReport } from "../api";
+import { type Cell, fiscalYearOf, fiscalYearRange, monthLabel, monthRange, PARTY_LABEL, sourceLabel, todayCairo } from "../lib";
 import { EntryDetailModal } from "../components/EntryDetail";
 import { AccountingHeader, AccountSelect, ExportButtons, Money, PartySelect, type Range, RangeFilters, SkeletonRows,
   useAccountingState, useBranches, useChart } from "../components/shared";
@@ -23,6 +23,7 @@ const TABS = [
   { key: "ledger", label: "دفتر الأستاذ" },
   { key: "party", label: "كشف حساب" },
   { key: "reconciliation", label: "المطابقة" },
+  { key: "vat", label: "ضريبة القيمة المضافة" },
 ] as const;
 type Tab = (typeof TABS)[number]["key"];
 
@@ -59,13 +60,24 @@ export default function ReportsPage() {
           </button>
         ))}
       </div>
-      {tab !== "reconciliation" && <RangeFilters value={r} onChange={setRange} single={tab === "balance"} />}
+      {tab !== "reconciliation" && (
+        <RangeFilters value={r} onChange={setRange} single={tab === "balance"} branch={tab !== "vat"}>
+          {tab === "vat" && (
+            <div>
+              <label htmlFor="vat-month" className="mb-1 block text-xs font-medium text-muted">شهر الإقرار</label>
+              <Input id="vat-month" type="month" className="w-40" value={r.from.slice(0, 7) === r.to.slice(0, 7) ? r.from.slice(0, 7) : ""}
+                     onChange={(e) => e.target.value && setRange({ ...r, ...monthRange(e.target.value) })} />
+            </div>
+          )}
+        </RangeFilters>
+      )}
       {tab === "trial" && <TrialBalanceReport range={r} />}
       {tab === "income" && <IncomeReport range={r} />}
       {tab === "balance" && <BalanceSheetReport range={r} />}
       {tab === "ledger" && <LedgerReport range={r} onOpen={setOpenEntry} />}
       {tab === "party" && <PartyReport range={r} onOpen={setOpenEntry} />}
       {tab === "reconciliation" && <ReconciliationReport />}
+      {tab === "vat" && <VatReportView range={r} />}
       <EntryDetailModal entryId={openEntry} onClose={() => setOpenEntry(null)} onOpen={setOpenEntry} />
     </div>
   );
@@ -544,6 +556,114 @@ function ReconciliationReport() {
               </>
             )}
           </>
+        )}
+      </Loading>
+    </section>
+  );
+}
+
+// ── VAT (ADR-014 D6) ─────────────────────────────────────────────────────────────────────────
+
+function VatReportView({ range }: { range: Range }) {
+  const subtitle = useSubtitle({ ...range, warehouse_id: "" });
+  const query = useQuery({
+    queryKey: ["accounting", "vat-report", range.from, range.to],
+    queryFn: () => api.get<VatReport>("/accounting/vat-report", { from: range.from, to: range.to }),
+  });
+  const d = query.data;
+  const summary: { label: string; amount: number; kind: "line" | "section" | "result" }[] = d ? [
+    { label: "ضريبة المخرجات (المبيعات)", amount: d.output.total, kind: "section" },
+    { label: "على المبيعات", amount: d.output.sales, kind: "line" },
+    { label: "ناقص: على مردودات المبيعات", amount: -d.output.returns, kind: "line" },
+    ...(d.output.other ? [{ label: "قيود أخرى", amount: d.output.other, kind: "line" as const }] : []),
+    { label: "ضريبة المدخلات (المشتريات والمصروفات)", amount: d.input.total, kind: "section" },
+    { label: "على المشتريات", amount: d.input.purchases, kind: "line" },
+    { label: "ناقص: على مردودات المشتريات", amount: -d.input.returns, kind: "line" },
+    { label: "على المصروفات", amount: d.input.expenses, kind: "line" },
+    ...(d.input.other ? [{ label: "قيود أخرى", amount: d.input.other, kind: "line" as const }] : []),
+    { label: d.net_payable >= 0 ? "صافي الضريبة المستحقة للمصلحة" : "رصيد دائن يُرحَّل للفترة التالية", amount: d.net_payable, kind: "result" },
+  ] : [];
+  const codeRows: Cell[][] = [];
+  const sections: { title: string; rows: VatCodeRow[] }[] = d ? [
+    { title: "المبيعات", rows: d.by_code.sales }, { title: "مردودات المبيعات", rows: d.by_code.sale_returns },
+    { title: "المشتريات", rows: d.by_code.purchases }, { title: "مردودات المشتريات", rows: d.by_code.purchase_returns },
+  ] : [];
+  sections.forEach((sec) => sec.rows.forEach((row) => codeRows.push([sec.title, row.label, row.documents, row.taxable, row.tax])));
+  if (d && d.by_code.expenses.documents) codeRows.push(["المصروفات", "—", d.by_code.expenses.documents, d.by_code.expenses.taxable, d.by_code.expenses.tax]);
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-muted">
+          {d?.vat_registered ? `رقم التسجيل الضريبي: ${d.tax_number}` : "المنشأة غير مسجلة في ضريبة القيمة المضافة (من الإعدادات)."}
+          {" "}الأرقام من حسابي ضريبة المخرجات والمدخلات في الدفاتر؛ التفصيل حسب نوع الضريبة من المستندات نفسها.
+        </p>
+        <ExportButtons filename="vat-report" title="إقرار ضريبة القيمة المضافة" subtitle={subtitle} columns={["البند", "المبلغ"]}
+                       rows={summary.map((x) => [x.label, x.amount])} />
+      </div>
+      <Loading query={query}>
+        {(v) => (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="overflow-x-auto rounded-xl border border-line bg-card">
+              <table className="w-full text-sm">
+                <tbody>
+                  {summary.map((x, i) => (
+                    <tr key={i} className={`border-b border-line/60 last:border-0 ${x.kind === "result" ? "bg-elevated/60 font-black" : x.kind === "section" ? "font-semibold" : ""}`}>
+                      <td className="p-2.5" style={x.kind === "line" ? indent(1) : undefined}>{x.label}</td>
+                      <td className="p-2.5 text-end"><Money value={x.amount} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-col gap-4">
+              {v.by_month.length > 1 && (
+                <div className="overflow-x-auto rounded-xl border border-line bg-card">
+                  <table className="w-full text-sm">
+                    <thead><tr className="border-b border-line text-xs text-muted">
+                      <th className="p-2 text-start">الشهر</th><th className="p-2 text-end">مخرجات</th><th className="p-2 text-end">مدخلات</th><th className="p-2 text-end">الصافي</th>
+                    </tr></thead>
+                    <tbody>
+                      {v.by_month.map((m) => (
+                        <tr key={m.month} className="border-b border-line/60 last:border-0">
+                          <td className="p-2">{monthLabel(m.month)}</td>
+                          <td className="p-2 text-end"><Money value={m.output} /></td>
+                          <td className="p-2 text-end"><Money value={m.input} /></td>
+                          <td className="p-2 text-end font-semibold"><Money value={m.net} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold">حسب نوع الضريبة (من المستندات)</h3>
+                <ExportButtons filename="vat-by-code" title="ضريبة القيمة المضافة حسب النوع" subtitle={subtitle}
+                               columns={["المستندات", "النوع", "العدد", "القيمة قبل الضريبة", "الضريبة"]} rows={codeRows} />
+              </div>
+              {codeRows.length === 0 ? (
+                <Empty text="لا توجد مستندات بضريبة في هذه الفترة" />
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-line bg-card">
+                  <table className="w-full text-sm">
+                    <thead><tr className="border-b border-line text-xs text-muted">
+                      <th className="p-2 text-start">المستندات</th><th className="p-2 text-start">النوع</th><th className="p-2 text-end">العدد</th>
+                      <th className="p-2 text-end">القيمة قبل الضريبة</th><th className="p-2 text-end">الضريبة</th>
+                    </tr></thead>
+                    <tbody>
+                      {codeRows.map((row, i) => (
+                        <tr key={i} className="border-b border-line/60 last:border-0">
+                          <td className="p-2">{row[0]}</td><td className="p-2 text-xs">{row[1]}</td>
+                          <td className="num p-2 text-end">{row[2]}</td>
+                          <td className="p-2 text-end"><Money value={row[3] as number} /></td>
+                          <td className="p-2 text-end font-semibold"><Money value={row[4] as number} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </Loading>
     </section>

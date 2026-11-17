@@ -171,6 +171,23 @@ export interface Reconciliation {
   parties: { party_type: "customer" | "supplier"; id: string; name: string | null; ledger: number; operational: number; difference: number }[];
 }
 
+export interface VatCodeRow { tax_code: "standard" | "zero" | "exempt"; label: string; rate: number; taxable: number; tax: number; documents: number }
+
+/** GET /accounting/vat-report (ADR-014 D6): the ledger's VAT accounts, and the documents' VAT by tax code. */
+export interface VatReport {
+  from: string | null;
+  to: string | null;
+  vat_registered: boolean;
+  tax_number: string;
+  output: { sales: number; returns: number; other: number; total: number };
+  input: { purchases: number; returns: number; expenses: number; other: number; total: number };
+  /** Positive: owed to the Tax Authority; negative: a credit carried forward. */
+  net_payable: number;
+  by_month: { month: string; output: number; input: number; net: number }[];
+  by_code: { sales: VatCodeRow[]; sale_returns: VatCodeRow[]; purchases: VatCodeRow[]; purchase_returns: VatCodeRow[];
+             expenses: { taxable: number; tax: number; documents: number } };
+}
+
 export interface OpeningLine {
   section: "customers" | "suppliers" | "safes" | "wallets" | "drawers" | "inventory" | "equity";
   label: string;
