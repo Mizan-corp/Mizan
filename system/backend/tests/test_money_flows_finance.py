@@ -259,8 +259,9 @@ async def test_purchase_receipt_and_supplier_payment_leave_the_safe(ws):
         assert await _wallet_balance(db, ws["wallet_id"]) == Decimal("400")
         assert (await db.execute(text("SELECT balance FROM suppliers WHERE id=:s"), {"s": sid})).scalar() == Decimal("200")
 
-        ledger = await suppliers.supplier_ledger(sid, db=db, _=user)
-        assert len(ledger["transactions"]) == 3 and ledger["transactions"][0]["wallet_name"] == "فودافون كاش"
+        ledger = await suppliers.supplier_ledger(sid, page=1, page_size=100, newest_first=True, db=db, _=user)
+        assert ledger["total"] == 3 and ledger["items"][0]["wallet_name"] == "فودافون كاش"
+        assert ledger["items"][0]["balance"] == Decimal("200")  # what we owe after the newest line
 
         with pytest.raises(HTTPException) as e:
             await suppliers.delete_supplier(sid, db=db, _=user)
