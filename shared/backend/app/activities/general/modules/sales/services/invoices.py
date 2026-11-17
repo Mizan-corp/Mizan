@@ -1,4 +1,9 @@
-"""Invoices: the branded invoice document (HTML, PDF) and sending it by email."""
+"""Invoices: the branded invoice document (HTML, PDF) and sending it by email.
+
+Every text that goes into the document (customer, product, store, branch, user) is HTML-escaped
+where it is read: it is rendered by the server's PDF engine, and on servers without one served
+as a page from the API's origin."""
+import html as _html
 import re
 import uuid
 from datetime import datetime
@@ -10,6 +15,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.platform.notifications.service import send_email
 
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+COLOR = re.compile(r"^#[0-9a-fA-F]{3,8}$")
+
+
+def _esc(v):
+    return _html.escape(v) if isinstance(v, str) else v
+
+
+def _safe_logo(url: str) -> str:
+    """Only an https address or one of the app's own paths, escaped (no file:, data: or javascript:)."""
+    url = (url or "").strip()
+    return _html.escape(url) if url.startswith(("https://", "/")) and not url.startswith("//") else ""
 
 
 def _format_ar_date(dt_val) -> str:
@@ -37,7 +55,7 @@ async def _render_invoice_html(db: AsyncSession, invoice_id: uuid.UUID, tenant_i
     sale_row = row.fetchone()
     if not sale_row:
         raise HTTPException(404, "الفاتورة غير موجودة")
-    sale = dict(sale_row._mapping)
+    sale = {k: _esc(v) for k, v in sale_row._mapping.items()}
 
     items_res = await db.execute(text("""
         SELECT si.*, p.name as product_name, p.unit, p.code as product_code
@@ -46,7 +64,7 @@ async def _render_invoice_html(db: AsyncSession, invoice_id: uuid.UUID, tenant_i
         WHERE si.sale_id = :id
         ORDER BY si.id
     """), {"id": invoice_id})
-    items = [dict(r._mapping) for r in items_res.fetchall()]
+    items = [{k: _esc(v) for k, v in r._mapping.items()} for r in items_res.fetchall()]
 
     # Fetch store / tenant settings
     store_name = "ميزان لإدارة الموارد"
@@ -88,6 +106,11 @@ async def _render_invoice_html(db: AsyncSession, invoice_id: uuid.UUID, tenant_i
 
             tenant = await db.get(Tenant, tenant_id)
             primary_color = (await print_color(db, tenant) if tenant else None) or primary_color
+
+    store_name, store_phone, store_address, tax_id = map(_esc, (store_name, store_phone, store_address, tax_id))
+    logo_url = _safe_logo(logo_url)
+    if not COLOR.match(str(primary_color or "")):
+        primary_color = "#0f766e"
 
     # Compute calculations
     gross_total = float(sale.get("total") or 0)
