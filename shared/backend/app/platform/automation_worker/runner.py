@@ -209,6 +209,14 @@ async def measure_storage(db: AsyncSession) -> dict[str, Any]:
     return {"message": f"قيست مساحة التخزين لـ {n} منشأة", "items_processed": n}
 
 
+async def accounting_reconciliation(db: AsyncSession) -> dict[str, Any]:
+    """The ledger against the operational balances in every workspace with accounting (ADR-014 D8);
+    differences are notified to whoever reads the accounting reports, at most once a day."""
+    from app.activities.general.modules.accounting.services.nightly import reconcile_all
+
+    return await reconcile_all(db)
+
+
 async def owner_billing_reminders(db: AsyncSession) -> dict[str, Any]:
     """Trial and renewal reminders by email to owners with a verified address (#72)."""
     from app.platform.billing.owner_emails import billing_reminders
@@ -279,6 +287,13 @@ JOB_REGISTRY = {
         "description": "قياس البيانات والملفات لكل منشأة حسب الوحدة، وتنبيه عند 80% من حد الباقة",
         "cron": "0 4 * * *",
         "handler": measure_storage,
+    },
+    "accounting_reconciliation": {
+        "title": "مطابقة الدفاتر مع الأرصدة ليلاً",
+        "title_en": "Nightly ledger reconciliation",
+        "description": "مقارنة حسابات الدفاتر بأرصدة العملاء والموردين والخزائن والمحافظ والمخزون، وتنبيه المحاسب عند وجود فروق",
+        "cron": "30 4 * * *",
+        "handler": accounting_reconciliation,
     },
 }
 
