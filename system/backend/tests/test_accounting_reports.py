@@ -570,7 +570,7 @@ async def test_reports_need_view_and_opening_and_closing_need_their_own_permissi
         assert (await c.put("/accounting/settings", json={"fiscal_year_start": 4}, headers=h["manager"])).status_code == 403
         assert (await c.put("/accounting/settings", json={"fiscal_year_start": 13}, headers=h["accountant"])).status_code == 422
         assert (await c.get("/accounting/party-statement/customer/" + str(uuid.uuid4()), headers=h["accountant"])).status_code == 404
-        assert (await c.get("/accounting/party-statement/robot/" + str(env["customer_id"]), headers=h["accountant"])).status_code == 400
+        assert (await c.get("/accounting/party-statement/robot/" + str(env["customer_id"]), headers=h["accountant"])).status_code == 422
 
 
 async def test_every_report_is_isolated_per_workspace():
