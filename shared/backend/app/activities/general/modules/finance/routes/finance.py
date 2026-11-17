@@ -77,15 +77,33 @@ async def get_permissions(user_id: uuid.UUID, db: AsyncSession = Depends(get_db)
 
 
 @router.put("/permissions/{user_id}")
-async def update_permissions(user_id: uuid.UUID, data: PermissionsUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("users"))):
-    """Set a user's access: their standard role if the list matches it, else a role of their own."""
+async def update_permissions(user_id: uuid.UUID, data: PermissionsUpdate, db: AsyncSession = Depends(get_db),
+                             current_user: User = Depends(require_perm("users"))):
+    """Set a user's access: their standard role if the list matches it, else a role of their own.
+
+    No privilege escalation: you can only grant permissions your own role holds, you can't change
+    the access of someone whose role holds more than yours, and only a manager or an admin sets the
+    manager flag. Every permission the platform or this workspace declares can be granted."""
     from app.platform.auth.models.user import User as _User
-    from app.platform.permissions.access import set_access
+    from app.platform.community.service import workspace_permissions
+    from app.platform.permissions.access import all_permissions, ensure_within, roles_of, set_access
 
     user = await db.get(_User, user_id)
     if not user:
-        raise HTTPException(404)
-    await set_access(db, user, user.role, list(data.permissions))
+        raise HTTPException(404, "المستخدم غير موجود")
+    grants = sorted(set(data.permissions))
+    known = set(all_permissions()) | {p["id"] for p in await workspace_permissions(db)}
+    unknown = set(grants) - known
+    if unknown:
+        raise HTTPException(400, f"صلاحيات غير معروفة: {', '.join(sorted(unknown))}")
+    ensure_within(current_user, grants)
+    roles = await roles_of(db, user_id)
+    acting = next((r for r in roles if r["id"] == user.active_role_id), roles[0] if roles else None)
+    ensure_within(current_user, (acting or {}).get("grants") or [])  # can't take over someone above you
+    holds_admin = "admin" in getattr(current_user, "effective_permissions", frozenset())
+    if data.is_manager != bool(user.is_manager) and not (current_user.is_manager or holds_admin):
+        raise HTTPException(403, "تعيين المدير يحتاج إلى مدير أو مسؤول النظام")
+    await set_access(db, user, user.role, grants)
     user.is_manager = data.is_manager
     await db.commit()
     return {"detail": "updated"}

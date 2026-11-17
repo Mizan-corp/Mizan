@@ -79,7 +79,9 @@ def create_app(
     @app.exception_handler(RequestValidationError)
     async def log_validation_error(request: Request, exc: RequestValidationError):
         errors = exc.errors()
-        logger.error("Validation error on %s %s: %s", request.method, request.url.path, errors)
+        # What was submitted (a customer's name, phone, address; a salary) stays out of the log.
+        logger.error("Validation error on %s %s: %s", request.method, request.url.path,
+                     [{k: v for k, v in e.items() if k not in ("input", "ctx")} for e in errors])
         safe_errors = []
         for e in errors:
             ctx = e.get("ctx", {})
@@ -103,7 +105,8 @@ def create_app(
                 headers["Access-Control-Allow-Headers"] = "*"
         return JSONResponse(
             status_code=500,
-            content={"detail": f"Internal Server Error: {str(exc)}", "error_type": exc.__class__.__name__},
+            # Never the exception's text: a database error carries the SQL and its parameters.
+            content={"detail": "حدث خطأ غير متوقع في الخادم. حاول مرة أخرى، وإن تكرر فتواصل مع الدعم."},
             headers=headers,
         )
 

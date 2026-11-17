@@ -22,6 +22,42 @@ def _decode_user_id(payload: dict) -> str:
     return user_id
 
 
+def _uuid_or_401(value) -> uuid.UUID:
+    try:
+        return uuid.UUID(str(value))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload") from None
+
+
+async def _session_user(db: AsyncSession, payload: dict) -> User:
+    """The token's active user, with their workspace bound (RLS) for the rest of the request.
+
+    A token names its workspace (`tid`) and it must be the user's own. Older tokens without one are
+    looked up across workspaces (the RLS bypass, for this lookup only), then the bypass is switched
+    off again and the user's workspace bound: before, the bypass stayed on for the whole request, so
+    raw SQL saw every workspace. Only platform staff without a workspace keep it."""
+    user_id = _uuid_or_401(_decode_user_id(payload))
+    tid_str = payload.get("tid")
+    if tid_str and tid_str != "None":
+        await bind_tenant(db, _uuid_or_401(tid_str))
+    else:
+        tid_str = None
+        await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
+    user = (await db.execute(select(User).where(User.id == user_id, User.is_active))).scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    if tid_str:
+        if str(user.tenant_id) != tid_str:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        return user
+    if user.tenant_id:
+        await db.execute(text("RESET app.bypass"))
+        await bind_tenant(db, user.tenant_id)
+    elif not (user.is_superadmin or user.role == "superadmin"):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    return user
+
+
 async def get_current_user(
     request: Request,
     token: str | None = Depends(oauth2_scheme),
@@ -46,29 +82,15 @@ async def get_current_user(
 
     if not payload:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-    if payload.get("scope") == "owner":
-        # Owner-panel sessions don't open the ERP; the panel hands over an ERP token.
+    if payload.get("scope") is not None:
+        # Only ERP sessions open the ERP: owner-panel, developer-portal and print tokens (a print
+        # token travels in a URL, so in logs and history) have their own scopes and routes.
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
-    user_id = _decode_user_id(payload)
-    tid_str = payload.get("tid")
-    if tid_str:
-        await bind_tenant(db, uuid.UUID(tid_str))
-    else:
-        # Fallback for tokens issued without tid payload
-        await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
-
-    result = await db.execute(
-        select(User).where(User.id == uuid.UUID(user_id), User.is_active)
-    )
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    user = await _session_user(db, payload)
     from app.platform.auth.sessions import ensure_live
 
     await ensure_live(db, payload, user.tokens_valid_after)  # signed out, or sessions ended (#77)
-    if not tid_str:
-        await bind_tenant(db, user.tenant_id)
     await ensure_workspace_open(db, user)
     if request.method in ("POST", "PUT", "PATCH", "DELETE"):
         await ensure_workspace_writable(db, user, request)
@@ -126,22 +148,10 @@ async def get_print_user(request: Request, token: str | None = None, db: AsyncSe
     # Validate print scope
     if payload.get("scope") != "print":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token scope for print")
-    user_id = payload.get("sub")
-    tid_str = payload.get("tid")
-    if tid_str:
-        await bind_tenant(db, uuid.UUID(tid_str))
-    else:
-        await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
-
-    result = await db.execute(select(User).where(User.id == uuid.UUID(user_id), User.is_active))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    user = await _session_user(db, payload)
     from app.platform.auth.sessions import ensure_live
 
     await ensure_live(db, payload, user.tokens_valid_after)
-    if not tid_str:
-        await bind_tenant(db, user.tenant_id)
     from app.platform.permissions.access import load_acting
 
     await load_acting(db, user)  # the role the user acts as, and its permissions

@@ -35,6 +35,7 @@ engine = create_async_engine(
     _async_url,
     connect_args=_connect_args,
     echo=False,
+    hide_parameters=True,  # errors and logs show the SQL, not the values (customers' data, salaries)
     pool_pre_ping=True,
     pool_size=5,
     max_overflow=5,
