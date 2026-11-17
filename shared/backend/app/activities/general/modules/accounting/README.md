@@ -2,17 +2,18 @@
 
 `accounting`: a business module of the `general` activity, depending on `finance`. Off by default:
 the owner enables it (ADR-014, answer 2). Design: [ADR-014](../../../../../../../docs/decisions/ADR-014-double-entry-accounting.md).
-Steps 2 to 4 of D12 are built: the ledger core and the posting rules for sales, returns, POS and
+Steps 2 to 5 of D12 are built: the ledger core and the posting rules for sales, returns, POS and
 drawers, customer receipts, safes and wallets and expenses (step 2); purchases, supplier
 payments, purchase returns, stock adjustments, payroll, HR advances, clinic invoices and the
 manager's shift deposit (step 3); the reports (D8), the opening entry (D10) and the year-end
-closing (D7) (step 4).
+closing (D7) (step 4); manual journal entries (D9), reversals by hand (D1), the nightly
+reconciliation check (D8) and the screens (step 5).
 
 ## Parts
 
 | File | What |
 |---|---|
-| `models.py` | `acc_accounts`, `acc_entries`, `acc_lines`, `acc_money_accounts` (migration `v90_accounting_ledger`) |
+| `models.py` | `acc_accounts`, `acc_entries`, `acc_lines`, `acc_money_accounts` (migration `v90_accounting_ledger`); `acc_drafts`, `acc_draft_lines` (`v93_accounting_journal_drafts`) |
 | `charts/eg_standard.json` | The standard Egyptian chart (Arabic + English), copied into a workspace on first use |
 | `services/chart.py` | `ensure_chart` (idempotent copy), `add_missing_accounts` (accounts the standard chart gained since, added by role; used when a role is missing and by the chart read), `account_by_role`, `money_account` (safe / wallet / branch drawer sub-accounts, created lazily), `default_bank_account`, `category_account` |
 | `services/posting.py` | `post()` and `reverse()`: the only writers of entries |
@@ -21,6 +22,8 @@ closing (D7) (step 4).
 | `services/opening.py` | The opening entry (D10): plan, preview, post |
 | `services/closing.py` | The year-end closing entry (D7) and its reversal |
 | `services/settings.py` | `acc_settings` (migration `v92_accounting_settings`): `fiscal_year_start`, `start_date` |
+| `services/journal.py` | Manual journal entries (D9): drafts, the posting rules, keeping the operational balances along; reversing manual and opening entries (D1) |
+| `services/nightly.py` | The nightly reconciliation check (D8), run by the automation job `accounting_reconciliation` |
 | `posting/*.py` | One posting function per event: `sales`, `pos`, `receipts`, `finance` (step 2); `purchases`, `inventory`, `payroll`, `clinic` (step 3) |
 | `listeners.py` | The events it listens to (`app/framework/events.py`): they run only in workspaces where accounting is active, in the document's transaction |
 | `router.py` | The API (below) |
@@ -142,8 +145,84 @@ and money modules outside general sales (hotel, storefront, school…).
 | `POST /accounting/opening` `{date}` | `accounting:settings` | Post the opening entry |
 | `POST /accounting/year-end?year=YYYY` | `accounting:close` | Post the year-end closing entry |
 | `POST /accounting/year-end/reverse?year=YYYY` | `accounting:close` | Reverse a year's closing entry (the only way to reopen its months) |
+| `GET /accounting/periods` | `accounting:view`, `:close` or `:settings` | Every month from the books' first one to the current month (newest first) with its status, who closed or reopened it and why, and `can_close` / `can_reopen` (in order, D7); each fiscal year with its closing entry in force and its open months. Closing and reopening stay on `/periods` (finance) |
+| `GET /accounting/drafts?status=draft\|posted&page&page_size` | `accounting:journal` | Manual entries: drafts, or those posted from here |
+| `GET /accounting/drafts/{id}` | `accounting:journal` | A draft, its lines with account and party names, totals and `problems` (what stops it from being posted) |
+| `POST /accounting/drafts`, `PUT /accounting/drafts/{id}` | `accounting:journal` | Save a draft `{date, memo, warehouse_id, lines: [{account_id, debit, credit, party_type, party_id, warehouse_id}]}`; empty lines are dropped; a posted one is refused |
+| `DELETE /accounting/drafts/{id}` | `accounting:journal` | Delete a draft (never a posted one) |
+| `POST /accounting/drafts/{id}/post` | `accounting:journal` | Post it (again: the same entry, `already: true`) |
+| `POST /accounting/entries/{id}/reverse` `{date?, memo?}` | `accounting:journal` (manual) / `accounting:settings` (opening) | Reverse an entry by hand (below) |
 
-No route edits or deletes an entry. Manual journal entries and screens come in step 5.
+`GET /accounting/settings` also returns `opening_entry` (the one in force, or null: the screens
+offer the opening wizard), `first_entry_date` and `year_end_closings`; `GET /accounting/entries/{id}`
+also returns `reverses_entry`, `reversed_by_entry`, `created_by_name` and `source_ref` (the document's
+number or description); `GET /accounting/accounts` gives each account its `money_kind` (safe, wallet,
+drawer, default_bank) when it is a money sub-account. No route edits or deletes a posted entry.
+
+## Manual journal entries (D9)
+
+A draft (`acc_drafts`) is saved and edited freely, even unbalanced; posting writes a normal entry
+through `posting.post` (source `manual`, the draft's id, event `post`, dated the draft's date) and
+keeps the draft read-only with its `entry_id`. Posting is refused, with every reason in Arabic
+(`problems` lists them before posting):
+
+- fewer than two lines, a line both debit and credit, debits ≠ credits;
+- a group or stopped account; **inventory** (use a stock adjustment, which moves the quantities too);
+  a **cashier drawer's** account (its cash belongs to the open shift);
+- **receivables without a customer** or **payables without a supplier** on the line; a party on an
+  account that doesn't take one (a customer only on receivables, a supplier only on payables, an
+  employee only on employee advances or salaries payable);
+- a date in the future, in a closed month (the posting service), or before the opening entry in force.
+
+Decision where the design was open: **the operational balances follow a manual entry**, in the same
+transaction, so the sub-ledgers keep matching (D8's nightly check stays quiet): a receivables line
+changes the customer's `balance` and records a `customer_adjustments` row (kind `adjustment`, note "قيد
+يومية JE-…"); a payables line changes the supplier's `balance` with a `supplier_transactions` row
+(`debit` when we owe more, `credit` when less; no safe, `reference_doc` = the entry number); a line on
+a safe's or wallet's account moves it through `finance.services.payments` (`ref_type`
+`acc_entry`; an overdraft is refused). No event is emitted, so nothing is posted twice.
+
+## Reversing by hand (D1)
+
+`POST /accounting/entries/{id}/reverse` writes the opposite entry (`event = 'reverse'`,
+`reverses_id` = the original) through `posting.reverse`; asking again returns the first reversal
+(`already: true`) and changes nothing more. Allowed for:
+
+- a **manual entry** (`accounting:journal`): dated today unless a date is given; the operational
+  balances it moved are moved back;
+- the **opening entry** (`accounting:settings`): dated the opening's own date unless a date is given, so
+  the ledger has no opening at all until a new one is posted from the then-current balances.
+
+Refused for a year-end closing (use `/year-end/reverse`), for an entry posted by a document (cancel
+the document: sale, expense, drawer row… so the document and its entry stay matched), and for a
+reversal itself. The date can't be in the future, before the original, or in a closed month.
+
+## Nightly reconciliation (D8)
+
+The automation job `accounting_reconciliation` (`app/platform/automation_worker/runner.py`, in the
+`nightly` group of `deploy/server/mizan-cron.sh`) runs `reports.reconciliation` in every workspace that
+has accounting on and at least one entry. When the ledger and the operational balances differ, every
+active user whose role holds `accounting:view` gets one notification (type `accounting_reconciliation`,
+link `/accounting/reports?tab=reconciliation`, the differences in `data_json`), at most once in 20
+hours. It changes nothing. One workspace failing doesn't stop the others.
+
+## Screens (`system/frontend/src/activities/general/modules/accounting/`)
+
+Menus (manifest `screens`, placed after "finance" in every activity menu that has it) appear only
+where the module is active and the role holds the screen's permission; the routes are guarded by the
+module too (App.tsx), so a workspace without accounting sees nothing of it.
+
+| Screen | Route | Permission | What |
+|---|---|---|---|
+| `screens/JournalPage.tsx` | `/accounting/journal` | view or journal | Posted entries with filters (date, source, account) and the entry detail (lines, source document link, reverses / reversed by, reverse); drafts and the manual entry form (balance shown as typed, party picker on receivables / payables / employee accounts, save, post) |
+| `screens/AccountsPage.tsx` | `/accounting/accounts` | view (settings to edit) | The chart as a tree with today's balances; add a sub-account, rename, stop; the financial categories' accounts |
+| `screens/ReportsPage.tsx` | `/accounting/reports?tab=` | view | Trial balance, income statement, balance sheet, general ledger (paged, running balance), party statement, reconciliation; date range and branch; CSV and print |
+| `screens/PeriodsPage.tsx` | `/accounting/periods` | close or settings | Months (close in order; reopen with a reason), fiscal years (close, reverse the closing), the fiscal year's first month, the opening entry |
+| `screens/OpeningPage.tsx` | `/accounting/opening` | settings | The opening wizard: start date, preview (lines, products skipped for having no cost), post. Every accounting screen shows a reminder while no opening entry is in force |
+
+Export is in the browser (`lib.ts`): CSV with a byte-order mark so Excel reads the Arabic, and a
+printable RTL page of the same table; nothing new on the server. The form's checks (`lineIssues`)
+mirror the server's rules and are tested in `__tests__/lib.test.ts`; the server checks again.
 
 ## Reports (D8)
 
