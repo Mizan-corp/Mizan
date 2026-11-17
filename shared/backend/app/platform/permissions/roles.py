@@ -23,8 +23,8 @@ ROLE_DEFAULT_PERMISSIONS = {
     ],
     "manager": [
         "pos", "sales", "quotations", "inventory", "inventory:opening", "operations", "purchases",
-        "customers", "reports", "archive", "shifts", "finance", "settings", "payroll", "payroll:approve",
-        "payroll:pay", "accounting:view",
+        "customers", "reports", "reports:finance", "archive", "shifts", "finance", "settings", "payroll",
+        "payroll:approve", "payroll:pay", "accounting:view",
         "sales:cancel", "sales:return", "sales:override_price", "sales:negative_stock",
         "clinic", "clinic:view", "clinic:manage", "clinic:billing", "clinic:all_patients", "clinic:privacy",
     ],
@@ -37,7 +37,8 @@ ROLE_DEFAULT_PERMISSIONS = {
         "inventory", "operations", "purchases", "archive",
     ],
     "accountant": [
-        "reports", "finance", "archive", "customers", "inventory", "purchases", "payroll", "payroll:pay",
+        "reports", "reports:finance", "finance", "archive", "customers", "inventory", "purchases", "payroll",
+        "payroll:pay",
         "accounting:view", "accounting:journal", "accounting:close", "accounting:settings",
         "clinic:billing",
     ],

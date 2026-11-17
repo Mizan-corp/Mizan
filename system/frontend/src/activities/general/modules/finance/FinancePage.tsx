@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
+import { useAuth } from "@/stores/auth";
 import { D, dateTime, moneyEGP } from "@/lib/format";
 import { sound } from "@/lib/sound";
 import { Badge, Button, ErrorBox, Input, Modal, Select, Spinner } from "@/components/ui";
@@ -242,6 +243,8 @@ export default function FinancePage() {
    ════════════════════════════════════════════════════════════ */
 const CASH_TYPE_LABEL: Record<CashEntry["type"], string> = { deposit: "إيداع", withdrawal: "سحب", expense: "مصروف" };
 
+interface Profit { net_revenue: number; gross_profit: number; net_profit: number; source: "ledger" | "operations" }
+
 function CashMovementsWorkspace() {
   const today = new Date();
   const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
@@ -254,9 +257,12 @@ function CashMovementsWorkspace() {
     queryFn: () => api.get<CashMovements>("/financial-ledger", { from_date: from, to_date: to }),
   });
 
+  // Profit needs reports:finance; it comes from the ledger when accounting is on (source "ledger").
+  const canProfit = useAuth((s) => s.can("reports:finance"));
   const profit = useQuery({
     queryKey: ["profit", from, to],
-    queryFn: () => api.get<Record<string, string>>("/reports/profit", { from_date: from, to_date: to }),
+    queryFn: () => api.get<Profit>("/reports/profit", { from_date: from, to_date: to }),
+    enabled: canProfit,
   });
 
   const rows: CashEntry[] = useMemo(
@@ -300,21 +306,27 @@ function CashMovementsWorkspace() {
         </div>
       </div>
 
-      {profit.data && (
+      {canProfit && profit.isError && (
+        <ErrorBox message={(profit.error as Error).message} onRetry={() => profit.refetch()} />
+      )}
+      {canProfit && profit.data && (
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="rounded-xl border border-line bg-card p-4 shadow-xs">
             <span className="text-xs text-muted block mb-1 font-medium">صافي إيرادات الفترة</span>
             <p className="num text-xl font-black text-primary">
-              {moneyEGP(profit.data.net_revenue ?? profit.data.total_revenue ?? 0)}
+              {moneyEGP(profit.data.net_revenue)}
             </p>
           </div>
           <div className="rounded-xl border border-line bg-card p-4 shadow-xs">
             <span className="text-xs text-muted block mb-1 font-medium">مجمل الربح</span>
-            <p className="num text-xl font-black text-ink">{moneyEGP(profit.data.gross_profit ?? 0)}</p>
+            <p className="num text-xl font-black text-ink">{moneyEGP(profit.data.gross_profit)}</p>
           </div>
           <div className="rounded-xl border border-line bg-card p-4 shadow-xs">
-            <span className="text-xs text-muted block mb-1 font-medium">صافي الربح التشغيلي</span>
-            <p className="num text-xl font-black text-emerald-600 dark:text-emerald-400">{moneyEGP(profit.data.net_profit ?? 0)}</p>
+            <span className="text-xs text-muted block mb-1 font-medium">صافي الربح</span>
+            <p className="num text-xl font-black text-emerald-600 dark:text-emerald-400">{moneyEGP(profit.data.net_profit)}</p>
+            <span className="text-[11px] text-muted block mt-1">
+              {profit.data.source === "ledger" ? "من القيود المحاسبية" : "من المستندات، بعد المصروفات المعتمدة وبدون الضريبة"}
+            </span>
           </div>
         </div>
       )}

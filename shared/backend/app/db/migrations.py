@@ -3977,6 +3977,17 @@ MIGRATIONS = [
          WHERE tenant_id IS NOT NULL AND grants @> '["payroll"]'::jsonb
            AND NOT grants @> jsonb_build_array('payroll:' || 'approve');
     """),
+
+    # Production readiness, reporting (REP-1): profit, cost, debts and cash flow need the new
+    # `reports:finance` (the standard manager and accountant roles hold it, admin holds everything).
+    # A workspace's own roles that could already read those reports and are trusted with money
+    # (`reports` together with `finance` or `admin`) keep them; `reports` alone no longer opens them.
+    ("v98_ready_reporting", """
+        UPDATE sys_roles SET grants = grants || '["reports:finance"]'::jsonb
+        WHERE tenant_id IS NOT NULL AND grants @> '["reports"]'::jsonb
+          AND (grants @> '["finance"]'::jsonb OR grants @> '["admin"]'::jsonb)
+          AND NOT grants @> '["reports:finance"]'::jsonb;
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables
