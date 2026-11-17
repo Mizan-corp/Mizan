@@ -1,4 +1,4 @@
-"""operations module: dispatch, goods-receipt, stock-request, list, PDF."""
+"""operations module: dispatch, stock-request, list, PDF; goods receipt is gone (410, use purchases)."""
 from helpers import uid
 
 from conftest import (admin_api, owner_api, product, supplier, customer,
@@ -31,11 +31,12 @@ def test_dispatch_receipt_request_flow(owner_api, reg, wh, product, db):
     assert _qty(db, product["id"], wh["id"]) == source - 2
     assert _qty(db, product["id"], twh["id"]) == 2
 
-    gr = owner_api.ok(owner_api.post("/operations/goods-receipt", json={
+    # Goods from a supplier come in through a purchase order (supplier, payable, ledger), not here.
+    r = owner_api.post("/operations/goods-receipt", json={
         "warehouse_id": twh["id"], "supplier_name": "e2e",
-        "items": [{"product_id": product["id"], "qty": 2, "unit_cost": "70"}]}))
-    assert gr["doc_type"] == "goods_receipt" and gr.get("doc_number")
-    assert _qty(db, product["id"], twh["id"]) == 4  # received goods are in stock
+        "items": [{"product_id": product["id"], "qty": 2, "unit_cost": "70"}]})
+    assert r.status_code == 410, r.text[:200]
+    assert _qty(db, product["id"], twh["id"]) == 2  # nothing came in
 
     sr = owner_api.ok(owner_api.post("/operations/stock-request", json={
         "from_warehouse_id": wh["id"], "to_warehouse_id": twh["id"],
@@ -56,9 +57,9 @@ def test_operations_refuse_bad_input_and_number_uniquely(owner_api, reg, wh, pro
         "items": [{"product_id": product["id"], "qty": -5}]})
     assert r.status_code == 422, r.text[:200]
 
-    r = owner_api.post("/operations/goods-receipt", json={
-        "warehouse_id": "00000000-0000-0000-0000-000000000000",
-        "items": [{"product_id": product["id"], "qty": 1, "unit_cost": "1"}]})
+    r = owner_api.post("/operations/dispatch", json={
+        "from_warehouse_id": "00000000-0000-0000-0000-000000000000", "to_warehouse_id": twh["id"],
+        "items": [{"product_id": product["id"], "qty": 1}]})
     assert r.status_code == 404, r.text[:200]
 
     numbers = {owner_api.ok(owner_api.post("/operations/stock-request", json={

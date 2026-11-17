@@ -1,5 +1,6 @@
-"""Stock operations: dispatch (warehouse to showroom), goods receipt (from a trader), stock
-request (a document only). Each is recorded as stock movements and archived. Callers commit."""
+"""Stock operations: dispatch (warehouse to showroom) and stock request (a document only). Each is
+archived; a dispatch moves stock. Goods from a supplier are received through a purchase order (the
+purchases module: supplier, payable and the ledger's purchase.received), not here. Callers commit."""
 import uuid
 from decimal import Decimal
 
@@ -11,7 +12,8 @@ from app.activities.general.modules.inventory.models.product import Product
 from app.activities.general.modules.inventory.models.stock import MovementType
 from app.activities.general.modules.inventory.models.warehouse import Warehouse
 from app.activities.general.modules.inventory.services.stock import apply_movement, get_balance
-from app.activities.general.modules.operations.schemas import DispatchRequest, GoodsReceiptRequest, OperationItem, StockRequestRequest
+from app.activities.general.modules.operations.schemas import DispatchRequest, OperationItem, StockRequestRequest
+from app.dependencies import verify_warehouse_access
 from app.platform.archive.models import ArchivedDocument, DocType
 from app.platform.audit.service import log as audit_log
 
@@ -44,8 +46,10 @@ def _archive(db: AsyncSession, doc_type: DocType, doc_number: str, amount: Decim
 
 
 async def dispatch(db: AsyncSession, data: DispatchRequest, user) -> dict:
-    """إذن صرف: move goods from one warehouse to another."""
+    """إذن صرف: move goods from one warehouse to another (both must be warehouses the user works in)."""
     from_wh, to_wh = await _warehouse(db, data.from_warehouse_id), await _warehouse(db, data.to_warehouse_id)
+    await verify_warehouse_access(db, user, from_wh.id)
+    await verify_warehouse_access(db, user, to_wh.id)
     products = await _products(db, data.items)
     doc_number, ref_id = await _doc_number(db, "DSP"), uuid.uuid4()
     total_qty, items_detail = Decimal("0"), []
@@ -74,34 +78,11 @@ async def dispatch(db: AsyncSession, data: DispatchRequest, user) -> dict:
     return {"doc_number": doc_number, "doc_type": "dispatch_order", "items_count": len(data.items)}
 
 
-async def receive_goods(db: AsyncSession, data: GoodsReceiptRequest, user) -> dict:
-    """استلام بضاعة: goods from a trader into a warehouse at cost (updates the product's cost)."""
-    wh = await _warehouse(db, data.warehouse_id)
-    products = await _products(db, data.items)
-    doc_number, ref_id = await _doc_number(db, "GR"), uuid.uuid4()
-    total_cost, items_detail = Decimal("0"), []
-    for item in data.items:
-        prod = products[item.product_id]
-        lot = {k: getattr(item, k) for k in ("batch_number", "expiry_date") if getattr(item, k, None)} or None
-        await apply_movement(db, product_id=item.product_id, warehouse_id=data.warehouse_id,
-                             movement_type=MovementType.purchase, qty=item.qty, unit_cost=item.unit_cost,
-                             ref_id=ref_id, ref_type="goods_receipt", note=data.notes, created_by=user.id, lot=lot)
-        total_cost += item.qty * item.unit_cost
-        items_detail.append({"product_id": str(item.product_id), "name": prod.name, "qty": float(item.qty),
-                             "unit_cost": float(item.unit_cost)})
-        if item.unit_cost > 0:
-            prod.cost_price = item.unit_cost
-    _archive(db, DocType.goods_receipt, doc_number, total_cost,
-             {"warehouse": wh.name, "supplier": data.supplier_name, "items": items_detail, "notes": data.notes,
-              "employee": user.full_name}, user.id, ref_id)
-    await audit_log(db, "goods_receipt", "create", user.id, user.full_name, ref_id,
-                    {"warehouse": wh.name, "items_count": len(data.items)}, f"استلام بضاعة {doc_number}")
-    return {"doc_number": doc_number, "doc_type": "goods_receipt", "total_cost": float(total_cost)}
-
-
 async def request_stock(db: AsyncSession, data: StockRequestRequest, user) -> dict:
-    """طلب نواقص: a supply request document; no stock moves."""
+    """طلب نواقص: a supply request document; no stock moves. The requester asks for goods into a
+    warehouse they work in (`to`); the source may be any warehouse."""
     from_wh, to_wh = await _warehouse(db, data.from_warehouse_id), await _warehouse(db, data.to_warehouse_id)
+    await verify_warehouse_access(db, user, to_wh.id)
     products = await _products(db, data.items)
     doc_number = await _doc_number(db, "REQ")
     items_detail = [{"product_id": str(i.product_id), "name": products[i.product_id].name, "qty": float(i.qty)} for i in data.items]

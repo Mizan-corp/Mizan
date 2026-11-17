@@ -92,8 +92,23 @@ and `manager` hold it. The clinical roles hold their own permissions only.
 
 Until v95 cancelling and returning needed only `sales`. The personal copies of the manager and cashier
 roles (`manager-1a2b3c4d`, `cashier-…`) that held `sales` were given `sales:cancel` + `sales:return`
-and `sales:return` respectively, so they keep what they did; workspaces' own roles (`ws-…`) get the
-new permissions only when their admin grants them.
+and `sales:return` respectively, so they keep what they did; workspaces' own roles (`ws-…`) that held
+`sales` got both, for the same reason (their admin can take them away).
+
+## 2b. Stock, purchases and paying suppliers
+
+| Action | Permission | storekeeper | accountant | manager | admin |
+|---|---|:-:|:-:|:-:|:-:|
+| Adjustments and damage by hand, transfers, movements, valuation | `inventory` | ✓ | ✓ | ✓ | ✓ |
+| Opening stock by hand | `inventory:opening` | | | ✓ | ✓ |
+| Dispatch and stock requests | `operations` | ✓ | | ✓ | ✓ |
+| Purchase orders, receipts, purchase returns, suppliers and their prices | `purchases` | ✓ | ✓ | ✓ | ✓ |
+| Paying a supplier or charging their account, paying on receipt, a refund on a return | `finance` (with `purchases` for the order) | | ✓ | ✓ | ✓ |
+
+Every write on stock also needs access to the warehouse (`verify_warehouse_access`: assigned
+warehouses, or `supervise` / managers for all). Migration `v96_ready_stock_ops` gave workspaces' own
+roles holding `inventory` the new `purchases`, and those also holding `settings` `inventory:opening`;
+none got `finance` from it.
 
 ## 3. Permissions from the extension platform
 

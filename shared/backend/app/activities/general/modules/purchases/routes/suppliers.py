@@ -2,29 +2,29 @@ import json
 import uuid
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.pagination import Page
-from app.dependencies import get_current_user, get_db, require_perm
+from app.dependencies import get_db, require_perm
 
 router = APIRouter(prefix="/suppliers", tags=["suppliers"])
 
 class SupplierIn(BaseModel):
-    name: str
-    phone: str | None = None
-    address: str | None = None
-    type: str = "supplier"
-    notes: str | None = None
+    name: str = Field(..., min_length=1, max_length=128)
+    phone: str | None = Field(None, max_length=32)
+    address: str | None = Field(None, max_length=500)
+    type: str = Field("supplier", max_length=32)
+    notes: str | None = Field(None, max_length=2000)
     extra: dict | None = None  # custom fields (app/framework/fields.py)
 
 class TxIn(BaseModel):
-    amount: Decimal = Field(..., gt=0)
+    amount: Decimal = Field(..., gt=0, le=Decimal("999999999999"))
     type: str  # debit (an amount we owe) / credit (a payment to the supplier)
-    reference_doc: str | None = None
-    notes: str | None = None
+    reference_doc: str | None = Field(None, max_length=128)
+    notes: str | None = Field(None, max_length=1000)
     # A payment (credit) says where the money came from: a safe (or bank account) or a wallet.
     method: str | None = Field(None, max_length=32)
     safe_id: uuid.UUID | None = None
@@ -34,7 +34,7 @@ class TxIn(BaseModel):
     @classmethod
     def validate_type(cls, v):
         if v not in ("debit", "credit"):
-            raise ValueError("type must be 'debit' or 'credit'")
+            raise ValueError("نوع الحركة يجب أن يكون debit (مستحق للمورد) أو credit (دفعة له)")
         return v
 
 async def _clean_extra(db: AsyncSession, extra: dict | None, current: dict | None = None, partial: bool = False) -> dict:
@@ -46,7 +46,10 @@ async def _clean_extra(db: AsyncSession, extra: dict | None, current: dict | Non
 
 
 @router.get("")
-async def list_suppliers(type: str | None = None, include_inactive: bool = False, page: int = 1, page_size: int = 200, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def list_suppliers(type: str | None = Query(None, max_length=32), include_inactive: bool = False,
+                         page: int = Query(1, ge=1), page_size: int = Query(200, ge=1, le=1000),
+                         db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases", "finance", "accounting:view"))):
+    """Suppliers with their balances: for purchasing, finance and the ledger's party picker."""
     where = "WHERE true" if include_inactive else "WHERE is_active=true"
     params = {}
     if type:
@@ -58,7 +61,7 @@ async def list_suppliers(type: str | None = None, include_inactive: bool = False
     return Page(items=items, total=total, page=page, size=page_size, pages=-( -total // page_size))
 
 @router.post("", status_code=201)
-async def create_supplier(data: SupplierIn, db: AsyncSession = Depends(get_db), _=Depends(require_perm("inventory", "purchases"))):
+async def create_supplier(data: SupplierIn, db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases"))):
     payload = data.model_dump()
     payload["extra"] = json.dumps(await _clean_extra(db, payload.get("extra")))
     r = await db.execute(text(
@@ -68,7 +71,7 @@ async def create_supplier(data: SupplierIn, db: AsyncSession = Depends(get_db), 
     return dict(r.fetchone()._mapping)
 
 @router.put("/{sid}")
-async def update_supplier(sid: uuid.UUID, data: SupplierIn, db: AsyncSession = Depends(get_db), _=Depends(require_perm("inventory", "purchases"))):
+async def update_supplier(sid: uuid.UUID, data: SupplierIn, db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases"))):
     payload = data.model_dump()
     current = await db.scalar(text("SELECT extra FROM suppliers WHERE id=:id"), {"id": sid})
     payload["extra"] = json.dumps(await _clean_extra(db, payload.get("extra"), current=current or {}, partial=data.extra is None))
@@ -78,11 +81,11 @@ async def update_supplier(sid: uuid.UUID, data: SupplierIn, db: AsyncSession = D
     await db.commit()
     row = r.fetchone()
     if not row:
-        raise HTTPException(404)
+        raise HTTPException(404, "المورد غير موجود")
     return dict(row._mapping)
 
 @router.delete("/{sid}", status_code=204)
-async def delete_supplier(sid: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("inventory"))):
+async def delete_supplier(sid: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases"))):
     """A supplier with purchases or account movements is never deleted (ADR-014 D4): deactivate it."""
     used = await db.scalar(text("""
         SELECT EXISTS (SELECT 1 FROM purchase_orders WHERE supplier_id = :id)
@@ -98,12 +101,12 @@ async def delete_supplier(sid: uuid.UUID, db: AsyncSession = Depends(get_db), _=
 
 
 @router.post("/{sid}/deactivate")
-async def deactivate_supplier(sid: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("inventory", "purchases"))):
+async def deactivate_supplier(sid: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases"))):
     return await _set_active(db, sid, False)
 
 
 @router.post("/{sid}/activate")
-async def activate_supplier(sid: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("inventory", "purchases"))):
+async def activate_supplier(sid: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases"))):
     return await _set_active(db, sid, True)
 
 
@@ -116,11 +119,11 @@ async def _set_active(db: AsyncSession, sid: uuid.UUID, active: bool) -> dict:
 
 
 @router.get("/{sid}/ledger")
-async def supplier_ledger(sid: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def supplier_ledger(sid: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases", "finance"))):
     sup = await db.execute(text("SELECT * FROM suppliers WHERE id=:id"), {"id": sid})
     sup_row = sup.fetchone()
     if not sup_row:
-        raise HTTPException(404)
+        raise HTTPException(404, "المورد غير موجود")
     txs = await db.execute(text(
         "SELECT st.*, sf.name AS safe_name, pw.name AS wallet_name FROM supplier_transactions st "
         "LEFT JOIN safes sf ON sf.id = st.safe_id LEFT JOIN payment_wallets pw ON pw.id = st.wallet_id "
@@ -132,8 +135,9 @@ async def supplier_ledger(sid: uuid.UUID, db: AsyncSession = Depends(get_db), _=
     }
 
 @router.post("/{sid}/transactions", status_code=201)
-async def add_transaction(sid: uuid.UUID, data: TxIn, db: AsyncSession = Depends(get_db), current_user=Depends(require_perm("inventory", "purchases"))):
-    """debit = an amount we owe (+), credit = a payment to the supplier (−) from a safe or wallet."""
+async def add_transaction(sid: uuid.UUID, data: TxIn, db: AsyncSession = Depends(get_db), current_user=Depends(require_perm("finance"))):
+    """debit = an amount we owe (+), credit = a payment to the supplier (−) from a safe or wallet.
+    Both move money or what we owe and post to the ledger, so they need `finance` (PUR-1)."""
     from app.activities.general.modules.purchases.service import record_supplier_transaction
 
     row = await record_supplier_transaction(db, sid, data.amount, data.type, current_user, reference_doc=data.reference_doc,

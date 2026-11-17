@@ -80,7 +80,8 @@ class ProductUpdate(BaseModel):
     reorder_point: Decimal | None = None
     reorder_qty: Decimal | None = None
     reorder_level: int | None = Field(default=None, ge=0)
-    stock_status: str | None = None
+    # "untracked": stock isn't followed for this product (a service); sales don't check its balance.
+    stock_status: str | None = Field(default=None, pattern="^(tracked|untracked)$")
     description: str | None = None
     tax_code: TaxCode | None = None
 
@@ -104,6 +105,8 @@ class ProductOut(BaseModel):
     retail_price: Decimal
     wholesale_price: Decimal
     cost_price: Decimal
+    # The workspace's weighted average cost (ADR-014 D5); 0 until the first costed receipt.
+    avg_cost: Decimal = Decimal("0")
     company: str | None
     size: str | None
     product_type: str | None

@@ -197,3 +197,29 @@ def test_reset_warehouse_stock_is_audited(admin_api, reg, product, db):
     assert db.one("SELECT count(*) FROM stock_movements WHERE warehouse_id = %s", (w["id"],))[0] == 0
     logged = db.one("SELECT changes->>'movements_deleted' FROM audit_log WHERE entity_id = %s AND action = 'reset_stock'", (w["id"],))
     assert logged and logged[0] == "1"
+
+
+# ---------------- production-readiness (INV-1, INV-2, INV-5, INV-6) ----------------
+def test_hand_movements_only_adjust_and_never_exceed_the_stock(admin_api, reg, product):
+    w = _wh(admin_api, reg)
+    _open(admin_api, product["id"], w["id"], 3)
+    base = {"product_id": product["id"], "warehouse_id": w["id"], "qty": 1, "unit_cost": "5", "note": "e2e"}
+    for kind in ("purchase", "sale", "return_in", "transfer_in", "transfer_out", "return_out"):
+        r = admin_api.post("/stock/movements", json={**base, "movement_type": kind})
+        assert r.status_code == 400, (kind, r.text[:200])
+    r = admin_api.post("/stock/movements", json={**base, "movement_type": "adjustment_in", "unit_cost": "-1"})
+    assert r.status_code == 422, r.text[:200]
+    r = admin_api.post("/stock/movements", json={**base, "movement_type": "damage", "qty": 50})
+    assert r.status_code == 400, r.text[:200]  # more than the 3 held
+    bal = admin_api.ok(admin_api.post("/stock/balance/bulk", params={"warehouse_id": w["id"]}, json=[product["id"]]))
+    assert float(bal[product["id"]]) == 3
+
+
+def test_transfer_to_the_same_warehouse_and_deactivating_a_stocked_one_are_refused(admin_api, reg, product):
+    w = _wh(admin_api, reg)
+    _open(admin_api, product["id"], w["id"], 2)
+    r = admin_api.post("/stock/transfer", json={"product_id": product["id"], "from_warehouse_id": w["id"],
+                                                "to_warehouse_id": w["id"], "qty": 1})
+    assert r.status_code in (400, 422), r.text[:200]
+    r = admin_api.put(f"/stock/warehouses/{w['id']}", json={"is_active": False})
+    assert r.status_code == 409, r.text[:200]
