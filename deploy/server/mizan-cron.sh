@@ -8,6 +8,7 @@
 #   hourly      paymob_reconcile community_webhooks            (Paymob payments whose callback never came, #67)
 #   six-hourly  enforce_subscription_expiry                    (trials and subscriptions ending)
 #   nightly     auto_close_shifts generate_daily_metrics_digest purge_removed_module_data measure_storage
+#               accounting_reconciliation                      (the ledger against the balances, ADR-014 D8)
 #   weekly      cleanup_system_stale_data
 #   daily       owner_billing_reminders                        (trial and renewal emails to owners, #72)
 # Each job is a POST to the API on loopback (no Cloudflare, no second machine), authenticated by
@@ -24,7 +25,7 @@ SECRET=$(sed -n 's/^CRON_SECRET=//p' "$ENV_FILE" | tr -d '"')
 case "${1:-}" in
   hourly)     jobs="paymob_reconcile community_webhooks" ;;
   six-hourly) jobs="enforce_subscription_expiry" ;;
-  nightly)    jobs="auto_close_shifts generate_daily_metrics_digest purge_removed_module_data measure_storage" ;;
+  nightly)    jobs="auto_close_shifts generate_daily_metrics_digest purge_removed_module_data measure_storage accounting_reconciliation" ;;
   weekly)     jobs="cleanup_system_stale_data" ;;
   daily)      jobs="owner_billing_reminders" ;;
   "")         echo "usage: $0 hourly|six-hourly|nightly|weekly|daily | <job>..." >&2; exit 64 ;;

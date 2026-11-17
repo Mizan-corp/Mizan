@@ -56,6 +56,18 @@
           "label": "الخزائن والتدقيق الليلي"
         },
         {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
+        },
+        {
           "screen": "reporting.reports",
           "label": "تقارير نسب الإشغال و RevPAR"
         }

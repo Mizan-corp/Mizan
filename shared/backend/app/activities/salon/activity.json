@@ -73,6 +73,18 @@
           "label": "الخزينة والعمولات اليومية"
         },
         {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
+        },
+        {
           "screen": "core.settings",
           "label": "إعدادات باقات الصالون"
         },

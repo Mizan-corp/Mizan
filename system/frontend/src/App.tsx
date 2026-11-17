@@ -53,6 +53,11 @@ const OilGasPage = lazy(() => import("@activities/petroleum/modules/oil_gas/OilG
 const StorefrontAdminPage = lazy(() => import("@activities/general/modules/storefront/StorefrontAdminPage"));
 const PublicStorefrontPage = lazy(() => import("@activities/general/modules/storefront/public/PublicStorefrontPage"));
 const TenantScopeLayout = lazy(() => import("@app/features/tenant/TenantScopeLayout"));
+const AccountingJournalPage = lazy(() => import("@activities/general/modules/accounting/screens/JournalPage"));
+const AccountingAccountsPage = lazy(() => import("@activities/general/modules/accounting/screens/AccountsPage"));
+const AccountingReportsPage = lazy(() => import("@activities/general/modules/accounting/screens/ReportsPage"));
+const AccountingPeriodsPage = lazy(() => import("@activities/general/modules/accounting/screens/PeriodsPage"));
+const AccountingOpeningPage = lazy(() => import("@activities/general/modules/accounting/screens/OpeningPage"));
 
 
 
@@ -159,6 +164,11 @@ function renderErpChildRoutes(includeIndex: boolean = true) {
       <Route path="customers" element={<Guard perm="customers"><CustomersPage /></Guard>} />
       <Route path="suppliers" element={<Guard perm="inventory|purchases"><SuppliersPage /></Guard>} />
       <Route path="finance" element={<Guard perm="finance"><FinancePage /></Guard>} />
+      <Route path="accounting/journal" element={<Guard perm="accounting:view|accounting:journal" module="accounting"><AccountingJournalPage /></Guard>} />
+      <Route path="accounting/accounts" element={<Guard perm="accounting:view" module="accounting"><AccountingAccountsPage /></Guard>} />
+      <Route path="accounting/reports" element={<Guard perm="accounting:view" module="accounting"><AccountingReportsPage /></Guard>} />
+      <Route path="accounting/periods" element={<Guard perm="accounting:close|accounting:settings" module="accounting"><AccountingPeriodsPage /></Guard>} />
+      <Route path="accounting/opening" element={<Guard perm="accounting:settings" module="accounting"><AccountingOpeningPage /></Guard>} />
       <Route path="hr" element={<Guard perm="payroll"><HrPage /></Guard>} />
       <Route path="hr/payroll" element={<Guard perm="payroll"><PayrollPage /></Guard>} />
       <Route path="shifts" element={<Guard perm="shifts"><ShiftsPage /></Guard>} />

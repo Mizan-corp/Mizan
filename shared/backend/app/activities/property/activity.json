@@ -47,6 +47,18 @@
           "label": "الخزينة وحافظة شيكات الإيجار"
         },
         {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
+        },
+        {
           "screen": "finance.suppliers",
           "label": "شركات صيانة المصاعد والمرافق"
         },

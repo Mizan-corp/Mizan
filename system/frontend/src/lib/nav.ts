@@ -6,10 +6,10 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import {
-  Archive, ArrowLeftRight, Bed, Blocks, Boxes, Briefcase, Building, Building2, Calendar, ChartColumn,
+  Archive, ArrowLeftRight, Bed, Blocks, BookOpen, Boxes, Briefcase, Building, Building2, Calendar, CalendarCheck, ChartColumn,
   ChefHat, Clock, Compass, Contact, Dumbbell, Factory, Flame, FlaskConical, Globe, GraduationCap,
   HardHat, HeartPulse, Hotel, Landmark, LayoutDashboard, LayoutGrid, Microscope, Package, Palette, Pill,
-  Printer, Receipt, Scale, Scissors, Settings, Shield, ShieldCheck, ShoppingCart, Stethoscope, Store,
+  ListTree, Printer, Receipt, Scale, Scissors, Settings, Shield, ShieldCheck, ShoppingCart, Stethoscope, Store,
   Ticket, Tractor, Truck, UserCog, Users, Utensils, Wallet, Warehouse, Wrench, Zap, Circle,
   type LucideIcon,
 } from "lucide-react";
@@ -17,9 +17,9 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
 
 export const ICONS: Record<string, LucideIcon> = {
-  Archive, ArrowLeftRight, Bed, Blocks, Boxes, Briefcase, Building, Building2, Calendar, ChartColumn,
+  Archive, ArrowLeftRight, Bed, Blocks, BookOpen, Boxes, Briefcase, Building, Building2, Calendar, CalendarCheck, ChartColumn,
   BarChart3: ChartColumn, ChefHat, Clock, Compass, Contact, Dumbbell, Factory, Flame, FlaskConical, Globe,
-  GraduationCap, HardHat, HeartPulse, Hotel, Landmark, LayoutDashboard, LayoutGrid, Microscope, Package,
+  GraduationCap, HardHat, HeartPulse, Hotel, Landmark, LayoutDashboard, LayoutGrid, ListTree, Microscope, Package,
   Palette, Pill, Printer, Receipt, Scale, Scissors, Settings, Shield, ShieldCheck, ShoppingCart,
   Stethoscope, Store, Ticket, Tractor, Truck, UserCog, Users, Utensils, Wallet, Warehouse, Wrench, Zap,
 };

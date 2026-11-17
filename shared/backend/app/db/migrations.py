@@ -3773,6 +3773,61 @@ MIGRATIONS = [
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
             WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+
+    # ADR-014 D9 (step 5): manual journal entries being written. Kept apart from acc_entries (never
+    # updated, balanced at commit): a draft is edited and may be unbalanced until it is posted.
+    ("v93_accounting_journal_drafts", """
+        CREATE TABLE IF NOT EXISTS acc_drafts (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                REFERENCES tenants(id) ON DELETE CASCADE,
+            date date NOT NULL,
+            memo text,
+            warehouse_id uuid,
+            status varchar(16) NOT NULL DEFAULT 'draft',
+            entry_id uuid REFERENCES acc_entries(id),
+            created_by uuid,
+            updated_by uuid,
+            posted_by uuid,
+            posted_at timestamptz,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            updated_at timestamptz NOT NULL DEFAULT now(),
+            CONSTRAINT ck_acc_drafts_status CHECK (status IN ('draft', 'posted'))
+        );
+        CREATE INDEX IF NOT EXISTS ix_acc_drafts_tenant_id ON acc_drafts (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_acc_drafts_status ON acc_drafts (tenant_id, status, date);
+
+        CREATE TABLE IF NOT EXISTS acc_draft_lines (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                REFERENCES tenants(id) ON DELETE CASCADE,
+            draft_id uuid NOT NULL REFERENCES acc_drafts(id) ON DELETE CASCADE,
+            position integer NOT NULL DEFAULT 0,
+            account_id uuid NOT NULL REFERENCES acc_accounts(id),
+            debit numeric(14,2) NOT NULL DEFAULT 0,
+            credit numeric(14,2) NOT NULL DEFAULT 0,
+            party_type varchar(16),
+            party_id uuid,
+            warehouse_id uuid,
+            CONSTRAINT ck_acc_draft_lines_amounts CHECK (debit >= 0 AND credit >= 0),
+            CONSTRAINT ck_acc_draft_lines_party CHECK (party_type IS NULL OR party_type IN ('customer', 'supplier', 'employee'))
+        );
+        CREATE INDEX IF NOT EXISTS ix_acc_draft_lines_tenant_id ON acc_draft_lines (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_acc_draft_lines_draft_id ON acc_draft_lines (draft_id);
+
+        ALTER TABLE acc_drafts ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE acc_drafts FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON acc_drafts;
+        CREATE POLICY tenant_isolation ON acc_drafts
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        ALTER TABLE acc_draft_lines ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE acc_draft_lines FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON acc_draft_lines;
+        CREATE POLICY tenant_isolation ON acc_draft_lines
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

@@ -55,6 +55,18 @@
           "label": "الخزائن وتكاليف الوقود ومصاريف الطرق"
         },
         {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
+        },
+        {
           "screen": "reporting.reports",
           "label": "تقارير الشحنات والمسارات اليومية"
         }

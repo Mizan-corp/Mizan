@@ -70,6 +70,18 @@
           "label": "العهد الموقعية والخزينة"
         },
         {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
+        },
+        {
           "screen": "reporting.reports",
           "label": "تقارير ربحية المشاريع والتدفقات"
         }

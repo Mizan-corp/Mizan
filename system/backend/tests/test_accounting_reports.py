@@ -384,7 +384,9 @@ async def test_opening_posts_once_balances_and_can_be_redone_only_after_reversal
         settings = await c.get("/accounting/settings", headers=h["manager"])
     assert out["entry"]["number"] == "JE-000001" and out["settings"]["start_date"] == TODAY.isoformat()
     assert again.status_code == 400 and "مسجل بالفعل" in again.json()["detail"]
-    assert settings.json() == {"fiscal_year_start": 1, "start_date": TODAY.isoformat()}
+    got = settings.json()
+    assert {k: got[k] for k in ("fiscal_year_start", "start_date")} == {"fiscal_year_start": 1, "start_date": TODAY.isoformat()}
+    assert got["opening_entry"]["number"] == "JE-000001" and got["year_end_closings"] == []
     assert await _count("SELECT count(*) FROM acc_entries WHERE source_type = 'opening'") == 1
 
     async with AsyncSessionLocal() as s:

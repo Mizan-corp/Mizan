@@ -117,7 +117,7 @@ Tenant tables with RLS. A return sends received goods of a purchase order back t
 events and add no columns. The standard chart gains two roles, `inventory_loss` (expense 54) and
 `insurance_receivables` (asset 127); existing workspaces get them the first time a rule needs them.
 
-### The ledger (ADR-014 D1, D2, D7, D10; migrations `v90_accounting_ledger`, `v92_accounting_settings`, module `accounting`)
+### The ledger (ADR-014 D1, D2, D7, D9, D10; migrations `v90_accounting_ledger`, `v92_accounting_settings`, `v93_accounting_journal_drafts`, module `accounting`)
 
 Tenant tables with RLS (`tenant_isolation`, USING and WITH CHECK). Money is `numeric(14,2)`.
 Written only by `accounting/services/posting.py` (`post` / `reverse`), in the transaction of the
@@ -133,6 +133,8 @@ reports (D8) only read these tables.
 | `acc_lines` | `entry_id`, `account_id`, `debit`, `credit` (exactly one positive, CHECK), `party_type` (`customer`/`supplier`/`employee`), `party_id`, `warehouse_id` | The entry's lines. The deferred constraint triggers `acc_lines_balanced` / `acc_entries_balanced` refuse, at commit, an entry whose debits ≠ credits or total 0; `acc_lines_immutable` refuses updates |
 | `acc_money_accounts` | `kind` (`safe`/`wallet`/`drawer`/`default_bank`), `ref_id`, `account_id` (unique per workspace, kind, ref) | The sub-account of each safe (bank safes under the bank group, others under the cash group), payment wallet, branch cashier drawer (`ref_id` = warehouse) and the default bank account, created on first use |
 | `acc_settings` | `fiscal_year_start` (1-12, default 1), `start_date` (set by the opening entry); one row per workspace (`uq_acc_settings_tenant`), created on first write | The first month of the fiscal year (D7) and the date the ledger starts (D10). Defaults apply while there is no row |
+| `acc_drafts` | `date`, `memo`, `warehouse_id`, `status` (`draft`/`posted`, CHECK), `entry_id` (the entry it became), `created_by`, `updated_by`, `posted_by`, `posted_at` | A manual journal entry being written (D9, migration `v93_accounting_journal_drafts`). Kept apart from `acc_entries` (immutable, balanced at commit): a draft is edited and may be unbalanced. Posting writes an entry with source `manual` / the draft's id / event `post` and keeps the draft read-only; only drafts are deleted |
+| `acc_draft_lines` | `draft_id` (cascade), `position`, `account_id`, `debit`, `credit` (≥ 0, CHECK), `party_type` (`customer`/`supplier`/`employee`, CHECK), `party_id`, `warehouse_id` | A draft's lines, replaced as a whole on each save |
 | `financial_categories` | `account_id` | The account a category posts to; none → other income / other expenses |
 | `accounting_periods` | `reopened_by`, `reopened_at`, `reopen_reason` | Months close in order (every earlier month since the first entry or first closed month); reopening needs a reason (also in the audit log) and later months reopened first. Posting into a closed month is refused by the posting service |
 

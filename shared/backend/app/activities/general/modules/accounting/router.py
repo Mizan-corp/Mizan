@@ -1,15 +1,16 @@
-"""Accounting: API routes (ADR-014: the read API and reports, the chart's settings, the opening entry and the year-end closing). Posted entries
-have no edit or delete route, by design (D1)."""
+"""Accounting: API routes (ADR-014: the read API and reports, the chart's settings, the opening entry, the year-end closing, manual
+journal entries and reversals). Posted entries have no edit or delete route, by design (D1): they are reversed."""
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activities.general.modules.accounting.models import Account
-from app.activities.general.modules.accounting.schemas import AccountCreate, AccountUpdate, CategoryAccount, OpeningCreate, SettingsUpdate
-from app.activities.general.modules.accounting.services import chart, closing, ledger, opening, posting, reports
+from app.activities.general.modules.accounting.schemas import (AccountCreate, AccountUpdate, CategoryAccount, DraftIn, OpeningCreate,
+                                                               ReverseIn, SettingsUpdate)
+from app.activities.general.modules.accounting.services import chart, closing, journal, ledger, opening, posting, reports
 from app.activities.general.modules.accounting.services import settings as acc_settings
 from app.core.exceptions import BusinessError, NotFoundError
 from app.db.base import get_db
@@ -157,7 +158,155 @@ async def reconciliation(db: AsyncSession = Depends(get_db), user: User = Depend
 
 @router.get("/settings")
 async def get_settings(db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("accounting:view"))):
-    return await acc_settings.get(db, user.tenant_id)
+    """The settings, and the state the screens need: the opening entry in force (none: the opening
+    wizard is offered), the first entry's date, and the year-end closings in force."""
+    out = await acc_settings.get(db, user.tenant_id)
+    entry, _ = await posting.active_source(db, user.tenant_id, opening.SOURCE, "opening", opening.SOURCE)
+    first = await db.scalar(text("SELECT MIN(date) FROM acc_entries WHERE tenant_id = :t"), {"t": user.tenant_id})
+    closings = (await db.execute(text("""
+        SELECT e.id, e.number, e.date, e.memo FROM acc_entries e
+        WHERE e.tenant_id = :t AND e.source_type = 'year_end' AND e.event = 'close'
+          AND NOT EXISTS (SELECT 1 FROM acc_entries r WHERE r.reverses_id = e.id)
+        ORDER BY e.date DESC
+    """), {"t": user.tenant_id})).mappings().all()
+    return {**out, "opening_entry": None if entry is None else {"id": entry.id, "number": entry.number, "date": entry.date},
+            "first_entry_date": first, "year_end_closings": [dict(r) for r in closings]}
+
+
+@router.get("/periods")
+async def list_periods(db: AsyncSession = Depends(get_db),
+                       user: User = Depends(require_perm("accounting:view", "accounting:close", "accounting:settings"))):
+    """Every month from the first one the books know (the first entry, or the first month ever closed)
+    to the current month, newest first, with its status and whether it can be closed or reopened now
+    (D7: in order); and each fiscal year with its closing entry in force. Closing and reopening go
+    through /periods (finance)."""
+    from app.activities.general.modules.finance.routes.periods import current_month
+
+    t = user.tenant_id
+    now = current_month()
+    rows = {r["month"]: dict(r) for r in (await db.execute(text("""
+        SELECT p.month, p.status, p.closed_at, p.reopened_at, p.reopen_reason, cu.full_name AS closed_by_name,
+               ru.full_name AS reopened_by_name
+        FROM accounting_periods p LEFT JOIN users cu ON cu.id = p.closed_by LEFT JOIN users ru ON ru.id = p.reopened_by
+        WHERE p.tenant_id = :t
+    """), {"t": t})).mappings().all()}
+    first_entry = await db.scalar(text("SELECT MIN(date) FROM acc_entries WHERE tenant_id = :t"), {"t": t})
+    starts = [m for m in (first_entry.strftime("%Y-%m") if first_entry else None, min(rows) if rows else None) if m]
+    first = min(starts) if starts else now
+    months = closing._months(date(int(first[:4]), int(first[5:7]), 1), date(int(now[:4]), int(now[5:7]), 1))
+    closed = {m for m, r in rows.items() if r["status"] == "closed"}
+    latest_closed = max(closed) if closed else None
+    first_open = next((m for m in months if m not in closed), None)
+    fy_start = (await acc_settings.get(db, t))["fiscal_year_start"]
+    in_force = {r.number: r for r in (await db.execute(text("""
+        SELECT e.id, e.number, e.date FROM acc_entries e
+        WHERE e.tenant_id = :t AND e.source_type = 'year_end' AND e.event = 'close'
+          AND NOT EXISTS (SELECT 1 FROM acc_entries r WHERE r.reverses_id = e.id)
+    """), {"t": t})).all()}
+    out_months = []
+    for m in reversed(months):
+        r = rows.get(m, {})
+        status = r.get("status") or "open"
+        blocked = any(e.date >= date(int(m[:4]), int(m[5:7]), 1) for e in in_force.values())
+        out_months.append({"month": m, "status": status, "closed_at": r.get("closed_at"), "closed_by_name": r.get("closed_by_name"),
+                           "reopened_at": r.get("reopened_at"), "reopened_by_name": r.get("reopened_by_name"),
+                           "reopen_reason": r.get("reopen_reason"), "current": m == now,
+                           "can_close": status != "closed" and m < now and m == first_open,
+                           "can_reopen": status == "closed" and m == latest_closed and not blocked})
+    years = []
+    today = posting.today()
+    first_day = date(int(months[0][:4]), int(months[0][5:7]), 1)
+    y = reports.fiscal_year_start_for(first_day, fy_start).year
+    while True:
+        start, end = closing.fiscal_year(y, fy_start)
+        if start > today:
+            break
+        entry = next((e for e in in_force.values() if start <= e.date <= end), None)
+        year_months = closing._months(max(start, first_day), end)
+        years.append({"year": y, "from": start, "to": end, "over": end < today,
+                      "open_months": [m for m in year_months if m not in closed],
+                      "closing_entry": None if entry is None else {"id": entry.id, "number": entry.number, "date": entry.date}})
+        y += 1
+    return {"current_month": now, "fiscal_year_start": fy_start, "months": out_months, "years": list(reversed(years))}
+
+
+# ── manual journal entries (D9) and reversals (D1) ────────────────────────────────────────────
+
+@router.get("/drafts")
+async def list_drafts(status: str = Query("draft", pattern="^(draft|posted)$"), page: int = Query(1, ge=1),
+                      page_size: int = Query(50, ge=1, le=200), db: AsyncSession = Depends(get_db),
+                      user: User = Depends(require_perm("accounting:journal"))):
+    return await journal.list_drafts(db, user.tenant_id, status, page, page_size)
+
+
+@router.get("/drafts/{draft_id}")
+async def get_draft(draft_id: uuid.UUID, db: AsyncSession = Depends(get_db),
+                    user: User = Depends(require_perm("accounting:journal"))):
+    """A draft with its lines, totals and `problems`: what stops it from being posted (empty: it can be)."""
+    return await journal.view(db, user.tenant_id, await journal._draft(db, user.tenant_id, draft_id))
+
+
+@router.post("/drafts", status_code=201)
+async def create_draft(data: DraftIn, db: AsyncSession = Depends(get_db),
+                       user: User = Depends(require_perm("accounting:journal"))):
+    draft = await journal.save(db, user.tenant_id, data, user.id)
+    out = await journal.view(db, user.tenant_id, draft)
+    await db.commit()
+    return out
+
+
+@router.put("/drafts/{draft_id}")
+async def update_draft(draft_id: uuid.UUID, data: DraftIn, db: AsyncSession = Depends(get_db),
+                       user: User = Depends(require_perm("accounting:journal"))):
+    draft = await journal.save(db, user.tenant_id, data, user.id, draft_id)
+    out = await journal.view(db, user.tenant_id, draft)
+    await db.commit()
+    return out
+
+
+@router.delete("/drafts/{draft_id}", status_code=204)
+async def delete_draft(draft_id: uuid.UUID, db: AsyncSession = Depends(get_db),
+                       user: User = Depends(require_perm("accounting:journal"))):
+    await journal.remove(db, user.tenant_id, draft_id)
+    await db.commit()
+
+
+@router.post("/drafts/{draft_id}/post")
+async def post_draft(draft_id: uuid.UUID, db: AsyncSession = Depends(get_db),
+                     user: User = Depends(require_perm("accounting:journal"))):
+    """Post a draft (D9): every rule is checked again, then the entry is written and the customers',
+    suppliers', safes' and wallets' balances follow it. Posting twice returns the same entry."""
+    from app.platform.audit.service import log as audit_log
+
+    out = await journal.post_draft(db, user.tenant_id, draft_id, user.id)
+    if not out["already"]:
+        await audit_log(db, "acc_entry", "post", user.id, user.full_name, out["entry"]["id"],
+                        {"draft_id": str(draft_id), "number": out["entry"]["number"]}, f"ترحيل قيد يومية {out['entry']['number']}")
+    await db.commit()
+    return out
+
+
+@router.post("/entries/{entry_id}/reverse")
+async def reverse_entry(entry_id: uuid.UUID, data: ReverseIn | None = None, db: AsyncSession = Depends(get_db),
+                        user: User = Depends(require_perm("accounting:journal", "accounting:settings"))):
+    """Reverse a manual entry (accounting:journal) or the opening entry (accounting:settings). A
+    year-end closing is reversed through /year-end/reverse; a document's entry by cancelling the
+    document. Idempotent; the reversal links to the original (`reverses_id`)."""
+    from app.platform.audit.service import log as audit_log
+    from app.platform.permissions.access import can
+
+    data = data or ReverseIn()
+    entry = await journal.entry_or_404(db, user.tenant_id, entry_id)
+    needed = "accounting:journal" if journal.reversal_kind(entry) == "journal" else "accounting:settings"
+    if not can(user, needed):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    out = await journal.reverse_entry(db, user.tenant_id, entry, data.date, data.memo, user.id)
+    if not out["already"]:
+        await audit_log(db, "acc_entry", "reverse", user.id, user.full_name, entry.id,
+                        {"number": entry.number, "reversal": out["entry"]["number"], "memo": data.memo},
+                        f"عكس القيد {entry.number}")
+    await db.commit()
+    return out
 
 
 @router.put("/settings")

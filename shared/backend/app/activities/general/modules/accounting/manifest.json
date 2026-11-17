@@ -5,9 +5,9 @@
   "activity": "general",
   "kind": "business",
   "status": "active",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "icon": "BookOpen",
-  "description": "دليل الحسابات ودفتر اليومية بالقيد المزدوج: قيود تلقائية للمبيعات والمرتجعات والدرج والخزائن والمحافظ وتحصيلات العملاء والمصروفات، وميزان المراجعة، وإقفال الفترات.",
+  "description": "دليل الحسابات ودفتر اليومية بالقيد المزدوج: قيود تلقائية للمبيعات والمشتريات والمرتجعات والدرج والخزائن والمحافظ والمصروفات والرواتب، وقيود يومية يدوية، والقيد الافتتاحي، وميزان المراجعة وقائمة الدخل والميزانية ودفتر الأستاذ وكشوف الحسابات، وإقفال الفترات والسنة المالية.",
   "dependencies": [
     "core",
     "finance"
@@ -34,7 +34,36 @@
       "name_en": "Chart of accounts and account mapping"
     }
   ],
-  "screens": [],
+  "screens": [
+    {
+      "id": "accounting.journal",
+      "path": "/accounting/journal",
+      "label": "دفتر اليومية",
+      "icon": "BookOpen",
+      "permission": "accounting:view|accounting:journal"
+    },
+    {
+      "id": "accounting.accounts",
+      "path": "/accounting/accounts",
+      "label": "دليل الحسابات",
+      "icon": "ListTree",
+      "permission": "accounting:view"
+    },
+    {
+      "id": "accounting.reports",
+      "path": "/accounting/reports",
+      "label": "التقارير المحاسبية",
+      "icon": "ChartColumn",
+      "permission": "accounting:view"
+    },
+    {
+      "id": "accounting.periods",
+      "path": "/accounting/periods",
+      "label": "إقفال الفترات والسنة",
+      "icon": "CalendarCheck",
+      "permission": "accounting:close|accounting:settings"
+    }
+  ],
   "widgets": [],
   "variants": [
     "standard"
