@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Numeric, String, UniqueConstraint, func, text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -41,3 +41,17 @@ class ArchivedDocument(TenantScoped, Base):
     ref_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class DocCounter(TenantScoped, Base):
+    """The last number given to each kind of document in a workspace (INV, RET, DEP…): numbers
+    count per workspace, not across all of them (PLAT-6). Taken with a row lock
+    (app/platform/archive/numbering.py)."""
+    __tablename__ = "doc_counters"
+    __table_args__ = (UniqueConstraint("tenant_id", "doc_type", name="uq_doc_counters_tenant_type"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,
+                                          server_default=text("gen_random_uuid()"))
+    doc_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    last_value: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default=text("0"))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

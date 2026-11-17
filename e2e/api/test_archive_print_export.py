@@ -5,10 +5,11 @@ import uuid
 from helpers import uid
 
 from conftest import (admin_api, owner_api, product, customer, supplier, wh,
-                      reg)  # noqa: F401
+                      reg, ensure_shift)  # noqa: F401
 
 
 def _a_sale(admin_api, reg, product, wh):
+    ensure_shift(admin_api, reg, wh["id"])
     s = admin_api.ok(admin_api.post("/sales", json={
         "warehouse_id": wh["id"],
         "items": [{"product_id": product["id"], "qty": 1,

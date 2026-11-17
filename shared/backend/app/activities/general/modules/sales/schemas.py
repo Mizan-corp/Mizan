@@ -8,40 +8,37 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator
 
 
+# Bounds of the columns (Numeric(12,3) quantities, Numeric(12,2) money): larger values were a 500.
+MAX_QTY = Decimal("999999999")
+MAX_MONEY = Decimal("9999999999")
+
+
 class SaleItemCreate(BaseModel):
     product_id: uuid.UUID
-    qty: Decimal = Field(..., gt=0)
-
-    @field_validator('qty')
-    def qty_positive(cls, v):
-        if v <= 0:
-            raise ValueError('qty must be > 0')
-        return v
-
-    unit_price: Decimal
-    unit_cost: Decimal = Decimal("0")
-    discount: Decimal = Decimal("0")
+    qty: Decimal = Field(..., gt=0, le=MAX_QTY)
+    # The product's price unless the workspace allows another (checked on the server, SAL-1).
+    unit_price: Decimal = Field(..., ge=0, le=MAX_MONEY)
+    unit_cost: Decimal = Field(Decimal("0"), ge=0, le=MAX_MONEY)  # ignored: the cost is the average (D5)
+    discount: Decimal = Field(Decimal("0"), ge=0, le=MAX_MONEY)
 
     @field_validator('discount')
     def discount_max(cls, v, info):
-        if v < 0:
-            raise ValueError('discount cannot be negative')
         values = info.data if hasattr(info, 'data') else {}
         unit_price = values.get('unit_price')
         qty = values.get('qty')
-        if unit_price and qty and v > unit_price * qty:
-            raise ValueError('discount cannot exceed item total')
+        if unit_price is not None and qty and v > unit_price * qty:
+            raise ValueError('الخصم أكبر من إجمالي البند')
         return v
 
 
 class SaleItemUpdate(BaseModel):
-    qty: Decimal = Field(..., gt=0)
+    qty: Decimal = Field(..., gt=0, le=MAX_QTY)
     expected_qty: Decimal | None = None
 
 
 class SplitPaymentItem(BaseModel):
-    method: str = Field(..., pattern=r"^(cash|wallet|credit|bank|cheque)$")
-    amount: Decimal = Field(..., gt=0)
+    method: Literal["cash", "wallet", "credit", "bank", "cheque"]
+    amount: Decimal = Field(..., gt=0, le=MAX_MONEY)
     wallet_id: uuid.UUID | None = None
 
 
@@ -49,34 +46,31 @@ class SaleCreate(BaseModel):
     customer_id: uuid.UUID | None = None
     shift_id: uuid.UUID | None = None
     warehouse_id: uuid.UUID
-    sale_mode: str = Field(default="retail", pattern=r"^(retail|wholesale)$")
-    items: list[SaleItemCreate]
+    sale_mode: Literal["retail", "wholesale"] = "retail"
+    items: list[SaleItemCreate] = Field(..., min_length=1, max_length=500)
     is_credit: bool = False
-    discount_amount: Decimal = Field(default=Decimal("0"), ge=0)
-    payment_method: str = Field(default="cash", pattern=r"^(cash|wallet|credit|bank|cheque)$")
+    discount_amount: Decimal = Field(default=Decimal("0"), ge=0, le=MAX_MONEY)
+    payment_method: Literal["cash", "wallet", "credit", "bank", "cheque"] = "cash"
     wallet_id: uuid.UUID | None = None
-    paid_amount: Decimal | None = Field(default=None, ge=0)
-    notes: str | None = None
-    payments: list[SplitPaymentItem] | None = None
+    paid_amount: Decimal | None = Field(default=None, ge=0, le=MAX_MONEY)
+    notes: str | None = Field(default=None, max_length=2000)
+    payments: list[SplitPaymentItem] | None = Field(default=None, max_length=20)
     # Values of the fields the activity's variants and the workspace add (framework/fields.py).
     extra: dict = Field(default_factory=dict)
-    local_id: str | None = None  # idempotency key for offline sync dedup
-    allow_negative_stock: bool = False
-    is_offline_sync: bool = False
+    # The POS's own id for this sale (a UUID made on the device, kept across retries and the
+    # offline queue): sending it again returns the sale already recorded (SAL-2). Whether stock
+    # may go below zero is decided on the server, never by the client.
+    local_id: uuid.UUID | None = None
 
 
-class UpdateSaleItem(BaseModel):
-    product_id: uuid.UUID
-    qty: Decimal = Field(..., gt=0)
-    unit_price: Decimal = Field(..., ge=0)
-    unit_cost: Decimal = Field(default=Decimal("0"), ge=0)
-    discount: Decimal = Field(default=Decimal("0"), ge=0)
+class UpdateSaleItem(SaleItemCreate):
+    pass
 
 
 class UpdateSale(BaseModel):
-    items: list[UpdateSaleItem] = []
-    discount_amount: Decimal = Field(default=Decimal("0"), ge=0)
-    notes: str | None = None
+    items: list[UpdateSaleItem] = Field(default_factory=list, max_length=500)
+    discount_amount: Decimal = Field(default=Decimal("0"), ge=0, le=MAX_MONEY)
+    notes: str | None = Field(default=None, max_length=2000)
     customer_id: uuid.UUID | None = None
 
 
@@ -88,11 +82,11 @@ class ConfirmQuotationRequest(BaseModel):
 
 class PartialReturnItem(BaseModel):
     product_id: uuid.UUID
-    qty: Decimal = Field(..., gt=0)
+    qty: Decimal = Field(..., gt=0, le=MAX_QTY)
 
 
 class PartialReturnRequest(BaseModel):
-    items: list[PartialReturnItem]
+    items: list[PartialReturnItem] = Field(..., min_length=1, max_length=500)
     shift_id: uuid.UUID | None = None
 
 

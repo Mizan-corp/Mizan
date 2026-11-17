@@ -31,6 +31,26 @@
       "id": "quotations",
       "name": "عروض الأسعار",
       "name_en": "Quotations"
+    },
+    {
+      "id": "sales:cancel",
+      "name": "إلغاء فواتير المبيعات",
+      "name_en": "Cancel sales invoices"
+    },
+    {
+      "id": "sales:return",
+      "name": "مرتجعات المبيعات (من وردية المستخدم المفتوحة)",
+      "name_en": "Sales returns (refunded from the user's own open shift)"
+    },
+    {
+      "id": "sales:override_price",
+      "name": "البيع بسعر غير سعر الصنف (إن سمحت إعدادات نقطة البيع)",
+      "name_en": "Sell at a price other than the product's (when the POS settings allow it)"
+    },
+    {
+      "id": "sales:negative_stock",
+      "name": "البيع بأكثر من الرصيد المتاح",
+      "name_en": "Sell more than the stock on hand"
     }
   ],
   "screens": [],

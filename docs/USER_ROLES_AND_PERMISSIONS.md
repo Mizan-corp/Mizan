@@ -80,6 +80,21 @@ and `manager` hold it. The clinical roles hold their own permissions only.
   `v84_clinic_role_separation` removed the umbrella `clinic` from the copies of the five clinical
   roles (keeping `clinic:view`).
 
+## 2a. Sales and the POS
+
+| Permission | Who holds it by default | What it allows |
+|---|---|---|
+| `sales` / `pos` | cashier, manager, admin | Sell, read sales (in the branches the user is assigned; managers and `supervise` holders: all) |
+| `sales:return` | cashier, manager, admin | Full and partial returns; cash is refunded from the user's **own** open shift in the sale's branch |
+| `sales:cancel` | manager, admin | Cancel a confirmed sale |
+| `sales:override_price` | manager, admin | Sell at another price than the product's, only while the POS setting `allow_price_override` is on; discounts when the sales setting `allow_manual_discount` is off |
+| `sales:negative_stock` | manager, admin | Sell more than the branch's stock while the inventory setting `prevent_negative_stock` is on |
+
+Until v95 cancelling and returning needed only `sales`. The personal copies of the manager and cashier
+roles (`manager-1a2b3c4d`, `cashier-…`) that held `sales` were given `sales:cancel` + `sales:return`
+and `sales:return` respectively, so they keep what they did; workspaces' own roles (`ws-…`) get the
+new permissions only when their admin grants them.
+
 ## 3. Permissions from the extension platform
 
 | Permission | Who holds it by default | What it allows |

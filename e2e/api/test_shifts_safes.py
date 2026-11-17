@@ -39,6 +39,20 @@ def test_shift_drawer_transactions(admin_api, reg, wh, product):
     txs = admin_api.ok(admin_api.get(f"/shifts/{sh['id']}/transactions"))
     assert len(txs) >= 2
 
+    # By hand only deposits, expenses and withdrawals: sale, return and revenue-delivery rows come
+    # from their documents.
+    for kind in ("sale", "return", "revenue_delivery"):
+        r = admin_api.post(f"/shifts/{sh['id']}/transactions", json={"amount": 5, "type": kind})
+        assert r.status_code == 422, r.text[:200]
+    r = admin_api.post(f"/shifts/{sh['id']}/transactions",
+                       json={"amount": 5, "type": "expense", "payment_method": "wallet",
+                             "wallet_id": "00000000-0000-0000-0000-000000000000"})
+    assert r.status_code == 404, r.text[:200]
+
+    # A second open shift in the same branch is refused.
+    r = admin_api.post("/shifts/open", json={"initial_amount": "0", "warehouse_id": wh["id"]})
+    assert r.status_code == 400, r.text[:200]
+
     # closing with mismatched ending balance must be rejected
     r = admin_api.post(f"/shifts/{sh['id']}/close", json={"closing_balance": "0"})
     assert r.status_code in (200, 400, 409, 422), r.text[:200]
@@ -49,10 +63,21 @@ def test_shift_transfer_and_revenue_delivery(admin_api, owner_api, cashier_api, 
     target = cashier_api.ok(cashier_api.get("/auth/me"))
     sh = open_shift(admin_api, reg, wh["id"], initial="100")
 
+    # Never more than the cash the drawer should hold (100).
+    r = admin_api.post(f"/shifts/{sh['id']}/revenue-delivery",
+                       json={"amount": "150", "safe_id": safe["id"],
+                             "manager_id": mgr["id"], "manager_password": "E2eOwner9!"})
+    assert r.status_code == 400, r.text[:200]
+    r = admin_api.post(f"/shifts/{sh['id']}/revenue-delivery",
+                       json={"amount": "10", "safe_id": "00000000-0000-0000-0000-000000000000",
+                             "manager_id": mgr["id"], "manager_password": "E2eOwner9!"})
+    assert r.status_code == 404, r.text[:200]
     rd = admin_api.ok(admin_api.post(f"/shifts/{sh['id']}/revenue-delivery",
                                      json={"amount": "30", "safe_id": safe["id"],
                                            "manager_id": mgr["id"], "manager_password": "E2eOwner9!"}))
-    assert "amount" in rd or rd.get("detail")
+    assert float(rd["amount"]) == 30 and rd["doc_number"].startswith("DEP-")
+    summary = admin_api.ok(admin_api.get(f"/shifts/{sh['id']}/summary"))
+    assert float(summary["expected_balance"]) == 70
 
     t = admin_api.ok(admin_api.post(f"/shifts/{sh['id']}/transfer",
                                     json={"amount": "40", "to_user_id": target["id"]}))

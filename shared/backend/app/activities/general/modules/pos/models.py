@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, Text, func, text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -26,14 +26,25 @@ class DrawerTxType(enum.StrEnum):
     revenue_delivery = "revenue_delivery"
 
 
+class ManualDrawerTxType(enum.StrEnum):
+    """What a cashier records by hand in the drawer (POS-1). Sale and return rows come only from
+    their documents, revenue delivery only from its own route."""
+    deposit = "deposit"
+    expense = "expense"
+    withdrawal = "withdrawal"
+
+
 class Shift(TenantScoped, Base):
     __tablename__ = "shifts"
     __table_args__ = (
         Index("idx_shifts_warehouse_status", "warehouse_id", "status"),
+        # One open shift per cashier and branch (POS-3).
+        Index("uq_shifts_open_cashier_warehouse", "tenant_id", "cashier_id", "warehouse_id", unique=True,
+              postgresql_where=text("status = 'open'")),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    cashier_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    cashier_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     warehouse_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id", ondelete="SET NULL"), nullable=True, index=True)
     supervisor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     status: Mapped[ShiftStatus] = mapped_column(SAEnum(ShiftStatus, name="shift_status_enum"), default=ShiftStatus.open, index=True)

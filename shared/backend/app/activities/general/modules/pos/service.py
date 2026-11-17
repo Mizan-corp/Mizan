@@ -1,4 +1,3 @@
-import json
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -51,19 +50,33 @@ async def _record_payroll_variance(db: AsyncSession, shift_id, difference, curre
 
 
 async def open_shift(db: AsyncSession, cashier_id: uuid.UUID, warehouse_id: uuid.UUID, initial_amount: Decimal, supervisor_id: uuid.UUID | None = None) -> Shift:
-    """Open a new shift. Enforces one-open-shift-per-(cashier, warehouse)."""
+    """Open a new shift. One open shift per (cashier, warehouse): concurrent opens wait on an
+    advisory lock keyed in SQL (hashtext: the same in every process, unlike Python's hash()), and
+    a partial unique index refuses a second open shift whatever happens (POS-3)."""
+    from sqlalchemy.exc import IntegrityError
+
+    from app.platform.tenancy.context import current_tenant_id
+
     if initial_amount < 0:
         raise BusinessError("مبلغ العهدة لا يمكن أن يكون سالباً")
-    # Advisory lock serializes concurrent opens for same cashier+warehouse
-    lock_key = hash((str(cashier_id), str(warehouse_id))) & 0x7FFFFFFF
-    await db.execute(sqlt("SELECT pg_advisory_xact_lock(:k)"), {"k": lock_key})
+    wh = (await db.execute(sqlt("SELECT is_active FROM warehouses WHERE id = :id"), {"id": warehouse_id})).first()
+    if wh is None:
+        raise NotFoundError("الفرع غير موجود")
+    if wh.is_active is False:
+        raise BusinessError("هذا الفرع موقوف")
+    if supervisor_id is not None:
+        sup = (await db.execute(sqlt("SELECT is_active FROM users WHERE id = :id"), {"id": supervisor_id})).first()
+        if sup is None or not sup.is_active:
+            raise NotFoundError("المشرف غير موجود")
+    await db.execute(sqlt("SELECT pg_advisory_xact_lock(hashtext(:k))"),
+                     {"k": f"shift-open:{current_tenant_id.get()}:{cashier_id}:{warehouse_id}"})
 
     existing = await db.execute(
-        select(Shift).where(
+        select(Shift.id).where(
             Shift.warehouse_id == warehouse_id,
             Shift.cashier_id == cashier_id,
             Shift.status == ShiftStatus.open
-        )
+        ).limit(1)
     )
     if existing.scalar_one_or_none():
         raise BusinessError("لديك وردية مفتوحة بالفعل في هذا الفرع")
@@ -75,7 +88,11 @@ async def open_shift(db: AsyncSession, cashier_id: uuid.UUID, warehouse_id: uuid
         initial_amount=initial_amount,
     )
     db.add(shift)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise BusinessError("لديك وردية مفتوحة بالفعل في هذا الفرع")
     await db.refresh(shift)
     return shift
 
@@ -381,14 +398,48 @@ async def transfer_drawer(db: AsyncSession, shift_id: uuid.UUID, to_user_id: uui
     return new_shift
 
 
+MANUAL_TYPES = (DrawerTxType.deposit, DrawerTxType.expense, DrawerTxType.withdrawal)
+
+
 async def add_transaction(db: AsyncSession, shift_id: uuid.UUID, tx_type: DrawerTxType, amount: Decimal, created_by: uuid.UUID, note: str | None = None, category_id: uuid.UUID | None = None, payment_method: str = "cash", wallet_id: uuid.UUID | None = None, customer_id: uuid.UUID | None = None) -> DrawerTransaction:
-    """Add a drawer transaction to an open shift."""
+    """Add a drawer row by hand to the user's open shift: money in, an expense or money out
+    (POS-1). Sale and return rows come only from their documents (a hand-made one lowered the
+    expected cash and posted nothing), revenue delivery only from revenue_delivery(). The wallet,
+    category and customer named are checked in this workspace."""
+    tx_type = DrawerTxType(str(getattr(tx_type, "value", tx_type)))
+    if tx_type not in MANUAL_TYPES:
+        raise BusinessError("لا يُسجَّل يدوياً في الدرج إلا إيداع أو مصروف أو سحب")
+    if amount is None or Decimal(str(amount)) <= 0:
+        raise BusinessError("المبلغ يجب أن يكون أكبر من صفر")
+    payment_method = payment_method or "cash"
+    if payment_method not in ("cash", "wallet"):
+        raise BusinessError("طريقة الدفع في الدرج نقدي أو محفظة فقط")
     result = await db.execute(select(Shift).where(Shift.id == shift_id).with_for_update())
     shift = result.scalar_one_or_none()
-    if not shift or shift.status != ShiftStatus.open:
+    if not shift:
+        raise NotFoundError("الوردية غير موجودة")
+    if shift.status != ShiftStatus.open:
         raise BusinessError("لا توجد وردية مفتوحة")
     if shift.cashier_id and shift.cashier_id != created_by:
         raise ForbiddenError("الدرج مسجل باسم موظف آخر")
+    if payment_method == "wallet":
+        if not wallet_id:
+            raise BusinessError("يجب اختيار المحفظة")
+        w = (await db.execute(sqlt("SELECT is_active FROM payment_wallets WHERE id = :id"), {"id": wallet_id})).first()
+        if w is None:
+            raise NotFoundError("المحفظة غير موجودة")
+        if w.is_active is False:
+            raise BusinessError("هذه المحفظة موقوفة")
+    else:
+        wallet_id = None
+    if category_id is not None and (await db.execute(
+            sqlt("SELECT 1 FROM financial_categories WHERE id = :id"), {"id": category_id})).first() is None:
+        raise NotFoundError("التصنيف غير موجود")
+    if customer_id is not None:
+        if tx_type != DrawerTxType.deposit:
+            raise BusinessError("تحصيل دين العميل يكون إيداعاً في الدرج")
+        if (await db.execute(sqlt("SELECT 1 FROM customers WHERE id = :id FOR UPDATE"), {"id": customer_id})).first() is None:
+            raise NotFoundError("العميل غير موجود")
 
     dt = DrawerTransaction(
         shift_id=shift_id,
@@ -396,7 +447,7 @@ async def add_transaction(db: AsyncSession, shift_id: uuid.UUID, tx_type: Drawer
         amount=amount,
         note=note,
         category_id=category_id,
-        payment_method=payment_method or "cash",
+        payment_method=payment_method,
         wallet_id=wallet_id,
         created_by=created_by,
     )
@@ -427,9 +478,10 @@ async def add_transaction(db: AsyncSession, shift_id: uuid.UUID, tx_type: Drawer
         db.add(payment)
         await db.flush()
         dt.customer_payment_id = payment.id
+        # Never clamped at zero (POS-7): paying more than the debt leaves a credit the ledger shows too.
         await db.execute(sqlt(
-            "UPDATE customers SET balance = GREATEST(0, COALESCE(balance,0) - :amt) WHERE id = :cid",
-        ), {"amt": float(amount), "cid": customer_id})
+            "UPDATE customers SET balance = COALESCE(balance,0) - :amt WHERE id = :cid",
+        ), {"amt": Decimal(str(amount)), "cid": customer_id})
         await notify("customer_payment.received", db, payment=payment, user_id=created_by)
 
     await db.flush()
@@ -440,12 +492,18 @@ async def add_transaction(db: AsyncSession, shift_id: uuid.UUID, tx_type: Drawer
 
 
 async def revenue_delivery(db: AsyncSession, shift_id: uuid.UUID, data, current_user: "User") -> dict:
-    """Mid-shift revenue delivery to safe — requires manager authorization."""
+    """Mid-shift revenue delivery from the drawer to a safe — authorised by a manager's password.
+    The money goes in through the finance safes service (row lock, numbered DEP document), never
+    more than the cash the drawer should hold, from the user's own shift (or, for a supervisor, a
+    shift of a branch they reach) into an active safe (POS-2)."""
+    from app.activities.general.modules.finance.services import safes
+    from app.dependencies import verify_warehouse_access
     from app.platform.auth.security import verify_password
     from app.platform.auth.models.user import User
+    from app.platform.permissions.access import can
 
     mgr = await db.get(User, data.manager_id)
-    if not mgr or not mgr.is_manager:
+    if not mgr or not mgr.is_manager or not mgr.is_active:
         raise BusinessError("المدير غير موجود أو ليس لديه صلاحية المدير")
     if not verify_password(data.manager_password, mgr.password_hash):
         raise ForbiddenError("كلمة مرور المدير غير صحيحة")
@@ -456,12 +514,27 @@ async def revenue_delivery(db: AsyncSession, shift_id: uuid.UUID, data, current_
         raise NotFoundError("الوردية غير موجودة")
     if shift.status != ShiftStatus.open:
         raise BusinessError("الوردية مغلقة بالفعل")
+    privileged = bool(current_user.is_manager or can(current_user, "supervise"))
+    if shift.cashier_id and shift.cashier_id != current_user.id and not privileged:
+        raise ForbiddenError("الدرج مسجل باسم موظف آخر")
+    await verify_warehouse_access(db, current_user, shift.warehouse_id)
 
-    # Drawer transaction (withdrawal from drawer to safe)
+    safe = (await db.execute(sqlt("SELECT name, is_active FROM safes WHERE id = :id FOR UPDATE"),
+                             {"id": data.safe_id})).first()
+    if safe is None:
+        raise NotFoundError("الخزنة غير موجودة")
+    if not safe.is_active:
+        raise BusinessError("الخزنة موقوفة")
+
+    amount = Decimal(str(data.amount))
+    in_drawer = Decimal(str((await compute_summary(db, shift_id))["expected_balance"]))
+    if amount > in_drawer:
+        raise BusinessError(f"المبلغ أكبر من النقدية المتوقعة في الدرج ({in_drawer:.2f} ج.م)")
+
     dt = DrawerTransaction(
         shift_id=shift_id,
         type=DrawerTxType.revenue_delivery,
-        amount=data.amount,
+        amount=amount,
         note=f"تسليم إيرادات إلى الخزنة. {data.notes or ''}",
         created_by=current_user.id,
     )
@@ -469,45 +542,19 @@ async def revenue_delivery(db: AsyncSession, shift_id: uuid.UUID, data, current_
     await db.flush()
     await notify("drawer.revenue_delivered", db, tx=dt, shift=shift, safe_id=data.safe_id, user_id=current_user.id)
 
-    # Credit the safe
-    safe_name = (await db.execute(sqlt("SELECT name FROM safes WHERE id=:id"), {"id": data.safe_id})).scalar() or ""
-    await db.execute(sqlt("UPDATE safes SET balance = balance + :amt WHERE id = :id"),
-                     {"amt": float(data.amount), "id": data.safe_id})
-    new_balance = (await db.execute(sqlt("SELECT balance FROM safes WHERE id=:id"), {"id": data.safe_id})).scalar()
-    await db.execute(sqlt("""
-        INSERT INTO safe_transactions (id, safe_id, tx_type, amount, balance_after, note, created_by)
-        VALUES (gen_random_uuid(), :sid, 'deposit', :amt, :bal, :note, :uid)
-    """), {"sid": data.safe_id, "amt": float(data.amount), "bal": new_balance,
-           "note": f"إيرادات من وردية — {data.notes or ''}", "uid": current_user.id})
+    out = await safes.deposit(db, data.safe_id, amount, current_user, shift_id=shift.id,
+                              warehouse_id=shift.warehouse_id, received_by_id=mgr.id,
+                              notes=f"إيرادات من وردية — {data.notes or ''}")
+    from app.platform.audit.service import log as audit_log
 
-    # Warehouse name for archive
-    wh_name = ""
-    if shift.warehouse_id:
-        wh_name = (await db.execute(sqlt("SELECT name FROM warehouses WHERE id=:id"), {"id": shift.warehouse_id})).scalar() or ""
-
-    # Archive
-    seq = (await db.execute(sqlt("SELECT nextval('invoice_seq')"))).scalar()
-    doc_number = f"DEP-{seq:06d}"
-    await db.execute(sqlt("""
-        INSERT INTO archived_documents (id, doc_number, doc_type, amount, created_by, metadata)
-        VALUES (gen_random_uuid(), :doc, 'safe_deposit', :amt, :uid, cast(:meta as jsonb))
-    """), {
-        "doc": doc_number, "amt": float(data.amount), "uid": current_user.id,
-        "meta": json.dumps({
-            "safe_name": safe_name,
-            "warehouse": wh_name,
-            "received_by": mgr.full_name,
-            "deposited_by": current_user.full_name,
-            "notes": data.notes or "",
-            "type": "revenue_delivery",
-        })
-    })
-
+    await audit_log(db, "shift", "revenue_delivery", current_user.id, current_user.full_name, shift.id,
+                    {"amount": str(amount), "safe_id": str(data.safe_id), "doc_number": out["doc_number"],
+                     "received_by": str(mgr.id)}, f"تسليم إيرادات {out['doc_number']}")
     await db.commit()
     return {
-        "doc_number": doc_number,
-        "amount": float(data.amount),
-        "safe": safe_name,
+        "doc_number": out["doc_number"],
+        "amount": float(amount),
+        "safe": safe.name,
         "received_by": mgr.full_name,
     }
 
