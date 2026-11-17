@@ -76,3 +76,11 @@ day, with gaps of 4 to 5 hours, and a wrong runner label (`[self-hosted, homie]`
 only `homie`) left every run queued from 14 to 16 Nov. The schedules now run from systemd timers on homie
 (`deploy/server/mizan-cron.sh`), calling the API on loopback: reliable, free, independent of GitHub and of
 the tunnel. `.github/workflows/jobs.yml` keeps only a manual run.
+
+### Off-site backups in Cloudflare R2 (2026-11-17)
+Until now every backup lived on homie (another partition) plus the streaming standby on latitude, which
+copies deletions and corruption too. The nightly dump is now also encrypted (gpg, AES-256) and uploaded
+to the R2 bucket `mizan-backups` (Eastern Europe) with a key scoped to that bucket. A bucket lock keeps
+each object for 30 days, so even a compromised homie cannot delete recent backups; objects are deleted
+after 35 days. At about 0.5 MB a night this stays far inside R2's free tier. Restore runbook in
+`deploy/server/README.md`.

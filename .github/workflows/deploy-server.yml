@@ -88,8 +88,8 @@ jobs:
       - name: Update the server's compose file and scripts
         if: steps.latest.outputs.skip != 'true'
         run: |
-          cp deploy/server/compose.yaml deploy/server/deploy.sh deploy/server/backup.sh deploy/server/mizan-cron.sh /srv/mizan/
-          chmod +x /srv/mizan/deploy.sh /srv/mizan/backup.sh /srv/mizan/mizan-cron.sh
+          cp deploy/server/compose.yaml deploy/server/deploy.sh deploy/server/backup.sh deploy/server/backup-offsite.sh deploy/server/mizan-cron.sh /srv/mizan/
+          chmod +x /srv/mizan/deploy.sh /srv/mizan/backup.sh /srv/mizan/backup-offsite.sh /srv/mizan/mizan-cron.sh
 
       - name: Release
         if: steps.latest.outputs.skip != 'true'
