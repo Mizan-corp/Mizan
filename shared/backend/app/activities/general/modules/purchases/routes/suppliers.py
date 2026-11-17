@@ -1,6 +1,7 @@
 import json
 import uuid
 from decimal import Decimal
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
@@ -12,11 +13,19 @@ from app.dependencies import get_db, require_perm
 
 router = APIRouter(prefix="/suppliers", tags=["suppliers"])
 
+SUPPLIER_NOT_FOUND = "المورد غير موجود"
+
+# What the party is to the workspace: a supplier of goods, the manufacturer itself, a distributor or a
+# provider of services (rent, maintenance…).
+SupplierType = Literal["supplier", "manufacturer", "distributor", "service"]
+
+
 class SupplierIn(BaseModel):
+    model_config = {"str_strip_whitespace": True}
     name: str = Field(..., min_length=1, max_length=128)
     phone: str | None = Field(None, max_length=32)
     address: str | None = Field(None, max_length=500)
-    type: str = Field("supplier", max_length=32)
+    type: SupplierType = "supplier"
     notes: str | None = Field(None, max_length=2000)
     extra: dict | None = None  # custom fields (app/framework/fields.py)
 
@@ -46,15 +55,20 @@ async def _clean_extra(db: AsyncSession, extra: dict | None, current: dict | Non
 
 
 @router.get("")
-async def list_suppliers(type: str | None = Query(None, max_length=32), include_inactive: bool = False,
+async def list_suppliers(type: SupplierType | None = None, include_inactive: bool = False,
+                         search: str | None = Query(None, max_length=128),
                          page: int = Query(1, ge=1), page_size: int = Query(200, ge=1, le=1000),
                          db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases", "finance", "accounting:view"))):
-    """Suppliers with their balances: for purchasing, finance and the ledger's party picker."""
+    """Suppliers with their balances: for purchasing, finance and the ledger's party picker (which
+    loads up to 1,000). `search`: part of the name or the phone."""
     where = "WHERE true" if include_inactive else "WHERE is_active=true"
     params = {}
     if type:
         where += " AND type=:type"
         params["type"] = type
+    if search and search.strip():
+        where += " AND (name ILIKE :q OR phone ILIKE :q)"
+        params["q"] = f"%{search.strip()}%"
     total = (await db.execute(text(f"SELECT COUNT(*) FROM suppliers {where}"), params)).scalar()
     r = await db.execute(text(f"SELECT * FROM suppliers {where} ORDER BY name OFFSET :offset LIMIT :limit"), {**params, "offset": (page - 1) * page_size, "limit": page_size})
     items = [dict(row._mapping) for row in r.fetchall()]
@@ -81,7 +95,7 @@ async def update_supplier(sid: uuid.UUID, data: SupplierIn, db: AsyncSession = D
     await db.commit()
     row = r.fetchone()
     if not row:
-        raise HTTPException(404, "المورد غير موجود")
+        raise HTTPException(404, SUPPLIER_NOT_FOUND)
     return dict(row._mapping)
 
 @router.delete("/{sid}", status_code=204)
@@ -96,7 +110,7 @@ async def delete_supplier(sid: uuid.UUID, db: AsyncSession = Depends(get_db), _=
     # Soft-delete, as before: supplier prices and history may still refer to it.
     r = await db.execute(text("UPDATE suppliers SET is_active=false WHERE id=:id"), {"id": sid})
     if r.rowcount == 0:
-        raise HTTPException(404, "المورد غير موجود")
+        raise HTTPException(404, SUPPLIER_NOT_FOUND)
     await db.commit()
 
 
@@ -113,26 +127,21 @@ async def activate_supplier(sid: uuid.UUID, db: AsyncSession = Depends(get_db), 
 async def _set_active(db: AsyncSession, sid: uuid.UUID, active: bool) -> dict:
     r = await db.execute(text("UPDATE suppliers SET is_active=:a WHERE id=:id"), {"a": active, "id": sid})
     if r.rowcount == 0:
-        raise HTTPException(404, "المورد غير موجود")
+        raise HTTPException(404, SUPPLIER_NOT_FOUND)
     await db.commit()
     return {"id": str(sid), "is_active": active}
 
 
 @router.get("/{sid}/ledger")
-async def supplier_ledger(sid: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases", "finance"))):
-    sup = await db.execute(text("SELECT * FROM suppliers WHERE id=:id"), {"id": sid})
-    sup_row = sup.fetchone()
-    if not sup_row:
-        raise HTTPException(404, "المورد غير موجود")
-    txs = await db.execute(text(
-        "SELECT st.*, sf.name AS safe_name, pw.name AS wallet_name FROM supplier_transactions st "
-        "LEFT JOIN safes sf ON sf.id = st.safe_id LEFT JOIN payment_wallets pw ON pw.id = st.wallet_id "
-        "WHERE st.supplier_id=:id ORDER BY st.created_at DESC"
-    ), {"id": sid})
-    return {
-        "supplier": dict(sup_row._mapping),
-        "transactions": [dict(r._mapping) for r in txs.fetchall()]
-    }
+async def supplier_ledger(sid: uuid.UUID, page: int = Query(1, ge=1), page_size: int = Query(100, ge=1, le=500),
+                          newest_first: bool = False, db: AsyncSession = Depends(get_db),
+                          _=Depends(require_perm("purchases", "finance"))):
+    """The supplier's account: invoices, payments, returns and charges in date order, with what we owe
+    after each line (over the whole account, so every page is right); {supplier, items, total, pages}."""
+    from app.activities.general.modules.purchases.service import supplier_statement
+
+    return await supplier_statement(db, sid, page, page_size, newest_first)
+
 
 @router.post("/{sid}/transactions", status_code=201)
 async def add_transaction(sid: uuid.UUID, data: TxIn, db: AsyncSession = Depends(get_db), current_user=Depends(require_perm("finance"))):
