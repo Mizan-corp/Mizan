@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Numeric, String, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -32,6 +32,9 @@ class Expense(TenantScoped, Base):
     category_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("financial_categories.id"))
     warehouse_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id"))
     amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    # Input VAT included in `amount` (ADR-014 D6), entered from the supplier's invoice; only in a
+    # VAT-registered workspace. The category's account gets amount - tax_amount.
+    tax_amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=0, server_default=text("0"))
     description: Mapped[str] = mapped_column(Text, nullable=False)
     date: Mapped[date] = mapped_column(Date, nullable=False, server_default=func.current_date())
     status: Mapped[str] = mapped_column(String(32), default="draft")  # draft/approved/rejected/cancelled

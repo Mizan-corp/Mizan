@@ -58,6 +58,9 @@ class Product(TenantScoped, Base):
     reorder_qty: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=0)
     reorder_level: Mapped[int] = mapped_column(Integer, default=5, server_default=text("5"))
     stock_status: Mapped[str] = mapped_column(String(32), default="untracked")
+    # VAT code (ADR-014 D6): standard (14 %), zero (0 %, still reported) or exempt; the rates are in
+    # app/platform/settings/vat.py. Documents copy it onto their lines at the time of the document.
+    tax_code: Mapped[str] = mapped_column(String(16), nullable=False, default="standard", server_default=text("'standard'"))
     # Extra descriptive fields from the original system
     company: Mapped[str | None] = mapped_column(String(128), nullable=True)
     size: Mapped[str | None] = mapped_column(String(64), nullable=True)

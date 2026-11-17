@@ -135,6 +135,10 @@
         {
           "key": "subcategory_id",
           "label": "التصنيف"
+        },
+        {
+          "key": "tax_code",
+          "label": "ضريبة القيمة المضافة"
         }
       ]
     }

@@ -42,6 +42,9 @@ class Sale(TenantScoped, Base):
     total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     discount_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     net_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    # The VAT in net_total (ADR-014 D6): the sum of the lines' tax_amount; net_total - tax_amount is
+    # the value before VAT. 0 when the workspace isn't VAT-registered.
+    tax_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0, server_default=text("0"))
     paid_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True, default=0)
     is_credit: Mapped[bool] = mapped_column(Boolean, default=False)
     payment_method: Mapped[str] = mapped_column(String(32), default="cash")
@@ -69,6 +72,13 @@ class SaleItem(TenantScoped, Base):
     unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     unit_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     discount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
+    # VAT at the time of the document (ADR-014 D6): the product's code then (NULL: no VAT, the
+    # workspace isn't registered, or a line from before v94), its rate, the tax, and the line's
+    # value after every discount without VAT (net_amount + tax_amount is what the line costs).
+    tax_code: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    tax_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=0, server_default=text("0"))
+    tax_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0, server_default=text("0"))
+    net_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
 
     sale: Mapped["Sale"] = relationship(back_populates="items")

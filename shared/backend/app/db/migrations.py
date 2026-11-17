@@ -3828,6 +3828,37 @@ MIGRATIONS = [
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
             WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+
+    # ADR-014 D6 (step 6): VAT stored on documents. Products get a tax code (every existing product is
+    # 'standard'); each document line stores its code, rate, tax and net value at the time of the
+    # document, and each document its tax total. Existing rows keep tax 0 and a NULL line code/net
+    # ("recorded before VAT data"); history is not rewritten. No new tables.
+    ("v94_vat", """
+        ALTER TABLE products ADD COLUMN IF NOT EXISTS tax_code varchar(16) NOT NULL DEFAULT 'standard';
+        ALTER TABLE products DROP CONSTRAINT IF EXISTS ck_products_tax_code;
+        ALTER TABLE products ADD CONSTRAINT ck_products_tax_code CHECK (tax_code IN ('standard', 'zero', 'exempt'));
+
+        ALTER TABLE sales ADD COLUMN IF NOT EXISTS tax_amount numeric(12,2) NOT NULL DEFAULT 0;
+        ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS tax_code varchar(16);
+        ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS tax_rate numeric(5,2) NOT NULL DEFAULT 0;
+        ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS tax_amount numeric(12,2) NOT NULL DEFAULT 0;
+        ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS net_amount numeric(12,2);
+
+        ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS tax_amount numeric(12,2) NOT NULL DEFAULT 0;
+        ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS prices_include_vat boolean;
+        ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS tax_code varchar(16);
+        ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS tax_rate numeric(5,2) NOT NULL DEFAULT 0;
+        ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS tax_amount numeric(12,2) NOT NULL DEFAULT 0;
+        ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS net_amount numeric(12,2);
+
+        ALTER TABLE purchase_returns ADD COLUMN IF NOT EXISTS tax_amount numeric(14,2) NOT NULL DEFAULT 0;
+        ALTER TABLE purchase_return_items ADD COLUMN IF NOT EXISTS tax_code varchar(16);
+        ALTER TABLE purchase_return_items ADD COLUMN IF NOT EXISTS tax_rate numeric(5,2) NOT NULL DEFAULT 0;
+        ALTER TABLE purchase_return_items ADD COLUMN IF NOT EXISTS tax_amount numeric(14,2) NOT NULL DEFAULT 0;
+        ALTER TABLE purchase_return_items ADD COLUMN IF NOT EXISTS net_amount numeric(14,2);
+
+        ALTER TABLE expenses ADD COLUMN IF NOT EXISTS tax_amount numeric(14,2) NOT NULL DEFAULT 0;
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func, text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -33,6 +33,10 @@ class PurchaseOrder(TenantScoped, Base):
     safe_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("safes.id"), nullable=True)
     wallet_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("payment_wallets.id"), nullable=True)
     received_by_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # VAT (ADR-014 D6): the tax in what the order cost when received, and whether its unit costs
+    # included VAT (NULL until received: the workspace's setting then, unless the order says).
+    tax_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0, server_default=text("0"))
+    prices_include_vat: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -52,5 +56,10 @@ class PurchaseOrderItem(TenantScoped, Base):
     qty_received: Mapped[Decimal] = mapped_column(Numeric(12, 3), default=0)
     unit_cost: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # VAT at receipt (ADR-014 D6), as on sale lines: net_amount is the received value without VAT.
+    tax_code: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    tax_rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=0, server_default=text("0"))
+    tax_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0, server_default=text("0"))
+    net_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
 
     order: Mapped["PurchaseOrder"] = relationship(back_populates="items")
