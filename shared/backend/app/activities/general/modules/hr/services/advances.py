@@ -5,13 +5,13 @@ where it came from and its ledger entry is reversed (ADR-014). Records of a mont
 is approved or paid can't be added or cancelled."""
 import json
 import uuid
-from datetime import date
 
 from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.framework.events import notify
+from app.platform.tenancy import clock
 from app.activities.general.modules.hr.services.payroll import ensure_month_open, month_of, record_kind
 
 
@@ -27,7 +27,7 @@ async def add_record(db: AsyncSession, data, user) -> uuid.UUID:
     from app.activities.general.modules.finance.services import payments
 
     record_type = getattr(data.record_type, "value", data.record_type)
-    day = data.date or date.today()
+    day = data.date or clock.today()  # the workspace's day
     # The employee is looked up in the workspace first: another workspace's id used to pass the
     # foreign key and move this workspace's cash.
     emp = (await db.execute(text("SELECT id, name, is_active FROM hr_employees WHERE id=:id FOR SHARE"),

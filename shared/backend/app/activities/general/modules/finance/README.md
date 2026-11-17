@@ -14,7 +14,7 @@ Permission: `finance` (declared here). Reports read with `finance` or `reports`.
 | Safes (a bank account is a safe of type `bank`) | `GET /safes` (balances only for `finance`/`reports`; `include_inactive`), `POST /safes`, `PUT /safes/{id}` (only the fields sent), `DELETE /safes/{id}` (stops an empty safe), `POST /safes/{id}/activate`, `GET /safes/{id}/history` | list: signed in; the rest: `finance` |
 | Movements by hand | `POST /safes/{id}/deposit` (posted as other income; names no shift), `POST /safes/{id}/withdraw` (other expenses), `POST /safes/transfer` (wallet → safe) | `finance`; withdraw: `finance` and the manager flag |
 | Wallets | `GET /wallets`, `POST /wallets`, `PUT /wallets/{id}`, `DELETE /wallets/{id}` (stops an empty wallet), `POST /wallets/{id}/activate`, `POST /wallets/{id}/reset-balance`, `GET /wallets/{id}/history` | list: signed in; the rest: `finance` |
-| Expenses | `GET /expenses`, `POST /expenses`, `PUT /expenses/{id}`, `POST /expenses/{id}/approve` (the money leaves its safe or wallet), `POST /expenses/{id}/cancel` (it comes back), `DELETE /expenses/{id}` (drafts and rejected only), `GET /expenses/summary` | `finance` (summary: `finance` or `reports`) |
+| Expenses | `GET /expenses`, `POST /expenses` (dated today in the workspace's time zone when no date is given), `PUT /expenses/{id}`, `POST /expenses/{id}/approve` `{approved}` (approve: the money leaves its safe or wallet; or reject), `POST /expenses/{id}/cancel` (it comes back), `DELETE /expenses/{id}` (drafts and rejected only), `GET /expenses/summary` | `finance` (summary: `finance` or `reports`) |
 | Vendors and categories | `/expense-vendors`, `/financial-categories` (type `income` or `expense`; a used category is stopped, not deleted) | `finance` (categories list: signed in) |
 | Reports | `GET /reports/ledger` (sale lines, returns and drawer movements of a range, paged; totals over the whole range), `GET /wallets/summary` (confirmed invoices per payment method), `GET /financial-ledger` (drawer movements by category) | `finance` or `reports` (`financial-ledger`: `finance`) |
 | Periods | `GET /periods`, `POST /periods/{month}/close`, `POST /periods/{month}/reopen` `{reason}` | read: `finance` or an accounting permission; close and reopen: `accounting:close` or `finance` |
@@ -22,6 +22,13 @@ Permission: `finance` (declared here). Reports read with `finance` or `reports`.
 | Audit log | `GET /audit-log` | `admin` |
 
 ## Rules
+
+- **An expense's life**: a draft is approved (paid) or rejected; nothing else is decided. Approved
+  is final (cancelling puts the money back and keeps it as cancelled); rejected is closed too (not
+  approved later, which would pay what was refused; enter it again as a new draft). After a
+  decision only the notes change. A draft or a rejected expense can be deleted.
+- **Categories**: one that an expense or a drawer movement carries is stopped, never deleted (the
+  drawer movements' key would clear their category); an unused one is deleted.
 
 - **Balances change only through movements**, under a row lock, each logged with the document it
   belongs to (`services/safes.py`, `services/wallets.py`, `services/payments.py`). A safe or wallet
@@ -38,7 +45,8 @@ Permission: `finance` (declared here). Reports read with `finance` or `reports`.
   for; without one, a user who has neither the manager flag, `supervise` nor `finance` (accountants) sees only their own
   branches (and, for expenses, the company-wide ones) (`services/access.py`).
 - **Periods** (`services/periods.py`): every month from the first one the books know to the
-  current month (Africa/Cairo). With accounting on, the books start at the first journal entry
+  current month in the workspace's time zone (`app/platform/tenancy/clock.py`, Africa/Cairo; the
+  same month `require_open_period` checks before a money write). With accounting on, the books start at the first journal entry
   (the same months as `/accounting/periods`); without it, at the first sale, expense, safe,
   wallet or drawer movement or customer receipt. Months close in order, never the current one;
   reopening goes from the latest closed month back, with a reason, logged; a month of a fiscal
@@ -68,12 +76,14 @@ book, safes and wallets (create, edit, stop, deposit, withdraw, transfer, histor
 
 ## Not yet
 
+- The manifest still lists the customers (`/customers`) and suppliers (`/suppliers`) screens, which
+  belong to contacts and purchases: their screen ids are kept because saved role layouts name them.
 - `strict_safe_balance` (manifest setting) is not read; recurring expenses don't recur (FIN-9).
 - No screens yet for categories, expense vendors, rejecting or editing an expense, wallet reset
   (FIN-14).
 
 ## Dependencies
-core. Tests: `system/backend/tests/test_money_flows_finance.py`, `test_ready_finance_contacts.py`;
+core. Tests: `system/backend/tests/test_money_flows_finance.py`, `test_ready_finance.py`, `test_b_platform.py`;
 `e2e/api/test_expenses.py`, `test_finance.py`, `test_periods.py`, `test_shifts_safes.py`.
 
 ## Expense VAT (ADR-014 D6, step 6)

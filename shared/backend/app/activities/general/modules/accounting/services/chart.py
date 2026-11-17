@@ -109,17 +109,29 @@ async def _next_child_code(db: AsyncSession, parent: Account) -> str:
 
 async def add_account(db: AsyncSession, parent: Account, name: str, name_en: str | None = None,
                       code: str | None = None, is_group: bool = False) -> Account:
-    """A sub-account under a group account (same type as its parent)."""
+    """A sub-account under a group account (same type as its parent). A number already used is a 409:
+    checked under the chart's lock, so two requests for the same number can't both pass the check, and
+    the unique constraint answers 409 too rather than a 500."""
+    from sqlalchemy.exc import IntegrityError
+
+    from app.core.exceptions import ConflictError
+
     if not parent.is_group:
         raise BusinessError("لا يمكن إضافة حساب فرعي إلا تحت حساب تجميعي")
+    await _lock(db, f"acc_chart:{parent.tenant_id}")
     code = code or await _next_child_code(db, parent)
+    taken = ConflictError(f"رقم الحساب {code} مستخدم بالفعل")
     if await db.scalar(text("SELECT 1 FROM acc_accounts WHERE tenant_id = :t AND code = :c"),
                        {"t": parent.tenant_id, "c": code}):
-        raise BusinessError(f"رقم الحساب {code} مستخدم بالفعل")
+        raise taken
     acc = Account(id=uuid.uuid4(), tenant_id=parent.tenant_id, code=code, name=name, name_en=name_en,
                   type=parent.type, parent_id=parent.id, is_group=is_group, active=True)
-    db.add(acc)
-    await db.flush()
+    try:
+        async with db.begin_nested():
+            db.add(acc)
+            await db.flush()
+    except IntegrityError:
+        raise taken from None
     return acc
 
 

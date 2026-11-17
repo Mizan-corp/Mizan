@@ -35,7 +35,8 @@ import { Button, buttonVariants } from "@/components/kit/button";
 import { Card } from "@/components/kit/card";
 import { Input, Modal, useToast } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import { api, downloadExport } from "@/lib/api";
+import { api } from "@/lib/api";
+import { downloadFile } from "@app/lib/documents";
 import { useQuery } from "@tanstack/react-query";
 import { UninstallDialog } from "./UninstallDialog";
 import { sound } from "@/lib/sound";
@@ -615,7 +616,7 @@ export default function ModulesPage() {
                       حُذفت بياناتها
                       {r.has_export && (
                         <button type="button" className="font-semibold text-primary hover:underline"
-                          onClick={() => downloadExport(`/modules/retention/${r.id}/export`, {}, `${r.module_id}-data.json.gz`)}>
+                          onClick={() => downloadFile(`/modules/retention/${r.id}/export`, {}, `${r.module_id}-data.json.gz`)}>
                           تنزيل النسخة
                         </button>
                       )}

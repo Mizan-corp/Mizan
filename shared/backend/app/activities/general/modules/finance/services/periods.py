@@ -7,25 +7,23 @@ movement: a sale, an expense, a safe, wallet or drawer movement, a customer rece
 order, never the current one, and reopen from the latest closed one back.
 """
 import uuid
-from datetime import datetime
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-CAIRO = ZoneInfo("Africa/Cairo")
+from app.platform.tenancy.clock import TZ_NAME, current_month
 
 # The first month of each kind of finance activity, in the workspace's time zone.
-FIRST_ACTIVITY = """
+FIRST_ACTIVITY = f"""
     SELECT MIN(m) FROM (
         SELECT MIN(month) AS m FROM accounting_periods WHERE tenant_id = :t
-        UNION ALL SELECT to_char(MIN(created_at AT TIME ZONE 'Africa/Cairo'), 'YYYY-MM') FROM sales
+        UNION ALL SELECT to_char(MIN(created_at AT TIME ZONE '{TZ_NAME}'), 'YYYY-MM') FROM sales
             WHERE tenant_id = :t AND status IN ('confirmed', 'returned')
         UNION ALL SELECT to_char(MIN(date), 'YYYY-MM') FROM expenses WHERE tenant_id = :t AND status IN ('approved', 'cancelled')
-        UNION ALL SELECT to_char(MIN(created_at AT TIME ZONE 'Africa/Cairo'), 'YYYY-MM') FROM safe_transactions WHERE tenant_id = :t
-        UNION ALL SELECT to_char(MIN(created_at AT TIME ZONE 'Africa/Cairo'), 'YYYY-MM') FROM wallet_transactions WHERE tenant_id = :t
-        UNION ALL SELECT to_char(MIN(created_at AT TIME ZONE 'Africa/Cairo'), 'YYYY-MM') FROM drawer_transactions WHERE tenant_id = :t
-        UNION ALL SELECT to_char(MIN(created_at AT TIME ZONE 'Africa/Cairo'), 'YYYY-MM') FROM customer_payments WHERE tenant_id = :t
+        UNION ALL SELECT to_char(MIN(created_at AT TIME ZONE '{TZ_NAME}'), 'YYYY-MM') FROM safe_transactions WHERE tenant_id = :t
+        UNION ALL SELECT to_char(MIN(created_at AT TIME ZONE '{TZ_NAME}'), 'YYYY-MM') FROM wallet_transactions WHERE tenant_id = :t
+        UNION ALL SELECT to_char(MIN(created_at AT TIME ZONE '{TZ_NAME}'), 'YYYY-MM') FROM drawer_transactions WHERE tenant_id = :t
+        UNION ALL SELECT to_char(MIN(created_at AT TIME ZONE '{TZ_NAME}'), 'YYYY-MM') FROM customer_payments WHERE tenant_id = :t
     ) x
 """
 
@@ -35,10 +33,6 @@ FIRST_ENTRY = """
         UNION ALL SELECT to_char(MIN(date), 'YYYY-MM') FROM acc_entries WHERE tenant_id = :t
     ) x
 """
-
-
-def current_month() -> str:
-    return datetime.now(CAIRO).strftime("%Y-%m")
 
 
 def months_between(first: str, last: str) -> list[str]:

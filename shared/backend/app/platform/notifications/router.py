@@ -60,7 +60,7 @@ class RegisterTokenRequest(BaseModel):
 
 
 class SendNotificationRequest(BaseModel):
-    user_id: str
+    user_id: uuid.UUID
     title: str
     body: str
     data: dict | None = None
@@ -472,7 +472,7 @@ async def send_notification(
 
 @router.get("/tokens")
 async def list_tokens(
-    user_id: str = None,
+    user_id: uuid.UUID | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_perm("admin")),
 ):

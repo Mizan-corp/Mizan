@@ -7,6 +7,7 @@ import os
 from datetime import datetime
 
 from app.platform.printing.routes import h
+from app.platform.tenancy import clock
 
 
 class Employee:
@@ -128,7 +129,7 @@ class ReportGenerator:
     def generate_payroll_report(employees_payroll: list[dict], month: str = None) -> str:
         """Generate an HTML payroll report in landscape format with detailed totals"""
         if not month:
-            month = datetime.now().strftime("%Y-%m")
+            month = clock.now().strftime("%Y-%m")
 
         # Calculate comprehensive totals
         total_employees = len(employees_payroll)
@@ -362,7 +363,7 @@ class ReportGenerator:
     <div class="container">
         <div class="header">
             <h1>📊 تقرير الرواتب الشهري</h1>
-            <p>الشهر: {h(month)} | تاريخ الإنشاء: {datetime.now().strftime('%d/%m/%Y %I:%M %p')}</p>
+            <p>الشهر: {h(month)} | تاريخ الإنشاء: {clock.now().strftime('%d/%m/%Y %I:%M %p')}</p>
         </div>
 
         <div class="summary">
@@ -1030,7 +1031,7 @@ class ReportGenerator:
     <div class="container">
         <div class="header">
             <h1>كشف راتب تفصيلي</h1>
-            <p>{h(employee.name)} | {h(payroll.get('month') or datetime.now().strftime('%Y-%m'))}</p>
+            <p>{h(employee.name)} | {h(payroll.get('month') or clock.now().strftime('%Y-%m'))}</p>
         </div>
 
         {html_info}
@@ -1147,8 +1148,8 @@ class ReportGenerator:
             parts.append(f"إضافي <b>{fmt(ot_h)}</b> س")
         att_bar_html = '&nbsp;&nbsp;·&nbsp;&nbsp;'.join(parts)
 
-        now_str   = datetime.now().strftime('%d / %m / %Y')
-        month_str = h(str(payroll.get('month') or datetime.now().strftime('%Y-%m')).replace('-', '·'))
+        now_str   = clock.now().strftime('%d / %m / %Y')
+        month_str = h(str(payroll.get('month') or clock.now().strftime('%Y-%m')).replace('-', '·'))
 
         html = f"""\
 <!DOCTYPE html>
@@ -1359,7 +1360,7 @@ body{{
     def generate_attendance_report(rows: list[dict], month: str = None, title: str = "تقرير الحضور") -> str:
         """Generate a comprehensive attendance HTML report in landscape format with statistics."""
         if month is None:
-            month = datetime.now().strftime("%Y-%m")
+            month = clock.now().strftime("%Y-%m")
 
         # Calculate statistics
         total_records = len(rows)
@@ -1428,7 +1429,7 @@ body{{
     <div class="container">
         <div class="header">
             <h1>📋 {h(title)}</h1>
-            <p>الشهر: {h(month)} | تاريخ الإنشاء: {datetime.now().strftime('%d/%m/%Y %I:%M %p')}</p>
+            <p>الشهر: {h(month)} | تاريخ الإنشاء: {clock.now().strftime('%d/%m/%Y %I:%M %p')}</p>
         </div>
 
         <div class="summary" id="stats-summary">
@@ -1547,7 +1548,7 @@ body{{
         </div>
         <div class="footer">
             <p>تقرير الحضور - إجمالي الساعات المسجلة للشهر: {total_worked_hours:.2f} ساعة</p>
-            <p>© {datetime.now().year} نظام إدارة الموارد البشرية</p>
+            <p>© {clock.now().year} نظام إدارة الموارد البشرية</p>
         </div>
     </div>
     <div class="no-print" style="padding: 20px; text-align: left;">

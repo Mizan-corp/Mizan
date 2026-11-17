@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Clock, LockKeyhole, Printer, Unlock } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
-import { api, openPrintDoc } from "@/lib/api";
+import { api } from "@/lib/api";
+import { printDocument } from "@app/lib/documents";
 import { dateTime, D, money, moneyEGP } from "@/lib/format";
 import { Badge, Button, Card, Empty, ErrorBox, Input, Select, Spinner } from "@/components/ui";
 import { useBranch } from "@app/components/AppShell";
@@ -117,7 +118,7 @@ export default function ShiftsPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="flex items-center gap-2 font-bold text-success-ink"><Clock size={18} /> وردية مفتوحة</p>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => openPrintDoc(`/print/shift/${shift.id}`)}>
+              <Button variant="outline" onClick={() => printDocument(`/print/shift/${shift.id}`)}>
                 <Printer size={16} /> تقرير الوردية
               </Button>
             </div>

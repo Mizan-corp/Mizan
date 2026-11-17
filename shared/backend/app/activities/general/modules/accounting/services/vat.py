@@ -18,9 +18,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.activities.general.modules.accounting.services.chart import ensure_chart
 from app.activities.general.modules.accounting.services.reports import money
 from app.platform.settings import vat
+from app.platform.tenancy.clock import TZ_NAME
 
 ZERO = Decimal("0")
-_CAIRO = "Africa/Cairo"
+_CAIRO = TZ_NAME
 
 
 def _range(column: str, date_from: date | None, date_to: date | None, params: dict) -> str:

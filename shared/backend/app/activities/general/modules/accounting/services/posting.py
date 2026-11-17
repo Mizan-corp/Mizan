@@ -7,31 +7,17 @@ not at all. A posted entry is never changed: `reverse()` writes the opposite ent
 """
 import uuid
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
-from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activities.general.modules.accounting.models import Entry, Line
 from app.core.exceptions import BusinessError
+from app.platform.tenancy.clock import today  # noqa: F401  (the posting date of things happening now)
 
-CAIRO = ZoneInfo("Africa/Cairo")
 CENT = Decimal("0.01")
-
-
-def today() -> date:
-    """Today in Egypt: the posting date of things happening now."""
-    return datetime.now(CAIRO).date()
-
-
-def local_date(moment: datetime | date | None) -> date:
-    if moment is None:
-        return today()
-    if isinstance(moment, datetime):
-        return (moment if moment.tzinfo else moment.replace(tzinfo=ZoneInfo("UTC"))).astimezone(CAIRO).date()
-    return moment
 
 
 @dataclass

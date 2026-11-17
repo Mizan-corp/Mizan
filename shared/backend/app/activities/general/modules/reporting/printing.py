@@ -1,15 +1,13 @@
 """Printable pages of the reports, built with the print system's helpers. Every text that comes from
 the workspace (store, branch, category and product names, units) is escaped with `h()`."""
-from datetime import datetime
-
-from app.activities.general.modules.reporting.scope import TZ
 from app.platform.printing.routes import ar_egp, ar_num, h, wrap
+from app.platform.tenancy import clock
 
 
 def inventory_html(data: dict) -> str:
     with_cost = data["with_cost"]
     store = data["store"]
-    now = datetime.now(TZ)
+    now = clock.now()
     cols = 6 if with_cost else 5
     rows, current = [], None
     for idx, item in enumerate(data["items"], 1):
@@ -64,4 +62,4 @@ def inventory_html(data: dict) -> str:
 <div style="border-top:2px solid #94a3b8;padding:10px 36px;background:#f8fafc;font-size:10px;color:#6b7280">
   طُبع: {now.strftime('%Y/%m/%d  %H:%M')} — {h(store.get('name'))}
 </div>"""
-    return wrap(body, h(title))
+    return wrap(body, title)

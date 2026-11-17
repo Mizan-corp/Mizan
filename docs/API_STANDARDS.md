@@ -20,6 +20,12 @@ system API also serves its routes at `/api`. Interactive docs: `/api/docs` on ea
   `/ext/v1`); a few older ones return a bare list.
 - **Money** is a decimal string or number with two places, never a float computed on the client;
   **times** are ISO 8601 with a time zone; ids are UUIDs.
+- **Typed parameters**: ids are `uuid.UUID`, dates `date`, choices `Literal` or an enum, lengths and
+  limits bounded, in the route's signature, never a `str` parsed inside; bad input is a 422 (or an
+  Arabic 400 for a rule, such as a range that ends before it starts), never a 500.
+- **Days are the workspace's**: a date (a filter, a report's range, a document's date) is a day in
+  the workspace's time zone, Africa/Cairo for now (`app/platform/tenancy/clock.py`); a range
+  `from`..`to` covers both days fully. The current month (closed periods) is the workspace's too.
 - New endpoints take and return Pydantic schemas (`schemas.py`), never ORM models.
 
 ## 3. Errors

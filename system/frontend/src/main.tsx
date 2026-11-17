@@ -8,6 +8,7 @@ import { ToastProvider } from "@/components/ui";
 import { Toaster } from "@/components/kit/sonner";
 import { api } from "@/lib/api";
 import { takeHandedOffSession } from "@/lib/handoff";
+import { installDocumentErrorHandler } from "@app/lib/documents";
 import { useAuth, type User } from "@/stores/auth";
 import "@/styles.css";
 
@@ -41,6 +42,8 @@ async function adoptHandedOffSession(): Promise<void> {
     auth.logout();
   }
 }
+
+installDocumentErrorHandler();
 
 void adoptHandedOffSession().finally(() => {
   ReactDOM.createRoot(document.getElementById("root")!).render(

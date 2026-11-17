@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { CalendarRange, Printer, Receipt } from "lucide-react";
-import { api, openPrintDoc } from "@/lib/api";
+import { api } from "@/lib/api";
+import { printDocument } from "@app/lib/documents";
 import { qty as fq } from "@/lib/format";
 import { Money, Num, PageHeader, StatCard, TableShell } from "@/components/app/shared";
 import { Button } from "@/components/kit/button";
@@ -12,7 +13,7 @@ import { Input, Select } from "@/components/ui";
 import { Skeleton } from "@/components/kit/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/kit/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/kit/tabs";
-import { Empty, ErrorBox, useToast } from "@/components/ui";
+import { Empty, ErrorBox } from "@/components/ui";
 import { useAuth } from "@/stores/auth";
 import { CustomFieldReport } from "./CustomFieldReport";
 
@@ -48,7 +49,6 @@ export default function ReportsPage() {
   const [from, setFrom] = useState(daysAgo(13));
   const [to, setTo] = useState(iso(now));
   const [wid, setWid] = useState("");
-  const { toast } = useToast();
   // Without "supervise" the server limits every report to the user's own branches.
   const allBranches = useAuth((s) => Boolean(s.user?.is_manager) || s.can("supervise"));
 
@@ -85,8 +85,7 @@ export default function ReportsPage() {
   const printWid = wid || wh.data?.[0]?.id;
   const printInventory = () => {
     if (!printWid) return;
-    openPrintDoc("/reports/inventory/print", { warehouse_id: printWid })
-      .catch((err: Error) => toast("error", err.message || "تعذر فتح تقرير الجرد"));
+    void printDocument("/reports/inventory/print", { warehouse_id: printWid });
   };
 
   return (

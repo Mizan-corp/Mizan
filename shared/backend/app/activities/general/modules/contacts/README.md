@@ -57,11 +57,21 @@ reversing receipts need more (below).
 totals, create and edit, balance adjustment, stop, delete, receipts, and the statement with its
 running balance and the reversal of receipts.
 
-## Not yet
+## Settings
 
-- `default_credit_limit` (manifest setting) is not applied to new customers; no trigram index for
-  the name search (CON-7).
+- `default_credit_limit` (default 0: none): the credit limit a new customer gets when the request
+  doesn't name one (`POST /customers` without `credit_limit`, and `/ext/v1/customers`);
+  `credit_limit: null` sent on purpose means no limit. Over its limit a customer can't buy on
+  credit (sales). The customers screen leaves the field out when it's empty on a new customer.
+
+## Search
+
+`GET /customers?search=` matches `name` or `phone` anywhere (`ILIKE '%…%'`). Migration
+`v102_b_platform` adds trigram indexes (`ix_customers_name_trgm`, `ix_customers_phone_trgm`, GIN,
+`pg_trgm`) where the server offers the extension, which serve that search; where it doesn't (an
+on-site PostgreSQL without contrib), a btree on `(tenant_id, lower(name))` (`ix_customers_name_lower`),
+which helps ordering and prefix searches only.
 
 ## Dependencies
-core. Tests: `system/backend/tests/test_money_flows_finance.py`, `test_ready_finance_contacts.py`;
-`e2e/api/test_parties.py`.
+core. Tests: `system/backend/tests/test_money_flows_finance.py`, `test_ready_contacts.py`,
+`test_b_platform.py`; `e2e/api/test_parties.py`.

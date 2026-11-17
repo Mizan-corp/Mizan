@@ -19,6 +19,16 @@ export class ApiError extends Error {
   }
 }
 
+/** An error opening or downloading a document (openPrintDoc, downloadExport): an ApiError the
+ * app can tell apart, to show it even when the caller didn't catch it. */
+export class DocumentError extends ApiError {}
+
+function asDocumentError(err: unknown): DocumentError {
+  if (err instanceof DocumentError) return err;
+  if (err instanceof ApiError) return new DocumentError(err.status, err.message);
+  return new DocumentError(0, "تعذر فتح المستند. حاول مرة أخرى.");
+}
+
 function isSameOrigin(): boolean {
   return RAW_BASE.startsWith("/") && !RAW_BASE.includes("//");
 }
@@ -117,7 +127,9 @@ export function apiUrl(path: string): string {
 /** Open a server-rendered document (print/PDF) in a new tab.
  *
  * Print endpoints require a short-lived scope=print token (POST /auth/print-token,
- * 60s TTL) — the session token is rejected by design. */
+ * 60s TTL) — the session token is rejected by design. If the token can't be had the tab
+ * closes and the ApiError (Arabic) is thrown for the caller to show; an error of the
+ * document itself (no permission, not found) is shown by the server in the tab. */
 export async function openPrintDoc(path: string, params?: Record<string, string | number | undefined>): Promise<void> {
   // open the tab synchronously (inside the user gesture) so popup blockers
   // allow it, then navigate it once the short-lived print token arrives
@@ -133,7 +145,7 @@ export async function openPrintDoc(path: string, params?: Record<string, string 
     else window.location.href = url.toString();
   } catch (err) {
     win?.close();
-    throw err;
+    throw asDocumentError(err);
   }
 }
 
@@ -161,8 +173,25 @@ export async function downloadExport(path: string, params?: Record<string, strin
   for (const [k, v] of Object.entries(params ?? {})) {
     if (v !== undefined && v !== "") url.searchParams.set(k, String(v));
   }
-  const res = await fetch(url.toString(), { headers: authHeaders() });
-  if (!res.ok) throw new ApiError(res.status, `فشل تنزيل الملف (${res.status})`);
+  let res: Response;
+  try {
+    res = await fetch(url.toString(), { headers: authHeaders() });
+  } catch {
+    throw new DocumentError(0, "تعذر الاتصال بالخادم — تحقق من اتصال الإنترنت");
+  }
+  if (!res.ok) {
+    // The server's own message (Arabic) when it sent one: "no permission", "branch not found"…
+    let msg = `فشل تنزيل الملف (${res.status})`;
+    try {
+      if ((res.headers.get("content-type") ?? "").includes("application/json")) {
+        const d = await res.json();
+        if (typeof d?.detail === "string") msg = d.detail;
+      }
+    } catch {
+      /* keep the default message */
+    }
+    throw new DocumentError(res.status, msg);
+  }
   const blob = await res.blob();
   // A printable page instead of the PDF (e.g. receipts where the server can't render PDFs):
   // keep the name, fix the extension so it opens in the browser.

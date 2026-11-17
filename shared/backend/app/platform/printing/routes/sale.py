@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime
 
 from fastapi import Depends
 from fastapi.responses import HTMLResponse
@@ -8,8 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.dependencies import get_print_user
+from app.platform.tenancy import clock
 
-from . import _make_pdf, ar_egp, ar_num, fmt_date, fmt_dt, get_settings, h, router, top_band, wrap
+from . import _make_pdf, PaperSize, ar_egp, ar_num, fmt_date, fmt_dt, get_settings, guard, h, not_found, router, store_of, top_band, wrap
+
+# Who prints a sale: the counter (pos), sales, and the accountant opening an entry's document.
+SALE_PERMS = ("sales", "pos", "accounting:view")
 
 
 async def _field_labels(db: AsyncSession) -> tuple[dict, dict]:
@@ -73,11 +76,9 @@ def _line_tax(it: dict) -> str:
 
 @router.get("/sale/{sale_id}", response_class=HTMLResponse)
 async def print_sale(sale_id: uuid.UUID,
-                     db: AsyncSession = Depends(get_db), _=Depends(get_print_user)):
+                     db: AsyncSession = Depends(get_db), user=Depends(get_print_user)):
     s = await get_settings(db)
-    store = {"name": s.get("store_name",""), "address": s.get("store_address",""),
-             "phone": s.get("store_phone",""), "logo_url": s.get("logo_url",""),
-             "contacts": s.get("contact_phones") or []}
+    store = store_of(s)
 
     row = await db.execute(text("""
         SELECT sa.*, c.name as customer_name, c.phone as customer_phone, c.address as customer_address,
@@ -92,8 +93,9 @@ async def print_sale(sale_id: uuid.UUID,
     """), {"id": sale_id})
     sale = row.fetchone()
     if not sale:
-        return HTMLResponse("Not found", 404)
+        raise not_found("الفاتورة")
     sale = dict(sale._mapping)
+    await guard(db, user, SALE_PERMS, [sale.get("warehouse_id")], "ليس لديك صلاحية طباعة الفواتير")
 
     items_row = await db.execute(text("""
         SELECT si.*, p.name as product_name, p.unit
@@ -117,7 +119,7 @@ async def print_sale(sale_id: uuid.UUID,
         elif str(sale['invoice_number']).startswith("RET-"):
             for ln in (sale.get('notes') or '').split(','):
                 if 'مرتجع جزئي من' in ln:
-                    orig_inv = ln.split('مرتجع جزئي من')[-1].strip()
+                    orig_inv = h(ln.split('مرتجع جزئي من')[-1].strip())
                     break
         else:
             orig_inv = h(sale['invoice_number'])
@@ -156,15 +158,7 @@ async def print_sale(sale_id: uuid.UUID,
             </div>"""
 
         emp = h(sale.get('created_by_name') or sale.get('cashier_name') or '—')
-        now = datetime.now().strftime('%d/%m/%Y  %I:%M %p').replace('AM', 'ص').replace('PM', 'م')
-        header_meta = f"""
-        <div style="font-size:9px;color:#6b7280;text-align:left;margin-bottom:6px;line-height:1.6">
-          التاريخ: {fmt_dt(sale['created_at'])} &nbsp;|&nbsp; الموظف: {emp}
-          {f'&nbsp;|&nbsp; الفاتورة الأصلية: {orig_inv}' if orig_inv else ''}
-        </div>"""
-
-        emp = sale.get('created_by_name') or sale.get('cashier_name') or '—'
-        now = datetime.now().strftime('%d/%m/%Y  %I:%M %p').replace('AM', 'ص').replace('PM', 'م')
+        now = clock.stamp('%d/%m/%Y  %I:%M %p').replace('AM', 'ص').replace('PM', 'م')
         header_meta = f"""
         <div style="font-size:9px;color:#6b7280;text-align:left;margin-bottom:6px;line-height:1.6">
           التاريخ: {fmt_dt(sale['created_at'])} &nbsp;|&nbsp; الموظف: {emp}
@@ -213,7 +207,6 @@ async def print_sale(sale_id: uuid.UUID,
 
     has_vat = any(i.get("tax_code") for i in items)
     doc_label = "عرض سعر" if is_q else ("فاتورة ضريبية" if has_vat else "فاتورة مبيعات")
-    "جملة" if sale.get('sale_mode') == 'wholesale' else "قطاعي"
     st_map = {"confirmed": ("مؤكدة","b-green"), "quotation": ("عرض سعر","b-yellow"),
               "returned": ("مرتجعة","b-red"), "cancelled": ("ملغاة","b-red")}
     st_lbl, st_cls = st_map.get(sale['status'], (sale['status'], "b-blue"))
@@ -258,7 +251,7 @@ async def print_sale(sale_id: uuid.UUID,
       </td>
       <td style="width:16%;padding:6px 10px;border:1px solid #ccc;border-right:none;vertical-align:middle;text-align:center">
         <div class="party-label">الحالة</div>
-        <div style="margin-top:3px"><span class="badge {st_cls}">{st_lbl}</span></div>
+        <div style="margin-top:3px"><span class="badge {st_cls}">{h(st_lbl)}</span></div>
       </td>
     </tr>
   </table>
@@ -296,7 +289,7 @@ async def print_sale(sale_id: uuid.UUID,
 
 
 @router.get("/pdf/sale/{sale_id}")
-async def pdf_sale(sale_id: uuid.UUID, paper_size: str = None,
+async def pdf_sale(sale_id: uuid.UUID, paper_size: PaperSize = None,
                    db: AsyncSession = Depends(get_db), user=Depends(get_print_user)):
     html_resp = await print_sale(sale_id, db, user)
     return await _make_pdf(html_resp, "فاتورة مبيعات", f"sale_{sale_id}.pdf", db, paper_size)

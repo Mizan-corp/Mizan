@@ -11,7 +11,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.activities.general.modules.reporting.scope import FINANCE, TZ, TZ_NAME, branch_scope, day_range
+from app.activities.general.modules.reporting.scope import FINANCE, TZ, TZ_NAME, branch_scope, day_range, require_workspace
 from app.db.base import get_db
 from app.dependencies import require_perm
 from app.platform.auth.models.user import User
@@ -124,9 +124,12 @@ def _dates(column: str, from_date: date | None, to_date: date | None, params: di
 
 
 @router.get("/products")
-async def export_products(db: AsyncSession = Depends(get_db), _=Depends(require_perm("inventory"))):
-    rows = (await db.execute(text("""
-        SELECT p.name, p.company, p.unit, p.retail_price, p.wholesale_price, p.cost_price,
+async def export_products(db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("inventory"))):
+    """The product list; the cost price only with `reports:finance` (as the stock export)."""
+    require_workspace()
+    cost = ", p.cost_price" if can(user, FINANCE) else ""
+    rows = (await db.execute(text(f"""
+        SELECT p.name, p.company, p.unit, p.retail_price, p.wholesale_price{cost},
                c.name as category, s.name as subcategory, p.stock_status, p.extra
         FROM products p
         LEFT JOIN subcategories s ON s.id = p.subcategory_id
@@ -183,6 +186,7 @@ async def export_stock(warehouse_id: uuid.UUID | None = None, db: AsyncSession =
 
 @router.get("/customers")
 async def export_customers(db: AsyncSession = Depends(get_db), _=Depends(require_perm("customers"))):
+    require_workspace()
     rows = (await db.execute(text("""
         SELECT c.name, c.phone, c.balance, c.credit_limit, c.extra FROM customers c ORDER BY c.name LIMIT :lim
     """), {"lim": EXPORT_LIMIT})).mappings().fetchall()
@@ -191,6 +195,7 @@ async def export_customers(db: AsyncSession = Depends(get_db), _=Depends(require
 
 @router.get("/suppliers")
 async def export_suppliers(db: AsyncSession = Depends(get_db), _=Depends(require_perm("purchases"))):
+    require_workspace()
     rows = (await db.execute(text("""
         SELECT s.name, s.phone, s.balance, s.extra FROM suppliers s ORDER BY s.name LIMIT :lim
     """), {"lim": EXPORT_LIMIT})).mappings().fetchall()

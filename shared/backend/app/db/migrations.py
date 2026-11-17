@@ -4057,6 +4057,49 @@ MIGRATIONS = [
         ALTER TABLE product_collections ALTER COLUMN wholesale_price SET DEFAULT 0;
         ALTER TABLE collection_items ALTER COLUMN qty SET DEFAULT 1;
     """),
+
+    # Phase B, platform (CON-7): customer search (`name ILIKE '%…%'`, the POS and every picker) by a
+    # trigram index when the server offers pg_trgm (PostgreSQL's contrib, a trusted extension the
+    # database owner may create); without it, a btree on lower(name) for prefix searches and ordering.
+    # Both guarded: the migration never fails on a server without the extension. And hr_settings
+    # kept the baseline's PRIMARY KEY (key) (v54 adds one on id only where none exists): two
+    # workspaces couldn't both save a setting of the same name. Its key becomes the model's (id),
+    # with (tenant_id, key) still unique.
+    ("v102_b_platform", """
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_trgm') THEN
+                BEGIN
+                    CREATE EXTENSION IF NOT EXISTS pg_trgm;
+                EXCEPTION WHEN insufficient_privilege THEN
+                    RAISE NOTICE 'pg_trgm not created: %', SQLERRM;
+                END;
+            END IF;
+            IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
+                CREATE INDEX IF NOT EXISTS ix_customers_name_trgm ON customers USING gin (name gin_trgm_ops);
+                CREATE INDEX IF NOT EXISTS ix_customers_phone_trgm ON customers USING gin (phone gin_trgm_ops);
+            ELSE
+                CREATE INDEX IF NOT EXISTS ix_customers_name_lower ON customers (tenant_id, lower(name));
+            END IF;
+        END $$;
+
+        DO $$
+        DECLARE pk text;
+        BEGIN
+            SELECT c.conname INTO pk FROM pg_constraint c
+            WHERE c.conrelid = 'public.hr_settings'::regclass AND c.contype = 'p'
+              AND pg_get_constraintdef(c.oid) = 'PRIMARY KEY (key)';
+            IF pk IS NOT NULL THEN
+                UPDATE hr_settings SET id = gen_random_uuid() WHERE id IS NULL;
+                EXECUTE format('ALTER TABLE hr_settings DROP CONSTRAINT %I', pk);
+                ALTER TABLE hr_settings ADD PRIMARY KEY (id);
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.hr_settings'::regclass
+                           AND pg_get_constraintdef(oid) = 'UNIQUE (tenant_id, key)') THEN
+                ALTER TABLE hr_settings ADD CONSTRAINT uq_hr_settings_key UNIQUE (tenant_id, key);
+            END IF;
+        END $$;
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables
