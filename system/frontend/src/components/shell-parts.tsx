@@ -138,7 +138,8 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   const { data: searchProducts } = useQuery({
     queryKey: ["cmd-products", trimmed],
     queryFn: () => api.get<{ items: SearchProduct[] }>("/products", { search: trimmed, page_size: 5 }),
-    enabled: open && shouldSearchLive,
+    // The roles that read the catalogue (inventory's READ_PERMISSIONS).
+    enabled: open && shouldSearchLive && can("inventory|purchases|operations|pos|sales|quotations|reports"),
     staleTime: 10_000,
   });
 
