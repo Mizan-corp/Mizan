@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
@@ -175,15 +174,20 @@ async def require_is_manager(current_user: User = Depends(get_current_user)) -> 
     return current_user
 
 
-async def require_open_period(db: AsyncSession = Depends(get_db)):
-    """Block transactions if the current accounting month is closed.
-    Uses the same table schema as periods.py (UUID pk, closed_by, closed_at).
+async def require_open_period(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Block transactions if the workspace's current month is closed.
+
+    The month is the workspace's (app/platform/tenancy/clock.py, Africa/Cairo), not the server's:
+    on a UTC server the first hours of a month in Cairo still counted as the month before. The user
+    dependency binds the workspace before the lookup, whatever order a route declares them in.
     """
-    month = datetime.now().strftime("%Y-%m")
+    from app.platform.tenancy.clock import current_month
+
+    month = current_month()
     try:
         status_row = (await db.execute(text(
-            "SELECT status FROM accounting_periods WHERE month=:m"
-        ), {"m": month})).scalar_one_or_none()
+            "SELECT status FROM accounting_periods WHERE month = :m AND tenant_id = :t"
+        ), {"m": month, "t": current_user.tenant_id})).scalar_one_or_none()
     except Exception as e:
         # Only allow through if the table doesn't exist (42P01 = undefined_table in PG)
         # For all other errors (connection, auth, etc.) — fail closed

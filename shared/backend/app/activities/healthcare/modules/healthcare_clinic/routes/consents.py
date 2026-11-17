@@ -11,7 +11,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 from urllib.parse import quote
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
@@ -27,6 +26,7 @@ from app.dependencies import get_current_user
 from app.framework import files
 from app.platform.audit.service import log as audit_log
 from app.platform.auth.models.user import User
+from app.platform.tenancy.clock import TZ as CAIRO
 
 router = APIRouter()
 
@@ -35,7 +35,6 @@ PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 KINDS_AR = {"procedure": "إجراء طبي", "surgery": "عملية جراحية", "data_sharing": "مشاركة البيانات الطبية", "other": "أخرى"}
 RELATIONS_AR = {"self": "المريض نفسه", "guardian": "الوصي القانوني", "parent": "ولي الأمر", "spouse": "الزوج / الزوجة", "other": "أخرى"}
 FONTS = Path(__file__).resolve().parents[5] / "platform" / "printing" / "fonts"
-CAIRO = ZoneInfo("Africa/Cairo")
 
 
 class ConsentCreate(BaseModel):
