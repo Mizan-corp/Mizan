@@ -104,6 +104,11 @@ class SaleItemOut(BaseModel):
     unit_price: Decimal
     unit_cost: Decimal = Decimal("0")
     discount: Decimal = Decimal("0")
+    # VAT stored at the time of the document (ADR-014 D6).
+    tax_code: str | None = None
+    tax_rate: Decimal = Decimal("0")
+    tax_amount: Decimal = Decimal("0")
+    net_amount: Decimal | None = None
     extra: dict = Field(default_factory=dict)
     model_config = {"from_attributes": True}
 
@@ -119,6 +124,7 @@ class SaleOut(BaseModel):
     total: Decimal
     discount_amount: Decimal
     net_total: Decimal
+    tax_amount: Decimal = Decimal("0")
     paid_amount: Decimal | None
     is_credit: bool
     status: str

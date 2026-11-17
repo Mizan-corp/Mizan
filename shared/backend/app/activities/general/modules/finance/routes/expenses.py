@@ -132,17 +132,18 @@ async def list_expenses(
 @router.post("/expenses", status_code=201)
 async def create_expense(data: ExpenseCreate, db: AsyncSession = Depends(get_db),
                          current_user=Depends(require_perm("finance")), _=Depends(require_open_period)):
+    tax = await expenses_service.check_tax(db, data.amount, data.tax_amount)
     r = await db.execute(sqlt("""
-        INSERT INTO expenses (vendor_id, category_id, warehouse_id, amount, description, date,
+        INSERT INTO expenses (vendor_id, category_id, warehouse_id, amount, tax_amount, description, date,
             payment_method, wallet_id, safe_id, is_recurring, recurring_interval, recurring_end_date,
             notes, created_by, status)
-        VALUES (:vendor_id, :category_id, :warehouse_id, :amount, :description,
+        VALUES (:vendor_id, :category_id, :warehouse_id, :amount, :tax_amount, :description,
             COALESCE(:date, CURRENT_DATE), :payment_method, :wallet_id, :safe_id,
             :is_recurring, :recurring_interval, :recurring_end_date, :notes, :by, 'draft')
         RETURNING *
     """), {
         "vendor_id": data.vendor_id, "category_id": data.category_id,
-        "warehouse_id": data.warehouse_id, "amount": data.amount,
+        "warehouse_id": data.warehouse_id, "amount": data.amount, "tax_amount": tax,
         "description": data.description, "date": data.date,
         "payment_method": data.payment_method, "wallet_id": data.wallet_id,
         "safe_id": data.safe_id, "is_recurring": data.is_recurring,
@@ -157,9 +158,11 @@ async def create_expense(data: ExpenseCreate, db: AsyncSession = Depends(get_db)
 @router.put("/expenses/{eid}")
 async def update_expense(eid: uuid.UUID, data: ExpenseUpdate, db: AsyncSession = Depends(get_db),
                          _=Depends(require_perm("finance"))):
-    existing = (await db.execute(sqlt("SELECT status FROM expenses WHERE id = :id FOR UPDATE"), {"id": eid})).scalar_one_or_none()
-    if existing is None:
+    current = (await db.execute(sqlt("SELECT status, amount, tax_amount FROM expenses WHERE id = :id FOR UPDATE"),
+                                {"id": eid})).first()
+    if current is None:
         raise NotFoundError()
+    existing = current.status
     # Exclude 'status' — it must be changed via the approve/reject/cancel endpoints only
     allowed = set(ExpenseUpdate.model_fields.keys()) - {"status"}
     if existing in expenses_service.FINAL_STATUSES:
@@ -171,6 +174,10 @@ async def update_expense(eid: uuid.UUID, data: ExpenseUpdate, db: AsyncSession =
     updates = {k: v for k, v in changes.items() if k in allowed}
     if not updates:
         raise NotFoundError()
+    if "amount" in updates or "tax_amount" in updates:
+        updates["tax_amount"] = await expenses_service.check_tax(
+            db, updates.get("amount") or current.amount,
+            updates["tax_amount"] if updates.get("tax_amount") is not None else current.tax_amount)
     sets = ", ".join(f"{k} = :{k}" for k in updates)
     r = await db.execute(sqlt(f"UPDATE expenses SET {sets} WHERE id = :id RETURNING *"),
                          {**updates, "id": eid})

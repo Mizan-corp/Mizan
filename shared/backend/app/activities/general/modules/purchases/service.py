@@ -102,6 +102,7 @@ async def create_purchase(
         warehouse_id=data.warehouse_id,
         created_by=current_user.id,
         notes=data.notes,
+        prices_include_vat=getattr(data, "prices_include_vat", None),
     )
     db.add(po)
     await db.flush()
@@ -180,10 +181,28 @@ async def receive_purchase(
                                                        ('batch_number', i.batch_number), ('expiry_date', i.expiry_date))
                                      if v is not None} for i in data.items}
 
+    # VAT (ADR-014 D6): each line's tax from the product's code now; the order's unit costs include
+    # VAT or not as the receipt (or the order) says, else as the workspace's setting says. Stock and
+    # the average cost (D5) take the cost without VAT, which the workspace gets back as input VAT.
+    from app.platform.settings import vat
+
+    vat_cfg = await vat.vat_settings(db)
+    inclusive = next((v for v in (data.prices_include_vat, po.prices_include_vat) if v is not None),
+                     vat_cfg.prices_include_vat)
+    codes = await vat.product_tax_codes(db, [i.product_id for i in items]) if vat_cfg.registered else {}
+    line_taxes = []
+
     for item in items:
         override = overrides.get(str(item.product_id), {})
         qty = float(override.get("qty_received", item.qty_ordered))
         cost = float(override.get("unit_cost", item.unit_cost))
+        tax = vat.line_tax(Decimal(str(qty)) * Decimal(str(cost)), codes.get(item.product_id), vat_cfg.registered, inclusive)
+        line_taxes.append(tax)
+        item.tax_code, item.tax_rate, item.tax_amount, item.net_amount = tax.tax_code, tax.tax_rate, tax.tax, tax.net
+        if vat_cfg.registered and qty:
+            cost_net = (tax.net / Decimal(str(qty))).quantize(Decimal("0.0001"))
+        else:
+            cost_net = Decimal(str(cost))
 
         # Record stock movement
         mv = StockMovementCreate(
@@ -191,7 +210,7 @@ async def receive_purchase(
             warehouse_id=po.warehouse_id,
             movement_type=MovementType.purchase,
             qty=qty,
-            unit_cost=cost,
+            unit_cost=cost_net,
             batch_number=override.get("batch_number"),
             expiry_date=override.get("expiry_date"),
         )
@@ -202,11 +221,12 @@ async def receive_purchase(
         # Update product cost_price + record history
         old_cost_row = await db.execute(text("SELECT cost_price FROM products WHERE id=:id"), {"id": item.product_id})
         old_cost = old_cost_row.scalar()
-        await db.execute(text("UPDATE products SET cost_price=:cost WHERE id=:id"), {"cost": cost, "id": item.product_id})
+        last_cost = cost_net.quantize(Decimal("0.01"))  # the last purchase price, without VAT when registered
+        await db.execute(text("UPDATE products SET cost_price=:cost WHERE id=:id"), {"cost": last_cost, "id": item.product_id})
         await db.execute(text("""
             INSERT INTO purchase_price_history (product_id, po_id, supplier_id, old_cost, new_cost)
             VALUES (:pid, :po_id, :sid, :old, :new)
-        """), {"pid": item.product_id, "po_id": po_id, "sid": po.supplier_id, "old": old_cost, "new": cost})
+        """), {"pid": item.product_id, "po_id": po_id, "sid": po.supplier_id, "old": old_cost, "new": last_cost})
 
     po.status = POStatus.received
     po.received_at = datetime.now(UTC)
@@ -217,6 +237,11 @@ async def receive_purchase(
         for item in items
     ) or Decimal("0")
     total_cost = total_cost.quantize(Decimal("0.01"))
+    po.tax_amount = sum((t.tax for t in line_taxes), Decimal("0"))
+    if vat_cfg.registered:
+        # What the supplier is owed: each line's value without VAT plus its VAT.
+        total_cost = sum((t.gross for t in line_taxes), Decimal("0"))
+        po.prices_include_vat = inclusive
 
     # What is paid now, and where it comes from (ADR-014 D4): the receipt may override what the
     # order said. The money leaves the safe or wallet; neither may go below zero.
@@ -275,7 +300,7 @@ async def receive_purchase(
     # The ledger posts the receipt (and what was paid with it) in this transaction (ADR-014 D3).
     await notify("purchase.received", db, user_id=current_user.id, purchase={
         "id": po.id, "tenant_id": po.tenant_id, "po_number": po.po_number, "supplier_id": po.supplier_id,
-        "warehouse_id": po.warehouse_id, "total": total_cost, "amount_paid": amount_paid,
+        "warehouse_id": po.warehouse_id, "total": total_cost, "tax_amount": po.tax_amount, "amount_paid": amount_paid,
         "safe_id": po.safe_id if amount_paid > 0 else None, "wallet_id": po.wallet_id if amount_paid > 0 else None})
     await db.commit()
     return {"detail": "Received", "po_number": po.po_number}
@@ -508,7 +533,9 @@ async def _po_quantities(db: AsyncSession, po_id: uuid.UUID) -> dict[uuid.UUID, 
     """Per product of a purchase order: what was received, its average cost on that order, and what
     has already gone back to the supplier."""
     received = (await db.execute(text("""
-        SELECT product_id, SUM(qty_received) AS qty, SUM(qty_received * unit_cost) AS value
+        SELECT product_id, SUM(qty_received) AS qty, SUM(qty_received * unit_cost) AS value,
+               SUM(COALESCE(net_amount, qty_received * unit_cost)) AS net, SUM(tax_amount) AS tax,
+               MAX(tax_code) AS tax_code, MAX(tax_rate) AS tax_rate
         FROM purchase_order_items WHERE po_id = :po GROUP BY product_id
     """), {"po": po_id})).all()
     returned = {r.product_id: Decimal(str(r.qty)) for r in (await db.execute(text("""
@@ -518,8 +545,12 @@ async def _po_quantities(db: AsyncSession, po_id: uuid.UUID) -> dict[uuid.UUID, 
     out = {}
     for r in received:
         qty = Decimal(str(r.qty or 0))
-        cost = (Decimal(str(r.value or 0)) / qty).quantize(Decimal("0.01")) if qty > 0 else Decimal("0")
-        out[r.product_id] = {"received": qty, "returned": returned.get(r.product_id, Decimal("0")), "unit_cost": cost}
+        vat = r.tax_code is not None  # received with VAT data (ADR-014 D6): costs are without VAT
+        value = Decimal(str((r.net if vat else r.value) or 0))
+        cost = (value / qty).quantize(Decimal("0.01")) if qty > 0 else Decimal("0")
+        out[r.product_id] = {"received": qty, "returned": returned.get(r.product_id, Decimal("0")), "unit_cost": cost,
+                             "vat": vat, "net": value, "tax": Decimal(str(r.tax or 0)), "tax_code": r.tax_code,
+                             "tax_rate": Decimal(str(r.tax_rate or 0))}
     return out
 
 
@@ -540,6 +571,7 @@ async def list_purchase_returns(db: AsyncSession, po_id: uuid.UUID) -> dict[str,
     return {
         "returns": [{**dict(r), "items": [dict(i) for i in items if i["return_id"] == r["id"]]} for r in rets],
         "returnable": [{"product_id": pid, "product_name": names.get(pid), "unit_cost": q["unit_cost"],
+                        "unit_tax": (q["tax"] / q["received"]).quantize(Decimal("0.01")) if q["received"] > 0 else Decimal("0"),
                         "received": q["received"], "returned": q["returned"],
                         "returnable": max(Decimal("0"), q["received"] - q["returned"])}
                        for pid, q in quantities.items()],
@@ -565,7 +597,9 @@ async def create_purchase_return(db: AsyncSession, po_id: uuid.UUID, data: Any, 
     for item in data.items:
         wanted[item.product_id] = wanted.get(item.product_id, Decimal("0")) + Decimal(str(item.qty))
     quantities = await _po_quantities(db, po_id)
-    lines = []
+    from app.platform.settings.vat import portion
+
+    lines = []  # (product, qty, unit cost without VAT, value without VAT, tax, tax code, tax rate)
     for product_id, qty in sorted(wanted.items(), key=lambda kv: str(kv[0])):
         q = quantities.get(product_id)
         if q is None:
@@ -573,8 +607,16 @@ async def create_purchase_return(db: AsyncSession, po_id: uuid.UUID, data: Any, 
         left = q["received"] - q["returned"]
         if qty > left:
             raise HTTPException(400, f"الكمية المرتجعة ({qty}) أكبر من المتاح للإرجاع ({left}) من هذا الصنف")
-        lines.append((product_id, qty, q["unit_cost"], (qty * q["unit_cost"]).quantize(Decimal("0.01"))))
-    total = sum((ln[3] for ln in lines), Decimal("0"))
+        if q["vat"]:
+            # The order's own value and VAT, in proportion (ADR-014 D6): never the product's code today.
+            value = portion(q["net"], q["returned"], qty, q["received"])
+            tax = portion(q["tax"], q["returned"], qty, q["received"])
+            lines.append((product_id, qty, (value / qty).quantize(Decimal("0.0001")), value, tax, q["tax_code"], q["tax_rate"]))
+        else:
+            lines.append((product_id, qty, q["unit_cost"], (qty * q["unit_cost"]).quantize(Decimal("0.01")), Decimal("0"),
+                          None, Decimal("0")))
+    tax_total = sum((ln[4] for ln in lines), Decimal("0"))
+    total = sum((ln[3] for ln in lines), Decimal("0")) + tax_total
 
     refund = Decimal(str(data.refund_amount or 0))
     if refund > total:
@@ -589,7 +631,7 @@ async def create_purchase_return(db: AsyncSession, po_id: uuid.UUID, data: Any, 
     # Products first, then balances: the same lock order as a receipt (see inventory stock._movement_cost).
     await db.execute(text("SELECT id FROM products WHERE id = ANY(:ids) ORDER BY id FOR UPDATE"),
                      {"ids": [ln[0] for ln in lines]})
-    for product_id, qty, _, _ in lines:
+    for product_id, qty, *_ in lines:
         balance = await get_balance(db, product_id, po.warehouse_id, for_update=True)
         if balance < qty:
             name = await db.scalar(text("SELECT name FROM products WHERE id = :id"), {"id": product_id})
@@ -600,12 +642,14 @@ async def create_purchase_return(db: AsyncSession, po_id: uuid.UUID, data: Any, 
         "SELECT COALESCE(MAX(CAST(substring(return_number FROM 5) AS integer)), 0) FROM purchase_returns "
         "WHERE tenant_id = :t AND return_number ~ '^PRT-[0-9]+$'"), {"t": po.tenant_id})
     ret = PurchaseReturn(return_number=f"PRT-{int(last) + 1:06d}", po_id=po.id, supplier_id=po.supplier_id,
-                         warehouse_id=po.warehouse_id, total=total, refund_amount=refund, safe_id=data.safe_id,
+                         warehouse_id=po.warehouse_id, total=total, tax_amount=tax_total, refund_amount=refund,
+                         safe_id=data.safe_id,
                          wallet_id=data.wallet_id, notes=data.notes, created_by=current_user.id)
     db.add(ret)
     await db.flush()
-    for product_id, qty, cost, _ in lines:
-        db.add(PurchaseReturnItem(return_id=ret.id, product_id=product_id, qty=qty, unit_cost=cost))
+    for product_id, qty, cost, value, tax, code, rate in lines:
+        db.add(PurchaseReturnItem(return_id=ret.id, product_id=product_id, qty=qty, unit_cost=cost.quantize(Decimal("0.01")),
+                                  tax_code=code, tax_rate=rate, tax_amount=tax, net_amount=value))
         await apply_movement(db, product_id=product_id, warehouse_id=po.warehouse_id,
                              movement_type=MovementType.return_out, qty=qty, unit_cost=cost,
                              created_by=current_user.id, ref_id=ret.id, ref_type="purchase_return",
@@ -624,8 +668,10 @@ async def create_purchase_return(db: AsyncSession, po_id: uuid.UUID, data: Any, 
                          {"amt": owed_less, "sid": po.supplier_id})
     await notify("purchase.returned", db, user_id=current_user.id, purchase_return={
         "id": ret.id, "tenant_id": ret.tenant_id, "return_number": ret.return_number, "supplier_id": ret.supplier_id,
-        "warehouse_id": ret.warehouse_id, "total": total, "refund_amount": refund, "safe_id": ret.safe_id,
+        "warehouse_id": ret.warehouse_id, "total": total, "tax_amount": tax_total, "refund_amount": refund,
+        "safe_id": ret.safe_id,
         "wallet_id": ret.wallet_id})
     await db.commit()
-    return {"id": str(ret.id), "return_number": ret.return_number, "total": total, "refund_amount": refund,
+    return {"id": str(ret.id), "return_number": ret.return_number, "total": total, "tax_amount": tax_total,
+            "refund_amount": refund,
             "supplier_balance_change": -owed_less if po.supplier_id else Decimal("0")}
