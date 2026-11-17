@@ -20,7 +20,7 @@ Turns on: `core`, `contacts`, `inventory`, `operations`, `sales`, `purchases`, `
 | `contacts` | Contacts & Partners | **active** | سجل الموردين والعملاء، كشوف الحسابات التفصيلية، حدود الائتمان وسقوف المديونية، وأرصدة الذمم. |
 | `customer_portal` | Customer portal | *planned* |  |
 | `documents` | Document management | *planned* |  |
-| `finance` | Accounting & Finance | **active** | إدارة الخزائن النقدية، المحافظ الإلكترونية، المصروفات، بنود الصرف، وسجل القيود المحاسبية. |
+| `finance` | Finance & Treasury | **active** | الخزائن والحسابات البنكية والمحافظ الإلكترونية، المصروفات واعتمادها، بنود الصرف، حركة الخزينة اليومية، وإقفال الفترات الشهرية. |
 | `hr` | Human Resources & Payroll | **active** | سجلات الموظفين، مسيرات الرواتب الشهرية، الحضور والانصراف، والسلف والخصومات. |
 | `inventory` | Inventory & Supply | **active** | تتبع الأرصدة اللحظية، إدارة الفروع والمستودعات، تسويات الجرد، وأوامر الشراء والتوريد. |
 | `loyalty` | Loyalty rewards | *planned* |  |

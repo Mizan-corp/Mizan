@@ -1,29 +1,31 @@
 """
 GET /reports/ledger
-Returns all sale items + returns + expenses for a date range.
+The sale lines, returns and drawer movements of a date range (paged), with the range's totals.
 """
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
-from app.dependencies import get_current_user, verify_warehouse_access
+from app.dependencies import require_perm
 from app.platform.auth.models.user import User
 from app.activities.general.modules.finance.services import ledger as ledger_service
+from app.activities.general.modules.finance.services.access import branch_scope
 
 router = APIRouter(prefix="/reports/ledger", tags=["ledger"])
 
 
 @router.get("")
 async def ledger(
-    from_date: str,
-    to_date: str,
-    warehouse_id: str | None = None,
+    from_date: date,
+    to_date: date,
+    warehouse_id: uuid.UUID | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("finance", "reports")),
 ):
-    await verify_warehouse_access(db, current_user, uuid.UUID(warehouse_id) if warehouse_id else None)
-    return await ledger_service.get_ledger(db, from_date, to_date, warehouse_id, page, page_size)
+    branches = await branch_scope(db, current_user, warehouse_id)
+    return await ledger_service.get_ledger(db, from_date, to_date, branches, page, page_size, warehouse_id=warehouse_id)

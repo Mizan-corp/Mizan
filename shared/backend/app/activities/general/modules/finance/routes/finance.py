@@ -1,26 +1,30 @@
 """Financial categories + permissions + shift close with manager"""
 import uuid
-from datetime import datetime
+from datetime import date
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import BusinessError
+from app.core.exceptions import NotFoundError
 from app.db.base import get_db
-from app.dependencies import get_current_user, require_perm, verify_warehouse_access
+from app.dependencies import get_current_user, require_perm
 from app.platform.auth.models.user import User
 from app.activities.general.modules.finance.schemas.finance import FinancialCategoryCreate, FinancialCategoryUpdate, PermissionsUpdate
 
 router = APIRouter(tags=["finance"])
 
+CATEGORY_NOT_FOUND = "التصنيف غير موجود"
+
 
 # ── Financial Categories ───────────────────────────────────────────────────
 @router.get("/financial-categories")
-async def list_categories(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
-    r = await db.execute(text("SELECT * FROM financial_categories ORDER BY type, name"))
-    cols = r.keys()
-    return [dict(zip(cols, row, strict=False)) for row in r.fetchall()]
+async def list_categories(include_inactive: bool = False, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+    r = await db.execute(text(
+        "SELECT * FROM financial_categories WHERE (:all OR is_active IS NOT FALSE) ORDER BY type, name"
+    ), {"all": include_inactive})
+    return [dict(row._mapping) for row in r.fetchall()]
 
 
 @router.post("/financial-categories")
@@ -29,37 +33,40 @@ async def create_category(data: FinancialCategoryCreate, db: AsyncSession = Depe
         INSERT INTO financial_categories (name, type, color) VALUES (:name, :type, :color) RETURNING *
     """), data.model_dump())
     await db.commit()
-    return dict(zip(r.keys(), r.fetchone(), strict=False))
+    return dict(r.mappings().one())
 
 
 @router.put("/financial-categories/{cat_id}")
 async def update_category(cat_id: uuid.UUID, data: FinancialCategoryUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("finance"))):
-    updates = data.model_dump(exclude_unset=True)
+    """Change only the fields sent."""
+    updates = {k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None}
+    row = (await db.execute(text("SELECT * FROM financial_categories WHERE id = :id FOR UPDATE"), {"id": cat_id})).mappings().first()
+    if row is None:
+        raise NotFoundError(CATEGORY_NOT_FOUND)
     if not updates:
-        return {"detail": "no changes"}
-    params = {"id": cat_id, "name": updates.get("name"), "color": updates.get("color")}
-    await db.execute(text(
-        "UPDATE financial_categories SET name=COALESCE(:name, name), color=COALESCE(:color, color) WHERE id=:id"
-    ), params)
+        return dict(row)
+    sets = ", ".join(f"{k} = :{k}" for k in updates)
+    row = (await db.execute(text(f"UPDATE financial_categories SET {sets}, updated_at = now() WHERE id = :id RETURNING *"),
+                            {**updates, "id": cat_id})).mappings().one()
     await db.commit()
-    return {"detail": "updated"}
+    return dict(row)
 
 
 @router.delete("/financial-categories/{cat_id}", status_code=204)
 async def delete_category(cat_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("finance"))):
+    """An unused category is deleted; one that expenses or drawer movements carry is stopped instead,
+    so their history keeps its category."""
     from sqlalchemy.exc import IntegrityError
+
+    if not await db.scalar(text("SELECT 1 FROM financial_categories WHERE id = :id"), {"id": cat_id}):
+        raise NotFoundError(CATEGORY_NOT_FOUND)
     try:
-        await db.execute(text("DELETE FROM financial_categories WHERE id=:id"), {'id': cat_id})
-        await db.commit()
-    except IntegrityError:
-        await db.rollback()
-        await db.execute(text("UPDATE drawer_transactions SET category_id=NULL WHERE category_id=:id"), {'id': cat_id})
-        try:
+        async with db.begin_nested():
             await db.execute(text("DELETE FROM financial_categories WHERE id=:id"), {'id': cat_id})
-            await db.commit()
-        except IntegrityError:
-            await db.rollback()
-            raise BusinessError("لا يمكن حذف التصنيف — مرتبط ببيانات أخرى") from None
+    except IntegrityError:
+        await db.execute(text("UPDATE financial_categories SET is_active = false, updated_at = now() WHERE id = :id"),
+                         {"id": cat_id})
+    await db.commit()
 
 
 # ── User Permissions ───────────────────────────────────────────────────────
@@ -113,8 +120,8 @@ async def update_permissions(user_id: uuid.UUID, data: PermissionsUpdate, db: As
 # ── Financial Ledger by Category ──────────────────────────────────────────
 @router.get("/financial-ledger")
 async def financial_ledger(
-    from_date: str, to_date: str,
-    warehouse_id: str | None = None,
+    from_date: date, to_date: date,
+    warehouse_id: uuid.UUID | None = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_perm("finance")),
 ):
@@ -122,9 +129,11 @@ async def financial_ledger(
     Returns all drawer transactions grouped by financial category.
     Shows total per category + individual entries — like customer accounts but for expenses/income.
     """
-    await verify_warehouse_access(db, current_user, uuid.UUID(warehouse_id) if warehouse_id else None)
-    start = datetime.fromisoformat(from_date)
-    end   = datetime.fromisoformat(to_date).replace(hour=23, minute=59, second=59)
+    from app.activities.general.modules.finance.services.access import branch_scope
+    from app.activities.general.modules.finance.services.ledger import day_bounds
+
+    branches = await branch_scope(db, current_user, warehouse_id)
+    start, end = day_bounds(from_date, to_date)
 
     q = """
         SELECT dt.id, dt.type, dt.amount, dt.note, dt.created_at,
@@ -136,14 +145,14 @@ async def financial_ledger(
         LEFT JOIN financial_categories fc ON dt.category_id = fc.id
         LEFT JOIN warehouses w ON s.warehouse_id = w.id
         LEFT JOIN users u ON dt.created_by = u.id
-        WHERE dt.created_at BETWEEN :start AND :end
+        WHERE dt.created_at >= :start AND dt.created_at < :end
         AND dt.type IN ('expense', 'deposit', 'withdrawal')
         AND dt.cancelled_at IS NULL
     """
     params = {'start': start, 'end': end}
-    if warehouse_id:
-        q += " AND s.warehouse_id = :wid"
-        params['wid'] = uuid.UUID(warehouse_id)
+    if branches is not None:
+        q += " AND s.warehouse_id = ANY(:whs)"
+        params['whs'] = branches
     q += " ORDER BY dt.created_at DESC"
 
     rows = (await db.execute(text(q), params)).fetchall()
@@ -185,7 +194,7 @@ async def financial_ledger(
     total_income  = sum(e['amount'] for e in entries if e['type'] == 'deposit')
 
     return {
-        'from_date': from_date, 'to_date': to_date,
+        'from_date': from_date.isoformat(), 'to_date': to_date.isoformat(),
         'total_expense': total_expense, 'total_income': total_income,
         'net': total_income - total_expense,
         'categories': categories_out,
@@ -195,9 +204,9 @@ async def financial_ledger(
 # ── Audit Log ─────────────────────────────────────────────────────────────────
 @router.get("/audit-log")
 async def get_audit_log(
-    entity_type: str | None = None,
-    entity_id: str | None = None,
-    limit: int = 100,
+    entity_type: Annotated[str | None, Query(max_length=64)] = None,
+    entity_id: uuid.UUID | None = None,
+    limit: int = Query(100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
     _=Depends(require_perm("admin"))
 ):

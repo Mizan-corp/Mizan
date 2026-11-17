@@ -1,12 +1,12 @@
 {
   "id": "finance",
-  "name": "المالية والحسابات والخزائن",
-  "name_en": "Accounting & Finance",
+  "name": "المالية والخزائن",
+  "name_en": "Finance & Treasury",
   "activity": "general",
   "kind": "business",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "icon": "Wallet",
-  "description": "إدارة الخزائن النقدية، المحافظ الإلكترونية، المصروفات، بنود الصرف، وسجل القيود المحاسبية.",
+  "description": "الخزائن والحسابات البنكية والمحافظ الإلكترونية، المصروفات واعتمادها، بنود الصرف، حركة الخزينة اليومية، وإقفال الفترات الشهرية.",
   "dependencies": [
     "core"
   ],

@@ -1,4 +1,6 @@
 import uuid
+from datetime import date
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text as sqlt
@@ -6,33 +8,57 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
 from app.db.base import get_db
-from app.dependencies import get_current_user, require_open_period, require_perm, verify_warehouse_access
+from app.dependencies import require_open_period, require_perm, verify_warehouse_access
 from app.platform.auth.models.user import User
-from app.activities.general.modules.finance.schemas.expense import ExpenseApprove, ExpenseCancel, ExpenseCreate, ExpenseUpdate, ExpenseVendorCreate, ExpenseVendorUpdate
+from app.activities.general.modules.finance.schemas.expense import ExpenseStatus, ExpenseApprove, ExpenseCancel, ExpenseCreate, ExpenseUpdate, ExpenseVendorCreate, ExpenseVendorUpdate
 from app.activities.general.modules.finance.services import expenses as expenses_service
+from app.activities.general.modules.finance.services.access import branch_scope
 
 router = APIRouter(tags=["expenses"])
 
 
-def _safe_uuid(value: str | None) -> uuid.UUID | None:
-    if not value:
-        return None
-    try:
-        return uuid.UUID(value)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid warehouse_id") from None
+NO_CHANGES = "لا توجد حقول للتعديل"
+EXPENSE_NOT_FOUND = "المصروف غير موجود"
+
+
+async def _check_refs(db: AsyncSession, user, fields: dict) -> None:
+    """The vendor, category, branch, safe and wallet an expense names must be the workspace's
+    (404 otherwise, never a database error), and the branch one the user may use."""
+    checks = {"vendor_id": ("expense_vendors", "الجهة غير موجودة"),
+              "category_id": ("financial_categories", "التصنيف غير موجود"),
+              "warehouse_id": ("warehouses", "الفرع غير موجود"),
+              "safe_id": ("safes", "الخزنة غير موجودة"),
+              "wallet_id": ("payment_wallets", "المحفظة غير موجودة")}
+    for field, (table, message) in checks.items():
+        value = fields.get(field)
+        if value and not await db.scalar(sqlt(f"SELECT 1 FROM {table} WHERE id = :id"), {"id": value}):
+            raise HTTPException(404, message)
+    if fields.get("warehouse_id"):
+        await verify_warehouse_access(db, user, fields["warehouse_id"])
+
+
+def _branch_filter(branches: list[uuid.UUID] | None, where_parts: list[str], params: dict) -> None:
+    """A user limited to some branches sees their branches' expenses and the company-wide ones."""
+    if branches is not None:
+        where_parts.append("(e.warehouse_id IS NULL OR e.warehouse_id = ANY(:whs))")
+        params["whs"] = branches
 
 
 # ── Expense Vendors ────────────────────────────────────────────────────────
 
 @router.get("/expense-vendors")
-async def list_vendors(search: str | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
-    where = "WHERE (v.name ILIKE :s OR v.phone ILIKE :s)" if search else ""
+async def list_vendors(search: Annotated[str | None, Query(max_length=128)] = None, include_inactive: bool = False,
+                       db: AsyncSession = Depends(get_db), _=Depends(require_perm("finance"))):
+    where = ["(:all OR v.is_active IS NOT FALSE)"]
+    params: dict = {"all": include_inactive}
+    if search:
+        where.append("(v.name ILIKE :s OR v.phone ILIKE :s)")
+        params["s"] = f"%{search}%"
     rows = await db.execute(sqlt(f"""
         SELECT v.*, (SELECT COUNT(*) FROM expenses e WHERE e.vendor_id = v.id) as expense_count
-        FROM expense_vendors v {where}
+        FROM expense_vendors v WHERE {' AND '.join(where)}
         ORDER BY v.name
-    """), {"s": f"%{search}%" } if search else {})
+    """), params)
     return [dict(r._mapping) for r in rows.fetchall()]
 
 
@@ -52,17 +78,20 @@ async def create_vendor(data: ExpenseVendorCreate, db: AsyncSession = Depends(ge
 @router.put("/expense-vendors/{vid}")
 async def update_vendor(vid: uuid.UUID, data: ExpenseVendorUpdate, db: AsyncSession = Depends(get_db),
                         _=Depends(require_perm("finance"))):
-    ALLOWED_VENDOR_FIELDS = {"name", "phone", "address", "tax_id", "notes"}
-    updates = {k: v for k, v in data.model_dump(exclude_unset=True).items() if k in ALLOWED_VENDOR_FIELDS}
+    """Change only the fields sent."""
+    updates = data.model_dump(exclude_unset=True)
+    for required in ("name", "is_active"):
+        if required in updates and updates[required] is None:
+            updates.pop(required)
     if not updates:
-        raise NotFoundError()
+        raise HTTPException(400, NO_CHANGES)
     sets = ", ".join(f"{k} = :{k}" for k in updates)
     r = await db.execute(sqlt(f"UPDATE expense_vendors SET {sets} WHERE id = :id RETURNING *"),
                          {**updates, "id": vid})
-    await db.commit()
     row = r.mappings().first()
     if not row:
-        raise NotFoundError()
+        raise NotFoundError("الجهة غير موجودة")
+    await db.commit()
     return dict(row)
 
 
@@ -70,20 +99,22 @@ async def update_vendor(vid: uuid.UUID, data: ExpenseVendorUpdate, db: AsyncSess
 
 @router.get("/expenses")
 async def list_expenses(
-    search: str | None = None,
-    vendor_id: str | None = None,
-    category_id: str | None = None,
-    warehouse_id: str | None = None,
-    status: str | None = None,
-    date_from: str | None = None,
-    date_to: str | None = None,
+    search: Annotated[str | None, Query(max_length=128)] = None,
+    vendor_id: uuid.UUID | None = None,
+    category_id: uuid.UUID | None = None,
+    warehouse_id: uuid.UUID | None = None,
+    status: ExpenseStatus | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
     recurring: bool | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("finance")),
 ):
-    await verify_warehouse_access(db, current_user, _safe_uuid(warehouse_id))
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(400, "تاريخ البداية بعد تاريخ النهاية")
+    branches = await branch_scope(db, current_user, warehouse_id)
     params: dict = {}
     where_parts = ["1=1"]
     if search:
@@ -98,6 +129,8 @@ async def list_expenses(
     if warehouse_id:
         where_parts.append("e.warehouse_id = :wid")
         params["wid"] = warehouse_id
+    else:
+        _branch_filter(branches, where_parts, params)
     if status:
         where_parts.append("e.status = :st")
         params["st"] = status
@@ -132,6 +165,7 @@ async def list_expenses(
 @router.post("/expenses", status_code=201)
 async def create_expense(data: ExpenseCreate, db: AsyncSession = Depends(get_db),
                          current_user=Depends(require_perm("finance")), _=Depends(require_open_period)):
+    await _check_refs(db, current_user, data.model_dump())
     tax = await expenses_service.check_tax(db, data.amount, data.tax_amount)
     r = await db.execute(sqlt("""
         INSERT INTO expenses (vendor_id, category_id, warehouse_id, amount, tax_amount, description, date,
@@ -157,11 +191,11 @@ async def create_expense(data: ExpenseCreate, db: AsyncSession = Depends(get_db)
 
 @router.put("/expenses/{eid}")
 async def update_expense(eid: uuid.UUID, data: ExpenseUpdate, db: AsyncSession = Depends(get_db),
-                         _=Depends(require_perm("finance"))):
+                         _: User = Depends(require_perm("finance"))):
     current = (await db.execute(sqlt("SELECT status, amount, tax_amount FROM expenses WHERE id = :id FOR UPDATE"),
                                 {"id": eid})).first()
     if current is None:
-        raise NotFoundError()
+        raise NotFoundError(EXPENSE_NOT_FOUND)
     existing = current.status
     # Exclude 'status' — it must be changed via the approve/reject/cancel endpoints only
     allowed = set(ExpenseUpdate.model_fields.keys()) - {"status"}
@@ -169,11 +203,15 @@ async def update_expense(eid: uuid.UUID, data: ExpenseUpdate, db: AsyncSession =
         allowed = {"notes"}  # the money has moved (or been put back): only the notes can change
     changes = data.model_dump(exclude_unset=True)
     changes.pop("status", None)
+    for required in ("amount", "description", "date"):
+        if required in changes and changes[required] is None:
+            changes.pop(required)
     if set(changes) - allowed:
         raise HTTPException(409, "لا يمكن تعديل مصروف معتمد أو ملغى، يمكن تعديل الملاحظات فقط. لتصحيحه ألغِه وسجّل مصروفًا جديدًا")
     updates = {k: v for k, v in changes.items() if k in allowed}
     if not updates:
-        raise NotFoundError()
+        raise HTTPException(400, NO_CHANGES)
+    await _check_refs(db, _, updates)
     if "amount" in updates or "tax_amount" in updates:
         updates["tax_amount"] = await expenses_service.check_tax(
             db, updates.get("amount") or current.amount,
@@ -188,6 +226,7 @@ async def update_expense(eid: uuid.UUID, data: ExpenseUpdate, db: AsyncSession =
 @router.post("/expenses/{eid}/approve")
 async def approve_expense(eid: uuid.UUID, data: ExpenseApprove, db: AsyncSession = Depends(get_db),
                           current_user=Depends(require_perm("finance"))):
+    await _check_refs(db, current_user, {"safe_id": data.safe_id, "wallet_id": data.wallet_id})
     row = await expenses_service.decide(db, eid, data.approved, data.notes, current_user,
                                         safe_id=data.safe_id, wallet_id=data.wallet_id)
     await db.commit()
@@ -209,7 +248,7 @@ async def delete_expense(eid: uuid.UUID, db: AsyncSession = Depends(get_db),
     """Only drafts and rejected expenses are deleted; an approved one is cancelled instead."""
     status = (await db.execute(sqlt("SELECT status FROM expenses WHERE id = :id FOR UPDATE"), {"id": eid})).scalar_one_or_none()
     if status is None:
-        raise NotFoundError()
+        raise NotFoundError(EXPENSE_NOT_FOUND)
     if status in expenses_service.FINAL_STATUSES:
         raise HTTPException(409, "لا يمكن حذف مصروف معتمد أو ملغى. استخدم الإلغاء لإرجاع المبلغ")
     await db.execute(sqlt("DELETE FROM expenses WHERE id = :id"), {"id": eid})
@@ -220,13 +259,15 @@ async def delete_expense(eid: uuid.UUID, db: AsyncSession = Depends(get_db),
 
 @router.get("/expenses/summary")
 async def expense_summary(
-    date_from: str | None = None,
-    date_to: str | None = None,
-    warehouse_id: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    warehouse_id: uuid.UUID | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("finance", "reports")),
 ):
-    await verify_warehouse_access(db, current_user, _safe_uuid(warehouse_id))
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(400, "تاريخ البداية بعد تاريخ النهاية")
+    branches = await branch_scope(db, current_user, warehouse_id)
     params: dict = {}
     where_parts = ["e.status = 'approved'"]
     if date_from:
@@ -238,6 +279,8 @@ async def expense_summary(
     if warehouse_id:
         where_parts.append("e.warehouse_id = :wid")
         params["wid"] = warehouse_id
+    else:
+        _branch_filter(branches, where_parts, params)
     where = " AND ".join(where_parts)
     r = await db.execute(sqlt(f"""
         SELECT

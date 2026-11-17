@@ -1,316 +1,212 @@
-"""Ledger service — daily ledger calculations and queries."""
-from datetime import datetime
+"""The daily ledger (/reports/ledger): the period's sale lines, returns and drawer movements, one
+page at a time, with totals over the whole period (SQL aggregates, never the page's rows).
+
+Days are the workspace's days (Africa/Cairo): a period runs from the first day's midnight to the
+midnight after the last day."""
+import uuid
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Any
+from zoneinfo import ZoneInfo
 
+from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-
-def wh_clause(alias: str, warehouse_id: str | None) -> tuple[str, dict]:
-    if warehouse_id:
-        return f"AND {alias}.warehouse_id = :wh_id", {"wh_id": warehouse_id}
-    return "", {}
+CAIRO = ZoneInfo("Africa/Cairo")
+ZERO = Decimal("0")
 
 
-BASE_SELECT = """
-    SELECT
-        si.id,
-        si.sale_id,
-        p.name as product_name,
-        p.unit,
-        si.qty,
-        si.unit_price,
-        (si.qty * si.unit_price - si.discount) as line_total,
-        COALESCE(s.payment_method, 'cash') as payment_method,
-        pw.name as wallet_name,
-        s.invoice_number,
-        s.created_at,
-        c.name as customer_name,
-        'sale' as entry_type
+def day_bounds(from_date: date | None, to_date: date | None) -> tuple[datetime | None, datetime | None]:
+    """[start, end) of the days from `from_date` to `to_date` included, in the workspace's time zone."""
+    if from_date and to_date and from_date > to_date:
+        raise HTTPException(400, "تاريخ البداية بعد تاريخ النهاية")
+    start = datetime.combine(from_date, time.min, CAIRO) if from_date else None
+    end = datetime.combine(to_date + timedelta(days=1), time.min, CAIRO) if to_date else None
+    return start, end
+
+
+def _branch(alias: str, branches: list[uuid.UUID] | None) -> tuple[str, dict]:
+    if branches is None:
+        return "", {}
+    return f"AND {alias}.warehouse_id = ANY(:whs)", {"whs": branches}
+
+
+SALE_LINES = """
+    SELECT si.id, si.sale_id, p.name AS product_name, p.unit, si.qty, si.unit_price,
+           (si.qty * si.unit_price - si.discount) AS line_total,
+           COALESCE(s.payment_method, 'cash') AS payment_method, pw.name AS wallet_name,
+           s.invoice_number, s.created_at, c.name AS customer_name
     FROM sale_items si
     JOIN sales s ON s.id = si.sale_id
     JOIN products p ON p.id = si.product_id
     LEFT JOIN customers c ON c.id = s.customer_id
     LEFT JOIN payment_wallets pw ON pw.id = s.wallet_id
-    WHERE s.status = 'confirmed'
-      AND s.created_at BETWEEN :start AND :end
-      {wh}
+    WHERE s.status = :status AND s.created_at >= :start AND s.created_at < :end {wh}
     ORDER BY s.created_at, si.id
+    OFFSET :offset LIMIT :limit
 """
 
-BASE_RETURN = """
-    SELECT
-        si.id,
-        si.sale_id,
-        p.name as product_name,
-        p.unit,
-        si.qty,
-        si.unit_price,
-        (si.qty * si.unit_price - si.discount) as line_total,
-        s.invoice_number,
-        s.created_at,
-        c.name as customer_name
-    FROM sale_items si
-    JOIN sales s ON s.id = si.sale_id
-    JOIN products p ON p.id = si.product_id
-    LEFT JOIN customers c ON c.id = s.customer_id
-    WHERE s.status = 'returned'
-      AND s.created_at BETWEEN :start AND :end
-      {wh}
-    ORDER BY s.created_at
-"""
-
-BASE_TX = """
-    SELECT dt.id, dt.type, dt.amount, dt.note, dt.created_at,
-           pw.name as wallet_name, dt.payment_method
+DRAWER_ROWS = """
+    SELECT dt.id, dt.type, dt.amount, dt.note, dt.created_at, pw.name AS wallet_name, dt.payment_method
     FROM drawer_transactions dt
     JOIN shifts sh ON sh.id = dt.shift_id
     LEFT JOIN payment_wallets pw ON pw.id = dt.wallet_id
     WHERE dt.type IN ('expense','deposit','withdrawal') AND dt.cancelled_at IS NULL
-      AND dt.created_at BETWEEN :start AND :end
-      {wh}
-    ORDER BY dt.created_at
+      AND dt.created_at >= :start AND dt.created_at < :end {wh}
+    ORDER BY dt.created_at, dt.id
+    OFFSET :offset LIMIT :limit
 """
+
+# Per invoice: its lines (pre-aggregated) less the invoice discount, and its payments (pre-aggregated
+# apart, so lines and payments never multiply each other).
+INVOICE_TOTALS = """
+    WITH inv AS (
+        SELECT s.id, s.status, s.wallet_id,
+               (COALESCE(s.is_credit, false) OR COALESCE(s.payment_method, 'cash') = 'credit') AS on_credit,
+               COALESCE(it.lines, 0) - COALESCE(s.discount_amount, 0) AS net,
+               COALESCE(it.n, 0) AS n_lines,
+               pay.n AS n_payments, pay.cash, pay.wallet, pay.credit
+        FROM sales s
+        LEFT JOIN (
+            SELECT si.sale_id, SUM(si.qty * si.unit_price - si.discount) AS lines, COUNT(*) AS n
+            FROM sale_items si JOIN sales s2 ON s2.id = si.sale_id
+            WHERE s2.status IN ('confirmed', 'returned') AND s2.created_at >= :start AND s2.created_at < :end
+            GROUP BY si.sale_id
+        ) it ON it.sale_id = s.id
+        LEFT JOIN (
+            SELECT sp.sale_id, COUNT(*) AS n,
+                   SUM(sp.amount) FILTER (WHERE sp.method = 'cash') AS cash,
+                   SUM(sp.amount) FILTER (WHERE sp.wallet_id IS NOT NULL) AS wallet,
+                   SUM(sp.amount) FILTER (WHERE sp.method = 'credit') AS credit
+            FROM sale_payments sp JOIN sales s3 ON s3.id = sp.sale_id
+            WHERE s3.status = 'confirmed' AND s3.created_at >= :start AND s3.created_at < :end
+            GROUP BY sp.sale_id
+        ) pay ON pay.sale_id = s.id
+        WHERE s.status IN ('confirmed', 'returned') AND s.created_at >= :start AND s.created_at < :end {wh}
+    )
+    SELECT
+        COALESCE(SUM(net) FILTER (WHERE status = 'confirmed'), 0) AS total_sales,
+        COALESCE(SUM(n_lines) FILTER (WHERE status = 'confirmed'), 0) AS sale_lines,
+        COALESCE(SUM(net) FILTER (WHERE status = 'returned'), 0) AS total_returns,
+        COALESCE(SUM(n_lines) FILTER (WHERE status = 'returned'), 0) AS return_lines,
+        COALESCE(SUM(CASE WHEN n_payments > 0 THEN COALESCE(cash, 0)
+                          WHEN wallet_id IS NULL AND NOT on_credit THEN net ELSE 0 END)
+                 FILTER (WHERE status = 'confirmed'), 0) AS cash_sales,
+        COALESCE(SUM(CASE WHEN n_payments > 0 THEN COALESCE(wallet, 0) WHEN wallet_id IS NOT NULL THEN net ELSE 0 END)
+                 FILTER (WHERE status = 'confirmed'), 0) AS wallet_sales,
+        COALESCE(SUM(CASE WHEN n_payments > 0 THEN COALESCE(credit, 0)
+                          WHEN wallet_id IS NULL AND on_credit THEN net ELSE 0 END)
+                 FILTER (WHERE status = 'confirmed'), 0) AS credit_sales
+    FROM inv
+"""
+
+DRAWER_TOTALS = """
+    SELECT
+        COUNT(*) FILTER (WHERE dt.type IN ('expense','deposit','withdrawal')) AS n_movements,
+        COALESCE(SUM(dt.amount) FILTER (WHERE dt.type IN ('expense','withdrawal')), 0) AS total_expenses,
+        COALESCE(SUM(dt.amount) FILTER (WHERE dt.type = 'deposit'), 0) AS total_deposits,
+        COALESCE(SUM(dt.amount) FILTER (WHERE dt.type IN ('expense','withdrawal') AND {cash}), 0) AS cash_expenses,
+        COALESCE(SUM(dt.amount) FILTER (WHERE dt.type = 'deposit' AND {cash}), 0) AS cash_deposits,
+        COALESCE(SUM(dt.amount) FILTER (WHERE dt.type = 'sale' AND {cash}), 0) AS drawer_sales,
+        COALESCE(SUM(dt.amount) FILTER (WHERE dt.type = 'return_' AND {cash}), 0) AS drawer_returns
+    FROM drawer_transactions dt
+    JOIN shifts sh ON sh.id = dt.shift_id
+    WHERE dt.cancelled_at IS NULL AND dt.created_at >= :start AND dt.created_at < :end {wh}
+""".replace("{cash}", "(dt.wallet_id IS NULL AND COALESCE(NULLIF(dt.payment_method, ''), 'cash') = 'cash')")
 
 TX_AR = {"expense": "خوارج", "deposit": "دواخل", "withdrawal": "سحب"}
 
 
-async def get_ledger(
-    db: AsyncSession,
-    from_date: str,
-    to_date: str,
-    warehouse_id: str | None = None,
-    page: int = 1,
-    page_size: int = 100,
-) -> dict[str, Any]:
-    start = datetime.fromisoformat(from_date)
-    end = datetime.fromisoformat(to_date).replace(hour=23, minute=59, second=59)
-    params: dict = {"start": start, "end": end}
+def _pages(total: int, size: int) -> int:
+    return (total + size - 1) // size
+
+
+def _f(v) -> float:
+    return float(v or 0)
+
+
+def _sale_line(d: dict, entry_type: str) -> dict:
+    out = {
+        "item_id": str(d["id"]), "sale_id": str(d["sale_id"]), "product_name": d["product_name"], "unit": d["unit"],
+        "qty": _f(d["qty"]), "unit_price": _f(d["unit_price"]), "total": _f(d["line_total"]),
+        "invoice_number": d["invoice_number"], "customer": d["customer_name"] or "عميل عادي",
+        "date": d["created_at"].isoformat(), "entry_type": entry_type,
+    }
+    if entry_type == "sale":
+        out["payment_method"] = d["wallet_name"] or ("نقدي" if d["payment_method"] == "cash" else d["payment_method"])
+    return out
+
+
+async def get_ledger(db: AsyncSession, from_date: date, to_date: date, branches: list[uuid.UUID] | None = None,
+                     page: int = 1, page_size: int = 100, warehouse_id: uuid.UUID | None = None) -> dict[str, Any]:
+    start, end = day_bounds(from_date, to_date)
     offset = (page - 1) * page_size
+    wh_s, wh_p = _branch("s", branches)
+    wh_t, _ = _branch("sh", branches)
+    params = {"start": start, "end": end, **wh_p}
+    page_params = {**params, "offset": offset, "limit": page_size}
 
-    wh_s, wh_p = wh_clause("s", warehouse_id)
-    params.update(wh_p)
-
-    # Count: sale items
-    count_sale_sql = text(f"""
-        SELECT COUNT(*) FROM sale_items si
-        JOIN sales s ON s.id = si.sale_id
-        WHERE s.status = 'confirmed'
-          AND s.created_at BETWEEN :start AND :end
-          {wh_s}
-    """)
-    total_sale_items = (await db.execute(count_sale_sql, params)).scalar()
-
-    sale_sql = text(BASE_SELECT.format(wh=wh_s) + " OFFSET :offset LIMIT :limit")
-    items_rows = await db.execute(sale_sql, {**params, "offset": offset, "limit": page_size})
-
-    sale_items = []
-    for r in items_rows.fetchall():
-        d = dict(r._mapping)
-        pm = d["wallet_name"] or ("نقدي" if d["payment_method"] == "cash" else d["payment_method"])
-        sale_items.append({
-            "item_id": str(d["id"]),
-            "sale_id": str(d["sale_id"]) if "sale_id" in d else None,
-            "product_name": d["product_name"],
-            "unit": d["unit"],
-            "qty": float(d["qty"]),
-            "unit_price": float(d["unit_price"]),
-            "total": float(d["line_total"]),
-            "payment_method": pm,
-            "invoice_number": d["invoice_number"],
-            "customer": d["customer_name"] or "عميل عادي",
-            "date": d["created_at"].isoformat(),
-            "entry_type": "sale",
-        })
-
-    # Returns
-    wh_r, wh_rp = wh_clause("s", warehouse_id)
-
-    count_return_sql = text(f"""
-        SELECT COUNT(*) FROM sale_items si
-        JOIN sales s ON s.id = si.sale_id
-        WHERE s.status = 'returned'
-          AND s.created_at BETWEEN :start AND :end
-          {wh_r}
-    """)
-    total_returns_count = (await db.execute(count_return_sql, {**params, **wh_rp})).scalar()
-
-    ret_sql = text(BASE_RETURN.format(wh=wh_r) + " OFFSET :offset LIMIT :limit")
-    ret_rows = await db.execute(ret_sql, {**params, **wh_rp, "offset": offset, "limit": page_size})
-
-    returns = []
-    for r in ret_rows.fetchall():
-        d = dict(r._mapping)
-        returns.append({
-            "item_id": str(d["id"]),
-            "sale_id": str(d["sale_id"]) if "sale_id" in d else None,
-            "product_name": d["product_name"],
-            "unit": d["unit"],
-            "qty": float(d["qty"]),
-            "unit_price": float(d["unit_price"]),
-            "total": float(d["line_total"]),
-            "invoice_number": d["invoice_number"],
-            "customer": d["customer_name"] or "عميل عادي",
-            "date": d["created_at"].isoformat(),
-            "entry_type": "return",
-        })
-
-    # Expenses / deposits / withdrawals
-    wh_t, wh_tp = wh_clause("sh", warehouse_id)
-
-    count_tx_sql = text(f"""
-        SELECT COUNT(*) FROM drawer_transactions dt
-        JOIN shifts sh ON sh.id = dt.shift_id
-        WHERE dt.type IN ('expense','deposit','withdrawal') AND dt.cancelled_at IS NULL
-          AND dt.created_at BETWEEN :start AND :end
-          {wh_t}
-    """)
-    total_tx_count = (await db.execute(count_tx_sql, {**params, **wh_tp})).scalar()
-
-    tx_sql = text(BASE_TX.format(wh=wh_t) + " OFFSET :offset LIMIT :limit")
-    tx_rows = await db.execute(tx_sql, {**params, **wh_tp, "offset": offset, "limit": page_size})
+    sales_rows = (await db.execute(text(SALE_LINES.format(wh=wh_s)), {**page_params, "status": "confirmed"})).mappings().all()
+    return_rows = (await db.execute(text(SALE_LINES.format(wh=wh_s)), {**page_params, "status": "returned"})).mappings().all()
+    tx_rows = (await db.execute(text(DRAWER_ROWS.format(wh=wh_t)), page_params)).mappings().all()
+    inv = (await db.execute(text(INVOICE_TOTALS.format(wh=wh_s)), params)).mappings().one()
+    drw = (await db.execute(text(DRAWER_TOTALS.format(wh=wh_t)), params)).mappings().one()
 
     expenses = []
-    for r in tx_rows.fetchall():
-        d = dict(r._mapping)
+    for d in tx_rows:
         pm = d["wallet_name"] or ("نقدي" if (d["payment_method"] or "cash") == "cash" else d["payment_method"])
-        expenses.append({
-            "tx_id": str(d["id"]),
-            "type_ar": TX_AR.get(d["type"], d["type"]),
-            "note": d["note"] or "",
-            "amount": float(d["amount"]),
-            "payment_method": pm,
-            "date": d["created_at"].isoformat(),
-            "entry_type": d["type"],
-        })
+        expenses.append({"tx_id": str(d["id"]), "type_ar": TX_AR.get(d["type"], d["type"]), "note": d["note"] or "",
+                         "amount": _f(d["amount"]), "payment_method": pm, "date": d["created_at"].isoformat(),
+                         "entry_type": d["type"]})
 
-    total_sales = sum(i["total"] for i in sale_items)
-    total_returns = sum(i["total"] for i in returns)
-    total_expenses = sum(e["amount"] for e in expenses if e["entry_type"] in ("expense", "withdrawal"))
-    total_deposits = sum(e["amount"] for e in expenses if e["entry_type"] == "deposit")
-    total_revenue_delivery = 0
-
-    # Cash-only totals from drawer_transactions (excluding wallet)
-    cash_expenses = sum(e["amount"] for e in expenses if e["entry_type"] in ("expense", "withdrawal") and e["payment_method"] == "نقدي")
-    cash_deposits = sum(e["amount"] for e in expenses if e["entry_type"] == "deposit" and e["payment_method"] == "نقدي")
-    cash_revenue_delivery = 0
-
-    # Cash drawer sale/return totals from drawer_transactions (matches physical drawer)
-    cash_drawer_sql = text(f"""
-        SELECT type, SUM(amount) as total
-        FROM drawer_transactions dt
-        JOIN shifts sh ON sh.id = dt.shift_id
-        WHERE dt.type IN ('sale','return_') AND dt.cancelled_at IS NULL
-          AND (dt.payment_method IS NULL OR dt.payment_method = '' OR dt.payment_method = 'cash')
-          AND dt.created_at BETWEEN :start AND :end
-          {wh_t}
-        GROUP BY dt.type
-    """)
-    cash_drawer_rows = await db.execute(cash_drawer_sql, {**params, **wh_tp})
-    cash_drawer_sales = 0
-    cash_drawer_returns = 0
-    for r in cash_drawer_rows.fetchall():
-        if r.type == 'sale':
-            cash_drawer_sales = float(r.total or 0)
-        if r.type == 'return_':
-            cash_drawer_returns = float(r.total or 0)
-
-    sale_pages = (total_sale_items + page_size - 1) // page_size
-    return_pages = (total_returns_count + page_size - 1) // page_size
-    tx_pages = (total_tx_count + page_size - 1) // page_size
-
-    # Payment breakdown (cash / wallet / credit) from sale-level data
-    cls_wh, cls_whp = wh_clause("s", warehouse_id)
-    cls_rows = await db.execute(text(f"""
-        SELECT s.id, s.payment_method, s.wallet_id, s.is_credit,
-               COALESCE(SUM(si.qty * si.unit_price - si.discount), 0) as item_total,
-               COUNT(sp.id) > 0 as has_payments,
-               COALESCE(SUM(sp.amount) FILTER (WHERE sp.method = 'cash'), 0) as cash_pmt,
-               COALESCE(SUM(sp.amount) FILTER (WHERE sp.wallet_id IS NOT NULL), 0) as wallet_pmt,
-               COALESCE(SUM(sp.amount) FILTER (WHERE sp.method = 'credit'), 0) as credit_pmt
-        FROM sales s
-        JOIN sale_items si ON si.sale_id = s.id
-        LEFT JOIN sale_payments sp ON sp.sale_id = s.id
-        WHERE s.status = 'confirmed'
-          AND s.created_at BETWEEN :start AND :end
-          {cls_wh}
-        GROUP BY s.id
-    """), {**params, **cls_whp})
-    cash_sales = 0.0
-    wallet_sales = 0.0
-    credit_sales = 0.0
-    for r in cls_rows.fetchall():
-        item_total = float(r.item_total)
-        if r.has_payments:
-            cash_sales += float(r.cash_pmt)
-            wallet_sales += float(r.wallet_pmt)
-            credit_sales += float(r.credit_pmt)
-        elif r.wallet_id:
-            wallet_sales += item_total
-        elif r.is_credit or r.payment_method == 'credit':
-            credit_sales += item_total
-        else:
-            cash_sales += item_total
-
-    # Opening balance: always use next_day_drawer from the last shift closed BEFORE the period start.
-    opening = Decimal("0")
+    # Opening balance of one branch: what the last shift closed before the period left in the drawer.
+    opening = ZERO
     if warehouse_id:
-        shift_row = await db.execute(text("""
-            SELECT COALESCE(next_day_drawer, closing_balance, 0) as opening_amt
-            FROM shifts
-            WHERE warehouse_id = :wh_id
-              AND status = 'closed'
-              AND closed_at < :start
-            ORDER BY closed_at DESC
-            LIMIT 1
-        """), {"wh_id": warehouse_id, "start": start})
-        s = shift_row.fetchone()
-        if s:
-            opening = Decimal(str(s.opening_amt))
-        else:
-            shift_row2 = await db.execute(text("""
-                SELECT initial_amount
-                FROM shifts
-                WHERE warehouse_id = :wh_id
-                  AND started_at BETWEEN :start AND :end
-                ORDER BY started_at ASC
-                LIMIT 1
-            """), {"wh_id": warehouse_id, "start": start, "end": end})
-            s2 = shift_row2.fetchone()
-            if s2:
-                opening = Decimal(str(s2.initial_amount))
+        left = await db.scalar(text("""
+            SELECT COALESCE(next_day_drawer, closing_balance, 0) FROM shifts
+            WHERE warehouse_id = :wh AND status = 'closed' AND closed_at < :start
+            ORDER BY closed_at DESC LIMIT 1
+        """), {"wh": warehouse_id, "start": start})
+        if left is None:
+            left = await db.scalar(text("""
+                SELECT initial_amount FROM shifts WHERE warehouse_id = :wh AND started_at >= :start AND started_at < :end
+                ORDER BY started_at ASC LIMIT 1
+            """), {"wh": warehouse_id, "start": start, "end": end})
+        opening = Decimal(str(left or 0))
 
-    net_sales = total_sales - total_returns - total_expenses - total_revenue_delivery
-    net = total_sales - total_returns + total_deposits - total_expenses - total_revenue_delivery
-
-    # Cash-only closing (matches physical drawer from drawer_transactions)
-    cash_closing = float(opening) + cash_drawer_sales - cash_drawer_returns + cash_deposits - cash_expenses - cash_revenue_delivery
+    total_sales, total_returns = Decimal(inv["total_sales"]), Decimal(inv["total_returns"])
+    total_expenses, total_deposits = Decimal(drw["total_expenses"]), Decimal(drw["total_deposits"])
+    net = total_sales - total_returns - total_expenses
+    net_with_deposits = net + total_deposits
+    cash_closing = (opening + Decimal(drw["drawer_sales"]) - Decimal(drw["drawer_returns"])
+                    + Decimal(drw["cash_deposits"]) - Decimal(drw["cash_expenses"]))
+    n_sales, n_returns, n_tx = int(inv["sale_lines"]), int(inv["return_lines"]), int(drw["n_movements"])
 
     return {
-        "sale_items": sale_items,
-        "returns": returns,
+        "sale_items": [_sale_line(dict(d), "sale") for d in sales_rows],
+        "returns": [_sale_line(dict(d), "return") for d in return_rows],
         "expenses": expenses,
         "summary": {
-            "opening_balance": float(opening),
-            "total_sales": total_sales,
-            "cash_sales": cash_sales,
-            "wallet_sales": wallet_sales,
-            "credit_sales": credit_sales,
-            "total_returns": total_returns,
-            "total_expenses": total_expenses,
-            "total_deposits": total_deposits,
-            "total_revenue_delivery": total_revenue_delivery,
-            "net": net_sales,
-            "net_with_deposits": net,
-            "closing": float(opening) + net,
-            "cash_closing": cash_closing,
+            "opening_balance": _f(opening),
+            "total_sales": _f(total_sales),
+            "cash_sales": _f(inv["cash_sales"]),
+            "wallet_sales": _f(inv["wallet_sales"]),
+            "credit_sales": _f(inv["credit_sales"]),
+            "total_returns": _f(total_returns),
+            "total_expenses": _f(total_expenses),
+            "total_deposits": _f(total_deposits),
+            "total_revenue_delivery": 0.0,
+            "net": _f(net),
+            "net_with_deposits": _f(net_with_deposits),
+            "closing": _f(opening + net_with_deposits),
+            "cash_closing": _f(cash_closing),
         },
         "pagination": {
-            "sales": {"total": total_sale_items, "page": page, "size": page_size, "pages": sale_pages},
-            "returns": {"total": total_returns_count, "page": page, "size": page_size, "pages": return_pages},
-            "expenses": {"total": total_tx_count, "page": page, "size": page_size, "pages": tx_pages},
+            "sales": {"total": n_sales, "page": page, "size": page_size, "pages": _pages(n_sales, page_size)},
+            "returns": {"total": n_returns, "page": page, "size": page_size, "pages": _pages(n_returns, page_size)},
+            "expenses": {"total": n_tx, "page": page, "size": page_size, "pages": _pages(n_tx, page_size)},
         },
-        "from_date": from_date,
-        "to_date": to_date,
+        "from_date": from_date.isoformat(),
+        "to_date": to_date.isoformat(),
     }

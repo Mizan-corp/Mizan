@@ -54,6 +54,7 @@ wallet movements) post on today's date in Africa/Cairo; an approved expense post
 | …cost of the return (same entry) | | inventory | cost of goods sold |
 | `sale.cancelled` | `sale` / `reverse` | the sale's entry, reversed | |
 | `customer_payment.received` (customers screen, or a drawer deposit for a customer) | `customer_payment` / `confirm` | the safe / wallet / drawer of its shift's branch / default bank | receivables (party: customer) |
+| `customer_payment.reversed` (`POST /customers/payments/{id}/reverse`, a receipt into a safe or wallet) | `customer_payment` / `reverse` | the receipt's entry, reversed | |
 | `customer_adjustment.created`, kind `opening` | `customer_adjustment` / `confirm` | receivables (party) — or opening balance equity when the balance goes down | opening balance equity — or receivables |
 | …kind `adjustment`, balance up | | receivables (party) | other income |
 | …kind `adjustment`, balance down | | other expenses | receivables (party) |
@@ -64,8 +65,8 @@ wallet movements) post on today's date in Africa/Cairo; an approved expense post
 | `shift.closed` (close, close with manager, hand-over) with a difference | `shift` / `close` | short: cash shortage; over: the drawer | short: the drawer; over: cash surplus |
 | `expense.approved` (not payroll) | `expense` / `approve` | the category's account, else other expenses (`amount` − `tax_amount`); VAT input = `tax_amount` | the safe or wallet it was paid from (`amount`) |
 | `expense.cancelled` | `expense` / `reverse` | the approval, reversed | |
-| `safe.deposited` (`POST /safes/{id}/deposit`) with `shift_id` | `safe_movement` / `deposit` | the safe | that shift's branch drawer |
-| …without `shift_id` | | the safe | other income |
+| `safe.deposited` from a shift flow (closing with a manager) | `safe_movement` / `deposit` | the safe | that shift's branch drawer |
+| …by hand (`POST /safes/{id}/deposit`, which names no shift) | | the safe | other income |
 | `safe.withdrawn` (`POST /safes/{id}/withdraw`) | `safe_movement` / `withdraw` | other expenses | the safe |
 | `wallet.transferred_to_safe` (`POST /safes/transfer`) | `wallet_movement` / `transfer` | the safe | the wallet |
 | `wallet.balance_reset` (`POST /wallets/{id}/reset-balance`) | `wallet_movement` / `reset` | other expenses (positive balance) or the wallet | the wallet or other income |

@@ -3988,6 +3988,40 @@ MIGRATIONS = [
           AND (grants @> '["finance"]'::jsonb OR grants @> '["admin"]'::jsonb)
           AND NOT grants @> '["reports:finance"]'::jsonb;
     """),
+
+    # Finance and contacts production readiness: idempotent money writes (a retry returns the first
+    # answer), customer receipts that can be reversed (the reversal points to the receipt, once), and
+    # the indexes the finance lists filter on.
+    ("v99_ready_finance_contacts", """
+        CREATE TABLE IF NOT EXISTS idempotency_keys (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                REFERENCES tenants(id) ON DELETE CASCADE,
+            scope varchar(64) NOT NULL,
+            key varchar(128) NOT NULL,
+            request_hash varchar(64) NOT NULL,
+            response jsonb,
+            created_by uuid,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            CONSTRAINT uq_idempotency_keys_scope_key UNIQUE (tenant_id, scope, key)
+        );
+        CREATE INDEX IF NOT EXISTS ix_idempotency_keys_tenant_id ON idempotency_keys (tenant_id);
+        ALTER TABLE idempotency_keys ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE idempotency_keys FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON idempotency_keys;
+        CREATE POLICY tenant_isolation ON idempotency_keys
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+
+        ALTER TABLE customer_payments ADD COLUMN IF NOT EXISTS reverses_id uuid REFERENCES customer_payments(id);
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_customer_payments_reverses_id ON customer_payments (tenant_id, reverses_id)
+            WHERE reverses_id IS NOT NULL;
+
+        CREATE INDEX IF NOT EXISTS ix_safe_transactions_safe_id ON safe_transactions (safe_id, created_at);
+        CREATE INDEX IF NOT EXISTS ix_wallet_transactions_wallet_id ON wallet_transactions (wallet_id, created_at);
+        CREATE INDEX IF NOT EXISTS ix_expenses_tenant_date ON expenses (tenant_id, date);
+        CREATE INDEX IF NOT EXISTS ix_customer_payments_sale_id ON customer_payments (sale_id) WHERE sale_id IS NOT NULL;
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

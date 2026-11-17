@@ -2,7 +2,7 @@
 approval flow, summary."""
 from helpers import uid
 
-from conftest import (admin_api, owner_api, safe, wallet,
+from conftest import (admin_api, owner_api, cashier_api, safe, wallet,
                       reg)  # noqa: F401
 
 
@@ -113,3 +113,23 @@ def test_approved_expense_is_paid_once(owner_api, reg, safe):
     again = owner_api.post(f"/expenses/{e['id']}/approve", json={"approved": True})
     assert again.status_code == 409, again.text[:200]
     assert _bal() == before - 30
+
+
+def test_expense_filters_are_typed(owner_api, cashier_api):
+    assert owner_api.get("/expenses", params={"date_from": "2026-01-01", "date_to": "2026-12-31"}).status_code == 200
+    assert owner_api.get("/expenses", params={"vendor_id": "nope"}).status_code == 422
+    assert owner_api.get("/expenses", params={"status": "paid"}).status_code == 422
+    assert owner_api.get("/expenses/summary", params={"date_from": "2026-02-30"}).status_code == 422
+    assert owner_api.put("/expenses/00000000-0000-0000-0000-000000000000", json={"notes": "x"}).status_code == 404
+    assert cashier_api.get("/expenses").status_code == 403
+    assert cashier_api.get("/expense-vendors").status_code == 403
+
+
+def test_category_type_is_an_enum_and_edits_are_partial(owner_api, reg):
+    assert owner_api.post("/financial-categories", json={"name": "E2E-X", "type": "other"}).status_code == 422
+    c = owner_api.ok(owner_api.post("/financial-categories", json={"name": "E2E-FCAT-" + uid("f"), "type": "income"}))
+    reg.add("financial_category", c["id"])
+    upd = owner_api.ok(owner_api.put(f"/financial-categories/{c['id']}", json={"color": "#123456"}))
+    assert upd["name"] == c["name"] and upd["color"] == "#123456" and upd["type"] == "income"
+    assert owner_api.put("/financial-categories/00000000-0000-0000-0000-000000000000",
+                         json={"name": "x"}).status_code == 404
