@@ -1,7 +1,8 @@
 """What a report may cover: the bound workspace, the branches the user reaches, and whole days in the
 workspace's time zone.
 
-- Branches: a manager or a holder of `supervise` sees every branch unless they pick one; anyone else
+- Branches: a manager, a holder of `supervise` or of `reports:finance` (accountants: they answer for
+  the company's figures) sees every branch unless they pick one; anyone else
   sees only the branches assigned to them (`user_warehouses`), and asking for another one is a 403.
   So leaving the branch filter empty never widens a report.
 - Days: a range `from`..`to` covers both days fully: `>= from 00:00` and `< (to + 1 day) 00:00`, in
@@ -66,7 +67,7 @@ class Scope:
 
 
 def is_supervisor(user) -> bool:
-    return bool(user.is_manager or can(user, "supervise"))
+    return bool(user.is_manager or can(user, "supervise") or can(user, FINANCE))
 
 
 async def user_branches(db: AsyncSession, user) -> tuple[uuid.UUID, ...]:
