@@ -180,11 +180,41 @@ def wrap_pdf(body, title="مستند", paper_size="A4", company_name="Mizan", do
     return f"""<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>{title}</title>{pdf_css(paper_size)}<style>{extra}</style></head><body><div class="sheet">{body}</div></body></html>"""
 
 
+# Hosts a PDF may load images or styles from (https only). Anything else, above all file:// and
+# addresses inside the server's network, is refused: a document built from what users typed (a
+# customer's name, a product's) must not be able to read the server's files or reach its network.
+PDF_ASSET_HOSTS = ("allmizan.live",)
+
+
+def _pdf_asset_allowed(url: str) -> bool:
+    from urllib.parse import urlsplit
+
+    if url.startswith("data:"):
+        return True
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower()
+    return parts.scheme == "https" and any(host == h or host.endswith("." + h) for h in PDF_ASSET_HOSTS)
+
+
+def pdf_url_fetcher():
+    """WeasyPrint's fetcher, limited to data: URIs and Mizan's own https hosts, without redirects."""
+    from weasyprint.urls import URLFetcher
+
+    class _Fetcher(URLFetcher):
+        def fetch(self, url, headers=None):
+            if not _pdf_asset_allowed(url):
+                raise ValueError(f"PDF resource refused: {url[:80]}")
+            return super().fetch(url, headers)
+
+    return _Fetcher(timeout=5, allowed_protocols=("data", "https"), allow_redirects=False)
+
+
 async def html_to_pdf(html: str, zoom: float = 1.0) -> bytes:
     import asyncio
     loop = asyncio.get_running_loop()
     from weasyprint import HTML
-    return await loop.run_in_executor(None, lambda: HTML(string=html).write_pdf(zoom=zoom))
+    return await loop.run_in_executor(
+        None, lambda: HTML(string=html, url_fetcher=pdf_url_fetcher()).write_pdf(zoom=zoom))
 
 
 async def get_paper_size(db, override: str = None) -> str:
