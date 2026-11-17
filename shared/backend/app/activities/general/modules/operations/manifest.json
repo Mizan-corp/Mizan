@@ -6,7 +6,7 @@
   "kind": "business",
   "version": "1.0.0",
   "icon": "ArrowLeftRight",
-  "description": "التحويلات بين المخازن، التسويات، الجرد، والهالك. الكود الحالي في واجهات النظام العامة وينتقل إلى هذه الوحدة في المرحلة الثانية (ADR-006).",
+  "description": "أذون الصرف بين المخازن والفروع (وإلغاؤها) وطلبات النواقص، بترقيم مستقل لكل منشأة.",
   "dependencies": [
     "core",
     "inventory"
@@ -17,6 +17,11 @@
       "id": "operations",
       "name": "العمليات المخزنية",
       "name_en": "Stock operations"
+    },
+    {
+      "id": "operations:cancel",
+      "name": "إلغاء أذون الصرف (إرجاع البضاعة إلى المصدر)",
+      "name_en": "Cancel dispatches (stock goes back to the source)"
     }
   ],
   "screens": [],
