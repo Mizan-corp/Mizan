@@ -9,44 +9,44 @@ from pydantic import BaseModel, Field
 
 class PurchaseItemCreate(BaseModel):
     product_id: uuid.UUID
-    qty: Decimal = Field(..., gt=0)
-    unit_cost: Decimal = Field(..., ge=0)
-    notes: str | None = None
+    qty: Decimal = Field(..., gt=0, le=Decimal("999999999"))
+    unit_cost: Decimal = Field(..., ge=0, le=Decimal("9999999999"))
+    notes: str | None = Field(None, max_length=1000)
 
 
 class PurchaseCreate(BaseModel):
     warehouse_id: uuid.UUID
     supplier_id: uuid.UUID | None = None
-    notes: str | None = None
-    amount_paid: Decimal | None = Field(None, ge=0)
+    notes: str | None = Field(None, max_length=2000)
+    amount_paid: Decimal | None = Field(None, ge=0, le=Decimal("9999999999"))
     # Where amount_paid comes from: a safe (or bank account) or a payment wallet.
     safe_id: uuid.UUID | None = None
     wallet_id: uuid.UUID | None = None
-    received_by_name: str | None = None
+    received_by_name: str | None = Field(None, max_length=128)
     # Whether the unit costs include VAT (ADR-014 D6); omitted: the workspace's setting at receipt.
     prices_include_vat: bool | None = None
-    items: list[PurchaseItemCreate] = []
+    items: list[PurchaseItemCreate] = Field(default_factory=list, max_length=500)
 
 
 class PurchaseUpdate(BaseModel):
     supplier_id: uuid.UUID | None = None
-    notes: str | None = None
-    items: list[PurchaseItemCreate] | None = None
+    notes: str | None = Field(None, max_length=2000)
+    items: list[PurchaseItemCreate] | None = Field(None, max_length=500)
 
 
 class ReceiveItemOverride(BaseModel):
     product_id: uuid.UUID
-    qty_received: Decimal | None = Field(None, gt=0)
-    unit_cost: Decimal | None = Field(None, ge=0)
+    qty_received: Decimal | None = Field(None, gt=0, le=Decimal("999999999"))
+    unit_cost: Decimal | None = Field(None, ge=0, le=Decimal("9999999999"))
     # Batch tracking (pharmacies, ADR-006 phase 4): which batch the stock comes in as.
     batch_number: str | None = Field(None, max_length=64)
     expiry_date: date | None = None
 
 
 class PurchaseReceive(BaseModel):
-    items: list[ReceiveItemOverride] = []
+    items: list[ReceiveItemOverride] = Field(default_factory=list, max_length=500)
     # What is paid on receipt and from where; when omitted, the order's own values are used.
-    amount_paid: Decimal | None = Field(None, ge=0)
+    amount_paid: Decimal | None = Field(None, ge=0, le=Decimal("9999999999"))
     safe_id: uuid.UUID | None = None
     wallet_id: uuid.UUID | None = None
     # Whether the unit costs include VAT (ADR-014 D6); omitted: what the order says, else the setting.
@@ -55,24 +55,24 @@ class PurchaseReceive(BaseModel):
 
 class QuickProductCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=128)
-    unit: str = "عدد"
-    cost_price: Decimal = 0
-    retail_price: Decimal = 0
-    wholesale_price: Decimal = 0
-    company: str | None = None
+    unit: str = Field("عدد", max_length=32)
+    cost_price: Decimal = Field(Decimal("0"), ge=0, le=Decimal("9999999999"))
+    retail_price: Decimal = Field(Decimal("0"), ge=0, le=Decimal("9999999999"))
+    wholesale_price: Decimal = Field(Decimal("0"), ge=0, le=Decimal("9999999999"))
+    company: str | None = Field(None, max_length=128)
     subcategory_id: uuid.UUID | None = None
 
 
 class PurchaseReturnItemIn(BaseModel):
     product_id: uuid.UUID
-    qty: Decimal = Field(..., gt=0)
+    qty: Decimal = Field(..., gt=0, le=Decimal("999999999"))
 
 
 class PurchaseReturnCreate(BaseModel):
     """Goods sent back to the supplier from a received order. `refund_amount` is what the supplier
     paid back now, into a safe or wallet; the rest lowers what we owe them."""
-    items: list[PurchaseReturnItemIn] = Field(..., min_length=1)
-    refund_amount: Decimal | None = Field(None, ge=0)
+    items: list[PurchaseReturnItemIn] = Field(..., min_length=1, max_length=500)
+    refund_amount: Decimal | None = Field(None, ge=0, le=Decimal("9999999999"))
     safe_id: uuid.UUID | None = None
     wallet_id: uuid.UUID | None = None
-    notes: str | None = None
+    notes: str | None = Field(None, max_length=2000)

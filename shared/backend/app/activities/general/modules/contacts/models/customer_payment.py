@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Numeric, Text, func, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Numeric, Text, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -26,6 +26,10 @@ class CustomerPayment(TenantScoped, Base):
     shift_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("shifts.id"), nullable=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # A reversal (negative amount) points to the receipt it undoes; a receipt is reversed once.
+    reverses_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("customer_payments.id"), nullable=True)
+    __table_args__ = (Index("uq_customer_payments_reverses_id", "tenant_id", "reverses_id", unique=True,
+                            postgresql_where=text("reverses_id IS NOT NULL")),)
 
 
 class CustomerAdjustment(TenantScoped, Base):

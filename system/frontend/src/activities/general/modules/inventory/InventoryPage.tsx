@@ -35,6 +35,8 @@ interface Product {
   retail_price: string;
   wholesale_price: string;
   cost_price: string;
+  /** Weighted average cost (the ledger's value); 0 until the first costed receipt. */
+  avg_cost?: string | null;
   reorder_point?: string | number | null;
 }
 
@@ -338,7 +340,8 @@ function DetailedLedgerTab({ wid }: { wid: string }) {
     const rawQty = balances[p.id];
     const qty = typeof rawQty === "number" ? rawQty : 0;
     const reorderPoint = p.reorder_point ? Number(p.reorder_point) : 5;
-    const cost = Number(p.cost_price || 0);
+    // Valued at the average cost, as the ledger is; the listed cost only before any costed receipt.
+    const cost = Number(p.avg_cost || 0) > 0 ? Number(p.avg_cost) : Number(p.cost_price || 0);
     const retail = Number(p.retail_price || 0);
     const totalValuation = qty * cost;
 

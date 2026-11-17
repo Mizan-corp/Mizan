@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Numeric, String, Text, UniqueConstraint, func, text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -33,12 +33,12 @@ class Sale(TenantScoped, Base):
     extra: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     invoice_number: Mapped[str] = mapped_column(String(32), index=True, nullable=False)
     customer_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("customers.id", ondelete="SET NULL"), nullable=True, index=True)
-    warehouse_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=False)
+    warehouse_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("warehouses.id", ondelete="RESTRICT"), nullable=False, index=True)
     cashier_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     shift_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("shifts.id", ondelete="SET NULL"), nullable=True, index=True)
     sale_mode: Mapped[SaleMode] = mapped_column(SAEnum(SaleMode, name="sale_mode_enum"), default=SaleMode.retail)
-    status: Mapped[SaleStatus] = mapped_column(SAEnum(SaleStatus, name="sale_status_enum"), default=SaleStatus.confirmed)
+    status: Mapped[SaleStatus] = mapped_column(SAEnum(SaleStatus, name="sale_status_enum"), default=SaleStatus.confirmed, index=True)
     total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     discount_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
     net_total: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=0)
@@ -53,12 +53,17 @@ class Sale(TenantScoped, Base):
     returns_total: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True, default=0)
     # A return is its own document (status 'returned') pointing to the sale it returns (ADR-014 D4).
     return_of: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("sales.id"), nullable=True)
+    # The id the POS gave the sale on the device (offline queue, retries): a sale sent twice with
+    # the same local_id by the same cashier is recorded once (SAL-2).
+    local_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     last_paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     items: Mapped[list["SaleItem"]] = relationship(back_populates="sale", cascade="all, delete-orphan")
-    __table_args__ = (UniqueConstraint("tenant_id", "invoice_number", name="uq_sales_invoice_number"),)
+    __table_args__ = (UniqueConstraint("tenant_id", "invoice_number", name="uq_sales_invoice_number"),
+                      Index("uq_sales_local_id", "tenant_id", "cashier_id", "local_id", unique=True,
+                            postgresql_where=text("local_id IS NOT NULL")))
 
 class SaleItem(TenantScoped, Base):
     __tablename__ = "sale_items"

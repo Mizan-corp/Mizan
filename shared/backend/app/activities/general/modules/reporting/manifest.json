@@ -5,9 +5,9 @@
   "activity": "general",
   "kind": "business",
   "status": "active",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "icon": "Blocks",
-  "description": "",
+  "description": "تقارير المبيعات والأرباح والمخزون والتدفق النقدي وأعمار الديون، محدودة بفروع المستخدم.",
   "dependencies": [
     "core"
   ],
@@ -16,6 +16,11 @@
       "id": "reports",
       "name": "التقارير",
       "name_en": "Reports"
+    },
+    {
+      "id": "reports:finance",
+      "name": "التقارير المالية: الأرباح والتكاليف والمديونيات والتدفق النقدي",
+      "name_en": "Financial reports: profit, costs, debts, cash flow"
     }
   ],
   "screens": [

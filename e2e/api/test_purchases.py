@@ -22,7 +22,8 @@ def test_purchase_order_crud_and_receive(owner_api, admin_api, reg, product, sup
 
     lst = owner_api.ok(owner_api.get("/purchases"))
     rows = lst if isinstance(lst, list) else lst.get("items", [])
-    assert any(x["id"] == po["id"] for x in rows)
+    row = next(x for x in rows if x["id"] == po["id"])
+    assert float(row["total"]) == 300  # 5 × 60, computed from the lines
 
     upd = owner_api.ok(owner_api.put(f"/purchases/{po['id']}",
                                      json={"supplier_id": supplier["id"],

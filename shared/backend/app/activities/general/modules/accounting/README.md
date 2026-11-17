@@ -54,6 +54,7 @@ wallet movements) post on today's date in Africa/Cairo; an approved expense post
 | …cost of the return (same entry) | | inventory | cost of goods sold |
 | `sale.cancelled` | `sale` / `reverse` | the sale's entry, reversed | |
 | `customer_payment.received` (customers screen, or a drawer deposit for a customer) | `customer_payment` / `confirm` | the safe / wallet / drawer of its shift's branch / default bank | receivables (party: customer) |
+| `customer_payment.reversed` (`POST /customers/payments/{id}/reverse`, a receipt into a safe or wallet) | `customer_payment` / `reverse` | the receipt's entry, reversed | |
 | `customer_adjustment.created`, kind `opening` | `customer_adjustment` / `confirm` | receivables (party) — or opening balance equity when the balance goes down | opening balance equity — or receivables |
 | …kind `adjustment`, balance up | | receivables (party) | other income |
 | …kind `adjustment`, balance down | | other expenses | receivables (party) |
@@ -64,8 +65,8 @@ wallet movements) post on today's date in Africa/Cairo; an approved expense post
 | `shift.closed` (close, close with manager, hand-over) with a difference | `shift` / `close` | short: cash shortage; over: the drawer | short: the drawer; over: cash surplus |
 | `expense.approved` (not payroll) | `expense` / `approve` | the category's account, else other expenses (`amount` − `tax_amount`); VAT input = `tax_amount` | the safe or wallet it was paid from (`amount`) |
 | `expense.cancelled` | `expense` / `reverse` | the approval, reversed | |
-| `safe.deposited` (`POST /safes/{id}/deposit`) with `shift_id` | `safe_movement` / `deposit` | the safe | that shift's branch drawer |
-| …without `shift_id` | | the safe | other income |
+| `safe.deposited` from a shift flow (closing with a manager) | `safe_movement` / `deposit` | the safe | that shift's branch drawer |
+| …by hand (`POST /safes/{id}/deposit`, which names no shift) | | the safe | other income |
 | `safe.withdrawn` (`POST /safes/{id}/withdraw`) | `safe_movement` / `withdraw` | other expenses | the safe |
 | `wallet.transferred_to_safe` (`POST /safes/transfer`) | `wallet_movement` / `transfer` | the safe | the wallet |
 | `wallet.balance_reset` (`POST /wallets/{id}/reset-balance`) | `wallet_movement` / `reset` | other expenses (positive balance) or the wallet | the wallet or other income |
@@ -87,10 +88,13 @@ document's transaction. The modules emit generic events and never import account
 | `purchase.returned` (`POST /purchases/{id}/returns`) | `purchase_return` / `confirm` | payables (party: supplier) for what lowers the balance; the safe or wallet for a refund | inventory (at the cost the goods came in at, without VAT); VAT input (the return's `tax_amount`) |
 | `stock.adjusted` (`apply_movement` of type `adjustment_out` or `damage`) | `stock_movement` / `adjust` | inventory shortage and damage (`inventory_loss`) | inventory, at the movement's unit cost (the average cost when none was given) |
 | …`adjustment_in` | | inventory | other income |
+| …`opening_stock`, only once the ledger's opening entry is in force (before it, the opening entry takes the stock in) | | inventory | opening balance equity |
+| `stock.resetting` (a warehouse's stock reset) | refuses (409) when one of its movements is posted or the opening entry is in force | | |
 | `payroll.approved` (`approve_payroll_period`) | `payroll` (id: the approval's salaries expense) / `approve` | salaries expense = net + withheld | salaries payable per employee (net, party: employee); employee advances per employee (advances recovered, party: employee); other income (deductions, lateness and absence withheld) |
 | `payroll.reopened` (reopening an approved, unpaid month) | `payroll` / `reverse` | the approval's entry, reversed | |
 | `payroll.paid` (`pay_payroll_period`) | `payroll` (id: the period) / `pay` | salaries payable per employee (party: employee) | the safe or wallet it was paid from |
 | `hr_advance.paid` (`POST /hr/advances`, kind سلفة) | `hr_advance` / `pay` | employee advances (party: employee) | the safe or wallet |
+| `hr_advance.cancelled` (`POST /hr/advances/{id}/cancel`, an advance) | `hr_advance` / `reverse` | the advance's entry, reversed | |
 | `clinic.invoice_paid` (`POST /clinic/invoices/{id}/pay`) | `clinic_invoice` / `revenue`, once | receivables (the patient's share not yet paid, no party); insurance receivables (the insurer's share) | sales (patient's + insurer's share) |
 | …each payment | `clinic_payment` (id: the `sale_payments` row) / `confirm` | cash: the drawer of the branch of the cashier's open shift; bank, card, wallet…: the default bank | receivables |
 | `safe.deposited` from `close_shift_with_manager` | `safe_movement` / `deposit` | the safe | the shift's branch drawer |
@@ -109,7 +113,9 @@ Decisions where the design was open:
   (deductions خصم, lateness, absence) is other income. Each approval is keyed by its salaries expense,
   so a reopened and re-approved month has its own entry. A month whose net total is 0 posts nothing.
   Deductions and bonuses move no cash and post nothing by themselves.
-- Stock adjustments: opening stock is left to the opening entry (step 4); purchases, sales, returns
+- Stock adjustments: opening stock before the opening entry is left to it (step 4), after it posts
+  to opening balance equity; stock can no longer be entered by hand as a purchase, sale, return or
+  transfer (inventory refuses them); purchases, sales, returns
   are posted with their documents; transfers between branches post nothing (one inventory account).
   A product with no cost at all (average and list cost 0) adjusts with nothing to post.
 - Clinics: revenue is posted once, at the first payment the ledger sees, with the patient's whole unpaid
@@ -121,8 +127,8 @@ Decisions where the design was open:
   non-bank safe; with none or several it stays recorded as `deposit_amount` on the shift and nothing moves.
 
 Not posted yet (later steps of D12): insurance claim approval and payment
-(the insurer's receivable stays open), stock movements entered by hand with type `purchase`, `sale`,
-`return_in` or `opening_stock` through `POST /stock/movements`, cancelling a clinic invoice's sale,
+(the insurer's receivable stays open), cancelling a clinic invoice's sale, a pharmacy batch received
+through `POST /pharmacy/batches` (a `purchase` movement with no purchase order),
 and money modules outside general sales (hotel, storefront, school…).
 
 ### Step 6: VAT (D6)

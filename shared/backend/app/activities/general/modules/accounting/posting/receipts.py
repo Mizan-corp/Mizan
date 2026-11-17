@@ -2,6 +2,7 @@
 
 Customer receipt (source 'customer_payment', event 'confirm'):
     Dr the safe / wallet / branch drawer (or the default bank for bank and cheque) / Cr receivables (party)
+Receipt reversed (into a safe or wallet): the reversing entry of the receipt's.
 Balance adjustment (source 'customer_adjustment', event 'confirm'), amount = the signed change:
     opening    : up: Dr receivables / Cr opening balance equity;  down: the opposite
     adjustment : up: Dr receivables / Cr other income;  down: Dr other expenses / Cr receivables
@@ -11,7 +12,7 @@ from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activities.general.modules.accounting.posting.common import payment_account, role, shift_warehouse, tenant_of
-from app.activities.general.modules.accounting.services.posting import cr, dr, post, today
+from app.activities.general.modules.accounting.services.posting import cr, dr, post, reverse_source, today
 
 
 async def on_customer_payment(db: AsyncSession, *, payment, user_id=None, **_) -> None:
@@ -27,6 +28,12 @@ async def on_customer_payment(db: AsyncSession, *, payment, user_id=None, **_) -
                [dr(money, amount), cr(await role(db, tid, "receivables"), amount, **party)],
                memo="تحصيل من عميل" + (f" — {payment.note}" if payment.note else ""), warehouse_id=wh,
                user_id=user_id or payment.created_by)
+
+
+async def on_customer_payment_reversed(db: AsyncSession, *, payment, user_id=None, **_) -> None:
+    """A receipt into a safe or wallet undone: the reversing entry of the receipt's."""
+    await reverse_source(db, tenant_of(payment), "customer_payment", payment.id, "confirm", user_id=user_id,
+                         memo="عكس تحصيل من عميل")
 
 
 async def on_customer_adjustment(db: AsyncSession, *, adjustment, user_id=None, **_) -> None:

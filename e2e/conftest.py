@@ -216,3 +216,9 @@ def open_shift(api: Api, reg: Registry, warehouse_id: str, initial: str = "100")
     sh = api.ok(r, 200, 201)
     reg.add("shift", sh["id"])
     return sh
+
+def ensure_shift(api: Api, reg: Registry, warehouse_id: str, initial: str = "100"):
+    """The caller's open shift in the branch, opened if there is none: a cash sale goes into
+    the seller's own open shift, and refunds come out of it."""
+    cur = api.ok(api.get("/shifts/current", params={"warehouse_id": warehouse_id}))
+    return cur if cur else open_shift(api, reg, warehouse_id, initial)

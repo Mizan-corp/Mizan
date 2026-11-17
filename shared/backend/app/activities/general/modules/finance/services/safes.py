@@ -35,30 +35,101 @@ async def _post(db: AsyncSession, safe_id: uuid.UUID, tx_type: str, delta: Decim
     return new_balance
 
 
+DEFAULT_SAFE_NAME = "الخزينة الرئيسية"
+INACTIVE = "الخزنة موقوفة"
+
+
+async def ensure_default_safe(db: AsyncSession, tenant_id: uuid.UUID) -> uuid.UUID | None:
+    """A new workspace's main safe (balance 0), so expenses and receipts have somewhere to come
+    from and go to from the first day. Nothing when the workspace already has a safe (the demo
+    data brings its own). Returns the new safe's id."""
+    await db.flush()
+    if await db.scalar(text("SELECT 1 FROM safes WHERE tenant_id = :t LIMIT 1"), {"t": tenant_id}):
+        return None
+    return (await db.execute(text("""
+        INSERT INTO safes (id, tenant_id, name, location, safe_type, balance, is_active)
+        VALUES (gen_random_uuid(), :t, :n, NULL, 'permanent', 0, true) RETURNING id
+    """), {"t": tenant_id, "n": DEFAULT_SAFE_NAME})).scalar_one()
+
+
+async def create_safe(db: AsyncSession, tenant_id: uuid.UUID, name: str, location: str | None, safe_type: str) -> dict:
+    row = (await db.execute(text("""
+        INSERT INTO safes (id, tenant_id, name, location, safe_type, balance, is_active)
+        VALUES (gen_random_uuid(), :t, :name, :loc, :type, 0, true) RETURNING *
+    """), {"t": tenant_id, "name": name.strip(), "loc": location, "type": safe_type})).mappings().one()
+    return dict(row)
+
+
+async def update_safe(db: AsyncSession, safe_id: uuid.UUID, changes: dict) -> dict:
+    """Change only the fields given; the balance changes only through movements."""
+    safe = await _lock_safe(db, safe_id)
+    changes = {k: v for k, v in changes.items() if k in ("name", "location", "safe_type")}
+    if "name" in changes:
+        if changes["name"] is None:
+            raise HTTPException(400, "اسم الخزنة مطلوب")
+        changes["name"] = changes["name"].strip()
+    if changes.get("safe_type", safe["safe_type"]) is None:
+        changes.pop("safe_type")
+    if not changes:
+        return safe
+    sets = ", ".join(f"{k} = :{k}" for k in changes)
+    return dict((await db.execute(text(f"UPDATE safes SET {sets} WHERE id = :id RETURNING *"),
+                                  {**changes, "id": safe_id})).mappings().one())
+
+
+async def set_active(db: AsyncSession, safe_id: uuid.UUID, active: bool) -> dict:
+    """Stop or resume a safe. A safe holding money can't be stopped: move its balance first."""
+    safe = await _lock_safe(db, safe_id)
+    if not active and Decimal(str(safe["balance"])) != 0:
+        raise HTTPException(409, f"لا يمكن إيقاف خزنة رصيدها {safe['balance']} ج.م. حوّل الرصيد أو اسحبه أولاً")
+    return dict((await db.execute(text("UPDATE safes SET is_active = :a WHERE id = :id RETURNING *"),
+                                  {"a": active, "id": safe_id})).mappings().one())
+
+
+def _active(safe: dict) -> dict:
+    if not safe["is_active"]:
+        raise HTTPException(400, INACTIVE)
+    return safe
+
+
 async def transfer_from_wallet(db: AsyncSession, wallet_id: uuid.UUID, safe_id: uuid.UUID, amount: Decimal,
                                note: str | None, user) -> None:
     """Move money from a payment wallet into a safe."""
     wallet = (await db.execute(text("SELECT * FROM payment_wallets WHERE id = :id FOR UPDATE"), {"id": wallet_id})).mappings().fetchone()
     if not wallet:
-        raise HTTPException(404, "Wallet not found")
+        raise HTTPException(404, "المحفظة غير موجودة")
+    if not wallet["is_active"]:
+        raise HTTPException(400, "المحفظة موقوفة")
     if Decimal(wallet["balance"]) < amount:
         raise HTTPException(400, f"رصيد المحفظة غير كافٍ ({wallet['balance']} ج.م)")
-    await _lock_safe(db, safe_id)
+    safe = _active(await _lock_safe(db, safe_id))
     await record_wallet_tx(db, wallet_id, -amount, "safe_transfer", safe_id,
-                           note or f"تحويل إلى خزنة {wallet['name']}", user.id)
+                           note or f"تحويل إلى خزنة {safe['name']}", user.id)
     await _post(db, safe_id, "deposit", amount, note or f"تحويل من {wallet['name']}", user.id)
 
 
 async def deposit(db: AsyncSession, safe_id: uuid.UUID, amount: Decimal, user, *, shift_id=None, warehouse_id=None,
                   received_by_id=None, notes: str | None = None) -> dict:
-    """A cash deposit into a safe, with its numbered document archived."""
-    safe = await _lock_safe(db, safe_id)
-    seq = (await db.execute(text("SELECT nextval('invoice_seq')"))).scalar()
-    doc_number = f"DEP-{seq:06d}"
-
+    """A cash deposit into a safe, with its numbered document archived. `shift_id` is for the
+    shift flows only (the cash comes out of that shift's drawer); the branch and the receiver must
+    be the workspace's."""
+    safe = _active(await _lock_safe(db, safe_id))
+    tid = safe["tenant_id"]
+    wh_name = ""
+    if warehouse_id:
+        wh_name = (await db.execute(text("SELECT name FROM warehouses WHERE id = :id AND tenant_id = :t"),
+                                    {"id": warehouse_id, "t": tid})).scalar()
+        if wh_name is None:
+            raise HTTPException(404, "الفرع غير موجود")
     received_by_name = ""
     if received_by_id:
-        received_by_name = (await db.execute(text("SELECT full_name FROM users WHERE id = :id"), {"id": received_by_id})).scalar() or ""
+        received_by_name = (await db.execute(text("SELECT full_name FROM users WHERE id = :id AND tenant_id = :t AND is_active"),
+                                             {"id": received_by_id, "t": tid})).scalar()
+        if received_by_name is None:
+            raise HTTPException(404, "المستلم غير موجود في مساحة العمل")
+    from app.platform.archive.numbering import next_number
+
+    doc_number = await next_number(db, "DEP")  # counted per workspace (PLAT-6)
 
     await db.execute(text("""
         INSERT INTO safe_deposits
@@ -69,9 +140,6 @@ async def deposit(db: AsyncSession, safe_id: uuid.UUID, amount: Decimal, user, *
            "recv_name": received_by_name, "dep": user.id, "dep_name": user.full_name, "notes": notes or "", "doc": doc_number})
     await _post(db, safe_id, "deposit", amount, notes or "", user.id)
 
-    wh_name = ""
-    if warehouse_id:
-        wh_name = (await db.execute(text("SELECT name FROM warehouses WHERE id = :id"), {"id": warehouse_id})).scalar() or ""
     await db.execute(text("""
         INSERT INTO archived_documents (id, doc_number, doc_type, amount, created_by, metadata)
         VALUES (gen_random_uuid(), :doc, 'safe_deposit', :amt, :uid, cast(:meta as jsonb))
@@ -83,7 +151,7 @@ async def deposit(db: AsyncSession, safe_id: uuid.UUID, amount: Decimal, user, *
 
 
 async def withdraw(db: AsyncSession, safe_id: uuid.UUID, amount: Decimal, note: str | None, user) -> Decimal:
-    safe = await _lock_safe(db, safe_id)
+    safe = _active(await _lock_safe(db, safe_id))
     if Decimal(safe["balance"]) < amount:
         raise HTTPException(400, f"رصيد الخزنة غير كافٍ ({safe['balance']} ج.م)")
     return await _post(db, safe_id, "withdraw", -amount, note or "", user.id)

@@ -3,7 +3,7 @@ revenue-delivery, manager-close, summary; safes CRUD + deposit/withdraw/
 transfer + history."""
 from helpers import uid
 
-from conftest import (admin_api, owner_api, product, wh, safe, wallet, db,
+from conftest import (admin_api, owner_api, cashier_api, product, wh, safe, wallet, db,
                       reg)  # noqa: F401
 from conftest import open_shift
 
@@ -39,6 +39,20 @@ def test_shift_drawer_transactions(admin_api, reg, wh, product):
     txs = admin_api.ok(admin_api.get(f"/shifts/{sh['id']}/transactions"))
     assert len(txs) >= 2
 
+    # By hand only deposits, expenses and withdrawals: sale, return and revenue-delivery rows come
+    # from their documents.
+    for kind in ("sale", "return", "revenue_delivery"):
+        r = admin_api.post(f"/shifts/{sh['id']}/transactions", json={"amount": 5, "type": kind})
+        assert r.status_code == 422, r.text[:200]
+    r = admin_api.post(f"/shifts/{sh['id']}/transactions",
+                       json={"amount": 5, "type": "expense", "payment_method": "wallet",
+                             "wallet_id": "00000000-0000-0000-0000-000000000000"})
+    assert r.status_code == 404, r.text[:200]
+
+    # A second open shift in the same branch is refused.
+    r = admin_api.post("/shifts/open", json={"initial_amount": "0", "warehouse_id": wh["id"]})
+    assert r.status_code == 400, r.text[:200]
+
     # closing with mismatched ending balance must be rejected
     r = admin_api.post(f"/shifts/{sh['id']}/close", json={"closing_balance": "0"})
     assert r.status_code in (200, 400, 409, 422), r.text[:200]
@@ -49,10 +63,21 @@ def test_shift_transfer_and_revenue_delivery(admin_api, owner_api, cashier_api, 
     target = cashier_api.ok(cashier_api.get("/auth/me"))
     sh = open_shift(admin_api, reg, wh["id"], initial="100")
 
+    # Never more than the cash the drawer should hold (100).
+    r = admin_api.post(f"/shifts/{sh['id']}/revenue-delivery",
+                       json={"amount": "150", "safe_id": safe["id"],
+                             "manager_id": mgr["id"], "manager_password": "E2eOwner9!"})
+    assert r.status_code == 400, r.text[:200]
+    r = admin_api.post(f"/shifts/{sh['id']}/revenue-delivery",
+                       json={"amount": "10", "safe_id": "00000000-0000-0000-0000-000000000000",
+                             "manager_id": mgr["id"], "manager_password": "E2eOwner9!"})
+    assert r.status_code == 404, r.text[:200]
     rd = admin_api.ok(admin_api.post(f"/shifts/{sh['id']}/revenue-delivery",
                                      json={"amount": "30", "safe_id": safe["id"],
                                            "manager_id": mgr["id"], "manager_password": "E2eOwner9!"}))
-    assert "amount" in rd or rd.get("detail")
+    assert float(rd["amount"]) == 30 and rd["doc_number"].startswith("DEP-")
+    summary = admin_api.ok(admin_api.get(f"/shifts/{sh['id']}/summary"))
+    assert float(summary["expected_balance"]) == 70
 
     t = admin_api.ok(admin_api.post(f"/shifts/{sh['id']}/transfer",
                                     json={"amount": "40", "to_user_id": target["id"]}))
@@ -138,3 +163,53 @@ def test_wallet_to_safe_transfer_moves_money(owner_api, db, wallet, safe):
 def test_deposit_to_unknown_safe_is_not_found(owner_api):
     r = owner_api.post("/safes/00000000-0000-0000-0000-000000000000/deposit", json={"amount": "10"})
     assert r.status_code == 404, r.text[:300]
+
+
+def test_safe_edit_is_partial_and_an_empty_safe_is_stopped(owner_api, reg):
+    s = owner_api.ok(owner_api.post("/safes", json={"name": "E2E-SAFE-" + uid("s"), "location": "e2e"}), 200, 201)
+    reg.add("safe", s["id"])
+    upd = owner_api.ok(owner_api.put(f"/safes/{s['id']}", json={"location": "e2e-2"}))
+    assert upd["name"] == s["name"] and upd["location"] == "e2e-2"
+    assert owner_api.put("/safes/00000000-0000-0000-0000-000000000000", json={"name": "x"}).status_code == 404
+    stopped = owner_api.ok(owner_api.delete(f"/safes/{s['id']}"))
+    assert stopped["is_active"] is False
+    assert s["id"] not in {x["id"] for x in owner_api.ok(owner_api.get("/safes"))}
+    assert s["id"] in {x["id"] for x in owner_api.ok(owner_api.get("/safes", params={"include_inactive": "true"}))}
+    assert owner_api.ok(owner_api.post(f"/safes/{s['id']}/activate"))["is_active"] is True
+
+
+def test_safe_with_money_is_not_stopped(owner_api, safe):
+    owner_api.ok(owner_api.post(f"/safes/{safe['id']}/deposit", json={"amount": "5", "notes": "e2e"}))
+    r = owner_api.delete(f"/safes/{safe['id']}")
+    assert r.status_code == 409, r.text[:200]
+
+
+def test_deposit_is_idempotent_and_checks_its_references(owner_api, safe):
+    key = {"Idempotency-Key": "e2e-" + uid("k", 12)}
+    first = owner_api.ok(owner_api.post(f"/safes/{safe['id']}/deposit", json={"amount": "7"}, headers=key))
+    again = owner_api.ok(owner_api.post(f"/safes/{safe['id']}/deposit", json={"amount": "7"}, headers=key))
+    assert first["doc_number"] == again["doc_number"]
+    assert owner_api.post(f"/safes/{safe['id']}/deposit", json={"amount": "8"}, headers=key).status_code == 422
+    r = owner_api.post(f"/safes/{safe['id']}/deposit",
+                       json={"amount": "1", "warehouse_id": "00000000-0000-0000-0000-000000000000"})
+    assert r.status_code == 404, r.text[:200]
+    assert owner_api.get("/safes/00000000-0000-0000-0000-000000000000/history").status_code == 404
+
+
+def test_cashier_sees_safes_without_balances_and_cannot_withdraw(cashier_api, safe):
+    rows = cashier_api.ok(cashier_api.get("/safes"))
+    assert rows and all("balance" not in r for r in rows)
+    assert cashier_api.post(f"/safes/{safe['id']}/withdraw", json={"amount": "1"}).status_code == 403
+    assert cashier_api.get(f"/safes/{safe['id']}/history").status_code == 403
+
+
+def test_wallet_edit_is_partial_and_comes_back(owner_api, wallet):
+    upd = owner_api.ok(owner_api.put(f"/wallets/{wallet['id']}", json={"phone": "0111"}))
+    assert upd["name"] == wallet["name"] and upd["phone"] == "0111"
+    assert owner_api.delete(f"/wallets/{wallet['id']}").status_code == 204
+    assert owner_api.ok(owner_api.post(f"/wallets/{wallet['id']}/activate"))["is_active"] is True
+    hist = owner_api.ok(owner_api.get(f"/wallets/{wallet['id']}/history"))
+    assert isinstance(hist, list)
+    summary = owner_api.ok(owner_api.get("/wallets/summary", params={"from_date": "2026-01-01", "to_date": "2026-12-31"}))
+    assert isinstance(summary, list)
+    assert owner_api.get("/wallets/summary", params={"from_date": "nope"}).status_code == 422

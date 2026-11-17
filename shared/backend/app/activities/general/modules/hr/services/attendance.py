@@ -7,12 +7,18 @@ from __future__ import annotations
 import csv
 import io
 from datetime import date as _date
+from datetime import UTC as _UTC
 from datetime import datetime as _dt
 from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.activities.general.modules.hr.services.payroll import LOCKED_STATUSES, month_of
+
+STATUSES = {"present", "absent", "leave", "mission", "excuse"}
+MAX_CSV_BYTES = 5 * 1024 * 1024
 
 
 def _parse_time(raw: str, work_date: _date) -> _dt | None:
@@ -52,11 +58,21 @@ def _parse_time(raw: str, work_date: _date) -> _dt | None:
 
 
 async def import_attendance_csv_stream(db: AsyncSession, content: bytes) -> dict[str, Any]:
-    """Parses and ingests attendance CSV logs."""
-    text_content = content.decode("utf-8-sig")
+    """Parses and ingests attendance CSV logs. Days saved by hand (edited) are kept, and days in
+    a month whose payroll is approved or paid are refused (listed in the errors)."""
+    if len(content) > MAX_CSV_BYTES:
+        raise HTTPException(400, "الملف أكبر من 5 ميجابايت")
+    try:
+        text_content = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise HTTPException(400, "الملف ليس ملف CSV بترميز UTF-8") from None
     reader = csv.DictReader(io.StringIO(text_content))
 
-    if not reader.fieldnames:
+    try:
+        fieldnames = reader.fieldnames
+    except csv.Error:
+        raise HTTPException(400, "تعذرت قراءة ملف CSV") from None
+    if not fieldnames:
         raise HTTPException(400, "الملف فارغ أو لا يحتوي على ترويسة أعمدة")
 
     col_map = {}
@@ -84,8 +100,13 @@ async def import_attendance_csv_stream(db: AsyncSession, content: bytes) -> dict
 
     added = updated = skipped = 0
     errors = []
+    month_locked: dict[str, bool] = {}
 
-    for row in reader:
+    try:
+        rows = list(reader)
+    except csv.Error:
+        raise HTTPException(400, "تعذرت قراءة ملف CSV") from None
+    for row in rows:
         try:
             emp_code_raw = str(row.get(next(k for k, v in col_map.items() if v == "emp_code"), "")).strip() if has_code else ""
             emp_name_raw = str(row.get(next(k for k, v in col_map.items() if v == "emp_name"), "")).strip() if has_name else ""
@@ -93,7 +114,7 @@ async def import_attendance_csv_stream(db: AsyncSession, content: bytes) -> dict
             check_in_raw = row.get(next(k for k, v in col_map.items() if v == "check_in"), "").strip() if "check_in" in col_map.values() else ""
             check_out_raw = row.get(next(k for k, v in col_map.items() if v == "check_out"), "").strip() if "check_out" in col_map.values() else ""
             status_raw = row.get(next(k for k, v in col_map.items() if v == "status"), "").strip() if "status" in col_map.values() else "present"
-        except (IndexError, KeyError):
+        except (IndexError, KeyError, AttributeError):
             skipped += 1
             continue
 
@@ -130,14 +151,30 @@ async def import_attendance_csv_stream(db: AsyncSession, content: bytes) -> dict
                 continue
             work_date = parsed_d
 
+        month = month_of(work_date)
+        if month not in month_locked:
+            # FOR SHARE: the month can't be approved while this import is writing into it.
+            status = (await db.execute(text("SELECT status FROM hr_payroll_periods WHERE month=:m FOR SHARE"),
+                                       {"m": month})).scalar_one_or_none()
+            month_locked[month] = status in LOCKED_STATUSES
+            if month_locked[month]:
+                errors.append(f"رواتب شهر {month} معتمدة أو مصروفة — لم تُستورد أيامه")
+        if month_locked[month]:
+            skipped += 1
+            continue
+
+        # Wall-clock times marked UTC, as the payroll engine reads them (it drops the zone).
         check_in = _parse_time(check_in_raw, work_date) if check_in_raw else None
         check_out = _parse_time(check_out_raw, work_date) if check_out_raw else None
+        check_in = check_in.replace(tzinfo=_UTC) if check_in else None
+        check_out = check_out.replace(tzinfo=_UTC) if check_out else None
         if check_in_raw and check_in is None:
             errors.append(f"وقت غير صالح '{check_in_raw}'")
         if check_out_raw and check_out is None:
             errors.append(f"وقت غير صالح '{check_out_raw}'")
 
-        status = status_raw.lower() if status_raw else "present"
+        status = (status_raw or "present").strip().lower()
+        status = "present" if status in ("regular", "") or status not in STATUSES else status
 
         existing = (await db.execute(text(
             "SELECT id, edited FROM hr_attendance WHERE employee_id=:e AND work_date=:d"

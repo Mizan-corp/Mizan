@@ -50,6 +50,11 @@
       "id": "inventory",
       "name": "المخزون والأصناف",
       "name_en": "Inventory and products"
+    },
+    {
+      "id": "inventory:opening",
+      "name": "الرصيد الافتتاحي للمخزون",
+      "name_en": "Opening stock"
     }
   ],
   "screens": [

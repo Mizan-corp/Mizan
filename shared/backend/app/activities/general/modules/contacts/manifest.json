@@ -4,7 +4,7 @@
   "name_en": "Contacts & Partners",
   "activity": "general",
   "kind": "business",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "icon": "Contact",
   "description": "سجل الموردين والعملاء، كشوف الحسابات التفصيلية، حدود الائتمان وسقوف المديونية، وأرصدة الذمم.",
   "dependencies": [

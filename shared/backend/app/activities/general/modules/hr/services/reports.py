@@ -3,9 +3,10 @@
 Produces the payroll (monthly/employee/ticket) and attendance HTML reports
 served by /hr/payroll/report/* and /hr/attendance/report.
 """
-import html as _html
 import os
 from datetime import datetime
+
+from app.platform.printing.routes import h
 
 
 class Employee:
@@ -153,7 +154,7 @@ class ReportGenerator:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تقرير الرواتب الشهري - {_html.escape(month)}</title>
+    <title>تقرير الرواتب الشهري - {h(month)}</title>
     <style>
         :root {{
             --primary-color: #2c3e50;
@@ -361,7 +362,7 @@ class ReportGenerator:
     <div class="container">
         <div class="header">
             <h1>📊 تقرير الرواتب الشهري</h1>
-            <p>الشهر: {month} | تاريخ الإنشاء: {datetime.now().strftime('%d/%m/%Y %I:%M %p')}</p>
+            <p>الشهر: {h(month)} | تاريخ الإنشاء: {datetime.now().strftime('%d/%m/%Y %I:%M %p')}</p>
         </div>
 
         <div class="summary">
@@ -428,7 +429,7 @@ class ReportGenerator:
 
             html += f"""
                     <tr>
-                        <td><strong>{_html.escape(str(payroll['emp_name']))}</strong><br><small>{_html.escape(str(payroll['emp_id']))} - {_html.escape(str(payroll['position']))}</small></td>
+                        <td><strong>{h(str(payroll['emp_name']))}</strong><br><small>{h(str(payroll['emp_id']))} - {h(str(payroll['position']))}</small></td>
                         <td>{payroll['base_salary']:,.0f}</td>
                         <td style="background-color: #e8f5e9; font-weight: bold; text-align: center;">{payroll.get('actual_working_days', payroll['working_days'])}</td>
                         <td style="background-color: #e3f2fd; font-weight: bold; text-align: center;">{payroll.get('vacation_days', 0)}</td>
@@ -511,15 +512,15 @@ class ReportGenerator:
         <div class="grid-info">
             <div class="info-card">
                 <div class="info-label">الموظف</div>
-                <div class="info-value">{_html.escape(employee.name)}</div>
+                <div class="info-value">{h(employee.name)}</div>
             </div>
             <div class="info-card">
                 <div class="info-label">الرقم الوظيفي</div>
-                <div class="info-value">{_html.escape(str(employee.emp_id))}</div>
+                <div class="info-value">{h(str(employee.emp_id))}</div>
             </div>
              <div class="info-card">
                 <div class="info-label">المناوبة</div>
-                <div class="info-value">{_html.escape(employee.shift)}</div>
+                <div class="info-value">{h(employee.shift)}</div>
             </div>
             <div class="info-card">
                 <div class="info-label">الراتب الأساسي التعاقدي</div>
@@ -542,7 +543,7 @@ class ReportGenerator:
                 </div>
                 <div class="info-card">
                     <div class="info-label">ساعات المناوبة</div>
-                    <div class="info-value">{payroll.get('shift_length', 0)} ساعات</div>
+                    <div class="info-value">{h(payroll.get('shift_length', 0))} ساعات</div>
                 </div>
                 <div class="info-card">
                     <div class="info-label">إجمالي الساعات المطلوبة</div>
@@ -598,7 +599,7 @@ class ReportGenerator:
                 dt   = item.get('date', '')
                 bonus_rows_html += f"""
                     <tr class="calc-row" style="background-color:#f0fff0;">
-                        <td>مكافأة <div class="info-label">{_html.escape(str(dt))} {f'| {_html.escape(str(note))}' if note != '-' else ''}</div></td>
+                        <td>مكافأة <div class="info-label">{h(str(dt))} {f'| {h(str(note))}' if note != '-' else ''}</div></td>
                         <td>-</td>
                         <td class="amount-positive">+{fmt(item.get('amount', 0))}</td>
                     </tr>"""
@@ -616,7 +617,7 @@ class ReportGenerator:
                 dt   = item.get('date', '')
                 deduct_rows_html += f"""
                     <tr class="calc-row" style="background-color:#fff5f5;">
-                        <td>خصم إداري <div class="info-label">{_html.escape(str(dt))} {f'| {_html.escape(str(note))}' if note != '-' else ''}</div></td>
+                        <td>خصم إداري <div class="info-label">{h(str(dt))} {f'| {h(str(note))}' if note != '-' else ''}</div></td>
                         <td>-</td>
                         <td class="amount-negative">-{fmt(item.get('amount', 0))}</td>
                     </tr>"""
@@ -634,7 +635,7 @@ class ReportGenerator:
                 dt   = item.get('date', '')
                 advance_rows_html += f"""
                     <tr class="calc-row" style="background-color:#fffbe6;">
-                        <td>سلفة <div class="info-label">{_html.escape(str(dt))} {f'| {_html.escape(str(note))}' if note != '-' else ''}</div></td>
+                        <td>سلفة <div class="info-label">{h(str(dt))} {f'| {h(str(note))}' if note != '-' else ''}</div></td>
                         <td>-</td>
                         <td class="amount-negative">-{fmt(item.get('amount', 0))}</td>
                     </tr>"""
@@ -771,10 +772,10 @@ class ReportGenerator:
                     'absent': '<span style="color:var(--danger-color); font-weight:bold;">غياب</span>',
                     'pre-hire': '<span style="color:#7f8c8d;">قبل التعيين</span>'
                 }
-                status_display = status_map.get(status_raw, status_raw)
+                status_display = status_map.get(status_raw, h(status_raw))
 
-                time_in = ReportGenerator._format_time_12(d.get('check_in')) if d.get('check_in') else '-'
-                time_out = ReportGenerator._format_time_12(d.get('check_out')) if d.get('check_out') else '-'
+                time_in = h(ReportGenerator._format_time_12(d.get('check_in'))) if d.get('check_in') else '-'
+                time_out = h(ReportGenerator._format_time_12(d.get('check_out'))) if d.get('check_out') else '-'
 
                 # Late minutes display
                 late_mins = int(d.get('late_minutes', 0))
@@ -807,7 +808,7 @@ class ReportGenerator:
                             <td>{late_display}</td>
                             <td>{early_display}</td>
                             <td>{ot_display}</td>
-                            <td style="font-size: 0.8em; color: #666;">{_html.escape(str(d.get('note', '')))}</td>
+                            <td style="font-size: 0.8em; color: #666;">{h(str(d.get('note', '')))}</td>
                         </tr>
                 """
 
@@ -841,7 +842,7 @@ class ReportGenerator:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تقرير تفصيلي - {_html.escape(employee.name)}</title>
+    <title>تقرير تفصيلي - {h(employee.name)}</title>
     <style>
         :root {{
             --primary-color: #2c3e50;
@@ -1029,7 +1030,7 @@ class ReportGenerator:
     <div class="container">
         <div class="header">
             <h1>كشف راتب تفصيلي</h1>
-            <p>{_html.escape(employee.name)} | {datetime.now().strftime('%B %Y')}</p>
+            <p>{h(employee.name)} | {h(payroll.get('month') or datetime.now().strftime('%Y-%m'))}</p>
         </div>
 
         {html_info}
@@ -1113,7 +1114,7 @@ class ReportGenerator:
         if bonus_items:
             for item in bonus_items:
                 sub = ' | '.join(filter(None, [str(item.get('date', ''))[:10], str(item.get('note', ''))]))
-                rows += earn_row('مكافأة', item.get('amount', 0), _html.escape(sub))
+                rows += earn_row('مكافأة', item.get('amount', 0), h(sub))
         elif payroll.get('bonus', 0) > 0:
             rows += earn_row('مكافآت', payroll['bonus'])
 
@@ -1125,13 +1126,13 @@ class ReportGenerator:
         if deduct_items:
             for item in deduct_items:
                 sub = ' | '.join(filter(None, [str(item.get('date', ''))[:10], str(item.get('note', ''))]))
-                rows += ded_row('خصم إداري', item.get('amount', 0), _html.escape(sub))
+                rows += ded_row('خصم إداري', item.get('amount', 0), h(sub))
         elif payroll.get('deduction', 0) > 0:
             rows += ded_row('خصومات', payroll['deduction'])
         if advance_items:
             for item in advance_items:
                 sub = ' | '.join(filter(None, [str(item.get('date', ''))[:10], str(item.get('note', ''))]))
-                rows += ded_row('سلفة', item.get('amount', 0), _html.escape(sub), cls='adv-c')
+                rows += ded_row('سلفة', item.get('amount', 0), h(sub), cls='adv-c')
         elif payroll.get('advance', 0) > 0:
             rows += ded_row('سُلف', payroll.get('advance', 0), cls='adv-c')
 
@@ -1147,7 +1148,7 @@ class ReportGenerator:
         att_bar_html = '&nbsp;&nbsp;·&nbsp;&nbsp;'.join(parts)
 
         now_str   = datetime.now().strftime('%d / %m / %Y')
-        month_str = datetime.now().strftime('%Y·%m')
+        month_str = h(str(payroll.get('month') or datetime.now().strftime('%Y-%m')).replace('-', '·'))
 
         html = f"""\
 <!DOCTYPE html>
@@ -1155,7 +1156,7 @@ class ReportGenerator:
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>إيصال راتب – {_html.escape(employee.name)}</title>
+<title>إيصال راتب – {h(employee.name)}</title>
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{
@@ -1309,10 +1310,10 @@ body{{
     <table>
       <tr>
         <td>
-          <div class="nm">{_html.escape(employee.name)}</div>
-          <div class="id">#{_html.escape(str(employee.emp_id))}</div>
+          <div class="nm">{h(employee.name)}</div>
+          <div class="id">#{h(str(employee.emp_id))}</div>
         </td>
-        <td class="ps">{_html.escape(str(getattr(employee,'position','')))}</td>
+        <td class="ps">{h(str(getattr(employee,'position','')))}</td>
       </tr>
     </table>
   </div>
@@ -1384,7 +1385,7 @@ body{{
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{_html.escape(title)} - {_html.escape(month)}</title>
+    <title>{h(title)} - {h(month)}</title>
     <style>
         :root {{
             --primary-color: #2c3e50;
@@ -1426,8 +1427,8 @@ body{{
 <body>
     <div class="container">
         <div class="header">
-            <h1>📋 {_html.escape(title)}</h1>
-            <p>الشهر: {month} | تاريخ الإنشاء: {datetime.now().strftime('%d/%m/%Y %I:%M %p')}</p>
+            <h1>📋 {h(title)}</h1>
+            <p>الشهر: {h(month)} | تاريخ الإنشاء: {datetime.now().strftime('%d/%m/%Y %I:%M %p')}</p>
         </div>
 
         <div class="summary" id="stats-summary">
@@ -1471,14 +1472,14 @@ body{{
             co = r.get('checkout') or ''
 
             try:
-                ci_disp = f'<span class="time-badge check-in">{ReportGenerator._format_time_12(ci)}</span>' if ci else '-'
+                ci_disp = f'<span class="time-badge check-in">{h(ReportGenerator._format_time_12(ci))}</span>' if ci else '-'
             except Exception:
-                ci_disp = f'<span class="time-badge check-in">{ci}</span>' if ci else '-'
+                ci_disp = f'<span class="time-badge check-in">{h(ci)}</span>' if ci else '-'
 
             try:
-                co_disp = f'<span class="time-badge check-out">{ReportGenerator._format_time_12(co)}</span>' if co else '-'
+                co_disp = f'<span class="time-badge check-out">{h(ReportGenerator._format_time_12(co))}</span>' if co else '-'
             except Exception:
-                co_disp = f'<span class="time-badge check-out">{co}</span>' if co else '-'
+                co_disp = f'<span class="time-badge check-out">{h(co)}</span>' if co else '-'
 
             duration_disp = "-"
             if ci and co:
@@ -1497,9 +1498,9 @@ body{{
 
             rows_html += f"""
                 <tr class="{row_class}">
-                    <td><span class="{day_tag_class}">{day_name}</span> {date_str}</td>
-                    <td>{_html.escape(str(r.get('uid','')))}</td>
-                    <td>{_html.escape(str(r.get('name','')))}</td>
+                    <td><span class="{day_tag_class}">{day_name}</span> {h(date_str)}</td>
+                    <td>{h(str(r.get('uid','')))}</td>
+                    <td>{h(str(r.get('name','')))}</td>
                     <td>{ci_disp}</td>
                     <td>{co_disp}</td>
                     <td>{duration_disp}</td>

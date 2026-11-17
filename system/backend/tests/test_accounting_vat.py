@@ -246,6 +246,8 @@ async def test_discounts_zero_and_exempt_lines_and_prices_excluding_vat():
     env = await _env(inclusive=False)
     async with AsyncSessionLocal() as s:
         await s.execute(text("UPDATE products SET tax_code = 'zero' WHERE id = :id"), {"id": env["exempt_id"]})
+        # Prices exclude VAT here: the product is listed at 100 (the server sells at the listed price).
+        await s.execute(text("UPDATE products SET retail_price = 100 WHERE id = :id"), {"id": env["product_id"]})
         await s.commit()
     async with AsyncSessionLocal() as s:
         sale = await sales_service.create_sale(s, _sale(env, [(env["product_id"], "1", "100", "0"),

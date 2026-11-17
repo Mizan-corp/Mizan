@@ -74,6 +74,23 @@ def parse_shift(shift_str: str, shifts_map: dict = None) -> tuple:
     return 9, 21  # fallback
 
 
+def setting_number(settings: dict, key: str, default: float) -> float:
+    """A numeric setting; a stored value that isn't a number (saved before settings were typed)
+    falls back to the default instead of breaking the run."""
+    try:
+        value = float(settings.get(key, default))
+    except (TypeError, ValueError):
+        return float(default)
+    return value if value == value and value >= 0 else float(default)  # NaN or negative
+
+
+def setting_flag(settings: dict, key: str, default: bool) -> bool:
+    value = settings.get(key)
+    if value is None:
+        return default
+    return str(value).strip().lower() in ('true', '1', 'yes')
+
+
 def attendance_day(dt: datetime) -> date | None:
     """5am rollover: timestamps before 5am belong to previous day."""
     if not dt:
@@ -94,19 +111,20 @@ def calculate_payroll(employee: dict, attendances: list[dict], settings: dict,
     shifts_map: {id: {name, start_time, end_time}}
     month: 'YYYY-MM' string
     """
-    monthly_salary = float(employee.get('monthly_salary', 0))
+    monthly_salary = float(employee.get('monthly_salary') or 0)
     # days_in_month from settings, default 26
-    days_in_month = int(float(settings.get('days_in_month', 26)))
+    days_in_month = max(1, int(setting_number(settings, 'days_in_month', 26)))
     emp_shift = employee.get('shift_schedule', '') or ''
-    ignore_lateness = bool(employee.get('ignore_lateness', False))
-    max_late_for_ot = int(employee.get('max_lateness_before_overtime_cancellation', 30))
+    ignore_lateness = bool(employee.get('ignore_lateness') or False)
+    max_late = employee.get('max_lateness_before_overtime_cancellation')
+    max_late_for_ot = int(30 if max_late is None else max_late)
 
-    grace_period = int(float(settings.get('grace_period_minutes', 10)))
-    multiplier = float(settings.get('late_penalty_multiplier', 2.0))
-    missing_penalty_hours = float(settings.get('missing_checkout_penalty_hours', 2.0))
-    apply_missing_penalty = settings.get('apply_missing_checkout_penalty', 'True') == 'True'
-    overtime_enabled = settings.get('overtime_enabled', 'True') == 'True'
-    weekend_paid = settings.get('weekend_paid', 'True') == 'True'
+    grace_period = int(setting_number(settings, 'grace_period_minutes', 10))
+    multiplier = setting_number(settings, 'late_penalty_multiplier', 2.0)
+    missing_penalty_hours = setting_number(settings, 'missing_checkout_penalty_hours', 2.0)
+    apply_missing_penalty = setting_flag(settings, 'apply_missing_checkout_penalty', True)
+    overtime_enabled = setting_flag(settings, 'overtime_enabled', True)
+    weekend_paid = setting_flag(settings, 'weekend_paid', True)
 
     start_h, end_h = parse_shift(emp_shift, shifts_map)
     shift_length = (end_h - start_h) if end_h > start_h else (24 - start_h + end_h)
@@ -353,6 +371,7 @@ def calculate_payroll(employee: dict, attendances: list[dict], settings: dict,
         'bonus': bonus,
         'deductions': deduction,
         'advances': advance,
+        'base_pay': round(base_pay, 2),
         'net_salary': round(max(0, final_salary), 2),
         'daily_breakdown': daily_breakdown,
     }

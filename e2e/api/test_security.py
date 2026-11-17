@@ -34,6 +34,12 @@ def test_cashier_allowed_and_denied(cashier_api, wh, product):
         ("get", "/users", None),
         ("post", "/wallets", {"name": "x", "type": "y"}),
         ("post", "/hr/employees", {"name": "x", "position": "x"}),
+        # salaries and everything that shows pay need `payroll`
+        ("get", "/hr/employees", None),
+        ("get", "/hr/payroll", None),
+        ("get", "/hr/attendance", None),
+        ("get", "/hr/advances", None),
+        ("get", "/hr/shifts", None),
         ("post", "/financial-categories", {"name": "x", "type": "expense"}),
     ]
     for method, path, body in cases:

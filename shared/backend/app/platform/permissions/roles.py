@@ -22,18 +22,23 @@ ROLE_DEFAULT_PERMISSIONS = {
         "clinic:doctor", "clinic:nurse", "clinic:dispense", "clinic:lab", "clinic:billing",
     ],
     "manager": [
-        "pos", "sales", "quotations", "inventory", "operations",
-        "customers", "reports", "archive", "shifts", "finance", "settings", "payroll", "accounting:view",
+        "pos", "sales", "quotations", "inventory", "inventory:opening", "operations", "purchases",
+        "customers", "reports", "reports:finance", "archive", "shifts", "finance", "settings", "payroll",
+        "payroll:approve", "payroll:pay", "accounting:view",
+        "sales:cancel", "sales:return", "sales:override_price", "sales:negative_stock",
         "clinic", "clinic:view", "clinic:manage", "clinic:billing", "clinic:all_patients", "clinic:privacy",
     ],
     "cashier": [
-        "pos", "sales", "quotations", "customers", "shifts",
+        # Returns at the counter, refunded from the cashier's own open shift; cancelling a sale,
+        # other prices and selling below stock are the manager's (SAL-1, SAL-7).
+        "pos", "sales", "quotations", "customers", "shifts", "sales:return",
     ],
     "storekeeper": [
-        "inventory", "operations", "archive",
+        "inventory", "operations", "purchases", "archive",
     ],
     "accountant": [
-        "reports", "finance", "archive", "customers", "inventory", "payroll",
+        "reports", "reports:finance", "finance", "archive", "customers", "inventory", "purchases", "payroll",
+        "payroll:pay",
         "accounting:view", "accounting:journal", "accounting:close", "accounting:settings",
         "clinic:billing",
     ],

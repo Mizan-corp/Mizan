@@ -4,12 +4,19 @@ import { Plus, UserPlus } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
 import { D, date as fmtDate, money, moneyEGP } from "@/lib/format";
-import { Badge, Button, Empty, ErrorBox, Input, Modal, Select, Spinner } from "@/components/ui";
+import { Badge, Button, ConfirmDialog, Empty, ErrorBox, Input, Modal, Select, Spinner, useToast } from "@/components/ui";
 import { PaySourceSelect, sourceFields } from "@app/components/PaySourceSelect";
 
 interface Employee { id: string; emp_code: string | null; name: string; position: string | null; monthly_salary: string; is_active: boolean }
 interface Attendance { id: string; employee_id: string; work_date: string; check_in: string | null; check_out: string | null; status: string }
-interface Advance { id: string; employee_id: string; amount: string; date: string; note: string | null; record_type: string | null }
+interface Advance {
+  id: string; employee_id: string; amount: string; date: string; note: string | null; record_type: string | null;
+  status: "active" | "cancelled";
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  present: "حاضر", absent: "غائب", leave: "إجازة", mission: "مأمورية", excuse: "عذر",
+};
 
 export default function HrPage() {
   const [tab, setTab] = useState("employees");
@@ -138,7 +145,8 @@ function AttendanceTab() {
   const now = new Date();
   const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ employee_id: "", work_date: "", check_in: "", check_out: "", status: "present" });
+  const emptyForm = { employee_id: "", work_date: "", check_in: "", check_out: "", status: "present", edit_reason: "" };
+  const [form, setForm] = useState(emptyForm);
 
   const employees = useQuery({ queryKey: ["hr-employees"], queryFn: () => api.get<Employee[]>("/hr/employees") });
   const att = useQuery({
@@ -153,8 +161,9 @@ function AttendanceTab() {
         check_in: form.check_in || undefined,
         check_out: form.check_out || undefined,
         status: form.status,
+        edit_reason: form.edit_reason || undefined,
       }),
-    onSuccess: () => { setAdding(false); qc.invalidateQueries({ queryKey: ["hr-attendance"] }); },
+    onSuccess: () => { setAdding(false); setForm(emptyForm); qc.invalidateQueries({ queryKey: ["hr-attendance"] }); },
   });
 
   const empList: Employee[] = Array.isArray(employees.data) ? employees.data : ((employees.data as any)?.items ?? []);
@@ -195,7 +204,7 @@ function AttendanceTab() {
                   <td className="p-3 text-muted">{fmtDate(a.work_date)}</td>
                   <td className="num p-3" dir="ltr">{a.check_in?.slice(11, 16) ?? "—"}</td>
                   <td className="num p-3" dir="ltr">{a.check_out?.slice(11, 16) ?? "—"}</td>
-                  <td className="p-3"><Badge tone={a.status === "present" ? "success" : "warning"}>{a.status === "present" ? "حاضر" : a.status}</Badge></td>
+                  <td className="p-3"><Badge tone={a.status === "present" ? "success" : "warning"}>{STATUS_LABEL[a.status] ?? a.status}</Badge></td>
                 </tr>
               ))}
             </tbody>
@@ -223,7 +232,16 @@ function AttendanceTab() {
             <option value="present">حاضر</option>
             <option value="leave">إجازة</option>
             <option value="absent">غائب</option>
+            <option value="mission">مأمورية</option>
           </Select>
+          <Input
+            value={form.edit_reason}
+            maxLength={500}
+            onChange={(e) => setForm({ ...form, edit_reason: e.target.value })}
+            placeholder="سبب الإدخال اليدوي (مثلاً: نسي البصمة)"
+            aria-label="سبب الإدخال اليدوي"
+          />
+          <p className="text-xs text-muted">اليوم المسجّل يدويًا لا يستبدله استيراد ملف الحضور لاحقًا. لا يُسجّل حضور في شهر رواتبه معتمدة أو مصروفة.</p>
           {add.isError && <ErrorBox message={(add.error as Error).message} />}
           <Button type="submit" className="w-full h-10 font-bold" disabled={add.isPending || !form.employee_id || !form.work_date}>
             {add.isPending ? <Spinner /> : "حفظ الحضور"}
@@ -239,6 +257,8 @@ function AdvancesTab() {
   const [creating, setCreating] = useState(false);
   const emptyForm = { employee_id: "", amount: "", note: "", record_type: "سلفة", source: "" };
   const [form, setForm] = useState(emptyForm);
+  const [cancelling, setCancelling] = useState<Advance | null>(null);
+  const { toast } = useToast();
   const isAdvance = form.record_type === "سلفة";
 
   const employees = useQuery({ queryKey: ["hr-employees"], queryFn: () => api.get<Employee[]>("/hr/employees") });
@@ -259,6 +279,18 @@ function AdvancesTab() {
       qc.invalidateQueries({ queryKey: ["safes"] });
       qc.invalidateQueries({ queryKey: ["wallets"] });
     },
+  });
+
+  const cancel = useMutation({
+    mutationFn: (a: Advance) => api.post(`/hr/advances/${a.id}/cancel`, {}),
+    onSuccess: () => {
+      setCancelling(null);
+      qc.invalidateQueries({ queryKey: ["hr-advances"] });
+      qc.invalidateQueries({ queryKey: ["safes"] });
+      qc.invalidateQueries({ queryKey: ["wallets"] });
+      toast("success", "تم الإلغاء");
+    },
+    onError: (e) => { setCancelling(null); toast("error", (e as Error).message); },
   });
 
   const empList: Employee[] = Array.isArray(employees.data) ? employees.data : ((employees.data as any)?.items ?? []);
@@ -289,6 +321,7 @@ function AdvancesTab() {
                 <th className="p-3 text-start">المبلغ</th>
                 <th className="p-3 text-start">التاريخ</th>
                 <th className="p-3 text-start">ملاحظة</th>
+                <th className="p-3 text-start"></th>
               </tr>
             </thead>
             <tbody>
@@ -303,12 +336,31 @@ function AdvancesTab() {
                   <td className="num p-3 font-bold text-warning-ink">{money(a.amount)}</td>
                   <td className="p-3 text-xs text-muted">{fmtDate(a.date)}</td>
                   <td className="p-3 text-muted">{a.note ?? "—"}</td>
+                  <td className="p-3">
+                    {a.status === "cancelled" ? (
+                      <Badge tone="muted">ملغى</Badge>
+                    ) : (
+                      <button onClick={() => setCancelling(a)} className="text-xs font-semibold text-danger hover:underline">
+                        إلغاء
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+      <ConfirmDialog
+        open={!!cancelling}
+        onClose={() => setCancelling(null)}
+        onConfirm={() => cancelling && !cancel.isPending && cancel.mutate(cancelling)}
+        title={`إلغاء ${cancelling?.record_type ?? "السجل"}`}
+        message={cancelling?.record_type === "سلفة" || !cancelling?.record_type
+          ? "يعود مبلغ السلفة إلى الخزنة أو المحفظة التي صُرف منها ويُعكس قيدها. لا يُلغى سجل في شهر رواتبه معتمدة."
+          : "لن يُحتسب في راتب الشهر. لا يُلغى سجل في شهر رواتبه معتمدة."}
+        confirmLabel="تأكيد الإلغاء"
+      />
       <Modal open={creating} onClose={() => setCreating(false)} title="سلفة أو خصم أو مكافأة">
         <form
           onSubmit={(e) => {

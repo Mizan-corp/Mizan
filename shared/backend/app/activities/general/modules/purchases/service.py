@@ -50,6 +50,39 @@ async def get_purchase_suggestions(db: AsyncSession) -> list[dict[str, Any]]:
 
 # ── Purchase Orders CRUD ────────────────────────────────────────────────────
 
+# An order's total from its lines: what was received once it is received, what was ordered before.
+_TOTAL_SQL = """ROUND(COALESCE((SELECT SUM(CASE WHEN po.status IN ('received', 'partial') THEN i.qty_received
+                                                 ELSE i.qty_ordered END * i.unit_cost)
+                               FROM purchase_order_items i WHERE i.po_id = po.id), 0), 2)"""
+
+
+FINANCE_NEEDED = "دفع مبلغ للمورد أو استلام مبلغ منه في خزنة أو محفظة يتطلب صلاحية المالية"
+
+
+async def order_warehouse(db: AsyncSession, po_id: uuid.UUID) -> tuple[uuid.UUID, Decimal]:
+    """An order's warehouse and the amount it says is paid on receipt (for the routes' checks)."""
+    row = (await db.execute(text("SELECT warehouse_id, amount_paid FROM purchase_orders WHERE id = :id"),
+                            {"id": po_id})).first()
+    if not row:
+        raise NotFoundError("أمر الشراء غير موجود")
+    return row.warehouse_id, Decimal(str(row.amount_paid or 0))
+
+
+async def _check_refs(db: AsyncSession, *, warehouse_id=None, supplier_id=None, product_ids=()) -> None:
+    """The order's warehouse (active), supplier and products exist in this workspace: unknown ids are a
+    404, not a foreign-key error."""
+    if warehouse_id is not None and not await db.scalar(
+            text("SELECT 1 FROM warehouses WHERE id = :id AND is_active"), {"id": warehouse_id}):
+        raise NotFoundError("المخزن غير موجود أو موقوف")
+    if supplier_id is not None and not await db.scalar(text("SELECT 1 FROM suppliers WHERE id = :id"), {"id": supplier_id}):
+        raise NotFoundError("المورد غير موجود")
+    ids = list({*product_ids})
+    if ids:
+        found = (await db.execute(text("SELECT id FROM products WHERE id = ANY(:ids)"), {"ids": ids})).scalars().all()
+        if len(set(found)) != len(ids):
+            raise NotFoundError("صنف غير موجود")
+
+
 async def list_purchases(db: AsyncSession, page: int = 1, page_size: int = 50) -> Page:
     base_sql = """
         FROM purchase_orders po
@@ -60,7 +93,7 @@ async def list_purchases(db: AsyncSession, page: int = 1, page_size: int = 50) -
     total = (await db.execute(text("SELECT COUNT(*) " + base_sql))).scalar()
     rows = await db.execute(text("""
         SELECT po.*, s.name as supplier_name, w.name as warehouse_name,
-               u.full_name as created_by_name
+               u.full_name as created_by_name, """ + _TOTAL_SQL + """ AS total
     """ + base_sql + " ORDER BY po.created_at DESC OFFSET :offset LIMIT :limit"),
         {"offset": (page - 1) * page_size, "limit": page_size},
     )
@@ -70,7 +103,7 @@ async def list_purchases(db: AsyncSession, page: int = 1, page_size: int = 50) -
 
 async def get_purchase(db: AsyncSession, po_id: uuid.UUID) -> dict[str, Any]:
     po_row = await db.execute(text("""
-        SELECT po.*, s.name as supplier_name, w.name as warehouse_name
+        SELECT po.*, s.name as supplier_name, w.name as warehouse_name, """ + _TOTAL_SQL + """ AS total
         FROM purchase_orders po
         LEFT JOIN suppliers s ON s.id = po.supplier_id
         LEFT JOIN warehouses w ON w.id = po.warehouse_id
@@ -94,6 +127,8 @@ async def create_purchase(
     current_user: User,
 ) -> dict[str, Any]:
     from sqlalchemy import text as _text
+    await _check_refs(db, warehouse_id=data.warehouse_id, supplier_id=data.supplier_id,
+                      product_ids=[i.product_id for i in data.items])
     seq = (await db.execute(_text("SELECT nextval('purchase_seq')"))).scalar()
     po_number = f"PO-{seq:06d}"
     po = PurchaseOrder(
@@ -140,7 +175,9 @@ async def update_purchase(
     if not po:
         raise NotFoundError()
     if po.status != POStatus.draft:
-        raise BusinessError("Can only edit draft POs")
+        raise BusinessError("لا يُعدَّل إلا أمر شراء في حالة المسودة")
+    await _check_refs(db, supplier_id=data.supplier_id,
+                      product_ids=[i.product_id for i in data.items or []])
 
     if data.supplier_id is not None:
         po.supplier_id = data.supplier_id
@@ -173,7 +210,9 @@ async def receive_purchase(
     if not po:
         raise NotFoundError()
     if po.status == POStatus.received:
-        raise BusinessError("Already received")
+        raise BusinessError("أمر الشراء مستلم بالفعل")
+    if po.status == POStatus.cancelled:
+        raise BusinessError("أمر الشراء ملغي")
 
     items = (await db.execute(select(PurchaseOrderItem).where(PurchaseOrderItem.po_id == po_id))).scalars().all()
 
@@ -194,15 +233,15 @@ async def receive_purchase(
 
     for item in items:
         override = overrides.get(str(item.product_id), {})
-        qty = float(override.get("qty_received", item.qty_ordered))
-        cost = float(override.get("unit_cost", item.unit_cost))
-        tax = vat.line_tax(Decimal(str(qty)) * Decimal(str(cost)), codes.get(item.product_id), vat_cfg.registered, inclusive)
+        qty = Decimal(str(override.get("qty_received", item.qty_ordered)))
+        cost = Decimal(str(override.get("unit_cost", item.unit_cost)))
+        tax = vat.line_tax(qty * cost, codes.get(item.product_id), vat_cfg.registered, inclusive)
         line_taxes.append(tax)
         item.tax_code, item.tax_rate, item.tax_amount, item.net_amount = tax.tax_code, tax.tax_rate, tax.tax, tax.net
         if vat_cfg.registered and qty:
-            cost_net = (tax.net / Decimal(str(qty))).quantize(Decimal("0.0001"))
+            cost_net = (tax.net / qty).quantize(Decimal("0.0001"))
         else:
-            cost_net = Decimal(str(cost))
+            cost_net = cost
 
         # Record stock movement
         mv = StockMovementCreate(
@@ -438,9 +477,9 @@ async def quick_add_product(
 
 # ── Supplier Prices ────────────────────────────────────────────────────────
 
-async def get_product_supplier_prices(db: AsyncSession, product_id: str) -> dict[str, Any]:
+async def get_product_supplier_prices(db: AsyncSession, product_id: uuid.UUID) -> dict[str, Any]:
     """Get all supplier prices for a product with comparison."""
-    prod_uuid = uuid.UUID(product_id)
+    prod_uuid = uuid.UUID(str(product_id))
     prod = await db.scalar(select(Product).where(Product.id == prod_uuid))
     if not prod:
         raise NotFoundError()
@@ -474,6 +513,7 @@ async def create_supplier_price(
     current_user: User,
 ) -> SupplierPriceOut:
     """Create or update supplier price."""
+    await _check_refs(db, supplier_id=data.supplier_id, product_ids=[data.product_id])
     stmt = pg_insert(SupplierPrice).values(**data.model_dump())
     stmt = stmt.on_conflict_do_update(
         constraint="uq_supplier_product",
@@ -498,11 +538,11 @@ async def create_supplier_price(
 
 async def update_supplier_price(
     db: AsyncSession,
-    price_id: str,
+    price_id: uuid.UUID,
     data: Any,
 ) -> SupplierPriceOut:
     """Update supplier price."""
-    sp = await db.scalar(select(SupplierPrice).where(SupplierPrice.id == uuid.UUID(price_id)))
+    sp = await db.scalar(select(SupplierPrice).where(SupplierPrice.id == price_id))
     if not sp:
         raise NotFoundError()
 
@@ -516,10 +556,10 @@ async def update_supplier_price(
 
 async def delete_supplier_price(
     db: AsyncSession,
-    price_id: str,
+    price_id: uuid.UUID,
 ) -> None:
     """Soft-delete supplier price."""
-    sp = await db.scalar(select(SupplierPrice).where(SupplierPrice.id == uuid.UUID(price_id)))
+    sp = await db.scalar(select(SupplierPrice).where(SupplierPrice.id == price_id))
     if not sp:
         raise NotFoundError()
 

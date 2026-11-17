@@ -51,6 +51,7 @@ def load_all_models() -> None:
     import app.framework.files  # workspace_files
     import app.framework.composition  # module_retention
     import app.framework.storage  # storage_usage
+    import app.framework.idempotency  # idempotency_keys
     import app.activities.general.modules.pos.models
     import app.activities.general.modules.inventory.models.stock
     import app.activities.general.modules.inventory.models.stock_balance

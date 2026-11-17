@@ -74,6 +74,9 @@ Besides the ERP's own records, every workspace has (all tenant-scoped, with RLS)
 |---|---|
 | `sales.return_of` | A return is its own document: a `sales` row with status `returned`, number `RET-…`, its returned lines (at the cost they left at), its own totals (`total` = returned lines, `discount_amount` = its share of the sale's invoice discount, `net_total` = refunded) and refund lines in `sale_payments`, pointing to the sale it returns. The sale stays `confirmed` and its `returns_total` grows. Partial returns made before `v80` were linked from the "مرتجع جزئي من …" text of their notes and got their totals from their lines; full returns made before `v80` (the sale itself marked `returned`) are left as they were. |
 | `sale_payments.safe_id` | The safe a payment went into when it didn't go through a drawer (a quotation confirmed into a safe). Bank and cheque lines are recorded with no account yet (ADR-014 D12, step 2). A cancelled sale keeps its `sale_payments` rows; reports count only `confirmed` sales. |
+| `sales.local_id` | The POS's own id for a sale (a UUID made on the device, kept across retries and the offline queue; `v95`). Unique per (workspace, cashier): a sale sent again is the one already recorded. |
+| `doc_counters` | Document numbers per workspace (`v95`, PLAT-6): one row per (workspace, prefix) — `INV`, `RET`, `QUO`, `DRF` (drafts; the invoice number comes on confirming), `DEP` — with the last number given, taken under a row lock (`app/platform/archive/numbering.py`). Seeded from the highest number each workspace already used from the old global `invoice_seq`. |
+| `shifts` (open) | One open shift per (workspace, cashier, branch): partial unique index `uq_shifts_open_cashier_warehouse` (`v95`; older duplicate open shifts were closed with a note). |
 | `drawer_transactions.cancelled_at`, `cancelled_by` | Drawer rows are cancelled, never deleted. Shift summaries, the ledger and the reports skip cancelled rows. Cancelling a sale cancels its drawer rows. |
 | `drawer_transactions.customer_payment_id` | The customer receipt a drawer deposit recorded; cancelling the row adds a negative receipt and puts the debt back. |
 | `products.avg_cost` | Weighted moving average cost, per workspace (not per branch), started from `cost_price`. Every costed receipt (purchase, opening stock, a return at the cost the line left at, an adjustment with a cost) recomputes it in `inventory.services.stock.apply_movement`; every other movement and every sale line (`sale_items.unit_cost`) is recorded at it, whatever the client sends. `cost_price` stays the last purchase price. |
@@ -88,7 +91,7 @@ A bank account, used for bank transfers and cheques, is a safe with `safe_type =
 | Table | Columns | Meaning |
 |---|---|---|
 | `safes` | `safe_type` | `permanent`, `temporary` or `bank` (CHECK) |
-| `safe_transactions` | `ref_type`, `ref_id` | The document behind each movement: `expense`, `expense_cancel`, `customer_payment`, `supplier_payment`, `purchase`, `payroll`, `hr_advance` |
+| `safe_transactions` | `ref_type`, `ref_id` | The document behind each movement: `expense`, `expense_cancel`, `customer_payment`, `supplier_payment`, `purchase`, `payroll`, `hr_advance`, `hr_advance_cancel` |
 | `wallet_transactions` | `tx_type`, `ref_id` | Same idea (`tx_type` carries the document kind); resetting a wallet is an `adjustment` row |
 | `expenses` | `status`, `cancelled_at`, `cancelled_by`, `cancel_reason` | `draft` → `approved` (money leaves the safe/wallet) or `rejected`; an approved expense is `cancelled`, which puts the money back, never deleted. Approving needs a safe or wallet. Payroll expenses have `payment_method = 'payroll'` and are managed from payroll |
 | `customers` | `is_active` | A customer with sales, payments or adjustments is deactivated, not deleted |
@@ -96,8 +99,9 @@ A bank account, used for bank transfers and cheques, is a safe with `safe_type =
 | `customer_adjustments` (new) | `kind` (`opening`/`adjustment`), `amount` (signed), `balance_before`, `balance_after`, `note`, `created_by` | Every balance change that isn't a sale or payment (`PUT /customers/{id}/balance`) |
 | `supplier_transactions` | `type`, `method`, `safe_id`, `wallet_id`, `purchase_id`, `created_by` | `type` is `debit` (we owe more: an invoice) or `credit` (a payment, from a safe/wallet). The unused duplicate `tx_type` column was dropped; `supplier_id` no longer cascades |
 | `purchase_orders` | `safe_id`, `wallet_id` | Where `amount_paid` comes from; it leaves at receipt |
-| `hr_advances` | `safe_id`, `wallet_id` | An advance (`record_type = 'سلفة'`) is paid out from here; `خصم` and `مكافأة` move no cash |
-| `hr_payroll_periods` | `safe_id`, `wallet_id`, `paid_amount`, `expense_id` | Approving records the salaries expense (no money); paying moves `paid_amount` out once; a paid month can't be reopened, reopening an approved one cancels `expense_id` |
+| `hr_advances` | `safe_id`, `wallet_id`, `status`, `cancelled_at`, `cancelled_by`, `cancel_reason` (v97) | An advance (`record_type = 'سلفة'`) is paid out from here; `خصم` and `مكافأة` move no cash. A record is `cancelled`, never deleted: a cancelled advance's cash goes back (`hr_advance_cancel`) and its entry is reversed; payroll ignores cancelled records |
+| `hr_payroll_periods` | `safe_id`, `wallet_id`, `paid_amount`, `expense_id`, `approved_amount` (v97) | Approving records the salaries expense (no money) and `approved_amount`; paying moves exactly `approved_amount` out once (refused if the entries no longer add up to it) and leaves the expense's amount alone; a paid month can't be reopened, reopening an approved one cancels `expense_id` |
+| `hr_payroll_entries` | `base_pay` (v97) | The engine's prorated base salary for the days worked; an entry's manual adjustments compose the net from it. Entries change only while the month is `draft` or `review` |
 
 ### Clinic invoices (ADR-014 D4; migration `v82`)
 

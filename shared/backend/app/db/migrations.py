@@ -3859,6 +3859,169 @@ MIGRATIONS = [
 
         ALTER TABLE expenses ADD COLUMN IF NOT EXISTS tax_amount numeric(14,2) NOT NULL DEFAULT 0;
     """),
+
+    # Sales and POS ready for production (Phase A). Document numbers per workspace (PLAT-6/SAL-4):
+    # each workspace's counters start after the highest number it already used from the global
+    # sequence. The POS's own id for a sale (SAL-2). One open shift per cashier and branch (POS-3):
+    # older duplicates (the POS only ever used the newest) are closed first. Personal copies of the
+    # manager and cashier roles keep cancelling and returning (SAL-7). Indexes of PLAT-9.
+    ("v95_ready_sales_pos", """
+        CREATE TABLE IF NOT EXISTS doc_counters (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                REFERENCES tenants(id) ON DELETE CASCADE,
+            doc_type varchar(16) NOT NULL,
+            last_value bigint NOT NULL DEFAULT 0,
+            updated_at timestamptz DEFAULT now(),
+            CONSTRAINT uq_doc_counters_tenant_type UNIQUE (tenant_id, doc_type)
+        );
+        CREATE INDEX IF NOT EXISTS ix_doc_counters_tenant_id ON doc_counters (tenant_id);
+        ALTER TABLE doc_counters ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE doc_counters FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON doc_counters;
+        CREATE POLICY tenant_isolation ON doc_counters
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        INSERT INTO doc_counters (tenant_id, doc_type, last_value)
+        SELECT tenant_id, split_part(num, '-', 1), MAX(split_part(num, '-', 2)::bigint)
+        FROM (
+            SELECT tenant_id, invoice_number AS num FROM sales
+             WHERE invoice_number ~ '^(INV|RET|QUO|DRF)-[0-9]{1,18}$'
+            UNION ALL
+            SELECT tenant_id, doc_number FROM archived_documents
+             WHERE doc_number ~ '^(INV|RET|QUO|DRF|DEP)-[0-9]{1,18}$'
+            UNION ALL
+            SELECT tenant_id, doc_number FROM safe_deposits
+             WHERE doc_number ~ '^DEP-[0-9]{1,18}$'
+        ) given
+        WHERE tenant_id IS NOT NULL
+        GROUP BY tenant_id, split_part(num, '-', 1)
+        ON CONFLICT (tenant_id, doc_type) DO UPDATE SET last_value = GREATEST(doc_counters.last_value, EXCLUDED.last_value);
+
+        ALTER TABLE sales ADD COLUMN IF NOT EXISTS local_id uuid;
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_sales_local_id ON sales (tenant_id, cashier_id, local_id) WHERE local_id IS NOT NULL;
+        CREATE INDEX IF NOT EXISTS ix_sales_warehouse_id ON sales (warehouse_id);
+        CREATE INDEX IF NOT EXISTS ix_sales_status ON sales (status);
+        CREATE INDEX IF NOT EXISTS ix_shifts_cashier_id ON shifts (cashier_id);
+
+        UPDATE shifts s
+           SET status = 'closed', closed_at = now(),
+               notes = COALESCE(s.notes || ' — ', '') || 'أُغلقت تلقائياً: وردية مفتوحة مكررة لنفس الكاشير والفرع'
+          FROM (SELECT id, row_number() OVER (PARTITION BY tenant_id, cashier_id, warehouse_id
+                                             ORDER BY started_at DESC, id DESC) AS rn
+                  FROM shifts
+                 WHERE status = 'open' AND cashier_id IS NOT NULL AND warehouse_id IS NOT NULL) d
+         WHERE s.id = d.id AND d.rn > 1;
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_shifts_open_cashier_warehouse ON shifts (tenant_id, cashier_id, warehouse_id)
+            WHERE status = 'open';
+
+        UPDATE sys_roles
+           SET grants = (SELECT jsonb_agg(DISTINCT g ORDER BY g)
+                           FROM jsonb_array_elements_text(grants || '["sales:cancel", "sales:return"]'::jsonb) g)
+         WHERE tenant_id IS NOT NULL AND code LIKE 'manager-%' AND grants @> '["sales"]'::jsonb;
+        UPDATE sys_roles
+           SET grants = (SELECT jsonb_agg(DISTINCT g ORDER BY g)
+                           FROM jsonb_array_elements_text(grants || '["sales:return"]'::jsonb) g)
+         WHERE tenant_id IS NOT NULL AND code LIKE 'cashier-%' AND grants @> '["sales"]'::jsonb;
+        -- A workspace's own roles could cancel and return with `sales` alone: they keep both (their
+        -- admin can take them away), as the other readiness migrations keep what roles could do.
+        UPDATE sys_roles
+           SET grants = (SELECT jsonb_agg(DISTINCT g ORDER BY g)
+                           FROM jsonb_array_elements_text(grants || '["sales:cancel", "sales:return"]'::jsonb) g)
+         WHERE tenant_id IS NOT NULL AND code LIKE 'ws-%' AND grants @> '["sales"]'::jsonb;
+    """),
+
+    # Stock and purchases made production-ready (PRODUCTION_READINESS INV-2, PUR-1). Purchase orders,
+    # receipts, returns and suppliers move from `inventory` to `purchases`, and supplier payments and
+    # charges to `finance`; opening stock gets its own `inventory:opening`. The standard roles are
+    # re-synced from roles.py by ensure_standard_roles; this keeps the workspaces' own roles (and the
+    # personal copies v54 made) able to do what they did: a role holding `inventory` gets `purchases`
+    # (not `finance`: paying suppliers is no longer a storekeeper's), and one holding `inventory` and
+    # `settings` (a manager's) gets `inventory:opening`.
+    ("v96_ready_stock_ops", """
+        UPDATE sys_roles r SET grants = (
+            SELECT COALESCE(jsonb_agg(DISTINCT g ORDER BY g), '[]'::jsonb)
+            FROM jsonb_array_elements_text(r.grants || '["purchases"]'::jsonb) AS e(g)
+        ), updated_at = now()
+        WHERE r.tenant_id IS NOT NULL AND r.grants ? 'inventory' AND NOT r.grants ? 'purchases';
+        UPDATE sys_roles r SET grants = (
+            SELECT COALESCE(jsonb_agg(DISTINCT g ORDER BY g), '[]'::jsonb)
+            FROM jsonb_array_elements_text(r.grants || '["inventory:opening"]'::jsonb) AS e(g)
+        ), updated_at = now()
+        WHERE r.tenant_id IS NOT NULL AND r.grants ? 'inventory' AND r.grants ? 'settings'
+          AND NOT r.grants ? 'inventory:opening';
+    """),
+
+    # HR production readiness: an entry keeps the engine's prorated base (edits start from it), a
+    # period its approved total (paying pays exactly it), advances can be cancelled; the defaults
+    # the models declare (tables made by create_all lacked them).
+    ("v97_ready_hr", """
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS base_pay numeric(12,2);
+        ALTER TABLE hr_payroll_entries ALTER COLUMN bonuses SET DEFAULT 0;
+        ALTER TABLE hr_payroll_entries ALTER COLUMN status SET DEFAULT 'draft';
+        ALTER TABLE hr_payroll_periods ALTER COLUMN status SET DEFAULT 'draft';
+        ALTER TABLE hr_payroll_periods ADD COLUMN IF NOT EXISTS approved_amount numeric(14,2);
+        UPDATE hr_payroll_periods p
+           SET approved_amount = COALESCE(p.paid_amount, (SELECT e.amount FROM expenses e WHERE e.id = p.expense_id), 0)
+         WHERE p.status IN ('approved', 'paid') AND p.approved_amount IS NULL;
+        ALTER TABLE hr_advances ADD COLUMN IF NOT EXISTS status varchar(16) NOT NULL DEFAULT 'active';
+        ALTER TABLE hr_advances ADD COLUMN IF NOT EXISTS cancelled_at timestamptz;
+        ALTER TABLE hr_advances ADD COLUMN IF NOT EXISTS cancelled_by uuid REFERENCES users(id);
+        ALTER TABLE hr_advances ADD COLUMN IF NOT EXISTS cancel_reason text;
+        ALTER TABLE hr_advances ALTER COLUMN date SET DEFAULT CURRENT_DATE;
+        -- Approving and paying a month are permissions of their own now (payroll:approve,
+        -- payroll:pay): a workspace's own roles that could do both keep them. (The ids are
+        -- concatenated so no ':name' reads as a bind parameter.)
+        UPDATE sys_roles
+           SET grants = grants || jsonb_build_array('payroll:' || 'approve', 'payroll:' || 'pay')
+         WHERE tenant_id IS NOT NULL AND grants @> '["payroll"]'::jsonb
+           AND NOT grants @> jsonb_build_array('payroll:' || 'approve');
+    """),
+
+    # Production readiness, reporting (REP-1): profit, cost, debts and cash flow need the new
+    # `reports:finance` (the standard manager and accountant roles hold it, admin holds everything).
+    # A workspace's own roles that could already read those reports and are trusted with money
+    # (`reports` together with `finance` or `admin`) keep them; `reports` alone no longer opens them.
+    ("v98_ready_reporting", """
+        UPDATE sys_roles SET grants = grants || '["reports:finance"]'::jsonb
+        WHERE tenant_id IS NOT NULL AND grants @> '["reports"]'::jsonb
+          AND (grants @> '["finance"]'::jsonb OR grants @> '["admin"]'::jsonb)
+          AND NOT grants @> '["reports:finance"]'::jsonb;
+    """),
+
+    # Finance and contacts production readiness: idempotent money writes (a retry returns the first
+    # answer), customer receipts that can be reversed (the reversal points to the receipt, once), and
+    # the indexes the finance lists filter on.
+    ("v99_ready_finance_contacts", """
+        CREATE TABLE IF NOT EXISTS idempotency_keys (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                REFERENCES tenants(id) ON DELETE CASCADE,
+            scope varchar(64) NOT NULL,
+            key varchar(128) NOT NULL,
+            request_hash varchar(64) NOT NULL,
+            response jsonb,
+            created_by uuid,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            CONSTRAINT uq_idempotency_keys_scope_key UNIQUE (tenant_id, scope, key)
+        );
+        CREATE INDEX IF NOT EXISTS ix_idempotency_keys_tenant_id ON idempotency_keys (tenant_id);
+        ALTER TABLE idempotency_keys ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE idempotency_keys FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON idempotency_keys;
+        CREATE POLICY tenant_isolation ON idempotency_keys
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+
+        ALTER TABLE customer_payments ADD COLUMN IF NOT EXISTS reverses_id uuid REFERENCES customer_payments(id);
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_customer_payments_reverses_id ON customer_payments (tenant_id, reverses_id)
+            WHERE reverses_id IS NOT NULL;
+
+        CREATE INDEX IF NOT EXISTS ix_safe_transactions_safe_id ON safe_transactions (safe_id, created_at);
+        CREATE INDEX IF NOT EXISTS ix_wallet_transactions_wallet_id ON wallet_transactions (wallet_id, created_at);
+        CREATE INDEX IF NOT EXISTS ix_expenses_tenant_date ON expenses (tenant_id, date);
+        CREATE INDEX IF NOT EXISTS ix_customer_payments_sale_id ON customer_payments (sale_id) WHERE sale_id IS NOT NULL;
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

@@ -191,39 +191,19 @@ async def list_periods(db: AsyncSession = Depends(get_db),
     to the current month, newest first, with its status and whether it can be closed or reopened now
     (D7: in order); and each fiscal year with its closing entry in force. Closing and reopening go
     through /periods (finance)."""
-    from app.activities.general.modules.finance.routes.periods import current_month
+    from app.activities.general.modules.finance.services import periods as finance_periods
 
     t = user.tenant_id
-    now = current_month()
-    rows = {r["month"]: dict(r) for r in (await db.execute(text("""
-        SELECT p.month, p.status, p.closed_at, p.reopened_at, p.reopen_reason, cu.full_name AS closed_by_name,
-               ru.full_name AS reopened_by_name
-        FROM accounting_periods p LEFT JOIN users cu ON cu.id = p.closed_by LEFT JOIN users ru ON ru.id = p.reopened_by
-        WHERE p.tenant_id = :t
-    """), {"t": t})).mappings().all()}
-    first_entry = await db.scalar(text("SELECT MIN(date) FROM acc_entries WHERE tenant_id = :t"), {"t": t})
-    starts = [m for m in (first_entry.strftime("%Y-%m") if first_entry else None, min(rows) if rows else None) if m]
-    first = min(starts) if starts else now
-    months = closing._months(date(int(first[:4]), int(first[5:7]), 1), date(int(now[:4]), int(now[5:7]), 1))
-    closed = {m for m, r in rows.items() if r["status"] == "closed"}
-    latest_closed = max(closed) if closed else None
-    first_open = next((m for m in months if m not in closed), None)
+    now = finance_periods.current_month()
+    out_months = await finance_periods.month_rows(db, t, accounting=True)
+    months = [m["month"] for m in reversed(out_months)]
+    closed = {m["month"] for m in out_months if m["status"] == "closed"}
     fy_start = (await acc_settings.get(db, t))["fiscal_year_start"]
     in_force = {r.number: r for r in (await db.execute(text("""
         SELECT e.id, e.number, e.date FROM acc_entries e
         WHERE e.tenant_id = :t AND e.source_type = 'year_end' AND e.event = 'close'
           AND NOT EXISTS (SELECT 1 FROM acc_entries r WHERE r.reverses_id = e.id)
     """), {"t": t})).all()}
-    out_months = []
-    for m in reversed(months):
-        r = rows.get(m, {})
-        status = r.get("status") or "open"
-        blocked = any(e.date >= date(int(m[:4]), int(m[5:7]), 1) for e in in_force.values())
-        out_months.append({"month": m, "status": status, "closed_at": r.get("closed_at"), "closed_by_name": r.get("closed_by_name"),
-                           "reopened_at": r.get("reopened_at"), "reopened_by_name": r.get("reopened_by_name"),
-                           "reopen_reason": r.get("reopen_reason"), "current": m == now,
-                           "can_close": status != "closed" and m < now and m == first_open,
-                           "can_reopen": status == "closed" and m == latest_closed and not blocked})
     years = []
     today = posting.today()
     first_day = date(int(months[0][:4]), int(months[0][5:7]), 1)

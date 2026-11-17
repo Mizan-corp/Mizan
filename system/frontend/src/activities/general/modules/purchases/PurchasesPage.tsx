@@ -7,6 +7,7 @@ import { dateTime, D, money, moneyEGP } from "@/lib/format";
 import { Badge, Button, Empty, ErrorBox, Input, Modal, Select, Spinner } from "@/components/ui";
 import { PaySourceSelect, sourceFields } from "@app/components/PaySourceSelect";
 import { useVat } from "@app/lib/vat";
+import { useAuth } from "@/stores/auth";
 
 interface PO {
   id: string; po_number: string; supplier_name: string | null; status: string; amount_paid: string | null;
@@ -23,6 +24,8 @@ interface ReturnInfo { returns: { id: string; return_number: string; total: stri
 
 export default function PurchasesPage() {
   const qc = useQueryClient();
+  // Paying a supplier or taking a refund moves money in a safe or wallet: that needs "finance".
+  const canPay = useAuth().can("finance");
   const [page, setPage] = useState(1);
   const [creating, setCreating] = useState(false);
   const [supplierId, setSupplierId] = useState("");
@@ -87,8 +90,8 @@ export default function PurchasesPage() {
     mutationFn: () =>
       api.post(`/purchases/${receiving!.id}/receive`, {
         items: [],
-        amount_paid: paying ? Number(paidNow) : 0,
-        ...(paying ? sourceFields(paySource) : {}),
+        amount_paid: canPay && paying ? Number(paidNow) : 0,
+        ...(canPay && paying ? sourceFields(paySource) : {}),
         ...(vat.data?.vat_registered ? { prices_include_vat: costsIncludeVat ?? vat.data.prices_include_vat } : {}),
       }),
     onSuccess: () => {
@@ -102,7 +105,7 @@ export default function PurchasesPage() {
       qc.invalidateQueries({ queryKey: ["suppliers"] });
     },
   });
-  const paying = Number.isFinite(Number(paidNow)) && Number(paidNow) > 0;
+  const paying = canPay && Number.isFinite(Number(paidNow)) && Number(paidNow) > 0;
 
   const retInfo = useQuery({
     queryKey: ["purchase-returns", returning?.id],
@@ -113,7 +116,7 @@ export default function PurchasesPage() {
   // The order's VAT comes back with the goods, in proportion (the server's figure is exact).
   const retTotal = retLines.reduce((s, r) => s.plus(D(retQty[r.product_id]).times(D(r.unit_cost).plus(D(r.unit_tax ?? 0)))), D(0));
   const retHasVat = retLines.some((r) => D(r.unit_tax ?? 0).gt(0));
-  const refunding = Number.isFinite(Number(refund)) && Number(refund) > 0;
+  const refunding = canPay && Number.isFinite(Number(refund)) && Number(refund) > 0;
   const closeReturn = () => { setReturning(null); setRetQty({}); setRefund(""); setRefundSource(""); };
   const doReturn = useMutation({
     mutationFn: () =>
@@ -216,13 +219,17 @@ export default function PurchasesPage() {
           className="flex flex-col gap-4"
         >
           <p className="text-xs text-muted">
-            تدخل الكميات المخزن بتكلفة الأمر. ما يُدفع الآن يخرج من الخزنة أو المحفظة المختارة، والباقي يُضاف إلى رصيد المورد.
+            {canPay
+              ? "تدخل الكميات المخزن بتكلفة الأمر. ما يُدفع الآن يخرج من الخزنة أو المحفظة المختارة، والباقي يُضاف إلى رصيد المورد."
+              : "تدخل الكميات المخزن بتكلفة الأمر، ويُضاف الإجمالي إلى رصيد المورد. الدفع للمورد يسجله من يملك صلاحية المالية."}
           </p>
-          <div>
-            <label htmlFor="po-paid" className="mb-1 block text-sm font-medium">المدفوع الآن (ج.م)</label>
-            <Input id="po-paid" className="num font-bold" inputMode="decimal" placeholder="0.00" value={paidNow}
-                   onChange={(e) => setPaidNow(e.target.value)} />
-          </div>
+          {canPay && (
+            <div>
+              <label htmlFor="po-paid" className="mb-1 block text-sm font-medium">المدفوع الآن (ج.م)</label>
+              <Input id="po-paid" className="num font-bold" inputMode="decimal" placeholder="0.00" value={paidNow}
+                     onChange={(e) => setPaidNow(e.target.value)} />
+            </div>
+          )}
           {vat.data?.vat_registered && (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={costsIncludeVat ?? vat.data.prices_include_vat}
@@ -290,11 +297,13 @@ export default function PurchasesPage() {
             <span className="font-semibold text-muted">قيمة المرتجع{retHasVat ? " (شاملة الضريبة، تقريبية)" : ""}</span>
             <span className="num font-black">{moneyEGP(retTotal)}</span>
           </div>
-          <div>
-            <label htmlFor="ret-refund" className="mb-1 block text-sm font-medium">المسترد نقداً من المورد (ج.م) — اختياري</label>
-            <Input id="ret-refund" className="num font-bold" inputMode="decimal" placeholder="0.00" value={refund}
-                   onChange={(e) => setRefund(e.target.value)} />
-          </div>
+          {canPay && (
+            <div>
+              <label htmlFor="ret-refund" className="mb-1 block text-sm font-medium">المسترد نقداً من المورد (ج.م) — اختياري</label>
+              <Input id="ret-refund" className="num font-bold" inputMode="decimal" placeholder="0.00" value={refund}
+                     onChange={(e) => setRefund(e.target.value)} />
+            </div>
+          )}
           {refunding && (
             <div>
               <label htmlFor="ret-source" className="mb-1 block text-sm font-medium">استُلم في *</label>

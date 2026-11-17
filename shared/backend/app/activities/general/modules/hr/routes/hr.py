@@ -1,20 +1,21 @@
-"""HR / Payroll router"""
-import asyncio
-import json
+"""HR / Payroll router. Everything here shows or changes pay (salaries, payroll, attendance,
+advances, shifts): it needs the `payroll` permission; approving or reopening a month needs
+`payroll:approve`, paying it `payroll:pay`. Reports open in a browser tab with a print token."""
 import uuid
-from datetime import date
-from functools import partial
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import HTMLResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError
 from app.db.base import get_db
-from app.framework.events import notify
-from app.dependencies import get_print_user, get_current_user, require_perm
+from app.dependencies import get_print_user, require_perm
 from app.platform.auth.models.user import User
+from app.platform.permissions.access import can
 from app.activities.general.modules.hr.schemas import (
+    MONTH_PATTERN,
+    AdvanceCancel,
     AdvanceCreate,
     AttendanceCreate,
     EmployeeCreate,
@@ -25,40 +26,46 @@ from app.activities.general.modules.hr.schemas import (
     PayrollUpdate,
     ShiftCreate,
 )
+from app.activities.general.modules.hr.services import advances as advances_service
 from app.activities.general.modules.hr.services import employees as employees_service
 from app.activities.general.modules.hr.services import attendance as hr_attendance_service
 from app.activities.general.modules.hr.services import payroll as payroll_service
+from app.activities.general.modules.hr.services import payslips
 
 router = APIRouter(prefix="/hr", tags=["hr"])
 
+PAYROLL = "payroll"
+APPROVE = "payroll:approve"
+PAY = "payroll:pay"
+Month = Annotated[str, Query(pattern=MONTH_PATTERN, description="YYYY-MM")]
+OptionalMonth = Annotated[str | None, Query(pattern=MONTH_PATTERN, description="YYYY-MM")]
+
+
+def _rows(result) -> list[dict]:
+    return [dict(r) for r in result.mappings().all()]
+
 
 @router.get("/audit-log")
-async def get_audit_log(db: AsyncSession = Depends(get_db), _=Depends(require_perm("payroll"))):
+async def get_audit_log(db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
     r = await db.execute(text("""
         SELECT a.id, a.action_type, a.entity_type, a.entity_id, a.reason, a.details, a.created_at,
                u.full_name as performed_by_name
         FROM hr_audit_log a LEFT JOIN users u ON a.performed_by=u.id
         ORDER BY a.created_at DESC LIMIT 500
     """))
-    cols = ['id','action_type','entity_type','entity_id','reason','details','created_at','performed_by_name']
-    rows = r.fetchall()
-    result = []
-    for row in rows:
-        d = dict(zip(cols, row, strict=False))
+    result = _rows(r)
+    for d in result:
         d['created_at'] = d['created_at'].isoformat() if d['created_at'] else None
-        result.append(d)
     return result
 
 
 @router.get("/shifts")
-async def list_shifts(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
-    r = await db.execute(text("SELECT * FROM hr_shifts ORDER BY start_time"))
-    cols = r.keys()
-    return [dict(zip(cols, row, strict=False)) for row in r.fetchall()]
+async def list_shifts(db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
+    return _rows(await db.execute(text("SELECT * FROM hr_shifts ORDER BY start_time")))
 
 
 @router.post("/shifts")
-async def create_shift(data: ShiftCreate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("payroll"))):
+async def create_shift(data: ShiftCreate, db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
     sid = str(int(uuid.uuid4().int % 10**10))
     await db.execute(text("INSERT INTO hr_shifts (id, name, start_time, end_time, description) VALUES (:id,:name,:st,:et,:desc)"),
                      {'id': sid, 'name': data.name, 'st': data.start_time, 'et': data.end_time, 'desc': data.description})
@@ -67,14 +74,14 @@ async def create_shift(data: ShiftCreate, db: AsyncSession = Depends(get_db), _=
 
 
 @router.get("/settings")
-async def get_hr_settings(db: AsyncSession = Depends(get_db), _=Depends(require_perm("payroll"))):
-    r = await db.execute(text("SELECT key, value FROM hr_settings"))
-    return {row[0]: row[1] for row in r.fetchall()}
+async def get_hr_settings(db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
+    return await payroll_service.load_hr_settings(db)
 
 
 @router.put("/settings")
-async def update_hr_settings(data: HRSettingsUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("payroll"))):
-    for k, v in data.settings.items():
+async def update_hr_settings(data: HRSettingsUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
+    for k, v in data.settings.model_dump(exclude_none=True).items():
+        # Flags are stored as the engine reads them ("True"/"False").
         await db.execute(text("INSERT INTO hr_settings (key, value) VALUES (:k,:v) ON CONFLICT (tenant_id, key) DO UPDATE SET value=EXCLUDED.value"),
                          {'k': k, 'v': str(v)})
     await db.commit()
@@ -82,28 +89,29 @@ async def update_hr_settings(data: HRSettingsUpdate, db: AsyncSession = Depends(
 
 
 # ── Employees ─────────────────────────────────────────────────────────────
+PUBLIC_EMPLOYEE_FIELDS = ("id", "emp_code", "name", "position", "is_active")
+
+
 @router.get("/employees")
-async def list_employees(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
-    r = await db.execute(text("SELECT * FROM hr_employees WHERE is_active=TRUE ORDER BY name"))
-    cols = r.keys()
-    return [dict(zip(cols, row, strict=False)) for row in r.fetchall()]
+async def list_employees(db: AsyncSession = Depends(get_db),
+                         current_user: User = Depends(require_perm(PAYROLL, "accounting:view", "accounting:journal"))):
+    """The active employees. Accountants without `payroll` (who pick an employee as a journal
+    line's party) get names only, without pay."""
+    rows = _rows(await db.execute(text("SELECT * FROM hr_employees WHERE is_active=TRUE ORDER BY name")))
+    if can(current_user, PAYROLL):
+        return rows
+    return [{k: r.get(k) for k in PUBLIC_EMPLOYEE_FIELDS} for r in rows]
 
 
 @router.post("/employees")
-async def create_employee(data: EmployeeCreate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("payroll"))):
-    r = await db.execute(text("""
-        INSERT INTO hr_employees (emp_code, user_id, name, position, monthly_salary, shift_schedule, hire_date)
-        VALUES (:code, :uid, :name, :pos, :sal, :shift, :hire) RETURNING *
-    """), {'code': data.emp_code, 'uid': data.user_id, 'name': data.name, 'pos': data.position or '',
-           'sal': data.monthly_salary, 'shift': data.shift_schedule or '',
-           'hire': data.hire_date})
+async def create_employee(data: EmployeeCreate, db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
+    row = await employees_service.create_employee(db, data.model_dump())
     await db.commit()
-    row = r.fetchone()
-    return dict(zip(r.keys(), row, strict=False))
+    return row
 
 
 @router.put("/employees/{emp_id}")
-async def update_employee(emp_id: uuid.UUID, data: EmployeeUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("payroll"))):
+async def update_employee(emp_id: uuid.UUID, data: EmployeeUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm(PAYROLL))):
     if not await employees_service.update_employee(db, emp_id, data.model_dump(exclude_unset=True), current_user):
         return {"detail": "no changes"}
     await db.commit()
@@ -111,52 +119,53 @@ async def update_employee(emp_id: uuid.UUID, data: EmployeeUpdate, db: AsyncSess
 
 
 @router.delete("/employees/{emp_id}", status_code=204)
-async def delete_employee(emp_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("payroll"))):
+async def delete_employee(emp_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
     result = await db.execute(text("UPDATE hr_employees SET is_active=FALSE WHERE id=:id"), {'id': emp_id})
     if result.rowcount == 0:
-        raise HTTPException(404, "Employee not found")
+        raise HTTPException(404, "الموظف غير موجود")
     await db.commit()
 
 
 # ── Attendance ─────────────────────────────────────────────────────────────
 @router.get("/attendance")
-async def list_attendance(employee_id: str | None = None, month: str | None = None,
-                          db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def list_attendance(employee_id: uuid.UUID | None = None, month: OptionalMonth = None,
+                          db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
     q = "SELECT a.*, e.name as emp_name FROM hr_attendance a JOIN hr_employees e ON a.employee_id=e.id WHERE 1=1"
     params = {}
     if employee_id:
         q += " AND a.employee_id=:eid"
-        params['eid'] = uuid.UUID(employee_id)
+        params['eid'] = employee_id
     if month:
-        q += " AND TO_CHAR(a.work_date,'YYYY-MM')=:month"
-        params['month'] = month
+        q += " AND a.work_date >= :start AND a.work_date < :end"
+        params['start'], params['end'] = payroll_service.month_range(month)
     q += " ORDER BY a.work_date DESC"
-    r = await db.execute(text(q), params)
-    cols = r.keys()
-    return [dict(zip(cols, row, strict=False)) for row in r.fetchall()]
+    return _rows(await db.execute(text(q), params))
 
 
 @router.post("/attendance")
-async def add_attendance(data: AttendanceCreate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("payroll"))):
-    await employees_service.save_attendance(db, data.employee_id, data.work_date, data.check_in, data.check_out,
-                                            data.status, data.notes)
+async def add_attendance(data: AttendanceCreate, db: AsyncSession = Depends(get_db),
+                         current_user: User = Depends(require_perm(PAYROLL))):
+    att_id = await employees_service.save_attendance(
+        db, data.employee_id, data.work_date, data.check_in, data.check_out, data.status, data.notes, current_user,
+        edit_reason=data.edit_reason, excuse_no_late=data.excuse_no_late, excuse_no_early=data.excuse_no_early,
+        excuse_allow_overtime=data.excuse_allow_overtime, shift_override=data.shift_override)
     await db.commit()
-    return {"detail": "saved"}
+    return {"detail": "saved", "id": str(att_id)}
 
 
 @router.post("/attendance/import-csv")
 async def import_attendance_csv(
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_perm("payroll")),
+    current_user: User = Depends(require_perm(PAYROLL)),
 ):
-    content = await file.read()
+    content = await file.read(hr_attendance_service.MAX_CSV_BYTES + 1)
     return await hr_attendance_service.import_attendance_csv_stream(db, content)
 
 
 # ── Payroll ────────────────────────────────────────────────────────────────
 @router.get("/payroll")
-async def list_payroll(month: str | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def list_payroll(month: OptionalMonth = None, db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
     q = """
         SELECT pe.*, e.name as emp_name, e.position, p.month as period_month, p.status as period_status
         FROM hr_payroll_entries pe
@@ -169,16 +178,14 @@ async def list_payroll(month: str | None = None, db: AsyncSession = Depends(get_
         q += " AND p.month=:month"
         params['month'] = month
     q += " ORDER BY e.name"
-    r = await db.execute(text(q), params)
-    cols = r.keys()
-    return [dict(zip(cols, row, strict=False)) for row in r.fetchall()]
+    return _rows(await db.execute(text(q), params))
 
 
 @router.post("/payroll/calculate")
 async def calculate_payroll(
     data: PayrollCalculate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_perm("payroll")),
+    current_user: User = Depends(require_perm(PAYROLL)),
 ):
     """Calculate payroll for all (or one) employee using the full engine."""
     return await payroll_service.calculate_payroll_month(
@@ -190,20 +197,16 @@ async def calculate_payroll(
 
 
 @router.get("/payroll/period")
-async def get_payroll_period(month: str, db: AsyncSession = Depends(get_db), _=Depends(require_perm("payroll"))):
-    row = (await db.execute(text("SELECT * FROM hr_payroll_periods WHERE month=:m"), {"m": month})).mappings().fetchone()
-    if not row:
-        await db.execute(text("INSERT INTO hr_payroll_periods (month, status) VALUES (:m, 'draft') ON CONFLICT DO NOTHING"), {"m": month})
-        await db.commit()
-        row = (await db.execute(text("SELECT * FROM hr_payroll_periods WHERE month=:m"), {"m": month})).mappings().fetchone()
-    return dict(row)
+async def get_payroll_period(month: Month, db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
+    """The month's period (read only: a month nobody calculated yet is a draft without an id)."""
+    return await payroll_service.get_period(db, month)
 
 
 @router.post("/payroll/period/submit")
 async def submit_payroll_period(
-    month: str,
+    month: Month,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_perm("payroll")),
+    current_user: User = Depends(require_perm(PAYROLL)),
 ):
     await payroll_service.submit_payroll_period(db, month, str(current_user.id))
     return {"detail": "submitted"}
@@ -211,9 +214,9 @@ async def submit_payroll_period(
 
 @router.post("/payroll/period/approve")
 async def approve_payroll_period(
-    month: str,
+    month: Month,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_perm("payroll")),
+    current_user: User = Depends(require_perm(APPROVE)),
 ):
     total = await payroll_service.approve_payroll_period(db, month, str(current_user.id))
     return {"detail": "approved", "total": float(total)}
@@ -221,10 +224,10 @@ async def approve_payroll_period(
 
 @router.post("/payroll/period/pay")
 async def pay_payroll_period(
-    month: str,
+    month: Month,
     data: PayrollPay | None = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_perm("payroll")),
+    current_user: User = Depends(require_perm(PAY)),
 ):
     """Pay the approved month from a safe (or bank account) or wallet."""
     data = data or PayrollPay()
@@ -235,22 +238,18 @@ async def pay_payroll_period(
 
 @router.post("/payroll/period/reopen")
 async def reopen_payroll_period(
-    month: str,
+    month: Month,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_perm("payroll")),
+    current_user: User = Depends(require_perm(APPROVE)),
 ):
     await payroll_service.reopen_payroll_period(db, month, str(current_user.id))
     return {"detail": "reopened"}
 
 
 @router.get("/payroll/{payroll_id}/breakdown")
-async def get_daily_breakdown(payroll_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def get_daily_breakdown(payroll_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
     """Get daily attendance breakdown for a payroll record."""
-    r = await db.execute(text("SELECT pe.daily_breakdown, e.name FROM hr_payroll_entries pe JOIN hr_employees e ON pe.employee_id=e.id WHERE pe.id=:id"), {'id': payroll_id})
-    row = r.fetchone()
-    if not row:
-        raise NotFoundError()
-    return {'employee': row[1], 'breakdown': row[0]}
+    return await payroll_service.get_daily_breakdown(db, payroll_id)
 
 
 @router.put("/payroll/{payroll_id}")
@@ -258,289 +257,75 @@ async def update_payroll(
     payroll_id: uuid.UUID,
     data: PayrollUpdate,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_perm("payroll")),
+    current_user: User = Depends(require_perm(PAYROLL)),
 ):
-    """Update manual adjustments on a payroll entry."""
+    """Manual adjustments on a payroll entry, while its month is a draft or in review."""
     net_salary = await payroll_service.update_payroll_entry(
         db,
-        payroll_id=str(payroll_id),
-        bonus=float(data.bonus),
-        deductions=float(data.deductions),
-        drawer_variance=float(data.drawer_variance),
-        status=data.status,
-        notes=data.notes or "",
+        payroll_id=payroll_id,
+        bonus=data.bonus,
+        deductions=data.deductions,
+        drawer_variance=data.drawer_variance,
+        notes=data.notes,
+        current_user_id=current_user.id,
     )
     return {"detail": "updated", "net_salary": net_salary}
 
 
 # ── Advances ───────────────────────────────────────────────────────────────
 @router.get("/advances")
-async def list_advances(employee_id: str | None = None, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def list_advances(employee_id: uuid.UUID | None = None, db: AsyncSession = Depends(get_db),
+                        _=Depends(require_perm(PAYROLL))):
     q = "SELECT a.*, e.name as emp_name FROM hr_advances a JOIN hr_employees e ON a.employee_id=e.id WHERE 1=1"
     params = {}
     if employee_id:
         q += " AND a.employee_id=:eid"
-        params['eid'] = uuid.UUID(employee_id)
-    q += " ORDER BY a.date DESC"
-    r = await db.execute(text(q), params)
-    cols = r.keys()
-    return [dict(zip(cols, row, strict=False)) for row in r.fetchall()]
+        params['eid'] = employee_id
+    q += " ORDER BY a.date DESC, a.created_at DESC"
+    return _rows(await db.execute(text(q), params))
 
 
 @router.post("/advances")
-async def add_advance(data: AdvanceCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("payroll"))):
+async def add_advance(data: AdvanceCreate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm(PAYROLL))):
     """An advance (سلفة) is cash paid to the employee now, from a safe or wallet, and deducted from
     the month's salary. A deduction (خصم) or bonus (مكافأة) only changes the salary: no cash moves."""
-    from app.activities.general.modules.finance.services import payments
-
-    record_type = data.record_type
-    adv_date = data.date or date.today()
-    is_advance = payroll_service.record_kind(record_type) == "advance"
-    if is_advance:
-        payments.check_source(data.safe_id, data.wallet_id, "حدد الخزنة أو المحفظة التي تُصرف منها السلفة")
-    safe_id, wallet_id = (data.safe_id, data.wallet_id) if is_advance else (None, None)
-    advance_id = (await db.execute(text("""
-        INSERT INTO hr_advances (employee_id, amount, date, note, created_by, record_type, safe_id, wallet_id)
-        VALUES (:eid, :amt, :dt, :note, :by, :rt, :sid, :wid)
-        RETURNING id
-    """), {'eid': data.employee_id, 'amt': data.amount,
-           'dt': adv_date, 'note': data.note or '',
-           'by': current_user.id, 'rt': record_type, 'sid': safe_id, 'wid': wallet_id})).scalar_one()
-    if is_advance:
-        name = (await db.execute(text("SELECT name FROM hr_employees WHERE id=:id"), {"id": data.employee_id})).scalar() or ""
-        await payments.money_out(db, data.amount, safe_id=safe_id, wallet_id=wallet_id, ref_type="hr_advance",
-                                 ref_id=advance_id, note=f"سلفة {name}".strip(), user_id=current_user.id)
-        # Cash handed to the employee now: the ledger posts it in this transaction (ADR-014 D3).
-        await notify("hr_advance.paid", db, advance_id=advance_id, employee_id=data.employee_id, amount=data.amount,
-                     safe_id=safe_id, wallet_id=wallet_id, note=data.note, user_id=current_user.id)
-    await db.execute(text("""
-        INSERT INTO hr_audit_log (action_type, entity_type, entity_id, performed_by, reason, details)
-        VALUES ('create', 'advance', :eid, :by, :note, CAST(:det AS jsonb))
-    """), {'eid': str(data.employee_id), 'by': current_user.id,
-           'note': data.note or '', 'det': json.dumps({"type": record_type, "amount": float(data.amount),
-                                                       "safe_id": str(safe_id) if safe_id else None,
-                                                       "wallet_id": str(wallet_id) if wallet_id else None})})
+    advance_id = await advances_service.add_record(db, data, current_user)
     await db.commit()
     return {"detail": "saved", "id": str(advance_id)}
 
 
+@router.post("/advances/{advance_id}/cancel")
+async def cancel_advance(advance_id: uuid.UUID, data: AdvanceCancel | None = None, db: AsyncSession = Depends(get_db),
+                         current_user: User = Depends(require_perm(PAYROLL))):
+    """Cancel an advance, deduction or bonus of a month not yet approved. An advance's cash goes
+    back to its safe or wallet and its ledger entry is reversed."""
+    row = await advances_service.cancel_record(db, advance_id, (data or AdvanceCancel()).reason, current_user)
+    await db.commit()
+    return row
+
+
+# ── Reports (print token) ──────────────────────────────────────────────────
 async def _report_auth(user=Depends(get_print_user)):
     """Payroll and attendance reports open in a browser tab with a print token: the workspace is
-    bound from it, and they need the payroll permission (they used to accept any token, bind no
-    workspace and check nothing)."""
-    from app.platform.permissions.access import can
-
-    if not can(user, "payroll"):
+    bound from it, and they need the payroll permission."""
+    if not can(user, PAYROLL):
         raise HTTPException(403, "Insufficient permissions")
     return user
 
 
 @router.get("/payroll/report/monthly")
-async def payroll_monthly_report(month: str, db: AsyncSession = Depends(get_db), _=Depends(_report_auth)):
-    """Generate HTML payroll report for all employees — matches Qt ReportGenerator.generate_payroll_report()"""
-    from app.activities.general.modules.hr.services.reports import ReportGenerator
-    from app.activities.general.modules.hr.services.payroll_engine import calculate_payroll
-
-    settings = {r[0]: r[1] for r in (await db.execute(text("SELECT key, value FROM hr_settings"))).fetchall()}
-    shifts_map = {r[0]: {'id': r[0], 'name': r[1], 'start_time': r[2], 'end_time': r[3]}
-                  for r in (await db.execute(text("SELECT id, name, start_time, end_time FROM hr_shifts"))).fetchall()}
-
-    emps = (await db.execute(text("""
-        SELECT id,emp_code,name,position,monthly_salary,shift_schedule,shift_id,hire_date,
-               ignore_lateness,max_lateness_before_overtime_cancellation FROM hr_employees WHERE is_active=TRUE
-    """))).fetchall()
-    emp_cols = ['id','emp_code','name','position','monthly_salary','shift_schedule','shift_id','hire_date','ignore_lateness','max_lateness_before_overtime_cancellation']
-
-    payrolls = []
-    for emp_row in emps:
-        emp = dict(zip(emp_cols, emp_row, strict=False))
-        att_rows = (await db.execute(text("""
-            SELECT check_in,check_out,status,edited,edited_by,edit_reason,
-                   excuse_no_late,excuse_no_early,excuse_allow_overtime,shift_override
-            FROM hr_attendance WHERE employee_id=:eid AND TO_CHAR(work_date,'YYYY-MM')=:month
-        """), {'eid': emp['id'], 'month': month})).fetchall()
-        att_cols = ['check_in','check_out','status','edited','edited_by','edit_reason','excuse_no_late','excuse_no_early','excuse_allow_overtime','shift_override']
-        attendances = [dict(zip(att_cols, r, strict=False)) for r in att_rows]
-        records = await payroll_service.load_hr_records_for_month(db, emp['id'], month)
-        result = await asyncio.get_running_loop().run_in_executor(
-            None,
-            partial(calculate_payroll, emp, attendances, settings, shifts_map, bonus=records['bonus'],
-                    deduction=records['deduction'], advance=records['advance'], month=month),
-        )
-        result['emp_id'] = str(emp.get('emp_code') or emp['id'])
-        result['emp_name'] = emp['name']
-        result['position'] = emp['position']
-        result['base_salary'] = float(emp['monthly_salary'])
-        result['month'] = month
-        # Map field names to Qt format
-        result['final_salary'] = result['net_salary']
-        result['overtime_payment'] = result['overtime_pay']
-        result['bonus_payment'] = result.get('bonus_payment', 0)
-        result['deduction'] = result.get('deductions', 0)
-        result['advance'] = result.get('advances', 0)
-        # Qt ReportGenerator required fields
-        days = 26
-        result.get('total_hours', 0) / max(result.get('working_days', 1), 1)
-        result['scheduled_month_hours'] = days * 12  # default 12h shift
-        result['effective_days_in_month'] = days
-        result['days_in_month'] = days
-        result['shift_length'] = 12
-        result['hourly_rate'] = result.get('hourly_rate', 0)
-        result['actual_working_days'] = result.get('actual_working_days', result.get('working_days', 0))
-        result['vacation_days'] = result.get('vacation_days', 0)
-        result['normal_hours_worked'] = result.get('total_hours', 0) - result.get('overtime_hours', 0)
-        result['lateness_deduction'] = result.get('lateness_deduction', 0)
-        result['late_penalty_multiplier'] = 2.0
-        result['early_leave_minutes'] = result.get('early_leave_minutes', 0)
-        result['missing_scan_minutes'] = result.get('missing_scan_minutes', 0)
-        result['penalty_hours'] = 0
-        result['bonus_days'] = result.get('bonus_days', 0)
-        result['base_pay_prorated'] = result['net_salary'] + result.get('advances', 0) + result.get('lateness_deduction', 0) - result.get('overtime_pay', 0)
-        result['ignore_lateness'] = bool(emp.get('ignore_lateness', False))
-        payrolls.append(result)
-
-    html = ReportGenerator.generate_payroll_report(payrolls, month)
-    from fastapi.responses import HTMLResponse
-    return HTMLResponse(content=html)
+async def payroll_monthly_report(month: Month, db: AsyncSession = Depends(get_db), _=Depends(_report_auth)):
+    """The month's payroll: the stored entries (the only source once the month is approved)."""
+    return HTMLResponse(content=await payslips.monthly_report(db, month))
 
 
 @router.get("/payroll/report/employee/{emp_id}")
-async def employee_report(emp_id: uuid.UUID, month: str, report_type: str = 'detailed',
+async def employee_report(emp_id: uuid.UUID, month: Month, report_type: str = Query('detailed', pattern="^(detailed|ticket)$"),
                           db: AsyncSession = Depends(get_db), _=Depends(_report_auth)):
-    """Generate individual employee HTML report — matches Qt generate_employee_report() and generate_payslip_ticket()"""
-    from app.activities.general.modules.hr.services.reports import Attendance, Employee, ReportGenerator
-    from app.activities.general.modules.hr.services.payroll_engine import calculate_payroll
-
-    settings = {r[0]: r[1] for r in (await db.execute(text("SELECT key, value FROM hr_settings"))).fetchall()}
-    shifts_map = {r[0]: {'id': r[0], 'name': r[1], 'start_time': r[2], 'end_time': r[3]}
-                  for r in (await db.execute(text("SELECT id, name, start_time, end_time FROM hr_shifts"))).fetchall()}
-
-    emp_row = (await db.execute(text("""
-        SELECT id,emp_code,name,position,monthly_salary,shift_schedule,shift_id,hire_date,
-               ignore_lateness,max_lateness_before_overtime_cancellation FROM hr_employees WHERE id=:id
-    """), {'id': emp_id})).fetchone()
-    if not emp_row:
-        raise NotFoundError()
-    emp_cols = ['id','emp_code','name','position','monthly_salary','shift_schedule','shift_id','hire_date','ignore_lateness','max_lateness_before_overtime_cancellation']
-    emp = dict(zip(emp_cols, emp_row, strict=False))
-
-    att_rows = (await db.execute(text("""
-        SELECT work_date,check_in,check_out,status,edited,edited_by,edit_reason,
-               excuse_no_late,excuse_no_early,excuse_allow_overtime,shift_override
-        FROM hr_attendance WHERE employee_id=:eid AND TO_CHAR(work_date,'YYYY-MM')=:month
-        ORDER BY work_date
-    """), {'eid': emp_id, 'month': month})).fetchall()
-    att_cols = ['work_date','check_in','check_out','status','edited','edited_by','edit_reason','excuse_no_late','excuse_no_early','excuse_allow_overtime','shift_override']
-    attendances = [dict(zip(att_cols, r, strict=False)) for r in att_rows]
-
-    adv_rows = (await db.execute(text("SELECT amount, date, note, record_type FROM hr_advances WHERE employee_id=:eid AND TO_CHAR(date,'YYYY-MM')=:month"), {'eid': emp_id, 'month': month})).fetchall()
-    kind_label = {"advance": "سلفة", "deduction": "خصم", "bonus": "مكافأة"}
-    finances = [{'type': kind_label[payroll_service.record_kind(r[3])], 'amount': float(r[0]), 'date': str(r[1]), 'note': r[2] or ''}
-                for r in adv_rows]
-    totals = {k: sum(f['amount'] for f in finances if f['type'] == label) for k, label in kind_label.items()}
-    adv_total = totals["advance"]
-
-    result = await asyncio.get_running_loop().run_in_executor(
-        None,
-        partial(calculate_payroll, emp, attendances, settings, shifts_map, bonus=totals["bonus"],
-                deduction=totals["deduction"], advance=adv_total, month=month),
-    )
-    result['emp_name'] = emp['name']
-    result['position'] = emp['position']
-    result['base_salary'] = float(emp['monthly_salary'])
-    result['month'] = month
-    result['final_salary'] = result['net_salary']
-    result['overtime_payment'] = result['overtime_pay']
-    result['deduction'] = result.get('deductions', 0)
-    result['advance'] = adv_total
-    result['scheduled_month_hours'] = 26 * 12
-    result['effective_days_in_month'] = 26
-    result['days_in_month'] = 26
-    result['shift_length'] = 12
-    result['actual_working_days'] = result.get('actual_working_days', result.get('working_days', 0))
-    result['vacation_days'] = result.get('vacation_days', 0)
-    result['normal_hours_worked'] = result.get('total_hours', 0) - result.get('overtime_hours', 0)
-    result['lateness_deduction'] = result.get('lateness_deduction', 0)
-    result['late_penalty_multiplier'] = 2.0
-    result['early_leave_minutes'] = result.get('early_leave_minutes', 0)
-    result['missing_scan_minutes'] = result.get('missing_scan_minutes', 0)
-    result['penalty_hours'] = 0
-    result['bonus_days'] = result.get('bonus_days', 0)
-    result['bonus_payment'] = result.get('bonus_payment', 0)
-    result['base_pay_prorated'] = result['net_salary'] + adv_total + result.get('lateness_deduction', 0) - result.get('overtime_pay', 0)
-    result['ignore_lateness'] = bool(emp.get('ignore_lateness', False))
-
-    # Build Employee and Attendance objects for Qt ReportGenerator
-    employee_obj = Employee(
-        emp_id=str(emp['emp_code'] or emp['id']),
-        name=emp['name'], position=emp['position'],
-        monthly_salary=float(emp['monthly_salary']),
-        shift=emp['shift_schedule'] or '',
-        hire_date=str(emp['hire_date']) if emp['hire_date'] else None,
-        ignore_lateness=bool(emp['ignore_lateness'])
-    )
-    att_objs = []
-    for a in attendances:
-        ci = a['check_in']
-        co = a['check_out']
-        wd = a.get('work_date')
-        if ci and hasattr(ci, 'replace'):
-            ci = ci.replace(tzinfo=None)
-        elif wd:
-            # No check_in recorded — use work_date at midnight so the day appears in report
-            from datetime import date as _d2
-            from datetime import datetime as _dt2
-            ci = _dt2.combine(wd if isinstance(wd, _d2) else _d2.fromisoformat(str(wd)), _dt2.min.time())
-        if co and hasattr(co, 'replace'):
-            co = co.replace(tzinfo=None)
-        att_objs.append(Attendance(
-            str(emp['emp_code'] or emp['id']), ci, co,
-            status=a.get('status','present') if a.get('status') != 'present' else 'regular',
-            excuse_no_late=bool(a.get('excuse_no_late', False)),
-            excuse_no_early=bool(a.get('excuse_no_early', False)),
-            excuse_allow_overtime=bool(a.get('excuse_allow_overtime', False)),
-            edited=bool(a.get('edited', False)),
-            edit_reason=a.get('edit_reason', '')
-        ))
-
-    if report_type == 'ticket':
-        html = ReportGenerator.generate_payslip_ticket(employee_obj, result, finances=finances)
-    else:
-        html = ReportGenerator.generate_employee_report(employee_obj, att_objs, result, finances=finances)
-
-    from fastapi.responses import HTMLResponse
-    return HTMLResponse(content=html)
+    """An employee's detailed report or payslip (report_type=ticket) for the month."""
+    return HTMLResponse(content=await payslips.employee_report(db, emp_id, month, report_type))
 
 
 @router.get("/attendance/report")
-async def attendance_report(month: str, db: AsyncSession = Depends(get_db), _=Depends(_report_auth)):
-    """Generate HTML attendance report — matches Qt generate_attendance_report()"""
-    from app.activities.general.modules.hr.services.reports import ReportGenerator
-
-    rows = (await db.execute(text("""
-        SELECT e.name, e.emp_code, a.work_date, a.check_in, a.check_out, a.status,
-               a.edited, a.edit_reason
-        FROM hr_attendance a JOIN hr_employees e ON a.employee_id=e.id
-        WHERE TO_CHAR(a.work_date,'YYYY-MM')=:month
-        ORDER BY e.name, a.work_date
-    """), {'month': month})).fetchall()
-
-    report_rows = []
-    for r in rows:
-        ci = r[3]
-        co = r[4]
-        if ci and hasattr(ci, 'replace'):
-            ci = ci.replace(tzinfo=None)
-        if co and hasattr(co, 'replace'):
-            co = co.replace(tzinfo=None)
-        report_rows.append({
-            'name': r[0], 'uid': r[1] or '', 'date': str(r[2]),
-            'checkin': ci.isoformat() if ci else None,
-            'checkout': co.isoformat() if co else None,
-            'status': r[5] or 'present',
-            'edited': bool(r[6]), 'edit_reason': r[7] or ''
-        })
-
-    html = ReportGenerator.generate_attendance_report(report_rows, month)
-    from fastapi.responses import HTMLResponse
-    return HTMLResponse(content=html)
+async def attendance_report(month: Month, db: AsyncSession = Depends(get_db), _=Depends(_report_auth)):
+    return HTMLResponse(content=await payslips.attendance_report(db, month))

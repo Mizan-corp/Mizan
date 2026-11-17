@@ -175,7 +175,7 @@ async def test_purchase_received_with_a_part_payment():
     assert await _count("SELECT count(*) FROM acc_entries WHERE source_id = :id", id=po) == 1
     async with AsyncSessionLocal() as s:
         user = await _user(s, env)
-        with pytest.raises(Exception, match="Already received"):
+        with pytest.raises(Exception, match="مستلم بالفعل"):
             await purchase_service.receive_purchase(s, po, PurchaseReceive(), user)
 
 

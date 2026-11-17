@@ -80,6 +80,36 @@ and `manager` hold it. The clinical roles hold their own permissions only.
   `v84_clinic_role_separation` removed the umbrella `clinic` from the copies of the five clinical
   roles (keeping `clinic:view`).
 
+## 2a. Sales and the POS
+
+| Permission | Who holds it by default | What it allows |
+|---|---|---|
+| `sales` / `pos` | cashier, manager, admin | Sell, read sales (in the branches the user is assigned; managers and `supervise` holders: all) |
+| `sales:return` | cashier, manager, admin | Full and partial returns; cash is refunded from the user's **own** open shift in the sale's branch |
+| `sales:cancel` | manager, admin | Cancel a confirmed sale |
+| `sales:override_price` | manager, admin | Sell at another price than the product's, only while the POS setting `allow_price_override` is on; discounts when the sales setting `allow_manual_discount` is off |
+| `sales:negative_stock` | manager, admin | Sell more than the branch's stock while the inventory setting `prevent_negative_stock` is on |
+
+Until v95 cancelling and returning needed only `sales`. The personal copies of the manager and cashier
+roles (`manager-1a2b3c4d`, `cashier-…`) that held `sales` were given `sales:cancel` + `sales:return`
+and `sales:return` respectively, so they keep what they did; workspaces' own roles (`ws-…`) that held
+`sales` got both, for the same reason (their admin can take them away).
+
+## 2b. Stock, purchases and paying suppliers
+
+| Action | Permission | storekeeper | accountant | manager | admin |
+|---|---|:-:|:-:|:-:|:-:|
+| Adjustments and damage by hand, transfers, movements, valuation | `inventory` | ✓ | ✓ | ✓ | ✓ |
+| Opening stock by hand | `inventory:opening` | | | ✓ | ✓ |
+| Dispatch and stock requests | `operations` | ✓ | | ✓ | ✓ |
+| Purchase orders, receipts, purchase returns, suppliers and their prices | `purchases` | ✓ | ✓ | ✓ | ✓ |
+| Paying a supplier or charging their account, paying on receipt, a refund on a return | `finance` (with `purchases` for the order) | | ✓ | ✓ | ✓ |
+
+Every write on stock also needs access to the warehouse (`verify_warehouse_access`: assigned
+warehouses, or `supervise` / managers for all). Migration `v96_ready_stock_ops` gave workspaces' own
+roles holding `inventory` the new `purchases`, and those also holding `settings` `inventory:opening`;
+none got `finance` from it.
+
 ## 3. Permissions from the extension platform
 
 | Permission | Who holds it by default | What it allows |
