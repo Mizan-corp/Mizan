@@ -1,6 +1,6 @@
 [Unit]
 Description=Mizan database failover watchdog (promotes latitude's standby when homie is gone)
-Documentation=https://github.com/ammar0xff/Mizan/blob/master/deploy/failover/README.md
+Documentation=https://github.com/mizan-corp/Mizan/blob/master/deploy/failover/README.md
 After=docker.service k3s.service network-online.target tailscaled.service
 Wants=network-online.target
 

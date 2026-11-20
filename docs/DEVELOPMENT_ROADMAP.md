@@ -1,7 +1,7 @@
 # Mizan ERP — Development Roadmap
 
 The working plan, in priority order, is [`TASKS.md`](../TASKS.md); every open item is a
-[GitHub issue](https://github.com/ammar0xff/Mizan/issues). This page is the long view.
+[GitHub issue](https://github.com/mizan-corp/Mizan/issues). This page is the long view.
 
 ## Done
 - **Platform:** multi-tenancy with row-level security; one permission system with acting roles

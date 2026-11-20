@@ -33,7 +33,7 @@ services:
     logging: *logging
 
   api:
-    image: ghcr.io/ammar0xff/mizan-api:${MIZAN_TAG:?set MIZAN_TAG in .env}
+    image: ghcr.io/mizan-corp/mizan-api:${MIZAN_TAG:?set MIZAN_TAG in .env}
     restart: unless-stopped
     env_file: mizan.env
     environment:
@@ -60,7 +60,7 @@ services:
     logging: *logging
 
   web:
-    image: ghcr.io/ammar0xff/mizan-web:${MIZAN_TAG}
+    image: ghcr.io/mizan-corp/mizan-web:${MIZAN_TAG}
     restart: unless-stopped
     ports:
       - "127.0.0.1:18080:8080"

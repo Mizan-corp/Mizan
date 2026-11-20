@@ -4,7 +4,7 @@ Everything that installs and runs Mizan on a client's own computer
 ([ADR-005](../docs/decisions/ADR-005-deployment-modes.md)). One licence key decides
 the workspace and the mode; the same installer handles both modes on Windows and Linux.
 
-**Current release: v1.0.2** in [ammar0xff/mizan-releases](https://github.com/ammar0xff/mizan-releases/releases/latest)
+**Current release: v1.0.2** in [mizan-corp/mizan-releases](https://github.com/mizan-corp/mizan-releases/releases/latest)
 (`MizanSetup-1.0.2-windows.exe`, `MizanSetup-1.0.2-linux`, `mizan-setup-1.0.2-linux-x86_64.run`, and the update payloads `payload-1.0.2-*.zip`).
 User-facing guide: the website's docs, [running on site](https://allmizan.live/docs/deploy/modes).
 
@@ -109,20 +109,20 @@ installer, or by hand).
 ### Publishing
 
 Clients download from the public
-[ammar0xff/mizan-releases](https://github.com/ammar0xff/mizan-releases) (this repository
+[mizan-corp/mizan-releases](https://github.com/mizan-corp/mizan-releases) (this repository
 is private). A `v*` tag publishes there when the `RELEASES_TOKEN` secret is set (a
 fine-grained token with Contents read/write on mizan-releases). By hand:
 
 ```bash
 gh run download <run id> --dir dist && cd dist && mv */* . && sha256sum MizanSetup-* mizan-setup-* > SHA256SUMS.txt
-gh release create v1.0.0 MizanSetup-* mizan-setup-* SHA256SUMS.txt --repo ammar0xff/mizan-releases --title "Mizan v1.0.0"
+gh release create v1.0.0 MizanSetup-* mizan-setup-* SHA256SUMS.txt --repo mizan-corp/mizan-releases --title "Mizan v1.0.0"
 ```
 
 Then point the owner panel at them: `MIZAN_INSTALLERS` on the owner API (production) and the admin
 API (it shows which installs are behind). For updates (#89) each platform also needs
 `"payload_url"` (the release's `payload-<version>-<platform>.zip`) and `"payload_sha256"` (from
 `SHA256SUMS.txt`); without them nothing is offered. E.g.
-`{"windows": {"url": "https://github.com/ammar0xff/mizan-releases/releases/download/v1.0.0/MizanSetup-1.0.0-windows.exe", "version": "1.0.0", "size_mb": 150}, "linux": {…}}`
+`{"windows": {"url": "https://github.com/mizan-corp/mizan-releases/releases/download/v1.0.0/MizanSetup-1.0.0-windows.exe", "version": "1.0.0", "size_mb": 150}, "linux": {…}}`
 (see `shared/backend/app/platform/updates/releases.py`), and redeploy it.
 
 The setup binary's layout: `[program][payload.zip][licence stamp][footer]`, footer =

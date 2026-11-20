@@ -1,6 +1,6 @@
 [Unit]
 Description=Mizan edge guard (takes latitude's tunnel connector out while its link to the database is slow)
-Documentation=https://github.com/ammar0xff/Mizan/blob/master/deploy/failover/README.md
+Documentation=https://github.com/mizan-corp/Mizan/blob/master/deploy/failover/README.md
 After=docker.service k3s.service network-online.target tailscaled.service
 Wants=network-online.target
 

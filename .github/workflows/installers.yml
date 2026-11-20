@@ -87,7 +87,7 @@ jobs:
           retention-days: 14
 
   release:
-    # Clients download from the public ammar0xff/mizan-releases (this repository is private).
+    # Clients download from the public mizan-corp/mizan-releases (this repository is private).
     # Needs a RELEASES_TOKEN secret: a fine-grained token with Contents: read and write on
     # mizan-releases. Without it, publish by hand (installer/README.md).
     name: Publish to mizan-releases
@@ -108,5 +108,5 @@ jobs:
           # payload-<version>-<platform>.zip: what installed servers update from (#89). Its SHA-256
           # goes into MIZAN_INSTALLERS (payload_url, payload_sha256) on the owner API.
           cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
-          gh release create "$TAG" * --repo ammar0xff/mizan-releases --title "Mizan $TAG" \
+          gh release create "$TAG" * --repo mizan-corp/mizan-releases --title "Mizan $TAG" \
             --notes "Mizan Setup $TAG for Windows and Linux. Download it from your owner panel together with your licence file."
