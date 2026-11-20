@@ -259,17 +259,19 @@ async def create_quotation(db: AsyncSession, data, cashier_id: uuid.UUID, actor=
 
 async def update_quotation(db: AsyncSession, sale_id: uuid.UUID, data, user_id: uuid.UUID | None = None,
                            actor=None) -> None:
-    """Edit a quotation. Only what the request contains changes: leaving out items, notes or the
-    customer keeps them (it used to clear them). Totals and prices follow create_quotation().
-    Commits, with its audit row."""
+    """Edit a quotation or a draft (nothing taken or paid yet). Only what the request contains
+    changes: leaving out items, notes or the customer keeps them (it used to clear them). Lines
+    sent without a price take the product's price now; totals and prices follow
+    create_quotation(). Commits, with its audit row."""
     from app.core.exceptions import NotFoundError
 
     row = (await db.execute(text("SELECT status, sale_mode, discount_amount, invoice_number FROM sales "
                                  "WHERE id = :id FOR UPDATE"), {"id": sale_id})).first()
     if row is None:
-        raise NotFoundError("عرض السعر غير موجود")
-    if row.status != "quotation":
-        raise BusinessError("لا يُعدَّل إلا عرض السعر")
+        raise NotFoundError("المستند غير موجود")
+    if row.status not in ("quotation", "draft"):
+        raise BusinessError("لا يُعدَّل إلا عرض السعر أو المسودة — الفاتورة المؤكدة تُلغى أو تُرتجع")
+    kind = "عرض السعر" if row.status == "quotation" else "المسودة"
     actor = await checks.load_actor(db, user_id or (actor.id if actor else None), actor)
     sent = data.model_fields_set
     if "customer_id" in sent:
@@ -277,7 +279,8 @@ async def update_quotation(db: AsyncSession, sale_id: uuid.UUID, data, user_id: 
     if "items" in sent or "discount_amount" in sent:
         if "items" in sent:
             if not data.items:
-                raise BusinessError("عرض السعر يحتاج صنفاً واحداً على الأقل")
+                raise BusinessError(f"{kind}: يلزم صنف واحد على الأقل")
+            await checks.fill_listed_prices(db, data.items, row.sale_mode)
             await checks.check_prices(db, data.items, row.sale_mode,
                                       data.discount_amount if "discount_amount" in sent else row.discount_amount, actor)
             await db.execute(text("DELETE FROM sale_items WHERE sale_id = :id"), {"id": sale_id})
@@ -306,7 +309,9 @@ async def update_quotation(db: AsyncSession, sale_id: uuid.UUID, data, user_id: 
         await db.execute(text("UPDATE sales SET notes = :v WHERE id = :id"), {"v": data.notes, "id": sale_id})
     if "customer_id" in sent:
         await db.execute(text("UPDATE sales SET customer_id = :v WHERE id = :id"), {"v": data.customer_id, "id": sale_id})
-    await _audit(db, actor, "quotation", "update", sale_id, {"fields": sorted(sent)}, f"تعديل عرض السعر {row.invoice_number}")
+    await _audit(db, actor, "quotation" if row.status == "quotation" else "sale",
+                 "update" if row.status == "quotation" else "update_draft", sale_id, {"fields": sorted(sent)},
+                 f"تعديل {kind} {row.invoice_number}")
     await db.commit()
 
 
@@ -330,10 +335,11 @@ async def delete_draft_or_quotation(db: AsyncSession, sale_id: uuid.UUID, user_i
 
 
 async def confirm_quotation(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.UUID,
-                            destination: str = "drawer", safe_id: uuid.UUID | None = None, actor=None) -> Sale:
+                            destination: str = "drawer", safe_id: uuid.UUID | None = None, actor=None,
+                            wallet_id: uuid.UUID | None = None) -> Sale:
     """Convert a quotation to a confirmed sale — deducts stock and records where the money went:
     the user's own open shift in the quotation's branch, a safe (through the finance safes
-    service), or the customer's account."""
+    service), a payment wallet, or the customer's account."""
     result = await db.execute(select(Sale).options(selectinload(Sale.items)).where(Sale.id == sale_id).with_for_update())
     sale = result.scalar_one_or_none()
     if not sale:
@@ -343,6 +349,10 @@ async def confirm_quotation(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.
         raise BusinessError("لا يُؤكَّد بهذه الطريقة إلا عرض السعر")
     actor = await checks.load_actor(db, user_id, actor)
     quotation_number = sale.invoice_number
+    if destination == "wallet":
+        if not wallet_id:
+            raise BusinessError("يجب اختيار المحفظة")
+        await checks.check_references(db, wallet_ids=[wallet_id])
 
     sorted_items = sorted(sale.items, key=lambda i: str(i.product_id))
     allow_neg = await _check_stock(db, sorted_items, sale.warehouse_id, actor)
@@ -392,6 +402,14 @@ async def confirm_quotation(db: AsyncSession, sale_id: uuid.UUID, user_id: uuid.
                                        warehouse_id=sale.warehouse_id,
                                        notes=f"تأكيد عرض سعر {sale.invoice_number}")
             await _add_payment(db, sale.id, "cash", net_total, safe_id=safe_id)
+        elif destination == "wallet":
+            from app.activities.general.modules.finance.services.wallets import record_wallet_tx
+
+            await record_wallet_tx(db, wallet_id, net_total, "sale", sale.id,
+                                   f"تأكيد عرض سعر - {sale.invoice_number}", user_id)
+            await _add_payment(db, sale.id, "wallet", net_total, wallet_id=wallet_id)
+            sale.payment_method = "wallet"
+            sale.wallet_id = wallet_id
         else:
             # drawer → user's own open shift in this warehouse (SAL-3)
             shift_id = await checks.sale_shift(db, user_id, sale.warehouse_id, None, cash=True)

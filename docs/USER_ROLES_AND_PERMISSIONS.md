@@ -84,13 +84,14 @@ and `manager` hold it. The clinical roles hold their own permissions only.
 
 | Permission | Who holds it by default | What it allows |
 |---|---|---|
-| `sales` / `pos` | cashier, manager, admin | Sell, read sales (in the branches the user is assigned; managers and `supervise` holders: all) |
+| `sales` / `pos` | cashier, manager, admin | Sell, read sales (in the branches the user is assigned; managers and `supervise` holders: all); make, edit, delete and confirm drafts |
+| `quotations` / `sales` | cashier, manager, admin | Make, edit, delete and confirm quotations (the money into one's own drawer, a safe, a wallet or on credit) |
 | `sales:return` | cashier, manager, admin | Full and partial returns; cash is refunded from the user's **own** open shift in the sale's branch |
 | `sales:cancel` | manager, admin | Cancel a confirmed sale |
 | `sales:override_price` | manager, admin | Sell at another price than the product's, only while the POS setting `allow_price_override` is on; discounts when the sales setting `allow_manual_discount` is off |
 | `sales:negative_stock` | manager, admin | Sell more than the branch's stock while the inventory setting `prevent_negative_stock` is on |
 | `shifts` / `pos` | cashier, manager, admin (pharmacist: `pos`) | Read a drawer (current shift, summary, rows, last amount): one's own, or any in reach for managers and `supervise` holders |
-| `supervise` (or the manager flag with `shifts`) | manager, admin | Approve at the counter with one's password: closing a shift with a manager, revenue delivery to a safe |
+| `supervise` (or the manager flag with `shifts`) | manager, admin | Approve at the counter with one's password: closing a shift with a manager, revenue delivery to a safe; cancel a drawer row entered by hand (it used to rest on the manager flag alone) |
 
 Manager approvals (POS-4) used to rest on `users.is_manager` alone. Now the approver's acting role
 must hold `supervise`, or the user must be flagged a manager **and** hold `shifts` (so managers

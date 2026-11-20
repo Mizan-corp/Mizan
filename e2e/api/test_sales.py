@@ -278,3 +278,36 @@ def test_vat_registered_sale_stores_and_prints_its_vat(admin_api, reg, product, 
     if not before["vat_registered"]:
         assert float(s["tax_amount"]) == 0 and s["items"][0]["tax_code"] is None
         assert "ضريبة" not in _printed(admin_api, s["id"])
+
+
+def test_sales_page_filters_on_the_server_and_counts(admin_api, reg, product, wh):
+    q = admin_api.ok(admin_api.post("/sales/quotations", json=_sale_payload(product, wh)))
+    reg.add("sale", q["id"])
+    page = admin_api.ok(admin_api.get("/sales/page", params={"kind": "quotations", "page_size": 200,
+                                                             "search": q["invoice_number"]}))
+    assert page["total"] >= 1 and [i["id"] for i in page["items"]] == [q["id"]]
+    assert all(i["status"] in ("quotation", "draft") for i in page["items"])
+    invoices = admin_api.ok(admin_api.get("/sales/page", params={"kind": "invoices", "search": q["invoice_number"]}))
+    assert invoices["total"] == 0
+    summary = admin_api.ok(admin_api.get("/sales/summary"))
+    assert {"net_sales", "returns_total", "outstanding", "invoice_count", "quotation_count"} <= set(summary)
+    assert admin_api.get("/sales/page", params={"kind": "nope"}).status_code == 422
+
+
+def test_quotation_confirm_into_wallet(owner_api, reg, product, wh, wallet):
+    q = owner_api.ok(owner_api.post("/sales/quotations", json=_sale_payload(product, wh)))
+    reg.add("sale", q["id"])
+    confirmed = owner_api.ok(owner_api.post(f"/sales/{q['id']}/confirm-quotation",
+                                            json={"destination": "wallet", "wallet_id": wallet["id"]}))
+    assert confirmed["status"] == "confirmed" and confirmed["payment_method"] == "wallet"
+    hist = owner_api.ok(owner_api.get(f"/wallets/{wallet['id']}/history"))
+    assert any(x["tx_type"] == "sale" for x in hist)
+
+
+def test_draft_edit_reprices_at_the_products_price(admin_api, reg, product, wh):
+    d = admin_api.ok(admin_api.post("/sales/draft", json=_sale_payload(product, wh)))
+    reg.add("sale", d["id"])
+    admin_api.ok(admin_api.put(f"/sales/{d['id']}", json={"items": [{"product_id": product["id"], "qty": 2}],
+                                                          "notes": "e2e draft edit"}))
+    after = admin_api.ok(admin_api.get(f"/sales/{d['id']}"))
+    assert float(after["net_total"]) == 200 and after["notes"] == "e2e draft edit"
