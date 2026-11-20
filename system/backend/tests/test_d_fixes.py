@@ -101,3 +101,58 @@ async def test_cancelling_a_drawer_receipt_gives_the_invoice_its_debt_back():
         with pytest.raises(HTTPException) as e:
             await contacts.reverse_drawer_receipt(s, payment_id, env["cashier_id"])
         assert e.value.status_code == 409
+
+
+# ── 2. Module settings: partial update, checked against the manifest ─────────────────────────
+
+async def test_saving_one_setting_keeps_the_others_and_values_are_checked():
+    """Old code: each save replaced the whole row, so saving one key put every other back to its
+    default; unknown keys were dropped silently and any value was stored."""
+    env = await _ws()
+    h = env["h"]["admin"]
+    async with _client() as c:
+        r = await c.post("/modules/pos/settings", json={"settings": {"allow_price_override": True}}, headers=h)
+        assert r.status_code == 200, r.text
+        r = await c.post("/modules/pos/settings", json={"settings": {"auto_print_receipt": True}}, headers=h)
+        values = r.json()["settings"]["values"]
+        assert values["allow_price_override"] is True and values["auto_print_receipt"] is True
+        assert values["require_active_shift"] is True  # never saved: its default
+
+        for bad in ({"allow_price_override": "yes"}, {"no_such_setting": 1}, {"enable_quick_numpad": 1}):
+            r = await c.post("/modules/pos/settings", json={"settings": bad}, headers=h)
+            assert r.status_code == 422, (bad, r.text)
+        r = await c.post("/modules/contacts/settings", json={"settings": {"default_credit_limit": "x"}}, headers=h)
+        assert r.status_code == 422
+        assert (await c.post("/modules/contacts/settings", json={"settings": {"default_credit_limit": 500}},
+                             headers=h)).status_code == 200
+        # null puts a key back to its default; the refused saves changed nothing.
+        r = await c.post("/modules/pos/settings", json={"settings": {"auto_print_receipt": None}}, headers=h)
+        values = r.json()["settings"]["values"]
+        assert values["auto_print_receipt"] is False and values["allow_price_override"] is True
+        # A cashier can't change settings.
+        assert (await c.post("/modules/pos/settings", json={"settings": {"allow_price_override": False}},
+                             headers=env["h"]["cashier"])).status_code == 403
+    # Keys a module no longer declares are neither shown nor sent back (they would be refused).
+    await _sql(env, "UPDATE store_settings SET value = :v WHERE key = 'mod_settings_pos'",
+               v='{"allow_price_override": true, "valuation_method": "fifo"}')
+    async with _client() as c:
+        got = (await c.get("/modules/pos/settings", headers=h)).json()["values"]
+        assert "valuation_method" not in got and got["allow_price_override"] is True
+        assert (await c.post("/modules/pos/settings", json={"settings": got}, headers=h)).status_code == 200
+
+
+async def test_two_settings_saved_at_once_both_count():
+    from app.framework.loader import registry
+
+    env = await _ws()
+
+    async def save(values):
+        async with AsyncSessionLocal() as s:
+            await bind_tenant(s, env["tenant_id"])
+            await registry.save_settings(s, "pos", values)
+
+    await asyncio.gather(save({"allow_price_override": True}), save({"auto_print_receipt": True}))
+    async with AsyncSessionLocal() as s:
+        await bind_tenant(s, env["tenant_id"])
+        values = (await registry.get_settings(s, "pos"))["values"]
+    assert values["allow_price_override"] is True and values["auto_print_receipt"] is True

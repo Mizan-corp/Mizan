@@ -93,7 +93,7 @@ Older modules keep some screens at the module root (`PosPage.tsx`) until they ar
 | `forms` | | A record's form and its built-in fields, which the screen builder arranges with the workspace's custom fields: `{"product": {"label", "fields": [{"key", "label", "locked"?, "hidden"?}]}}` (`locked`: can't be hidden; `hidden`: off until the builder shows it). |
 | `variants` | business | Includes `standard` (in the module's `variants/standard/`) and each activity that adapts the module (in `app/activities/<activity>/variants/<module_id>/`). |
 | `srs` | | SRS requirement ids the module implements. |
-| `settings_schema` | | Per-workspace settings shown in the module centre. |
+| `settings_schema` | | Per-workspace settings shown in the module centre: `[{"key", "label", "type": boolean\|number\|string\|select, "default", "options"}]`. A save (`POST /modules/<id>/settings`) changes only the keys sent, each checked against its type (422 otherwise; null resets a key to its default). |
 
 ## Commands and checks
 
