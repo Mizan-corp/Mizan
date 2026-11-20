@@ -37,10 +37,12 @@ def _employee(owner_api, reg):
 
 def test_hr_settings(owner_api):
     body = owner_api.ok(owner_api.get("/hr/settings"))
-    put = owner_api.put("/hr/settings", json={"late_threshold_minutes": 5})
-    if put.status_code in (200, 201):
-        owner_api.ok(put)
-    assert body is not None
+    # Typed, every rule with its default (HR-12).
+    assert {"days_in_month", "weekend_day", "day_start_hour", "paid_leave_days", "default_shift_start_hour"} <= set(body)
+    saved = owner_api.ok(owner_api.put("/hr/settings", json={"settings": {"paid_leave_days": body["paid_leave_days"]}}))
+    assert saved["paid_leave_days"] == body["paid_leave_days"]
+    assert owner_api.put("/hr/settings", json={"settings": {"weekend_day": 9}}).status_code == 422
+    assert owner_api.put("/hr/settings", json={"settings": {"unknown": 1}}).status_code == 422
 
 
 def test_hr_shifts_crud(owner_api, reg):
@@ -50,6 +52,16 @@ def test_hr_shifts_crud(owner_api, reg):
     reg.add("employee_shift", s["id"])
     shifts = owner_api.ok(owner_api.get("/hr/shifts"))
     assert any(x["id"] == s["id"] for x in shifts)
+    upd = owner_api.ok(owner_api.put(f"/hr/shifts/{s['id']}", json={"end_time": "16:00"}))
+    assert upd["end_time"] == "16:00" and upd["name"] == name
+    assert owner_api.put("/hr/shifts/nope", json={"name": "x"}).status_code == 404
+    assert owner_api.delete(f"/hr/shifts/{s['id']}").status_code == 204  # unused: deleted
+    assert all(x["id"] != s["id"] for x in owner_api.ok(owner_api.get("/hr/shifts")))
+
+
+def test_hr_audit_log_is_paged(owner_api):
+    page = owner_api.ok(owner_api.get("/hr/audit-log", params={"page_size": 5}))
+    assert set(page) == {"items", "total", "page", "page_size"} and len(page["items"]) <= 5
 
 
 def test_hr_employees_crud_and_attendance(owner_api, reg):
@@ -69,8 +81,8 @@ def test_hr_employees_crud_and_attendance(owner_api, reg):
     }))
     reg.add("attendance", att.get("id") or "")
 
-    rows = owner_api.ok(owner_api.get("/hr/attendance", params={"employee_id": e["id"]}))
-    assert any(x.get("employee_id") == e["id"] for x in rows)
+    page = owner_api.ok(owner_api.get("/hr/attendance", params={"employee_id": e["id"], "page_size": 10}))
+    assert page["total"] >= 1 and any(x.get("employee_id") == e["id"] for x in page["items"])
 
     for rep in ("/hr/attendance/report", "/hr/payroll/report/monthly"):
         r = owner_api.get(rep, params={"month": _now_month(), "token": _print_token(owner_api)})
@@ -87,8 +99,8 @@ def test_hr_advances(owner_api, reg, safe):
     adv = owner_api.ok(owner_api.post("/hr/advances", json={
         "employee_id": e["id"], "amount": "200", "date": day, "notes": "e2e", "safe_id": safe["id"]}))
     reg.add("advance", adv.get("id") or "")
-    rows = owner_api.ok(owner_api.get("/hr/advances", params={"employee_id": e["id"]}))
-    assert isinstance(rows, list)
+    page = owner_api.ok(owner_api.get("/hr/advances", params={"employee_id": e["id"]}))
+    assert page["total"] == 1 and page["items"][0]["id"] == adv["id"]
     # an unknown kind is refused; cancelling puts the cash back, once
     r = owner_api.post("/hr/advances", json={"employee_id": e["id"], "amount": "5", "record_type": "x"})
     assert r.status_code == 422, r.text[:200]

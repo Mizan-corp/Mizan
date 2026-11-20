@@ -4,7 +4,7 @@ advances, shifts): it needs the `payroll` permission; approving or reopening a m
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile
 from fastapi.responses import HTMLResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +25,7 @@ from app.activities.general.modules.hr.schemas import (
     PayrollPay,
     PayrollUpdate,
     ShiftCreate,
+    ShiftUpdate,
 )
 from app.activities.general.modules.hr.services import advances as advances_service
 from app.activities.general.modules.hr.services import employees as employees_service
@@ -45,23 +46,45 @@ def _rows(result) -> list[dict]:
     return [dict(r) for r in result.mappings().all()]
 
 
+Page = Annotated[int, Query(ge=1, le=100000)]
+PageSize = Annotated[int, Query(ge=1, le=200)]
+
+
+async def _paged(db: AsyncSession, select_sql: str, from_where: str, params: dict, order: str, page: int,
+                 page_size: int) -> dict:
+    """{items, total, page, page_size}: one page of a list, and how many rows it has in all."""
+    total = (await db.execute(text(f"SELECT COUNT(*) {from_where}"), params)).scalar_one()
+    items = _rows(await db.execute(text(f"SELECT {select_sql} {from_where} ORDER BY {order} LIMIT :lim OFFSET :off"),
+                                   {**params, "lim": page_size, "off": (page - 1) * page_size}))
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+
 @router.get("/audit-log")
-async def get_audit_log(db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
-    r = await db.execute(text("""
-        SELECT a.id, a.action_type, a.entity_type, a.entity_id, a.reason, a.details, a.created_at,
-               u.full_name as performed_by_name
-        FROM hr_audit_log a LEFT JOIN users u ON a.performed_by=u.id
-        ORDER BY a.created_at DESC LIMIT 500
-    """))
-    result = _rows(r)
-    for d in result:
+async def get_audit_log(entity_type: Annotated[str | None, Query(max_length=32)] = None, page: Page = 1,
+                        page_size: PageSize = 50, db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
+    """The HR audit trail, newest first, paged; `entity_type`: employee, payroll_entry, advance…"""
+    where, params = "WHERE (CAST(:et AS text) IS NULL OR a.entity_type = :et)", {"et": entity_type}
+    out = await _paged(db, """a.id, a.action_type, a.entity_type, a.entity_id, a.reason, a.details, a.created_at,
+               u.full_name as performed_by_name, e.name AS employee_name""",
+                       f"""FROM hr_audit_log a LEFT JOIN users u ON a.performed_by=u.id
+                           LEFT JOIN hr_employees e ON a.entity_type IN ('employee', 'advance') AND e.id::text = a.entity_id
+                           {where}""", params, "a.created_at DESC, a.id", page, page_size)
+    for d in out["items"]:
         d['created_at'] = d['created_at'].isoformat() if d['created_at'] else None
-    return result
+    return out
+
+
+SHIFT_NOT_FOUND = "الوردية غير موجودة"
 
 
 @router.get("/shifts")
 async def list_shifts(db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
-    return _rows(await db.execute(text("SELECT * FROM hr_shifts ORDER BY start_time")))
+    """Every shift, the stopped ones too (they still name some employees' and days' shifts), with
+    how many active employees work it."""
+    return _rows(await db.execute(text("""
+        SELECT s.*, (SELECT COUNT(*) FROM hr_employees e WHERE e.shift_id = s.id AND e.is_active) AS employees
+        FROM hr_shifts s ORDER BY s.is_active DESC, s.start_time, s.name
+    """)))
 
 
 @router.post("/shifts")
@@ -73,9 +96,45 @@ async def create_shift(data: ShiftCreate, db: AsyncSession = Depends(get_db), _=
     return {'id': sid, 'name': data.name}
 
 
+@router.put("/shifts/{shift_id}")
+async def update_shift(shift_id: Annotated[str, Path(max_length=32)], data: ShiftUpdate, db: AsyncSession = Depends(get_db),
+                       _=Depends(require_perm(PAYROLL))):
+    """Change only the fields sent. The new hours count from the next calculation; an approved
+    month keeps what it was approved with."""
+    changes = {k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None}
+    row = (await db.execute(text("SELECT * FROM hr_shifts WHERE id = :id FOR UPDATE"), {"id": shift_id})).mappings().first()
+    if row is None:
+        raise HTTPException(404, SHIFT_NOT_FOUND)
+    if not changes:
+        return dict(row)
+    sets = ", ".join(f"{k} = :{k}" for k in changes)
+    row = (await db.execute(text(f"UPDATE hr_shifts SET {sets}, updated_at = now() WHERE id = :id RETURNING *"),
+                            {**changes, "id": shift_id})).mappings().one()
+    await db.commit()
+    return dict(row)
+
+
+@router.delete("/shifts/{shift_id}", status_code=204)
+async def delete_shift(shift_id: Annotated[str, Path(max_length=32)], db: AsyncSession = Depends(get_db),
+                       _=Depends(require_perm(PAYROLL))):
+    """An unused shift is deleted; one that employees or attendance days name is stopped instead."""
+    if not await db.scalar(text("SELECT 1 FROM hr_shifts WHERE id = :id FOR UPDATE"), {"id": shift_id}):
+        raise HTTPException(404, SHIFT_NOT_FOUND)
+    used = await db.scalar(text("""
+        SELECT EXISTS (SELECT 1 FROM hr_employees WHERE shift_id = :id)
+            OR EXISTS (SELECT 1 FROM hr_attendance WHERE shift_override = :id)
+    """), {"id": shift_id})
+    if used:
+        await db.execute(text("UPDATE hr_shifts SET is_active = false, updated_at = now() WHERE id = :id"), {"id": shift_id})
+    else:
+        await db.execute(text("DELETE FROM hr_shifts WHERE id = :id"), {"id": shift_id})
+    await db.commit()
+
+
 @router.get("/settings")
 async def get_hr_settings(db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
-    return await payroll_service.load_hr_settings(db)
+    """Every payroll setting, typed, with its default when never saved."""
+    return await payroll_service.hr_settings(db)
 
 
 @router.put("/settings")
@@ -85,7 +144,7 @@ async def update_hr_settings(data: HRSettingsUpdate, db: AsyncSession = Depends(
         await db.execute(text("INSERT INTO hr_settings (key, value) VALUES (:k,:v) ON CONFLICT (tenant_id, key) DO UPDATE SET value=EXCLUDED.value"),
                          {'k': k, 'v': str(v)})
     await db.commit()
-    return {"detail": "saved"}
+    return await payroll_service.hr_settings(db)
 
 
 # ── Employees ─────────────────────────────────────────────────────────────
@@ -93,12 +152,16 @@ PUBLIC_EMPLOYEE_FIELDS = ("id", "emp_code", "name", "position", "is_active")
 
 
 @router.get("/employees")
-async def list_employees(db: AsyncSession = Depends(get_db),
+async def list_employees(include_inactive: bool = False, db: AsyncSession = Depends(get_db),
                          current_user: User = Depends(require_perm(PAYROLL, "accounting:view", "accounting:journal"))):
-    """The active employees. Accountants without `payroll` (who pick an employee as a journal
-    line's party) get names only, without pay."""
-    rows = _rows(await db.execute(text("SELECT * FROM hr_employees WHERE is_active=TRUE ORDER BY name")))
-    if can(current_user, PAYROLL):
+    """The active employees (`include_inactive`: the stopped ones too, for `payroll`). Accountants
+    without `payroll` (who pick an employee as a journal line's party) get names only, without pay."""
+    full = can(current_user, PAYROLL)
+    rows = _rows(await db.execute(text("""
+        SELECT e.*, s.name AS shift_name FROM hr_employees e LEFT JOIN hr_shifts s ON s.id = e.shift_id
+        WHERE (:all OR e.is_active) ORDER BY e.is_active DESC, e.name
+    """), {"all": include_inactive and full}))
+    if full:
         return rows
     return [{k: r.get(k) for k in PUBLIC_EMPLOYEE_FIELDS} for r in rows]
 
@@ -129,8 +192,10 @@ async def delete_employee(emp_id: uuid.UUID, db: AsyncSession = Depends(get_db),
 # ── Attendance ─────────────────────────────────────────────────────────────
 @router.get("/attendance")
 async def list_attendance(employee_id: uuid.UUID | None = None, month: OptionalMonth = None,
+                          page: Page = 1, page_size: PageSize = 50,
                           db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
-    q = "SELECT a.*, e.name as emp_name FROM hr_attendance a JOIN hr_employees e ON a.employee_id=e.id WHERE 1=1"
+    """Attendance days, newest first, paged: {items, total, page, page_size}."""
+    q = "FROM hr_attendance a JOIN hr_employees e ON a.employee_id=e.id WHERE 1=1"
     params = {}
     if employee_id:
         q += " AND a.employee_id=:eid"
@@ -138,8 +203,7 @@ async def list_attendance(employee_id: uuid.UUID | None = None, month: OptionalM
     if month:
         q += " AND a.work_date >= :start AND a.work_date < :end"
         params['start'], params['end'] = payroll_service.month_range(month)
-    q += " ORDER BY a.work_date DESC"
-    return _rows(await db.execute(text(q), params))
+    return await _paged(db, "a.*, e.name as emp_name", q, params, "a.work_date DESC, e.name, a.id", page, page_size)
 
 
 @router.post("/attendance")
@@ -274,15 +338,19 @@ async def update_payroll(
 
 # ── Advances ───────────────────────────────────────────────────────────────
 @router.get("/advances")
-async def list_advances(employee_id: uuid.UUID | None = None, db: AsyncSession = Depends(get_db),
-                        _=Depends(require_perm(PAYROLL))):
-    q = "SELECT a.*, e.name as emp_name FROM hr_advances a JOIN hr_employees e ON a.employee_id=e.id WHERE 1=1"
+async def list_advances(employee_id: uuid.UUID | None = None, month: OptionalMonth = None,
+                        page: Page = 1, page_size: PageSize = 50,
+                        db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
+    """Advances, deductions and bonuses, newest first, paged: {items, total, page, page_size}."""
+    q = "FROM hr_advances a JOIN hr_employees e ON a.employee_id=e.id WHERE 1=1"
     params = {}
     if employee_id:
         q += " AND a.employee_id=:eid"
         params['eid'] = employee_id
-    q += " ORDER BY a.date DESC, a.created_at DESC"
-    return _rows(await db.execute(text(q), params))
+    if month:
+        q += " AND a.date >= :start AND a.date < :end"
+        params['start'], params['end'] = payroll_service.month_range(month)
+    return await _paged(db, "a.*, e.name as emp_name", q, params, "a.date DESC, a.created_at DESC, a.id", page, page_size)
 
 
 @router.post("/advances")

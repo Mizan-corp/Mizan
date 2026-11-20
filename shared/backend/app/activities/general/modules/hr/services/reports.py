@@ -689,7 +689,7 @@ class ReportGenerator:
                     <tr class="calc-row">
                         <td>
                             مكافآت أيام البونص
-                            <div class="info-label">أيام عمل إضافية فوق الـ 26 يوم</div>
+                            <div class="info-label">أيام عمل إضافية فوق الـ {payroll.get('days_in_month', 26)} يوم</div>
                         </td>
                         <td>
                             <div class="formula">
@@ -748,7 +748,7 @@ class ReportGenerator:
 
                     <tr class="total-row">
                         <td colspan="2">صــــافي الراتـــــب النهائي</td>
-                        <td style="direction: ltr; text-align: right;">{fmt(payroll['final_salary'])} EGP</td>
+                        <td style="direction: ltr; text-align: right;">{fmt(payroll['final_salary'])} {h(payroll.get('currency') or 'ج.م')}</td>
                     </tr>
                 </tbody>
             </table>
@@ -1136,6 +1136,9 @@ class ReportGenerator:
                 rows += ded_row('سلفة', item.get('amount', 0), h(sub), cls='adv-c')
         elif payroll.get('advance', 0) > 0:
             rows += ded_row('سُلف', payroll.get('advance', 0), cls='adv-c')
+        if payroll.get('advances_carried', 0) > 0:
+            # Not deducted this month: the net couldn't cover it (HR-9).
+            rows += earn_row('سلفة مرحّلة للشهر التالي', payroll['advances_carried'], 'لم يغطها صافي الراتب')
 
         # Attendance bar
         att_days = payroll.get('actual_working_days', payroll.get('working_days', 0))
@@ -1329,7 +1332,7 @@ body{{
 
   <div class="total">
     <span class="tl">💰 صافي الراتب</span>
-    <span class="tv"><span class="tc">EGP</span>{fmt(payroll['final_salary'])}</span>
+    <span class="tv"><span class="tc">{h(payroll.get('currency') or 'ج.م')}</span>{fmt(payroll['final_salary'])}</span>
   </div>
 
   <div class="ftr">
@@ -1357,7 +1360,8 @@ body{{
         return filepath
 
     @staticmethod
-    def generate_attendance_report(rows: list[dict], month: str = None, title: str = "تقرير الحضور") -> str:
+    def generate_attendance_report(rows: list[dict], month: str = None, title: str = "تقرير الحضور",
+                                   weekend_days: tuple[int, ...] = (4,)) -> str:
         """Generate a comprehensive attendance HTML report in landscape format with statistics."""
         if month is None:
             month = clock.now().strftime("%Y-%m")
@@ -1461,7 +1465,7 @@ body{{
             try:
                 dt_obj = datetime.strptime(date_str, '%Y-%m-%d')
                 day_name = ar_days.get(dt_obj.weekday(), "")
-                if dt_obj.weekday() in [4, 5]: # Friday, Saturday
+                if dt_obj.weekday() in weekend_days:  # the workspace's weekend day (HR settings)
                     is_weekend = True
                     weekend_days_count += 1
                 else:

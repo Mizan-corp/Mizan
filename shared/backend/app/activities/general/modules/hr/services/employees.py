@@ -28,8 +28,15 @@ async def _code_taken(db: AsyncSession, code: str | None, except_id=None) -> boo
                              {"c": code, "id": except_id})).first() is not None
 
 
+async def _check_shift(db: AsyncSession, shift_id: str | None) -> None:
+    """A shift chosen for an employee is one of the workspace's (404 otherwise)."""
+    if shift_id and not await db.scalar(text("SELECT 1 FROM hr_shifts WHERE id = :id"), {"id": shift_id}):
+        raise HTTPException(404, "الوردية غير موجودة")
+
+
 async def create_employee(db: AsyncSession, values: dict) -> dict:
     """A new employee; a code another employee of the workspace has is a 409."""
+    await _check_shift(db, values.get("shift_id"))
     code = (values.get("emp_code") or "").strip() or None
     if await _code_taken(db, code):
         raise HTTPException(409, DUPLICATE_CODE)
@@ -51,6 +58,9 @@ async def update_employee(db: AsyncSession, employee_id: uuid.UUID, values: dict
     if not values:
         return False
     before = await _require_employee(db, employee_id)
+    await _check_shift(db, values.get("shift_id"))
+    if "name" in values and not values["name"]:
+        values.pop("name")
     sets = ", ".join(f"{k} = :p_{k}" for k in values)
     await db.execute(text(f"UPDATE hr_employees SET {sets} WHERE id = :id"), {"id": employee_id, **{f"p_{k}": v for k, v in values.items()}})
     if "monthly_salary" in values and str(before.get("monthly_salary")) != str(values["monthly_salary"]):

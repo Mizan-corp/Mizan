@@ -70,6 +70,8 @@ async def cancel_record(db: AsyncSession, advance_id, reason: str | None, user) 
         raise HTTPException(404, "السجل غير موجود")
     if row["status"] == "cancelled":
         raise HTTPException(409, "هذا السجل ملغى بالفعل")
+    if row.get("carried_from_period_id"):
+        raise HTTPException(409, "سلفة مرحّلة من رواتب شهر سابق: لا تُلغى إلا بإعادة فتح ذلك الشهر")
     await ensure_month_open(db, month_of(row["date"]), "السلف والخصومات والمكافآت")
 
     if record_kind(row["record_type"]) == "advance" and (row["safe_id"] or row["wallet_id"]):
