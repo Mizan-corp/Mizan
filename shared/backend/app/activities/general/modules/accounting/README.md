@@ -82,7 +82,7 @@ document's transaction. The modules emit generic events and never import account
 
 | Event (who emits it) | Entry (source / event) | Debit | Credit |
 |---|---|---|---|
-| `purchase.received` (`receive_purchase`) | `purchase` / `receive` | inventory (the lines without VAT); VAT input (the order's `tax_amount`, step 6); and, for the amount paid at receipt, payables (party: supplier) | payables (party: supplier) for the whole invoice; and, for the amount paid, the safe or wallet it left from |
+| `purchase.received` (`receive_purchase`, once per goods receipt) | `purchase` (the order) / `receive` for its first receipt, `receive-2`, `receive-3`… for the next (PUR-4) | inventory (the lines without VAT); VAT input (the order's `tax_amount`, step 6); and, for the amount paid at receipt, payables (party: supplier) | payables (party: supplier) for the whole invoice; and, for the amount paid, the safe or wallet it left from |
 | `supplier.payment` (`POST /suppliers/{id}/transactions`, `credit`) | `supplier_tx` / `payment` | payables (party: supplier) | the safe or wallet |
 | `supplier.charge` (the same route, `debit`) | `supplier_tx` / `charge` | other expenses | payables (party: supplier) |
 | `purchase.returned` (`POST /purchases/{id}/returns`) | `purchase_return` / `confirm` | payables (party: supplier) for what lowers the balance; the safe or wallet for a refund | inventory (at the cost the goods came in at, without VAT); VAT input (the return's `tax_amount`) |
@@ -127,9 +127,10 @@ Decisions where the design was open:
   non-bank safe; with none or several it stays recorded as `deposit_amount` on the shift and nothing moves.
 
 Not posted yet (later steps of D12): insurance claim approval and payment
-(the insurer's receivable stays open), cancelling a clinic invoice's sale, a pharmacy batch received
-through `POST /pharmacy/batches` (a `purchase` movement with no purchase order),
-and money modules outside general sales (hotel, storefront, school…).
+(the insurer's receivable stays open), cancelling a clinic invoice's sale, and money modules outside
+general sales (hotel, storefront, school…). The pharmacy's `POST /pharmacy/batches`, which put bought
+stock in with no purchase order, answers 410 since phase C: batches come in on the purchase receipt
+(batch and expiry per line), which posts `purchase.received`.
 
 ### Step 6: VAT (D6)
 

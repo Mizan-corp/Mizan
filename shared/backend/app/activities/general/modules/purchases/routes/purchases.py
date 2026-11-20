@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +9,7 @@ from app.dependencies import require_open_period, require_perm, verify_warehouse
 from app.platform.permissions.access import can
 from app.platform.auth.models.user import User
 from app.activities.general.modules.purchases.schemas.purchase import (
+    PurchaseCancel,
     PurchaseCreate,
     PurchaseReceive,
     PurchaseReturnCreate,
@@ -37,14 +39,19 @@ async def purchase_suggestions(db: AsyncSession = Depends(get_db), _=Depends(can
 
 
 @router.get("")
-async def list_purchases(page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200), db: AsyncSession = Depends(get_db),
-                         _=Depends(can_read)):
-    """Purchase orders, newest first, each with its total (received quantities once received)."""
-    return await purchase_service.list_purchases(db, page, page_size)
+async def list_purchases(page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200),
+                         status: Literal["draft", "partial", "received", "cancelled"] | None = None,
+                         supplier_id: uuid.UUID | None = None, search: str | None = Query(None, max_length=64),
+                         db: AsyncSession = Depends(get_db), _=Depends(can_read)):
+    """Purchase orders, newest first, each with its total (what was received once received in whole or
+    in part); filtered by status, supplier, or a search in the number and the supplier's name."""
+    return await purchase_service.list_purchases(db, page, page_size, status, supplier_id, search)
 
 
 @router.get("/{po_id}")
 async def get_purchase(po_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(can_read)):
+    """The order, its lines (ordered, received, left), its goods receipts, returns and the movements it
+    made on the supplier's account."""
     return await purchase_service.get_purchase(db, po_id)
 
 
@@ -65,15 +72,37 @@ async def create_purchase(data: PurchaseCreate, db: AsyncSession = Depends(get_d
 
 @router.put("/{po_id}")
 async def update_purchase(po_id: uuid.UUID, data: PurchaseUpdate, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("purchases"))):
-    """Update draft PO items/supplier before receiving."""
+    """Change a draft (supplier, branch, notes, lines) in a branch the user works in."""
     return await purchase_service.update_purchase(db, po_id, data, current_user)
+
+
+@router.post("/{po_id}/cancel")
+async def cancel_purchase(po_id: uuid.UUID, data: PurchaseCancel | None = None, db: AsyncSession = Depends(get_db),
+                          current_user: User = Depends(require_perm("purchases"))):
+    """Cancel a draft: kept, marked cancelled, never received."""
+    return await purchase_service.cancel_purchase(db, po_id, current_user, data.reason if data else None)
+
+
+@router.post("/{po_id}/close")
+async def close_purchase(po_id: uuid.UUID, data: PurchaseCancel | None = None, db: AsyncSession = Depends(get_db),
+                         current_user: User = Depends(require_perm("purchases"))):
+    """A partly received order whose rest won't come: received with what arrived."""
+    return await purchase_service.close_purchase(db, po_id, current_user, data.reason if data else None)
+
+
+@router.delete("/{po_id}", status_code=204)
+async def delete_purchase(po_id: uuid.UUID, db: AsyncSession = Depends(get_db),
+                          current_user: User = Depends(require_perm("purchases"))):
+    """Delete a draft (nothing was received or paid with it)."""
+    await purchase_service.delete_purchase(db, po_id, current_user)
 
 
 @router.post("/{po_id}/receive")
 async def receive_purchase(po_id: uuid.UUID, data: PurchaseReceive = None, db: AsyncSession = Depends(get_db),
                            current_user: User = Depends(require_perm("purchases")), _=Depends(require_open_period)):
-    """Receive a draft order: its stock comes in and the supplier is owed the total. Paying part of it
-    now (`amount_paid` > 0, from a safe or wallet) also needs `finance`. Refused in a closed month."""
+    """Receive what arrived of a draft or partly received order (a goods receipt): its stock comes in
+    and the supplier is owed its value. Paying part of it now (`amount_paid` > 0, from a safe or
+    wallet) also needs `finance`. Refused in a closed month."""
     data = data or PurchaseReceive()
     warehouse_id, planned = await purchase_service.order_warehouse(db, po_id)
     await verify_warehouse_access(db, current_user, warehouse_id)

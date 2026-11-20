@@ -46,9 +46,12 @@ async def get_purchase_suggestions(db: AsyncSession) -> list[dict[str, Any]]:
 
 # ── Purchase Orders CRUD ────────────────────────────────────────────────────
 
-# An order's total from its lines: what was received once it is received, what was ordered before.
-_TOTAL_SQL = """ROUND(COALESCE((SELECT SUM(CASE WHEN po.status IN ('received', 'partial') THEN i.qty_received
-                                                 ELSE i.qty_ordered END * i.unit_cost)
+# An order's total from its lines: what was received (with its VAT) once received in whole or in
+# part, what was ordered before. A line's received value is kept in net_amount + tax_amount from
+# every receipt; lines received before those columns existed fall back to quantity × cost.
+_TOTAL_SQL = """ROUND(COALESCE((SELECT SUM(CASE WHEN po.status IN ('received', 'partial')
+                                                 THEN COALESCE(i.net_amount + i.tax_amount, i.qty_received * i.unit_cost)
+                                                 ELSE i.qty_ordered * i.unit_cost END)
                                FROM purchase_order_items i WHERE i.po_id = po.id), 0), 2)"""
 
 
@@ -57,15 +60,18 @@ ORDER_NOT_FOUND = "أمر الشراء غير موجود"
 SUPPLIER_NOT_FOUND = "المورد غير موجود"
 PRODUCT_NOT_FOUND = "الصنف غير موجود"
 SUPPLIER_PRICE_NOT_FOUND = "سعر المورد غير موجود"
+STATUSES = ("draft", "partial", "received", "cancelled")
 
 
 async def order_warehouse(db: AsyncSession, po_id: uuid.UUID) -> tuple[uuid.UUID, Decimal]:
-    """An order's warehouse and the amount it says is paid on receipt (for the routes' checks)."""
-    row = (await db.execute(text("SELECT warehouse_id, amount_paid FROM purchase_orders WHERE id = :id"),
+    """An order's warehouse and the amount it plans to pay on receipt (for the routes' checks): the
+    plan applies to a draft's first receipt only."""
+    row = (await db.execute(text("SELECT warehouse_id, amount_paid, status FROM purchase_orders WHERE id = :id"),
                             {"id": po_id})).first()
     if not row:
         raise NotFoundError(ORDER_NOT_FOUND)
-    return row.warehouse_id, Decimal(str(row.amount_paid or 0))
+    planned = Decimal(str(row.amount_paid or 0)) if str(row.status).split(".")[-1] == "draft" else Decimal("0")
+    return row.warehouse_id, planned
 
 
 async def _check_refs(db: AsyncSession, *, warehouse_id=None, supplier_id=None, product_ids=()) -> None:
@@ -83,42 +89,103 @@ async def _check_refs(db: AsyncSession, *, warehouse_id=None, supplier_id=None, 
             raise NotFoundError("صنف غير موجود")
 
 
-async def list_purchases(db: AsyncSession, page: int = 1, page_size: int = 50) -> Page:
+def _one_line_per_product(items) -> None:
+    """A product appears once in an order (receipts and returns count per product)."""
+    seen = set()
+    for i in items:
+        if i.product_id in seen:
+            raise HTTPException(400, "الصنف مكرر في أمر الشراء — اجمع كميته في سطر واحد")
+        seen.add(i.product_id)
+
+
+def _status(po) -> str:
+    return str(po.status).split(".")[-1]
+
+
+async def list_purchases(db: AsyncSession, page: int = 1, page_size: int = 50, status: str | None = None,
+                         supplier_id: uuid.UUID | None = None, search: str | None = None) -> Page:
+    where, params = ["1=1"], {}
+    if status:
+        where.append("po.status = CAST(:status AS po_status_enum)")
+        params["status"] = status
+    if supplier_id:
+        where.append("po.supplier_id = :sid")
+        params["sid"] = supplier_id
+    if search:
+        where.append("(po.po_number ILIKE :q OR s.name ILIKE :q)")
+        params["q"] = f"%{search}%"
     base_sql = """
         FROM purchase_orders po
         LEFT JOIN suppliers s ON s.id = po.supplier_id
         LEFT JOIN warehouses w ON w.id = po.warehouse_id
         LEFT JOIN users u ON u.id = po.created_by
-    """
-    total = (await db.execute(text("SELECT COUNT(*) " + base_sql))).scalar()
+        WHERE """ + " AND ".join(where)
+    total = (await db.execute(text("SELECT COUNT(*) " + base_sql), params)).scalar()
     rows = await db.execute(text("""
         SELECT po.*, s.name as supplier_name, w.name as warehouse_name,
                u.full_name as created_by_name, """ + _TOTAL_SQL + """ AS total
-    """ + base_sql + " ORDER BY po.created_at DESC OFFSET :offset LIMIT :limit"),
-        {"offset": (page - 1) * page_size, "limit": page_size},
+    """ + base_sql + " ORDER BY po.created_at DESC, po.id DESC OFFSET :offset LIMIT :limit"),
+        {**params, "offset": (page - 1) * page_size, "limit": page_size},
     )
     items = [dict(r._mapping) for r in rows.fetchall()]
     return Page(items=items, total=total, page=page, size=page_size, pages=max(1, (total + page_size - 1) // page_size))
 
 
 async def get_purchase(db: AsyncSession, po_id: uuid.UUID) -> dict[str, Any]:
+    """The order with its lines (ordered, received, what is left), its goods receipts (each with its
+    lines), its returns and the movements on the supplier's account it made (invoices, payments made
+    with a receipt, returns)."""
     po_row = await db.execute(text("""
-        SELECT po.*, s.name as supplier_name, w.name as warehouse_name, """ + _TOTAL_SQL + """ AS total
+        SELECT po.*, s.name as supplier_name, w.name as warehouse_name, u.full_name AS created_by_name,
+               """ + _TOTAL_SQL + """ AS total,
+               ROUND(COALESCE((SELECT SUM(i.qty_ordered * i.unit_cost) FROM purchase_order_items i
+                               WHERE i.po_id = po.id), 0), 2) AS ordered_total
         FROM purchase_orders po
         LEFT JOIN suppliers s ON s.id = po.supplier_id
         LEFT JOIN warehouses w ON w.id = po.warehouse_id
+        LEFT JOIN users u ON u.id = po.created_by
         WHERE po.id = :id
     """), {"id": po_id})
     po = po_row.fetchone()
     if not po:
         raise NotFoundError(ORDER_NOT_FOUND)
     items_row = await db.execute(text("""
-        SELECT poi.*, p.name as product_name, p.barcode as sku, p.cost_price as current_cost
+        SELECT poi.*, p.name as product_name, p.barcode as sku, p.unit, p.cost_price as current_cost,
+               GREATEST(poi.qty_ordered - COALESCE(poi.qty_received, 0), 0) AS qty_remaining
         FROM purchase_order_items poi
         JOIN products p ON p.id = poi.product_id
         WHERE poi.po_id = :po_id
+        ORDER BY p.name, poi.id
     """), {"po_id": po_id})
-    return {**dict(po._mapping), "items": [dict(r._mapping) for r in items_row.fetchall()]}
+    receipts = (await db.execute(text("""
+        SELECT r.*, u.full_name AS created_by_name, sf.name AS safe_name, pw.name AS wallet_name
+        FROM purchase_receipts r
+        LEFT JOIN users u ON u.id = r.created_by
+        LEFT JOIN safes sf ON sf.id = r.safe_id
+        LEFT JOIN payment_wallets pw ON pw.id = r.wallet_id
+        WHERE r.po_id = :po ORDER BY r.seq
+    """), {"po": po_id})).mappings().all()
+    lines = (await db.execute(text("""
+        SELECT ri.*, p.name AS product_name FROM purchase_receipt_items ri JOIN products p ON p.id = ri.product_id
+        WHERE ri.receipt_id = ANY(:ids) ORDER BY p.name
+    """), {"ids": [r["id"] for r in receipts]})).mappings().all()
+    payments = (await db.execute(text("""
+        SELECT st.id, st.type, st.amount, st.reference_doc, st.notes, st.method, st.created_at,
+               sf.name AS safe_name, pw.name AS wallet_name
+        FROM supplier_transactions st
+        LEFT JOIN safes sf ON sf.id = st.safe_id
+        LEFT JOIN payment_wallets pw ON pw.id = st.wallet_id
+        WHERE st.purchase_id = :po ORDER BY st.created_at, st.id
+    """), {"po": po_id})).mappings().all()
+    returns = (await db.execute(text("""
+        SELECT r.id, r.return_number, r.total, r.tax_amount, r.refund_amount, r.notes, r.created_at,
+               u.full_name AS created_by_name
+        FROM purchase_returns r LEFT JOIN users u ON u.id = r.created_by
+        WHERE r.po_id = :po ORDER BY r.created_at
+    """), {"po": po_id})).mappings().all()
+    return {**dict(po._mapping), "items": [dict(r._mapping) for r in items_row.fetchall()],
+            "receipts": [{**dict(r), "items": [dict(i) for i in lines if i["receipt_id"] == r["id"]]} for r in receipts],
+            "payments": [dict(p) for p in payments], "returns": [dict(r) for r in returns]}
 
 
 async def create_purchase(
@@ -127,8 +194,15 @@ async def create_purchase(
     current_user: User,
 ) -> dict[str, Any]:
     from sqlalchemy import text as _text
+    from app.platform.audit.service import log as audit_log
+
+    _one_line_per_product(data.items)
     await _check_refs(db, warehouse_id=data.warehouse_id, supplier_id=data.supplier_id,
                       product_ids=[i.product_id for i in data.items])
+    if data.safe_id and data.wallet_id:
+        from app.activities.general.modules.finance.services.payments import ONE_SOURCE
+
+        raise HTTPException(400, ONE_SOURCE)
     seq = (await db.execute(_text("SELECT nextval('purchase_seq')"))).scalar()
     po_number = f"PO-{seq:06d}"
     po = PurchaseOrder(
@@ -141,10 +215,6 @@ async def create_purchase(
     )
     db.add(po)
     await db.flush()
-    if data.safe_id and data.wallet_id:
-        from app.activities.general.modules.finance.services.payments import ONE_SOURCE
-
-        raise HTTPException(400, ONE_SOURCE)
     if data.amount_paid or data.received_by_name or data.safe_id or data.wallet_id:
         await db.execute(_text(
             "UPDATE purchase_orders SET amount_paid=:ap, received_by_name=:rbn, safe_id=:sid, wallet_id=:wid WHERE id=:id"
@@ -158,9 +228,25 @@ async def create_purchase(
             unit_cost=item.unit_cost,
             notes=item.notes,
         ))
+    await audit_log(db, "purchase", "create", current_user.id, current_user.full_name, po.id,
+                    {"po_number": po_number, "items": len(data.items)}, f"أمر شراء {po_number}")
     await db.commit()
     await db.refresh(po)
     return {"id": str(po.id), "po_number": po.po_number, "status": po.status}
+
+
+async def _draft_for_change(db: AsyncSession, po_id: uuid.UUID, user: User, what: str) -> PurchaseOrder:
+    """A draft order, locked, in a branch the user works in; anything else is refused."""
+    from app.dependencies import verify_warehouse_access
+
+    po = (await db.execute(select(PurchaseOrder).where(PurchaseOrder.id == po_id).with_for_update())).scalar_one_or_none()
+    if not po:
+        raise NotFoundError(ORDER_NOT_FOUND)
+    await verify_warehouse_access(db, user, po.warehouse_id)
+    if _status(po) != "draft":
+        raise BusinessError(f"لا {what} إلا أمر شراء في حالة المسودة — هذا الأمر "
+                            + {"partial": "مستلم جزئياً", "received": "مستلم", "cancelled": "ملغي"}.get(_status(po), _status(po)))
+    return po
 
 
 async def update_purchase(
@@ -169,18 +255,23 @@ async def update_purchase(
     data: Any,
     current_user: User,
 ) -> dict[str, bool]:
-    """Update draft PO items/supplier before receiving."""
-    result = await db.execute(select(PurchaseOrder).where(PurchaseOrder.id == po_id))
-    po = result.scalar_one_or_none()
-    if not po:
-        raise NotFoundError(ORDER_NOT_FOUND)
-    if po.status != POStatus.draft:
-        raise BusinessError("لا يُعدَّل إلا أمر شراء في حالة المسودة")
-    await _check_refs(db, supplier_id=data.supplier_id,
+    """Change a draft: supplier, branch (one the user works in), notes and lines. Audited."""
+    from app.dependencies import verify_warehouse_access
+    from app.platform.audit.service import log as audit_log
+
+    po = await _draft_for_change(db, po_id, current_user, "يُعدَّل")
+    if data.items is not None:
+        _one_line_per_product(data.items)
+    await _check_refs(db, supplier_id=data.supplier_id, warehouse_id=data.warehouse_id,
                       product_ids=[i.product_id for i in data.items or []])
 
     if data.supplier_id is not None:
         po.supplier_id = data.supplier_id
+    elif data.clear_supplier:
+        po.supplier_id = None
+    if data.warehouse_id is not None and data.warehouse_id != po.warehouse_id:
+        await verify_warehouse_access(db, current_user, data.warehouse_id)
+        po.warehouse_id = data.warehouse_id
     if data.notes is not None:
         po.notes = data.notes
 
@@ -194,8 +285,63 @@ async def update_purchase(
                 unit_cost=item.unit_cost,
                 notes=item.notes,
             ))
+    await audit_log(db, "purchase", "update", current_user.id, current_user.full_name, po.id,
+                    data.model_dump(mode="json", exclude_none=True), f"تعديل أمر الشراء {po.po_number}")
     await db.commit()
     return {"ok": True}
+
+
+async def cancel_purchase(db: AsyncSession, po_id: uuid.UUID, user: User, reason: str | None = None) -> dict:
+    """Cancel a draft: it stays, marked cancelled, and can't be received. Audited."""
+    from app.platform.audit.service import log as audit_log
+
+    po = await _draft_for_change(db, po_id, user, "يُلغى")
+    po.status = POStatus.cancelled
+    po.notes = (po.notes + " — " if po.notes else "") + "أُلغي" + (f": {reason}" if reason else "")
+    await audit_log(db, "purchase", "cancel", user.id, user.full_name, po.id, {"reason": reason or ""},
+                    f"إلغاء أمر الشراء {po.po_number}")
+    await db.commit()
+    return {"id": str(po.id), "po_number": po.po_number, "status": "cancelled"}
+
+
+async def delete_purchase(db: AsyncSession, po_id: uuid.UUID, user: User) -> None:
+    """Delete a draft (nothing was received or paid with it). Audited."""
+    from app.platform.audit.service import log as audit_log
+
+    po = await _draft_for_change(db, po_id, user, "يُحذف")
+    from app.framework import files
+
+    number = po.po_number
+    await db.execute(text("DELETE FROM purchase_order_items WHERE po_id = :id"), {"id": po.id})
+    await db.execute(text("DELETE FROM purchase_orders WHERE id = :id"), {"id": po.id})
+    await files.remove(db, kind="po_invoice", owner_id=str(po_id))
+    await audit_log(db, "purchase", "delete", user.id, user.full_name, po_id, {"po_number": number},
+                    f"حذف مسودة أمر الشراء {number}")
+    await db.commit()
+
+
+async def close_purchase(db: AsyncSession, po_id: uuid.UUID, user: User, reason: str | None = None) -> dict:
+    """A partly received order whose rest won't come: it becomes received with what arrived (nothing
+    is posted; each receipt already posted its own part). Audited."""
+    from app.dependencies import verify_warehouse_access
+    from app.platform.audit.service import log as audit_log
+
+    po = (await db.execute(select(PurchaseOrder).where(PurchaseOrder.id == po_id).with_for_update())).scalar_one_or_none()
+    if not po:
+        raise NotFoundError(ORDER_NOT_FOUND)
+    await verify_warehouse_access(db, user, po.warehouse_id)
+    if _status(po) != "partial":
+        raise BusinessError("يُغلق أمر الشراء المستلم جزئياً فقط — المسودة تُلغى، والمستلم بالكامل مغلق بالفعل")
+    po.status = POStatus.received
+    po.notes = (po.notes + " — " if po.notes else "") + "أُغلق دون استلام الباقي" + (f": {reason}" if reason else "")
+    await audit_log(db, "purchase", "close", user.id, user.full_name, po.id, {"reason": reason or ""},
+                    f"إغلاق أمر الشراء {po.po_number} دون استلام الباقي")
+    await db.commit()
+    return {"id": str(po.id), "po_number": po.po_number, "status": "received"}
+
+
+def _qty_text(q) -> str:
+    return f"{Decimal(str(q)).normalize():f}"
 
 
 async def receive_purchase(
@@ -204,21 +350,35 @@ async def receive_purchase(
     data: Any,
     current_user: User,
 ) -> dict[str, str]:
-    """Receive PO. Optionally pass overridden items with actual received qty/cost."""
+    """Receive what arrived of an order (PUR-4): a goods receipt (GRN-000001) with, per line, the
+    quantity (what is left of the line when not given; 0 for nothing this time; never more than is
+    left), its unit cost (the order's when not given), batch and expiry. Stock comes in, the supplier
+    is owed the receipt's value, what is paid with it leaves a safe or wallet, and the ledger posts it
+    (`purchase.received`, one entry per receipt). The order becomes partly received, or received
+    once every line has arrived in full."""
+    from app.activities.general.modules.purchases.models.purchase_receipt import PurchaseReceipt, PurchaseReceiptItem
+    from app.platform.archive.numbering import next_number
+    from app.platform.audit.service import log as audit_log
+
     result = await db.execute(select(PurchaseOrder).where(PurchaseOrder.id == po_id).with_for_update())
     po = result.scalar_one_or_none()
     if not po:
         raise NotFoundError(ORDER_NOT_FOUND)
-    if po.status == POStatus.received:
-        raise BusinessError("أمر الشراء مستلم بالفعل")
-    if po.status == POStatus.cancelled:
+    status_before = _status(po)
+    if status_before == "received":
+        raise BusinessError("أمر الشراء مستلم بالفعل (بالكامل)")
+    if status_before == "cancelled":
         raise BusinessError("أمر الشراء ملغي")
 
-    items = (await db.execute(select(PurchaseOrderItem).where(PurchaseOrderItem.po_id == po_id))).scalars().all()
-
-    overrides = {str(i.product_id): {k: v for k, v in (('qty_received', i.qty_received), ('unit_cost', i.unit_cost),
-                                                       ('batch_number', i.batch_number), ('expiry_date', i.expiry_date))
-                                     if v is not None} for i in data.items}
+    items = (await db.execute(select(PurchaseOrderItem).where(PurchaseOrderItem.po_id == po_id)
+                              .order_by(PurchaseOrderItem.id))).scalars().all()
+    by_item = {i.item_id: i for i in data.items if i.item_id is not None}
+    by_product = {i.product_id: i for i in data.items if i.item_id is None}
+    known = {i.id for i in items}
+    if unknown := [str(k) for k in by_item if k not in known]:
+        raise HTTPException(400, f"سطر غير موجود في أمر الشراء ({len(unknown)})")
+    if [p for p in by_product if p not in {i.product_id for i in items}]:
+        raise HTTPException(400, "الصنف ليس ضمن أمر الشراء هذا")
 
     # VAT (ADR-014 D6): each line's tax from the product's code now; the order's unit costs include
     # VAT or not as the receipt (or the order) says, else as the workspace's setting says. Stock and
@@ -229,39 +389,66 @@ async def receive_purchase(
     inclusive = next((v for v in (data.prices_include_vat, po.prices_include_vat) if v is not None),
                      vat_cfg.prices_include_vat)
     codes = await vat.product_tax_codes(db, [i.product_id for i in items]) if vat_cfg.registered else {}
-    line_taxes = []
     update_cost_price = await auto_update_purchase_price(db)
+    names = dict((await db.execute(select(Product.id, Product.name)
+                                   .where(Product.id.in_([i.product_id for i in items] or [uuid.uuid4()])))).all())
 
+    plan = []  # (line, qty, unit cost, override)
     for item in items:
-        override = overrides.get(str(item.product_id), {})
-        qty = Decimal(str(override.get("qty_received", item.qty_ordered)))
-        cost = Decimal(str(override.get("unit_cost", item.unit_cost)))
+        override = by_item.get(item.id) or by_product.get(item.product_id)
+        left = max(Decimal("0"), Decimal(str(item.qty_ordered)) - Decimal(str(item.qty_received or 0)))
+        qty = Decimal(str(override.qty_received)) if override is not None and override.qty_received is not None else left
+        if qty > left:
+            raise HTTPException(400, f"الكمية المستلمة من «{names.get(item.product_id, '')}» ({_qty_text(qty)}) أكبر من "
+                                     f"المتبقي في الأمر ({_qty_text(left)}) — سجّل الزيادة بأمر شراء جديد")
+        if qty <= 0:
+            continue
+        cost = Decimal(str(override.unit_cost)) if override is not None and override.unit_cost is not None \
+            else Decimal(str(item.unit_cost))
+        plan.append((item, qty, cost, override))
+    if not plan:
+        raise HTTPException(400, "لا توجد كميات للاستلام — أدخل كمية سطر واحد على الأقل")
+
+    seq = int(await db.scalar(text("SELECT COALESCE(MAX(seq), 0) FROM purchase_receipts WHERE po_id = :po"),
+                              {"po": po.id}) or 0) + 1
+    receipt = PurchaseReceipt(receipt_number=await next_number(db, "GRN"), po_id=po.id, seq=seq,
+                              warehouse_id=po.warehouse_id, supplier_id=po.supplier_id, notes=data.notes,
+                              created_by=current_user.id)
+    db.add(receipt)
+    await db.flush()
+
+    line_taxes = []
+    for item, qty, cost, override in plan:
         tax = vat.line_tax(qty * cost, codes.get(item.product_id), vat_cfg.registered, inclusive)
         line_taxes.append(tax)
-        item.tax_code, item.tax_rate, item.tax_amount, item.net_amount = tax.tax_code, tax.tax_rate, tax.tax, tax.net
-        if vat_cfg.registered and qty:
-            cost_net = (tax.net / qty).quantize(Decimal("0.0001"))
-        else:
-            cost_net = cost
+        cost_net = (tax.net / qty).quantize(Decimal("0.0001")) if vat_cfg.registered else cost
+        batch = override.batch_number if override is not None else None
+        expiry = override.expiry_date if override is not None else None
+        db.add(PurchaseReceiptItem(receipt_id=receipt.id, po_item_id=item.id, product_id=item.product_id, qty=qty,
+                                   unit_cost=cost, batch_number=batch, expiry_date=expiry, tax_code=tax.tax_code,
+                                   tax_rate=tax.tax_rate, tax_amount=tax.tax, net_amount=tax.net))
 
-        # Record stock movement
         mv = StockMovementCreate(
             product_id=item.product_id,
             warehouse_id=po.warehouse_id,
             movement_type=MovementType.purchase,
             qty=qty,
             unit_cost=cost_net,
-            batch_number=override.get("batch_number"),
-            expiry_date=override.get("expiry_date"),
+            batch_number=batch,
+            expiry_date=expiry,
+            note=f"استلام {receipt.receipt_number} — {po.po_number}",
         )
         await record_movement(db, mv, current_user.id, ref_id=po.id, ref_type="purchase", purchase_id=po.id)
-        item.qty_received = qty
-        item.unit_cost = cost
+        # The line keeps what arrived in all its receipts: quantity, value without VAT and VAT. Its
+        # unit cost stays the order's (each receipt keeps its own cost).
+        item.qty_received = Decimal(str(item.qty_received or 0)) + qty
+        item.tax_code, item.tax_rate = tax.tax_code, tax.tax_rate
+        item.tax_amount = Decimal(str(item.tax_amount or 0)) + tax.tax
+        item.net_amount = Decimal(str(item.net_amount or 0)) + tax.net
 
         # The product's listed cost becomes the last purchase price (unless the workspace switched
         # `auto_update_purchase_price` off); the price history records it either way.
-        old_cost_row = await db.execute(text("SELECT cost_price FROM products WHERE id=:id"), {"id": item.product_id})
-        old_cost = old_cost_row.scalar()
+        old_cost = (await db.execute(text("SELECT cost_price FROM products WHERE id=:id"), {"id": item.product_id})).scalar()
         last_cost = cost_net.quantize(Decimal("0.01"))  # the last purchase price, without VAT when registered
         if update_cost_price:
             await db.execute(text("UPDATE products SET cost_price=:cost WHERE id=:id"), {"cost": last_cost, "id": item.product_id})
@@ -270,81 +457,96 @@ async def receive_purchase(
             VALUES (:pid, :po_id, :sid, :old, :new)
         """), {"pid": item.product_id, "po_id": po_id, "sid": po.supplier_id, "old": old_cost, "new": last_cost})
 
-    po.status = POStatus.received
+    complete = all(Decimal(str(i.qty_received or 0)) >= Decimal(str(i.qty_ordered)) for i in items)
+    po.status = POStatus.received if complete else POStatus.partial
     po.received_at = datetime.now(UTC)
 
-    total_cost = sum(
-        (Decimal(str(overrides.get(str(item.product_id), {}).get("unit_cost", item.unit_cost))) *
-         Decimal(str(overrides.get(str(item.product_id), {}).get("qty_received", item.qty_ordered))))
-        for item in items
-    ) or Decimal("0")
-    total_cost = total_cost.quantize(Decimal("0.01"))
-    po.tax_amount = sum((t.tax for t in line_taxes), Decimal("0"))
+    total_cost = sum((qty * cost for _, qty, cost, _ in plan), Decimal("0")).quantize(Decimal("0.01"))
+    tax_total = sum((t.tax for t in line_taxes), Decimal("0"))
     if vat_cfg.registered:
         # What the supplier is owed: each line's value without VAT plus its VAT.
         total_cost = sum((t.gross for t in line_taxes), Decimal("0"))
         po.prices_include_vat = inclusive
+    po.tax_amount = Decimal(str(po.tax_amount or 0)) + tax_total if status_before == "partial" else tax_total
 
-    # What is paid now, and where it comes from (ADR-014 D4): the receipt may override what the
-    # order said. The money leaves the safe or wallet; neither may go below zero.
-    if data.amount_paid is not None:
-        po.amount_paid = data.amount_paid
-    if data.safe_id or data.wallet_id:
-        po.safe_id, po.wallet_id = data.safe_id, data.wallet_id
-    amount_paid = Decimal(str(po.amount_paid or 0))
+    # What is paid now, and where it comes from (ADR-014 D4): the receipt says, else (a draft's first
+    # receipt) what the order planned. The money leaves the safe or wallet; neither may go below zero.
+    planned = Decimal(str(po.amount_paid or 0)) if status_before == "draft" else Decimal("0")
+    amount_paid = Decimal(str(data.amount_paid)) if data.amount_paid is not None else planned
+    safe_id, wallet_id = (data.safe_id, data.wallet_id) if (data.safe_id or data.wallet_id) else (po.safe_id, po.wallet_id)
     if amount_paid > total_cost:
-        raise HTTPException(400, f"المبلغ المدفوع ({amount_paid} ج.م) أكبر من إجمالي الفاتورة ({total_cost} ج.م)")
+        raise HTTPException(400, f"المبلغ المدفوع ({amount_paid} ج.م) أكبر من قيمة هذا الاستلام ({total_cost} ج.م)")
     if amount_paid > 0:
         from app.activities.general.modules.finance.services import payments
 
-        payments.check_source(po.safe_id, po.wallet_id, "حدد الخزنة أو المحفظة التي دُفع منها المبلغ المدفوع عند الاستلام")
-        await payments.money_out(db, amount_paid, safe_id=po.safe_id, wallet_id=po.wallet_id, ref_type="purchase",
-                                 ref_id=po.id, note=f"دفعة مشتريات {po.po_number}", user_id=current_user.id)
+        payments.check_source(safe_id, wallet_id, "حدد الخزنة أو المحفظة التي دُفع منها المبلغ المدفوع عند الاستلام")
+        await payments.money_out(db, amount_paid, safe_id=safe_id, wallet_id=wallet_id, ref_type="purchase",
+                                 ref_id=po.id, note=f"دفعة مشتريات {po.po_number} — {receipt.receipt_number}",
+                                 user_id=current_user.id)
+    else:
+        safe_id = wallet_id = None
+    receipt.total, receipt.tax_amount, receipt.amount_paid = total_cost, tax_total, amount_paid
+    receipt.safe_id, receipt.wallet_id = safe_id, wallet_id
+    receipt.prices_include_vat = inclusive if vat_cfg.registered else None
+    # The order keeps what was paid with all its receipts, and the last source.
+    po.amount_paid = amount_paid if status_before == "draft" else Decimal(str(po.amount_paid or 0)) + amount_paid
+    if amount_paid > 0:
+        po.safe_id, po.wallet_id = safe_id, wallet_id
 
     if po.supplier_id:
         await db.execute(text("SELECT 1 FROM suppliers WHERE id = :sid FOR UPDATE"), {"sid": po.supplier_id})
-        # The full invoice as a debit (we owe them), the payment as a credit.
+        # The receipt's value as a debit (we owe them), the payment as a credit.
         await db.execute(text("""
             INSERT INTO supplier_transactions (id, supplier_id, amount, type, reference_doc, notes, purchase_id, created_by)
-            VALUES (gen_random_uuid(), :sid, :amt, 'debit', :ref, 'فاتورة مشتريات', :po, :uid)
-        """), {"sid": po.supplier_id, "amt": total_cost, "ref": po.po_number, "po": po.id, "uid": current_user.id})
+            VALUES (gen_random_uuid(), :sid, :amt, 'debit', :ref, :notes, :po, :uid)
+        """), {"sid": po.supplier_id, "amt": total_cost, "ref": po.po_number, "po": po.id, "uid": current_user.id,
+               "notes": f"فاتورة مشتريات — استلام {receipt.receipt_number}"})
         if amount_paid > 0:
             await db.execute(text("""
                 INSERT INTO supplier_transactions
                     (id, supplier_id, amount, type, reference_doc, notes, purchase_id, created_by, method, safe_id, wallet_id)
-                VALUES (gen_random_uuid(), :sid, :amt, 'credit', :ref, 'دفعة عند الاستلام', :po, :uid, :method, :safe, :wallet)
+                VALUES (gen_random_uuid(), :sid, :amt, 'credit', :ref, :notes, :po, :uid, :method, :safe, :wallet)
             """), {"sid": po.supplier_id, "amt": amount_paid, "ref": po.po_number, "po": po.id, "uid": current_user.id,
-                   "method": "wallet" if po.wallet_id else "cash", "safe": po.safe_id, "wallet": po.wallet_id})
+                   "notes": f"دفعة عند الاستلام {receipt.receipt_number}",
+                   "method": "wallet" if wallet_id else "cash", "safe": safe_id, "wallet": wallet_id})
         await db.execute(text(
             "UPDATE suppliers SET balance = balance + :remaining WHERE id = :sid"
         ), {"remaining": total_cost - amount_paid, "sid": po.supplier_id})
 
-    # Archive the purchase invoice
+    # Archive the receipt as a purchase invoice.
     from app.platform.archive.models import ArchivedDocument, DocType
     supplier_name = (await db.execute(text("SELECT name FROM suppliers WHERE id=:id"), {"id": po.supplier_id})).scalar() if po.supplier_id else None
     db.add(ArchivedDocument(
-        doc_number=po.po_number,
+        doc_number=receipt.receipt_number,
         doc_type=DocType.purchase_invoice,
         amount=total_cost,
         ref_id=po.id,
         created_by=current_user.id,
         metadata_={  # JSON: numbers as JSON numbers, computed in Decimal
             "supplier": supplier_name or "",
+            "po_number": po.po_number,
+            "receipt_id": str(receipt.id),
             "warehouse_id": str(po.warehouse_id),
-            "items_count": len(items),
+            "items_count": len(plan),
             "received_by": getattr(po, "received_by_name", "") or "",
             "amount_paid": float(amount_paid),
             "remaining": float(total_cost - amount_paid),
         }
     ))
+    await audit_log(db, "purchase", "receive", current_user.id, current_user.full_name, po.id,
+                    {"receipt": receipt.receipt_number, "lines": len(plan), "total": str(total_cost),
+                     "status": _status(po)}, f"استلام {receipt.receipt_number} لأمر الشراء {po.po_number}")
 
-    # The ledger posts the receipt (and what was paid with it) in this transaction (ADR-014 D3).
+    # The ledger posts the receipt (and what was paid with it) in this transaction (ADR-014 D3): one
+    # entry per receipt, the order's first under event `receive`, the next ones `receive-2`, `receive-3`…
     await notify("purchase.received", db, user_id=current_user.id, purchase={
         "id": po.id, "tenant_id": po.tenant_id, "po_number": po.po_number, "supplier_id": po.supplier_id,
-        "warehouse_id": po.warehouse_id, "total": total_cost, "tax_amount": po.tax_amount, "amount_paid": amount_paid,
-        "safe_id": po.safe_id if amount_paid > 0 else None, "wallet_id": po.wallet_id if amount_paid > 0 else None})
+        "warehouse_id": po.warehouse_id, "total": total_cost, "tax_amount": tax_total, "amount_paid": amount_paid,
+        "safe_id": safe_id, "wallet_id": wallet_id,
+        "receipt_id": receipt.id, "receipt_number": receipt.receipt_number, "receipt_seq": seq})
     await db.commit()
-    return {"detail": "Received", "po_number": po.po_number}
+    return {"detail": "Received", "po_number": po.po_number, "receipt_number": receipt.receipt_number,
+            "receipt_id": str(receipt.id), "status": _status(po), "total": total_cost}
 
 
 async def auto_update_purchase_price(db: AsyncSession) -> bool:
@@ -621,13 +823,13 @@ async def delete_supplier_price(
 # ── Purchase returns (ADR-014 D3, step 3) ───────────────────────────────────
 
 async def _po_quantities(db: AsyncSession, po_id: uuid.UUID) -> dict[uuid.UUID, dict[str, Decimal]]:
-    """Per product of a purchase order: what was received, its average cost on that order, and what
-    has already gone back to the supplier."""
+    """Per product of a purchase order: what was received (in all its receipts), its average cost on
+    that order, and what has already gone back to the supplier."""
     received = (await db.execute(text("""
         SELECT product_id, SUM(qty_received) AS qty, SUM(qty_received * unit_cost) AS value,
                SUM(COALESCE(net_amount, qty_received * unit_cost)) AS net, SUM(tax_amount) AS tax,
                MAX(tax_code) AS tax_code, MAX(tax_rate) AS tax_rate
-        FROM purchase_order_items WHERE po_id = :po GROUP BY product_id
+        FROM purchase_order_items WHERE po_id = :po GROUP BY product_id HAVING SUM(qty_received) > 0
     """), {"po": po_id})).all()
     returned = {r.product_id: Decimal(str(r.qty)) for r in (await db.execute(text("""
         SELECT i.product_id, SUM(i.qty) AS qty FROM purchase_return_items i
@@ -637,7 +839,9 @@ async def _po_quantities(db: AsyncSession, po_id: uuid.UUID) -> dict[uuid.UUID, 
     for r in received:
         qty = Decimal(str(r.qty or 0))
         vat = r.tax_code is not None  # received with VAT data (ADR-014 D6): costs are without VAT
-        value = Decimal(str((r.net if vat else r.value) or 0))
+        # What the receipts brought in without VAT (several receipts may each have had their own
+        # cost); lines received before net_amount was kept fall back to quantity × cost.
+        value = Decimal(str(r.net or 0))
         cost = (value / qty).quantize(Decimal("0.01")) if qty > 0 else Decimal("0")
         out[r.product_id] = {"received": qty, "returned": returned.get(r.product_id, Decimal("0")), "unit_cost": cost,
                              "vat": vat, "net": value, "tax": Decimal(str(r.tax or 0)), "tax_code": r.tax_code,
@@ -670,7 +874,8 @@ async def list_purchase_returns(db: AsyncSession, po_id: uuid.UUID) -> dict[str,
 
 
 async def create_purchase_return(db: AsyncSession, po_id: uuid.UUID, data: Any, current_user: User) -> dict[str, Any]:
-    """Send goods of a received purchase order back to the supplier. Each line leaves the warehouse at
+    """Send goods of a received (or partly received) purchase order back to the supplier: at most what
+    its receipts brought in and wasn't returned yet. Each line leaves the warehouse at
     the cost it came in at (movement return_out) and cannot exceed what was received and not yet
     returned. What the goods were worth lowers the supplier's balance, except the part the supplier
     pays back now into a safe or wallet (`refund_amount`). Callers commit through this function."""
@@ -681,7 +886,7 @@ async def create_purchase_return(db: AsyncSession, po_id: uuid.UUID, data: Any, 
     po = (await db.execute(select(PurchaseOrder).where(PurchaseOrder.id == po_id).with_for_update())).scalar_one_or_none()
     if not po:
         raise NotFoundError(ORDER_NOT_FOUND)
-    if po.status != POStatus.received:
+    if _status(po) not in ("received", "partial"):
         raise BusinessError("لا يمكن إرجاع بضاعة من أمر شراء لم يُستلم بعد")
 
     wanted: dict[uuid.UUID, Decimal] = {}

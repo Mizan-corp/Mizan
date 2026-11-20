@@ -215,6 +215,8 @@ class DB:
             f"DELETE FROM customer_payments WHERE customer_id IN ({q(cust)}) OR sale_id IN ({q(sale)}) OR id IN ({q(pay)}) OR safe_id IN ({q(safe)}) OR wallet_id IN ({q(wallet)}) OR shift_id IN ({q(shift)})",
             f"DELETE FROM customer_adjustments WHERE customer_id IN ({q(cust)})",
             f"DELETE FROM supplier_transactions WHERE supplier_id IN ({q(supp)}) OR purchase_id IN ({q(po)}) OR safe_id IN ({q(safe)}) OR wallet_id IN ({q(wallet)})",
+            f"DELETE FROM purchase_receipt_items WHERE product_id IN ({q(pid)}) OR receipt_id IN (SELECT id FROM purchase_receipts WHERE po_id IN ({q(po)}) OR warehouse_id IN ({q(wh)}) OR supplier_id IN ({q(supp)}))",
+            f"DELETE FROM purchase_receipts WHERE po_id IN ({q(po)}) OR warehouse_id IN ({q(wh)}) OR supplier_id IN ({q(supp)})",
             f"DELETE FROM purchase_order_items WHERE po_id IN ({q(po)}) OR product_id IN ({q(pid)})",
             f"DELETE FROM purchase_orders WHERE id IN ({q(po)}) OR supplier_id IN ({q(supp)}) OR warehouse_id IN ({q(wh)}) OR created_by IN ({q(usr)})",
             f"DELETE FROM purchase_price_history WHERE product_id IN ({q(pid)}) OR po_id IN ({q(po)}) OR supplier_id IN ({q(supp)})",
