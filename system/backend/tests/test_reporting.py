@@ -10,6 +10,7 @@
 - Top products: confirmed sales less returns, with the field names the screen reads.
 - Inventory print: print token, HTML with escaped names, 404 for an unknown branch.
 - Bad input is a 4xx.
+- Money comes back as decimal strings (REP-15): `n()` reads them.
 """
 import io
 import os
@@ -55,6 +56,11 @@ async def cleanup_db_connections():
     yield
     await engine.dispose()
     current_tenant_id.set(None)
+
+
+def n(v) -> Decimal:
+    """A money figure of an answer (a decimal string) or of the ledger (a float), as a Decimal."""
+    return D(str(v))
 
 
 def _client() -> AsyncClient:
@@ -156,13 +162,13 @@ async def test_profit_needs_the_finance_permission_and_counts_the_last_day():
     assert r.status_code == 200, r.text
     p = r.json()
     assert p["source"] == "operations"
-    assert p["total_revenue"] == 580.0  # 180 + 100 + 300, after the invoice discount
-    assert p["total_returns"] == 100.0
-    assert p["net_revenue"] == 480.0
-    assert p["total_cogs"] == 300.0  # (2 + 1 + 3 - 1) × 60
-    assert p["gross_profit"] == 180.0
-    assert p["total_expenses"] == 90.0  # rent 50 + salaries 30 + the drawer's 10
-    assert p["net_profit"] == 90.0
+    assert p["total_revenue"] == "580.00"  # 180 + 100 + 300, after the invoice discount
+    assert p["total_returns"] == "100.00"
+    assert p["net_revenue"] == "480.00"
+    assert p["total_cogs"] == "300.00"  # (2 + 1 + 3 - 1) × 60
+    assert p["gross_profit"] == "180.00"
+    assert p["total_expenses"] == "90.00"  # rent 50 + salaries 30 + the drawer's 10
+    assert p["net_profit"] == "90.00"
 
 
 async def test_sales_reports_are_net_of_returns_and_limited_to_the_users_branches():
@@ -173,14 +179,14 @@ async def test_sales_reports_are_net_of_returns_and_limited_to_the_users_branche
     async with _client() as c:
         mgr, clerk, cashier = _auth(u["manager"], t), _auth(u["clerk"], t), _auth(u["cashier"], t)
         daily = (await c.get("/reports/sales/daily", headers=mgr)).json()
-        assert (daily["total_sales"], daily["gross_sales"], daily["returns_total"], daily["invoice_count"]) == (480.0, 580.0, 100.0, 3)
+        assert (daily["total_sales"], daily["gross_sales"], daily["returns_total"], daily["invoice_count"]) == ("480.00", "580.00", "100.00", 3)
         assert daily["total_items"] == 5.0
         # The cashier's widget (pos) and the clerk (reports): their branch only.
         for h in (cashier, clerk):
             mine = (await c.get("/reports/sales/daily", headers=h)).json()
-            assert mine["total_sales"] == 180.0 and mine["invoice_count"] == 2
+            assert mine["total_sales"] == "180.00" and mine["invoice_count"] == 2
             trend = (await c.get("/reports/sales/trend", params={"days": 3}, headers=h)).json()
-            assert trend[-1] == {"date": today().isoformat(), "total_sales": 180.0, "invoice_count": 2}
+            assert trend[-1] == {"date": today().isoformat(), "total_sales": "180.00", "invoice_count": 2}
         assert (await c.get("/reports/sales/daily", params={"warehouse_id": str(env["warehouse2_id"])},
                             headers=clerk)).status_code == 403
         # The cashier holds pos, not reports: the other reports are closed to them.
@@ -188,26 +194,26 @@ async def test_sales_reports_are_net_of_returns_and_limited_to_the_users_branche
 
         month = (await c.get("/reports/sales/monthly", params={"year": today().year, "month": today().month},
                              headers=clerk)).json()
-        assert month["total_sales"] == 180.0
+        assert month["total_sales"] == "180.00"
 
         rows = (await c.get("/reports/sales/by-cashier", params=_range(), headers=mgr)).json()
         by_name = {r["cashier_name"]: r for r in rows}
-        assert by_name["manager"]["total_sales"] == 300.0
+        assert by_name["manager"]["total_sales"] == "300.00"
         cashier_row = next(r for r in rows if r["cashier_id"] == str(env["cashier_id"]))
-        assert (cashier_row["gross_sales"], cashier_row["returns_total"], cashier_row["total_sales"]) == (280.0, 100.0, 180.0)
-        assert sum(r["total_sales"] for r in rows) == 480.0
+        assert (cashier_row["gross_sales"], cashier_row["returns_total"], cashier_row["total_sales"]) == ("280.00", "100.00", "180.00")
+        assert sum(n(r["total_sales"]) for r in rows) == 480
 
         top = (await c.get("/reports/sales/top-products", params=_range(limit=5), headers=mgr)).json()
         assert top == [{"product_id": str(env["product_id"]), "product_name": "صنف", "unit": top[0]["unit"],
-                        "qty": 5.0, "revenue": 480.0}]
+                        "qty": 5.0, "revenue": "480.00"}]
         top1 = (await c.get("/reports/sales/top-products", params=_range(), headers=clerk)).json()
-        assert top1[0]["qty"] == 2.0 and top1[0]["revenue"] == 180.0
+        assert top1[0]["qty"] == 2.0 and top1[0]["revenue"] == "180.00"
 
         p = (await c.get("/reports/ledger/daily-items", headers=clerk)).json()
-        assert [(i["qty"], i["total"], i["returns"]) for i in p["items"]] == [(3.0, 280.0, 100.0)]
-        assert p["expenses"] == [{"note": "شاي", "total": 10.0}]
+        assert [(i["qty"], i["total"], i["returns"]) for i in p["items"]] == [(3.0, "280.00", "100.00")]
+        assert p["expenses"] == [{"note": "شاي", "total": "10.00"}]
         periodic = (await c.get("/reports/ledger/periodic", params={"period": "monthly"}, headers=mgr)).json()
-        assert periodic[0]["income"] == 580.0 and periodic[0]["returns"] == 100.0 and periodic[0]["expenses"] == 90.0
+        assert (periodic[0]["income"], periodic[0]["returns"], periodic[0]["expenses"]) == ("580.00", "100.00", "90.00")
 
 
 async def test_a_branch_profit_leaves_out_company_expenses():
@@ -216,7 +222,8 @@ async def test_a_branch_profit_leaves_out_company_expenses():
     async with _client() as c:
         r = await c.get("/reports/profit", params=_range(warehouse_id=str(env["warehouse_id"])), headers=_auth(u["manager"], t))
     p = r.json()
-    assert (p["net_revenue"], p["total_cogs"], p["gross_profit"], p["total_expenses"], p["net_profit"]) == (180.0, 120.0, 60.0, 10.0, 50.0)
+    assert (p["net_revenue"], p["total_cogs"], p["gross_profit"], p["total_expenses"], p["net_profit"]) == (
+        "180.00", "120.00", "60.00", "10.00", "50.00")
 
 
 async def test_day_boundaries_are_in_cairo_time():
@@ -233,9 +240,9 @@ async def test_day_boundaries_are_in_cairo_time():
         before = (await c.get("/reports/sales/daily", params={"target_date": (day - timedelta(days=1)).isoformat()},
                               headers=mgr)).json()
         trend = (await c.get("/reports/sales/trend", params={"days": 7}, headers=mgr)).json()
-    assert on_day["total_sales"] == 300.0
-    assert before["total_sales"] == 0.0
-    assert next(x for x in trend if x["date"] == day.isoformat())["total_sales"] == 300.0
+    assert on_day["total_sales"] == "300.00"
+    assert before["total_sales"] == "0.00"
+    assert next(x for x in trend if x["date"] == day.isoformat())["total_sales"] == "300.00"
 
 
 async def test_profit_matches_the_income_statement_when_accounting_is_on():
@@ -253,12 +260,12 @@ async def test_profit_matches_the_income_statement_when_accounting_is_on():
         stmt = await acc_reports.income_statement(s, t, today(), today())
         branch = await acc_reports.income_statement(s, t, today(), today(), env["warehouse_id"])
         await s.commit()
-    assert p["net_profit"] == stmt["net_profit"]
-    assert p["gross_profit"] == stmt["gross_profit"]
-    assert p["net_revenue"] == stmt["net_sales"]
-    assert r1.json()["net_profit"] == branch["net_profit"]
+    assert n(p["net_profit"]) == n(stmt["net_profit"])
+    assert n(p["gross_profit"]) == n(stmt["gross_profit"])
+    assert n(p["net_revenue"]) == n(stmt["net_sales"])
+    assert n(r1.json()["net_profit"]) == n(branch["net_profit"])
     # Same documents, so the same sales figures as the operational path.
-    assert p["net_revenue"] == 480.0 and p["total_cogs"] == 300.0
+    assert p["net_revenue"] == "480.00" and p["total_cogs"] == "300.00"
 
 
 async def test_revenue_is_net_of_vat_when_documents_carry_it():
@@ -270,8 +277,8 @@ async def test_revenue_is_net_of_vat_when_documents_carry_it():
     async with _client() as c:
         p = (await c.get("/reports/profit", params=_range(), headers=_auth(env["users"]["manager"], env["tenant_id"]))).json()
         d = (await c.get("/reports/sales/daily", headers=_auth(env["users"]["manager"], env["tenant_id"]))).json()
-    assert p["total_revenue"] == 543.16
-    assert d["total_sales"] == 443.16 and d["tax_total"] == 36.84
+    assert p["total_revenue"] == "543.16"
+    assert d["total_sales"] == "443.16" and d["tax_total"] == "36.84"
 
 
 async def test_inventory_print_renders_html_with_a_print_token():
@@ -339,15 +346,19 @@ async def test_cash_flow_aging_and_overview():
         aging = await c.get("/reports/aging", headers=h)
         overview = (await c.get("/admin/overview", headers=h)).json()
     # Paid sales 580; refund 100; expenses 50 + the drawer's 10 (salaries are counted when paid).
-    assert cf["incoming"]["cash_sales"] == 580.0
-    assert cf["outgoing"]["returns_to_customers"] == 100.0
-    assert cf["outgoing"]["expenses"] == 60.0
-    assert cf["outgoing"]["payroll"] == 0.0
-    assert cf["net_cash_flow"] == 420.0
-    assert aging.status_code == 200 and aging.json()["customers"]["totals"]["total"] == 0.0
-    assert overview["summary"]["total_revenue"] == 480.0
-    assert overview["summary"]["total_profit"] == 180.0
-    assert overview["summary"]["total_stock_cost"] == (100 - 5) * 60
+    assert cf["source"] == "operations"
+    assert cf["incoming"]["cash_sales"] == "580.00"
+    assert cf["outgoing"]["returns_to_customers"] == "100.00"
+    assert cf["outgoing"]["expenses"] == "60.00"
+    assert cf["outgoing"]["payroll"] == "0.00"
+    assert cf["net_cash_flow"] == "420.00"
+    lines = {x["key"]: (x["in"], x["out"]) for x in cf["lines"]}
+    assert lines["sale"] == ("580.00", "0.00") and lines["sale_return"] == ("0.00", "100.00")
+    assert lines["expense"] == ("0.00", "50.00") and lines["drawer_tx"] == ("0.00", "10.00")
+    assert aging.status_code == 200 and aging.json()["customers"]["totals"]["total"] == "0.00"
+    assert overview["summary"]["total_revenue"] == "480.00"
+    assert overview["summary"]["total_profit"] == "180.00"
+    assert n(overview["summary"]["total_stock_cost"]) == (100 - 5) * 60
 
 
 async def test_exports_take_dates_and_write_numbers():
@@ -380,4 +391,4 @@ async def test_reports_are_isolated_per_workspace():
                         headers=_auth(a["users"]["manager"], a["tenant_id"]))
         assert r.status_code == 404
         r = await c.get("/reports/profit", params=_range(), headers=_auth(a["users"]["manager"], a["tenant_id"]))
-        assert r.json()["net_revenue"] == 480.0
+        assert r.json()["net_revenue"] == "480.00"

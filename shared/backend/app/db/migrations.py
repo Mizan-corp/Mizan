@@ -4162,6 +4162,25 @@ MIGRATIONS = [
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
             WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+
+    # Phase C, finance, HR and reporting. FIN-9: a recurring expense's occurrence records when its
+    # successor was made (the nightly job claims it under a row lock, so it is made once) and the
+    # occurrence a generated draft follows. HR-9: what a month's pay couldn't deduct of the
+    # advances is kept on the entry and carried to the next month as an open advance linked to the
+    # period (one per employee and period while active). HR-15: the attendance and advances lists
+    # are paged by date.
+    ("v105_c_fin_hr_rep", """
+        ALTER TABLE expenses ADD COLUMN IF NOT EXISTS recurred_at timestamptz;
+        ALTER TABLE expenses ADD COLUMN IF NOT EXISTS recurred_from uuid REFERENCES expenses(id) ON DELETE SET NULL;
+        CREATE INDEX IF NOT EXISTS ix_expenses_recurring_open ON expenses (tenant_id, date)
+            WHERE is_recurring AND recurred_at IS NULL;
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS advances_carried numeric(12,2) NOT NULL DEFAULT 0;
+        ALTER TABLE hr_advances ADD COLUMN IF NOT EXISTS carried_from_period_id uuid REFERENCES hr_payroll_periods(id);
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_hr_advances_carried ON hr_advances (tenant_id, carried_from_period_id, employee_id)
+            WHERE carried_from_period_id IS NOT NULL AND status <> 'cancelled';
+        CREATE INDEX IF NOT EXISTS ix_hr_attendance_tenant_date ON hr_attendance (tenant_id, work_date);
+        CREATE INDEX IF NOT EXISTS ix_hr_advances_tenant_date ON hr_advances (tenant_id, date);
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

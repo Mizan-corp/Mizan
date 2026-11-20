@@ -3,12 +3,14 @@
 They show what the month's payroll holds: the stored hr_payroll_entries and their daily breakdown.
 An approved or paid month is shown only from them (what was approved and paid, whatever attendance
 or salaries say today). A month not calculated yet is previewed with the engine."""
+from decimal import Decimal
+
 from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activities.general.modules.hr.services import payroll as payroll_service
-from app.activities.general.modules.hr.services.payroll_engine import parse_shift, setting_number
+from app.activities.general.modules.hr.services.payroll_engine import effective_settings, employee_shift, parse_shift, shift_hours
 from app.activities.general.modules.hr.services.reports import Employee, ReportGenerator
 
 KIND_LABEL = {"advance": "سلفة", "deduction": "خصم", "bonus": "مكافأة"}
@@ -58,17 +60,33 @@ def _from_entry(entry: dict) -> dict:
         "overtime_pay": _f(entry["overtime_pay"]), "bonus_days": int(entry["bonus_days"] or 0),
         "bonus_payment": _f(entry["bonus_payment"]), "bonus": _f(entry["bonus"]),
         "deductions": _f(entry["deductions"]), "advances": _f(entry["advances"]),
+        "advances_carried": _f(entry.get("advances_carried")),
         "drawer_variance": _f(entry.get("drawer_variance")), "net_salary": _f(entry["net_salary"]),
         "daily_breakdown": entry.get("daily_breakdown") or [],
     }
 
 
+CURRENCY_NAMES = {"EGP": "ج.م", "SAR": "ر.س", "AED": "د.إ", "KWD": "د.ك", "QAR": "ر.ق", "BHD": "د.ب", "OMR": "ر.ع",
+                  "JOD": "د.أ", "USD": "$", "EUR": "€"}
+
+
+async def currency(db: AsyncSession) -> str:
+    """The workspace's currency as its settings name it (العملة; an ISO code gets its Arabic short
+    name, as on the screens: system/frontend/src/lib/currency.ts), else the Egyptian pound."""
+    value = ((await db.execute(text("SELECT value FROM store_settings WHERE key = 'currency'"))).scalar() or "").strip()
+    return CURRENCY_NAMES.get(value.upper(), value) if value else "ج.م"
+
+
 def _report_fields(result: dict, emp: dict, settings: dict, shifts_map: dict, month: str) -> dict:
     """The fields the report templates read, from an engine result or a stored entry."""
-    days = max(1, int(setting_number(settings, "days_in_month", 26)))
-    start_h, end_h = parse_shift(emp.get("shift_schedule") or "", shifts_map)
-    shift_length = (end_h - start_h) if end_h > start_h else (24 - start_h + end_h)
-    out = dict(result)
+    cfg = effective_settings(settings)
+    days = cfg["days_in_month"]
+    start_h, end_h = parse_shift(employee_shift(emp, shifts_map), shifts_map,
+                                 (cfg["default_shift_start_hour"], cfg["default_shift_end_hour"]))
+    shift_length = shift_hours(start_h, end_h)
+    # The templates do float arithmetic: the engine's Decimals are shown, never added to again.
+    out = {k: float(v) if isinstance(v, Decimal) else v for k, v in result.items()}
+    result = out
     out.update({
         "emp_id": str(emp.get("emp_code") or emp["id"]), "emp_name": emp["name"], "position": emp.get("position") or "",
         "month": month, "final_salary": result["net_salary"], "overtime_payment": result["overtime_pay"],
@@ -76,7 +94,7 @@ def _report_fields(result: dict, emp: dict, settings: dict, shifts_map: dict, mo
         "scheduled_month_hours": days * shift_length, "effective_days_in_month": days, "days_in_month": days,
         "shift_length": shift_length,
         "normal_hours_worked": max(0.0, result.get("total_hours", 0) - result.get("overtime_hours", 0)),
-        "late_penalty_multiplier": setting_number(settings, "late_penalty_multiplier", 2.0), "penalty_hours": 0,
+        "late_penalty_multiplier": float(cfg["late_penalty_multiplier"]), "penalty_hours": 0,
         "base_pay_prorated": result.get("base_pay", 0), "ignore_lateness": bool(emp.get("ignore_lateness")),
         "daily": result.get("daily_breakdown") or [],
     })
@@ -101,6 +119,9 @@ async def monthly_report(db: AsyncSession, month: str) -> str:
     else:
         payrolls = [_report_fields(await _live(db, emp, settings, shifts_map, month), emp, settings, shifts_map, month)
                     for emp in await payroll_service.load_active_employees(db)]
+    cur = await currency(db)
+    for p in payrolls:
+        p["currency"] = cur
     return ReportGenerator.generate_payroll_report(payrolls, month)
 
 
@@ -122,6 +143,7 @@ async def employee_report(db: AsyncSession, emp_id, month: str, report_type: str
         emp = dict(emp)
         result = await _live(db, emp, settings, shifts_map, month)
     payroll = _report_fields(result, emp, settings, shifts_map, month)
+    payroll["currency"] = await currency(db)
 
     start, end = payroll_service.month_range(month)
     adv_rows = (await db.execute(text("""
@@ -161,4 +183,5 @@ async def attendance_report(db: AsyncSession, month: str) -> str:
             "checkin": ci.isoformat() if ci else None, "checkout": co.isoformat() if co else None,
             "status": r[5] or "present", "edited": bool(r[6]), "edit_reason": r[7] or "",
         })
-    return ReportGenerator.generate_attendance_report(report_rows, month)
+    weekend = (await payroll_service.hr_settings(db))["weekend_day"]
+    return ReportGenerator.generate_attendance_report(report_rows, month, weekend_days=(weekend,))

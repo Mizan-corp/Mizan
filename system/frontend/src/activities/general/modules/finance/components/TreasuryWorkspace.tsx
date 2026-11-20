@@ -1,12 +1,13 @@
 // Safes, bank accounts and payment wallets: create, edit, stop and bring back; deposit, withdraw
-// (a manager with finance) and wallet → safe transfers. Every movement carries a client id, so a
-// retried request never moves the money twice.
+// (a manager with finance), wallet → safe transfers and a wallet's reset to zero (recorded as an
+// adjustment). Every movement carries a client id, so a retried request never moves the money twice.
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeftRight, Banknote, History, Pencil, Plus, Power, Wallet } from "lucide-react";
+import { ArrowLeftRight, Banknote, History, Pencil, Plus, Power, RotateCcw, Wallet } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
-import { D, dateTime, moneyEGP } from "@/lib/format";
+import { D, dateTime } from "@/lib/format";
+import { moneyIn, useCurrency } from "@app/lib/currency";
 import { sound } from "@/lib/sound";
 import { useAuth } from "@/stores/auth";
 import { Badge, Button, ConfirmDialog, Empty, ErrorBox, Input, Modal, Select, Spinner, useToast } from "@/components/ui";
@@ -52,6 +53,9 @@ export function TreasuryWorkspace() {
   const [walletForm, setWalletForm] = useState<WalletForm | null>(null);
   const [stop, setStop] = useState<Stop | null>(null);
   const [history, setHistory] = useState<{ what: "safe" | "wallet"; id: string; name: string } | null>(null);
+  const [resetting, setResetting] = useState<{ wallet: WalletRow; clientId: string } | null>(null);
+  const cur = useCurrency();
+  const moneyEGP = (v: string | number) => moneyIn(v, cur);
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["safes"] });
@@ -126,6 +130,22 @@ export function TreasuryWorkspace() {
     onError: (e) => {
       sound.error();
       setStop(null);
+      toast("error", (e as Error).message);
+    },
+  });
+
+  const reset = useMutation({
+    mutationFn: (r: { wallet: WalletRow; clientId: string }) =>
+      api.post(`/wallets/${r.wallet.id}/reset-balance`, { client_id: r.clientId }),
+    onSuccess: () => {
+      sound.success();
+      toast("success", "صُفّر رصيد المحفظة بحركة تسوية");
+      setResetting(null);
+      refresh();
+    },
+    onError: (e) => {
+      sound.error();
+      setResetting(null);
       toast("error", (e as Error).message);
     },
   });
@@ -253,6 +273,12 @@ export function TreasuryWorkspace() {
                             <ArrowLeftRight className="size-3.5" /> تحويل إلى خزنة
                           </Button>
                         )}
+                        {w.balance != null && !D(w.balance).isZero() && (
+                          <Button variant="ghost" size="icon" aria-label={`تصفير رصيد ${w.name}`} className="size-8 px-0!"
+                                  disabled={reset.isPending} onClick={() => setResetting({ wallet: w, clientId: newClientId() })}>
+                            <RotateCcw className="size-4" />
+                          </Button>
+                        )}
                         <Button variant="ghost" size="icon" aria-label={`سجل ${w.name}`} className="size-8 px-0!"
                                 onClick={() => setHistory({ what: "wallet", id: w.id, name: w.name })}>
                           <History className="size-4" />
@@ -295,7 +321,7 @@ export function TreasuryWorkspace() {
             </div>
           )}
           <div>
-            <label htmlFor="move-amount" className="mb-1 block text-xs font-semibold text-muted">المبلغ (ج.م) *</label>
+            <label htmlFor="move-amount" className="mb-1 block text-xs font-semibold text-muted">المبلغ ({cur}) *</label>
             <Input id="move-amount" autoFocus className="num text-lg font-bold" inputMode="decimal" value={amount}
                    onChange={(e) => setAmount(e.target.value)} />
           </div>
@@ -392,6 +418,15 @@ export function TreasuryWorkspace() {
         confirmLabel="إيقاف"
       />
 
+      <ConfirmDialog
+        open={!!resetting}
+        onClose={() => setResetting(null)}
+        onConfirm={() => resetting && !reset.isPending && reset.mutate(resetting)}
+        title={`تصفير رصيد ${resetting?.wallet.name ?? ""}`}
+        message={`يُسجَّل الفرق (${resetting?.wallet.balance != null ? moneyEGP(resetting.wallet.balance) : ""}) حركة تسوية في سجل المحفظة ويُرحَّل للدفاتر، ولا يُمسح شيء. استخدمه حين لا يطابق الرصيد ما في المحفظة فعلاً؛ لنقل المال إلى خزنة استخدم «تحويل إلى خزنة».`}
+        confirmLabel="تصفير الرصيد"
+      />
+
       <HistoryModal target={history} onClose={() => setHistory(null)} />
     </div>
   );
@@ -412,6 +447,7 @@ const TX_LABEL: Record<string, string> = {
 };
 
 function HistoryModal({ target, onClose }: { target: { what: "safe" | "wallet"; id: string; name: string } | null; onClose: () => void }) {
+  const cur = useCurrency();
   const rows = useQuery({
     queryKey: ["treasury-history", target?.what, target?.id],
     queryFn: () => api.get<Movement[]>(`/${target!.what === "safe" ? "safes" : "wallets"}/${target!.id}/history`),
@@ -445,7 +481,7 @@ function HistoryModal({ target, onClose }: { target: { what: "safe" | "wallet"; 
                     <td className="p-3 text-xs">{TX_LABEL[m.tx_type] ?? m.tx_type}</td>
                     <td className="p-3 text-xs text-muted">{m.note || "—"}{m.user_name ? ` · ${m.user_name}` : ""}</td>
                     <td className={`num p-3 text-end font-bold ${out ? "text-rose-600" : "text-emerald-600 dark:text-emerald-400"}`}>
-                      {moneyEGP(Math.abs(Number(m.amount)))}
+                      {moneyIn(D(m.amount).abs(), cur)}
                     </td>
                   </tr>
                 );

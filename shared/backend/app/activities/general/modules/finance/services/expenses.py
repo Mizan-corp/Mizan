@@ -20,6 +20,26 @@ FINAL_STATUSES = ("approved", "cancelled")
 DECIDABLE = ("draft",)
 
 
+RECURRENCE_FIELDS = ("is_recurring", "recurring_interval", "recurring_end_date")
+
+
+def recurrence(current, changes: dict) -> dict:
+    """The recurrence fields an edit leaves, checked as on create: a recurring expense has an
+    interval (monthly by default), one that stops recurring keeps none, and the series doesn't end
+    before the expense's date. `current` is the stored row."""
+    if not any(k in changes for k in (*RECURRENCE_FIELDS, "date")):
+        return {}
+    recurring = changes.get("is_recurring", current.is_recurring)
+    if not recurring:
+        return {"is_recurring": False, "recurring_interval": None, "recurring_end_date": None} \
+            if any(k in changes for k in RECURRENCE_FIELDS) else {}
+    interval = changes.get("recurring_interval") or current.recurring_interval or "monthly"
+    end = changes["recurring_end_date"] if "recurring_end_date" in changes else current.recurring_end_date
+    if end and end < changes.get("date", current.date):
+        raise HTTPException(400, "تاريخ انتهاء التكرار قبل تاريخ المصروف")
+    return {"is_recurring": True, "recurring_interval": interval, "recurring_end_date": end}
+
+
 async def check_tax(db: AsyncSession, amount, tax) -> Decimal:
     """An expense's input VAT (ADR-014 D6): optional, only in a VAT-registered workspace, and less
     than the amount it is part of."""
@@ -85,7 +105,8 @@ async def decide(db: AsyncSession, expense_id: uuid.UUID, approved: bool, notes:
     if wallet_id:
         await record_wallet_tx(db, wallet_id, -amount, "expense", expense_id, note, user.id)
     else:
-        await safes.pay_expense(db, safe_id, amount, note, user.id, expense_id)
+        await safes.pay_expense(db, safe_id, amount, note, user.id, expense_id,
+                                allow_overdraft=not await safes.strict_balance(db))
     await notify("expense.approved", db, expense=dict(row), user_id=user.id)
     return dict(row)
 

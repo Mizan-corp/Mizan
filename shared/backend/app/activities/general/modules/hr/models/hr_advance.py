@@ -31,5 +31,9 @@ class HrAdvance(TenantScoped, Base):
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     cancelled_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     cancel_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # An advance a month's pay couldn't cover, carried from that month's payroll period (HR-9): no
+    # cash moved; it is cancelled only by reopening that month.
+    carried_from_period_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("hr_payroll_periods.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

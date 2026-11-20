@@ -7,64 +7,20 @@
  * The journal, trial balance and reports are the accounting module's screens (ADR-014).
  */
 import { useState, useMemo } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Landmark,
-  Lock,
-  LockOpen,
-  Plus,
-  Wallet,
-  ReceiptText,
-  BookOpen,
-  CalendarCheck,
-  Trash2,
-  Building2,
-  Coins,
-  Ban,
-} from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Landmark, Lock, LockOpen, Wallet, ReceiptText, BookOpen, CalendarCheck, Building2, Coins, Tags } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
-import { D, date as fmtDate, dateTime, moneyEGP } from "@/lib/format";
+import { D, dateTime } from "@/lib/format";
 import { sound } from "@/lib/sound";
-import { Badge, Button, ErrorBox, Input, Modal, Select, Spinner } from "@/components/ui";
-import { PaySourceSelect, sourceFields } from "@app/components/PaySourceSelect";
-import { useVat } from "@app/lib/vat";
+import { Badge, ErrorBox, Input } from "@/components/ui";
+import { moneyIn, useCurrency } from "@app/lib/currency";
 import type { PeriodMonth, Safe, WalletRow } from "./api";
+import { CategoriesVendorsWorkspace } from "./components/CategoriesVendorsWorkspace";
+import { ExpensesWorkspace } from "./components/ExpensesWorkspace";
 import { PeriodsWorkspace } from "./components/PeriodsWorkspace";
 import { TreasuryWorkspace } from "./components/TreasuryWorkspace";
-
-interface Expense {
-  id: string;
-  amount: string;
-  /** Input VAT included in amount (ADR-014 D6). */
-  tax_amount?: string;
-  description: string;
-  status: "draft" | "approved" | "rejected" | "cancelled";
-  date: string;
-  created_at: string;
-  is_recurring: boolean;
-  payment_method: string | null;
-  safe_id: string | null;
-  wallet_id: string | null;
-  category_name?: string | null;
-  vendor_name?: string | null;
-}
-
-interface ExpensePage {
-  data: Expense[];
-  total: number;
-}
-
-interface FinCategory {
-  id: string;
-  name: string;
-}
-
-interface Vendor {
-  id: string;
-  name: string;
-}
 
 interface CashEntry {
   id: string;
@@ -88,20 +44,22 @@ const TABS = [
   { key: "cash", label: "حركة الخزينة والمصروفات", icon: BookOpen },
   { key: "treasury", label: "الخزائن والمحافظ النقدية", icon: Coins },
   { key: "expenses", label: "مصادقات وسجل المصروفات", icon: ReceiptText },
+  { key: "categories", label: "التصنيفات وجهات الصرف", icon: Tags },
   { key: "periods", label: "إقفال الفترات المالية", icon: CalendarCheck },
 ] as const;
 
 export default function FinancePage() {
   const [activeTab, setActiveTab] = useState<string>("cash");
+  const cur = useCurrency();
 
   // Load high-level treasury and accounting periods for the ribbon
   const safes = useQuery({ queryKey: ["safes"], queryFn: () => api.get<Safe[]>("/safes") });
   const wallets = useQuery({ queryKey: ["wallets"], queryFn: () => api.get<WalletRow[]>("/wallets") });
   const periods = useQuery({ queryKey: ["periods"], queryFn: () => api.get<PeriodMonth[]>("/periods") });
 
-  const totalVaults = (safes.data ?? []).reduce((acc, s) => acc + Number(s.balance || 0), 0);
-  const totalWallets = (wallets.data ?? []).reduce((acc, w) => acc + Number(w.balance || 0), 0);
-  const totalLiquidity = totalVaults + totalWallets;
+  const totalVaults = (safes.data ?? []).reduce((acc, s) => acc.plus(D(s.balance ?? 0)), D(0));
+  const totalWallets = (wallets.data ?? []).reduce((acc, w) => acc.plus(D(w.balance ?? 0)), D(0));
+  const totalLiquidity = totalVaults.plus(totalWallets);
 
   const currentPeriod = periods.data?.find((p) => p.current) ?? {
     month: new Date().toISOString().slice(0, 7),
@@ -155,7 +113,7 @@ export default function FinancePage() {
               <span className="text-[11px] font-semibold">خزائن + محافظ</span>
             </div>
             <p className="num text-2xl font-black text-primary">
-              {moneyEGP(totalLiquidity)}
+              {moneyIn(totalLiquidity, cur)}
             </p>
           </div>
 
@@ -167,7 +125,7 @@ export default function FinancePage() {
               <span className="text-[11px] font-semibold">{safes.data?.length ?? 0} خزائن</span>
             </div>
             <p className="num text-2xl font-black text-ink">
-              {moneyEGP(totalVaults)}
+              {moneyIn(totalVaults, cur)}
             </p>
           </div>
 
@@ -179,7 +137,7 @@ export default function FinancePage() {
               <span className="text-[11px] font-semibold">{wallets.data?.length ?? 0} محافظ</span>
             </div>
             <p className="num text-2xl font-black text-ink">
-              {moneyEGP(totalWallets)}
+              {moneyIn(totalWallets, cur)}
             </p>
           </div>
         </div>
@@ -214,6 +172,7 @@ export default function FinancePage() {
       {activeTab === "cash" && <CashMovementsWorkspace />}
       {activeTab === "treasury" && <TreasuryWorkspace />}
       {activeTab === "expenses" && <ExpensesWorkspace />}
+      {activeTab === "categories" && <CategoriesVendorsWorkspace />}
       {activeTab === "periods" && <PeriodsWorkspace />}
     </div>
   );
@@ -225,9 +184,11 @@ export default function FinancePage() {
    ════════════════════════════════════════════════════════════ */
 const CASH_TYPE_LABEL: Record<CashEntry["type"], string> = { deposit: "إيداع", withdrawal: "سحب", expense: "مصروف" };
 
-interface Profit { net_revenue: number; gross_profit: number; net_profit: number; source: "ledger" | "operations" }
+/** Money comes as decimal strings (REP-15). */
+interface Profit { net_revenue: string; gross_profit: string; net_profit: string; source: "ledger" | "operations" }
 
 function CashMovementsWorkspace() {
+  const cur = useCurrency();
   const today = new Date();
   const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
   const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -276,15 +237,15 @@ function CashMovementsWorkspace() {
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-line bg-card p-4 shadow-xs">
           <span className="text-xs text-muted block mb-1 font-medium">إجمالي الوارد</span>
-          <p className="num text-xl font-black text-emerald-600 dark:text-emerald-400">{moneyEGP(movements.data?.total_income ?? 0)}</p>
+          <p className="num text-xl font-black text-emerald-600 dark:text-emerald-400">{moneyIn(movements.data?.total_income ?? 0, cur)}</p>
         </div>
         <div className="rounded-xl border border-line bg-card p-4 shadow-xs">
           <span className="text-xs text-muted block mb-1 font-medium">إجمالي المنصرف</span>
-          <p className="num text-xl font-black text-rose-600">{moneyEGP(movements.data?.total_expense ?? 0)}</p>
+          <p className="num text-xl font-black text-rose-600">{moneyIn(movements.data?.total_expense ?? 0, cur)}</p>
         </div>
         <div className="rounded-xl border border-line bg-card p-4 shadow-xs">
           <span className="text-xs text-muted block mb-1 font-medium">الصافي</span>
-          <p className="num text-xl font-black text-ink">{moneyEGP(movements.data?.net ?? 0)}</p>
+          <p className="num text-xl font-black text-ink">{moneyIn(movements.data?.net ?? 0, cur)}</p>
         </div>
       </div>
 
@@ -296,16 +257,16 @@ function CashMovementsWorkspace() {
           <div className="rounded-xl border border-line bg-card p-4 shadow-xs">
             <span className="text-xs text-muted block mb-1 font-medium">صافي إيرادات الفترة</span>
             <p className="num text-xl font-black text-primary">
-              {moneyEGP(profit.data.net_revenue)}
+              {moneyIn(profit.data.net_revenue, cur)}
             </p>
           </div>
           <div className="rounded-xl border border-line bg-card p-4 shadow-xs">
             <span className="text-xs text-muted block mb-1 font-medium">مجمل الربح</span>
-            <p className="num text-xl font-black text-ink">{moneyEGP(profit.data.gross_profit)}</p>
+            <p className="num text-xl font-black text-ink">{moneyIn(profit.data.gross_profit, cur)}</p>
           </div>
           <div className="rounded-xl border border-line bg-card p-4 shadow-xs">
             <span className="text-xs text-muted block mb-1 font-medium">صافي الربح</span>
-            <p className="num text-xl font-black text-emerald-600 dark:text-emerald-400">{moneyEGP(profit.data.net_profit)}</p>
+            <p className="num text-xl font-black text-emerald-600 dark:text-emerald-400">{moneyIn(profit.data.net_profit, cur)}</p>
             <span className="text-[11px] text-muted block mt-1">
               {profit.data.source === "ledger" ? "من القيود المحاسبية" : "من المستندات، بعد المصروفات المعتمدة وبدون الضريبة"}
             </span>
@@ -354,10 +315,10 @@ function CashMovementsWorkspace() {
                     <td className="p-3.5 text-xs text-muted">{r.category_name ?? "—"}</td>
                     <td className="p-3.5 text-xs text-muted">{r.warehouse_name ?? "—"}</td>
                     <td className="num p-3.5 text-end font-bold text-emerald-600 dark:text-emerald-400">
-                      {r.type === "deposit" ? moneyEGP(r.amount) : "—"}
+                      {r.type === "deposit" ? moneyIn(r.amount, cur) : "—"}
                     </td>
                     <td className="num p-3.5 text-end font-bold text-rose-600">
-                      {r.type !== "deposit" ? moneyEGP(r.amount) : "—"}
+                      {r.type !== "deposit" ? moneyIn(r.amount, cur) : "—"}
                     </td>
                   </tr>
                 ))}
@@ -366,417 +327,6 @@ function CashMovementsWorkspace() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-/* ════════════════════════════════════════════════════════════
-   3. EXPENSES & APPROVALS WORKSPACE
-   ════════════════════════════════════════════════════════════ */
-const EXPENSE_STATUS: Record<Expense["status"], { label: string; tone: "success" | "warning" | "danger" | "muted" }> = {
-  draft: { label: "مسودة بانتظار الاعتماد", tone: "warning" },
-  approved: { label: "معتمد ومصروف", tone: "success" },
-  rejected: { label: "مرفوض", tone: "danger" },
-  cancelled: { label: "ملغى (أُعيد المبلغ)", tone: "muted" },
-};
-
-const sourceOf = (e: Expense) => (e.wallet_id ? `wallet:${e.wallet_id}` : e.safe_id ? `safe:${e.safe_id}` : "");
-
-function ExpensesWorkspace() {
-  const qc = useQueryClient();
-  const [creating, setCreating] = useState(false);
-  const emptyForm = {
-    amount: "",
-    tax_amount: "",
-    description: "",
-    category_id: "",
-    vendor_id: "",
-    payment_method: "cash",
-    source: "",
-    is_recurring: false,
-    recurring_interval: "monthly",
-  };
-  const [form, setForm] = useState(emptyForm);
-  const vat = useVat();
-  const [approving, setApproving] = useState<Expense | null>(null);
-  const [approveSource, setApproveSource] = useState("");
-  const [cancelling, setCancelling] = useState<Expense | null>(null);
-  const [cancelReason, setCancelReason] = useState("");
-
-  const list = useQuery({
-    queryKey: ["expenses"],
-    queryFn: () => api.get<ExpensePage>("/expenses", { page: 1, page_size: 50 }),
-  });
-  const cats = useQuery({
-    queryKey: ["fin-cats"],
-    queryFn: () => api.get<FinCategory[]>("/financial-categories"),
-  });
-  const vendors = useQuery({
-    queryKey: ["fin-vendors"],
-    queryFn: () => api.get<Vendor[]>("/expense-vendors"),
-  });
-
-  const refresh = () => {
-    qc.invalidateQueries({ queryKey: ["expenses"] });
-    qc.invalidateQueries({ queryKey: ["safes"] });
-    qc.invalidateQueries({ queryKey: ["wallets"] });
-  };
-
-  const create = useMutation({
-    mutationFn: () => {
-      sound.click();
-      const src = sourceFields(form.source);
-      return api.post("/expenses", {
-        amount: D(form.amount).toNumber(),
-        tax_amount: vat.data?.vat_registered && form.tax_amount ? D(form.tax_amount).toNumber() : 0,
-        description: form.description,
-        category_id: form.category_id || undefined,
-        vendor_id: form.vendor_id || undefined,
-        payment_method: src.wallet_id ? "wallet" : form.payment_method,
-        ...src,
-        is_recurring: form.is_recurring,
-        recurring_interval: form.is_recurring ? form.recurring_interval : undefined,
-      });
-    },
-    onSuccess: () => {
-      sound.success();
-      setCreating(false);
-      setForm(emptyForm);
-      refresh();
-    },
-    onError: () => sound.error(),
-  });
-
-  const approve = useMutation({
-    mutationFn: () => {
-      sound.click();
-      return api.post(`/expenses/${approving!.id}/approve`, { approved: true, ...sourceFields(approveSource) });
-    },
-    onSuccess: () => {
-      sound.success();
-      setApproving(null);
-      refresh();
-    },
-    onError: () => sound.error(),
-  });
-
-  const cancel = useMutation({
-    mutationFn: () => {
-      sound.click();
-      return api.post(`/expenses/${cancelling!.id}/cancel`, { reason: cancelReason || null });
-    },
-    onSuccess: () => {
-      sound.success();
-      setCancelling(null);
-      setCancelReason("");
-      refresh();
-    },
-    onError: () => sound.error(),
-  });
-
-  const remove = useMutation({
-    mutationFn: (id: string) => {
-      sound.click();
-      return api.del(`/expenses/${id}`);
-    },
-    onSuccess: () => {
-      sound.success();
-      refresh();
-    },
-    onError: () => sound.error(),
-  });
-
-  const rows = list.data?.data ?? [];
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-base font-bold text-ink">سجل المصروفات واعتمادها</h2>
-          <p className="text-xs text-muted">
-            يخرج المبلغ من الخزنة أو المحفظة عند الاعتماد. المصروف المعتمد لا يُحذف: يُلغى فيعود المبلغ إلى مصدره.
-          </p>
-        </div>
-        <Button onClick={() => setCreating(true)} className="gap-1.5 font-bold text-xs h-9 rounded-xl">
-          <Plus className="size-4" /> تسجيل مصروف جديد
-        </Button>
-      </div>
-
-      {list.isLoading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-12 w-full rounded-xl" />
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-14 w-full rounded-xl" />
-          ))}
-        </div>
-      ) : list.isError ? (
-        <ErrorBox message={(list.error as Error).message} onRetry={() => list.refetch()} />
-      ) : !rows.length ? (
-        <div className="flex flex-col items-center justify-center p-16 text-center border-2 border-dashed border-line rounded-2xl bg-card">
-          <ReceiptText className="size-12 text-muted mb-2 stroke-1" />
-          <h3 className="text-base font-bold text-ink">لا توجد مصروفات مسجلة حالياً</h3>
-          <p className="text-xs text-muted mt-1">انقر على &quot;تسجيل مصروف جديد&quot; لإضافة بند نفقة تشغيلي.</p>
-        </div>
-      ) : (
-        <div className="rounded-2xl border border-line bg-card overflow-hidden shadow-xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-line bg-elevated/50 text-xs font-bold text-muted">
-                  <th className="p-3.5 text-start">الوصف والبيان</th>
-                  <th className="p-3.5 text-start">المبلغ</th>
-                  <th className="p-3.5 text-start">التصنيف</th>
-                  <th className="p-3.5 text-start">الحالة</th>
-                  <th className="p-3.5 text-start">التاريخ</th>
-                  <th className="p-3.5 text-end">إجراءات</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line/60">
-                {rows.map((e) => (
-                  <tr key={e.id} className="hover:bg-elevated/40 transition-colors">
-                    <td className="p-3.5 font-bold text-ink">
-                      <div className="flex items-center gap-2">
-                        <span className={e.status === "cancelled" ? "line-through text-muted" : ""}>{e.description}</span>
-                        {e.is_recurring && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-bold">دوري متكرر</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="num p-3.5 font-black text-rose-600">
-                      {moneyEGP(e.amount)}
-                      {D(e.tax_amount ?? 0).gt(0) && <div className="text-[10px] font-normal text-muted">منها ضريبة {moneyEGP(e.tax_amount!)}</div>}
-                    </td>
-                    <td className="p-3.5 text-muted text-xs">{e.category_name ?? "—"}</td>
-                    <td className="p-3.5">
-                      <Badge tone={EXPENSE_STATUS[e.status]?.tone ?? "muted"}>{EXPENSE_STATUS[e.status]?.label ?? e.status}</Badge>
-                    </td>
-                    <td className="p-3.5 text-xs text-muted font-mono">{e.date ? fmtDate(e.date) : dateTime(e.created_at)}</td>
-                    <td className="p-3.5">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {e.status === "draft" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setApproving(e);
-                              setApproveSource(sourceOf(e));
-                            }}
-                            className="font-bold text-xs h-8"
-                          >
-                            اعتماد الصرف
-                          </Button>
-                        )}
-                        {(e.status === "draft" || e.status === "rejected") && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label="حذف المصروف"
-                            onClick={() => remove.mutate(e.id)}
-                            disabled={remove.isPending}
-                            className="size-8 px-0! text-rose-500 hover:bg-rose-500/10"
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
-                        )}
-                        {e.status === "approved" && e.payment_method !== "payroll" && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setCancelling(e)}
-                            className="font-bold text-xs h-8 gap-1 text-rose-600"
-                          >
-                            <Ban className="size-3.5" /> إلغاء
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-      {remove.isError && <ErrorBox message={(remove.error as Error).message} />}
-
-      {/* Approve: the money leaves the chosen safe or wallet */}
-      <Modal open={!!approving} onClose={() => setApproving(null)} title={`اعتماد صرف — ${approving?.description ?? ""}`}>
-        <form
-          onSubmit={(ev) => {
-            ev.preventDefault();
-            if (!approve.isPending && approveSource) approve.mutate();
-          }}
-          className="flex flex-col gap-4"
-        >
-          <div className="rounded-xl border border-line bg-elevated/40 p-3 text-xs">
-            <span className="text-muted">المبلغ: </span>
-            <strong className="num text-sm font-bold text-rose-600">{moneyEGP(approving?.amount ?? 0)}</strong>
-          </div>
-          <div>
-            <label htmlFor="approve-source" className="mb-1 block text-xs font-semibold text-muted">يُصرف من *</label>
-            <PaySourceSelect id="approve-source" value={approveSource} onChange={setApproveSource} />
-          </div>
-          {approve.isError && <ErrorBox message={(approve.error as Error).message} />}
-          <Button type="submit" className="w-full h-11 font-bold text-xs rounded-xl" disabled={approve.isPending || !approveSource}>
-            {approve.isPending ? <Spinner /> : "اعتماد وصرف المبلغ"}
-          </Button>
-        </form>
-      </Modal>
-
-      {/* Cancel: the money goes back */}
-      <Modal open={!!cancelling} onClose={() => setCancelling(null)} title={`إلغاء مصروف — ${cancelling?.description ?? ""}`}>
-        <form
-          onSubmit={(ev) => {
-            ev.preventDefault();
-            if (!cancel.isPending) cancel.mutate();
-          }}
-          className="flex flex-col gap-4"
-        >
-          <p className="text-xs text-muted leading-relaxed">
-            سيعود مبلغ <strong className="num text-ink">{moneyEGP(cancelling?.amount ?? 0)}</strong> إلى الخزنة أو المحفظة
-            التي صُرف منها، ويبقى المصروف في السجل بحالة ملغى.
-          </p>
-          <div>
-            <label htmlFor="cancel-reason" className="mb-1 block text-xs font-semibold text-muted">سبب الإلغاء</label>
-            <Input id="cancel-reason" value={cancelReason} onChange={(ev) => setCancelReason(ev.target.value)} />
-          </div>
-          {cancel.isError && <ErrorBox message={(cancel.error as Error).message} />}
-          <Button type="submit" variant="danger" className="w-full h-11 font-bold text-xs rounded-xl" disabled={cancel.isPending}>
-            {cancel.isPending ? <Spinner /> : "تأكيد الإلغاء وإرجاع المبلغ"}
-          </Button>
-        </form>
-      </Modal>
-
-      {/* Expense Modal */}
-      <Modal open={creating} onClose={() => setCreating(false)} title="تسجيل مصروف تشغيلي جديد">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!create.isPending && form.amount && form.description) create.mutate();
-          }}
-          className="flex flex-col gap-4"
-        >
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-muted">بيان ووصف المصروف *</label>
-            <Input
-              autoFocus
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              placeholder="مثال: فاتورة كهرباء المقر الرئيسي لشهر نوفمبر..."
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted">المبلغ المطلوب (ج.م) *</label>
-              <Input
-                className="num font-bold"
-                inputMode="decimal"
-                value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-              />
-            </div>
-            {vat.data?.vat_registered && (
-              <div>
-                <label htmlFor="expense-tax" className="mb-1 block text-xs font-semibold text-muted">منها ضريبة قيمة مضافة (ج.م)</label>
-                <Input
-                  id="expense-tax"
-                  className="num"
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  value={form.tax_amount}
-                  onChange={(e) => setForm({ ...form, tax_amount: e.target.value })}
-                />
-                <p className="mt-1 text-[11px] text-muted">من فاتورة المورد الضريبية؛ تُخصم كضريبة مدخلات.</p>
-              </div>
-            )}
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted">طريقة الدفع</label>
-              <Select
-                value={form.payment_method}
-                onChange={(e) => setForm({ ...form, payment_method: e.target.value })}
-              >
-                <option value="cash">نقداً</option>
-                <option value="bank">تحويل بنكي / شيك</option>
-                <option value="wallet">محفظة إلكترونية</option>
-              </Select>
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="expense-source" className="mb-1 block text-xs font-semibold text-muted">يُصرف من</label>
-            <PaySourceSelect
-              id="expense-source"
-              value={form.source}
-              onChange={(v) => setForm({ ...form, source: v })}
-              emptyLabel="— يُحدد عند الاعتماد —"
-            />
-            <p className="mt-1 text-[11px] text-muted">لا يُعتمد المصروف إلا بعد تحديد الخزنة أو الحساب البنكي أو المحفظة.</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted">التصنيف</label>
-              <Select
-                value={form.category_id}
-                onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-              >
-                <option value="">— بدون تصنيف —</option>
-                {cats.data?.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-muted">الجهة / المورد المستفيد</label>
-              <Select
-                value={form.vendor_id}
-                onChange={(e) => setForm({ ...form, vendor_id: e.target.value })}
-              >
-                <option value="">— جهة عامة —</option>
-                {vendors.data?.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </div>
-
-          <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.is_recurring}
-              onChange={(e) => setForm({ ...form, is_recurring: e.target.checked })}
-              className="rounded text-primary"
-            />
-            <span>مصروف متكرر بصفة دورية</span>
-          </label>
-
-          {form.is_recurring && (
-            <Select
-              value={form.recurring_interval}
-              onChange={(e) => setForm({ ...form, recurring_interval: e.target.value })}
-            >
-              <option value="monthly">شهرياً</option>
-              <option value="weekly">أسبوعياً</option>
-              <option value="yearly">سنوياً</option>
-            </Select>
-          )}
-
-          {create.isError && <ErrorBox message={(create.error as Error).message} />}
-
-          <Button
-            type="submit"
-            className="w-full h-11 font-bold text-xs rounded-xl"
-            disabled={create.isPending || !form.amount || !form.description}
-          >
-            {create.isPending ? <Spinner /> : "حفظ المصروف"}
-          </Button>
-        </form>
-      </Modal>
     </div>
   );
 }

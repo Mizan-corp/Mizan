@@ -1,5 +1,11 @@
 """The company overview: sales and gross profit per branch, stock value, debts, cash. Company-wide, so
-it needs `reports:finance` and the right to see every branch."""
+it needs `reports:finance` and the right to see every branch.
+
+Stock comes from the maintained balances (`stock_balances`, one row per product and branch) rather
+than a sum over every movement ever made (REP-14); the cash in the open drawers is what each
+shift's close expects (`pos.service.compute_summary`'s rule: every row but the wallet's), per
+drawer with its cashier (REP-9).
+Money is a decimal string (REP-15)."""
 from datetime import date
 from decimal import Decimal
 
@@ -7,7 +13,6 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.activities.general.modules.inventory.models.stock import IN_TYPES
 from app.activities.general.modules.reporting import service as rs
 from app.activities.general.modules.reporting.scope import FINANCE, company_scope, day_range, today
 from app.db.base import get_db
@@ -52,33 +57,27 @@ async def company_overview(from_date: date | None = None, to_date: date | None =
 
     # 2. Stock per warehouse at the average cost (the ledger's valuation) and at retail.
     stock = (await db.execute(text("""
-        WITH b AS (
-            SELECT warehouse_id, product_id,
-                   SUM(CASE WHEN CAST(movement_type AS text) = ANY(:ins) THEN qty ELSE -qty END) AS qty
-            FROM stock_movements GROUP BY warehouse_id, product_id
-        )
         SELECT w.id, w.name, w.warehouse_type,
                COALESCE(SUM(b.qty * COALESCE(NULLIF(p.avg_cost, 0), p.cost_price, 0)), 0) AS stock_cost_value,
                COALESCE(SUM(b.qty * COALESCE(p.retail_price, 0)), 0) AS stock_retail_value,
                COALESCE(SUM(b.qty), 0) AS total_units
-        FROM warehouses w LEFT JOIN b ON b.warehouse_id = w.id LEFT JOIN products p ON p.id = b.product_id
+        FROM warehouses w LEFT JOIN stock_balances b ON b.warehouse_id = w.id LEFT JOIN products p ON p.id = b.product_id
         GROUP BY w.id, w.name, w.warehouse_type
         ORDER BY stock_cost_value DESC
-    """), {"ins": list(IN_TYPES)})).mappings().all()
+    """))).mappings().all()
     stock_data = [{**dict(s), "stock_cost_value": rs.money(s["stock_cost_value"]),
                    "stock_retail_value": rs.money(s["stock_retail_value"]), "total_units": rs.qty(s["total_units"])}
                   for s in stock]
 
     # 3. Low stock items (all warehouses together).
     low_stock = (await db.execute(text("""
-        SELECT p.name, p.unit, p.reorder_point,
-               COALESCE(SUM(CASE WHEN CAST(sm.movement_type AS text) = ANY(:ins) THEN sm.qty ELSE -sm.qty END), 0) AS total_qty
-        FROM products p LEFT JOIN stock_movements sm ON sm.product_id = p.id
+        SELECT p.name, p.unit, p.reorder_point, COALESCE(SUM(b.qty), 0) AS total_qty
+        FROM products p LEFT JOIN stock_balances b ON b.product_id = p.id
         WHERE p.is_active = true AND p.reorder_point > 0
         GROUP BY p.id, p.name, p.unit, p.reorder_point
-        HAVING COALESCE(SUM(CASE WHEN CAST(sm.movement_type AS text) = ANY(:ins) THEN sm.qty ELSE -sm.qty END), 0) <= p.reorder_point
-        ORDER BY total_qty ASC LIMIT :top
-    """), {"ins": list(IN_TYPES), "top": TOP})).mappings().all()
+        HAVING COALESCE(SUM(b.qty), 0) <= p.reorder_point
+        ORDER BY total_qty ASC, p.name LIMIT :top
+    """), {"top": TOP})).mappings().all()
 
     # 4. Customers' open credit invoices: the total over every customer, the ten largest listed.
     debts = """
@@ -96,19 +95,23 @@ async def company_overview(from_date: date | None = None, to_date: date | None =
         "SELECT id, name, phone, balance FROM suppliers WHERE balance > 0 ORDER BY balance DESC LIMIT :top"), {"top": TOP})).mappings().all()
     total_supplier_debt = D((await db.execute(text("SELECT COALESCE(SUM(balance), 0) FROM suppliers WHERE balance > 0"))).scalar_one())
 
-    # 6. Cash in the open drawers: the opening amount, cash sales and deposits in, refunds and the rest out.
+    # 6. Cash in the open drawers, as each shift's close expects it: the opening amount, cash sales
+    # and deposits in; refunds (stored as 'return_', the enum's name), expenses, withdrawals and
+    # revenue deliveries out. A row paid by wallet doesn't touch the drawer.
     cash = (await db.execute(text("""
-        SELECT w.name, s.initial_amount,
+        SELECT w.name, u.full_name AS cashier, s.initial_amount,
                COALESCE((SELECT SUM(CASE WHEN CAST(dt.type AS text) IN ('sale', 'deposit') THEN dt.amount
                                          WHEN CAST(dt.type AS text) IN ('expense', 'withdrawal', 'return_', 'revenue_delivery') THEN -dt.amount
                                          ELSE 0 END)
                          FROM drawer_transactions dt
-                         WHERE dt.shift_id = s.id AND dt.cancelled_at IS NULL AND COALESCE(dt.payment_method, 'cash') = 'cash'), 0) AS net_movement
-        FROM shifts s JOIN warehouses w ON w.id = s.warehouse_id
+                         WHERE dt.shift_id = s.id AND dt.cancelled_at IS NULL AND COALESCE(dt.payment_method, 'cash') <> 'wallet'), 0) AS net_movement
+        FROM shifts s JOIN warehouses w ON w.id = s.warehouse_id LEFT JOIN users u ON u.id = s.cashier_id
         WHERE s.status = 'open'
         ORDER BY w.name
     """))).mappings().all()
-    cash_data = [{"name": c["name"], "initial_amount": rs.money(c["initial_amount"]), "net_movement": rs.money(c["net_movement"])}
+    cash_data = [{"name": c["name"], "cashier": c["cashier"], "initial_amount": rs.money(c["initial_amount"]),
+                  "net_movement": rs.money(c["net_movement"]),
+                  "expected": rs.money(D(str(c["initial_amount"] or 0)) + D(str(c["net_movement"] or 0)))}
                  for c in cash]
     total_safes = D((await db.execute(text("SELECT COALESCE(SUM(balance), 0) FROM safes WHERE is_active = true"))).scalar_one())
 
@@ -134,7 +137,7 @@ async def company_overview(from_date: date | None = None, to_date: date | None =
             "net_capital": rs.money(total_stock_cost + total_cash + total_safes + total_customer_debt - total_supplier_debt),
         },
         "branches": branches_data,
-        "stock_per_warehouse": [s for s in stock_data if s["stock_cost_value"] > 0],
+        "stock_per_warehouse": [s for s in stock_data if D(s["stock_cost_value"]) != 0 or D(str(s["total_units"])) != 0],
         "low_stock": [{**dict(r), "total_qty": rs.qty(r["total_qty"])} for r in low_stock],
         "customer_debts": [{**dict(r), "balance_due": rs.money(r["balance_due"])} for r in customer_debts],
         "supplier_debts": [{**dict(r), "balance": rs.money(r["balance"])} for r in supplier_debts],

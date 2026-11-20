@@ -112,6 +112,15 @@ class ShiftCreate(BaseModel):
     description: str = Field("", max_length=1000)
 
 
+class ShiftUpdate(BaseModel):
+    """Only the fields sent change; a stopped shift is not offered for new employees."""
+    name: str | None = Field(None, min_length=1, max_length=128)
+    start_time: ClockTime | None = None
+    end_time: ClockTime | None = None
+    description: str | None = Field(None, max_length=1000)
+    is_active: bool | None = None
+
+
 class HRSettingsValues(BaseModel):
     """The payroll engine's settings. Anything else is refused (a bad value used to break every
     payroll run)."""
@@ -124,6 +133,12 @@ class HRSettingsValues(BaseModel):
     apply_missing_checkout_penalty: bool | None = None
     overtime_enabled: bool | None = None
     weekend_paid: bool | None = None
+    # What used to be fixed (HR-12); the defaults are those values (services/payroll_engine.SETTINGS).
+    weekend_day: int | None = Field(None, ge=0, le=6)  # Monday 0 … Sunday 6; Friday 4
+    day_start_hour: int | None = Field(None, ge=0, le=12)
+    paid_leave_days: int | None = Field(None, ge=0, le=31)
+    default_shift_start_hour: int | None = Field(None, ge=0, le=23)
+    default_shift_end_hour: int | None = Field(None, ge=0, le=23)
 
 
 class HRSettingsUpdate(BaseModel):

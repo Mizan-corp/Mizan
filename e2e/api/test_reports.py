@@ -32,25 +32,26 @@ def test_sales_reports_figures(admin_api, owner_api, reg, product, wh):
     _scenario(admin_api, reg, product, wh)
     p = {"warehouse_id": wh["id"]}
     daily = owner_api.ok(owner_api.get("/reports/sales/daily", params=p))
-    assert (daily["total_sales"], daily["gross_sales"], daily["returns_total"], daily["invoice_count"]) == (180, 280, 100, 2)
+    # Money comes as decimal strings (REP-15).
+    assert (daily["total_sales"], daily["gross_sales"], daily["returns_total"], daily["invoice_count"]) == ("180.00", "280.00", "100.00", 2)
 
     today = date.today()
     monthly = owner_api.ok(owner_api.get("/reports/sales/monthly", params={**p, "year": today.year, "month": today.month}))
-    assert monthly["total_sales"] == 180
+    assert monthly["total_sales"] == "180.00"
 
     trend = owner_api.ok(owner_api.get("/reports/sales/trend", params={**p, "days": 2}))
-    assert trend[-1]["date"] == _today() and trend[-1]["total_sales"] == 180
+    assert trend[-1]["date"] == _today() and trend[-1]["total_sales"] == "180.00"
 
     rng = {**p, "from_date": _today(), "to_date": _today()}
     top = owner_api.ok(owner_api.get("/reports/sales/top-products", params=rng))
-    assert [(t["product_id"], t["qty"], t["revenue"]) for t in top] == [(product["id"], 2, 180)]
+    assert [(t["product_id"], t["qty"], t["revenue"]) for t in top] == [(product["id"], 2, "180.00")]
 
     rows = owner_api.ok(owner_api.get("/reports/sales/by-cashier", params=rng))
-    assert sum(r["total_sales"] for r in rows) == 180
+    assert sum(float(r["total_sales"]) for r in rows) == 180
 
     profit = owner_api.ok(owner_api.get("/reports/profit", params=rng))
-    assert profit["net_revenue"] == 180 and profit["total_returns"] == 100
-    assert profit["gross_profit"] == round(profit["net_revenue"] - profit["total_cogs"], 2)
+    assert profit["net_revenue"] == "180.00" and profit["total_returns"] == "100.00"
+    assert float(profit["gross_profit"]) == round(float(profit["net_revenue"]) - float(profit["total_cogs"]), 2)
     assert profit["source"] in ("ledger", "operations")
 
 
@@ -69,21 +70,24 @@ def test_inventory_print_with_a_print_token(owner_api, wh):
 def test_ledger_reports(admin_api, owner_api, reg, product, wh):
     _scenario(admin_api, reg, product, wh)
     items = owner_api.ok(owner_api.get("/reports/ledger/daily-items", params={"warehouse_id": wh["id"]}))
-    assert [(i["qty"], i["total"], i["returns"]) for i in items["items"]] == [(3, 280, 100)]
+    assert [(i["qty"], i["total"], i["returns"]) for i in items["items"]] == [(3, "280.00", "100.00")]
     periodic = owner_api.ok(owner_api.get("/reports/ledger/periodic", params={"warehouse_id": wh["id"], "period": "monthly"}))
-    assert periodic[0]["income"] == 280 and periodic[0]["returns"] == 100
+    assert periodic[0]["income"] == "280.00" and periodic[0]["returns"] == "100.00"
 
 
 def test_cash_flow_aging_and_overview(admin_api, owner_api, reg, product, wh):
     _scenario(admin_api, reg, product, wh)
     cf = owner_api.ok(owner_api.get("/reports/cash-flow",
                                     params={"warehouse_id": wh["id"], "from_date": _today(), "to_date": _today()}))
-    assert cf["incoming"]["cash_sales"] == 280 and cf["outgoing"]["returns_to_customers"] == 100
+    # From the ledger's money accounts or the documents, the same lines (REP-8).
+    lines = {x["key"]: (float(x["in"]), float(x["out"])) for x in cf["lines"]}
+    assert cf["source"] in ("ledger", "operations")
+    assert lines["sale"] == (280, 0) and lines["sale_return"] == (0, 100)
     aging = owner_api.ok(owner_api.get("/reports/aging"))
     assert set(aging) >= {"as_of", "customers", "suppliers"}
     overview = owner_api.ok(owner_api.get("/admin/overview"))
     branch = next(b for b in overview["branches"] if b["id"] == wh["id"])
-    assert branch["revenue"] == 180 and branch["invoice_count"] == 2
+    assert branch["revenue"] == "180.00" and branch["invoice_count"] == 2
 
 
 def test_permissions(cashier_api):

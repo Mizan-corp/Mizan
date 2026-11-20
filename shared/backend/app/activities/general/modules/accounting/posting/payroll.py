@@ -3,8 +3,10 @@
 Payroll approved (source 'payroll', id: the approval's salaries expense, event 'approve'), one entry
 for the month from its payroll entries, dated today. Per employee: net = the entry's net salary;
 withheld = gross - net (gross = base + overtime + bonus payment + bonus; never below zero);
-recovered = the advances withheld, up to what was withheld; the rest of the withheld amount is
-deductions, lateness and absence.
+recovered = the advances deducted (less what the month's pay couldn't cover and was carried to the
+next month as an open advance, `advances_carried`, HR-9), up to what was withheld; the rest of the
+withheld amount is deductions, lateness and absence. A carried advance stays in employee advances
+and is recovered by the month that deducts it.
     Dr salaries expense                       (net + withheld, all employees)
     Cr salaries payable (party: employee)     (net)
     Cr employee advances (party: employee)    (advances recovered)
@@ -38,7 +40,7 @@ def _uid(user_id):
 
 async def _entries(db: AsyncSession, period_id) -> list:
     return (await db.execute(text("""
-        SELECT employee_id, base_salary, overtime_pay, bonus_payment, bonus, advances, net_salary
+        SELECT employee_id, base_salary, overtime_pay, bonus_payment, bonus, advances, advances_carried, net_salary
         FROM hr_payroll_entries WHERE period_id = :p ORDER BY employee_id
     """), {"p": period_id})).all()
 
@@ -53,7 +55,7 @@ async def on_payroll_approved(db: AsyncSession, *, period_id, month, expense_id,
         net = _d(e.net_salary)
         gross = _d(e.base_salary) + _d(e.overtime_pay) + _d(e.bonus_payment) + _d(e.bonus)
         withheld = max(Decimal("0"), gross - net)
-        recovered = min(_d(e.advances), withheld)
+        recovered = min(_d(e.advances) - _d(e.advances_carried), withheld)
         party = {"party_type": "employee", "party_id": e.employee_id}
         expense += net + withheld
         total_other += withheld - recovered
