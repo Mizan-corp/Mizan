@@ -110,7 +110,11 @@ A module is ready when all of these hold:
 - **PLAT-9** LOW — missing indexes: `sales(warehouse_id)`, `sales(status)`, `shifts(cashier_id)`,
   `safe_transactions(safe_id)`, `expenses(tenant_id, date)`, `purchase_order_items(po_id, product_id)`,
   `supplier_transactions(supplier_id)`, `purchase_price_history(product_id)`, `purchase_orders(supplier_id)`.
-- **PLAT-10** LOW — manifests lack `status`; several declare settings that nothing reads (listed per module).
+  *Done: phases A–B made all but `purchase_order_items(po_id, product_id)`, made in phase D (fix/d-fixes,
+  `v107_d_fixes`) with the indexes of the HR list and audit log and of the idempotency clean-up.*
+- **PLAT-10** LOW — manifests lack `status`; several declare settings that nothing reads (listed per module). *Phase D
+  (fix/d-fixes): saving some of a module's settings kept only those (the others went back to their
+  defaults); a save is now a merge, each key and value checked against `settings_schema` (422).*
 
 ## sales
 - **SAL-1** HIGH — client decides price, discount and the stock check: `sales/schemas.py` (`unit_price`
@@ -159,7 +163,9 @@ A module is ready when all of these hold:
   `transfer_drawer` target not validated.
 - **POS-6** MEDIUM — shift summary groups by `sales.payment_method`, split payments miscounted; use
   `sale_payments`.
-- **POS-7** MEDIUM — customer balance clamped at 0 on drawer receipts.
+- **POS-7** MEDIUM — customer balance clamped at 0 on drawer receipts. *Phase D (fix/d-fixes): cancelling
+  a receipt's drawer row also gave the invoice its debt back (`sales.paid_amount`), so the invoice, the
+  balance and the ledger agree.*
 - **POS-8** MEDIUM — shifts screen reads `opened_at`/`tx_type` (backend sends `started_at`/`type`);
   missing screens: close with manager, revenue delivery, drawer handover, summary before closing,
   cancel a drawer row; expense category.
@@ -190,6 +196,8 @@ A module is ready when all of these hold:
 - **INV-9** MEDIUM — missing screens: categories/subcategories (product create sends `subcategory_id:
   null` → 422), warehouses, adjustments and damage, transfers, barcodes, images, delete, movement log,
   collections. *Done in phase C (fix/c-stock-pur); collections are still sold nowhere (README).*
+  *Phase D (fix/d-fixes): decided a stock-assembly helper only (a sale line is one product: selling a
+  bundle is a sales/POS redesign); the screen offers no selling price and shows the cost (inventory README).*
 - **INV-10** MEDIUM — settings never read: `prevent_negative_stock`, `enable_reorder_alerts`,
   `valuation_method` (offers unimplemented FIFO). *Done in phase C: reorder alerts read the setting,
   FIFO setting removed (average cost).*
@@ -227,7 +235,9 @@ A module is ready when all of these hold:
 - **FIN-9** MEDIUM — `strict_safe_balance` setting unused; recurring expenses don't recur.
 - **FIN-10** MEDIUM — manual safe deposit with any `shift_id` credits that drawer in the ledger with no
   drawer movement; unknown ids 500.
-- **FIN-11** MEDIUM — no idempotency on safe deposit/withdraw, wallet→safe, wallet reset.
+- **FIN-11** MEDIUM — no idempotency on safe deposit/withdraw, wallet→safe, wallet reset. *Phase D
+  (fix/d-fixes): keys older than 7 days are deleted nightly (`idempotency_cleanup`); two requests with
+  one key at once are tested (one effect, the same answer).*
 - **FIN-12** MEDIUM — updates wipe fields or 500 (`update_safe`, `update_wallet`, `update_category`).
 - **FIN-13** MEDIUM — amounts unbounded (`max_digits`); `/financial-ledger`, `/audit-log` parse strings.
 - **FIN-14** MEDIUM — missing screens: categories, expense vendors, reject/edit expense, safe/wallet
@@ -275,8 +285,12 @@ A module is ready when all of these hold:
   `payroll.approve`, `payroll.pay`.
 - **HR-12** MEDIUM — hard-coded rules (Egypt, 5 am rollover, Friday weekend, 4 paid leave days, 26 days,
   12-hour shift); money in float.
-- **HR-13** MEDIUM — unbounded lists, per-employee queries, `TO_CHAR` filters.
-- **HR-14** MEDIUM — audit log covers only salary changes and advances.
+- **HR-13** MEDIUM — unbounded lists, per-employee queries, `TO_CHAR` filters. *Done in phase D
+  (fix/d-fixes): employees paged and searched; a month's calculation loads attendance and HR records in
+  bulk (queries independent of the employees); date filters are ranges (no `TO_CHAR` left).*
+- **HR-14** MEDIUM — audit log covers only salary changes and advances. *Done in phase D (fix/d-fixes):
+  employees (create, edit, stop, start), attendance (hand edits, imports), entry adjustments and every
+  payroll month step (calculate, submit, approve, pay, reopen).*
 - **HR-15** MEDIUM — missing screens: employee edit/deactivate, shifts, settings, CSV import, audit log,
   adjustments and breakdown, attendance and employee reports; lists cut at 100/60 rows; English statuses;
   period errors swallowed; reopen without confirmation; EGP hard-coded.
@@ -333,7 +347,8 @@ A module is ready when all of these hold:
 
 ## accounting
 - **ACC-1** MEDIUM — entry numbering scans `MAX(...)` under a per-workspace lock on every post: a counter
-  row (`UPDATE … RETURNING`).
+  row (`UPDATE … RETURNING`). *Done in phase D (fix/d-fixes): the workspace's `JE` row of `doc_counters`,
+  seeded by `v107_d_fixes`; concurrency tested.*
 - **ACC-2** MEDIUM — no e2e/api tests for `/accounting/*` (accounts, category mapping, VAT report, entries).
 - **ACC-3** LOW — report routes don't check branch access; party picker capped at 1,000; duplicate account
   code race → 500; a group can be stopped while children stay postable; ledger falls behind if the module
