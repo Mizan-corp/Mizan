@@ -712,7 +712,8 @@ async def delete_drawer_transaction(db: AsyncSession, tx_id: uuid.UUID, current_
     """Cancel a drawer row entered by hand (who may is checked by the route: those who approve at
     the counter, in a branch they reach). The row is kept and marked cancelled (ADR-014 D4), so the
     shift's totals skip it; a wallet movement it made is reversed, and a customer receipt it
-    recorded is reversed by a negative receipt and the debt comes back. Rows of a sale or a return
+    recorded is reversed by a negative receipt and the debt comes back, on the customer and on the
+    invoice it paid (contacts.service.reverse_drawer_receipt). Rows of a sale or a return
     are changed through the sale (cancel or return), not here. Audited."""
     result = await db.execute(sqlt("""
         SELECT dt.*, sh.status as shift_status
@@ -742,14 +743,11 @@ async def delete_drawer_transaction(db: AsyncSession, tx_id: uuid.UUID, current_
             await record_wallet_tx(db, tx["wallet_id"], amt, "expense_reversed", tx_id, "حذف خوارج", current_user_id)
 
     if tx.get("customer_payment_id"):
-        from app.activities.general.modules.contacts.models.customer_payment import CustomerPayment
-        paid = await db.get(CustomerPayment, tx["customer_payment_id"])
-        if paid:
-            db.add(CustomerPayment(customer_id=paid.customer_id, amount=-Decimal(str(paid.amount)),
-                                   note=f"إلغاء دفعة من الدرج{(' — ' + paid.note) if paid.note else ''}",
-                                   created_by=current_user_id))
-            await db.execute(sqlt("UPDATE customers SET balance = COALESCE(balance,0) + :amt WHERE id = :cid"),
-                             {"amt": Decimal(str(paid.amount)), "cid": paid.customer_id})
+        # The receipt is reversed by contacts: the customer's balance and the invoice it paid
+        # (sales.paid_amount) go back up together, and the ledger entry is reversed below.
+        from app.activities.general.modules.contacts.service import reverse_drawer_receipt
+
+        await reverse_drawer_receipt(db, tx["customer_payment_id"], current_user_id)
 
     await db.execute(sqlt("UPDATE drawer_transactions SET cancelled_at = now(), cancelled_by = :uid WHERE id = :id"),
                      {"uid": current_user_id, "id": tx_id})

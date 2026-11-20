@@ -38,7 +38,12 @@ reversing receipts need more (below).
   wallet (refused if it isn't there), the customer owes the amount again, the invoice's paid amount
   goes down, the ledger entry is reversed (`customer_payment.reversed`), and a negative receipt
   pointing to the original (`reverses_id`, unique) records it. A receipt into a cashier's drawer is
-  undone by cancelling its drawer movement on the shift screen. A receipt is reversed once.
+  undone by cancelling its drawer movement on the shift screen (`service.reverse_drawer_receipt`,
+  called by pos): the same negative receipt pointing to the original and the invoice it paid, the
+  customer's balance and the invoice's `paid_amount` (and what is due on it) go back up, and the
+  ledger entry is reversed by the drawer's cancel. Before phase D the invoice kept its paid amount, so
+  `sales.paid_amount`, the balance and the ledger disagreed. A receipt is reversed once, by either path
+  (the other is a 409).
 - **Write-offs**: setting a balance records the difference (`customer_adjustments`, ADR-014 D4),
   posted to the ledger; lowering it writes off debt, so a cashier holding only `customers` can't.
 - Amounts: receipts up to 12 digits, balances and limits up to 14, 2 decimals; `method` is one of
