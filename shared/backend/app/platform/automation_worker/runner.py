@@ -224,6 +224,14 @@ async def recurring_expenses(db: AsyncSession) -> dict[str, Any]:
     return await run_all(db)
 
 
+async def idempotency_cleanup(db: AsyncSession) -> dict[str, Any]:
+    """Idempotency keys older than a week, in every workspace (app/framework/idempotency.py)."""
+    from app.framework.idempotency import KEEP_DAYS, purge_old
+
+    n = await purge_old(db)
+    return {"message": f"حُذف {n} مفتاح منع تكرار أقدم من {KEEP_DAYS} أيام", "items_processed": n}
+
+
 async def owner_billing_reminders(db: AsyncSession) -> dict[str, Any]:
     """Trial and renewal reminders by email to owners with a verified address (#72)."""
     from app.platform.billing.owner_emails import billing_reminders
@@ -308,6 +316,13 @@ JOB_REGISTRY = {
         "description": "إنشاء المصروف التالي لكل مصروف دوري حلّ موعده، مسودةً بانتظار الاعتماد (لا يُصرف شيء آليًا)",
         "cron": "0 2 * * *",
         "handler": recurring_expenses,
+    },
+    "idempotency_cleanup": {
+        "title": "تنظيف مفاتيح منع التكرار القديمة",
+        "title_en": "Idempotency keys clean-up",
+        "description": "حذف مفاتيح منع تكرار العمليات (إعادة الإرسال) التي مضى عليها أكثر من 7 أيام",
+        "cron": "15 2 * * *",
+        "handler": idempotency_cleanup,
     },
 }
 

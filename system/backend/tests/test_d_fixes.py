@@ -360,3 +360,41 @@ async def test_the_counters_start_after_the_numbers_already_used():
     await _sql(env, "DELETE FROM doc_counters WHERE doc_type = 'JE'")
     assert await _post(tid, a, b) == f"JE-{int(last.removeprefix('JE-')) + 1:06d}"
     assert await _one(env, "SELECT last_value FROM doc_counters WHERE doc_type = 'JE'") == int(last.removeprefix("JE-")) + 1
+
+
+# ── 8. Idempotency keys ──────────────────────────────────────────────────────────────────────
+
+async def test_old_idempotency_keys_are_cleaned_up_every_night():
+    from app.platform.automation_worker.runner import JOB_REGISTRY, run_job
+
+    env = await _ws()
+    old, fresh = f"old-{uuid.uuid4().hex}", f"new-{uuid.uuid4().hex}"
+    for key, age in ((old, 8), (fresh, 1)):
+        await _sql(env, "INSERT INTO idempotency_keys (id, tenant_id, scope, key, request_hash, response, created_at) "
+                        "VALUES (gen_random_uuid(), :t, 'test', :k, 'h', '{}'::jsonb, now() - make_interval(days => :d))",
+                   t=env["tenant_id"], k=key, d=age)
+    assert "idempotency_cleanup" in JOB_REGISTRY
+    current_tenant_id.set(None)
+    async with AsyncSessionLocal() as s:
+        out = await run_job("idempotency_cleanup", s)
+    assert out["status"] == "success", out
+    left = {r.key for r in await _sql(env, "SELECT key FROM idempotency_keys WHERE scope = 'test'")}
+    assert left == {fresh}
+    cron = (ROOT / "deploy/server/mizan-cron.sh").read_text()
+    nightly = next(line for line in cron.splitlines() if line.strip().startswith("nightly)"))
+    assert "idempotency_cleanup" in nightly
+
+
+async def test_two_requests_at_once_with_one_key_have_one_effect():
+    env = await _ws()
+    h = {**env["h"]["admin"], "Idempotency-Key": f"twin-{uuid.uuid4().hex}"}
+    sid = env["safe_id"]
+    async with _client() as c:
+        first, second = await asyncio.gather(
+            c.post(f"/safes/{sid}/deposit", json={"amount": "75"}, headers=h),
+            c.post(f"/safes/{sid}/deposit", json={"amount": "75"}, headers=h))
+    assert first.status_code == second.status_code == 200, (first.text, second.text)
+    assert first.json() == second.json()
+    assert await _one(env, "SELECT balance FROM safes WHERE id = :s", s=sid) == D("1075")
+    assert await _one(env, "SELECT count(*) FROM safe_transactions WHERE safe_id = :s", s=sid) == 1
+    assert await _one(env, "SELECT count(*) FROM idempotency_keys WHERE scope = 'safe.deposit'") == 1

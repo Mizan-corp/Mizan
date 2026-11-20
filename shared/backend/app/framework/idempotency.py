@@ -14,7 +14,8 @@ transaction, so either both are saved or neither is:
 
 A second request with the same key waits for the first to finish (the unique index), then gets its
 answer. A failed request leaves no claim, so its retry runs again. The same key with a different
-request is refused (422): it is a mistake in the client, not a retry.
+request is refused (422): it is a mistake in the client, not a retry. Keys are kept 7 days
+(purge_old, the nightly job `idempotency_cleanup`).
 """
 from __future__ import annotations
 
@@ -25,7 +26,7 @@ from datetime import datetime
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import DateTime, String, UniqueConstraint, func, text
+from sqlalchemy import DateTime, Index, String, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
@@ -42,7 +43,8 @@ IN_PROGRESS = "العملية نفسها قيد التنفيذ. انتظر قل�
 class IdempotencyKey(TenantScoped, Base):
     """One claimed key of one kind of write, with the answer it got."""
     __tablename__ = "idempotency_keys"
-    __table_args__ = (UniqueConstraint("tenant_id", "scope", "key", name="uq_idempotency_keys_scope_key"),)
+    __table_args__ = (UniqueConstraint("tenant_id", "scope", "key", name="uq_idempotency_keys_scope_key"),
+                      Index("ix_idempotency_keys_created_at", "created_at"))  # the nightly clean-up
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,
                                           server_default=text("gen_random_uuid()"))
@@ -104,3 +106,19 @@ async def remember(db: AsyncSession, scope: str, key: str | None, response) -> N
         WHERE tenant_id = :t AND scope = :s AND key = :k
     """), {"r": json.dumps(jsonable_encoder(response if response is not None else {})), "t": current_tenant_id.get(),
            "s": scope, "k": key})
+
+
+KEEP_DAYS = 7
+
+
+async def purge_old(db: AsyncSession, days: int = KEEP_DAYS) -> int:
+    """Delete the keys of every workspace older than `days` (the nightly job `idempotency_cleanup`):
+    a retry comes within minutes or, from an offline till, within days, never a week later (a key
+    is claimed and answered in one transaction, so none is still in progress by then). Runs with no
+    workspace bound, so the bypass is set for this transaction only. Returns how many were deleted."""
+    await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
+    deleted = (await db.execute(text(
+        "DELETE FROM idempotency_keys WHERE created_at < now() - make_interval(days => :d)"
+    ), {"d": int(days)})).rowcount or 0
+    await db.commit()
+    return deleted
