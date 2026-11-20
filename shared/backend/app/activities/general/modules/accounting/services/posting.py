@@ -45,11 +45,23 @@ async def period_closed(db: AsyncSession, tenant_id: uuid.UUID, on: date) -> boo
 
 
 async def _next_number(db: AsyncSession, tenant_id: uuid.UUID) -> str:
-    await db.execute(text("SELECT pg_advisory_xact_lock(hashtext(:k))"), {"k": f"acc_entries:{tenant_id}"})
-    last = await db.scalar(text(
-        "SELECT COALESCE(MAX(CAST(substring(number FROM 4) AS integer)), 0) FROM acc_entries "
-        "WHERE tenant_id = :t AND number LIKE 'JE-%'"), {"t": tenant_id})
-    return f"JE-{int(last) + 1:06d}"
+    """The workspace's next entry number (ACC-1): its `JE` row of doc_counters is incremented
+    with UPDATE … RETURNING, whose row lock (held to the end of the transaction) serialises posts,
+    so two posts at once get consecutive numbers and a rolled-back post gives its number back.
+    The row is made on the first post after the highest number already used (v107 made it for
+    every workspace that had entries); the old MAX(number) scan ran on every post."""
+    value = await db.scalar(text(
+        "UPDATE doc_counters SET last_value = last_value + 1, updated_at = now() "
+        "WHERE tenant_id = :t AND doc_type = 'JE' RETURNING last_value"), {"t": tenant_id})
+    if value is None:
+        start = await db.scalar(text(
+            "SELECT COALESCE(MAX(substring(number FROM 4)::bigint), 0) FROM acc_entries "
+            "WHERE tenant_id = :t AND number ~ '^JE-[0-9]{1,18}$'"), {"t": tenant_id})
+        value = await db.scalar(text(
+            "INSERT INTO doc_counters (tenant_id, doc_type, last_value) VALUES (:t, 'JE', :v) "
+            "ON CONFLICT (tenant_id, doc_type) DO UPDATE SET last_value = doc_counters.last_value + 1, updated_at = now() "
+            "RETURNING last_value"), {"t": tenant_id, "v": int(start) + 1})
+    return f"JE-{int(value):06d}"
 
 
 async def find(db: AsyncSession, tenant_id: uuid.UUID, source_type: str, source_id, event: str) -> Entry | None:

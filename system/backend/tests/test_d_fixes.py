@@ -288,3 +288,75 @@ async def test_the_hr_audit_log_records_every_change_and_step():
     assert by[("update", "payroll_entry")]["employee_name"] is not None
     assert by[("pay", "payroll_period")]["entity_id"] == MONTH
     assert by[("pay", "payroll_period")]["details"]["safe_id"] == str(ws["safe_id"])
+
+
+# ── 6. ACC-1 ─────────────────────────────────────────────────────────────────────────────────
+
+async def _two_accounts(tid) -> tuple:
+    async with AsyncSessionLocal() as s:
+        await bind_tenant(s, tid)
+        rows = (await s.execute(text("SELECT id FROM acc_accounts WHERE NOT is_group AND active AND role IN "
+                                     "('other_expenses', 'cash_surplus') ORDER BY role"))).scalars().all()
+    return rows[0], rows[1]
+
+
+async def _post(tid, a, b, amount="10"):
+    from app.activities.general.modules.accounting.services.posting import cr, dr, post
+    from app.platform.tenancy.clock import today
+
+    async with AsyncSessionLocal() as s:
+        await bind_tenant(s, tid)
+        entry = await post(s, tid, "test", uuid.uuid4(), "confirm", today(), [dr(a, amount), cr(b, amount)])
+        number = entry.number
+        await s.commit()
+    return number
+
+
+async def test_entry_numbers_come_from_the_workspace_counter():
+    """Old code: every post scanned MAX(number) of the workspace's entries; the counter row didn't
+    exist, so moving it on changed nothing."""
+    from app.activities.general.modules.accounting.services import chart
+
+    env = await _ws(accounting=True)
+    tid = env["tenant_id"]
+    async with AsyncSessionLocal() as s:
+        await bind_tenant(s, tid)
+        await chart.ensure_chart(s, tid)
+        await s.commit()
+    a, b = await _two_accounts(tid)
+    first = await _post(tid, a, b)
+    last = int(first.removeprefix("JE-"))
+    assert await _one(env, "SELECT last_value FROM doc_counters WHERE doc_type = 'JE'") == last
+    await _sql(env, "UPDATE doc_counters SET last_value = 41 WHERE doc_type = 'JE'")
+    assert await _post(tid, a, b) == "JE-000042"
+
+    # Two posts at once: distinct, consecutive numbers.
+    numbers = await asyncio.gather(_post(tid, a, b), _post(tid, a, b))
+    assert sorted(numbers) == ["JE-000043", "JE-000044"]
+    # A post that is rolled back gives its number back.
+    from app.activities.general.modules.accounting.services.posting import cr, dr, post
+    from app.platform.tenancy.clock import today
+
+    async with AsyncSessionLocal() as s:
+        await bind_tenant(s, tid)
+        await post(s, tid, "test", uuid.uuid4(), "confirm", today(), [dr(a, "1"), cr(b, "1")])
+        await s.rollback()
+    assert await _post(tid, a, b) == "JE-000045"
+
+
+async def test_the_counters_start_after_the_numbers_already_used():
+    """A workspace without its counter row (from before v107) starts after its highest number."""
+    env = await _ws(accounting=True)
+    tid = env["tenant_id"]
+    from app.activities.general.modules.accounting.services import chart
+
+    async with AsyncSessionLocal() as s:
+        await bind_tenant(s, tid)
+        await chart.ensure_chart(s, tid)
+        await s.commit()
+    a, b = await _two_accounts(tid)
+    for _ in range(3):
+        last = await _post(tid, a, b)
+    await _sql(env, "DELETE FROM doc_counters WHERE doc_type = 'JE'")
+    assert await _post(tid, a, b) == f"JE-{int(last.removeprefix('JE-')) + 1:06d}"
+    assert await _one(env, "SELECT last_value FROM doc_counters WHERE doc_type = 'JE'") == int(last.removeprefix("JE-")) + 1
