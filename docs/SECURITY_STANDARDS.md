@@ -100,3 +100,43 @@ nothing. Details: [`USER_ROLES_AND_PERMISSIONS.md`](USER_ROLES_AND_PERMISSIONS.m
   theme reaches no data.
 - **Developer accounts** are separate from owner accounts; team owners manage members and revoke
   keys; CLI tokens can be revoked one by one; a password change ends every portal session.
+
+## 7. The route security sweep (every route, every run)
+`system/backend/tests/test_route_security_sweep.py` checks every route of the system API the same
+way, in about a minute (helpers in `tests/route_sweep.py`):
+
+1. **Inventory.** Each route is protected by its dependency tree (an ERP sign-in through
+   `get_current_user`, a print token through `get_print_user`, an installed module's installation
+   token) or is on the `PUBLIC` allow-list with a reason. A new route that is neither fails the test,
+   so no route becomes public by accident.
+2. **Anonymous.** Every signed-in route answers 401 without a session.
+3. **Permissions.** A user whose role holds no permission calls every signed-in route, with random ids
+   and minimal bodies built from the OpenAPI schema. A route with a permission check in its
+   dependency tree (`require_perm`, the clinic's guards, `require_superadmin`…) must answer 401/403.
+   A route without one must refuse by itself (a 4xx), unless it is on `SIGNED_IN` (open to every
+   signed-in user, with a reason: one's own profile, pickers that return names only…) or belongs to an
+   activity prototype (`PROTOTYPES`).
+4. **No 500.** That user, then the workspace's admin, call every route: nothing answers 500, and no
+   general module relies on the database refusing the input (an unknown id, a text too long).
+5. **Isolation.** Workspace B is filled (a sale, a customer, a supplier, a product, an expense, an
+   employee, a purchase order, ledger entries, and a record through every create route); workspace
+   A's admin calls every GET route with B's ids. A record route answers 403/404, and no answer carries
+   the id of any of B's rows or B's marker text.
+
+**Adding a route.** Protect it with a dependency: `require_perm("<permission>")` for anything that
+changes or reveals data. Only when it is meant for everyone:
+- without a session: add `("GET", "/path/{param}")` to `PUBLIC` with the reason and how the route
+  protects itself (a signed token, a secret header, a rate limit), and bind no workspace's data;
+- for every signed-in user: add it to `SIGNED_IN` with the reason, and return nothing sensitive
+  (balances, costs, salaries, phone numbers of customers: only to who holds the permission).
+A route that must not be called with generated input goes in `SKIP` with the reason. The lists are
+checked too: an entry for a route that no longer exists, or that gained a permission, fails.
+
+**Activities' modules** (gym, hotel, logistics…, outside the production plan for now) answer only
+workspaces that use the activity: `require_activity` is added when the module's router is mounted
+(`system_api/router.py`) unless all its signed-in routes already check their module. Inside such a
+workspace they check no permission yet (their manifests declare none): a known limit.
+
+**Not swept:** static files (`/uploads` holds public images only; private files are served by
+routes), the community modules' records (their permission is checked per screen inside the route and
+needs an installed package), and the owner, admin and website APIs.
