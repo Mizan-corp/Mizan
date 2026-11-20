@@ -64,10 +64,12 @@ class SaleCreate(BaseModel):
 
 
 class UpdateSaleItem(SaleItemCreate):
-    pass
+    # Left out: the product's price now (an edit never keeps a price the server wouldn't take).
+    unit_price: Decimal | None = Field(None, ge=0, le=MAX_MONEY)
 
 
 class UpdateSale(BaseModel):
+    """A draft's or a quotation's edit; only the fields sent change."""
     items: list[UpdateSaleItem] = Field(default_factory=list, max_length=500)
     discount_amount: Decimal = Field(default=Decimal("0"), ge=0, le=MAX_MONEY)
     notes: str | None = Field(default=None, max_length=2000)
@@ -75,9 +77,11 @@ class UpdateSale(BaseModel):
 
 
 class ConfirmQuotationRequest(BaseModel):
-    """وجهة فلوس عرض السعر عند التأكيد — درج (وردية مفتوحة) أو خزنة أو على حساب العميل (آجل)."""
-    destination: Literal["drawer", "safe", "credit"] = "drawer"
+    """Where a quotation's money goes when it is confirmed: the user's open shift's drawer, a
+    safe, a payment wallet, or the customer's account (credit)."""
+    destination: Literal["drawer", "safe", "wallet", "credit"] = "drawer"
     safe_id: uuid.UUID | None = None
+    wallet_id: uuid.UUID | None = None
 
 
 class PartialReturnItem(BaseModel):
@@ -112,6 +116,7 @@ class SaleOut(BaseModel):
     invoice_number: str
     customer_id: uuid.UUID | None
     customer_name: str | None = None
+    created_by_name: str | None = None
     warehouse_id: uuid.UUID
     cashier_id: uuid.UUID
     shift_id: uuid.UUID | None
@@ -133,3 +138,25 @@ class SaleOut(BaseModel):
     created_at: datetime
     items: list[SaleItemOut] = []
     model_config = {"from_attributes": True}
+
+
+class SalesPage(BaseModel):
+    items: list[SaleOut]
+    total: int
+    page: int
+    page_size: int
+
+
+class SalesSummary(BaseModel):
+    """The sales of a filter, as the reports count them: values net of VAT, returns taken off."""
+    net_sales: Decimal
+    gross_sales: Decimal
+    returns_total: Decimal
+    tax_total: Decimal
+    outstanding: Decimal
+    invoice_count: int
+    returns_count: int
+    cancelled_count: int
+    quotation_count: int
+    draft_count: int
+

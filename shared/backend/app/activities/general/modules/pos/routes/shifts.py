@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.platform.permissions.access import can
-from app.dependencies import require_is_manager, require_perm, verify_warehouse_access
+from app.dependencies import require_perm, verify_warehouse_access
 from app.activities.general.modules.pos.models import DrawerTransaction, Shift, ShiftStatus
 from app.platform.auth.models.user import User
 from app.activities.general.modules.pos.schemas import (
@@ -138,6 +138,18 @@ async def shift_summary(shift_id: uuid.UUID, db: AsyncSession = Depends(get_db),
     return await shift_service.compute_summary(db, shift_id)
 
 
+# ── People ─────────────────────────────────────────────────────────────────────
+
+@router.get("/{shift_id}/people")
+async def shift_people(shift_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(_read)):
+    """The managers who can approve at the counter and the colleagues the drawer can be handed to."""
+    shift = await _shift(db, shift_id)
+    if shift.cashier_id != current_user.id and not (current_user.is_manager or can(current_user, "supervise")):
+        raise HTTPException(status_code=403, detail="لا يمكنك الاطلاع على وردية موظف آخر")
+    await verify_warehouse_access(db, current_user, shift.warehouse_id)
+    return await shift_service.shift_people(db, shift)
+
+
 # ── Transactions ───────────────────────────────────────────────────────────────
 
 @router.post("/{shift_id}/transactions", response_model=DrawerTxOut)
@@ -192,5 +204,14 @@ async def list_shifts(
 # ── Delete transaction ─────────────────────────────────────────────────────────
 
 @router.delete("/transactions/{tx_id}", status_code=204)
-async def delete_drawer_transaction(tx_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_is_manager)):
+async def delete_drawer_transaction(tx_id: uuid.UUID, db: AsyncSession = Depends(get_db),
+                                    current_user: User = Depends(require_perm("shifts", "supervise"))):
+    """Cancel a drawer row entered by hand: those who approve at the counter (`supervise`, or a
+    manager with `shifts`: can_approve), in a branch they reach."""
+    if not shift_service.can_approve(current_user):
+        raise HTTPException(status_code=403, detail="إلغاء حركات الدرج للمشرف أو المدير فقط")
+    tx = await db.get(DrawerTransaction, tx_id)
+    if tx is None:
+        raise HTTPException(status_code=404, detail="العملية غير موجودة")
+    await verify_warehouse_access(db, current_user, (await _shift(db, tx.shift_id)).warehouse_id)
     await shift_service.delete_drawer_transaction(db, tx_id, current_user.id)

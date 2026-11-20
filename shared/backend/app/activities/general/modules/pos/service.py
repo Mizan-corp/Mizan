@@ -324,26 +324,33 @@ async def compute_summary(db: AsyncSession, shift_id: uuid.UUID) -> dict:
     withdrawals      = totals.get("withdrawal", Decimal("0"))
     revenue_delivery = totals.get("revenue_delivery", Decimal("0"))
 
-    # Payment method breakdown (from sales linked to this shift)
+    # How the shift's sales were paid, from their payment lines (POS-6): a split payment counts
+    # each part under its own method (it used to count the whole sale under the first one). Sales
+    # recorded before payment lines existed count whole, under their payment method.
     pay_rows = await db.execute(sqlt("""
         SELECT method, wallet_name, wallet_type,
-               COUNT(*) as count,
-               COALESCE(SUM(sale_total - COALESCE(invoice_discount,0)), 0) as total
+               COUNT(DISTINCT sale_id) AS count, COALESCE(SUM(amount), 0) AS total
         FROM (
-            SELECT s.payment_method as method, pw.name as wallet_name, pw.type as wallet_type,
-                   s.id, s.discount_amount as invoice_discount,
-                   SUM(si.qty * si.unit_price - si.discount) as sale_total
+            SELECT sp.method, pw.name AS wallet_name, pw.type AS wallet_type, s.id AS sale_id, sp.amount
+            FROM sales s
+            JOIN sale_payments sp ON sp.sale_id = s.id
+            LEFT JOIN payment_wallets pw ON pw.id = sp.wallet_id
+            WHERE s.shift_id = :sid AND s.status = 'confirmed'
+            UNION ALL
+            SELECT s.payment_method, pw.name, pw.type, s.id, s.net_total
             FROM sales s
             LEFT JOIN payment_wallets pw ON pw.id = s.wallet_id
-            LEFT JOIN sale_items si ON si.sale_id = s.id
             WHERE s.shift_id = :sid AND s.status = 'confirmed'
-            GROUP BY s.id, s.payment_method, pw.name, pw.type, s.discount_amount
-        ) sub
+              AND NOT EXISTS (SELECT 1 FROM sale_payments sp WHERE sp.sale_id = s.id)
+        ) lines
         GROUP BY method, wallet_name, wallet_type
+        ORDER BY method, wallet_name
     """), {"sid": shift_id})
     payment_breakdown = [dict(r._mapping) for r in pay_rows.fetchall()]
 
-    wallet_sales = sum(float(p["total"]) for p in payment_breakdown if p["method"] != "cash")
+    # What came in other than cash or on credit (wallets, bank, cheques).
+    wallet_sales = sum((Decimal(str(p["total"])) for p in payment_breakdown if p["method"] not in ("cash", "credit")),
+                       Decimal("0"))
 
     # Wallet deposits/expenses from drawer transactions
     wallet_tx_rows = await db.execute(sqlt("""
@@ -520,6 +527,31 @@ async def transfer_drawer(db: AsyncSession, shift_id: uuid.UUID, to_user_id: uui
     return new_shift
 
 
+async def shift_people(db: AsyncSession, shift: Shift) -> dict:
+    """Who the shifts screen offers for a shift: the managers who can approve at the counter
+    (closing with a manager, revenue delivery: can_approve) and the colleagues the drawer can be
+    handed to (the rules of _receiver, and no open shift of their own in the branch)."""
+    from app.platform.auth.models.user import User, user_warehouses
+    from app.platform.permissions.access import can, load_acting
+
+    users = (await db.execute(select(User).where(User.tenant_id == shift.tenant_id, User.is_active.is_(True))
+                              .order_by(User.full_name).limit(500))).scalars().all()
+    assigned = set((await db.execute(select(user_warehouses.c.user_id).where(
+        user_warehouses.c.warehouse_id == shift.warehouse_id))).scalars().all())
+    busy = set((await db.execute(select(Shift.cashier_id).where(
+        Shift.warehouse_id == shift.warehouse_id, Shift.status == ShiftStatus.open))).scalars().all())
+    approvers, receivers = [], []
+    for user in users:
+        await load_acting(db, user)
+        person = {"id": str(user.id), "full_name": user.full_name}
+        if can_approve(user):
+            approvers.append(person)
+        if user.id != shift.cashier_id and user.id not in busy and can(user, "shifts") \
+                and (user.is_manager or can(user, "supervise") or user.id in assigned):
+            receivers.append(person)
+    return {"approvers": approvers, "receivers": receivers}
+
+
 MANUAL_TYPES = (DrawerTxType.deposit, DrawerTxType.expense, DrawerTxType.withdrawal)
 
 
@@ -677,10 +709,11 @@ async def revenue_delivery(db: AsyncSession, shift_id: uuid.UUID, data, current_
 
 
 async def delete_drawer_transaction(db: AsyncSession, tx_id: uuid.UUID, current_user_id: uuid.UUID) -> None:
-    """Cancel a drawer transaction (manager only). The row is kept and marked cancelled (ADR-014 D4),
-    so the shift's totals skip it; a wallet movement it made is reversed, and a customer receipt it
+    """Cancel a drawer row entered by hand (who may is checked by the route: those who approve at
+    the counter, in a branch they reach). The row is kept and marked cancelled (ADR-014 D4), so the
+    shift's totals skip it; a wallet movement it made is reversed, and a customer receipt it
     recorded is reversed by a negative receipt and the debt comes back. Rows of a sale or a return
-    are changed through the sale (cancel or return), not here."""
+    are changed through the sale (cancel or return), not here. Audited."""
     result = await db.execute(sqlt("""
         SELECT dt.*, sh.status as shift_status
         FROM drawer_transactions dt
@@ -721,6 +754,13 @@ async def delete_drawer_transaction(db: AsyncSession, tx_id: uuid.UUID, current_
     await db.execute(sqlt("UPDATE drawer_transactions SET cancelled_at = now(), cancelled_by = :uid WHERE id = :id"),
                      {"uid": current_user_id, "id": tx_id})
     await notify("drawer.transaction_cancelled", db, tx=tx, user_id=current_user_id)
+    from app.platform.audit.service import log as audit_log
+
+    name = (await db.execute(sqlt("SELECT full_name FROM users WHERE id = :id"), {"id": current_user_id})).scalar()
+    await audit_log(db, "shift", "cancel_drawer_tx", current_user_id, name, tx["shift_id"],
+                    {"tx_id": str(tx_id), "type": str(tx["type"]), "amount": str(amt),
+                     "payment_method": tx.get("payment_method") or "cash"},
+                    f"إلغاء حركة درج ({amt:.2f} ج.م)")
     await db.commit()
 
 
