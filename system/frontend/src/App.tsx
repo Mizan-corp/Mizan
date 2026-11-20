@@ -15,6 +15,13 @@ const SuppliersPage = lazy(() => import("@app/features/suppliers/SuppliersPage")
 const UsersPage = lazy(() => import("@app/features/users/UsersPage"));
 const HrPage = lazy(() => import("@activities/general/modules/hr/HrPage"));
 const InventoryPage = lazy(() => import("@activities/general/modules/inventory/InventoryPage"));
+const InventoryCategoriesPage = lazy(() => import("@activities/general/modules/inventory/screens/CategoriesPage"));
+const InventoryAdjustmentsPage = lazy(() => import("@activities/general/modules/inventory/screens/AdjustmentsPage"));
+const InventoryCollectionsPage = lazy(() => import("@activities/general/modules/inventory/screens/CollectionsPage"));
+const InventoryWarehousesPage = lazy(() => import("@activities/general/modules/inventory/screens/WarehousesPage"));
+const PurchaseOrderPage = lazy(() => import("@activities/general/modules/purchases/screens/PurchaseOrderPage"));
+const PurchaseSuggestionsPage = lazy(() => import("@activities/general/modules/purchases/screens/SuggestionsPage"));
+const PurchasePriceHistoryPage = lazy(() => import("@activities/general/modules/purchases/screens/PriceHistoryPage"));
 const ReportsPage = lazy(() => import("@app/features/reports/ReportsPage"));
 const ArchivePage = lazy(() => import("@app/features/archive/ArchivePage"));
 const OperationsPage = lazy(() => import("@app/features/operations/OperationsPage"));
@@ -157,8 +164,15 @@ function renderErpChildRoutes(includeIndex: boolean = true) {
       <Route path="products" element={<Guard perm="inventory"><ProductsPage /></Guard>} />
       <Route path="sales" element={<Guard perm="sales"><SalesPage /></Guard>} />
       <Route path="inventory" element={<Guard perm="inventory"><InventoryPage /></Guard>} />
+      <Route path="inventory/categories" element={<Guard perm="inventory"><InventoryCategoriesPage /></Guard>} />
+      <Route path="inventory/adjustments" element={<Guard perm="inventory"><InventoryAdjustmentsPage /></Guard>} />
+      <Route path="inventory/collections" element={<Guard perm="inventory"><InventoryCollectionsPage /></Guard>} />
+      <Route path="inventory/warehouses" element={<Guard perm="settings"><InventoryWarehousesPage /></Guard>} />
       <Route path="operations" element={<Guard perm="operations"><OperationsPage /></Guard>} />
-      <Route path="purchases" element={<Guard perm="purchases"><PurchasesPage /></Guard>} />
+      <Route path="purchases" element={<Guard perm="purchases|finance"><PurchasesPage /></Guard>} />
+      <Route path="purchases/suggestions" element={<Guard perm="purchases|finance"><PurchaseSuggestionsPage /></Guard>} />
+      <Route path="purchases/price-history" element={<Guard perm="purchases|finance"><PurchasePriceHistoryPage /></Guard>} />
+      <Route path="purchases/:id" element={<Guard perm="purchases|finance"><PurchaseOrderPage /></Guard>} />
       <Route path="customers" element={<Guard perm="customers"><CustomersPage /></Guard>} />
       <Route path="suppliers" element={<Guard perm="purchases|finance"><SuppliersPage /></Guard>} />
       <Route path="finance" element={<Guard perm="finance"><FinancePage /></Guard>} />

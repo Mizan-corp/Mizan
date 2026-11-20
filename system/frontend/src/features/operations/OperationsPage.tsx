@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { StockRequests } from "./StockRequests";
 import { ClipboardList, PackagePlus, Send } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
@@ -74,6 +75,7 @@ export default function OperationsPage() {
           { k: "dispatch", l: "إذن صرف" },
           { k: "receipt", l: "استلام بضاعة" },
           { k: "request", l: "طلب مخزون" },
+          { k: "requests", l: "الطلبات" },
           { k: "history", l: "السجل" },
         ].map((t) => (
           <button
@@ -88,6 +90,7 @@ export default function OperationsPage() {
       {tab === "dispatch" && <DispatchForm />}
       {tab === "receipt" && <ReceiptNotice />}
       {tab === "request" && <RequestForm />}
+      {tab === "requests" && <StockRequests />}
       {tab === "history" && <History />}
     </div>
   );
@@ -248,7 +251,7 @@ function RequestForm() {
       <Lines lines={lines} setLines={setLines} showCost={false} />
       <Input placeholder="ملاحظات" value={notes} onChange={(e) => setNotes(e.target.value)} />
       {run.isError && <ErrorBox message={(run.error as Error).message} />}
-      {run.isSuccess && <Card className="border-success/40 bg-success/10 p-3 text-sm text-success-ink">تم إرسال الطلب بنجاح</Card>}
+      {run.isSuccess && <Card className="border-success/40 bg-success/10 p-3 text-sm text-success-ink">أُرسل الطلب؛ يعتمده المدير ثم يُصرف من «الطلبات»</Card>}
       <Button
         className="w-full"
         disabled={run.isPending || !lines.length || lines.some((l) => !l.qty) || isSameWarehouse || warehouses.length < 2}
@@ -260,9 +263,11 @@ function RequestForm() {
   );
 }
 
-const STATUS_LABELS: Record<string, { label: string; tone: "muted" | "success" | "warning" | "danger" }> = {
+const STATUS_LABELS: Record<string, { label: string; tone: "muted" | "success" | "warning" | "danger" | "brand" }> = {
   done: { label: "تم", tone: "success" },
-  pending: { label: "قيد الانتظار", tone: "warning" },
+  pending: { label: "بانتظار الاعتماد", tone: "warning" },
+  approved: { label: "معتمد — بانتظار الصرف", tone: "brand" },
+  fulfilled: { label: "تم الصرف", tone: "success" },
   cancelled: { label: "ملغى", tone: "danger" },
 };
 
