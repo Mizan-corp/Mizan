@@ -60,7 +60,9 @@ with each shift's summary for its cashier and supervisors).
   over: the rules of `transfer`, without an open shift in the branch).
 - `DELETE /shifts/transactions/{id}` cancels a row entered by hand: those who approve at the counter
   (`supervise`, or the manager flag with `shifts`; it used to be the manager flag alone), in a branch
-  they reach; audited (`cancel_drawer_tx`).
+  they reach; audited (`cancel_drawer_tx`). A row that took a customer's receipt is undone through
+  contacts (`reverse_drawer_receipt`): the customer and the invoice the receipt paid owe the amount
+  again (`sales.paid_amount` goes down), and the ledger entry is reversed, so the three agree.
 
 ## Manager approvals (POS-4)
 Closing with a manager (`/shifts/{id}/close-with-manager`) and revenue delivery take a manager's id

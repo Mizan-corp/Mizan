@@ -62,12 +62,15 @@ async def _paged(db: AsyncSession, select_sql: str, from_where: str, params: dic
 @router.get("/audit-log")
 async def get_audit_log(entity_type: Annotated[str | None, Query(max_length=32)] = None, page: Page = 1,
                         page_size: PageSize = 50, db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
-    """The HR audit trail, newest first, paged; `entity_type`: employee, payroll_entry, advance…"""
+    """The HR audit trail, newest first, paged; `entity_type`: employee, attendance, advance,
+    payroll_entry, payroll_period (services/audit.py lists what is logged)."""
     where, params = "WHERE (CAST(:et AS text) IS NULL OR a.entity_type = :et)", {"et": entity_type}
     out = await _paged(db, """a.id, a.action_type, a.entity_type, a.entity_id, a.reason, a.details, a.created_at,
                u.full_name as performed_by_name, e.name AS employee_name""",
                        f"""FROM hr_audit_log a LEFT JOIN users u ON a.performed_by=u.id
-                           LEFT JOIN hr_employees e ON a.entity_type IN ('employee', 'advance') AND e.id::text = a.entity_id
+                           LEFT JOIN hr_employees e ON e.id::text = CASE
+                               WHEN a.entity_type IN ('employee', 'advance', 'attendance') THEN a.entity_id
+                               ELSE a.details->>'employee_id' END
                            {where}""", params, "a.created_at DESC, a.id", page, page_size)
     for d in out["items"]:
         d['created_at'] = d['created_at'].isoformat() if d['created_at'] else None
@@ -152,23 +155,31 @@ PUBLIC_EMPLOYEE_FIELDS = ("id", "emp_code", "name", "position", "is_active")
 
 
 @router.get("/employees")
-async def list_employees(include_inactive: bool = False, db: AsyncSession = Depends(get_db),
+async def list_employees(include_inactive: bool = False, q: Annotated[str | None, Query(max_length=100)] = None,
+                         page: Page = 1, page_size: PageSize = 50, db: AsyncSession = Depends(get_db),
                          current_user: User = Depends(require_perm(PAYROLL, "accounting:view", "accounting:journal"))):
-    """The active employees (`include_inactive`: the stopped ones too, for `payroll`). Accountants
-    without `payroll` (who pick an employee as a journal line's party) get names only, without pay."""
+    """The active employees, by name, paged (HR-13): {items, total, page, page_size}; `q` searches
+    the name and code; `include_inactive`: the stopped ones too, after the active (for `payroll`).
+    Accountants without `payroll` (who pick an employee as a journal line's party) get names only,
+    without pay."""
     full = can(current_user, PAYROLL)
-    rows = _rows(await db.execute(text("""
-        SELECT e.*, s.name AS shift_name FROM hr_employees e LEFT JOIN hr_shifts s ON s.id = e.shift_id
-        WHERE (:all OR e.is_active) ORDER BY e.is_active DESC, e.name
-    """), {"all": include_inactive and full}))
-    if full:
-        return rows
-    return [{k: r.get(k) for k in PUBLIC_EMPLOYEE_FIELDS} for r in rows]
+    where = """FROM hr_employees e LEFT JOIN hr_shifts s ON s.id = e.shift_id
+               WHERE (:all OR e.is_active)
+                 AND (CAST(:q AS text) IS NULL OR e.name ILIKE :like OR e.emp_code ILIKE :like)"""
+    term = (q or "").strip()
+    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    out = await _paged(db, "e.*, s.name AS shift_name", where,
+                       {"all": include_inactive and full, "q": term or None, "like": f"%{escaped}%"},
+                       "e.is_active DESC, e.name, e.id", page, page_size)
+    if not full:
+        out["items"] = [{k: r.get(k) for k in PUBLIC_EMPLOYEE_FIELDS} for r in out["items"]]
+    return out
 
 
 @router.post("/employees")
-async def create_employee(data: EmployeeCreate, db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
-    row = await employees_service.create_employee(db, data.model_dump())
+async def create_employee(data: EmployeeCreate, db: AsyncSession = Depends(get_db),
+                          current_user: User = Depends(require_perm(PAYROLL))):
+    row = await employees_service.create_employee(db, data.model_dump(), current_user)
     await db.commit()
     return row
 
@@ -182,10 +193,10 @@ async def update_employee(emp_id: uuid.UUID, data: EmployeeUpdate, db: AsyncSess
 
 
 @router.delete("/employees/{emp_id}", status_code=204)
-async def delete_employee(emp_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm(PAYROLL))):
-    result = await db.execute(text("UPDATE hr_employees SET is_active=FALSE WHERE id=:id"), {'id': emp_id})
-    if result.rowcount == 0:
-        raise HTTPException(404, "الموظف غير موجود")
+async def delete_employee(emp_id: uuid.UUID, db: AsyncSession = Depends(get_db),
+                          current_user: User = Depends(require_perm(PAYROLL))):
+    """Stop the employee (kept with their history; audited)."""
+    await employees_service.stop_employee(db, emp_id, current_user)
     await db.commit()
 
 
@@ -224,7 +235,7 @@ async def import_attendance_csv(
     current_user: User = Depends(require_perm(PAYROLL)),
 ):
     content = await file.read(hr_attendance_service.MAX_CSV_BYTES + 1)
-    return await hr_attendance_service.import_attendance_csv_stream(db, content)
+    return await hr_attendance_service.import_attendance_csv_stream(db, content, current_user)
 
 
 # ── Payroll ────────────────────────────────────────────────────────────────

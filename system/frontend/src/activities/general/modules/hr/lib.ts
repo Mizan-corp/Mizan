@@ -24,10 +24,11 @@ export const RECORD_TYPE: Record<string, { label: string; tone: "success" | "war
 };
 
 export const AUDIT_ACTION: Record<string, string> = {
-  create: "إضافة", update: "تعديل", cancel: "إلغاء", carry: "ترحيل", delete: "حذف",
+  create: "إضافة", update: "تعديل", cancel: "إلغاء", carry: "ترحيل", delete: "حذف", stop: "إيقاف", start: "إعادة تفعيل",
+  import: "استيراد", calculate: "حساب", submit: "إرسال للمراجعة", approve: "اعتماد", pay: "صرف", reopen: "إعادة فتح",
 };
 export const AUDIT_ENTITY: Record<string, string> = {
-  employee: "موظف", payroll_entry: "راتب", advance: "سلفة / خصم / مكافأة", attendance: "حضور",
+  employee: "موظف", payroll_entry: "راتب", advance: "سلفة / خصم / مكافأة", attendance: "حضور", payroll_period: "شهر الرواتب",
 };
 
 /** Python's weekday numbers (the server's): Monday 0 … Sunday 6. */

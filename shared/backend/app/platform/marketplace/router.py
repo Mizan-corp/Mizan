@@ -107,7 +107,10 @@ async def save_module_settings_endpoint(
     db: AsyncSession = Depends(get_db),
     _=Depends(require_perm("settings")),
 ):
-    """Save updated settings for a module."""
+    """Change the settings sent (the others keep their values; null resets one to its default).
+    Each key and value is checked against the module's settings_schema: 422 otherwise."""
+    from app.framework.loader import SettingsError
+
     try:
         updated = await registry.save_settings(db, module_id, data.settings)
         return {
@@ -116,6 +119,8 @@ async def save_module_settings_endpoint(
         }
     except KeyError:
         raise HTTPException(status_code=404, detail="الوحدة المطلوبة غير مسجلة")
+    except SettingsError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
 
 class UninstallRequest(BaseModel):

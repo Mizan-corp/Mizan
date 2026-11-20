@@ -35,7 +35,7 @@ async def list_collections(
                json_agg(json_build_object(
                  'id', ci.id, 'product_id', ci.product_id,
                  'qty', ci.qty, 'product_name', p.name, 'unit', p.unit,
-                 'retail_price', p.retail_price, 'cost_price', p.cost_price
+                 'retail_price', p.retail_price, 'cost_price', p.cost_price, 'avg_cost', p.avg_cost
                ) ORDER BY p.name) FILTER (WHERE ci.id IS NOT NULL) as items
         FROM product_collections pc
         LEFT JOIN collection_items ci ON ci.collection_id = pc.id
@@ -48,7 +48,7 @@ async def list_collections(
     if not sees_costs(current_user):
         for coll in items:
             for item in coll.get("items") or []:
-                item["cost_price"] = None
+                item["cost_price"] = item["avg_cost"] = None
     pages = (total + page_size - 1) // page_size
     return Page(items=items, total=total, page=page, size=page_size, pages=pages)
 
@@ -89,11 +89,16 @@ async def create_collection(data: CollectionCreate, db: AsyncSession = Depends(g
 @router.put("/{cid}")
 async def update_collection(cid: uuid.UUID, data: CollectionUpdate, db: AsyncSession = Depends(get_db), _=Depends(require_perm("inventory"))):
     await _check_items(db, data)
+    # Collections are not sold (README): the screen doesn't send prices, and a PUT without them
+    # keeps the stored ones instead of zeroing them.
+    sent = data.model_fields_set
     r = await db.execute(text("""
         UPDATE product_collections SET name=:name, description=:desc,
-        retail_price=:retail, wholesale_price=:wholesale WHERE id=:id AND is_active
-    """), {"name": data.name, "desc": data.description, "retail": data.retail_price,
-           "wholesale": data.wholesale_price, "id": cid})
+        retail_price = CASE WHEN :set_retail THEN :retail ELSE retail_price END,
+        wholesale_price = CASE WHEN :set_wholesale THEN :wholesale ELSE wholesale_price END
+        WHERE id=:id AND is_active
+    """), {"name": data.name, "desc": data.description, "retail": data.retail_price, "set_retail": "retail_price" in sent,
+           "wholesale": data.wholesale_price, "set_wholesale": "wholesale_price" in sent, "id": cid})
     if r.rowcount == 0:
         raise NotFoundError(COLLECTION_NOT_FOUND)
     # Replace items

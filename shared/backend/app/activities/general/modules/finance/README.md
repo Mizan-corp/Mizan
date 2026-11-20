@@ -54,7 +54,9 @@ Permission: `finance` (declared here). Reports read with `finance` or `reports`.
 - **Idempotent money writes** (`app/framework/idempotency.py`): deposit, withdraw, wallet → safe and
   wallet reset accept an `Idempotency-Key` header or a `client_id` in the body; a retry returns
   the first answer, the same key with another request is a 422. The screens send a `client_id`
-  per attempt.
+  per attempt. Two requests with one key at once: the second waits for the first (the unique
+  index) and gets its answer, with one movement (`tests/test_d_fixes.py`). Keys older than 7 days
+  are deleted every night (job `idempotency_cleanup`, nightly group of `deploy/server/mizan-cron.sh`).
 - **Branches**: reads that cover branches (`/reports/ledger`, `/wallets/summary`, `/expenses`,
   `/expenses/summary`, `/financial-ledger`) check `verify_warehouse_access` for the branch asked
   for; without one, a user who has neither the manager flag, `supervise` nor `finance` (accountants) sees only their own

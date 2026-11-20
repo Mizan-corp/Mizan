@@ -16,6 +16,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activities.general.modules.hr.services.payroll import LOCKED_STATUSES, month_of
+from app.activities.general.modules.hr.services.audit import audit
 
 STATUSES = {"present", "absent", "leave", "mission", "excuse"}
 MAX_CSV_BYTES = 5 * 1024 * 1024
@@ -57,9 +58,10 @@ def _parse_time(raw: str, work_date: _date) -> _dt | None:
     return None
 
 
-async def import_attendance_csv_stream(db: AsyncSession, content: bytes) -> dict[str, Any]:
+async def import_attendance_csv_stream(db: AsyncSession, content: bytes, user=None) -> dict[str, Any]:
     """Parses and ingests attendance CSV logs. Days saved by hand (edited) are kept, and days in
-    a month whose payroll is approved or paid are refused (listed in the errors)."""
+    a month whose payroll is approved or paid are refused (listed in the errors). The import is
+    one row of the HR audit log (how many days were added, updated and skipped)."""
     if len(content) > MAX_CSV_BYTES:
         raise HTTPException(400, "الملف أكبر من 5 ميجابايت")
     try:
@@ -194,6 +196,9 @@ async def import_attendance_csv_stream(db: AsyncSession, content: bytes) -> dict
             ), {"e": emp[0], "d": work_date, "ci": check_in, "co": check_out, "st": status})
             added += 1
 
+    if added or updated:
+        await audit(db, "import", "attendance", None, getattr(user, "id", None), "استيراد حضور من ملف CSV",
+                    {"added": added, "updated": updated, "skipped": skipped, "months": sorted(month_locked)})
     await db.commit()
     return {
         "added": added,

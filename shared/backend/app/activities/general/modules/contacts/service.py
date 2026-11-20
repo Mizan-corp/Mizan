@@ -214,6 +214,32 @@ async def reverse_payment(db: AsyncSession, payment_id: uuid.UUID, reason: str, 
     return reversal
 
 
+async def reverse_drawer_receipt(db: AsyncSession, payment_id: uuid.UUID, user_id: uuid.UUID) -> CustomerPayment | None:
+    """Undo a receipt whose drawer movement is being cancelled (shift screen, pos): the customer
+    owes the amount again, and so does the invoice it paid (its paid_amount and what is due on it),
+    recorded as a reversal pointing to the receipt. The drawer's own cancel reverses the cash (or
+    wallet) side and the ledger entry. None for a row that isn't a receipt; a receipt already
+    reversed is a 409."""
+    paid = (await db.execute(select(CustomerPayment).where(CustomerPayment.id == payment_id).with_for_update())).scalar_one_or_none()
+    if paid is None or paid.amount is None or Decimal(str(paid.amount)) <= 0 or paid.reverses_id is not None:
+        return None
+    if await db.scalar(text("SELECT 1 FROM customer_payments WHERE reverses_id = :id"), {"id": payment_id}):
+        raise HTTPException(409, ALREADY_REVERSED)
+    customer = (await db.execute(select(Customer).where(Customer.id == paid.customer_id).with_for_update())).scalar_one()
+    amount = Decimal(str(paid.amount))
+    reversal = CustomerPayment(customer_id=paid.customer_id, sale_id=paid.sale_id, amount=-amount,
+                               note=f"إلغاء دفعة من الدرج{(' — ' + paid.note) if paid.note else ''}", created_by=user_id,
+                               method=paid.method, wallet_id=paid.wallet_id, shift_id=paid.shift_id, reverses_id=paid.id)
+    db.add(reversal)
+    customer.balance = (customer.balance or 0) + amount
+    if paid.sale_id:
+        await db.execute(text(
+            "UPDATE sales SET paid_amount = GREATEST(COALESCE(paid_amount, 0) - :amt, 0) WHERE id = :sid"
+        ), {"amt": amount, "sid": paid.sale_id})
+    await db.flush()
+    return reversal
+
+
 # A customer's statement: every line that changed what they owe, oldest first. `signed` is the change
 # (+ owes more, − owes less); `amount` is what the line shows (adjustments keep their sign).
 STATEMENT = """

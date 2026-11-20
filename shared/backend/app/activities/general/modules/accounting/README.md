@@ -40,6 +40,13 @@ same `(source_type, source_id, event)` returns the existing entry. It flushes, n
 `reverses_id`. The database also refuses an unbalanced entry at commit (deferred constraint
 trigger) and any update of a posted entry or line.
 
+Entry numbers (`JE-000001`…) count per workspace (ACC-1): each post takes the next value of the
+workspace's `JE` row in `doc_counters` with `UPDATE … RETURNING`; that row's lock, held until the
+post's transaction ends, makes two posts at once get distinct consecutive numbers, and a rolled
+back post gives its number back. A workspace without the row gets it on its first post, after the
+highest number it already used (migration `v107_d_fixes` made it for every workspace with entries).
+It replaced an advisory lock and a `MAX(number)` scan of the workspace's entries on every post.
+
 Posting dates: events that happen now (sale, return, cancel, receipt, drawer, shift, safe and
 wallet movements) post on today's date in Africa/Cairo; an approved expense posts on its own
 `date` (today if that date is in the future); a reversal posts on the day of the cancellation.

@@ -1,8 +1,9 @@
 // Parts the HR screens share: the employees query, a list's skeleton and its pager.
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui";
+import type { Paged } from "../lib";
 
 export interface Employee {
   id: string;
@@ -29,10 +30,26 @@ export interface Shift {
   employees: number;
 }
 
-export function useEmployees(includeInactive = false) {
+export const EMPLOYEES_PAGE = 50;
+/** The largest page the server gives: the pickers list the first this many active employees by name. */
+export const EMPLOYEE_OPTIONS_MAX = 200;
+
+/** One page of the employees list (the server pages it, HR-13), searched by name or code. */
+export function useEmployees(includeInactive = false, page = 1, q = "") {
   return useQuery({
-    queryKey: ["hr-employees", { all: includeInactive }],
-    queryFn: () => api.get<Employee[]>("/hr/employees", { include_inactive: includeInactive ? "true" : undefined }),
+    queryKey: ["hr-employees", { all: includeInactive, page, q }],
+    queryFn: () => api.get<Paged<Employee>>("/hr/employees", {
+      include_inactive: includeInactive ? "true" : undefined, page, page_size: EMPLOYEES_PAGE, q: q.trim() || undefined,
+    }),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** The active employees for a picker (attendance, advances): the first EMPLOYEE_OPTIONS_MAX by name. */
+export function useEmployeeOptions() {
+  return useQuery({
+    queryKey: ["hr-employees", "options"],
+    queryFn: async () => (await api.get<Paged<Employee>>("/hr/employees", { page_size: EMPLOYEE_OPTIONS_MAX })).items,
   });
 }
 
