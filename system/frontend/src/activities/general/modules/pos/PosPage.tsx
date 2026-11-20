@@ -6,6 +6,9 @@
  * Primary information: باركود/بحث المنتجات، إيصال الفاتورة الحالية (.receipt-paper)، الإجمالي، حالة الوردية
  * Hardware Velocity: F1 بحث · F2 كاش · F3 آجل · F4 تعليق/استئناف · F8 جملة/تجزئة · F9 مسح · Esc إغلاق
  * Tactile Feedback: نقرات صوتية اصطناعية لكل مسح باركود وإضافة وزيادة ونقصان وإتمام
+ * Settings (module centre, POS-9): require_active_shift (لا بيع بلا وردية؛ وإلا فالنقدي وحده يحتاجها)،
+ *   allow_price_override (تعديل سعر السطر لمن يملك sales:override_price)، auto_print_receipt (طباعة بعد البيع)،
+ *   enable_quick_numpad (لوحة الأرقام في نافذة الدفع).
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -29,7 +32,7 @@ import {
   Building2,
 } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
-import { api, ApiError, openPrintDoc } from "@/lib/api";
+import { api, ApiError, apiUrl, openPrintDoc } from "@/lib/api";
 import { D, money } from "@/lib/format";
 import { Button, ConfirmDialog, ErrorBox, Input, Modal, Select, Spinner, useToast } from "@/components/ui";
 import { Stagger, StaggerItem } from "@/components/motion";
@@ -44,6 +47,9 @@ import { PosKeyboardShortcutsModal } from "./components/PosKeyboardShortcutsModa
 import { DrugInfo, PrescriptionPanel, prescriptionNeeds } from "@activities/pharmacy/variants/pos";
 import { useWorkspaceProfile, variantOf } from "@app/lib/workspace";
 import { documentTaxes, sumTaxes, useVat, type TaxCode } from "@app/lib/vat";
+import { useAuth } from "@/stores/auth";
+import { usePosSettings } from "./api";
+import { canOverridePrice, linePrice, listedPrice, paymentGate, priceChanged } from "./lib";
 
 interface Warehouse { id: string; name: string }
 interface Product {
@@ -58,24 +64,22 @@ interface Product {
 }
 interface Customer { id: string; name: string; balance: string; credit_limit: string | null }
 interface Wallet { id: string; name: string; type: string }
-interface CartItem { product: Product; qty: number; discount: string }
+/** `price`: another price than the product's, typed by a user allowed to (POS setting
+ * allow_price_override and sales:override_price); the server checks the same. */
+interface CartItem { product: Product; qty: number; discount: string; price?: string }
 interface SplitPart { method: string; amount: string; wallet_id: string }
 interface SaleResult { id: string; invoice_number: string; extra?: Record<string, unknown> }
 interface HeldBill { id: string; cart: CartItem[]; mode: "retail" | "wholesale"; at: string }
 
 const HELD_KEY = "mizan.held_bills";
 
-/** The price a line is sold at: wholesale when it has one, else retail (as the server decides). */
-function listedPrice(p: Pick<Product, "retail_price" | "wholesale_price">, mode: "retail" | "wholesale") {
-  return mode === "wholesale" && D(p.wholesale_price || "0").gt(0) ? D(p.wholesale_price) : D(p.retail_price || "0");
-}
 const LEGACY_HELD_KEY = "vendora.held_bills";
 
 function buildSaleBody(args: {
   warehouseId: string; shiftId: string | null; mode: "retail" | "wholesale";
   customerId: string; cart: CartItem[]; isCredit: boolean; cashInput: string;
   split: SplitPart[]; walletId: string; paidSoFar: { toString: () => string }; total: { toString: () => string };
-  extra?: Record<string, string>; localId: string;
+  extra?: Record<string, string>; localId: string; overridePrice: boolean;
 }) {
   const payments = args.split.length
     ? [
@@ -97,7 +101,7 @@ function buildSaleBody(args: {
     items: args.cart.map((i) => ({
       product_id: i.product.id,
       qty: i.qty,
-      unit_price: listedPrice(i.product, args.mode).toNumber(),
+      unit_price: linePrice(i, args.mode, args.overridePrice).toNumber(),
       discount: D(i.discount).toNumber(),
     })),
     is_credit: args.isCredit,
@@ -138,6 +142,11 @@ export default function PosPage() {
   const barcodeRef = useRef<HTMLInputElement>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const { toast } = useToast();
+  const can = useAuth((s) => s.can);
+  const settings = usePosSettings();
+  const override = canOverridePrice(settings, can);
+  // The line whose price is being typed (price override).
+  const [pricing, setPricing] = useState<string | null>(null);
   // The activity's POS variant (ADR-006 phase 4): a pharmacy shows drug details and asks for the
   // prescription when the cart needs one.
   const profile = useWorkspaceProfile();
@@ -187,6 +196,10 @@ export default function PosPage() {
 
   const customer = customers.data?.find((c) => c.id === customerId) ?? null;
   const shiftMissing = shift.data === null;
+  // Whether a sale can be paid now, and in cash: cash always needs the user's open shift here;
+  // with require_active_shift on (the default) every sale does (the server's rule, SAL-3).
+  const gate = paymentGate(shift.isSuccess ? !!shift.data : undefined, settings.requireActiveShift);
+  const canOpenShift = can("shifts");
 
   /** Adds a product; `qty` is 1, or a weight from a scale label (retail, up to 3 decimals).
    * `available`: the branch's stock, when known; going over it plays a warning (#61). */
@@ -244,20 +257,20 @@ export default function PosPage() {
   const rxNeeds = pharmacy ? prescriptionNeeds(cart.map((i) => i.product)) : { rx: [], controlled: [], required: [] };
   const rxMissing = rxNeeds.required.some((k) => !rx[k]?.trim());
 
-  const unitPrice = (p: Product) => listedPrice(p, mode);
+  const unitPrice = (i: CartItem) => linePrice(i, mode, override);
   // VAT as the server will store it (ADR-014 D6): with prices including VAT (the default) the total
   // is unchanged and shows the tax it contains; with prices excluding VAT the tax is added on top.
   const vat = useVat();
   const vatTotals = useMemo(
-    () => sumTaxes(documentTaxes(cart.map((i) => ({ amount: unitPrice(i.product).times(i.qty).minus(D(i.discount)),
+    () => sumTaxes(documentTaxes(cart.map((i) => ({ amount: unitPrice(i).times(i.qty).minus(D(i.discount)),
                                                      code: i.product.tax_code ?? null })), 0, vat.data)),
-    [cart, mode, vat.data],
+    [cart, mode, vat.data, override],
   );
   const total = vatTotals.gross;
 
   const subtotalBeforeDiscount = useMemo(
-    () => cart.reduce((s, i) => s.plus(unitPrice(i.product).times(i.qty)), D(0)),
-    [cart, mode],
+    () => cart.reduce((s, i) => s.plus(unitPrice(i).times(i.qty)), D(0)),
+    [cart, mode, override],
   );
 
   const totalDiscount = useMemo(
@@ -283,13 +296,14 @@ export default function PosPage() {
   }
 
   function openPaymentModal(asCredit = false) {
-    if (!cart.length || shiftMissing || shift.isLoading) {
+    if (!cart.length || !gate.canPay) {
       sound.error();
+      if (gate.message) toast("warning", gate.message);
       return;
     }
     sound.click();
     setIsCredit(asCredit);
-    setCashInput(asCredit ? "0" : total.toFixed(2));
+    setCashInput(asCredit || !gate.cashAllowed ? "" : total.toFixed(2));
     setSplit([]);
     setPayOpen(true);
   }
@@ -334,9 +348,7 @@ export default function PosPage() {
       } else if (e.key === "F2") {
         e.preventDefault();
         if (payOpen) {
-          if (!checkout.isPending && (!isCredit || customerId) && !rxMissing) {
-            checkout.mutate();
-          }
+          if (!payBlocked) pay();
         } else {
           openPaymentModal(false);
         }
@@ -388,7 +400,7 @@ export default function PosPage() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [cart, payOpen, resumeOpen, confirmClear, hardwareModalOpen, shortcutsModalOpen, shiftMissing, shift.isLoading, total, isCredit, customerId, rxMissing, selectedId, lastSale, saleDone]);
+  });
 
   // One id per sale being checked out: kept while the same cart is retried (a lost answer, a
   // double click), new once the cart changes or the sale is done.
@@ -400,7 +412,7 @@ export default function PosPage() {
     return buildSaleBody({
       warehouseId, shiftId: shift.data?.id ?? null, mode, customerId, cart,
       isCredit, cashInput, split, walletId, paidSoFar, total, extra: pharmacy ? rx : undefined,
-      localId: localIdRef.current,
+      localId: localIdRef.current, overridePrice: override,
     });
   };
 
@@ -437,6 +449,33 @@ export default function PosPage() {
       sound.error();
     },
   });
+
+  // Cash in the payment without the shift it needs (require_active_shift off, no shift open).
+  const cashWithoutShift = !gate.cashAllowed && (D(cashInput || "0").gt(0) || split.some((p) => p.method === "cash" && D(p.amount || "0").gt(0)));
+  const payBlocked = checkout.isPending || (isCredit && !customerId) || rxMissing || cashWithoutShift;
+
+  /** Completes the sale; with auto_print_receipt on, the receipt opens in a tab made now (inside
+   * the click or the key press, so the browser allows it) and filled once the sale is recorded. */
+  function pay() {
+    const win = settings.autoPrintReceipt ? window.open("about:blank", "_blank") : null;
+    checkout.mutate(undefined, {
+      onSuccess: async (r) => {
+        if (!settings.autoPrintReceipt) return;
+        if (!win) {
+          toast("warning", "تعذر فتح الطباعة التلقائية — اسمح للمتصفح بفتح النوافذ ثم اطبع من زر الطباعة");
+          return;
+        }
+        try {
+          const { token } = await api.post<{ token: string }>("/auth/print-token", {});
+          win.location.href = `${apiUrl(`/print/sale/${r.id}`)}?token=${encodeURIComponent(token)}`;
+        } catch (e) {
+          win.close();
+          toast("error", (e as Error).message);
+        }
+      },
+      onError: () => win?.close(),
+    });
+  }
 
   const saveQuotation = useMutation({
     mutationFn: () => api.post<SaleResult>("/sales/quotations", body()),
@@ -574,7 +613,7 @@ export default function PosPage() {
               <span className="size-1.5 rounded-full bg-emerald-500" />
               وردية نشطة
             </span>
-          ) : (
+          ) : canOpenShift && (
             <button
               onClick={() => { sound.click(); setOpenShiftFor(wh.data?.find((w) => w.id === warehouseId) ?? null); }}
               className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 pointer-coarse:min-h-11 pointer-coarse:px-4 text-[11px] font-bold text-amber-800 dark:text-amber-400 hover:bg-amber-500/25 transition"
@@ -761,17 +800,22 @@ export default function PosPage() {
             </header>
 
             {/* Shift missing warning strip if blocking */}
-            {shiftMissing && (
-              <div className="border-b border-warning/30 bg-warning/10 px-3.5 py-2.5 text-xs">
+            {shiftMissing && gate.message && (
+              <div role="status" className="border-b border-warning/30 bg-warning/10 px-3.5 py-2.5 text-xs">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-bold text-amber-700 dark:text-amber-400">الوردية مغلقة لهذا الفرع</span>
-                  <button
-                    onClick={() => { sound.click(); setOpenShiftFor(wh.data?.find((w) => w.id === warehouseId) ?? null); }}
-                    className="tactile-btn rounded bg-amber-600 px-2 py-0.5 pointer-coarse:min-h-11 pointer-coarse:px-4 text-xs font-bold text-white shadow-sm"
-                  >
-                    فتح وردية
-                  </button>
+                  <span className="font-bold text-amber-700 dark:text-amber-400">{gate.message}</span>
+                  {canOpenShift && (
+                    <button
+                      onClick={() => { sound.click(); setOpenShiftFor(wh.data?.find((w) => w.id === warehouseId) ?? null); }}
+                      className="tactile-btn shrink-0 rounded bg-amber-600 px-2 py-0.5 pointer-coarse:min-h-11 pointer-coarse:px-4 text-xs font-bold text-white shadow-sm"
+                    >
+                      فتح وردية
+                    </button>
+                  )}
                 </div>
+                {!canOpenShift && settings.requireActiveShift && (
+                  <p className="mt-1 text-muted-foreground">فتح الوردية يحتاج صلاحية «الورديات والدرج» — اطلبها من المدير.</p>
+                )}
               </div>
             )}
 
@@ -788,7 +832,8 @@ export default function PosPage() {
               ) : (
                 <ul className="divide-y divide-border/40">
                   {cart.map((i, idx) => {
-                    const price = unitPrice(i.product);
+                    const price = unitPrice(i);
+                    const changed = priceChanged(i, mode, override);
                     const lineTotal = price.times(i.qty).minus(D(i.discount || "0"));
                     const selected = (cart.some((x) => x.product.id === selectedId) ? selectedId : cart[cart.length - 1]?.product.id) === i.product.id;
                     return (
@@ -802,7 +847,44 @@ export default function PosPage() {
                           <p className="truncate font-bold text-foreground">{i.product.name}</p>
                           {pharmacy && <DrugInfo product={i.product} compact />}
                           <div className="flex items-center gap-2 mt-0.5 font-mono text-[11px] text-muted-foreground">
-                            <span className="num">{money(price)} ج.م</span>
+                            {override && pricing === i.product.id ? (
+                              <input
+                                autoFocus
+                                className="num w-20 rounded border border-primary/50 bg-background px-1 py-0.5 text-[11px] font-bold text-foreground"
+                                inputMode="decimal"
+                                aria-label={`سعر ${i.product.name}`}
+                                defaultValue={price.toString()}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                                  if (e.key === "Escape") { e.stopPropagation(); setPricing(null); }
+                                }}
+                                onBlur={(e) => {
+                                  const v = e.target.value.trim();
+                                  const ok = v !== "" && Number.isFinite(Number(v)) && Number(v) >= 0;
+                                  if (!ok && v !== "") toast("warning", "سعر غير صحيح — بقي سعر الصنف");
+                                  setCart((c) => c.map((x, j) => (j === idx ? { ...x, price: ok ? v : undefined } : x)));
+                                  setPricing(null);
+                                }}
+                              />
+                            ) : override ? (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setPricing(i.product.id); }}
+                                className="num rounded px-0.5 underline decoration-dotted underline-offset-2 hover:text-foreground"
+                                title="تعديل سعر هذا السطر"
+                                aria-label={`تعديل سعر ${i.product.name}`}
+                              >
+                                {money(price)} ج.م
+                              </button>
+                            ) : (
+                              <span className="num">{money(price)} ج.م</span>
+                            )}
+                            {changed && (
+                              <span className="rounded bg-warning/15 px-1 font-sans text-[10px] text-warning-ink" title={`سعر الصنف ${money(listedPrice(i.product, mode))}`}>
+                                سعر معدّل
+                              </span>
+                            )}
                             <span>×</span>
                             <span className="num font-bold text-foreground">{i.qty}</span>
                             {D(i.discount || "0").gt(0) && (
@@ -905,7 +987,7 @@ export default function PosPage() {
               </div>
 
               {/* Quick Cash Tender Bar */}
-              {cart.length > 0 && (
+              {cart.length > 0 && gate.cashAllowed && (
                 <div className="flex items-center gap-1.5 pt-1">
                   <span className="text-[10px] text-muted-foreground font-mono">نقدًا:</span>
                   {[50, 100, 200, 500].map((val) => (
@@ -954,7 +1036,7 @@ export default function PosPage() {
 
                 <Button
                   className="tactile-btn flex-1 font-bold py-2.5 text-sm shadow-md pointer-coarse:h-12"
-                  disabled={!cart.length || shiftMissing || shift.isLoading}
+                  disabled={!cart.length || !gate.canPay}
                   onClick={() => openPaymentModal(false)}
                 >
                   <span>إتمام الدفع</span>
@@ -986,7 +1068,7 @@ export default function PosPage() {
           )}
           <Button
             className="tactile-btn h-10 pointer-coarse:h-12 px-4 font-bold text-sm shadow-md"
-            disabled={!cart.length || shiftMissing || shift.isLoading}
+            disabled={!cart.length || !gate.canPay}
             onClick={() => openPaymentModal(false)}
           >
             <span>إتمام الدفع</span>
@@ -1076,7 +1158,11 @@ export default function PosPage() {
           ) : (
             /* If Cash / Split Sale */
             <div className="space-y-3">
+              {!gate.cashAllowed && (
+                <p role="status" className="rounded-lg border border-warning/40 bg-warning/10 p-2.5 text-xs font-medium text-warning-ink">{gate.message}</p>
+              )}
               {/* Tender input + Quick denomination chips */}
+              {gate.cashAllowed && (
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs">
                   <label className="font-bold">المبلغ المستلم نقداً</label>
@@ -1141,7 +1227,8 @@ export default function PosPage() {
                   </button>
                 </div>
 
-                {/* Tactile Virtual Numpad for Touch Terminals */}
+                {/* Tactile Virtual Numpad for Touch Terminals (setting enable_quick_numpad) */}
+                {settings.enableQuickNumpad && (
                 <div className="grid grid-cols-3 gap-1.5 pt-2 max-w-[280px] mx-auto">
                   {["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "DEL"].map((key) => (
                     <button
@@ -1154,7 +1241,9 @@ export default function PosPage() {
                     </button>
                   ))}
                 </div>
+                )}
               </div>
+              )}
 
               {/* Live Change / Remaining Calculator Badge */}
               <div className="rounded-xl border border-line bg-secondary/30 p-3">
@@ -1215,7 +1304,7 @@ export default function PosPage() {
                       <option value="wallet">محفظة إلكترونية</option>
                       <option value="bank">تحويل بنكي / فوري</option>
                       <option value="cheque">شيك</option>
-                      <option value="cash">نقدي إضافي</option>
+                      {gate.cashAllowed && <option value="cash">نقدي إضافي</option>}
                     </Select>
 
                     {p.method === "wallet" && (
@@ -1261,10 +1350,10 @@ export default function PosPage() {
           <div className="sticky bottom-0 -mx-5 -mb-4 mt-2 flex gap-2 border-t border-border/80 bg-card/95 px-5 py-3.5 backdrop-blur shadow-lg">
             <Button
               className="tactile-btn flex-1 h-11 text-sm font-bold shadow-md"
-              disabled={checkout.isPending || (isCredit && !customerId) || rxMissing}
-              onClick={() => checkout.mutate()}
+              disabled={payBlocked}
+              onClick={() => pay()}
             >
-              {checkout.isPending ? <Spinner /> : <span>تأكيد وطباعة الفاتورة [F2]</span>}
+              {checkout.isPending ? <Spinner /> : <span>{settings.autoPrintReceipt ? "تأكيد وطباعة الفاتورة [F2]" : "تأكيد الفاتورة [F2]"}</span>}
             </Button>
             <Button
               variant="outline"
