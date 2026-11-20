@@ -11,12 +11,17 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_current_user
+from app.dependencies import require_perm
 from app.db.base import get_db
 from app.platform.auth.models.user import User
 from app.integrations.pos_hardware.models import PosHardwareProfile
 
 router = APIRouter(prefix="/modules/pos_hardware", tags=["pos-hardware"])
+
+# The receipt printer's settings belong to the counter: whoever sells reads them, the POS and the
+# settings change them (they used to need a sign-in only).
+READ = require_perm("pos", "sales", "settings")
+WRITE = require_perm("pos", "settings")
 
 
 class HardwareProfileSchema(BaseModel):
@@ -51,7 +56,7 @@ def _build_zatca_tlv_mock(seller_name: str, tax_number: str, timestamp_str: str,
 @router.get("/config")
 async def get_hardware_config(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(READ),
 ) -> dict[str, Any]:
     """Retrieve active POS hardware profile for current tenant."""
     stmt = select(PosHardwareProfile).order_by(PosHardwareProfile.is_default.desc()).limit(1)
@@ -95,7 +100,7 @@ async def get_hardware_config(
 async def update_hardware_config(
     payload: HardwareProfileSchema,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(WRITE),
 ) -> dict[str, Any]:
     """Update active POS hardware profile for current tenant."""
     stmt = select(PosHardwareProfile).order_by(PosHardwareProfile.is_default.desc()).limit(1)
@@ -130,7 +135,7 @@ async def update_hardware_config(
 @router.post("/test-print")
 async def generate_test_print(
     payload: HardwareProfileSchema | None = None,
-    user: User = Depends(get_current_user),
+    user: User = Depends(WRITE),
 ) -> dict[str, Any]:
     """Generate test receipt data with Egyptian tax QR payload."""
     now_iso = datetime.datetime.now().isoformat()
