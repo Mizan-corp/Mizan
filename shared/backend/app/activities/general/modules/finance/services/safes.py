@@ -157,11 +157,29 @@ async def withdraw(db: AsyncSession, safe_id: uuid.UUID, amount: Decimal, note: 
     return await _post(db, safe_id, "withdraw", -amount, note or "", user.id)
 
 
+async def strict_balance(db: AsyncSession) -> bool:
+    """The finance setting `strict_safe_balance` (on unless the workspace turned it off): an
+    expense can't take a safe below zero."""
+    from app.framework.loader import registry
+
+    try:
+        value = (await registry.get_settings(db, "finance"))["values"].get("strict_safe_balance", True)
+    except KeyError:
+        return True
+    if isinstance(value, str):
+        return value.strip().lower() not in ("false", "0", "no", "off")
+    return bool(value)
+
+
 async def pay_expense(db: AsyncSession, safe_id: uuid.UUID, amount: Decimal, note: str, user_id,
-                      expense_id: uuid.UUID | None = None) -> Decimal:
-    """Money out of a safe for an approved expense. Unlike withdraw(), this does not refuse an
-    overdraft: approving an expense has always been allowed to take a safe below zero."""
-    await _lock_safe(db, safe_id)
+                      expense_id: uuid.UUID | None = None, *, allow_overdraft: bool = False) -> Decimal:
+    """Money out of a safe for an approved expense. A stopped safe pays nothing; a balance short of
+    the amount is refused unless the workspace turned `strict_safe_balance` off (the caller passes
+    `allow_overdraft`)."""
+    safe = _active(await _lock_safe(db, safe_id))
+    if not allow_overdraft and Decimal(safe["balance"]) < amount:
+        raise HTTPException(400, f"رصيد الخزنة غير كافٍ ({safe['balance']} ج.م) لصرف المصروف "
+                                 f"({amount} ج.م). أودع المبلغ أولاً أو اختر مصدرًا آخر")
     return await _post(db, safe_id, "withdraw", -amount, note, user_id, "expense", expense_id)
 
 

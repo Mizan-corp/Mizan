@@ -193,22 +193,26 @@ async def create_expense(data: ExpenseCreate, db: AsyncSession = Depends(get_db)
 @router.put("/expenses/{eid}")
 async def update_expense(eid: uuid.UUID, data: ExpenseUpdate, db: AsyncSession = Depends(get_db),
                          _: User = Depends(require_perm("finance"))):
-    current = (await db.execute(sqlt("SELECT status, amount, tax_amount FROM expenses WHERE id = :id FOR UPDATE"),
-                                {"id": eid})).first()
+    current = (await db.execute(sqlt("""
+        SELECT status, amount, tax_amount, date, is_recurring, recurring_interval, recurring_end_date
+        FROM expenses WHERE id = :id FOR UPDATE"""), {"id": eid})).first()
     if current is None:
         raise NotFoundError(EXPENSE_NOT_FOUND)
     existing = current.status
     # Exclude 'status' — it must be changed via the approve/reject/cancel endpoints only
     allowed = set(ExpenseUpdate.model_fields.keys()) - {"status"}
     if existing in expenses_service.FINAL_STATUSES or existing == "rejected":
-        allowed = {"notes"}  # decided (the money moved, was put back, or was refused): only the notes change
+        # Decided (the money moved, was put back, or was refused): only the notes and the
+        # recurrence (which moves no money) change.
+        allowed = {"notes", *expenses_service.RECURRENCE_FIELDS}
     changes = data.model_dump(exclude_unset=True)
     changes.pop("status", None)
-    for required in ("amount", "description", "date"):
+    for required in ("amount", "description", "date", "is_recurring"):
         if required in changes and changes[required] is None:
             changes.pop(required)
     if set(changes) - allowed:
-        raise HTTPException(409, "لا يمكن تعديل مصروف معتمد أو ملغى أو مرفوض، يمكن تعديل الملاحظات فقط. لتصحيحه سجّل مصروفًا جديدًا")
+        raise HTTPException(409, "لا يمكن تعديل مصروف معتمد أو ملغى أو مرفوض، يمكن تعديل الملاحظات والتكرار فقط. لتصحيحه سجّل مصروفًا جديدًا")
+    changes.update(expenses_service.recurrence(current, changes))
     updates = {k: v for k, v in changes.items() if k in allowed}
     if not updates:
         raise HTTPException(400, NO_CHANGES)

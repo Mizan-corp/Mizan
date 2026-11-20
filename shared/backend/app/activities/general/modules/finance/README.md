@@ -14,7 +14,7 @@ Permission: `finance` (declared here). Reports read with `finance` or `reports`.
 | Safes (a bank account is a safe of type `bank`) | `GET /safes` (balances only for `finance`/`reports`; `include_inactive`), `POST /safes`, `PUT /safes/{id}` (only the fields sent), `DELETE /safes/{id}` (stops an empty safe), `POST /safes/{id}/activate`, `GET /safes/{id}/history` | list: signed in; the rest: `finance` |
 | Movements by hand | `POST /safes/{id}/deposit` (posted as other income; names no shift), `POST /safes/{id}/withdraw` (other expenses), `POST /safes/transfer` (wallet → safe) | `finance`; withdraw: `finance` and the manager flag |
 | Wallets | `GET /wallets`, `POST /wallets`, `PUT /wallets/{id}`, `DELETE /wallets/{id}` (stops an empty wallet), `POST /wallets/{id}/activate`, `POST /wallets/{id}/reset-balance`, `GET /wallets/{id}/history` | list: signed in; the rest: `finance` |
-| Expenses | `GET /expenses`, `POST /expenses` (dated today in the workspace's time zone when no date is given), `PUT /expenses/{id}`, `POST /expenses/{id}/approve` `{approved}` (approve: the money leaves its safe or wallet; or reject), `POST /expenses/{id}/cancel` (it comes back), `DELETE /expenses/{id}` (drafts and rejected only), `GET /expenses/summary` | `finance` (summary: `finance` or `reports`) |
+| Expenses | `GET /expenses` (paged: `page`, `page_size` ≤ 200; filters `status`, `search`, dates, branch, vendor, category, `recurring`), `POST /expenses` (dated today in the workspace's time zone when no date is given), `PUT /expenses/{id}`, `POST /expenses/{id}/approve` `{approved}` (approve: the money leaves its safe or wallet; or reject), `POST /expenses/{id}/cancel` (it comes back), `DELETE /expenses/{id}` (drafts and rejected only), `GET /expenses/summary` | `finance` (summary: `finance` or `reports`) |
 | Vendors and categories | `/expense-vendors`, `/financial-categories` (type `income` or `expense`; a used category is stopped, not deleted) | `finance` (categories list: signed in) |
 | Reports | `GET /reports/ledger` (sale lines, returns and drawer movements of a range, paged; totals over the whole range), `GET /wallets/summary` (confirmed invoices per payment method), `GET /financial-ledger` (drawer movements by category) | `finance` or `reports` (`financial-ledger`: `finance`) |
 | Periods | `GET /periods`, `POST /periods/{month}/close`, `POST /periods/{month}/reopen` `{reason}` | read: `finance` or an accounting permission; close and reopen: `accounting:close` or `finance` |
@@ -26,7 +26,22 @@ Permission: `finance` (declared here). Reports read with `finance` or `reports`.
 - **An expense's life**: a draft is approved (paid) or rejected; nothing else is decided. Approved
   is final (cancelling puts the money back and keeps it as cancelled); rejected is closed too (not
   approved later, which would pay what was refused; enter it again as a new draft). After a
-  decision only the notes change. A draft or a rejected expense can be deleted.
+  decision only the notes and the recurrence change. A draft or a rejected expense can be deleted.
+- **A safe's balance** (`strict_safe_balance`, the module's setting, on by default): approving an
+  expense larger than its safe's balance is refused (400), and a stopped safe pays nothing. A
+  workspace that switches the setting off may take a safe below zero with an expense (only with an
+  expense: withdrawals, supplier payments, salaries and advances never overdraw). Wallets never go
+  below zero.
+- **Recurring expenses** (`services/recurring.py`): an expense marked recurring (weekly, monthly
+  by default, or yearly, optionally until an end date) gets its next occurrence every night when
+  its date comes (`recurring_expenses` in the automation runner, nightly group of
+  `deploy/server/mizan-cron.sh`): a new draft with the same vendor, category, branch, amount, VAT,
+  description and source, dated that day, waiting for approval (no money moves by itself). Each
+  occurrence is used once (`recurred_at`, under a row lock); the draft carries the series on
+  (`recurred_from` points back). The series continues whatever an occurrence's status; it stops at
+  its end date, when recurrence is switched off (allowed after a decision too), or when the latest
+  draft is deleted. A run catches up missed occurrences. Months add like PostgreSQL's intervals
+  (the 31st is followed by the last day of a shorter month, and stays there).
 - **Categories**: one that an expense or a drawer movement carries is stopped, never deleted (the
   drawer movements' key would clear their category); an unused one is deleted.
 
@@ -70,20 +85,21 @@ Permission: `finance` (declared here). Reports read with `finance` or `reports`.
 ## Screen
 
 `/finance` (`system/frontend/src/activities/general/modules/finance/FinancePage.tsx`): the cash
-book, safes and wallets (create, edit, stop, deposit, withdraw, transfer, history;
-`components/TreasuryWorkspace.tsx`), expenses and their approval, and periods
-(`components/PeriodsWorkspace.tsx`).
+book; safes and wallets (create, edit, stop, deposit, withdraw, transfer, history, a wallet's reset
+with a confirmation and a client id; `components/TreasuryWorkspace.tsx`); expenses
+(`components/ExpensesWorkspace.tsx`: paged and filtered, create and edit a draft, approve, reject
+with a reason, cancel, delete, the recurrence; after a decision only the notes and recurrence);
+categories and expense vendors (`components/CategoriesVendorsWorkspace.tsx`: create, edit, stop or
+delete); and periods (`components/PeriodsWorkspace.tsx`). Amounts show the workspace's currency
+(`system/frontend/src/lib/currency.ts`). The rules the screens mirror are in `lib.ts` (tested).
 
 ## Not yet
 
 - The manifest still lists the customers (`/customers`) and suppliers (`/suppliers`) screens, which
   belong to contacts and purchases: their screen ids are kept because saved role layouts name them.
-- `strict_safe_balance` (manifest setting) is not read; recurring expenses don't recur (FIN-9).
-- No screens yet for categories, expense vendors, rejecting or editing an expense, wallet reset
-  (FIN-14).
 
 ## Dependencies
-core. Tests: `system/backend/tests/test_money_flows_finance.py`, `test_ready_finance.py`, `test_b_platform.py`;
+core. Tests: `system/backend/tests/test_money_flows_finance.py`, `test_ready_finance.py`, `test_b_platform.py`, `test_c_finance.py`;
 `e2e/api/test_expenses.py`, `test_finance.py`, `test_periods.py`, `test_shifts_safes.py`.
 
 ## Expense VAT (ADR-014 D6, step 6)
