@@ -16,11 +16,18 @@ The point of sale shows the VAT the server will store (`system/frontend/src/lib/
 and the rates from `GET /settings/vat`): "منها ضريبة" when prices include VAT, the tax added to the
 total to collect when they don't. The receipt (`/print/sale/{id}`) prints the stored amounts.
 
-## Settings read by the server
-- `require_active_shift` (default on): no POS sale without the user's open shift in the branch
-  (`sales/services/checks.py`).
+## Settings (POS-9)
+Read by the server (`sales/services/checks.py`) and by the POS screen (`GET /modules/pos/settings`,
+`usePosSettings` in the frontend's `pos/api.ts`, rules in `pos/lib.ts`):
+- `require_active_shift` (default on): no POS sale without the user's open shift in the branch. The
+  screen says so and offers to open one; with it off and no shift, only non-cash payments are
+  offered (cash always needs the shift).
 - `allow_price_override` (default off): with it on, `sales:override_price` holders may sell at another
-  price than the product's.
+  price than the product's; the screen then shows a price edit on each cart line (marked «سعر
+  معدّل»), and no edit to anyone else.
+- `auto_print_receipt` (default off): the screen opens the receipt (`/print/sale/{id}`) as soon as a
+  sale is recorded, in a tab opened during the click or key press so the browser allows it.
+- `enable_quick_numpad` (default on): shows or hides the numpad in the payment dialog.
 
 ## Shifts
 - One open shift per cashier and branch: an advisory lock keyed with `hashtext()` in SQL serialises
@@ -34,6 +41,26 @@ total to collect when they don't. The receipt (`/print/sale/{id}`) prints the st
   user's own shift (managers and `supervise`: a shift of a branch they reach), with a manager's
   password.
 - A customer paying at the drawer lowers their balance without clamping at zero.
+
+## The shift summary (POS-6)
+`GET /shifts/{id}/summary` counts the shift's sales by their payment lines (`sale_payments`): a split
+payment counts each part under its own method and wallet (it used to count the whole sale under the
+first method); sales recorded before payment lines existed count whole under their payment method.
+`wallet_total` is what came in other than cash or on credit.
+
+## The shifts screen (POS-8)
+`system/frontend/src/activities/general/modules/pos/screens/ShiftsPage.tsx`: the open shift's summary
+(expected cash before closing), drawer rows by hand with the expense category
+(`/financial-categories`, type `expense`) and cash or wallet, cancelling a row, revenue delivery to a
+safe with a manager's password, handing the drawer to a colleague, closing alone or with a manager
+(who receives what isn't left for the next shift), the report, and the branch's history (paged,
+with each shift's summary for its cashier and supervisors).
+- `GET /shifts/{id}/people` (the shift's cashier, managers and `supervise` holders, in reach):
+  `approvers` (who can approve at the counter, `can_approve`) and `receivers` (who can take the drawer
+  over: the rules of `transfer`, without an open shift in the branch).
+- `DELETE /shifts/transactions/{id}` cancels a row entered by hand: those who approve at the counter
+  (`supervise`, or the manager flag with `shifts`; it used to be the manager flag alone), in a branch
+  they reach; audited (`cancel_drawer_tx`).
 
 ## Manager approvals (POS-4)
 Closing with a manager (`/shifts/{id}/close-with-manager`) and revenue delivery take a manager's id

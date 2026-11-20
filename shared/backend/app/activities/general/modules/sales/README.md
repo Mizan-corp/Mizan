@@ -53,13 +53,35 @@ cashier); a sale sent again returns the sale already recorded.
 Per workspace (`app/platform/archive/numbering.py`): `INV-000001` invoices, `RET-` returns, `QUO-`
 quotations, `DRF-` drafts (a draft gets its invoice number only when it is confirmed).
 
+## The sales screen (SAL-11)
+`system/frontend/src/activities/general/modules/sales/screens/SalesPage.tsx`:
+- **Lists** come from `GET /sales/page` (`{items, total, page, page_size}`): the tab (`kind=invoices`:
+  sales, returns, cancelled; `kind=quotations`: quotations and drafts), dates (the workspace's days,
+  the last one whole), search and branch are filtered on the server before paging. `GET /sales`
+  keeps answering a plain list (widgets, SDK) with the same filters.
+- **Cards** come from `GET /sales/summary` (same filters): values net of VAT (`net_total -
+  tax_amount`), return documents of the period taken off, as the reports count them; `outstanding`
+  is what is still owed on the credit invoices (after their returns and payments).
+- **Confirming a quotation** sends the money where the user chooses (`destination`): `drawer` (the
+  user's own open shift in the quotation's branch), `safe` (`safe_id`, through the finance safes
+  service), `wallet` (`wallet_id`, a wallet movement and a `wallet` payment line, posted to the
+  wallet's account) or `credit` (the customer's account). Confirming a draft takes the money as the
+  draft was saved, into the confirming user's own open shift.
+- **Editing** (`PUT /sales/{id}`) and **deleting** (`DELETE /sales/{id}`) a draft or a quotation: a
+  quotation by `quotations` or `sales` holders, a draft by `sales` or `pos` holders; confirmed
+  documents are cancelled or returned, never edited. A line sent without `unit_price` is priced at
+  the product's price now (another price needs the POS setting and `sales:override_price`).
+- Every action is shown only to holders of its permission (`lib.ts` `saleActions`), and cancel,
+  full and partial return and delete ask for confirmation first.
+
 ## Cancel and return
 `sales:cancel` (manager, admin) cancels; `sales:return` (cashier, manager, admin) returns, refunding
 cash from the user's own open shift in the sale's branch — never another cashier's.
 
 ## Audit
-Every write logs its audit row inside its own transaction: create, draft, confirm draft, quotation
-create / update / confirm / delete, cancel, full and partial return, allowed stock shortages.
+Every write logs its audit row inside its own transaction: create, draft, draft update
+(`update_draft`), confirm draft, quotation create / update / confirm / delete, cancel, full and
+partial return, allowed stock shortages.
 
 ## Balances
 A customer's balance is never clamped at zero: below zero the workspace owes the customer, as the
