@@ -7,13 +7,14 @@
  */
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, FileText, Pill, Plus, ShieldAlert, ShoppingCart, Truck } from "lucide-react";
 import { Skeleton } from "@/components/kit/skeleton";
 import { api } from "@/lib/api";
 import { dateTime, money } from "@/lib/format";
 import { Badge, Button, Empty, ErrorBox, Input, Modal, Select, Spinner, useToast } from "@/components/ui";
 import { useTenantNav } from "@app/lib/tenant";
+import { useAuth } from "@/stores/auth";
 
 interface Summary {
   drugs: number; prescription_only: number; controlled: number;
@@ -37,7 +38,6 @@ interface ControlledEntry {
   id: string; logged_at: string; trade_name: string | null; batch_number: string; quantity: number;
   patient_name: string; patient_national_id: string; prescriber_doctor: string; invoice_number: string | null;
 }
-interface Warehouse { id: string; name: string }
 
 type Tab = "formulary" | "batches" | "prescriptions" | "controlled";
 const TABS: { key: Tab; label: string }[] = [
@@ -260,26 +260,18 @@ function Formulary() {
   );
 }
 
+/** Batches come in with their purchase order's receipt (batch number and expiry per line), so the
+ * supplier is owed them and the ledger holds their value; opening stock is entered on the inventory
+ * screen. The batch receipt that used to be here did neither. */
 function Batches() {
   const qc = useQueryClient();
-  const { toast } = useToast();
+  const { tenantTo } = useTenantNav();
+  const { can } = useAuth();
   const [show, setShow] = useState<"all" | "attention">("attention");
-  const [receiving, setReceiving] = useState(false);
   const lots = useQuery({ queryKey: ["pharmacy", "batches"], queryFn: () => api.get<Lot[]>("/pharmacy/batches") });
-  const drugs = useQuery({ queryKey: ["pharmacy", "drugs", ""], queryFn: () => api.get<Drug[]>("/pharmacy/drugs"), enabled: receiving });
-  const warehouses = useQuery({ queryKey: ["warehouses"], queryFn: () => api.get<Warehouse[]>("/stock/warehouses"), enabled: receiving });
-  const empty = { product_id: "", warehouse_id: "", batch_number: "", expiry_date: "", quantity: "", purchase_cost: "" };
-  const [form, setForm] = useState(empty);
   const status = useMutation({
     mutationFn: (l: Lot) => api.post(`/modules/batches/${l.id}/status`, { status: l.status === "active" ? "quarantined" : "active" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pharmacy"] }),
-  });
-  const receive = useMutation({
-    mutationFn: () => api.post("/pharmacy/batches", { ...form, purchase_cost: form.purchase_cost || "0" }),
-    onSuccess: () => {
-      setReceiving(false); setForm(empty); toast("success", "تم استلام التشغيلة");
-      qc.invalidateQueries({ queryKey: ["pharmacy"] });
-    },
   });
   const rows = (lots.data ?? []).filter((l) => show === "all" || (l.days_left ?? 9999) <= 90 || l.status !== "active");
 
@@ -292,8 +284,15 @@ function Batches() {
               className={`rounded-lg px-3 py-1.5 ${show === k ? "bg-secondary font-bold" : "text-muted-foreground"}`}>{l}</button>
           ))}
         </div>
-        <Button variant="outline" onClick={() => setReceiving(true)}><Truck size={16} /> استلام تشغيلة</Button>
+        {can("purchases") && (
+          <Link to={tenantTo("/purchases")} className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm font-semibold hover:bg-elevated">
+            <Truck size={16} /> استلام تشغيلة بأمر شراء
+          </Link>
+        )}
       </div>
+      <p className="text-xs text-muted-foreground">
+        تُستلم التشغيلات مع أمر الشراء (رقم التشغيلة وتاريخ الصلاحية لكل صنف) فيُضاف المبلغ لحساب المورد ويُرحَّل المخزون للدفاتر؛ رصيد البداية يُسجَّل رصيداً افتتاحياً من «التسويات والتحويلات».
+      </p>
       {lots.isLoading ? <TableSkeleton /> : lots.isError ? (
         <ErrorBox message={(lots.error as Error).message} onRetry={() => lots.refetch()} />
       ) : !rows.length ? (
@@ -330,32 +329,6 @@ function Batches() {
         </div>
       )}
 
-      <Modal open={receiving} onClose={() => setReceiving(false)} title="استلام تشغيلة">
-        <form className="flex flex-col gap-3" onSubmit={(e) => { e.preventDefault(); if (!receive.isPending) receive.mutate(); }}>
-          <label className="text-sm">الدواء *
-            <Select value={form.product_id} onChange={(e) => setForm({ ...form, product_id: e.target.value })} required>
-              <option value="">— اختر —</option>
-              {drugs.data?.map((d) => <option key={d.id} value={d.id}>{d.trade_name}</option>)}
-            </Select>
-          </label>
-          <label className="text-sm">الفرع *
-            <Select value={form.warehouse_id} onChange={(e) => setForm({ ...form, warehouse_id: e.target.value })} required>
-              <option value="">— اختر —</option>
-              {warehouses.data?.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-            </Select>
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="text-sm">رقم التشغيلة *<Input dir="ltr" value={form.batch_number} onChange={(e) => setForm({ ...form, batch_number: e.target.value })} required /></label>
-            <label className="text-sm">تاريخ الصلاحية *<Input type="date" dir="ltr" value={form.expiry_date} onChange={(e) => setForm({ ...form, expiry_date: e.target.value })} required /></label>
-            <label className="text-sm">الكمية *<Input dir="ltr" inputMode="decimal" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required /></label>
-            <label className="text-sm">تكلفة الوحدة<Input dir="ltr" inputMode="decimal" value={form.purchase_cost} onChange={(e) => setForm({ ...form, purchase_cost: e.target.value })} /></label>
-          </div>
-          {receive.isError && <ErrorBox message={(receive.error as Error).message} />}
-          <Button type="submit" disabled={receive.isPending || !form.product_id || !form.warehouse_id || !form.batch_number || !form.expiry_date || !form.quantity}>
-            {receive.isPending ? <Spinner /> : "استلام"}
-          </Button>
-        </form>
-      </Modal>
     </section>
   );
 }

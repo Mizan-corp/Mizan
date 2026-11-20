@@ -96,3 +96,14 @@ def test_pharmacy_stock_is_kept_in_batches(owner_api, reg, wh, pharmacy, db):
     balances = dict(db.q("SELECT warehouse_id::text, qty FROM stock_balances WHERE product_id = %s", (drug["id"],)))
     for w in (wh["id"], twh["id"]):
         assert float(balances[w]) == sum(_lots(owner_api, drug["id"], w).values())  # batches == stock
+
+
+def test_a_batch_from_a_supplier_comes_in_on_its_purchase_order(owner_api, wh, db):
+    """Phase C: POST /pharmacy/batches put bought stock in with no supplier, payable or ledger entry;
+    it answers 410 (the purchase receipt takes batch and expiry per line) and moves nothing."""
+    p = owner_api.ok(owner_api.get("/products", params={"page_size": 1}))["items"][0]
+    before = db.one("SELECT COUNT(*) FROM stock_movements WHERE product_id = %s", (p["id"],))[0]
+    r = owner_api.post("/pharmacy/batches", json={"product_id": p["id"], "warehouse_id": wh["id"], "batch_number": "E2E",
+                                                   "expiry_date": "2030-01-01", "quantity": 1})
+    assert r.status_code == 410, r.text[:200]
+    assert db.one("SELECT COUNT(*) FROM stock_movements WHERE product_id = %s", (p["id"],))[0] == before

@@ -91,3 +91,33 @@ def test_operations_refuse_bad_input_and_number_uniquely(owner_api, reg, wh, pro
         "from_warehouse_id": wh["id"], "to_warehouse_id": twh["id"],
         "items": [{"product_id": product["id"], "qty": 1}]}))["doc_number"] for _ in range(3)}
     assert len(numbers) == 3, numbers
+
+
+def test_stock_requests_are_approved_fulfilled_or_cancelled(owner_api, cashier_api, reg, wh, product, db):
+    """Phase C (OPS-4): a request is approved (`operations:approve`), then fulfilled as a dispatch
+    for at most what was asked; or cancelled."""
+    twh = owner_api.ok(owner_api.post("/stock/warehouses", json={
+        "code": f"E2E-WH-{uid('w')}", "name": f"E2E-WH-{uid('w')}", "warehouse_type": "warehouse"}))
+    reg.add("warehouse", twh["id"])
+    owner_api.ok(owner_api.post("/stock/movements", json={
+        "product_id": product["id"], "warehouse_id": wh["id"],
+        "movement_type": "opening_stock", "qty": "10", "unit_cost": "70"}))
+    body = {"from_warehouse_id": wh["id"], "to_warehouse_id": twh["id"], "items": [{"product_id": product["id"], "qty": 3}]}
+    req = owner_api.ok(owner_api.post("/operations/stock-request", json=body))
+    reg.add("operation", req["id"])
+    assert owner_api.post(f"/operations/stock-requests/{req['id']}/fulfil").status_code == 400  # not approved
+    assert cashier_api.post(f"/operations/stock-requests/{req['id']}/approve").status_code == 403
+    assert owner_api.ok(owner_api.post(f"/operations/stock-requests/{req['id']}/approve", json={"note": "e2e"}))["status"] == "approved"
+    assert owner_api.post(f"/operations/stock-requests/{req['id']}/fulfil", json={
+        "items": [{"product_id": product["id"], "qty": 4}]}).status_code == 400  # more than asked
+    done = owner_api.ok(owner_api.post(f"/operations/stock-requests/{req['id']}/fulfil", json={
+        "items": [{"product_id": product["id"], "qty": 2}]}))
+    assert done["status"] == "fulfilled" and done["dispatch"]["doc_number"].startswith("DSP-")
+    assert _qty(db, product["id"], twh["id"]) == 2
+    listed = owner_api.ok(owner_api.get("/operations", params={"doc_type": "stock_request", "status": "fulfilled", "page_size": 200}))
+    assert any(d["id"] == req["id"] for d in listed["items"])
+
+    other = owner_api.ok(owner_api.post("/operations/stock-request", json=body))
+    reg.add("operation", other["id"])
+    assert owner_api.ok(owner_api.post(f"/operations/stock-requests/{other['id']}/cancel", json={"reason": "e2e"}))["status"] == "cancelled"
+    assert owner_api.post(f"/operations/stock-requests/{other['id']}/approve").status_code == 400

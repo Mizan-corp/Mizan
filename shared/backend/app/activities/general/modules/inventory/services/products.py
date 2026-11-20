@@ -201,15 +201,18 @@ async def list_products(
     page: int = 1,
     page_size: int = 50,
     current_user: User | None = None,
+    status: str = "active",
 ) -> Page:
-    """One page of the active products with their stock (the branch's, or the company's) and the
-    total. Costs are null unless the user may see them."""
+    """One page of the products with their stock (the branch's, or the company's) and the total:
+    the active ones, or (`status` inactive / all) the stopped ones too. Costs are null unless the
+    user may see them."""
     from app.activities.general.modules.inventory.models.stock_balance import StockBalance
     from app.dependencies import verify_warehouse_access
     if current_user:
         await verify_warehouse_access(db, current_user, warehouse_id)
-    base_q = select(Product).where(Product.is_active)
-    count_q = select(func.count(Product.id)).where(Product.is_active)
+    state = {"active": [Product.is_active], "inactive": [Product.is_active.is_(False)], "all": []}[status]
+    base_q = select(Product).where(*state)
+    count_q = select(func.count(Product.id)).where(*state)
 
     if search:
         like = f"%{search}%"
@@ -359,6 +362,8 @@ async def update_product(
     if not p:
         raise NotFoundError(PRODUCT_NOT_FOUND)
     payload = data.model_dump(exclude_none=True)
+    if payload.pop("clear_subcategory", False) and "subcategory_id" not in payload:
+        payload["subcategory_id"] = None
     for key in ("code", "barcode"):
         if key in payload and not payload[key]:
             payload[key] = None  # "" clears it
@@ -382,12 +387,17 @@ async def update_product(
     return p
 
 
-async def delete_product(db: AsyncSession, product_id: uuid.UUID) -> None:
+async def delete_product(db: AsyncSession, product_id: uuid.UUID, user: User | None = None) -> None:
+    """Stop a product (soft delete): it leaves the catalogue, the till and the pickers; its movements,
+    documents and balances stay, and it can be brought back (`PUT is_active`). Audited."""
     result = await db.execute(select(Product).where(Product.id == product_id))
     p = result.scalar_one_or_none()
     if not p:
         raise NotFoundError(PRODUCT_NOT_FOUND)
     p.is_active = False  # soft delete — preserves stock movement history
+    if user is not None:
+        await audit_log(db, "product", "deactivate", user.id, user.full_name, product_id, {"name": p.name},
+                        f"إيقاف الصنف {p.name}")
     await db.commit()
 
 
@@ -585,6 +595,19 @@ async def upload_product_image(
                                     filename=filename or "img.png", content_type=content_type)
     await db.commit()
     return p.image_url
+
+
+async def remove_product_image(db: AsyncSession, product_id: uuid.UUID, user: User) -> None:
+    """Take the product's picture off (the stored file is deleted too). Audited."""
+    p = (await db.execute(select(Product).where(Product.id == product_id))).scalar_one_or_none()
+    if not p:
+        raise NotFoundError(PRODUCT_NOT_FOUND)
+    from app.framework import files
+
+    await files.remove(db, kind="product_image", owner_id=str(product_id))
+    p.image_url = None
+    await audit_log(db, "product", "image_remove", user.id, user.full_name, product_id, None, f"حذف صورة الصنف {p.name}")
+    await db.commit()
 
 
 async def set_reorder_level(db, product_ids, level, tenant_id=None) -> int:

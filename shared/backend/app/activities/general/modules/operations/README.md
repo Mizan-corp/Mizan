@@ -17,6 +17,21 @@
 - `GET /operations/?doc_type&page&page_size` (≤ 200): `{items, total, page, pages}`, newest first;
   each item has its `status` (`done`, `pending`, `cancelled`).
 
+## Stock requests (OPS-4, phase C)
+`pending` → `approved` → `fulfilled`, or `cancelled`:
+- `POST /operations/stock-requests/{id}/approve` (`operations:approve`, managers and admin; the
+  approver must reach the source warehouse): nothing moves yet.
+- `POST /operations/stock-requests/{id}/fulfil` (`operations`, an approved request): a dispatch
+  (`DSP-…`) from the source to the requesting warehouse for the requested quantities, or less
+  (`items`, each at most what was asked; a product left out isn't sent). As any dispatch it needs both
+  warehouses and the stock. The request keeps the dispatch's number and what was sent; the dispatch
+  names the request. `Idempotency-Key` or `client_id` make a retry return the first answer.
+- `POST /operations/stock-requests/{id}/cancel`: its maker while it is pending, or a holder of
+  `operations:approve` while pending or approved (a rejection); `reason` is kept.
+- Every step is audited (`stock_request`: create, approve, fulfil, cancel). `GET /operations/` takes
+  `status` (`pending`, `approved`, `fulfilled`, `cancelled`, `done`). Screen: the «الطلبات» tab of
+  `/operations`.
+
 ## Retries (OPS-5)
 A dispatch or stock request sent again with the same `Idempotency-Key` header or `client_id` in the
 body returns the first answer (`app/framework/idempotency.py`); the same key with another body is
@@ -35,6 +50,5 @@ order (`/purchases`: the supplier is owed the amount and the ledger posts `purch
 receipts stay in the list and the archive as `goods_receipt` documents.
 
 ## Known limits
-- Stock requests can't be approved, fulfilled or cancelled yet (OPS-4).
 - The screen lives in the inventory manifest (`inventory.operations`), not in this one.
 - Documents from before the counter keep the numbers the shared `invoice_seq` gave them.

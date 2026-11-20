@@ -45,3 +45,17 @@ class DispatchRequest(_Operation):
 
 class StockRequestRequest(_Operation):
     pass
+
+
+class FulfilLine(BaseModel):
+    product_id: uuid.UUID
+    qty: Decimal = Field(gt=0, le=MAX_QTY, max_digits=12, decimal_places=3)
+    note: str | None = Field(None, max_length=500)
+
+
+class FulfilRequest(BaseModel):
+    """What is sent for an approved stock request: the lines (each at most what was asked for), or
+    everything asked for when omitted."""
+    items: list[FulfilLine] | None = Field(None, min_length=1, max_length=500)
+    notes: str | None = Field(None, max_length=1000)
+    client_id: uuid.UUID | None = None

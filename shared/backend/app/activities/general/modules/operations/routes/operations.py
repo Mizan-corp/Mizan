@@ -1,6 +1,7 @@
 """Stock operation documents (archived in archived_documents):
 - إذن صرف (dispatch): stock moves from one warehouse to another; cancelling moves it back.
-- طلب نواقص (stock_request): a request document; no stock moves.
+- طلب نواقص (stock_request): a request document; no stock moves until it is approved
+  (`operations:approve`) and fulfilled, which makes a dispatch (OPS-4); or it is cancelled.
 Goods from a supplier come in through a purchase order (/purchases), never here.
 
 A retried dispatch or request (a double click, a lost answer) names its attempt with an
@@ -17,7 +18,11 @@ from app.db.base import get_db
 from app.dependencies import require_perm
 from app.framework import idempotency
 from app.activities.general.modules.operations import service
-from app.activities.general.modules.operations.schemas import DispatchRequest, StockRequestRequest
+from app.activities.general.modules.operations.schemas import (
+    DispatchRequest,
+    FulfilRequest,
+    StockRequestRequest,
+)
 from app.platform.archive.models import DocType
 from app.platform.auth.models.user import User
 
@@ -26,6 +31,10 @@ router = APIRouter(prefix="/operations", tags=["operations"])
 
 class CancelRequest(BaseModel):
     reason: str | None = Field(None, max_length=500)
+
+
+class ApproveRequest(BaseModel):
+    note: str | None = Field(None, max_length=500)
 
 
 async def _once(db: AsyncSession, scope: str, key_header: str | None, data, user: User, work) -> dict:
@@ -73,9 +82,38 @@ async def cancel_dispatch(doc_id: uuid.UUID, data: CancelRequest | None = None, 
     return result
 
 
+@router.post("/stock-requests/{doc_id}/approve")
+async def approve_stock_request(doc_id: uuid.UUID, data: ApproveRequest | None = None, db: AsyncSession = Depends(get_db),
+                                current_user: User = Depends(require_perm("operations:approve"))):
+    """اعتماد طلب مخزون معلّق (`operations:approve`)."""
+    result = await service.approve_request(db, doc_id, current_user, data.note if data else None)
+    await db.commit()
+    return result
+
+
+@router.post("/stock-requests/{doc_id}/fulfil")
+async def fulfil_stock_request(doc_id: uuid.UUID, data: FulfilRequest | None = None, db: AsyncSession = Depends(get_db),
+                               current_user: User = Depends(require_perm("operations")),
+                               idempotency_key: str | None = Header(None, alias="Idempotency-Key")):
+    """صرف طلب معتمد: إذن صرف من مخزن المصدر إلى المخزن الطالب بالكميات المطلوبة أو أقل."""
+    data = data or FulfilRequest()
+    return await _once(db, f"operations.fulfil:{doc_id}", idempotency_key, data, current_user,
+                       lambda: service.fulfil_request(db, doc_id, current_user, data.items, data.notes))
+
+
+@router.post("/stock-requests/{doc_id}/cancel")
+async def cancel_stock_request(doc_id: uuid.UUID, data: CancelRequest | None = None, db: AsyncSession = Depends(get_db),
+                               current_user: User = Depends(require_perm("operations"))):
+    """إلغاء طلب لم يُصرف: صاحبه قبل الاعتماد، أو من يملك `operations:approve`."""
+    result = await service.cancel_request(db, doc_id, current_user, data.reason if data else None)
+    await db.commit()
+    return result
+
+
 @router.get("/")
 async def list_operations(
     doc_type: Literal["dispatch_order", "goods_receipt", "stock_request"] | None = None,
+    status: Literal["done", "pending", "approved", "fulfilled", "cancelled"] | None = None,
     page: int = Query(1, ge=1, le=100000),
     page_size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
@@ -83,4 +121,4 @@ async def list_operations(
 ):
     """The operation documents (dispatch, past goods receipts, stock requests), newest first:
     {items, total, page, pages}."""
-    return await service.list_documents(db, DocType(doc_type) if doc_type else None, page, page_size)
+    return await service.list_documents(db, DocType(doc_type) if doc_type else None, page, page_size, status)

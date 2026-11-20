@@ -45,6 +45,38 @@ the whole account in one query so every page is right. `page_size` 1–500 (100 
   `supplier_transactions(supplier_id)`, `purchase_price_history(product_id)`,
   `purchase_orders(supplier_id)`, declared in the models and made by v101 where missing.
 
+## Order lifecycle (PUR-4, phase C)
+`draft` → `partial` (some arrived) → `received`; a draft can also be `cancelled`.
+- **Draft:** `PUT /purchases/{id}` changes supplier (`clear_supplier` for a cash purchase), branch
+  (one the user works in), notes and lines (one line per product: a product twice is a 400);
+  `POST /purchases/{id}/cancel` keeps it as cancelled; `DELETE /purchases/{id}` erases it (nothing was
+  received or paid with it). Anything but a draft is refused (400); all audited.
+- **Goods receipts:** `POST /purchases/{id}/receive` takes what arrived now: per line (`item_id`, or
+  `product_id`) the quantity (0: nothing this time; a line not listed arrives in full, i.e. what is
+  left of it; never more than is left, 400), the unit cost (the order's when not given), batch and
+  expiry; `amount_paid` with its safe or wallet (`finance`); `notes`. Each receipt is a document of
+  its own (`purchase_receipts` / `purchase_receipt_items`, v104, numbered `GRN-000001` per workspace)
+  that brings the stock in, owes the supplier its value (a debit on the supplier's account), pays what
+  it says, records the price history, is archived as a purchase invoice, is audited, and posts its own
+  `purchase.received` (the order's first receipt as event `receive`, the next as `receive-2`, …).
+  The order's planned `amount_paid` is paid with its first receipt only; after that the order's
+  `amount_paid` is what all its receipts paid. The order line keeps the totals of its receipts
+  (`qty_received`, `net_amount`, `tax_amount`) and its ordered unit cost.
+- **Closing:** `POST /purchases/{id}/close` makes a partly received order received with what arrived
+  (the rest won't come); nothing is posted.
+- **Returns** are allowed from a partly or fully received order, up to what its receipts brought in
+  and wasn't returned, at the order's own average cost of what arrived (several receipts may have had
+  different costs).
+- **Reads:** `GET /purchases?status&supplier_id&search` (number or supplier name); `GET
+  /purchases/{id}` adds `ordered_total`, each line's `qty_remaining`, `receipts` (with their lines),
+  `payments` (the order's movements on the supplier's account) and `returns`. The VAT report by code
+  takes purchases from the receipts on their own dates (orders received before v104 from their lines).
+- **Screens:** `/purchases` (orders by state, search, paging), `/purchases/{id}` (the order, its supplier invoice upload and its
+  actions; the receipt form with quantity, cost, batch and expiry per line), `/purchases/suggestions`
+  (the chosen suggestions become a draft) and `/purchases/price-history` (a product's purchase costs
+  and its suppliers' prices).
+- Known limit: a supplier delivering more than ordered needs a new order for the extra.
+
 ## Settings
 - `auto_update_purchase_price` (on by default): a receipt sets the product's listed cost
   (`cost_price`) to the purchase price (without VAT when registered). Off, the listed cost stays as it

@@ -19,7 +19,6 @@ from app.db.base import get_db
 from app.dependencies import get_current_user, require_perm
 from app.platform.notifications.models.device_token import DeviceToken
 from app.platform.notifications.models.notification import Notification
-from app.activities.general.modules.inventory.models.product import Product
 from app.platform.tenancy.models import Tenant
 from app.platform.auth.models.user import User
 
@@ -241,18 +240,14 @@ async def generate_system_alerts(
     cutoff = now - timedelta(hours=20)
     generated_count = 0
 
-    # 1. Low stock check
-    # Find active products with min_stock defined and compare
-    prod_stmt = select(Product).where(
-        Product.tenant_id == current_user.tenant_id,
-        Product.is_active.is_(True),
-    ).limit(50)
-    prods = (await db.execute(prod_stmt)).scalars().all()
+    # 1. Low stock: products whose stock in all warehouses is at or below their reorder level, unless
+    # the workspace switched reorder alerts off (inventory setting `enable_reorder_alerts`, INV-10).
+    from app.activities.general.modules.inventory.services.stock import (
+        products_at_reorder_level,
+        reorder_alerts_enabled,
+    )
 
-    low_stock_prods = [
-        p for p in prods
-        if (p.reorder_point is not None and float(p.reorder_point) > 0)
-    ][:5]
+    low_stock_prods = await products_at_reorder_level(db, 50) if await reorder_alerts_enabled(db) else []
 
     if low_stock_prods:
         # Check if already notified recently
@@ -262,7 +257,7 @@ async def generate_system_alerts(
             Notification.created_at >= cutoff,
         )
         if not (await db.execute(existing_stmt.limit(1))).scalars().first():
-            sample_names = "، ".join([p.name for p in low_stock_prods[:3]])
+            sample_names = "، ".join([str(p.name) for p in low_stock_prods[:3]])
             db.add(Notification(
                 id=uuid.uuid4(),
                 tenant_id=current_user.tenant_id,

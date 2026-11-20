@@ -63,9 +63,17 @@ async def _by_code(db: AsyncSession, tenant_id: uuid.UUID, date_from, date_to) -
         ("sale_returns", "SELECT si.tax_code, SUM(si.net_amount) AS net, SUM(si.tax_amount) AS tax, COUNT(DISTINCT s.id) AS docs "
                          "FROM sale_items si JOIN sales s ON s.id = si.sale_id WHERE s.tenant_id = :t AND si.tax_code IS NOT NULL "
                          "AND s.status = 'returned' AND s.return_of IS NOT NULL", f"(s.created_at AT TIME ZONE '{_CAIRO}')::date"),
-        ("purchases", "SELECT i.tax_code, SUM(i.net_amount) AS net, SUM(i.tax_amount) AS tax, COUNT(DISTINCT po.id) AS docs "
+        # Each goods receipt on its own date (PUR-4); orders received before receipts were kept
+        # (no purchase_receipts row) from their lines, on the order's receipt date.
+        ("purchases", "SELECT x.tax_code, SUM(x.net) AS net, SUM(x.tax) AS tax, COUNT(DISTINCT x.doc) AS docs FROM ("
+                      "SELECT ri.tax_code, ri.net_amount AS net, ri.tax_amount AS tax, r.id AS doc, r.created_at AS at "
+                      "FROM purchase_receipt_items ri JOIN purchase_receipts r ON r.id = ri.receipt_id "
+                      "WHERE r.tenant_id = :t AND ri.tax_code IS NOT NULL "
+                      "UNION ALL SELECT i.tax_code, i.net_amount, i.tax_amount, po.id, po.received_at "
                       "FROM purchase_order_items i JOIN purchase_orders po ON po.id = i.po_id WHERE po.tenant_id = :t "
-                      "AND i.tax_code IS NOT NULL AND po.status = 'received'", f"(po.received_at AT TIME ZONE '{_CAIRO}')::date"),
+                      "AND i.tax_code IS NOT NULL AND po.status = 'received' "
+                      "AND NOT EXISTS (SELECT 1 FROM purchase_receipts r WHERE r.po_id = po.id)) x WHERE true",
+         f"(x.at AT TIME ZONE '{_CAIRO}')::date"),
         ("purchase_returns", "SELECT i.tax_code, SUM(i.net_amount) AS net, SUM(i.tax_amount) AS tax, COUNT(DISTINCT r.id) AS docs "
                              "FROM purchase_return_items i JOIN purchase_returns r ON r.id = i.return_id WHERE r.tenant_id = :t "
                              "AND i.tax_code IS NOT NULL", f"(r.created_at AT TIME ZONE '{_CAIRO}')::date"),

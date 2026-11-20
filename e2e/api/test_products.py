@@ -209,3 +209,18 @@ def test_collections_crud_and_checks(admin_api, reg, product, wh):
     assert admin_api.post("/collections", json={"name": "E2E-x", "retail_price": "-1"}).status_code == 422
     assert admin_api.put(f"/collections/{uuid.uuid4()}", json={"name": "E2E-x"}).status_code == 404
     assert admin_api.delete(f"/collections/{coll['id']}").status_code == 204
+
+
+def test_product_without_category_stopped_listing_and_picture(admin_api, cashier_api, reg):
+    """Phase C (INV-9): a product needs no category; stopped products are listed for inventory only;
+    the picture is listed and can be taken off."""
+    p = admin_api.ok(admin_api.post("/products", json={"name": f"E2E-NOCAT-{uid('p')}", "retail_price": "3"}))
+    reg.add("product", p["id"])
+    assert p["subcategory_id"] is None and "image_url" in p
+    assert admin_api.delete(f"/products/{p['id']}").status_code == 204
+    stopped = admin_api.ok(admin_api.get("/products", params={"status": "inactive", "search": p["name"]}))
+    assert [x["id"] for x in stopped["items"]] == [p["id"]]
+    assert cashier_api.get("/products", params={"status": "all"}).status_code == 403
+    assert admin_api.ok(admin_api.put(f"/products/{p['id']}", json={"is_active": True}))["is_active"] is True
+    assert admin_api.delete(f"/products/{p['id']}/image").status_code == 204
+    assert admin_api.ok(admin_api.get(f"/products/{p['id']}"))["image_url"] is None
