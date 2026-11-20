@@ -163,16 +163,127 @@ async def cancel_dispatch(db: AsyncSession, doc_id: uuid.UUID, user, reason: str
     return {"id": str(doc.id), "doc_number": doc.doc_number, "status": "cancelled"}
 
 
+# ── Stock requests (OPS-4): pending → approved → fulfilled (a dispatch), or cancelled ──────────
+
+REQUEST_STATUS_LABEL = {"pending": "قيد الانتظار", "approved": "معتمد", "fulfilled": "تم الصرف", "cancelled": "ملغى"}
+
+
+async def _request(db: AsyncSession, doc_id: uuid.UUID) -> ArchivedDocument:
+    """A stock request of the workspace, locked for the change."""
+    doc = (await db.execute(select(ArchivedDocument).where(ArchivedDocument.id == doc_id)
+                            .with_for_update())).scalar_one_or_none()
+    if doc is None or doc.doc_type != DocType.stock_request:
+        raise HTTPException(404, "طلب المخزون غير موجود")
+    return doc
+
+
+def _refuse_status(meta: dict, allowed: tuple[str, ...], action: str) -> None:
+    status = meta.get("status") or "pending"
+    if status not in allowed:
+        raise HTTPException(400, f"لا يمكن {action} طلب حالته «{REQUEST_STATUS_LABEL.get(status, status)}»")
+
+
+def _warehouse_ids(meta: dict) -> tuple[uuid.UUID, uuid.UUID]:
+    try:
+        return uuid.UUID(meta["from_id"]), uuid.UUID(meta["to_id"])
+    except (KeyError, ValueError, TypeError):
+        raise HTTPException(400, "طلب المخزون لا يحدد المخزنين") from None
+
+
+async def approve_request(db: AsyncSession, doc_id: uuid.UUID, user, note: str | None = None) -> dict:
+    """Approve a pending request (`operations:approve`, a manager reaching the source warehouse that
+    will give the goods). Audited; nothing moves yet."""
+    doc = await _request(db, doc_id)
+    meta = dict(doc.metadata_ or {})
+    _refuse_status(meta, ("pending",), "اعتماد")
+    source, _ = _warehouse_ids(meta)
+    await verify_warehouse_access(db, user, source)
+    meta.update(status="approved", approved_by=user.full_name, approved_by_id=str(user.id),
+                approved_at=datetime.now(UTC).isoformat(), approve_note=note or "")
+    doc.metadata_ = meta
+    await audit_log(db, "stock_request", "approve", user.id, user.full_name, doc.ref_id,
+                    {"doc_number": doc.doc_number, "note": note or ""}, f"اعتماد طلب المخزون {doc.doc_number}")
+    return doc_out(doc)
+
+
+async def cancel_request(db: AsyncSession, doc_id: uuid.UUID, user, reason: str | None = None) -> dict:
+    """Cancel (or reject) a request not yet fulfilled: whoever made it while it is pending, or a holder
+    of `operations:approve` (pending or approved). Audited."""
+    from app.platform.permissions.access import can
+
+    doc = await _request(db, doc_id)
+    meta = dict(doc.metadata_ or {})
+    _refuse_status(meta, ("pending", "approved"), "إلغاء")
+    approver = can(user, "operations:approve")
+    own = doc.created_by == user.id and (meta.get("status") or "pending") == "pending"
+    if not (approver or own):
+        raise HTTPException(403, "يلغي الطلبَ صاحبه قبل اعتماده، أو من يملك صلاحية اعتماد طلبات المخزون")
+    if approver and not own:
+        source, _ = _warehouse_ids(meta)
+        await verify_warehouse_access(db, user, source)
+    meta.update(status="cancelled", cancelled_by=user.full_name, cancelled_at=datetime.now(UTC).isoformat(),
+                cancel_reason=reason or "")
+    doc.metadata_ = meta
+    await audit_log(db, "stock_request", "cancel", user.id, user.full_name, doc.ref_id,
+                    {"doc_number": doc.doc_number, "reason": reason or ""}, f"إلغاء طلب المخزون {doc.doc_number}")
+    return doc_out(doc)
+
+
+async def fulfil_request(db: AsyncSession, doc_id: uuid.UUID, user, items: list | None = None,
+                         notes: str | None = None) -> dict:
+    """Fulfil an approved request: a dispatch (DSP-…) from the source to the requesting warehouse for
+    the requested quantities, or less (`items`, each at most what was asked for; a product left out
+    isn't sent). The source must hold the stock, and the user must work in both warehouses (as for any
+    dispatch). The request is marked fulfilled with its dispatch; both are audited."""
+    doc = await _request(db, doc_id)
+    meta = dict(doc.metadata_ or {})
+    _refuse_status(meta, ("approved",), "صرف")
+    source, destination = _warehouse_ids(meta)
+    asked: dict[str, Decimal] = {}
+    for line in meta.get("items") or []:
+        asked[str(line["product_id"])] = asked.get(str(line["product_id"]), Decimal("0")) + Decimal(str(line["qty"]))
+    if items is None:
+        lines = [OperationItem(product_id=uuid.UUID(pid), qty=q) for pid, q in asked.items()]
+    else:
+        lines = []
+        for i in items:
+            want = asked.get(str(i.product_id))
+            if want is None:
+                raise HTTPException(400, "الصنف ليس ضمن طلب المخزون هذا")
+            if i.qty > want:
+                raise HTTPException(400, f"الكمية المصروفة ({_qty_text(i.qty)}) أكبر من المطلوب ({_qty_text(want)})")
+            lines.append(OperationItem(product_id=i.product_id, qty=i.qty, note=i.note))
+    if not lines:
+        raise HTTPException(400, "لا توجد كميات للصرف")
+    sent = await dispatch(db, DispatchRequest(from_warehouse_id=source, to_warehouse_id=destination, items=lines,
+                                              notes=notes or f"صرف طلب المخزون {doc.doc_number}"), user)
+    dispatch_doc = (await db.execute(select(ArchivedDocument).where(ArchivedDocument.id == uuid.UUID(sent["id"])))).scalar_one()
+    dispatch_doc.metadata_ = {**(dispatch_doc.metadata_ or {}), "request_id": str(doc.id), "request_number": doc.doc_number}
+    meta.update(status="fulfilled", fulfilled_by=user.full_name, fulfilled_at=datetime.now(UTC).isoformat(),
+                dispatch_id=sent["id"], dispatch_number=sent["doc_number"],
+                fulfilled_items=[{"product_id": str(i.product_id), "qty": float(i.qty)} for i in lines])
+    doc.metadata_ = meta
+    await audit_log(db, "stock_request", "fulfil", user.id, user.full_name, doc.ref_id,
+                    {"doc_number": doc.doc_number, "dispatch": sent["doc_number"], "items_count": len(lines)},
+                    f"صرف طلب المخزون {doc.doc_number} بإذن الصرف {sent['doc_number']}")
+    return {**doc_out(doc), "dispatch": sent}
+
+
 def doc_out(d: ArchivedDocument) -> dict:
     meta = d.metadata_ or {}
     return {"id": str(d.id), "doc_number": d.doc_number, "doc_type": d.doc_type,
             "amount": float(d.amount or 0), "status": meta.get("status"), "metadata": meta,
-            "created_at": d.created_at.isoformat()}
+            "created_by": str(d.created_by) if d.created_by else None,
+            "created_at": d.created_at.isoformat() if d.created_at else None}
 
 
-async def list_documents(db: AsyncSession, doc_type: DocType | None, page: int, page_size: int) -> dict:
-    """The operation documents, newest first: {items, total, page, pages}."""
+async def list_documents(db: AsyncSession, doc_type: DocType | None, page: int, page_size: int,
+                         status: str | None = None) -> dict:
+    """The operation documents, newest first: {items, total, page, pages}; `status` filters on the
+    document's state (a stock request's pending, approved, fulfilled, cancelled)."""
     cond = [ArchivedDocument.doc_type == doc_type] if doc_type else [ArchivedDocument.doc_type.in_(DOC_TYPES)]
+    if status:
+        cond.append(ArchivedDocument.metadata_["status"].astext == status)
     total = (await db.execute(select(func.count()).select_from(ArchivedDocument).where(*cond))).scalar_one()
     docs = (await db.execute(select(ArchivedDocument).where(*cond)
                              .order_by(ArchivedDocument.created_at.desc(), ArchivedDocument.id.desc())

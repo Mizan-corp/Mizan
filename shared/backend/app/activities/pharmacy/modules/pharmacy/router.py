@@ -9,7 +9,6 @@ tables (pharmacy_drugs, pharmacy_batches) are kept read-only; v63 moved their da
 from __future__ import annotations
 
 import uuid
-from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -47,16 +46,6 @@ class CreateDrugRequest(BaseModel):
     unit_price: Decimal = Field(default=Decimal("0"), ge=0)
     is_controlled: bool = False
     requires_prescription: bool = False
-
-
-class ReceiveBatchRequest(BaseModel):
-    product_id: uuid.UUID
-    warehouse_id: uuid.UUID
-    batch_number: str = Field(min_length=1, max_length=64)
-    expiry_date: date
-    quantity: Decimal = Field(gt=0)
-    purchase_cost: Decimal = Field(default=Decimal("0"), ge=0)
-    supplier_name: str | None = None
 
 
 @router.get("/summary")
@@ -147,20 +136,14 @@ async def list_batches(db: AsyncSession = Depends(get_db), _=Depends(require_per
     return [dict(r) for r in rows]
 
 
-@router.post("/batches", status_code=201)
-async def receive_batch(data: ReceiveBatchRequest, db: AsyncSession = Depends(get_db), user=Depends(require_perm("inventory"))):
-    """Stock arrives as a batch: a purchase movement through the one stock path."""
-    from app.activities.general.modules.inventory.models.stock import MovementType
-    from app.activities.general.modules.inventory.services.stock import apply_movement
-
-    _, lots = await apply_movement(
-        db, product_id=data.product_id, warehouse_id=data.warehouse_id, movement_type=MovementType.purchase,
-        qty=data.quantity, unit_cost=data.purchase_cost, created_by=user.id, ref_type="pharmacy_receipt",
-        note=f"استلام تشغيلة {data.batch_number}" + (f" من {data.supplier_name}" if data.supplier_name else ""),
-        lot={"batch_number": data.batch_number.strip(), "expiry_date": data.expiry_date},
-    )
-    await db.commit()
-    return {"batch_number": data.batch_number, "lots": [{**x, "qty": float(x["qty"])} for x in lots]}
+@router.post("/batches", status_code=410)
+async def receive_batch(_=Depends(require_perm("inventory"))):
+    """Removed (phase C): it put bought stock in with a free-text supplier, no payable and no ledger
+    entry. A batch from a supplier is received on its purchase order (batch number and expiry per
+    line); stock already on the shelf when the workspace starts is opening stock (inventory screen)."""
+    raise HTTPException(410, "استلام تشغيلة من مورد يُسجَّل الآن باستلام أمر الشراء من شاشة المشتريات (رقم التشغيلة "
+                             "وتاريخ الصلاحية لكل سطر): يُضاف المبلغ إلى حساب المورد ويُرحَّل المخزون إلى الدفاتر. "
+                             "رصيد البداية يُسجَّل كرصيد افتتاحي من شاشة المخزون")
 
 
 @router.get("/prescriptions")

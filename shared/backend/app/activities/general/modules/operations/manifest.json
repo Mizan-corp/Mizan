@@ -6,7 +6,7 @@
   "kind": "business",
   "version": "1.0.0",
   "icon": "ArrowLeftRight",
-  "description": "أذون الصرف بين المخازن والفروع (وإلغاؤها) وطلبات النواقص، بترقيم مستقل لكل منشأة.",
+  "description": "أذون الصرف بين المخازن والفروع (وإلغاؤها) وطلبات النواقص (اعتمادها وصرفها أو إلغاؤها)، بترقيم مستقل لكل منشأة.",
   "dependencies": [
     "core",
     "inventory"
@@ -22,6 +22,11 @@
       "id": "operations:cancel",
       "name": "إلغاء أذون الصرف (إرجاع البضاعة إلى المصدر)",
       "name_en": "Cancel dispatches (stock goes back to the source)"
+    },
+    {
+      "id": "operations:approve",
+      "name": "اعتماد طلبات المخزون أو رفضها",
+      "name_en": "Approve or reject stock requests"
     }
   ],
   "screens": [],

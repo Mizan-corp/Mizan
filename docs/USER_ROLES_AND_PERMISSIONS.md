@@ -111,6 +111,7 @@ and `sales:return` respectively, so they keep what they did; workspaces' own rol
 | Opening stock by hand | `inventory:opening` | | | ✓ | ✓ |
 | Dispatch and stock requests | `operations` | ✓ | | ✓ | ✓ |
 | Cancel a dispatch (the stock goes back to the source) | `operations:cancel` | | | ✓ | ✓ |
+| Approve or reject a stock request (fulfilling an approved one needs `operations` and both warehouses) | `operations:approve` | | | ✓ | ✓ |
 | Purchase orders, receipts, purchase returns, suppliers and their prices | `purchases` | ✓ | ✓ | ✓ | ✓ |
 | Paying a supplier or charging their account, paying on receipt, a refund on a return | `finance` (with `purchases` for the order) | | ✓ | ✓ | ✓ |
 
@@ -127,8 +128,10 @@ permissions (none of the standard roles) can't any more.
 Every write on stock also needs access to the warehouse (`verify_warehouse_access`: assigned
 warehouses, or `supervise` / managers for all). Migration `v96_ready_stock_ops` gave workspaces' own
 roles holding `inventory` the new `purchases`, and those also holding `settings` `inventory:opening`;
-none got `finance` from it. `operations:cancel` is new (a dispatch couldn't be undone before), so
-workspaces' own roles get it only when their admin grants it.
+none got `finance` from it. `operations:cancel` is new (a dispatch couldn't be undone before), and so
+is `operations:approve` (phase C, OPS-4: stock requests couldn't be approved before), so workspaces'
+own roles get them only when their admin grants them. A request's maker may cancel it while it is
+pending with `operations` alone.
 
 ## 3. Permissions from the extension platform
 
