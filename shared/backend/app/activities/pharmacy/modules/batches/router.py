@@ -64,6 +64,8 @@ async def set_status(lot_id: uuid.UUID, data: LotStatus, db: AsyncSession = Depe
 @router.get("/{lot_id}/trace")
 async def trace(lot_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("inventory"))):
     """Where a batch went: every movement in and out (for recalls)."""
+    if await db.scalar(text("SELECT 1 FROM batches_lots WHERE id = :l"), {"l": lot_id}) is None:
+        raise HTTPException(404, "التشغيلة غير موجودة")
     rows = (await db.execute(text("""
         SELECT lm.qty, lm.created_at, m.movement_type::text AS movement_type, m.ref_type, m.ref_id,
                s.invoice_number, c.name AS customer_name

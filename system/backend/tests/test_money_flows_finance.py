@@ -201,9 +201,9 @@ async def test_customer_with_transactions_is_deactivated_not_deleted(ws):
         assert e.value.status_code == 409
         await db.rollback()
         await parties.deactivate_customer(used_id, db=db, _=user)
-        names = {c["name"] for c in await parties.list_customers(db=db, _=user, limit=100, offset=0)}
+        names = {c["name"] for c in await parties.list_customers(db=db, user=user, limit=100, offset=0)}
         assert "عميل قديم" not in names and "عميل جديد" in names
-        names = {c["name"] for c in await parties.list_customers(include_inactive=True, db=db, _=user, limit=100, offset=0)}
+        names = {c["name"] for c in await parties.list_customers(include_inactive=True, db=db, user=user, limit=100, offset=0)}
         assert "عميل قديم" in names
 
         await parties.delete_customer(fresh_id, db=db, _=user)  # no transactions: deleted

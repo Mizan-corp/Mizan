@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.platform.billing.plans import PLANS_CONFIG
 from app.platform.tenancy.context import current_tenant_id
 from app.db.base import get_db
-from app.dependencies import get_current_user
+from app.dependencies import require_perm
 from app.platform.billing.models import BillingInvoice
 from app.platform.auth.models.user import User
 from app.platform.billing.services.plan_gating import get_tenant_limits_and_usage
@@ -34,9 +34,10 @@ async def list_available_plans() -> dict[str, Any]:
 @router.get("/subscription")
 async def get_my_subscription(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("settings")),
 ) -> dict[str, Any]:
-    """Return current tenant's subscription status, quotas, and recent invoices."""
+    """The workspace's subscription, quotas and Mizan's recent invoices to it (amounts, payment
+    method): for who runs the workspace (`settings`), not every signed-in user."""
     tid = current_tenant_id.get() or current_user.tenant_id
     if not tid:
         raise HTTPException(status_code=400, detail="لا توجد مساحة عمل مرتبطة")

@@ -90,9 +90,10 @@ async def get_module_categories(
 async def get_module_settings_endpoint(
     module_id: str,
     db: AsyncSession = Depends(get_db),
-    _=Depends(get_current_user),
+    _=Depends(require_perm("settings")),
 ):
-    """Retrieve settings schema and current tenant values for a module."""
+    """A module's settings schema and this workspace's values. Under `settings`, as saving is: the
+    values hold secrets (the WhatsApp access token)."""
     try:
         return await registry.get_settings(db, module_id)
     except KeyError:

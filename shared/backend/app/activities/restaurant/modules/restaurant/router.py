@@ -160,8 +160,10 @@ async def _ensure_seeded(db: AsyncSession) -> None:
     if rec_res.scalar_one_or_none() is None:
         for r_data in DEFAULT_RECIPES:
             ingredients = r_data.get("ingredients", [])
+            # A fresh id per workspace: the fixed demo ids ("rec-01") are primary keys, so only the
+            # first workspace could be seeded and every other one's screens failed.
             recipe = RestaurantRecipe(
-                id=r_data["id"],
+                id=f"rec-{uuid.uuid4().hex[:8]}",
                 menu_item_name=r_data["menu_item_name"],
                 category=r_data["category"],
                 sale_price=r_data["sale_price"],

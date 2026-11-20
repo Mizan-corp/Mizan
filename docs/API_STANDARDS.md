@@ -36,6 +36,11 @@ panel's in English). Validation errors (422) carry FastAPI's list of field probl
 contracts for developers (`/ext/v1`, `/developers`) answer in English; the developer API answers
 in Arabic when asked (`Accept-Language: ar`).
 
+A route checks its references and lengths itself (an unknown or another workspace's id is a 404).
+As a safety net, what the database refuses because of the input (an unknown reference, a duplicate,
+a text too long, a number out of range) is a 400 or 409 with an Arabic message, never a 500
+(`factory.database_refused_input`); the route sweep fails when a general module relies on it.
+
 ## 4. Authentication
 
 | Who | How |

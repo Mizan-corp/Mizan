@@ -41,8 +41,11 @@ async def wipe_demo(
 ):
     """Safely delete seeded demo data for the current tenant while preserving
     real user-created products, categories, branches, and sales."""
-    if current_user.role not in ("admin", "manager") and not current_user.is_manager:
-        raise HTTPException(status_code=403, detail="صلاحية مدير مطلوبة لمسح البيانات التجريبية")
+    from app.platform.permissions.access import can
+
+    # A permission, not the role's name (#94): a user named "manager" acting with fewer rights passed.
+    if not can(current_user, "settings"):
+        raise HTTPException(status_code=403, detail="مسح البيانات التجريبية يتطلب صلاحية الإعدادات")
 
     tid = current_tenant_id.get() or current_user.tenant_id
     if not tid:
