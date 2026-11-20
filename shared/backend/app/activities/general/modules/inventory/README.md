@@ -75,12 +75,48 @@ Documents copy it onto their lines when they are made; changing it never changes
 - `GET /products` pages by 50 (at most 500) and returns `total`; the stock comes from the maintained
   balances. `POST /products/bulk-reorder-level` takes 1 to 500 ids and a level ≥ 0.
 
+## Screens (phase C, INV-9)
+The inventory tabs (`InventoryHeader`): balances and valuation (`/inventory`), products (`/products`),
+categories (`/inventory/categories`), adjustments and transfers (`/inventory/adjustments`),
+collections (`/inventory/collections`) and warehouses (`/inventory/warehouses`, `settings`).
+- **Products:** filter by category and active / stopped (`GET /products?status=active|inactive|all`;
+  stopped ones only for `inventory`, 403 otherwise). A product may have no category
+  (`subcategory_id` optional on create; `clear_subcategory` on update takes it out of one); the
+  picker groups subcategories by category. A product's card: stock per branch, extra barcodes
+  (add, delete), its picture (upload; `DELETE /products/{id}/image` takes it off and deletes the
+  file), its movement log (paged, by dates), its purchase prices (`purchases` or `finance`), and
+  stopping it (`DELETE /products/{id}`, audited, never erased) or bringing it back
+  (`PUT is_active`). `ProductOut` carries `image_url` (the till shows it).
+- **Categories:** add, rename, move a subcategory to another category, delete one no active product
+  uses (stopped products are left without a category).
+- **Warehouses:** `GET /stock/warehouses?include_inactive=true` (`settings`) lists stopped ones too,
+  each with `is_active`. Add (audited), edit, stop (`PUT is_active=false`: refused while it holds
+  stock or an open shift) and bring back; bringing one back counts against the plan's branches like
+  adding one (403 past the limit).
+- **Adjustments and transfers:** adjustment in / out, damage (reason required), opening stock (with
+  `inventory:opening`), batch and expiry for stock coming in; a transfer between two branches with
+  the source's available quantity shown; the branch's latest movements.
+- **Collections:** add, edit, delete, and how many can be assembled in a branch.
+
+## Settings (INV-10)
+- `prevent_negative_stock` (on by default): see Stock rules.
+- `enable_reorder_alerts` (on by default): when on, a sale that leaves a product at or below its
+  reorder level raises a `low_stock` notification (and the optional e-mail), and the system scan
+  (`POST /notifications/generate-system-alerts`) reports the active tracked products whose stock in
+  all branches is at or below their reorder level (`services/stock.products_at_reorder_level`; it
+  used to report any product with a reorder point, whatever its stock). Off: neither.
+- `valuation_method` was removed: it offered FIFO, which was never built. Stock is valued at the
+  weighted average cost (ADR-014 D5) everywhere: valuation, the ledger, cost of sales.
+
 ## Known limits
+- Collections are not sold anywhere: the till and the sales invoice sell products only. The screen
+  says so; selling a collection as a bundle (its items out of stock, its price shared over them)
+  belongs with the sales/POS work.
+- The availability of a collection whose items are all untracked is answered as 999 (the screen
+  shows «not tracked»).
 - Workspaces whose balances were clamped at zero before this rule keep those rows: history is not
   rewritten. A clamped row shows `stock_balances.qty` above the sum of its movements; correct it with an
   adjustment after a count.
-- `valuation_method` offers FIFO, which is not implemented (average cost is used); `enable_reorder_alerts`
-  is not read yet (INV-10).
 - `/stock/balance/breakdown/{id}` lists every warehouse's quantity (no costs) to anyone who reads the
   catalogue, without a branch filter.
 - Product codes (`code`) are not unique.

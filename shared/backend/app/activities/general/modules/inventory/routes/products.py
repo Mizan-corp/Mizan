@@ -1,5 +1,6 @@
 import uuid
 from datetime import date
+from typing import Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.base import get_db
 from app.dependencies import require_perm
 from app.platform.auth.models.user import User
+from app.platform.permissions.access import can
 from app.activities.general.modules.inventory.schemas.product import (
     BulkReorderLevelIn,
     CategoryCreate,
@@ -75,14 +77,18 @@ async def list_products(
     subcategory_id: uuid.UUID | None = None,
     category_id: uuid.UUID | None = None,
     warehouse_id: uuid.UUID | None = None,
+    status: Literal["active", "inactive", "all"] = "active",
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(can_read),
 ):
-    """A page of the active products with their stock and the total ({items, total, page, pages})."""
+    """A page of the products with their stock and the total ({items, total, page, pages}): the
+    active ones; stopped ones (`status` inactive or all) only for `inventory`."""
+    if status != "active" and not can(current_user, "inventory"):
+        raise HTTPException(403, "عرض الأصناف الموقوفة يتطلب صلاحية المخزون")
     return await product_service.list_products(
-        db, search, subcategory_id, category_id, warehouse_id, page, page_size, current_user
+        db, search, subcategory_id, category_id, warehouse_id, page, page_size, current_user, status
     )
 
 
@@ -112,8 +118,9 @@ async def update_product(product_id: uuid.UUID, data: ProductUpdate, db: AsyncSe
 
 
 @router.delete("/products/{product_id}", status_code=204)
-async def delete_product(product_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("inventory"))):
-    await product_service.delete_product(db, product_id)
+async def delete_product(product_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("inventory"))):
+    """Stop the product (it is never erased: its movements and documents stay)."""
+    await product_service.delete_product(db, product_id, current_user)
 
 
 @router.get("/products/{product_id}/movements")
@@ -151,6 +158,11 @@ async def upload_product_image(product_id: uuid.UUID, file: UploadFile = File(..
         raise HTTPException(400, "حجم الملف يتجاوز 5 ميجابايت")
     image_url = await product_service.upload_product_image(db, product_id, contents, file.filename or "img.png", file.content_type)
     return {"image_url": image_url}
+
+
+@router.delete("/products/{product_id}/image", status_code=204)
+async def remove_product_image(product_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("inventory"))):
+    await product_service.remove_product_image(db, product_id, current_user)
 
 
 # ── Product Barcodes ────────────────────────────────────────────────────────
