@@ -4181,6 +4181,23 @@ MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS ix_hr_attendance_tenant_date ON hr_attendance (tenant_id, work_date);
         CREATE INDEX IF NOT EXISTS ix_hr_advances_tenant_date ON hr_advances (tenant_id, date);
     """),
+
+    # Phase D fixes. ACC-1: journal entry numbers come from each workspace's `JE` row of doc_counters
+    # (UPDATE … RETURNING) instead of a MAX(number) scan on every post; the rows start at the
+    # highest number each workspace already used. PLAT-9 rest: an order's line of a product. HR-13:
+    # the paged employees list; HR-14: the paged audit log. The nightly clean-up of idempotency keys.
+    ("v107_d_fixes", """
+        INSERT INTO doc_counters (tenant_id, doc_type, last_value)
+        SELECT tenant_id, 'JE', MAX(substring(number FROM 4)::bigint)
+        FROM acc_entries
+        WHERE number ~ '^JE-[0-9]{1,18}$' AND tenant_id IS NOT NULL
+        GROUP BY tenant_id
+        ON CONFLICT (tenant_id, doc_type) DO UPDATE SET last_value = GREATEST(doc_counters.last_value, EXCLUDED.last_value);
+        CREATE INDEX IF NOT EXISTS ix_purchase_order_items_po_product ON purchase_order_items (po_id, product_id);
+        CREATE INDEX IF NOT EXISTS ix_hr_employees_list ON hr_employees (tenant_id, is_active, name);
+        CREATE INDEX IF NOT EXISTS ix_hr_audit_log_tenant_created ON hr_audit_log (tenant_id, created_at);
+        CREATE INDEX IF NOT EXISTS ix_idempotency_keys_created_at ON idempotency_keys (created_at);
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

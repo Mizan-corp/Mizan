@@ -362,6 +362,32 @@ async def test_the_counters_start_after_the_numbers_already_used():
     assert await _one(env, "SELECT last_value FROM doc_counters WHERE doc_type = 'JE'") == int(last.removeprefix("JE-")) + 1
 
 
+# ── 7. PLAT-9 ────────────────────────────────────────────────────────────────────────────────
+
+PLAT9 = {
+    "sales": ("ix_sales_warehouse_id", "ix_sales_status"), "shifts": ("ix_shifts_cashier_id",),
+    "safe_transactions": ("ix_safe_transactions_safe_id",), "expenses": ("ix_expenses_tenant_date",),
+    "purchase_order_items": ("ix_purchase_order_items_po_product",),
+    "supplier_transactions": ("idx_sup_tx_supplier",), "purchase_price_history": ("idx_pph_product",),
+    "purchase_orders": ("idx_purchase_orders_supplier_id",), "hr_employees": ("ix_hr_employees_list",),
+    "hr_audit_log": ("ix_hr_audit_log_tenant_created",), "idempotency_keys": ("ix_idempotency_keys_created_at",),
+}
+
+
+async def test_the_indexes_of_the_filters_exist():
+    async with AsyncSessionLocal() as s:
+        have = set((await s.execute(text("SELECT indexname FROM pg_indexes WHERE schemaname = 'public'"))).scalars().all())
+    missing = [name for names in PLAT9.values() for name in names if name not in have]
+    assert not missing, missing
+    # The models declare the new ones too (CI builds its tables from them).
+    from app.db.base import Base
+
+    declared = {ix.name for t in Base.metadata.tables.values() for ix in t.indexes}
+    for name in ("ix_purchase_order_items_po_product", "ix_hr_employees_list", "ix_hr_audit_log_tenant_created",
+                 "ix_idempotency_keys_created_at"):
+        assert name in declared, name
+
+
 # ── 8. Idempotency keys ──────────────────────────────────────────────────────────────────────
 
 async def test_old_idempotency_keys_are_cleaned_up_every_night():

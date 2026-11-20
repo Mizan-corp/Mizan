@@ -65,4 +65,6 @@ class PurchaseOrderItem(TenantScoped, Base):
 
     order: Mapped["PurchaseOrder"] = relationship(back_populates="items")
     __table_args__ = (Index("idx_purchase_order_items_po_id", "po_id"),
-                      Index("idx_purchase_order_items_product_id", "product_id"))
+                      Index("idx_purchase_order_items_product_id", "product_id"),
+                      # PLAT-9: an order's line of a product (receipts, returns).
+                      Index("ix_purchase_order_items_po_product", "po_id", "product_id"))
