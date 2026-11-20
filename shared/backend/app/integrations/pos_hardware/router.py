@@ -155,7 +155,7 @@ async def generate_test_print(
         "tax_number": "300987654300003",
         "invoice_no": "TEST-" + uuid.uuid4().hex[:6].upper(),
         "timestamp": now_iso,
-        "cashier": user.name or "كاشير 1",
+        "cashier": user.full_name or user.username or "كاشير 1",
         "header_note": payload.header_note if payload else "أهلاً وسهلاً بكم — نسعد بخدمتكم دائماً",
         "footer_note": payload.footer_note if payload else "البضاعة المباعة ترد وتستبدل خلال 14 يوماً بموجب الفاتورة",
         "items": [

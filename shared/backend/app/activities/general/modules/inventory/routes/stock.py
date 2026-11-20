@@ -117,7 +117,12 @@ async def get_balance_breakdown(product_id: uuid.UUID, db: AsyncSession = Depend
     """Stock per warehouse for a single product — uses maintained balances."""
     from sqlalchemy import func
 
+    from fastapi import HTTPException
+
+    from app.activities.general.modules.inventory.models.product import Product
     from app.activities.general.modules.inventory.models.stock_balance import StockBalance
+    if await db.scalar(select(Product.id).where(Product.id == product_id)) is None:
+        raise HTTPException(404, "الصنف غير موجود")
     rows = await db.execute(
         select(
             Warehouse.name.label("warehouse_name"),

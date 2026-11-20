@@ -76,17 +76,18 @@ router = APIRouter(
 
 # ─── Pydantic Schemas ────────────────────────────────────────────────────────
 class PatientCreate(BaseModel):
-    patient_mrn: str
-    full_name: str
-    national_id: str
-    phone: str
-    gender: str
-    date_of_birth: str
-    blood_group: str = "A+"
-    allergies: str = "لا توجد حساسيات مسجلة"
-    chronic_conditions: str = "لا توجد أمراض مزمنة"
-    insurance_provider: str = "نقدي / غير مؤمن"
-    insurance_policy_no: str = "N/A"
+    # The columns' lengths: longer text was a 500 (found by the route sweep).
+    patient_mrn: str = Field(max_length=32)
+    full_name: str = Field(max_length=128)
+    national_id: str = Field(max_length=32)
+    phone: str = Field(max_length=32)
+    gender: str = Field(max_length=16)
+    date_of_birth: str = Field(max_length=32)
+    blood_group: str = Field("A+", max_length=8)
+    allergies: str = Field("لا توجد حساسيات مسجلة", max_length=256)
+    chronic_conditions: str = Field("لا توجد أمراض مزمنة", max_length=256)
+    insurance_provider: str = Field("نقدي / غير مؤمن", max_length=128)
+    insurance_policy_no: str = Field("N/A", max_length=64)
     copay_percent: float = 0.0
 
 
@@ -1804,8 +1805,12 @@ async def create_invoice(
     current_user: User = Depends(get_current_user),
     _: User = Depends(require_clinic_billing),
 ):
+    await _get_patient_or_404(db, tenant_id, payload.patient_id)  # this workspace's patient (was a 500)
+    try:
+        total = round(sum(float(c.get("amount", 0)) for c in payload.charges), 2)
+    except (TypeError, ValueError):
+        raise HTTPException(422, "مبلغ بند غير صالح") from None
     ref = f"INV-{uuid.uuid4().hex[:6].upper()}"
-    total = round(sum(float(c.get("amount", 0)) for c in payload.charges), 2)
     copay = max(0.0, min(100.0, payload.copay_percent))
     insurance_amount = round(total * (copay / 100.0), 2)
     patient_amount = round(total - insurance_amount, 2)
@@ -1993,6 +1998,10 @@ async def create_claim(
     current_user: User = Depends(get_current_user),
     _: User = Depends(require_clinic_billing),
 ):
+    await _get_patient_or_404(db, tenant_id, payload.patient_id)  # this workspace's patient and invoice (was a 500)
+    if payload.invoice_id and (await db.execute(select(ClinicInvoice.id).where(
+            ClinicInvoice.id == payload.invoice_id, ClinicInvoice.tenant_id == tenant_id))).scalar_one_or_none() is None:
+        raise HTTPException(404, "الفاتورة غير موجودة")
     ref = f"CLM-{uuid.uuid4().hex[:6].upper()}"
     claim = ClinicInsuranceClaim(
         tenant_id=tenant_id,
