@@ -13,6 +13,7 @@ keep money consistent with the ledger.
 """
 import asyncio
 import json
+import uuid
 from datetime import date
 from decimal import Decimal
 from functools import partial
@@ -22,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BusinessError, ConflictError, NotFoundError
 from app.framework.events import notify
+from app.activities.general.modules.hr.services.audit import audit
 from app.activities.general.modules.hr.services.payroll_engine import calculate_payroll as calc_engine
 from app.activities.general.modules.hr.services.payroll_engine import effective_settings
 
@@ -134,17 +136,33 @@ ATTENDANCE_COLUMNS = (
 )
 
 
-async def load_attendance_for_month(db: AsyncSession, employee_id, month: str) -> list[dict]:
+async def load_attendance_by_employee(db: AsyncSession, month: str, employee_id=None) -> dict:
+    """The month's attendance of every employee (or one) in one query (HR-13): employee id → its
+    days, in date order. The date filter is a range on the indexed work_date."""
     start, end = month_range(month)
-    rows = await db.execute(
+    rows = (await db.execute(
         text(f"""
-            SELECT {', '.join(ATTENDANCE_COLUMNS)}
-            FROM hr_attendance WHERE employee_id=:eid AND work_date >= :start AND work_date < :end
-            ORDER BY work_date
+            SELECT employee_id, {', '.join(ATTENDANCE_COLUMNS)}
+            FROM hr_attendance
+            WHERE work_date >= :start AND work_date < :end AND (CAST(:eid AS uuid) IS NULL OR employee_id = :eid)
+            ORDER BY employee_id, work_date
         """),
         {"eid": employee_id, "start": start, "end": end},
-    )
-    return [dict(r) for r in rows.mappings().all()]
+    )).mappings().all()
+    out: dict = {}
+    for r in rows:
+        day = dict(r)
+        out.setdefault(day.pop("employee_id"), []).append(day)
+    return out
+
+
+def _uuid(value) -> uuid.UUID | None:
+    return value if value is None or isinstance(value, uuid.UUID) else uuid.UUID(str(value))
+
+
+async def load_attendance_for_month(db: AsyncSession, employee_id, month: str) -> list[dict]:
+    employee_id = _uuid(employee_id)
+    return (await load_attendance_by_employee(db, month, employee_id)).get(employee_id, [])
 
 
 BONUS_TYPES = ("مكافأة", "bonus")
@@ -161,22 +179,33 @@ def record_kind(record_type: str | None) -> str:
     return "advance"
 
 
-async def load_hr_records_for_month(db: AsyncSession, employee_id, month: str) -> dict[str, Decimal]:
-    """The month's advances, deductions and bonuses (not cancelled ones), summed separately:
-    advances and deductions lower the salary, bonuses raise it."""
+def _no_records() -> dict[str, Decimal]:
+    return {"advance": Decimal("0"), "deduction": Decimal("0"), "bonus": Decimal("0")}
+
+
+async def load_hr_records_by_employee(db: AsyncSession, month: str, employee_id=None) -> dict:
+    """The month's advances, deductions and bonuses (not cancelled ones) of every employee (or
+    one) in one query (HR-13): employee id → the three sums. Advances and deductions lower the
+    salary, bonuses raise it."""
     start, end = month_range(month)
     rows = (await db.execute(
         text("""
-            SELECT record_type, COALESCE(SUM(amount),0) FROM hr_advances
-            WHERE employee_id=:eid AND date >= :start AND date < :end AND status <> 'cancelled'
-            GROUP BY record_type
+            SELECT employee_id, record_type, COALESCE(SUM(amount),0) FROM hr_advances
+            WHERE date >= :start AND date < :end AND status <> 'cancelled'
+              AND (CAST(:eid AS uuid) IS NULL OR employee_id = :eid)
+            GROUP BY employee_id, record_type
         """),
         {"eid": employee_id, "start": start, "end": end},
     )).all()
-    totals = {"advance": Decimal("0"), "deduction": Decimal("0"), "bonus": Decimal("0")}
-    for record_type, amount in rows:
-        totals[record_kind(record_type)] += Decimal(str(amount or 0))
-    return totals
+    out: dict = {}
+    for eid, record_type, amount in rows:
+        out.setdefault(eid, _no_records())[record_kind(record_type)] += Decimal(str(amount or 0))
+    return out
+
+
+async def load_hr_records_for_month(db: AsyncSession, employee_id, month: str) -> dict[str, Decimal]:
+    employee_id = _uuid(employee_id)
+    return (await load_hr_records_by_employee(db, month, employee_id)).get(employee_id) or _no_records()
 
 
 async def load_advances_for_month(db: AsyncSession, employee_id, month: str) -> Decimal:
@@ -224,25 +253,7 @@ def compose_net(**parts) -> Decimal:
     return settle(**parts)[0]
 
 
-async def save_payroll_entry(
-    db: AsyncSession,
-    period_id,
-    employee_id,
-    result: dict,
-    current_user_id: str,
-) -> Decimal:
-    """Upsert the employee's entry in the period from the engine's result and return its net. A
-    recalculation keeps the entry's drawer variance and notes (the variance stays in the net)."""
-    variance = (await db.execute(
-        text("SELECT drawer_variance FROM hr_payroll_entries WHERE period_id=:p AND employee_id=:e"),
-        {"p": period_id, "e": employee_id},
-    )).scalar_one_or_none()
-    net, carried = settle(base_pay=result["base_pay"], lateness_deduction=result["lateness_deduction"],
-                          deductions=result["deductions"], advances=result["advances"],
-                          overtime_pay=result["overtime_pay"], bonus_payment=result["bonus_payment"],
-                          bonus=result["bonus"], drawer_variance=variance)
-    await db.execute(
-        text("""
+UPSERT_ENTRY = text("""
             INSERT INTO hr_payroll_entries (
                 period_id, employee_id, base_salary, base_pay, working_days, actual_working_days,
                 absent_days, vacation_days, total_hours, lateness_minutes, early_leave_minutes,
@@ -266,8 +277,17 @@ async def save_payroll_entry(
                 advances=EXCLUDED.advances, advances_carried=EXCLUDED.advances_carried, net_salary=EXCLUDED.net_salary,
                 hourly_rate=EXCLUDED.hourly_rate, daily_breakdown=EXCLUDED.daily_breakdown,
                 status=EXCLUDED.status
-        """),
-        {
+""")
+
+
+def _entry_params(period_id, employee_id, result: dict, current_user_id, variance) -> tuple[dict, Decimal]:
+    """The upsert's values of one employee's entry from the engine's result, and its net. A
+    recalculation keeps the entry's drawer variance (it stays in the net) and notes."""
+    net, carried = settle(base_pay=result["base_pay"], lateness_deduction=result["lateness_deduction"],
+                          deductions=result["deductions"], advances=result["advances"],
+                          overtime_pay=result["overtime_pay"], bonus_payment=result["bonus_payment"],
+                          bonus=result["bonus"], drawer_variance=variance)
+    return {
             "pid": period_id, "eid": employee_id, "base": result["base_salary"], "bpay": result["base_pay"],
             "wd": result["working_days"], "awd": result["actual_working_days"],
             "abd": result["absent_days"], "vd": result["vacation_days"],
@@ -280,9 +300,38 @@ async def save_payroll_entry(
             "carried": carried, "net": net, "hr": result["hourly_rate"],
             "db": json.dumps(result["daily_breakdown"], ensure_ascii=False),
             "by": current_user_id,
-        },
-    )
+    }, net
+
+
+async def save_payroll_entry(db: AsyncSession, period_id, employee_id, result: dict, current_user_id: str) -> Decimal:
+    """Upsert one employee's entry in the period from the engine's result and return its net."""
+    variance = (await db.execute(
+        text("SELECT drawer_variance FROM hr_payroll_entries WHERE period_id=:p AND employee_id=:e"),
+        {"p": period_id, "e": employee_id},
+    )).scalar_one_or_none()
+    params, net = _entry_params(period_id, employee_id, result, current_user_id, variance)
+    await db.execute(UPSERT_ENTRY, params)
     return net
+
+
+def _run_engine(employees: list[dict], attendance: dict, records: dict, settings: dict, shifts_map: dict,
+                month: str) -> list[dict]:
+    out = []
+    for emp in employees:
+        rec = records.get(emp["id"]) or _no_records()
+        out.append(calc_engine(emp, attendance.get(emp["id"], []), settings, shifts_map, bonus=rec["bonus"],
+                               deduction=rec["deduction"], advance=rec["advance"], month=month))
+    return out
+
+
+async def calculate_month(db: AsyncSession, month: str, employees: list[dict], settings: dict, shifts_map: dict,
+                          employee_id=None) -> list[dict]:
+    """The engine's result for each employee, from the month's attendance and HR records loaded in
+    bulk (two queries for the whole workspace, HR-13), run off the event loop in one go."""
+    attendance = await load_attendance_by_employee(db, month, employee_id)
+    records = await load_hr_records_by_employee(db, month, employee_id)
+    return await asyncio.get_running_loop().run_in_executor(
+        None, partial(_run_engine, employees, attendance, records, settings, shifts_map, month))
 
 
 async def calculate_payroll_month(
@@ -291,7 +340,9 @@ async def calculate_payroll_month(
     current_user_id: str,
     employee_id=None,
 ) -> dict:
-    """Calculate payroll for all (or one) employee(s) for a month, with the period locked."""
+    """Calculate payroll for all (or one) employee(s) for a month, with the period locked. The
+    number of queries doesn't grow with the employees: attendance, HR records and the entries'
+    drawer variances are read in bulk and the entries written in one batch."""
     period = await _lock_period(db, month, create=True)
     period_status = period["status"]
     if period_status == "paid":
@@ -301,23 +352,27 @@ async def calculate_payroll_month(
 
     settings = await load_hr_settings(db)
     shifts_map = await load_shifts_map(db)
+    employee_id = _uuid(employee_id)
     employees = await load_active_employees(db, employee_id)
+    computed = await calculate_month(db, month, employees, settings, shifts_map, employee_id)
+    variances = dict((await db.execute(
+        text("SELECT employee_id, drawer_variance FROM hr_payroll_entries WHERE period_id = :p"), {"p": period["id"]},
+    )).all())
 
-    results = []
-    for emp in employees:
-        eid = emp["id"]
-        attendances = await load_attendance_for_month(db, eid, month)
-        records = await load_hr_records_for_month(db, eid, month)
-
-        result = await calculate_employee_payroll(emp, attendances, settings, shifts_map, records["advance"], month,
-                                                  bonus=records["bonus"], deduction=records["deduction"])
-        net = await save_payroll_entry(db, period["id"], eid, result, current_user_id)
-
+    rows, results = [], []
+    for emp, result in zip(employees, computed, strict=True):
+        params, net = _entry_params(period["id"], emp["id"], result, current_user_id, variances.get(emp["id"]))
+        rows.append(params)
         results.append({
             "name": emp["name"], "net": float(net),
             "working_days": result["working_days"], "lateness_min": result["lateness_minutes"],
             "overtime_h": result["overtime_hours"]
         })
+    if rows:
+        await db.execute(UPSERT_ENTRY, rows)
+    await audit(db, "calculate", "payroll_period", month, current_user_id, "حساب الرواتب",
+                {"month": month, "employees": len(rows), "employee_id": str(employee_id) if employee_id else None,
+                 "total": str(sum((p["net"] for p in rows), Decimal("0")))})
 
     await db.commit()
     total = sum((Decimal(str(r["net"])) for r in results), Decimal("0"))
@@ -354,6 +409,8 @@ async def submit_payroll_period(db: AsyncSession, month: str, current_user_id: s
     status = (period or {}).get("status") or "draft"
     if status != "draft":
         raise BusinessError("لا يمكن إرسال الشهر للمراجعة إلا من حالة مسودة")
+    await audit(db, "submit", "payroll_period", month, current_user_id, "إرسال الرواتب للمراجعة",
+                {"month": month, "from": status, "to": "review", "total": str(await _payroll_total(db, month))})
     await update_period_status(db, month, "review", current_user_id)
 
 
@@ -429,6 +486,9 @@ async def approve_payroll_period(db: AsyncSession, month: str, current_user_id: 
     if expense_id is not None:
         await notify("payroll.approved", db, period_id=period["id"], month=month, expense_id=expense_id,
                      user_id=current_user_id)
+    await audit(db, "approve", "payroll_period", month, current_user_id, "اعتماد الرواتب",
+                {"month": month, "from": status, "to": "approved", "total": str(total),
+                 "expense_id": str(expense_id) if expense_id else None})
     await update_period_status(db, month, "approved", current_user_id)
     return float(total)
 
@@ -454,11 +514,8 @@ async def _carry_advances(db: AsyncSession, period_id, month: str, user_id) -> N
             VALUES (:e, :a, :d, :note, :by, 'سلفة', 'active', :p) RETURNING id
         """), {"e": employee_id, "a": amount, "d": month_range(nxt)[0], "note": CARRIED_NOTE.format(month=month),
                "by": user_id, "p": period_id})).scalar_one()
-        await db.execute(text("""
-            INSERT INTO hr_audit_log (action_type, entity_type, entity_id, performed_by, reason, details)
-            VALUES ('carry', 'advance', :e, :by, :reason, CAST(:det AS jsonb))
-        """), {"e": str(employee_id), "by": user_id, "reason": CARRIED_NOTE.format(month=month),
-               "det": json.dumps({"id": str(advance_id), "amount": str(amount), "from": month, "to": nxt})})
+        await audit(db, "carry", "advance", employee_id, user_id, CARRIED_NOTE.format(month=month),
+                    {"id": str(advance_id), "amount": str(amount), "from": month, "to": nxt})
 
 
 async def _cancel_carried(db: AsyncSession, period_id, month: str, user_id) -> None:
@@ -511,6 +568,9 @@ async def pay_payroll_period(db: AsyncSession, month: str, current_user_id: str,
     if total > 0:
         await notify("payroll.paid", db, period_id=period["id"], month=month, safe_id=safe_id, wallet_id=wallet_id,
                      user_id=current_user_id)
+    await audit(db, "pay", "payroll_period", month, current_user_id, "صرف الرواتب",
+                {"month": month, "from": status, "to": "paid", "total": str(total),
+                 "safe_id": str(safe_id) if safe_id else None, "wallet_id": str(wallet_id) if wallet_id else None})
     await update_period_status(db, month, "paid", current_user_id)
     return float(total)
 
@@ -543,6 +603,9 @@ async def reopen_payroll_period(db: AsyncSession, month: str, current_user_id: s
         WHERE id=:p
     """), {"p": period["id"]})
     await db.execute(text("UPDATE hr_payroll_entries SET status='draft' WHERE period_id=:p"), {"p": period["id"]})
+    await audit(db, "reopen", "payroll_period", month, current_user_id, "إعادة فتح شهر الرواتب",
+                {"month": month, "from": status, "to": "draft",
+                 "approved_amount": str(period["approved_amount"]) if period.get("approved_amount") is not None else None})
     await db.commit()
 
 
@@ -589,15 +652,13 @@ async def update_payroll_entry(
         {"id": payroll_id, "bonus": bonus, "ded": deductions, "var": drawer_variance, "net": net_salary,
          "carried": carried, "notes": notes or ""},
     )
-    await db.execute(text("""
-        INSERT INTO hr_audit_log (action_type, entity_type, entity_id, performed_by, reason, details)
-        VALUES ('update', 'payroll_entry', :id, :by, 'تعديل راتب', CAST(:det AS jsonb))
-    """), {"id": str(payroll_id), "by": current_user_id, "det": json.dumps({
+    await audit(db, "update", "payroll_entry", payroll_id, current_user_id, "تعديل راتب", {
         "month": period["month"], "employee_id": str(row["employee_id"]),
         "bonus": {"from": str(row["bonus"]), "to": str(bonus)},
         "deductions": {"from": str(row["deductions"]), "to": str(deductions)},
         "drawer_variance": {"from": str(row["drawer_variance"]), "to": str(drawer_variance)},
-        "net_salary": {"from": str(row["net_salary"]), "to": str(net_salary)}})})
+        "net_salary": {"from": str(row["net_salary"]), "to": str(net_salary)},
+        "notes": {"from": row["notes"] or "", "to": notes or ""}})
     await db.commit()
     return float(net_salary)
 

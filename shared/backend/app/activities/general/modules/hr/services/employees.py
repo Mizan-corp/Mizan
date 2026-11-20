@@ -1,5 +1,5 @@
-"""Employees and attendance: create, update, manual attendance. Callers commit."""
-import json
+"""Employees and attendance: create, update, stop, manual attendance, each audited (HR-14).
+Callers commit."""
 import uuid
 from datetime import UTC, date, datetime, timedelta
 
@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.activities.general.modules.hr.services.audit import audit, changes
 from app.activities.general.modules.hr.services.payroll import ensure_month_open, month_of
 
 EMPLOYEE_FIELDS = ("name", "user_id", "position", "monthly_salary", "shift_schedule", "shift_id", "hire_date",
@@ -34,8 +35,8 @@ async def _check_shift(db: AsyncSession, shift_id: str | None) -> None:
         raise HTTPException(404, "الوردية غير موجودة")
 
 
-async def create_employee(db: AsyncSession, values: dict) -> dict:
-    """A new employee; a code another employee of the workspace has is a 409."""
+async def create_employee(db: AsyncSession, values: dict, user=None) -> dict:
+    """A new employee; a code another employee of the workspace has is a 409. Audited."""
     await _check_shift(db, values.get("shift_id"))
     code = (values.get("emp_code") or "").strip() or None
     if await _code_taken(db, code):
@@ -49,11 +50,16 @@ async def create_employee(db: AsyncSession, values: dict) -> dict:
            "shift_id": values.get("shift_id"), "hire": values.get("hire_date"),
            "ignore": bool(values.get("ignore_lateness")),
            "max_late": values.get("max_lateness_before_overtime_cancellation", 30)})).mappings().one()
-    return dict(row)
+    row = dict(row)
+    await audit(db, "create", "employee", row["id"], getattr(user, "id", None), "إضافة موظف",
+                {k: row.get(k) for k in ("emp_code", "name", "position", "monthly_salary", "shift_id", "hire_date")})
+    return row
 
 
 async def update_employee(db: AsyncSession, employee_id: uuid.UUID, values: dict, user) -> bool:
-    """Apply the sent fields; a salary change is recorded in the HR audit log. False if nothing changed."""
+    """Apply the sent fields. The fields that changed are recorded in the HR audit log (before →
+    after); stopping or bringing back the employee is logged as stop / start. False if nothing
+    was sent."""
     values = {k: v for k, v in values.items() if k in EMPLOYEE_FIELDS}
     if not values:
         return False
@@ -63,13 +69,23 @@ async def update_employee(db: AsyncSession, employee_id: uuid.UUID, values: dict
         values.pop("name")
     sets = ", ".join(f"{k} = :p_{k}" for k in values)
     await db.execute(text(f"UPDATE hr_employees SET {sets} WHERE id = :id"), {"id": employee_id, **{f"p_{k}": v for k, v in values.items()}})
-    if "monthly_salary" in values and str(before.get("monthly_salary")) != str(values["monthly_salary"]):
-        await db.execute(text("""
-            INSERT INTO hr_audit_log (action_type, entity_type, entity_id, performed_by, reason, details)
-            VALUES ('update', 'employee', :eid, :by, 'تعديل الراتب', CAST(:det AS jsonb))
-        """), {"eid": str(employee_id), "by": str(user.id), "det": json.dumps(
-            {"monthly_salary": {"from": str(before.get("monthly_salary")), "to": str(values["monthly_salary"])}})})
+    changed = changes(before, values)
+    if changed:
+        if "is_active" in changed:
+            action, reason = ("start", "إعادة تشغيل الموظف") if values["is_active"] else ("stop", "إيقاف الموظف")
+        else:
+            action, reason = "update", "تعديل الراتب" if "monthly_salary" in changed else "تعديل بيانات الموظف"
+        await audit(db, action, "employee", employee_id, getattr(user, "id", None), reason, changed)
     return True
+
+
+async def stop_employee(db: AsyncSession, employee_id: uuid.UUID, user) -> None:
+    """Stop an employee (never deleted: their history stays); audited. 404 if not in the workspace."""
+    before = await _require_employee(db, employee_id)
+    await db.execute(text("UPDATE hr_employees SET is_active = FALSE WHERE id = :id"), {"id": employee_id})
+    if before.get("is_active") is not False:
+        await audit(db, "stop", "employee", employee_id, getattr(user, "id", None), "إيقاف الموظف",
+                    {"is_active": {"from": True, "to": False}})
 
 
 def _at(value, work_date: date) -> datetime | None:
@@ -100,7 +116,11 @@ async def save_attendance(db: AsyncSession, employee_id, work_date: date, check_
     ci, co = _at(check_in, work_date), _at(check_out, work_date)
     if ci and co and co <= ci:
         co += timedelta(days=1)  # a night shift ends the next morning
-    return (await db.execute(text("""
+    before = (await db.execute(text(
+        "SELECT check_in, check_out, status, notes, shift_override FROM hr_attendance "
+        "WHERE employee_id = :eid AND work_date = :dt FOR UPDATE"), {"eid": employee_id, "dt": work_date})).mappings().first()
+    after = {"check_in": ci, "check_out": co, "status": status, "notes": notes or "", "shift_override": shift_override}
+    att_id = (await db.execute(text("""
         INSERT INTO hr_attendance (employee_id, work_date, check_in, check_out, status, notes, edited, edited_by,
                                    edit_reason, excuse_no_late, excuse_no_early, excuse_allow_overtime, shift_override)
         VALUES (:eid, :dt, :ci, :co, :st, :notes, TRUE, :by, :reason, :nl, :ne, :ot, :so)
@@ -115,3 +135,7 @@ async def save_attendance(db: AsyncSession, employee_id, work_date: date, check_
            "by": str(user.id) if user is not None else None, "reason": edit_reason or "تعديل يدوي",
            "nl": excuse_no_late, "ne": excuse_no_early, "ot": excuse_allow_overtime,
            "so": shift_override})).scalar_one()
+    await audit(db, "update" if before else "create", "attendance", employee_id, getattr(user, "id", None),
+                edit_reason or "تعديل يدوي",
+                {"date": work_date, **(changes(dict(before), after) if before else after)})
+    return att_id

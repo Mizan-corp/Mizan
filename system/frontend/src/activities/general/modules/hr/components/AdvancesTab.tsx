@@ -12,7 +12,7 @@ import { PaySourceSelect, sourceFields } from "@app/components/PaySourceSelect";
 import { moneyIn, useCurrency } from "@app/lib/currency";
 import { amountOrNull, pageCount } from "../../finance/lib";
 import { type Paged, RECORD_TYPE } from "../lib";
-import { Pager, Rows, useEmployees } from "./common";
+import { Pager, Rows, useEmployeeOptions } from "./common";
 
 interface Advance {
   id: string; employee_id: string; emp_name: string; amount: string; date: string; note: string | null;
@@ -32,7 +32,7 @@ export function AdvancesTab() {
   const [form, setForm] = useState<typeof emptyForm | null>(null);
   const [cancelling, setCancelling] = useState<Advance | null>(null);
   const [reason, setReason] = useState("");
-  const employees = useEmployees();
+  const employees = useEmployeeOptions();
   const list = useQuery({
     queryKey: ["hr-advances", month, employee, page],
     queryFn: () => api.get<Paged<Advance>>("/hr/advances", { month: month || undefined, employee_id: employee || undefined, page, page_size: PAGE_SIZE }),

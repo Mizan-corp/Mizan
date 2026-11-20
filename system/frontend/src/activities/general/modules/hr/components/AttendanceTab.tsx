@@ -10,7 +10,7 @@ import { Badge, Button, Empty, ErrorBox, Input, Modal, Select, Spinner, useToast
 import { printDocument } from "@app/lib/documents";
 import { pageCount } from "../../finance/lib";
 import { ATTENDANCE_STATUS, clockOf, currentMonth, type Paged } from "../lib";
-import { Pager, Rows, useEmployees, useShifts } from "./common";
+import { Pager, Rows, useEmployeeOptions, useShifts } from "./common";
 
 interface Attendance {
   id: string; employee_id: string; emp_name: string; work_date: string; check_in: string | null; check_out: string | null;
@@ -35,7 +35,7 @@ export function AttendanceTab() {
   const [result, setResult] = useState<ImportResult | null>(null);
   const file = useRef<HTMLInputElement>(null);
 
-  const employees = useEmployees();
+  const employees = useEmployeeOptions();
   const shifts = useShifts();
   const att = useQuery({
     queryKey: ["hr-attendance", month, employee, page],

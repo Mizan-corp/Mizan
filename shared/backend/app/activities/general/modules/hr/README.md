@@ -76,8 +76,30 @@ an advance's cash goes back to its safe or wallet (`hr_advance_cancel`) and its 
 
 `GET /hr/attendance` and `GET /hr/advances` (filters `employee_id`, `month`) and `GET /hr/audit-log`
 (`entity_type`) are paged: `{items, total, page, page_size}`, `page_size` up to 200, newest first.
-`GET /hr/employees?include_inactive=true` lists the stopped employees too (with `payroll`), each
-with its shift's name. `GET /hr/payroll/{id}/breakdown` gives the entry's days and how its net was
+`GET /hr/employees` is paged the same way (HR-13; active first, by name; `q` searches the name and
+code), and `include_inactive=true` lists the stopped employees too (with `payroll`), each with its
+shift's name. The screen's pickers (attendance, advances) list the first 200 active employees by
+name. Month filters are ranges on the indexed date columns (`work_date`, `date`), never `TO_CHAR`.
+
+## Performance (HR-13)
+
+Calculating a month reads the month's attendance and HR records of every employee in two queries
+(`payroll.load_attendance_by_employee`, `load_hr_records_by_employee`) and the entries' drawer
+variances in one, runs the engine for all of them in one go off the event loop, and writes the
+entries in one batch: the number of queries doesn't grow with the employees (tested with
+`tests/test_query_counts.count_queries`). Indexes: `ix_hr_employees_list` (the list),
+`ix_hr_attendance_tenant_date`, `ix_hr_advances_tenant_date`, `ix_hr_audit_log_tenant_created`.
+
+## Audit log (HR-14)
+
+`hr_audit_log` (`services/audit.py`), written in the change's own transaction, with who
+(`performed_by`), when and what (`details`: the fields that changed, before → after):
+employees created, edited, stopped (`stop`) and brought back (`start`); attendance saved by hand
+(`create` / `update` of the day, with the reason) and each CSV import (counts); advances,
+deductions and bonuses added, cancelled and carried; entry adjustments; and every step of a
+payroll month (`payroll_period`, entity id = the month): `calculate`, `submit`, `approve`, `pay`
+(with the safe or wallet), `reopen`. The log's screen (tab سجل التدقيق) names the employee of each
+row. `GET /hr/payroll/{id}/breakdown` gives the entry's days and how its net was
 composed.
 
 ## Shifts
@@ -118,7 +140,7 @@ server's.
 
 ## Tests
 
-`system/backend/tests/test_hr_ready.py`, `test_c_hr.py`, `test_money_flows_finance.py`, `test_accounting_postings_2.py`;
+`system/backend/tests/test_hr_ready.py`, `test_c_hr.py`, `test_d_fixes.py`, `test_money_flows_finance.py`, `test_accounting_postings_2.py`;
 `e2e/api/test_hr.py`, `test_periods.py`, `test_security.py`, `test_sessions.py`.
 
 ## Screens
@@ -134,7 +156,7 @@ advances, reopening with a confirmation. Money shows the workspace's currency.
 
 ## Known limits
 
-Still fixed: the Egypt time zone. The engine counts shifts in whole hours. The audit log covers
-salary changes, entry edits and advances (HR-14); employees' other edits and stops aren't logged.
-The employees list isn't paged (HR-13). A carried advance of an employee who is stopped before the
+Still fixed: the Egypt time zone. The engine counts shifts in whole hours. The pickers of the
+attendance and advances tabs list the first 200 active employees (no search yet). Shifts and the
+payroll settings are not in the HR audit log. A carried advance of an employee who is stopped before the
 next month waits in the advances list (and the ledger) until the employee is active again.

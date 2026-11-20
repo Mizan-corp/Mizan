@@ -3,7 +3,6 @@ deducted from the month's salary), deductions (خصم) and bonuses (مكافأة
 salary. A record is never deleted: it is cancelled, and a cancelled advance's cash goes back to
 where it came from and its ledger entry is reversed (ADR-014). Records of a month whose payroll
 is approved or paid can't be added or cancelled."""
-import json
 import uuid
 
 from fastapi import HTTPException
@@ -12,15 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.framework.events import notify
 from app.platform.tenancy import clock
+from app.activities.general.modules.hr.services.audit import audit
 from app.activities.general.modules.hr.services.payroll import ensure_month_open, month_of, record_kind
 
 
 async def _audit(db: AsyncSession, action: str, employee_id, user_id, reason: str, details: dict) -> None:
-    await db.execute(text("""
-        INSERT INTO hr_audit_log (action_type, entity_type, entity_id, performed_by, reason, details)
-        VALUES (:action, 'advance', :eid, :by, :reason, CAST(:det AS jsonb))
-    """), {"action": action, "eid": str(employee_id), "by": user_id, "reason": reason or "",
-           "det": json.dumps(details, ensure_ascii=False)})
+    await audit(db, action, "advance", employee_id, user_id, reason, details)
 
 
 async def add_record(db: AsyncSession, data, user) -> uuid.UUID:

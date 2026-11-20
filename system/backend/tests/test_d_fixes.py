@@ -179,3 +179,112 @@ async def test_a_collection_saved_without_prices_keeps_them():
         hidden = next(x for x in (await c.get("/collections", headers=env["h"]["cashier"])).json()["items"]
                       if x["id"] == str(coll["id"]))
         assert hidden["items"][0]["avg_cost"] is None and hidden["items"][0]["cost_price"] is None
+
+
+# ── 4. HR-13 ─────────────────────────────────────────────────────────────────────────────────
+
+async def test_the_employees_list_is_paged_and_searched():
+    from tests.test_hr_ready import _client as hr_client
+    from tests.test_hr_ready import _headers, _workspace
+
+    ws = await _workspace()
+    h = _headers(ws, "admin")
+    async with hr_client() as c:
+        first = (await c.get("/hr/employees", params={"page_size": 1}, headers=h)).json()
+        assert set(first) == {"items", "total", "page", "page_size"} and first["total"] == 2 and len(first["items"]) == 1
+        second = (await c.get("/hr/employees", params={"page_size": 1, "page": 2}, headers=h)).json()
+        assert first["items"][0]["id"] != second["items"][0]["id"]
+        found = (await c.get("/hr/employees", params={"q": "ب"}, headers=h)).json()
+        assert [e["name"] for e in found["items"]] == ["موظف ب"]
+        assert (await c.get("/hr/employees", params={"q": "%"}, headers=h)).json()["total"] == 0
+        assert (await c.get("/hr/employees", params={"page_size": 500}, headers=h)).status_code == 422
+
+
+async def test_calculating_a_month_doesnt_query_per_employee():
+    """Old code: two queries per employee (attendance, HR records) and one more per entry."""
+    from app.activities.general.modules.hr.services import payroll
+    from tests.test_hr_ready import MONTH, _attend, _session, _workspace
+    from tests.test_query_counts import count_queries
+
+    ws = await _workspace()
+    db, user = await _session(ws)
+    async with db:
+        for emp in ws["emps"]:
+            for day in (3, 4):
+                await _attend(db, emp, day)
+        await db.execute(text("INSERT INTO hr_advances (id, tenant_id, employee_id, amount, date, record_type) "
+                              "VALUES (gen_random_uuid(), :t, :e, 10, :d, 'خصم')"),
+                         {"t": ws["tid"], "e": ws["emps"][0], "d": date(2025, 2, 5)})
+        await db.commit()
+        await payroll.calculate_payroll_month(db, MONTH, str(user.id))  # the period exists from here on
+        with count_queries() as two:
+            await payroll.calculate_payroll_month(db, MONTH, str(user.id))
+        for i in range(4):
+            eid = (await db.execute(text("""
+                INSERT INTO hr_employees (id, tenant_id, emp_code, name, monthly_salary, shift_schedule)
+                VALUES (gen_random_uuid(), :t, :code, :n, 2600, '09:00-17:00') RETURNING id
+            """), {"t": ws["tid"], "code": f"X{i}-{ws['tid'].hex[:4]}", "n": f"موظف {i}"})).scalar_one()
+            await _attend(db, eid, 3)
+        await db.commit()
+        with count_queries() as six:
+            out = await payroll.calculate_payroll_month(db, MONTH, str(user.id))
+        assert out["employees"] == 6
+        assert len(six) == len(two), (len(two), len(six))
+        entries = dict((await db.execute(text(
+            "SELECT employee_id, deductions FROM hr_payroll_entries pe JOIN hr_payroll_periods p ON p.id = pe.period_id "
+            "WHERE p.month = :m"), {"m": MONTH})).all())
+        assert len(entries) == 6 and entries[ws["emps"][0]] == D("10.00") and entries[ws["emps"][1]] == D("0.00")
+    assert not any("to_char" in q.lower() for q in six)
+
+
+# ── 5. HR-14 ─────────────────────────────────────────────────────────────────────────────────
+
+async def test_the_hr_audit_log_records_every_change_and_step():
+    """Old code: only salary changes, entry adjustments and advances were logged."""
+    from tests.test_hr_ready import MONTH, _attend, _headers, _session, _workspace
+    from tests.test_hr_ready import _client as hr_client
+
+    ws = await _workspace()
+    h = _headers(ws, "admin")
+    emp = str(ws["emps"][0])
+    db, _ = await _session(ws)
+    async with db:
+        await _attend(db, ws["emps"][1], 4)
+        await db.commit()
+    async with hr_client() as c:
+        new = (await c.post("/hr/employees", headers=h, json={"name": "موظفة جديدة", "monthly_salary": "3000"})).json()
+        assert (await c.put(f"/hr/employees/{new['id']}", headers=h, json={"position": "محاسبة"})).status_code == 200
+        assert (await c.delete(f"/hr/employees/{new['id']}", headers=h)).status_code == 204
+        assert (await c.put(f"/hr/employees/{new['id']}", headers=h, json={"is_active": True})).status_code == 200
+        r = await c.post("/hr/attendance", headers=h, json={"employee_id": emp, "work_date": "2025-02-03",
+                                                           "check_in": "09:00", "check_out": "17:00", "status": "present"})
+        assert r.status_code == 200, r.text
+        assert (await c.post("/hr/attendance", headers=h, json={"employee_id": emp, "work_date": "2025-02-03",
+                                                               "check_in": "10:00", "check_out": "17:00", "status": "present",
+                                                               "edit_reason": "نسي البصمة"})).status_code == 200
+        assert (await c.post("/hr/payroll/calculate", headers=h, json={"month": MONTH})).status_code == 200
+        rows = (await c.get("/hr/payroll", params={"month": MONTH}, headers=h)).json()
+        assert (await c.put(f"/hr/payroll/{rows[0]['id']}", headers=h, json={"bonus": "50"})).status_code == 200
+        for step in ("submit", "approve", "reopen", "submit", "approve"):
+            r = await c.post(f"/hr/payroll/period/{step}", params={"month": MONTH}, headers=h)
+            assert r.status_code == 200, (step, r.text)
+        r = await c.post("/hr/payroll/period/pay", params={"month": MONTH}, headers=h, json={"safe_id": str(ws["safe_id"])})
+        assert r.status_code == 200, r.text
+        log = (await c.get("/hr/audit-log", params={"page_size": 200}, headers=h)).json()["items"]
+
+    seen = [(r["action_type"], r["entity_type"]) for r in reversed(log)]
+    for expected in [("create", "employee"), ("update", "employee"), ("stop", "employee"), ("start", "employee"),
+                     ("create", "attendance"), ("update", "attendance"), ("calculate", "payroll_period"),
+                     ("update", "payroll_entry"), ("submit", "payroll_period"), ("approve", "payroll_period"),
+                     ("reopen", "payroll_period"), ("pay", "payroll_period")]:
+        assert expected in seen, (expected, seen)
+    assert seen.count(("approve", "payroll_period")) == 2
+    assert all(r["performed_by_name"] == "admin" for r in log)
+    by = {(r["action_type"], r["entity_type"]): r for r in log}
+    assert by[("update", "employee")]["details"] == {"position": {"from": "", "to": "محاسبة"}}
+    assert by[("stop", "employee")]["employee_name"] == "موظفة جديدة"
+    edit = by[("update", "attendance")]
+    assert edit["reason"] == "نسي البصمة" and edit["employee_name"] == "موظف أ" and set(edit["details"]) == {"date", "check_in"}
+    assert by[("update", "payroll_entry")]["employee_name"] is not None
+    assert by[("pay", "payroll_period")]["entity_id"] == MONTH
+    assert by[("pay", "payroll_period")]["details"]["safe_id"] == str(ws["safe_id"])
