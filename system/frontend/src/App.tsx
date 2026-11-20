@@ -5,7 +5,7 @@ const ProductsPage = lazy(() => import("@app/features/products/ProductsPage"));
 const SalesPage = lazy(() => import("@activities/general/modules/sales/screens/SalesPage"));
 const PurchasesPage = lazy(() => import("@activities/general/modules/purchases/PurchasesPage"));
 const PayrollPage = lazy(() => import("@activities/general/modules/hr/PayrollPage"));
-const ShiftsPage = lazy(() => import("@app/features/shifts/ShiftsPage"));
+const ShiftsPage = lazy(() => import("@activities/general/modules/pos/screens/ShiftsPage"));
 const CustomersPage = lazy(() => import("@app/features/customers/CustomersPage"));
 const SettingsPage = lazy(() => import("@app/features/settings/SettingsPage"));
 const DesignerPage = lazy(() => import("@app/features/designer/DesignerPage"));
