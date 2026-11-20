@@ -69,6 +69,29 @@ A module is ready when all of these hold:
     `inventory:opening`, `purchases` (wider defaults), `payroll:approve`, `payroll:pay`,
     `reports:finance`. Migrations v95 to v99 keep what a workspace's own roles could already do.
 
+- **Phase B** (#164, 2026-11-20): SAL-10, SAL-12, POS-4 (lockout of the guesser only), POS-5, POS-10,
+  OPS-5, OPS-6, PLAT-6 for operations; INV-4, INV-8, INV-11, PUR-3, PUR-5, PUR-6, PUR-7; PLAT-5 (every
+  print route escaped and permissioned), PLAT-7, PLAT-8 (one workspace clock), FIN-15, CON-7, REP-18,
+  ACC-3. Found on the way: `PUT /users/{id}/warehouses` reached other workspaces; any print token printed
+  any document; HR settings could be saved by one workspace only.
+- **Phase C** (#166): SAL-11, POS-6, POS-8, POS-9 and the price-override control; INV-9, INV-10, PUR-4
+  (partial receipts as GRN documents, one ledger entry each), OPS-4, pharmacy batches through purchases;
+  FIN-9 (strict safe balance, recurring expenses that recur), FIN-14, HR-9 (carried advances), HR-12,
+  HR-15, and the reporting screens (profit, cash flow from the ledger, aging, overview, ledgers).
+- **Phase D** (2026-11-20): the route security sweep (`tests/test_route_security_sweep.py`: every route
+  signed in or on a reviewed allow-list, permission denials, cross-workspace reads) and the 15 holes it
+  found (module settings exposing secrets, 29 activity modules open to any signed-in user, notifications
+  spoofing, customer balances to everyone, demo seeds crashing every workspace but the first, …);
+  ACC-2 (accounting e2e); the receipt cancel that left invoices paid; partial module-settings saves;
+  collections as an assembly helper (not sold); HR-13, HR-14; ACC-1 (journal numbers from a counter);
+  PLAT-9; idempotency keys cleaned nightly.
+
+**Status after phase D:** every finding of the 2026-11-17 audit for the 11 built modules is closed or
+recorded as a known limit below. Known limits kept on purpose: collections can't be sold (a bundle needs a
+sales-line redesign); activity modules check that the workspace uses them but declare no permissions
+(activity variants are out of scope); rate limits count per worker without REDIS_URL; the workspace clock
+is fixed to Africa/Cairo (no setting yet).
+
 ## What remains after phase A
 - **Phase B (permissions, validation, error codes):** SAL-10, SAL-12; POS-4 (manager password brute
   force), POS-5, POS-10; INV-4, the rest of INV-8; the rest of PUR-3, PUR-5, PUR-7; OPS-5, OPS-6; PLAT-5
