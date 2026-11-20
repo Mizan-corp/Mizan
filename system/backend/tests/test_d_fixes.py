@@ -156,3 +156,26 @@ async def test_two_settings_saved_at_once_both_count():
         await bind_tenant(s, env["tenant_id"])
         values = (await registry.get_settings(s, "pos"))["values"]
     assert values["allow_price_override"] is True and values["auto_print_receipt"] is True
+
+
+# ── 3. Collections: a stock-assembly helper ──────────────────────────────────────────────────
+
+async def test_a_collection_saved_without_prices_keeps_them():
+    """The screen no longer offers a selling price (collections aren't sold); old code zeroed the
+    stored prices on every edit that didn't send them."""
+    env = await _ws()
+    h = env["h"]["admin"]
+    item = {"product_id": str(env["product_id"]), "qty": "2"}
+    async with _client() as c:
+        coll = (await c.post("/collections", json={"name": "كرتونة", "retail_price": "150", "wholesale_price": "120",
+                                                    "items": [item]}, headers=h)).json()
+        assert (await c.put(f"/collections/{coll['id']}", json={"name": "كرتونة رمضان", "items": [item]},
+                            headers=h)).status_code == 200
+        listed = next(x for x in (await c.get("/collections", headers=h)).json()["items"] if x["id"] == str(coll["id"]))
+        assert listed["name"] == "كرتونة رمضان"
+        assert (D(str(listed["retail_price"])), D(str(listed["wholesale_price"]))) == (D("150"), D("120"))
+        # Its cost (average cost, as stock is valued) is shown to those who see costs only.
+        assert D(str(listed["items"][0]["avg_cost"])) == D("60")
+        hidden = next(x for x in (await c.get("/collections", headers=env["h"]["cashier"])).json()["items"]
+                      if x["id"] == str(coll["id"]))
+        assert hidden["items"][0]["avg_cost"] is None and hidden["items"][0]["cost_price"] is None

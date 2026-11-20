@@ -76,9 +76,15 @@ export function groupSubcategories(categories: Category[], subcategories: Subcat
   }));
 }
 
-/** What the collection's items would sell for one by one (to compare with its own price). */
-export function componentsValue(items: CollectionItem[] | null | undefined): Decimal {
-  return (items ?? []).reduce((sum, i) => sum.plus(D(i.qty).times(D(i.retail_price ?? 0))), D(0));
+/** What one collection's items cost (each at its average cost, as stock is valued, × its quantity);
+ *  null when a cost is hidden from the user (or unknown), so no partial figure is shown. */
+export function componentsCost(items: CollectionItem[] | null | undefined): Decimal | null {
+  let sum = D(0);
+  for (const i of items ?? []) {
+    if (i.avg_cost === null || i.avg_cost === undefined) return null;
+    sum = sum.plus(D(i.qty).times(D(i.avg_cost)));
+  }
+  return sum;
 }
 
 export const WAREHOUSE_TYPE_LABEL: Record<string, string> = { warehouse: "مخزن", showroom: "معرض / فرع بيع" };

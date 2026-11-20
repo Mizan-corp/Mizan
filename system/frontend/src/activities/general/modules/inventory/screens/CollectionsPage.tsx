@@ -1,6 +1,7 @@
-// Collections (INV-9): a named set of products with its own price (a gift box, a combo), and how
-// many can be assembled from a branch's stock. Nothing sells a collection yet: the till and the sales
-// invoice sell products only (README, known limits), so this screen says so.
+// Collections (INV-9): a named set of products and quantities (a gift box's contents, a kit), what it
+// costs and how many can be assembled from a branch's stock. A stock-assembly helper only: the till
+// and the sales invoice sell products, never a collection (inventory README, "Collections"), so this
+// screen offers no selling price.
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Info, Layers, Pencil, Plus, Trash2, X } from "lucide-react";
@@ -12,12 +13,12 @@ import { Badge, Button, ConfirmDialog, Empty, ErrorBox, Input, Modal, Select, Sp
 import { type Collection, type Paged, type ProductRow, useWarehouses } from "../api";
 import { InventoryHeader } from "../components/InventoryHeader";
 import { ProductPicker } from "../components/ProductPicker";
-import { componentsValue, parseNumber } from "../lib";
+import { componentsCost, parseNumber } from "../lib";
 
 interface Line { product_id: string; name: string; qty: string }
 /** What the availability route answers when no item's stock is tracked (nothing limits the count). */
 const UNTRACKED = 999;
-interface Form { id?: string; name: string; description: string; retail_price: string; wholesale_price: string; items: Line[] }
+interface Form { id?: string; name: string; description: string; items: Line[] }
 
 export default function CollectionsPage() {
   const qc = useQueryClient();
@@ -32,8 +33,6 @@ export default function CollectionsPage() {
 
   const formIssues = !form ? [] : [
     !form.name.trim() && "الاسم",
-    parseNumber(form.retail_price, 2) === null && "سعر البيع",
-    form.wholesale_price.trim() && parseNumber(form.wholesale_price, 2) === null && "سعر الجملة",
     !form.items.length && "صنف واحد على الأقل",
     form.items.some((i) => !parseNumber(i.qty)?.gt(0)) && "كميات الأصناف",
   ].filter(Boolean) as string[];
@@ -42,8 +41,6 @@ export default function CollectionsPage() {
     mutationFn: (f: Form) => {
       const body = {
         name: f.name.trim(), description: f.description.trim(),
-        retail_price: parseNumber(f.retail_price, 2)!.toString(),
-        wholesale_price: (parseNumber(f.wholesale_price, 2) ?? D(0)).toString(),
         items: f.items.map((i) => ({ product_id: i.product_id, qty: parseNumber(i.qty)!.toString() })),
       };
       return f.id ? api.put(`/collections/${f.id}`, body) : api.post("/collections", body);
@@ -56,9 +53,9 @@ export default function CollectionsPage() {
     onError: (e) => { setDeleting(null); toast("error", (e as Error).message); },
   });
 
-  const openNew = () => setForm({ name: "", description: "", retail_price: "", wholesale_price: "", items: [] });
+  const openNew = () => setForm({ name: "", description: "", items: [] });
   const openEdit = (c: Collection) => setForm({
-    id: c.id, name: c.name, description: c.description ?? "", retail_price: String(c.retail_price), wholesale_price: String(c.wholesale_price),
+    id: c.id, name: c.name, description: c.description ?? "",
     items: (c.items ?? []).map((i) => ({ product_id: i.product_id, name: i.product_name ?? "", qty: String(D(i.qty)) })),
   });
   const addProduct = (p: ProductRow) => form && setForm({ ...form, items: [...form.items, { product_id: p.id, name: p.name, qty: "1" }] });
@@ -67,12 +64,12 @@ export default function CollectionsPage() {
     <div className="flex flex-col gap-6">
       <InventoryHeader
         title="المجموعات"
-        subtitle="عبوات أو عروض من عدة أصناف بسعر واحد، وكم منها يمكن تجميعه من رصيد الفرع"
+        subtitle="مجموعات أصناف بكمياتها (محتوى عبوة أو طقم)، وتكلفتها، وكم منها يمكن تجميعه من رصيد الفرع"
         actions={manage && <Button onClick={openNew}><Plus className="size-4" /> مجموعة جديدة</Button>}
       />
       <div className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning/10 p-3 text-xs">
         <Info className="mt-0.5 size-4 shrink-0" />
-        <span>المجموعات للتسعير ومتابعة ما يمكن تجميعه فقط: نقطة البيع وفاتورة البيع تبيعان الأصناف منفردة، فأضف أصناف المجموعة إلى الفاتورة عند بيعها.</span>
+        <span>المجموعة أداة لتجميع المخزون ومتابعته، وليست صنفاً يُباع: نقطة البيع وفاتورة البيع تبيعان الأصناف، فعند بيع محتوى المجموعة أضف أصنافها إلى الفاتورة.</span>
       </div>
       <div className="flex items-center gap-2">
         <label htmlFor="col-branch" className="text-xs font-semibold text-muted">المتاح في</label>
@@ -86,7 +83,7 @@ export default function CollectionsPage() {
       ) : list.isError ? (
         <ErrorBox message={(list.error as Error).message} onRetry={() => list.refetch()} />
       ) : !list.data?.items.length ? (
-        <Empty text="لا توجد مجموعات" hint="أنشئ مجموعة (مثل «كرتونة رمضان») من أصناف موجودة وحدد سعرها."
+        <Empty text="لا توجد مجموعات" hint="أنشئ مجموعة (مثل «كرتونة رمضان») من أصناف موجودة بكمياتها لتعرف كم منها يمكن تجميعه."
                icon={<Layers className="size-10" />} action={manage && <Button onClick={openNew}><Plus className="size-4" /> مجموعة جديدة</Button>} />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -104,15 +101,7 @@ export default function CollectionsPage() {
                 <label htmlFor="col-name" className="mb-1 block text-xs font-semibold text-muted">الاسم *</label>
                 <Input id="col-name" autoFocus maxLength={128} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </div>
-              <div>
-                <label htmlFor="col-retail" className="mb-1 block text-xs font-semibold text-muted">سعر البيع *</label>
-                <Input id="col-retail" className="num" inputMode="decimal" value={form.retail_price} onChange={(e) => setForm({ ...form, retail_price: e.target.value })} />
-              </div>
-              <div>
-                <label htmlFor="col-wholesale" className="mb-1 block text-xs font-semibold text-muted">سعر الجملة</label>
-                <Input id="col-wholesale" className="num" inputMode="decimal" value={form.wholesale_price} onChange={(e) => setForm({ ...form, wholesale_price: e.target.value })} />
-              </div>
-              <div>
+              <div className="sm:col-span-3">
                 <label htmlFor="col-desc" className="mb-1 block text-xs font-semibold text-muted">وصف</label>
                 <Input id="col-desc" maxLength={2000} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
               </div>
@@ -157,7 +146,7 @@ function CollectionCard({ c, warehouseId, manage, onEdit, onDelete }: {
     queryFn: () => api.get<{ can_make: number }>(`/collections/${c.id}/availability`, { warehouse_id: warehouseId }),
     enabled: !!warehouseId,
   });
-  const parts = componentsValue(c.items);
+  const cost = componentsCost(c.items);
   return (
     <section className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4">
       <div className="flex items-start justify-between gap-2">
@@ -179,8 +168,12 @@ function CollectionCard({ c, warehouseId, manage, onEdit, onDelete }: {
       </ul>
       <div className="mt-auto flex items-end justify-between gap-2 border-t border-line/60 pt-3">
         <div>
-          <p className="num text-lg font-black text-primary">{money(c.retail_price)} <span className="text-xs font-normal text-muted">ج.م</span></p>
-          <p className="text-[11px] text-muted">منفردة: <span className="num">{money(parts)}</span></p>
+          {cost !== null ? (
+            <>
+              <p className="num text-lg font-black text-primary">{money(cost)} <span className="text-xs font-normal text-muted">ج.م</span></p>
+              <p className="text-[11px] text-muted">تكلفة المجموعة الواحدة</p>
+            </>
+          ) : <p className="text-[11px] text-muted"><span className="num">{(c.items ?? []).length}</span> صنف</p>}
         </div>
         {avail.isLoading ? <Skeleton className="h-6 w-20" /> : avail.isError ? <Badge tone="danger">تعذر حساب المتاح</Badge>
           : (avail.data?.can_make ?? 0) >= UNTRACKED ? <Badge tone="muted">أصنافها لا يُتتبع رصيدها</Badge>

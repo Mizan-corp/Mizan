@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  componentsValue, groupSubcategories, handMovementIssues, imageSrc, movementLabel, parseNumber, signedQty,
+  componentsCost, groupSubcategories, handMovementIssues, imageSrc, movementLabel, parseNumber, signedQty,
 } from "../lib";
 
 describe("parseNumber", () => {
@@ -54,9 +54,10 @@ describe("groupSubcategories", () => {
 });
 
 describe("collections and pictures", () => {
-  it("value the items one by one", () => {
-    expect(componentsValue([{ product_id: "a", qty: "2", retail_price: "10.5" }, { product_id: "b", qty: "1.5", retail_price: "4" }]).toString()).toBe("27");
-    expect(componentsValue(null).toString()).toBe("0");
+  it("cost the items, or nothing when a cost is hidden", () => {
+    expect(componentsCost([{ product_id: "a", qty: "2", avg_cost: "10.5" }, { product_id: "b", qty: "1.5", avg_cost: "4" }])?.toString()).toBe("27");
+    expect(componentsCost(null)?.toString()).toBe("0");
+    expect(componentsCost([{ product_id: "a", qty: "2", avg_cost: "10.5" }, { product_id: "b", qty: "1", avg_cost: null }])).toBeNull();
   });
   it("serve relative uploads through the API and keep absolute links", () => {
     const api = (p: string) => `https://api.test${p}`;

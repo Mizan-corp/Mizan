@@ -71,6 +71,8 @@ export interface CollectionItem {
   unit?: string;
   retail_price?: string;
   cost_price?: string | null;
+  /** The average cost (ADR-014 D5), what stock is valued at; null without the cost permission. */
+  avg_cost?: string | null;
 }
 export interface Collection {
   id: string;
