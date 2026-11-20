@@ -1,15 +1,109 @@
-"""Central print system — shared utilities."""
-from fastapi import APIRouter
-from fastapi.responses import Response
-from datetime import datetime
-import html
+"""Central print system — shared utilities.
 
-router = APIRouter(prefix="/print", tags=["print"])
+Every document is opened in a browser tab with a print token (POST /auth/print-token). Each route
+checks the permission of its document and the branch it belongs to (`guard`), and every text that
+comes from the workspace (store, customer, supplier, product, user and branch names, notes, document
+numbers) is escaped with `h()`. Errors reach the tab as an Arabic page (`PrintRoute`)."""
+import html
+import uuid
+from datetime import datetime
+from typing import Annotated
+
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import HTMLResponse, Response
+from fastapi.routing import APIRoute
 
 
 def h(s: str | None) -> str:
     """HTML escape helper — returns empty string for None."""
     return html.escape(str(s)) if s is not None else ""
+
+
+PRINT_ERRORS = {
+    401: "انتهت صلاحية رابط الطباعة. أغلق هذه الصفحة واطبع المستند من جديد من الشاشة.",
+    403: "ليس لديك صلاحية طباعة هذا المستند.",
+    404: "المستند غير موجود.",
+    422: "رابط الطباعة غير صالح.",
+}
+
+
+def error_page(status_code: int, detail=None) -> HTMLResponse:
+    """What a print tab shows instead of a JSON error: an Arabic message (the server's own when it
+    wrote one in Arabic)."""
+    message = PRINT_ERRORS.get(status_code, "تعذر تجهيز المستند للطباعة. حاول مرة أخرى.")
+    if isinstance(detail, str) and any("\u0600" <= c <= "\u06ff" for c in detail):
+        message = detail
+    page = (f'<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>تعذرت الطباعة</title></head>'
+            f'<body style="font-family:Tahoma,sans-serif;background:#f6f3f0;color:#1d1b1a;display:flex;justify-content:center;'
+            f'padding:48px 16px"><div style="max-width:480px;background:#fff;border:1px solid #e9e3de;border-radius:12px;padding:24px">'
+            f'<h1 style="font-size:18px;margin:0 0 12px">تعذرت الطباعة</h1><p style="margin:0;line-height:1.8">{h(message)}</p>'
+            f'</div></body></html>')
+    return HTMLResponse(page, status_code=status_code)
+
+
+class PrintRoute(APIRoute):
+    """A document route: a browser tab (Accept: text/html) gets errors as an Arabic page, never the
+    API's JSON; API clients keep the JSON errors."""
+
+    def get_route_handler(self):
+        handler = super().get_route_handler()
+
+        async def route(request: Request) -> Response:
+            try:
+                return await handler(request)
+            except (HTTPException, RequestValidationError) as exc:
+                if "text/html" not in request.headers.get("accept", ""):
+                    raise
+                if isinstance(exc, RequestValidationError):
+                    return error_page(422)
+                return error_page(exc.status_code, exc.detail)
+
+        return route
+
+
+router = APIRouter(prefix="/print", tags=["print"], route_class=PrintRoute)
+
+# A PDF's paper: "A4" (the default) or a receipt roll ("80mm"); the workspace's setting when not given.
+PaperSize = Annotated[str | None, Query(max_length=16, pattern=r"^[A-Za-z0-9]+$")]
+
+
+def sees_every_branch(user) -> bool:
+    """Who prints any branch's documents: a manager, `supervise`, or `reports:finance` (accountants
+    answer for the company's figures), as in the reports (reporting/scope.py)."""
+    from app.platform.permissions.access import can
+
+    return bool(user.is_manager or can(user, "supervise") or can(user, "reports:finance"))
+
+
+async def guard(db, user, perms: tuple[str, ...], branches=(), message: str = PRINT_ERRORS[403]) -> None:
+    """The print user holds one of `perms` and reaches one of the document's `branches` (none named:
+    a document of the company)."""
+    from sqlalchemy import select
+
+    from app.platform.auth.models.user import user_warehouses
+    from app.platform.permissions.access import can
+
+    if not can(user, *perms):
+        raise HTTPException(status_code=403, detail=message)
+    wanted = [b for b in branches if b]
+    if not wanted or sees_every_branch(user):
+        return
+    mine = await db.scalar(select(user_warehouses.c.warehouse_id).where(
+        user_warehouses.c.user_id == user.id, user_warehouses.c.warehouse_id.in_(wanted)).limit(1))
+    if mine is None:
+        raise HTTPException(status_code=403, detail="ليس لديك صلاحية الوصول إلى هذا الفرع")
+
+
+def not_found(what: str = "المستند") -> HTTPException:
+    return HTTPException(status_code=404, detail=f"{what} غير موجود")
+
+
+def as_uuid(value) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(str(value)) if value else None
+    except ValueError:
+        return None
 
 
 async def get_settings(db):
@@ -170,14 +264,21 @@ def pdf_css(paper_size="A4"):
 
 
 def wrap(body, title="مستند"):
-    return f"""<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8">{css()}</head><body><div class="sheet">{body}</div></body></html>"""
+    """`title` is plain text (escaped here)."""
+    return f"""<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>{h(title)}</title>{css()}</head><body><div class="sheet">{body}</div></body></html>"""
+
+
+def _css_string(value: str) -> str:
+    """Text safe inside a CSS string ("..."): no quote, backslash, angle bracket or line break can end
+    it or the <style> element."""
+    return "".join(c for c in str(value) if c not in '"\\<>\n\r')
 
 
 def wrap_pdf(body, title="مستند", paper_size="A4", company_name="Mizan", doc_number="", footer_html=""):
     extra = ""
     if footer_html:
-        extra = f"""@page{{@bottom-left{{content:"{footer_html}";font-size:7px;color:#999;font-family:'Segoe UI',Tahoma,sans-serif}}}}"""
-    return f"""<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>{title}</title>{pdf_css(paper_size)}<style>{extra}</style></head><body><div class="sheet">{body}</div></body></html>"""
+        extra = f"""@page{{@bottom-left{{content:"{_css_string(footer_html)}";font-size:7px;color:#999;font-family:'Segoe UI',Tahoma,sans-serif}}}}"""
+    return f"""<!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>{h(title)}</title>{pdf_css(paper_size)}<style>{extra}</style></head><body><div class="sheet">{body}</div></body></html>"""
 
 
 # Hosts a PDF may load images or styles from (https only). Anything else, above all file:// and
@@ -227,13 +328,22 @@ async def get_paper_size(db, override: str = None) -> str:
         return "A4"
 
 
+def store_of(s: dict) -> dict:
+    """The store's details a document's header and footer print, from the workspace's settings."""
+    return {"name": s.get("store_name", ""), "address": s.get("store_address", ""), "phone": s.get("store_phone", ""),
+            "logo_url": s.get("logo_url", ""), "contacts": s.get("contact_phones") or []}
+
+
 def top_band(store, doc_type_label, doc_number, date_str):
-    import html as _html
-    logo = store.get('logo_url', '') if store else ''
-    logo_html = f'<img class="brand-logo" src="{_html.escape(logo)}" alt=""/>' if logo else '<div class="brand-initials">EG</div>'
-    co_name = _html.escape((store or {}).get('store_name', 'Mizan'))
-    co_sub = _html.escape((store or {}).get('address', '') or '')
-    return f'''<div class="top-band"><div class="brand">{logo_html}<div class="brand-text"><div class="co-name">{co_name}</div><div class="co-sub">{co_sub}</div></div></div><div class="doc-id"><div class="doc-type">{doc_type_label}</div><div class="doc-num">{doc_number}</div><div class="doc-date">{date_str}</div></div></div><div class="ribbon"></div>'''
+    """The document's header. Every argument is plain text (escaped here)."""
+    store = store or {}
+    logo = store.get('logo_url', '')
+    logo_html = f'<img class="brand-logo" src="{h(logo)}" alt=""/>' if logo else '<div class="brand-initials">EG</div>'
+    co_name = h(store.get('name') or store.get('store_name') or 'Mizan')
+    co_sub = h(store.get('address') or '')
+    return (f'<div class="top-band"><div class="brand">{logo_html}<div class="brand-text"><div class="co-name">{co_name}</div>'
+            f'<div class="co-sub">{co_sub}</div></div></div><div class="doc-id"><div class="doc-type">{h(doc_type_label)}</div>'
+            f'<div class="doc-num">{h(doc_number)}</div><div class="doc-date">{h(date_str)}</div></div></div><div class="ribbon"></div>')
 
 
 def _extract_body(html_response) -> str:
@@ -256,10 +366,10 @@ def _extract_meta(html_response) -> tuple:
     import re
     m = re.search(r'<div class="co-name">([^<]+)</div>', body)
     if m:
-        company = m.group(1)
+        company = html.unescape(m.group(1))
     m2 = re.search(r'<div class="doc-num">([^<]*)</div>', body)
     if m2:
-        doc_num = m2.group(1).strip()
+        doc_num = html.unescape(m2.group(1).strip())
     return company, doc_num
 
 
@@ -274,6 +384,9 @@ async def _make_pdf(html_response, title: str, filename: str, db, paper_size_ove
     content, media, ext = await pdf_or_page(html, zoom=1.0 if ps.upper() == "A4" else 2.0)
     if ext != "pdf":
         filename = filename.rsplit(".", 1)[0] + ".html"
+    import re
+
+    filename = re.sub(r"[^A-Za-z0-9._-]", "_", filename)  # a document number from the URL can't break the header
     return Response(content=content, media_type=media,
                     headers={"Content-Disposition": f'inline; filename="{filename}"'})
 

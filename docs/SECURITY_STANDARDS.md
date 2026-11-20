@@ -29,7 +29,8 @@ nothing. Details: [`USER_ROLES_AND_PERMISSIONS.md`](USER_ROLES_AND_PERMISSIONS.m
 - Session tokens are JWTs signed with HMAC-SHA256 (`SECRET_KEY`, shared by the four APIs), with
   a token id: signing out revokes it (`revoked_tokens`) and a password change ends every earlier
   session (#77). Tokens carry a scope (workspace, `owner`, `developer`, `print`) and each API
-  refuses the others'.
+  refuses the others'. A print token opens only documents, and each document still checks its own
+  permission and branch (`app/platform/printing`); every text a document prints is HTML-escaped.
 - Machine tokens (installation tokens `mzx_`, CLI tokens `mzd_`) are random, shown once, and
   stored only as SHA-256.
 - Owners' email codes (#71, #72) are 6 random digits stored only as an HMAC (`SECRET_KEY`),
@@ -44,6 +45,9 @@ nothing. Details: [`USER_ROLES_AND_PERMISSIONS.md`](USER_ROLES_AND_PERMISSIONS.m
 - Cross-workspace reads (scheduler, token lookups) switch the bypass on for one transaction and
   off before binding a workspace. Tests check that two workspaces with the same module or theme
   never see each other's records.
+- Tables without a workspace column of their own (`user_warehouses`) are reached only through a
+  row that has one: a user's branches are set only for a user of the bound workspace, to its own
+  branches (404 otherwise).
 
 ## 4. Owner Accounts & Payments (ADR-004)
 - Owner tokens carry `scope: owner`: the ERP refuses them, and the owner API refuses ERP tokens.

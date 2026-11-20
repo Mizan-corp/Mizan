@@ -165,8 +165,8 @@ their reversal). The year-end closing never touches the VAT accounts, and the re
 | Route | Permission | What |
 |---|---|---|
 | `GET /accounting/accounts` | `accounting:view` | The chart as a tree |
-| `POST /accounting/accounts` | `accounting:settings` | Add a sub-account under a group (`parent_id`, `name`, optional `code`, `is_group`) |
-| `PUT /accounting/accounts/{id}` | `accounting:settings` | Rename; stop/resume an account no posting rule uses |
+| `POST /accounting/accounts` | `accounting:settings` | Add a sub-account under a group (`parent_id`, `name`, optional `code`, `is_group`); a number already used is a 409 (checked under the chart's lock) |
+| `PUT /accounting/accounts/{id}` | `accounting:settings` | Rename; stop/resume an account no posting rule uses. A group stops only once its accounts are stopped (409); an account resumes only under a running group (409) |
 | `PUT /accounting/categories/{id}/account` | `accounting:settings` | A financial category's account (income ↔ income, expense ↔ expense) |
 | `GET /accounting/entries?from&to&source_type&account_id&page&page_size` | `accounting:view` | Entries, newest first, with totals and whether reversed |
 | `GET /accounting/entries/{id}` | `accounting:view` | One entry and its lines |
@@ -176,6 +176,7 @@ their reversal). The year-end closing never touches the VAT accounts, and the re
 | `GET /accounting/general-ledger/{account_id}?from&to&warehouse_id&include_closing&page&page_size` | `accounting:view` | One account's lines with a running balance |
 | `GET /accounting/party-statement/{customer\|supplier\|employee}/{id}?from&to&warehouse_id&page&page_size` | `accounting:view` | A party's lines with a running balance, and the operational balance to reconcile with |
 | `GET /accounting/reconciliation` | `accounting:view` | The ledger against the operational balances (flags only) |
+| `GET /accounting/parties?type=customer\|supplier\|employee&q&id&limit` | `accounting:view` or `accounting:journal` | The party picker: `[{id, name}]` by name, searched on the server (name, and phone for customers and suppliers), at most `limit` (≤ 50, default 20); `id` adds the party already chosen first |
 | `GET /accounting/vat-report?from&to` | `accounting:view` | Output VAT, input VAT, net payable (ledger) and the documents' VAT by tax code (D6) |
 | `GET /accounting/settings` | `accounting:view` | `fiscal_year_start`, `start_date` |
 | `PUT /accounting/settings` | `accounting:settings` | `fiscal_year_start` (1-12); refused while a year-end closing is in force |
@@ -190,6 +191,14 @@ their reversal). The year-end closing never touches the VAT accounts, and the re
 | `DELETE /accounting/drafts/{id}` | `accounting:journal` | Delete a draft (never a posted one) |
 | `POST /accounting/drafts/{id}/post` | `accounting:journal` | Post it (again: the same entry, `already: true`) |
 | `POST /accounting/entries/{id}/reverse` `{date?, memo?}` | `accounting:journal` (manual) / `accounting:settings` (opening) | Reverse an entry by hand (below) |
+
+**Branches** (ACC-3), as in the reports (`reporting/scope.py`): a manager, a holder of `supervise` or
+of `reports:finance` sees the whole company or the branch they pick. Anyone else holding
+`accounting:view` sees only their branches (`user_warehouses`): the trial balance, income statement,
+balance sheet, general ledger and party statement cover the branch they pick (403 for another, 404
+for an unknown one) or, when they pick none, their only branch (with several: 403, pick one). The
+company-wide reads (entries and an entry, the VAT report, the reconciliation, the opening preview)
+are refused to them (403).
 
 `GET /accounting/settings` also returns `opening_entry` (the one in force, or null: the screens
 offer the opening wizard), `first_entry_date` and `year_end_closings`; `GET /accounting/entries/{id}`

@@ -13,6 +13,7 @@ from app.activities.general.modules.inventory.schemas.stock import StockMovement
 from app.activities.general.modules.inventory.schemas.warehouse import WarehouseCreate, WarehouseUpdate
 from app.activities.general.modules.inventory.services import stock as stock_service
 from app.activities.general.modules.inventory.services import warehouses as warehouses_service
+from app.activities.general.modules.inventory.services.products import READ_PERMISSIONS
 from app.platform.audit.service import log as audit_log
 
 router = APIRouter(prefix="/stock", tags=["stock"])
@@ -53,7 +54,8 @@ async def delete_warehouse(wh_id: uuid.UUID, db: AsyncSession = Depends(get_db),
 
 
 @router.post("/balance/bulk")
-async def get_balance_bulk(warehouse_id: uuid.UUID, product_ids: list[uuid.UUID] = Body(...), db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def get_balance_bulk(warehouse_id: uuid.UUID, product_ids: list[uuid.UUID] = Body(..., max_length=1000), db: AsyncSession = Depends(get_db),
+                           current_user: User = Depends(require_perm(*READ_PERMISSIONS))):
     """POST body: list of product UUIDs. Returns {product_id: qty} plus a __tracked__ map."""
     from sqlalchemy import text as sqlt
 
@@ -75,7 +77,8 @@ async def get_balance_bulk(warehouse_id: uuid.UUID, product_ids: list[uuid.UUID]
 
 
 @router.post("/balance/total")
-async def get_total_balance_bulk(product_ids: list[uuid.UUID] = Body(...), db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def get_total_balance_bulk(product_ids: list[uuid.UUID] = Body(..., max_length=1000), db: AsyncSession = Depends(get_db),
+                                 _=Depends(require_perm(*READ_PERMISSIONS))):
     """Total stock across ALL warehouses. POST body: list of product UUIDs."""
     from sqlalchemy import func
 
@@ -94,7 +97,7 @@ async def get_total_balance_bulk(product_ids: list[uuid.UUID] = Body(...), db: A
 
 
 @router.get("/balance/breakdown/{product_id}")
-async def get_balance_breakdown(product_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+async def get_balance_breakdown(product_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm(*READ_PERMISSIONS))):
     """Stock per warehouse for a single product — uses maintained balances."""
     from sqlalchemy import func
 

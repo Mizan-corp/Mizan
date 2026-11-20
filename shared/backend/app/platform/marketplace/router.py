@@ -1,6 +1,7 @@
 """API endpoints for Mizan Modular App Engine."""
 from __future__ import annotations
 
+import uuid
 from dataclasses import asdict
 from typing import Any
 
@@ -13,6 +14,7 @@ from app.framework.activation import (
     get_active_modules,
     get_active_preset,
     set_active_modules,
+    with_dependencies,
 )
 from app.catalog import canonical_module
 from app.framework.loader import registry
@@ -142,7 +144,8 @@ async def toggle_module(
     if not ok:
         raise HTTPException(status_code=403, detail=reason)
     active = list(await get_active_modules(db))
-    added = [module_id] + [d for d in _catalog()[module_id].dependencies if d not in active]
+    # What the module needs, and what those need in turn (sales: pos, finance, contacts…).
+    added = [module_id] + [mid for mid in with_dependencies([module_id])[1:] if mid not in active]
     for mid in added:
         ok, reason = installable(mid, activity)
         if not ok:
@@ -204,7 +207,7 @@ async def retention(db: AsyncSession = Depends(get_db), _=Depends(require_perm("
 
 
 @router.get("/retention/{retention_id}/export")
-async def retention_export(retention_id: str, db: AsyncSession = Depends(get_db), _=Depends(require_perm("settings"))):
+async def retention_export(retention_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("settings"))):
     """The export taken before deleting a module's data (gzip JSON)."""
     from fastapi.responses import Response
     from sqlalchemy import text as sqltext

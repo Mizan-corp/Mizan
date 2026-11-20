@@ -338,7 +338,7 @@ async def cancel_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db),
     """Cancel a confirmed sale (managers: `sales:cancel`, SAL-7)."""
     await _sale_in_reach(db, sale_id, current_user)
     sale = await sale_service.cancel_sale(db, sale_id, current_user.id, actor=current_user)
-    return {"detail": "Cancelled", "invoice_number": sale.invoice_number}
+    return {"detail": "تم إلغاء الفاتورة", "invoice_number": sale.invoice_number}
 
 
 @router.post("/{sale_id}/return")

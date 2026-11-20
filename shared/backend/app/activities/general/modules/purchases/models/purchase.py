@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint, func, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Numeric, String, Text, UniqueConstraint, func, text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -42,7 +42,8 @@ class PurchaseOrder(TenantScoped, Base):
     received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     items: Mapped[list["PurchaseOrderItem"]] = relationship(back_populates="order", cascade="all, delete-orphan")
-    __table_args__ = (UniqueConstraint("tenant_id", "po_number", name="uq_purchase_orders_po_number"),)
+    __table_args__ = (UniqueConstraint("tenant_id", "po_number", name="uq_purchase_orders_po_number"),
+                      Index("idx_purchase_orders_supplier_id", "supplier_id"))
 
 class PurchaseOrderItem(TenantScoped, Base):
     __tablename__ = "purchase_order_items"
@@ -63,3 +64,5 @@ class PurchaseOrderItem(TenantScoped, Base):
     net_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
 
     order: Mapped["PurchaseOrder"] = relationship(back_populates="items")
+    __table_args__ = (Index("idx_purchase_order_items_po_id", "po_id"),
+                      Index("idx_purchase_order_items_product_id", "product_id"))

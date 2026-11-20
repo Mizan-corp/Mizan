@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -35,6 +35,8 @@ class Subcategory(TenantScoped, Base):
 
     category: Mapped["Category"] = relationship(back_populates="subcategories")
     products: Mapped[list["Product"]] = relationship(back_populates="subcategory")
+    # One name per category (v101; the same name may sit under two categories).
+    __table_args__ = (UniqueConstraint("tenant_id", "category_id", "name", name="uq_subcategories_category_name"),)
 
 
 class Product(TenantScoped, Base):
@@ -78,6 +80,11 @@ class Product(TenantScoped, Base):
     barcodes: Mapped[list["ProductBarcode"]] = relationship(back_populates="product", cascade="all, delete-orphan")
     images: Mapped[list["ProductImage"]] = relationship(
         back_populates="product", cascade="all, delete-orphan", order_by="ProductImage.position"
+    )
+    # A barcode belongs to one active product of the workspace (v101; a scan finds one product).
+    __table_args__ = (
+        Index("uq_products_tenant_barcode_active", "tenant_id", "barcode", unique=True,
+              postgresql_where=text("is_active AND barcode IS NOT NULL AND barcode <> ''")),
     )
 
 

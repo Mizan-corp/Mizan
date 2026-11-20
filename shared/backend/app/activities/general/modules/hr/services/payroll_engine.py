@@ -6,6 +6,8 @@ import calendar
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
+from app.platform.tenancy import clock
+
 # Egypt timezone offset
 LOCAL_TZ_OFFSET = timedelta(hours=2)
 
@@ -136,12 +138,12 @@ def calculate_payroll(employee: dict, attendances: list[dict], settings: dict,
         _, last_day = calendar.monthrange(year, mon)
         month_end = date(year, mon, last_day)
     else:
-        now = datetime.now()
+        now = clock.now()  # the workspace's month and day (Africa/Cairo), not the server's
         month_start = now.date().replace(day=1)
         _, last_day = calendar.monthrange(now.year, now.month)
         month_end = now.date().replace(day=last_day)
 
-    now = datetime.now()
+    now = clock.now()
     end_date_for_loop = month_end if month_end < now.date() else now.date()
 
     # Group attendances by logical day

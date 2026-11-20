@@ -1,6 +1,6 @@
 // Parts every accounting screen uses: the header with the module's own tabs and the opening-entry
 // reminder, the chart / branches / state queries, filters, pickers and the export buttons.
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, CalendarCheck, ChartColumn, Download, ListTree, Printer, Sparkles } from "lucide-react";
@@ -184,34 +184,43 @@ export function AccountSelect({ id, value, onChange, rows, placeholder = "— ا
 
 interface PartyRow { id: string; name: string }
 
-/** The customers, suppliers or employees to pick a line's party from. */
-export function useParties(type: PartyType | "") {
+/** The customers, suppliers or employees matching a search, from the server (/accounting/parties:
+ * at most 20, by name), plus the one already chosen (`id`) so its name shows. */
+export function useParties(type: PartyType | "", q = "", id = "") {
   return useQuery({
-    queryKey: ["accounting", "parties", type],
+    queryKey: ["accounting", "parties", type, q, id],
     enabled: !!type,
     staleTime: 60_000,
-    queryFn: async (): Promise<PartyRow[]> => {
-      if (type === "customer") return api.get<PartyRow[]>("/customers", { limit: 1000 });
-      if (type === "supplier") {
-        const res = await api.get<{ items: PartyRow[] } | PartyRow[]>("/suppliers", { page_size: 1000 });
-        return Array.isArray(res) ? res : res.items ?? [];
-      }
-      return api.get<PartyRow[]>("/hr/employees");
-    },
+    placeholderData: (prev) => prev,
+    queryFn: () => api.get<PartyRow[]>("/accounting/parties", { type, q: q || undefined, id: id || undefined, limit: 20 }),
   });
 }
 
+/** A search box and the matching parties: typing narrows the list on the server. */
 export function PartySelect({ id, type, value, onChange, className = "" }: {
   id?: string; type: PartyType; value: string; onChange: (id: string) => void; className?: string;
 }) {
-  const parties = useParties(type);
+  const [typed, setTyped] = useState("");
+  const [q, setQ] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setQ(typed.trim()), 300);
+    return () => clearTimeout(t);
+  }, [typed]);
+  const parties = useParties(type, q, value);
   const label = { customer: "العميل", supplier: "المورد", employee: "الموظف" }[type];
+  const empty = parties.isSuccess && !parties.data.length;
   return (
-    <Select id={id} className={className} value={value} onChange={(e) => onChange(e.target.value)} aria-label={label}
-            disabled={parties.isLoading}>
-      <option value="">{parties.isLoading ? "جارٍ التحميل…" : parties.isError ? "تعذر التحميل" : `— ${label} —`}</option>
-      {parties.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-    </Select>
+    <div className={`flex gap-1 ${className}`}>
+      <Input className="w-28 text-xs" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="بحث…"
+             aria-label={`بحث عن ${label}`} />
+      <Select id={id} className="min-w-0 flex-1" value={value} onChange={(e) => onChange(e.target.value)} aria-label={label}
+              disabled={parties.isLoading}>
+        <option value="">
+          {parties.isLoading ? "جارٍ التحميل…" : parties.isError ? "تعذر التحميل" : empty ? "لا نتائج" : `— ${label} —`}
+        </option>
+        {parties.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+      </Select>
+    </div>
   );
 }
 

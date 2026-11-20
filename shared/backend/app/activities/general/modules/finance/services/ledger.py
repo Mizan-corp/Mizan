@@ -4,16 +4,16 @@ page at a time, with totals over the whole period (SQL aggregates, never the pag
 Days are the workspace's days (Africa/Cairo): a period runs from the first day's midnight to the
 midnight after the last day."""
 import uuid
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-CAIRO = ZoneInfo("Africa/Cairo")
+from app.platform.tenancy import clock
+
 ZERO = Decimal("0")
 
 
@@ -21,9 +21,7 @@ def day_bounds(from_date: date | None, to_date: date | None) -> tuple[datetime |
     """[start, end) of the days from `from_date` to `to_date` included, in the workspace's time zone."""
     if from_date and to_date and from_date > to_date:
         raise HTTPException(400, "تاريخ البداية بعد تاريخ النهاية")
-    start = datetime.combine(from_date, time.min, CAIRO) if from_date else None
-    end = datetime.combine(to_date + timedelta(days=1), time.min, CAIRO) if to_date else None
-    return start, end
+    return clock.day_bounds(from_date, to_date)
 
 
 def _branch(alias: str, branches: list[uuid.UUID] | None) -> tuple[str, dict]:

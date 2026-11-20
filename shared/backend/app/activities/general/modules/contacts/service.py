@@ -16,6 +16,21 @@ from app.platform.audit.service import log as audit_log
 
 CUSTOMER_NOT_FOUND = "العميل غير موجود"
 
+
+async def default_credit_limit(db: AsyncSession) -> Decimal | None:
+    """The workspace's `default_credit_limit` (manifest setting): the limit a new customer gets when
+    none is given. 0, empty or unreadable: no limit."""
+    from decimal import InvalidOperation
+
+    from app.framework.loader import registry
+
+    try:
+        value = (await registry.get_settings(db, "contacts"))["values"].get("default_credit_limit")
+        limit = Decimal(str(value)).quantize(Decimal("0.01")) if value not in (None, "") else None
+    except (KeyError, InvalidOperation, ValueError):
+        return None
+    return limit if limit is not None and Decimal("0") < limit < Decimal("1e12") else None
+
 # What a credit sale put on the customer's account (its credit payment lines; a sale from before
 # those lines existed: its whole net), what its returns took off it, and what receipts paid on it.
 INVOICE_DUE = """

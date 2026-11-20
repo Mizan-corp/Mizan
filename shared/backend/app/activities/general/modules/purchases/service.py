@@ -25,26 +25,22 @@ from app.activities.general.modules.inventory.services.stock import record_movem
 
 # ── Purchase Suggestions ────────────────────────────────────────────────────
 
+SUGGESTIONS_LIMIT = 500
+
+
 async def get_purchase_suggestions(db: AsyncSession) -> list[dict[str, Any]]:
-    """Products where total stock across all warehouses <= reorder_point."""
+    """Active tracked products whose stock across all warehouses (the maintained balances, not a scan
+    of every movement) is at or below their reorder point: the lowest stock first, at most 500."""
     rows = await db.execute(text("""
-        SELECT
-            p.id, p.name, p.barcode as sku, p.cost_price, p.reorder_point, p.reorder_qty,
-            COALESCE(SUM(CASE WHEN sm.movement_type IN ('purchase','transfer_in','adjustment_in','return_in','opening_stock')
-                              THEN sm.qty ELSE 0 END)
-                     - SUM(CASE WHEN sm.movement_type IN ('sale','transfer_out','adjustment_out','damage','return_out')
-                              THEN sm.qty ELSE 0 END), 0) AS total_stock,
-            p.unit
+        SELECT p.id, p.name, p.barcode AS sku, p.cost_price, p.reorder_point, p.reorder_qty,
+               COALESCE(b.qty, 0) AS total_stock, p.unit
         FROM products p
-        LEFT JOIN stock_movements sm ON sm.product_id = p.id
-        WHERE p.is_active = true AND p.reorder_point > 0
-        GROUP BY p.id
-        HAVING COALESCE(SUM(CASE WHEN sm.movement_type IN ('purchase','transfer_in','adjustment_in','return_in','opening_stock')
-                                  THEN sm.qty ELSE 0 END)
-                       - SUM(CASE WHEN sm.movement_type IN ('sale','transfer_out','adjustment_out','damage','return_out')
-                                  THEN sm.qty ELSE 0 END), 0) <= p.reorder_point
-        ORDER BY total_stock ASC
-    """))
+        LEFT JOIN (SELECT product_id, SUM(qty) AS qty FROM stock_balances GROUP BY product_id) b ON b.product_id = p.id
+        WHERE p.is_active AND p.reorder_point > 0 AND p.stock_status = 'tracked'
+          AND COALESCE(b.qty, 0) <= p.reorder_point
+        ORDER BY total_stock ASC, p.name
+        LIMIT :lim
+    """), {"lim": SUGGESTIONS_LIMIT})
     return [dict(r._mapping) for r in rows.fetchall()]
 
 
@@ -57,6 +53,10 @@ _TOTAL_SQL = """ROUND(COALESCE((SELECT SUM(CASE WHEN po.status IN ('received', '
 
 
 FINANCE_NEEDED = "دفع مبلغ للمورد أو استلام مبلغ منه في خزنة أو محفظة يتطلب صلاحية المالية"
+ORDER_NOT_FOUND = "أمر الشراء غير موجود"
+SUPPLIER_NOT_FOUND = "المورد غير موجود"
+PRODUCT_NOT_FOUND = "الصنف غير موجود"
+SUPPLIER_PRICE_NOT_FOUND = "سعر المورد غير موجود"
 
 
 async def order_warehouse(db: AsyncSession, po_id: uuid.UUID) -> tuple[uuid.UUID, Decimal]:
@@ -64,7 +64,7 @@ async def order_warehouse(db: AsyncSession, po_id: uuid.UUID) -> tuple[uuid.UUID
     row = (await db.execute(text("SELECT warehouse_id, amount_paid FROM purchase_orders WHERE id = :id"),
                             {"id": po_id})).first()
     if not row:
-        raise NotFoundError("أمر الشراء غير موجود")
+        raise NotFoundError(ORDER_NOT_FOUND)
     return row.warehouse_id, Decimal(str(row.amount_paid or 0))
 
 
@@ -75,7 +75,7 @@ async def _check_refs(db: AsyncSession, *, warehouse_id=None, supplier_id=None, 
             text("SELECT 1 FROM warehouses WHERE id = :id AND is_active"), {"id": warehouse_id}):
         raise NotFoundError("المخزن غير موجود أو موقوف")
     if supplier_id is not None and not await db.scalar(text("SELECT 1 FROM suppliers WHERE id = :id"), {"id": supplier_id}):
-        raise NotFoundError("المورد غير موجود")
+        raise NotFoundError(SUPPLIER_NOT_FOUND)
     ids = list({*product_ids})
     if ids:
         found = (await db.execute(text("SELECT id FROM products WHERE id = ANY(:ids)"), {"ids": ids})).scalars().all()
@@ -111,7 +111,7 @@ async def get_purchase(db: AsyncSession, po_id: uuid.UUID) -> dict[str, Any]:
     """), {"id": po_id})
     po = po_row.fetchone()
     if not po:
-        raise NotFoundError()
+        raise NotFoundError(ORDER_NOT_FOUND)
     items_row = await db.execute(text("""
         SELECT poi.*, p.name as product_name, p.barcode as sku, p.cost_price as current_cost
         FROM purchase_order_items poi
@@ -173,7 +173,7 @@ async def update_purchase(
     result = await db.execute(select(PurchaseOrder).where(PurchaseOrder.id == po_id))
     po = result.scalar_one_or_none()
     if not po:
-        raise NotFoundError()
+        raise NotFoundError(ORDER_NOT_FOUND)
     if po.status != POStatus.draft:
         raise BusinessError("لا يُعدَّل إلا أمر شراء في حالة المسودة")
     await _check_refs(db, supplier_id=data.supplier_id,
@@ -208,7 +208,7 @@ async def receive_purchase(
     result = await db.execute(select(PurchaseOrder).where(PurchaseOrder.id == po_id).with_for_update())
     po = result.scalar_one_or_none()
     if not po:
-        raise NotFoundError()
+        raise NotFoundError(ORDER_NOT_FOUND)
     if po.status == POStatus.received:
         raise BusinessError("أمر الشراء مستلم بالفعل")
     if po.status == POStatus.cancelled:
@@ -230,6 +230,7 @@ async def receive_purchase(
                      vat_cfg.prices_include_vat)
     codes = await vat.product_tax_codes(db, [i.product_id for i in items]) if vat_cfg.registered else {}
     line_taxes = []
+    update_cost_price = await auto_update_purchase_price(db)
 
     for item in items:
         override = overrides.get(str(item.product_id), {})
@@ -257,11 +258,13 @@ async def receive_purchase(
         item.qty_received = qty
         item.unit_cost = cost
 
-        # Update product cost_price + record history
+        # The product's listed cost becomes the last purchase price (unless the workspace switched
+        # `auto_update_purchase_price` off); the price history records it either way.
         old_cost_row = await db.execute(text("SELECT cost_price FROM products WHERE id=:id"), {"id": item.product_id})
         old_cost = old_cost_row.scalar()
         last_cost = cost_net.quantize(Decimal("0.01"))  # the last purchase price, without VAT when registered
-        await db.execute(text("UPDATE products SET cost_price=:cost WHERE id=:id"), {"cost": last_cost, "id": item.product_id})
+        if update_cost_price:
+            await db.execute(text("UPDATE products SET cost_price=:cost WHERE id=:id"), {"cost": last_cost, "id": item.product_id})
         await db.execute(text("""
             INSERT INTO purchase_price_history (product_id, po_id, supplier_id, old_cost, new_cost)
             VALUES (:pid, :po_id, :sid, :old, :new)
@@ -319,20 +322,19 @@ async def receive_purchase(
     # Archive the purchase invoice
     from app.platform.archive.models import ArchivedDocument, DocType
     supplier_name = (await db.execute(text("SELECT name FROM suppliers WHERE id=:id"), {"id": po.supplier_id})).scalar() if po.supplier_id else None
-    total_received = float(total_cost)
     db.add(ArchivedDocument(
         doc_number=po.po_number,
         doc_type=DocType.purchase_invoice,
-        amount=total_received,
+        amount=total_cost,
         ref_id=po.id,
         created_by=current_user.id,
-        metadata_={
+        metadata_={  # JSON: numbers as JSON numbers, computed in Decimal
             "supplier": supplier_name or "",
             "warehouse_id": str(po.warehouse_id),
             "items_count": len(items),
             "received_by": getattr(po, "received_by_name", "") or "",
-            "amount_paid": float(po.amount_paid or 0),
-            "remaining": round(total_received - float(po.amount_paid or 0), 2),
+            "amount_paid": float(amount_paid),
+            "remaining": float(total_cost - amount_paid),
         }
     ))
 
@@ -343,6 +345,18 @@ async def receive_purchase(
         "safe_id": po.safe_id if amount_paid > 0 else None, "wallet_id": po.wallet_id if amount_paid > 0 else None})
     await db.commit()
     return {"detail": "Received", "po_number": po.po_number}
+
+
+async def auto_update_purchase_price(db: AsyncSession) -> bool:
+    """The purchases setting `auto_update_purchase_price` (on by default): a receipt sets the
+    product's listed cost (`cost_price`) to the purchase price."""
+    from app.framework.loader import registry
+
+    try:
+        value = (await registry.get_settings(db, "purchases"))["values"].get("auto_update_purchase_price", True)
+    except KeyError:
+        return True
+    return str(value).strip().lower() not in ("false", "0", "no", "off")
 
 
 async def record_supplier_transaction(db: AsyncSession, supplier_id: uuid.UUID, amount: Decimal, tx_type: str, user, *,
@@ -361,7 +375,7 @@ async def record_supplier_transaction(db: AsyncSession, supplier_id: uuid.UUID, 
         raise HTTPException(400, "المبلغ يجب أن يكون أكبر من 0")
     supplier = (await db.execute(text("SELECT id, name FROM suppliers WHERE id = :id FOR UPDATE"), {"id": supplier_id})).first()
     if not supplier:
-        raise NotFoundError()
+        raise NotFoundError(SUPPLIER_NOT_FOUND)
     if tx_type == "credit":
         payments.check_source(safe_id, wallet_id, "حدد الخزنة أو المحفظة التي دُفع منها المبلغ للمورد")
         method = payments.method_of(safe_id, wallet_id, method)
@@ -385,7 +399,45 @@ async def record_supplier_transaction(db: AsyncSession, supplier_id: uuid.UUID, 
     return dict(row)
 
 
+async def supplier_statement(db: AsyncSession, supplier_id: uuid.UUID, page: int, page_size: int,
+                             newest_first: bool = False) -> dict[str, Any]:
+    """One page of a supplier's account, oldest first by default: each movement with what we owe
+    after it (a debit raises it, a credit lowers it), summed over the whole account in one query."""
+    sup = (await db.execute(text("SELECT * FROM suppliers WHERE id = :id"), {"id": supplier_id})).mappings().first()
+    if not sup:
+        raise NotFoundError(SUPPLIER_NOT_FOUND)
+    total = await db.scalar(text("SELECT COUNT(*) FROM supplier_transactions WHERE supplier_id = :id"),
+                            {"id": supplier_id}) or 0
+    order = "DESC" if newest_first else "ASC"
+    rows = (await db.execute(text(f"""
+        WITH lines AS (
+            SELECT st.*, CASE WHEN st.type = 'debit' THEN st.amount ELSE -st.amount END AS signed
+            FROM supplier_transactions st WHERE st.supplier_id = :id
+        )
+        SELECT l.id, l.created_at, l.type, l.amount, l.signed, l.reference_doc, l.notes, l.method,
+               l.safe_id, l.wallet_id, l.purchase_id, sf.name AS safe_name, pw.name AS wallet_name,
+               SUM(l.signed) OVER (ORDER BY l.created_at, l.id) AS balance
+        FROM lines l
+        LEFT JOIN safes sf ON sf.id = l.safe_id
+        LEFT JOIN payment_wallets pw ON pw.id = l.wallet_id
+        ORDER BY l.created_at {order}, l.id {order} LIMIT :lim OFFSET :off
+    """), {"id": supplier_id, "lim": page_size, "off": (page - 1) * page_size})).mappings().all()
+    items = [{"id": str(r["id"]), "date": r["created_at"].isoformat() if r["created_at"] else None,
+              "created_at": r["created_at"], "type": r["type"], "amount": r["amount"],
+              "debit": r["amount"] if r["type"] == "debit" else Decimal("0"),
+              "credit": r["amount"] if r["type"] != "debit" else Decimal("0"),
+              "balance": r["balance"], "reference_doc": r["reference_doc"], "notes": r["notes"],
+              "method": r["method"], "safe_id": r["safe_id"], "wallet_id": r["wallet_id"],
+              "safe_name": r["safe_name"], "wallet_name": r["wallet_name"], "purchase_id": r["purchase_id"]}
+             for r in rows]
+    return {"supplier": dict(sup), "items": items, "total": total, "page": page, "page_size": page_size,
+            "pages": max(1, (total + page_size - 1) // page_size)}
+
+
 async def get_price_history(db: AsyncSession, product_id: uuid.UUID) -> list[dict[str, Any]]:
+    """The product's last 50 purchase costs, newest first."""
+    if not await db.scalar(select(Product.id).where(Product.id == product_id)):
+        raise NotFoundError(PRODUCT_NOT_FOUND)
     rows = await db.execute(text("""
         SELECT pph.*, s.name as supplier_name, po.po_number
         FROM purchase_price_history pph
@@ -413,7 +465,7 @@ async def upload_invoice_image(
     if len(file_content) > MAX_UPLOAD_SIZE:
         raise HTTPException(400, "حجم الملف يتجاوز 10 ميجابايت")
     if not await db.scalar(text("SELECT 1 FROM purchase_orders WHERE id=:id"), {"id": po_id}):
-        raise HTTPException(404, "أمر الشراء غير موجود")
+        raise NotFoundError(ORDER_NOT_FOUND)
     from app.framework import files
 
     url = await files.store(db, file_content, kind="po_invoice", owner_id=str(po_id),
@@ -433,7 +485,7 @@ async def quick_add_product(
     if data.subcategory_id:
         sub = await db.scalar(select(Subcategory).where(Subcategory.id == data.subcategory_id))
         if not sub:
-            raise BusinessError("التصنيف الفرعي غير موجود")
+            raise NotFoundError("التصنيف الفرعي غير موجود")
     else:
         # Try to find a default subcategory named "عام" or "متنوع"
         sub = await db.scalar(
@@ -455,9 +507,9 @@ async def quick_add_product(
     p = Product(
         name=data.name,
         unit=data.unit or "عدد",
-        cost_price=float(data.cost_price or 0),
-        retail_price=float(data.retail_price or 0),
-        wholesale_price=float(data.wholesale_price or 0),
+        cost_price=data.cost_price,
+        retail_price=data.retail_price,
+        wholesale_price=data.wholesale_price,
         company=data.company or "",
         subcategory_id=sub.id,
     )
@@ -468,9 +520,9 @@ async def quick_add_product(
         "id": str(p.id),
         "name": p.name,
         "unit": p.unit,
-        "cost_price": float(p.cost_price),
-        "retail_price": float(p.retail_price),
-        "wholesale_price": float(p.wholesale_price),
+        "cost_price": p.cost_price,
+        "retail_price": p.retail_price,
+        "wholesale_price": p.wholesale_price,
         "barcode": p.barcode,
     }
 
@@ -479,10 +531,9 @@ async def quick_add_product(
 
 async def get_product_supplier_prices(db: AsyncSession, product_id: uuid.UUID) -> dict[str, Any]:
     """Get all supplier prices for a product with comparison."""
-    prod_uuid = uuid.UUID(str(product_id))
-    prod = await db.scalar(select(Product).where(Product.id == prod_uuid))
+    prod = await db.scalar(select(Product).where(Product.id == product_id))
     if not prod:
-        raise NotFoundError()
+        raise NotFoundError(PRODUCT_NOT_FOUND)
 
     rows = await db.execute(
         text(
@@ -496,12 +547,12 @@ async def get_product_supplier_prices(db: AsyncSession, product_id: uuid.UUID) -
             ORDER BY sp.price ASC
             """
         ),
-        {"pid": prod_uuid},
+        {"pid": product_id},
     )
 
     suppliers = [dict(r._mapping) for r in rows.fetchall()]
     return {
-        "product_id": prod_uuid,
+        "product_id": product_id,
         "product_name": prod.name,
         "suppliers": suppliers,
     }
@@ -544,7 +595,7 @@ async def update_supplier_price(
     """Update supplier price."""
     sp = await db.scalar(select(SupplierPrice).where(SupplierPrice.id == price_id))
     if not sp:
-        raise NotFoundError()
+        raise NotFoundError(SUPPLIER_PRICE_NOT_FOUND)
 
     for k, v in data.model_dump(exclude_none=True).items():
         setattr(sp, k, v)
@@ -561,7 +612,7 @@ async def delete_supplier_price(
     """Soft-delete supplier price."""
     sp = await db.scalar(select(SupplierPrice).where(SupplierPrice.id == price_id))
     if not sp:
-        raise NotFoundError()
+        raise NotFoundError(SUPPLIER_PRICE_NOT_FOUND)
 
     sp.is_active = False
     await db.commit()
@@ -597,7 +648,7 @@ async def _po_quantities(db: AsyncSession, po_id: uuid.UUID) -> dict[uuid.UUID, 
 async def list_purchase_returns(db: AsyncSession, po_id: uuid.UUID) -> dict[str, Any]:
     """The returns of a purchase order, and per product how much can still be returned."""
     if not await db.scalar(text("SELECT 1 FROM purchase_orders WHERE id = :id"), {"id": po_id}):
-        raise NotFoundError()
+        raise NotFoundError(ORDER_NOT_FOUND)
     rets = (await db.execute(text(
         "SELECT * FROM purchase_returns WHERE po_id = :po ORDER BY created_at DESC"), {"po": po_id})).mappings().all()
     items = (await db.execute(text("""
@@ -629,7 +680,7 @@ async def create_purchase_return(db: AsyncSession, po_id: uuid.UUID, data: Any, 
 
     po = (await db.execute(select(PurchaseOrder).where(PurchaseOrder.id == po_id).with_for_update())).scalar_one_or_none()
     if not po:
-        raise NotFoundError()
+        raise NotFoundError(ORDER_NOT_FOUND)
     if po.status != POStatus.received:
         raise BusinessError("لا يمكن إرجاع بضاعة من أمر شراء لم يُستلم بعد")
 

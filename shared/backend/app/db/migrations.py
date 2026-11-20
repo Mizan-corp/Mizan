@@ -4022,6 +4022,84 @@ MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS ix_expenses_tenant_date ON expenses (tenant_id, date);
         CREATE INDEX IF NOT EXISTS ix_customer_payments_sale_id ON customer_payments (sale_id) WHERE sale_id IS NOT NULL;
     """),
+
+    # Phase B, inventory and purchases (INV-4, PUR-6). A barcode belongs to one active product of a
+    # workspace and a subcategory name to one subcategory of its category: the unique indexes are made
+    # only where the existing data allows (a workspace with duplicates keeps them, the service refuses
+    # new ones and says which product holds the barcode). The purchases indexes exist in databases
+    # built from the baseline and v19; made here too, by the same names, for any that lack them.
+    ("v101_b_stock_pur", """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM products WHERE is_active AND barcode IS NOT NULL AND barcode <> ''
+                           GROUP BY tenant_id, barcode HAVING COUNT(*) > 1) THEN
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_products_tenant_barcode_active ON products (tenant_id, barcode)
+                    WHERE is_active AND barcode IS NOT NULL AND barcode <> '';
+            ELSE
+                RAISE NOTICE 'v101: active products share a barcode; uq_products_tenant_barcode_active not made';
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_subcategories_category_name') THEN
+                IF NOT EXISTS (SELECT 1 FROM subcategories GROUP BY tenant_id, category_id, name HAVING COUNT(*) > 1) THEN
+                    ALTER TABLE subcategories ADD CONSTRAINT uq_subcategories_category_name UNIQUE (tenant_id, category_id, name);
+                ELSE
+                    RAISE NOTICE 'v101: subcategories share a name in one category; uq_subcategories_category_name not made';
+                END IF;
+            END IF;
+        END $$;
+        CREATE INDEX IF NOT EXISTS idx_purchase_order_items_po_id ON purchase_order_items (po_id);
+        CREATE INDEX IF NOT EXISTS idx_purchase_order_items_product_id ON purchase_order_items (product_id);
+        CREATE INDEX IF NOT EXISTS idx_sup_tx_supplier ON supplier_transactions (supplier_id);
+        CREATE INDEX IF NOT EXISTS idx_pph_product ON purchase_price_history (product_id);
+        CREATE INDEX IF NOT EXISTS idx_purchase_orders_supplier_id ON purchase_orders (supplier_id);
+        -- Collections are inserted with raw SQL: the defaults v4 declared (tables made by create_all lacked them).
+        ALTER TABLE product_collections ALTER COLUMN is_active SET DEFAULT true;
+        ALTER TABLE product_collections ALTER COLUMN retail_price SET DEFAULT 0;
+        ALTER TABLE product_collections ALTER COLUMN wholesale_price SET DEFAULT 0;
+        ALTER TABLE collection_items ALTER COLUMN qty SET DEFAULT 1;
+    """),
+
+    # Phase B, platform (CON-7): customer search (`name ILIKE '%…%'`, the POS and every picker) by a
+    # trigram index when the server offers pg_trgm (PostgreSQL's contrib, a trusted extension the
+    # database owner may create); without it, a btree on lower(name) for prefix searches and ordering.
+    # Both guarded: the migration never fails on a server without the extension. And hr_settings
+    # kept the baseline's PRIMARY KEY (key) (v54 adds one on id only where none exists): two
+    # workspaces couldn't both save a setting of the same name. Its key becomes the model's (id),
+    # with (tenant_id, key) still unique.
+    ("v102_b_platform", """
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_trgm') THEN
+                BEGIN
+                    CREATE EXTENSION IF NOT EXISTS pg_trgm;
+                EXCEPTION WHEN insufficient_privilege THEN
+                    RAISE NOTICE 'pg_trgm not created: %', SQLERRM;
+                END;
+            END IF;
+            IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
+                CREATE INDEX IF NOT EXISTS ix_customers_name_trgm ON customers USING gin (name gin_trgm_ops);
+                CREATE INDEX IF NOT EXISTS ix_customers_phone_trgm ON customers USING gin (phone gin_trgm_ops);
+            ELSE
+                CREATE INDEX IF NOT EXISTS ix_customers_name_lower ON customers (tenant_id, lower(name));
+            END IF;
+        END $$;
+
+        DO $$
+        DECLARE pk text;
+        BEGIN
+            SELECT c.conname INTO pk FROM pg_constraint c
+            WHERE c.conrelid = 'public.hr_settings'::regclass AND c.contype = 'p'
+              AND pg_get_constraintdef(c.oid) = 'PRIMARY KEY (key)';
+            IF pk IS NOT NULL THEN
+                UPDATE hr_settings SET id = gen_random_uuid() WHERE id IS NULL;
+                EXECUTE format('ALTER TABLE hr_settings DROP CONSTRAINT %I', pk);
+                ALTER TABLE hr_settings ADD PRIMARY KEY (id);
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.hr_settings'::regclass
+                           AND pg_get_constraintdef(oid) = 'UNIQUE (tenant_id, key)') THEN
+                ALTER TABLE hr_settings ADD CONSTRAINT uq_hr_settings_key UNIQUE (tenant_id, key);
+            END IF;
+        END $$;
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

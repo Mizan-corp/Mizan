@@ -150,7 +150,7 @@ async def test_biz_01_cash_sale_return_deducts_from_drawer():
     # 2. Process return for the sale
     async with AsyncSessionLocal() as session:
         ret_result = await return_sale(session, sale_id, env["cashier_id"])
-        assert ret_result["detail"] == "Returned"
+        assert ret_result["detail"] == "تم إرجاع الفاتورة"
         assert ret_result["amount"] == Decimal("200.00")
 
     # 3. Verify drawer transactions contain the return transaction with amount 200 EGP

@@ -17,30 +17,32 @@ class ShiftOpen(BaseModel):
 
 
 class ShiftClose(BaseModel):
-    closing_balance: Decimal = Field(..., ge=0, description="الرصيد الفعلي في الدرج")
-    next_day_drawer: Decimal | None = None
-    notes: str | None = None
+    closing_balance: Decimal = Field(..., ge=0, le=MAX_MONEY, description="الرصيد الفعلي في الدرج")
+    # What stays in the drawer for the next shift: 0 to the closing balance (POS-5, checked again
+    # against closing_balance in the service).
+    next_day_drawer: Decimal | None = Field(None, ge=0, le=MAX_MONEY)
+    notes: str | None = Field(None, max_length=1000)
 
 
 class CloseWithManagerRequest(BaseModel):
-    closing_balance: Decimal = Field(..., ge=0)
-    next_day_drawer: Decimal | None = None
-    notes: str | None = None
+    closing_balance: Decimal = Field(..., ge=0, le=MAX_MONEY)
+    next_day_drawer: Decimal | None = Field(None, ge=0, le=MAX_MONEY)
+    notes: str | None = Field(None, max_length=1000)
     manager_id: uuid.UUID
-    manager_password: str
+    manager_password: str = Field(..., min_length=1, max_length=256)
 
 
 class TransferDrawerRequest(BaseModel):
     to_user_id: uuid.UUID
-    amount: Decimal = Field(..., ge=0, description="المبلغ المسلَّم")
-    notes: str | None = None
+    amount: Decimal = Field(..., ge=0, le=MAX_MONEY, description="المبلغ المسلَّم")
+    notes: str | None = Field(None, max_length=1000)
 
 
 class RevenueDeliveryRequest(BaseModel):
     amount: Decimal = Field(..., gt=0, le=MAX_MONEY)
     safe_id: uuid.UUID
     manager_id: uuid.UUID
-    manager_password: str = Field(..., max_length=256)
+    manager_password: str = Field(..., min_length=1, max_length=256)
     notes: str | None = Field(default=None, max_length=1000)
 
 

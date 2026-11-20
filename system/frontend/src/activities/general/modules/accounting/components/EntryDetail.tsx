@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, Printer, Undo2 } from "lucide-react";
-import { api, openPrintDoc } from "@/lib/api";
+import { api } from "@/lib/api";
+import { printDocument } from "@app/lib/documents";
 import { date as fmtDate, dateTime } from "@/lib/format";
 import { useAuth } from "@/stores/auth";
 import { Badge, Button, ErrorBox, Input, Modal, Spinner, useToast } from "@/components/ui";
@@ -79,7 +80,7 @@ export function EntryDetailModal({ entryId, onClose, onOpen }: { entryId: string
               </Badge>
             )}
             {e.source_type === "sale" && (
-              <Button variant="outline" size="sm" onClick={() => openPrintDoc(`/print/sale/${e.source_id}`)}>
+              <Button variant="outline" size="sm" onClick={() => printDocument(`/print/sale/${e.source_id}`)}>
                 <Printer className="size-3.5" /> الفاتورة
               </Button>
             )}

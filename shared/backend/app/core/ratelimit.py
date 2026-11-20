@@ -5,6 +5,7 @@ for single-worker / development deployments."""
 import logging
 import os
 import time
+import uuid
 
 from fastapi import HTTPException, Request
 
@@ -60,6 +61,45 @@ class RateLimiter:
             await self._check_redis(r, key)
         else:
             await self._check_memory(key)
+
+    async def hit(self, key: str) -> None:
+        """Count one attempt under `key` (a user, a workspace, a workspace and an account…) rather
+        than the client's address, and refuse (429) once over the limit in the window."""
+        key = f"rl:{key}"
+        r = _get_redis()
+        if r:
+            await self._check_redis(r, key)
+        else:
+            await self._check_memory(key)
+
+    async def count(self, key: str) -> int:
+        """The attempts counted under `key` in the current window (without adding one)."""
+        key, now = f"rl:{key}", time.time()
+        r = _get_redis()
+        if r:
+            await r.zremrangebyscore(key, 0, now - self.window_seconds)
+            return int(await r.zcard(key))
+        return len([t for t in self._attempts.get(key, []) if t > now - self.window_seconds])
+
+    async def add(self, key: str) -> None:
+        """Count one attempt under `key` without refusing (e.g. one failure)."""
+        key, now = f"rl:{key}", time.time()
+        r = _get_redis()
+        if r:
+            pipe = r.pipeline()
+            pipe.zadd(key, {f"{now}:{uuid.uuid4().hex}": now})
+            pipe.expire(key, self.window_seconds)
+            await pipe.execute()
+        else:
+            self._attempts.setdefault(key, []).append(now)
+
+    async def reset(self, key: str) -> None:
+        key = f"rl:{key}"
+        r = _get_redis()
+        if r:
+            await r.delete(key)
+        else:
+            self._attempts.pop(key, None)
 
     async def _check_redis(self, r, key: str):
         now = time.time()

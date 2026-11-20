@@ -41,8 +41,9 @@ suppliers' debts appear only in reports of every branch. Applies to every report
 
 ## Dates
 Dates are `date` parameters; a range covers both days fully (`>= from` and `< to + 1 day`), with day
-boundaries in Africa/Cairo, the time zone the ledger dates its entries in (there is no workspace
-time zone setting yet). `to` before `from` is a 400; a range longer than ten years is a 400.
+boundaries in the workspace's time zone (`app/platform/tenancy/clock.py`: Africa/Cairo, the one the
+ledger dates its entries in; there is no workspace time zone setting yet). `to` before `from` is a
+400; a range longer than ten years is a 400.
 
 ## The figures
 - **A sale's value** is its `net_total` (after line and invoice discounts) less its VAT
@@ -76,7 +77,31 @@ time zone setting yet). `to` before `from` is a 400; a range longer than ten yea
 - Money is computed in `Decimal` and returned rounded to the piastre.
 
 ## Exports
-Arabic column titles, number cells for money and quantities, date cells; at most 50,000 rows.
+Arabic column titles, number cells for money and quantities, date cells; at most 50,000 rows. The
+product export's cost price, like the stock export's, only with `reports:finance`.
+
+## Printing and errors
+`/reports/inventory/print` is the print system's document (`/print/inventory/{id}` prints the same
+sheet): a browser tab gets a refusal or a missing branch as an Arabic page (`PrintRoute`). The screens
+open prints and downloads through `system/frontend/src/lib/documents.ts`, which shows the server's
+Arabic message as a toast; a print or download nobody caught is still shown (`DocumentError`).
+
+## Other modules' tables
+Reports read other modules' tables with raw SQL, always with a workspace bound (RLS; `scope.require_workspace`,
+called by `branch_scope`, `company_scope` and every export). They depend on these tables and columns
+staying as they are; a change to one of them must update `service.py`, `routes/` and the tests here:
+
+| Module | Tables |
+|---|---|
+| sales | `sales` (status, return_of, warehouse_id, cashier_id, customer_id, net_total, tax_amount, discount_amount, is_credit, paid_amount, created_at), `sale_items` (net_amount, unit_cost), `sale_payments` |
+| pos | `shifts`, `drawer_transactions` (type, category_id, cancelled_at) |
+| inventory | `products` (avg_cost, cost_price, retail_price), `categories`, `subcategories`, `stock_movements` (movement_type, `IN_TYPES`), `warehouses` |
+| purchases | `purchase_orders`, `purchase_order_items`, `purchase_returns`, `suppliers`, `supplier_transactions` |
+| finance | `expenses` (status, date, payment_method, tax_amount, warehouse_id), `expense_vendors`, `financial_categories`, `safes` |
+| contacts | `customers`, `customer_payments` |
+| hr | `hr_payroll_periods` (paid_at) |
+| accounting | `acc_entries` (the ledger's start), and `accounting/services/reports.income_statement` for profit |
+| platform | `users`, `user_warehouses`, `store_settings` |
 
 ## Known limits
 - The aging report uses each invoice's current paid and returned amounts (they are not dated per

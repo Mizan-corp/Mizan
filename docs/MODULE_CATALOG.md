@@ -24,7 +24,7 @@ Turns on: `core`, `contacts`, `inventory`, `operations`, `sales`, `purchases`, `
 | `hr` | Human Resources & Payroll | **active** | سجلات الموظفين، مسيرات الرواتب الشهرية، الحضور والانصراف، والسلف والخصومات. |
 | `inventory` | Inventory & Supply | **active** | تتبع الأرصدة اللحظية، إدارة الفروع والمستودعات، تسويات الجرد، وأوامر الشراء والتوريد. |
 | `loyalty` | Loyalty rewards | *planned* |  |
-| `operations` | Stock Operations | **active** | التحويلات بين المخازن، التسويات، الجرد، والهالك. الكود الحالي في واجهات النظام العامة وينتقل إلى هذه الوحدة في المرحلة الثانية (ADR-006). |
+| `operations` | Stock Operations | **active** | أذون الصرف بين المخازن والفروع (وإلغاؤها) وطلبات النواقص، بترقيم مستقل لكل منشأة. |
 | `pos` | Point of Sale (POS) | **active** | إصدار الفواتير الفوري، دعم قارئ الباركود، الشاشات اللمسية، إدارة أدراج الكاشير والورديات. |
 | `pricing` | Pricing engine | *planned* |  |
 | `projects` | Project management | *planned* |  |

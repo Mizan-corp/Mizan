@@ -2,6 +2,7 @@
 journal entries and reversals). Posted entries have no edit or delete route, by design (D1): they are reversed."""
 import uuid
 from datetime import date
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, text
@@ -12,13 +13,29 @@ from app.activities.general.modules.accounting.schemas import (AccountCreate, Ac
                                                                ReverseIn, SettingsUpdate)
 from app.activities.general.modules.accounting.services import chart, closing, journal, ledger, opening, posting, reports
 from app.activities.general.modules.accounting.services import settings as acc_settings
-from app.core.exceptions import BusinessError, NotFoundError
+from app.activities.general.modules.reporting.scope import branch_scope, company_scope
+from app.core.exceptions import BusinessError, ConflictError, ForbiddenError, NotFoundError
 from app.db.base import get_db
 from app.dependencies import require_perm
 from app.framework.activation import require_module
 from app.platform.auth.models.user import User
 
 router = APIRouter(prefix="/accounting", tags=["Accounting"], dependencies=[Depends(require_module("accounting"))])
+
+PICK_BRANCH = "اختر فرعًا من فروعك: تقارير الشركة كلها تحتاج صلاحية الإشراف على كل الفروع"
+
+
+async def _report_branch(db: AsyncSession, user: User, warehouse_id: uuid.UUID | None) -> uuid.UUID | None:
+    """The branch a report covers, as in the reports module (reporting/scope.py): a manager, a holder
+    of `supervise` or of `reports:finance` sees the company or the branch they pick; anyone else holding
+    `accounting:view` only their own branches: the one they pick (403 for another, 404 for an unknown
+    one), or their only branch when they pick none."""
+    scope = await branch_scope(db, user, warehouse_id)
+    if warehouse_id is not None or scope.everything:
+        return warehouse_id
+    if len(scope.warehouses) == 1:
+        return scope.warehouses[0]
+    raise ForbiddenError(PICK_BRANCH)
 
 
 @router.get("/accounts")
@@ -59,6 +76,15 @@ async def update_account(account_id: uuid.UUID, data: AccountUpdate, db: AsyncSe
         in_use = acc.role or await db.scalar(text("SELECT 1 FROM acc_money_accounts WHERE account_id = :id"), {"id": acc.id})
         if not data.active and in_use:
             raise BusinessError("لا يمكن إيقاف حساب تستخدمه القيود التلقائية")
+        # A group is stopped once its accounts are: a stopped group with postable accounts under it
+        # looked closed in the chart while entries still reached it. Its accounts resume after it.
+        if not data.active and acc.is_group and await db.scalar(text(
+                "SELECT 1 FROM acc_accounts WHERE tenant_id = :t AND parent_id = :id AND active LIMIT 1"),
+                {"t": user.tenant_id, "id": acc.id}):
+            raise ConflictError("أوقف الحسابات الفرعية لهذا الحساب التجميعي أولاً")
+        if data.active and acc.parent_id and not await db.scalar(text(
+                "SELECT active FROM acc_accounts WHERE tenant_id = :t AND id = :id"), {"t": user.tenant_id, "id": acc.parent_id}):
+            raise ConflictError("الحساب التجميعي الأعلى موقوف: أعد تشغيله أولاً")
         acc.active = data.active
     await db.commit()
     return {"id": acc.id, "code": acc.code, "name": acc.name, "name_en": acc.name_en, "active": acc.active}
@@ -86,9 +112,10 @@ async def set_category_account(category_id: uuid.UUID, data: CategoryAccount, db
 
 @router.get("/entries")
 async def list_entries(date_from: date | None = Query(None, alias="from"), date_to: date | None = Query(None, alias="to"),
-                       source_type: str | None = None, account_id: uuid.UUID | None = None,
+                       source_type: Annotated[str | None, Query(max_length=32)] = None, account_id: uuid.UUID | None = None,
                        page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=200),
                        db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("accounting:view"))):
+    await company_scope(db, user)  # the journal covers every branch
     return await ledger.list_entries(db, user.tenant_id, date_from=date_from, date_to=date_to, source_type=source_type,
                                      account_id=account_id, page=page, page_size=page_size)
 
@@ -96,6 +123,7 @@ async def list_entries(date_from: date | None = Query(None, alias="from"), date_
 @router.get("/entries/{entry_id}")
 async def get_entry(entry_id: uuid.UUID, db: AsyncSession = Depends(get_db),
                     user: User = Depends(require_perm("accounting:view"))):
+    await company_scope(db, user)
     return await ledger.get_entry(db, user.tenant_id, entry_id)
 
 
@@ -103,6 +131,7 @@ async def get_entry(entry_id: uuid.UUID, db: AsyncSession = Depends(get_db),
 async def trial_balance(date_from: date | None = Query(None, alias="from"), date_to: date | None = Query(None, alias="to"),
                         warehouse_id: uuid.UUID | None = None, include_zero: bool = False, include_closing: bool = True,
                         db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("accounting:view"))):
+    warehouse_id = await _report_branch(db, user, warehouse_id)
     out = await reports.trial_balance(db, user.tenant_id, date_from, date_to, warehouse_id, include_zero, include_closing)
     await db.commit()  # the chart may just have been copied
     return out
@@ -112,6 +141,7 @@ async def trial_balance(date_from: date | None = Query(None, alias="from"), date
 async def income_statement(date_from: date | None = Query(None, alias="from"), date_to: date | None = Query(None, alias="to"),
                            warehouse_id: uuid.UUID | None = None, include_closing: bool = False,
                            db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("accounting:view"))):
+    warehouse_id = await _report_branch(db, user, warehouse_id)
     out = await reports.income_statement(db, user.tenant_id, date_from, date_to, warehouse_id, include_closing)
     await db.commit()
     return out
@@ -120,6 +150,7 @@ async def income_statement(date_from: date | None = Query(None, alias="from"), d
 @router.get("/balance-sheet")
 async def balance_sheet(as_of: date | None = None, warehouse_id: uuid.UUID | None = None, include_closing: bool = True,
                         db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("accounting:view"))):
+    warehouse_id = await _report_branch(db, user, warehouse_id)
     out = await reports.balance_sheet(db, user.tenant_id, as_of, warehouse_id, include_closing)
     await db.commit()
     return out
@@ -130,6 +161,7 @@ async def general_ledger(account_id: uuid.UUID, date_from: date | None = Query(N
                          date_to: date | None = Query(None, alias="to"), warehouse_id: uuid.UUID | None = None,
                          include_closing: bool = True, page: int = Query(1, ge=1), page_size: int = Query(200, ge=1, le=1000),
                          db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("accounting:view"))):
+    warehouse_id = await _report_branch(db, user, warehouse_id)
     out = await reports.general_ledger(db, user.tenant_id, account_id, date_from, date_to, warehouse_id, include_closing,
                                        page, page_size)
     await db.commit()
@@ -137,14 +169,43 @@ async def general_ledger(account_id: uuid.UUID, date_from: date | None = Query(N
 
 
 @router.get("/party-statement/{party_type}/{party_id}")
-async def party_statement(party_type: str, party_id: uuid.UUID, date_from: date | None = Query(None, alias="from"),
+async def party_statement(party_type: Literal["customer", "supplier", "employee"], party_id: uuid.UUID, date_from: date | None = Query(None, alias="from"),
                           date_to: date | None = Query(None, alias="to"), warehouse_id: uuid.UUID | None = None,
                           page: int = Query(1, ge=1), page_size: int = Query(200, ge=1, le=1000),
                           db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("accounting:view"))):
     """A customer's, supplier's or employee's statement from the lines carrying them as party."""
+    warehouse_id = await _report_branch(db, user, warehouse_id)
     out = await reports.party_statement(db, user.tenant_id, party_type, party_id, date_from, date_to, warehouse_id,
                                         page, page_size)
     await db.commit()
+    return out
+
+
+PARTY_TABLES = {"customer": "customers", "supplier": "suppliers", "employee": "hr_employees"}
+
+
+@router.get("/parties")
+async def search_parties(type: Literal["customer", "supplier", "employee"],
+                         q: Annotated[str | None, Query(max_length=128)] = None,
+                         id: uuid.UUID | None = None, limit: int = Query(20, ge=1, le=50),
+                         db: AsyncSession = Depends(get_db),
+                         _: User = Depends(require_perm("accounting:view", "accounting:journal"))):
+    """The customers, suppliers or employees a journal line or a statement names, searched on the
+    server by name (and phone): [{id, name}], at most `limit`, by name. `id` also returns that party
+    (the one already chosen) first."""
+    table = PARTY_TABLES[type]
+    params: dict = {"lim": limit}
+    where = "true"
+    if q and q.strip():
+        where = "(t.name ILIKE :q" + (" OR t.phone ILIKE :q)" if type != "employee" else ")")
+        params["q"] = f"%{q.strip()}%"
+    rows = (await db.execute(text(
+        f"SELECT t.id, t.name FROM {table} t WHERE {where} ORDER BY t.name, t.id LIMIT :lim"), params)).mappings().all()  # noqa: S608 (fixed table names)
+    out = [{"id": r["id"], "name": r["name"]} for r in rows]
+    if id is not None and all(r["id"] != id for r in out):
+        chosen = (await db.execute(text(f"SELECT t.id, t.name FROM {table} t WHERE t.id = :id"), {"id": id})).mappings().first()  # noqa: S608
+        if chosen:
+            out.insert(0, {"id": chosen["id"], "name": chosen["name"]})
     return out
 
 
@@ -154,6 +215,7 @@ async def vat_report(date_from: date | None = Query(None, alias="from"), date_to
     """Output VAT, input VAT and the net payable from the ledger, with the documents' VAT by tax code (D6)."""
     from app.activities.general.modules.accounting.services.vat import vat_report as build
 
+    await company_scope(db, user)
     out = await build(db, user.tenant_id, date_from, date_to)
     await db.commit()
     return out
@@ -162,6 +224,7 @@ async def vat_report(date_from: date | None = Query(None, alias="from"), date_to
 @router.get("/reconciliation")
 async def reconciliation(db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("accounting:view"))):
     """The ledger against the operational balances (customers, suppliers, safes, wallets, stock): flags only."""
+    await company_scope(db, user)
     out = await reports.reconciliation(db, user.tenant_id)
     await db.commit()
     return out
@@ -315,6 +378,7 @@ async def update_settings(data: SettingsUpdate, db: AsyncSession = Depends(get_d
 async def opening_preview(on: date | None = Query(None, alias="date"), db: AsyncSession = Depends(get_db),
                           user: User = Depends(require_perm("accounting:view"))):
     """The opening entry's lines and totals from today's balances, without posting anything."""
+    await company_scope(db, user)
     out = await opening.preview(db, user.tenant_id, on or posting.today())
     await db.commit()
     return out

@@ -222,6 +222,8 @@ class DB:
             f"DELETE FROM supplier_transactions WHERE supplier_id IN ({q(supp)})",
             f"DELETE FROM product_barcodes WHERE product_id IN ({q(pid)})",
             f"DELETE FROM product_images WHERE product_id IN ({q(pid)})",
+            f"DELETE FROM collection_items WHERE collection_id IN ({q(coll)}) OR product_id IN ({q(pid)})",
+            f"DELETE FROM product_collections WHERE id IN ({q(coll)})",
             f"DELETE FROM products WHERE id IN ({q(pid)}) OR subcategory_id IN ({q(sub)})",
             f"DELETE FROM subcategories WHERE id IN ({q(sub)}) OR category_id IN ({q(cat)})",
             f"DELETE FROM categories WHERE id IN ({q(cat)})",

@@ -105,7 +105,9 @@ async def update_user(user_id: uuid.UUID, data: UserUpdate, db: AsyncSession = D
         if k == "is_manager":
             user.is_manager = bool(v) if v is not None else None
         elif k == "default_warehouse_id":
-            user.default_warehouse_id = str(v) if v else None
+            if v is not None:
+                await _workspace_warehouses(db, [v])
+            user.default_warehouse_id = v
         elif v is not None:
             setattr(user, k, str(v) if isinstance(v, str) and v != "" else v)
     # Validate role
@@ -159,14 +161,32 @@ async def delete_user(user_id: uuid.UUID, db: AsyncSession = Depends(get_db), cu
     await db.commit()
 
 
+async def _workspace_user(db: AsyncSession, user_id: uuid.UUID) -> User:
+    """A user of the bound workspace (RLS), else a 404: `user_warehouses` has no workspace column of
+    its own, so the user's workspace is what keeps another workspace's rows out of reach."""
+    user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if user is None:
+        raise NotFoundError("المستخدم غير موجود")
+    return user
+
+
+async def _workspace_warehouses(db: AsyncSession, ids: list[uuid.UUID]) -> None:
+    wanted = set(ids)
+    found = set((await db.execute(text("SELECT id FROM warehouses WHERE id = ANY(:ids)"),
+                                  {"ids": list(wanted)})).scalars().all()) if wanted else set()
+    if wanted - found:
+        raise NotFoundError("الفرع غير موجود")
+
+
 @router.put("/{user_id}/warehouses", status_code=200)
 async def set_user_warehouses(user_id: uuid.UUID, data: SetUserWarehouses, db: AsyncSession = Depends(get_db), _=Depends(require_perm("users"))):
-    """Set which warehouses a user can access."""
+    """Set which branches a user works in: the user and every branch must be this workspace's (404)."""
+    await _workspace_user(db, user_id)
+    ids = list(dict.fromkeys(data.warehouse_ids))
+    await _workspace_warehouses(db, ids)
     await db.execute(sqldelete(user_warehouses).where(user_warehouses.c.user_id == user_id))
-    for wid in data.warehouse_ids:
-        await db.execute(
-            user_warehouses.insert().values(user_id=user_id, warehouse_id=uuid.UUID(wid))
-        )
+    for wid in ids:
+        await db.execute(user_warehouses.insert().values(user_id=user_id, warehouse_id=wid))
     await db.commit()
     return {"ok": True}
 
@@ -174,6 +194,7 @@ async def set_user_warehouses(user_id: uuid.UUID, data: SetUserWarehouses, db: A
 @router.get("/{user_id}/warehouses")
 async def get_user_warehouses(user_id: uuid.UUID, db: AsyncSession = Depends(get_db), _=Depends(require_perm("users"))):
     """Get warehouse IDs assigned to a user."""
+    await _workspace_user(db, user_id)
     result = await db.execute(
         select(user_warehouses.c.warehouse_id).where(user_warehouses.c.user_id == user_id)
     )

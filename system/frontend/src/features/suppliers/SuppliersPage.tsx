@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   FileText,
   HandCoins,
@@ -29,17 +31,27 @@ interface Supplier {
   is_active: boolean;
 }
 
-/** A supplier_transactions row: debit = an amount we owe them, credit = a payment to them. */
+/** A line of GET /suppliers/{id}/ledger: debit = an amount we owe them, credit = a payment to them
+ * (or a return); `balance` is what we owe after it. */
 interface LedgerEntry {
   id: string;
-  created_at: string;
+  date: string;
   type: "debit" | "credit";
   amount: string;
+  balance: string;
   reference_doc: string | null;
   notes: string | null;
   safe_name: string | null;
   wallet_name: string | null;
 }
+
+interface LedgerPage {
+  items: LedgerEntry[];
+  total: number;
+  pages: number;
+}
+
+const LEDGER_PAGE = 50;
 
 export default function SuppliersPage() {
   const qc = useQueryClient();
@@ -54,6 +66,7 @@ export default function SuppliersPage() {
   const layout = useRecordForm("supplier");
   const missing = missingRequired(layout.data, extra);
   const [ledgerFor, setLedgerFor] = useState<Supplier | null>(null);
+  const [ledgerPage, setLedgerPage] = useState(1);
   const [txFor, setTxFor] = useState<Supplier | null>(null);
   const [txAmount, setTxAmount] = useState("");
   const [txType, setTxType] = useState<"credit" | "debit">("credit");
@@ -73,9 +86,9 @@ export default function SuppliersPage() {
   });
 
   const ledger = useQuery({
-    queryKey: ["supplier-ledger", ledgerFor?.id],
-    queryFn: async () =>
-      (await api.get<{ transactions: LedgerEntry[] }>(`/suppliers/${ledgerFor!.id}/ledger`)).transactions,
+    queryKey: ["supplier-ledger", ledgerFor?.id, ledgerPage],
+    queryFn: () => api.get<LedgerPage>(`/suppliers/${ledgerFor!.id}/ledger`,
+                                       { page: ledgerPage, page_size: LEDGER_PAGE, newest_first: "true" }),
     enabled: !!ledgerFor,
   });
 
@@ -321,6 +334,7 @@ export default function SuppliersPage() {
                             onClick={() => {
                               sound.click();
                               setLedgerFor(s);
+                              setLedgerPage(1);
                             }}
                           >
                             <FileText className="size-3.5" />
@@ -510,10 +524,11 @@ export default function SuppliersPage() {
             <Spinner />
           </div>
         ) : ledger.isError ? (
-          <ErrorBox message={(ledger.error as Error).message} />
-        ) : !ledger.data?.length ? (
+          <ErrorBox message={(ledger.error as Error).message} onRetry={() => ledger.refetch()} />
+        ) : !ledger.data?.items.length ? (
           <Empty text="لا توجد حركات مسجلة" hint="لم تتم حركات توريد أو سداد لهذا المورد بعد" />
         ) : (
+          <div className="flex flex-col gap-3">
           <div className="overflow-hidden rounded-xl border border-border/80">
             <div className="overflow-x-auto">
               <Table>
@@ -523,16 +538,17 @@ export default function SuppliersPage() {
                     <TableHead className="p-3 text-start">البيان / الفاتورة</TableHead>
                     <TableHead className="p-3 text-start">مستحق للمورد (+)</TableHead>
                     <TableHead className="p-3 text-start">مسدد للمورد (−)</TableHead>
+                    <TableHead className="p-3 text-start">الرصيد</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {ledger.data.map((l, i) => (
+                  {ledger.data.items.map((l, i) => (
                     <TableRow
                       key={l.id ?? i}
                       className="border-b border-border/40 text-xs hover:bg-muted/30 last:border-0"
                     >
                       <TableCell className="num p-3 text-xs text-muted-foreground">
-                        {dateTime(l.created_at)}
+                        {dateTime(l.date)}
                       </TableCell>
                       <TableCell className="p-3 font-medium text-foreground">
                         {l.notes ?? (l.type === "credit" ? "دفعة" : "مستحق")}
@@ -547,11 +563,24 @@ export default function SuppliersPage() {
                       <TableCell className="num p-3 font-bold text-emerald-600 dark:text-emerald-400">
                         {l.type === "credit" ? moneyEGP(l.amount) : "—"}
                       </TableCell>
+                      <TableCell className="num p-3 font-bold">{moneyEGP(l.balance)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
+          </div>
+          {ledger.data.pages > 1 && (
+            <div className="flex items-center justify-center gap-3 text-xs">
+              <Button variant="outline" size="sm" disabled={ledgerPage <= 1} onClick={() => setLedgerPage(ledgerPage - 1)} aria-label="الأحدث">
+                <ChevronRight className="size-4" />
+              </Button>
+              <span className="num text-muted-foreground">صفحة {ledgerPage} من {ledger.data.pages} ({ledger.data.total} حركة)</span>
+              <Button variant="outline" size="sm" disabled={ledgerPage >= ledger.data.pages} onClick={() => setLedgerPage(ledgerPage + 1)} aria-label="الأقدم">
+                <ChevronLeft className="size-4" />
+              </Button>
+            </div>
+          )}
           </div>
         )}
       </Modal>

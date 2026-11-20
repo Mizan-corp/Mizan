@@ -6,13 +6,12 @@ workspace's time zone.
   sees only the branches assigned to them (`user_warehouses`), and asking for another one is a 403.
   So leaving the branch filter empty never widens a report.
 - Days: a range `from`..`to` covers both days fully: `>= from 00:00` and `< (to + 1 day) 00:00`, in
-  Africa/Cairo (the time zone the ledger dates entries in, `accounting/services/posting.py`; no
-  workspace setting for a time zone exists yet).
+  the workspace's time zone (`app/platform/tenancy/clock.py`, Africa/Cairo: the one the ledger
+  dates entries in).
 """
 import uuid
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
-from zoneinfo import ZoneInfo
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,20 +19,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import BusinessError, ForbiddenError, NotFoundError
 from app.dependencies import verify_warehouse_access
 from app.platform.permissions.access import can
+from app.platform.tenancy.clock import TZ, TZ_NAME, day_start, today  # noqa: F401  (re-exported)
 from app.platform.tenancy.context import current_tenant_id
 
-TZ_NAME = "Africa/Cairo"
-TZ = ZoneInfo(TZ_NAME)
 FINANCE = "reports:finance"  # profit, cost, debts, cash flow, stock at cost, the company overview
 MAX_RANGE_DAYS = 3700  # about ten years
-
-
-def today() -> date:
-    return datetime.now(TZ).date()
-
-
-def day_start(d: date) -> datetime:
-    return datetime.combine(d, time.min, tzinfo=TZ)
 
 
 def day_range(date_from: date, date_to: date) -> tuple[datetime, datetime]:
@@ -77,13 +67,19 @@ async def user_branches(db: AsyncSession, user) -> tuple[uuid.UUID, ...]:
     return tuple(rows)
 
 
-async def branch_scope(db: AsyncSession, user, warehouse_id: uuid.UUID | None = None) -> Scope:
+def require_workspace() -> None:
+    """Reports read other modules' tables with raw SQL: only ever with a workspace bound (RLS)."""
     if current_tenant_id.get() is None:
         raise ForbiddenError("لا توجد مساحة عمل محددة")
+
+
+async def branch_scope(db: AsyncSession, user, warehouse_id: uuid.UUID | None = None) -> Scope:
+    require_workspace()
     if warehouse_id is not None:
         if (await db.execute(text("SELECT 1 FROM warehouses WHERE id = :id"), {"id": warehouse_id})).first() is None:
             raise NotFoundError("الفرع غير موجود")
-        await verify_warehouse_access(db, user, warehouse_id)
+        if not is_supervisor(user):  # who sees every branch may pick any one of them
+            await verify_warehouse_access(db, user, warehouse_id)
         return Scope((warehouse_id,))
     if is_supervisor(user):
         return Scope(None)

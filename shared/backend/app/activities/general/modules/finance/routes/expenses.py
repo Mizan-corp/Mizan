@@ -10,6 +10,7 @@ from app.core.exceptions import NotFoundError
 from app.db.base import get_db
 from app.dependencies import require_open_period, require_perm, verify_warehouse_access
 from app.platform.auth.models.user import User
+from app.platform.tenancy import clock
 from app.activities.general.modules.finance.schemas.expense import ExpenseStatus, ExpenseApprove, ExpenseCancel, ExpenseCreate, ExpenseUpdate, ExpenseVendorCreate, ExpenseVendorUpdate
 from app.activities.general.modules.finance.services import expenses as expenses_service
 from app.activities.general.modules.finance.services.access import branch_scope
@@ -172,13 +173,13 @@ async def create_expense(data: ExpenseCreate, db: AsyncSession = Depends(get_db)
             payment_method, wallet_id, safe_id, is_recurring, recurring_interval, recurring_end_date,
             notes, created_by, status)
         VALUES (:vendor_id, :category_id, :warehouse_id, :amount, :tax_amount, :description,
-            COALESCE(:date, CURRENT_DATE), :payment_method, :wallet_id, :safe_id,
+            :date, :payment_method, :wallet_id, :safe_id,
             :is_recurring, :recurring_interval, :recurring_end_date, :notes, :by, 'draft')
         RETURNING *
     """), {
         "vendor_id": data.vendor_id, "category_id": data.category_id,
         "warehouse_id": data.warehouse_id, "amount": data.amount, "tax_amount": tax,
-        "description": data.description, "date": data.date,
+        "description": data.description, "date": data.date or clock.today(),  # the workspace's day, not the database's
         "payment_method": data.payment_method, "wallet_id": data.wallet_id,
         "safe_id": data.safe_id, "is_recurring": data.is_recurring,
         "recurring_interval": data.recurring_interval,
@@ -199,15 +200,15 @@ async def update_expense(eid: uuid.UUID, data: ExpenseUpdate, db: AsyncSession =
     existing = current.status
     # Exclude 'status' — it must be changed via the approve/reject/cancel endpoints only
     allowed = set(ExpenseUpdate.model_fields.keys()) - {"status"}
-    if existing in expenses_service.FINAL_STATUSES:
-        allowed = {"notes"}  # the money has moved (or been put back): only the notes can change
+    if existing in expenses_service.FINAL_STATUSES or existing == "rejected":
+        allowed = {"notes"}  # decided (the money moved, was put back, or was refused): only the notes change
     changes = data.model_dump(exclude_unset=True)
     changes.pop("status", None)
     for required in ("amount", "description", "date"):
         if required in changes and changes[required] is None:
             changes.pop(required)
     if set(changes) - allowed:
-        raise HTTPException(409, "لا يمكن تعديل مصروف معتمد أو ملغى، يمكن تعديل الملاحظات فقط. لتصحيحه ألغِه وسجّل مصروفًا جديدًا")
+        raise HTTPException(409, "لا يمكن تعديل مصروف معتمد أو ملغى أو مرفوض، يمكن تعديل الملاحظات فقط. لتصحيحه سجّل مصروفًا جديدًا")
     updates = {k: v for k, v in changes.items() if k in allowed}
     if not updates:
         raise HTTPException(400, NO_CHANGES)

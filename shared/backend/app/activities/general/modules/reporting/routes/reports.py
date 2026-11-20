@@ -16,6 +16,7 @@ from app.db.base import get_db
 from app.dependencies import get_print_user, require_perm
 from app.platform.auth.models.user import User
 from app.platform.permissions.access import can
+from app.platform.printing.routes import PrintRoute
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -72,11 +73,11 @@ async def profit(from_date: date, to_date: date, warehouse_id: uuid.UUID | None 
     return out
 
 
-@router.get("/inventory/print", response_class=HTMLResponse)
 async def inventory_print_report(warehouse_id: uuid.UUID, db: AsyncSession = Depends(get_db),
                                  user: User = Depends(get_print_user)):
     """The branch's stock count sheet, printable (open with a print token, POST /auth/print-token).
-    Needs `reports` or `inventory`; costs and the value at cost only with `reports:finance`."""
+    Needs `reports` or `inventory`; costs and the value at cost only with `reports:finance`. In a
+    browser tab, errors are an Arabic page (the print system's PrintRoute)."""
     from app.activities.general.modules.reporting.printing import inventory_html
 
     if not can(user, "reports", "inventory"):
@@ -84,6 +85,10 @@ async def inventory_print_report(warehouse_id: uuid.UUID, db: AsyncSession = Dep
     await branch_scope(db, user, warehouse_id)
     data = await report_service.inventory_print_report(db, warehouse_id, with_cost=can(user, FINANCE))
     return HTMLResponse(inventory_html(data))
+
+
+router.add_api_route("/inventory/print", inventory_print_report, methods=["GET"], response_class=HTMLResponse,
+                     route_class_override=PrintRoute)
 
 
 @router.get("/ledger/daily-items")

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import get_db
 from app.platform.permissions.access import can
-from app.dependencies import get_current_user, require_is_manager, require_perm, verify_warehouse_access
+from app.dependencies import require_is_manager, require_perm, verify_warehouse_access
 from app.activities.general.modules.pos.models import DrawerTransaction, Shift, ShiftStatus
 from app.platform.auth.models.user import User
 from app.activities.general.modules.pos.schemas import (
@@ -23,6 +23,10 @@ from app.activities.general.modules.pos.schemas import (
 from app.activities.general.modules.pos import service as shift_service
 
 router = APIRouter(prefix="/shifts", tags=["shifts"])
+
+# Reading a drawer (the current shift, its summary and rows, the last amount left): the shifts
+# screen or the POS (POS-10); a shift of someone else only for managers and supervisors.
+_read = require_perm("shifts", "pos")
 
 
 async def _shift(db: AsyncSession, shift_id: uuid.UUID) -> Shift:
@@ -46,7 +50,7 @@ async def open_shift(data: ShiftOpen, db: AsyncSession = Depends(get_db), curren
 # ── Last drawer amount ─────────────────────────────────────────────────────────
 
 @router.get("/last-drawer")
-async def last_drawer_amount(warehouse_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def last_drawer_amount(warehouse_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(_read)):
     await verify_warehouse_access(db, current_user, warehouse_id)
     result = await db.execute(
         select(Shift.next_day_drawer)
@@ -61,7 +65,7 @@ async def last_drawer_amount(warehouse_id: uuid.UUID, db: AsyncSession = Depends
 # ── Current shift ──────────────────────────────────────────────────────────────
 
 @router.get("/current", response_model=ShiftOut | None)
-async def get_current_shift(warehouse_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def get_current_shift(warehouse_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(_read)):
     await verify_warehouse_access(db, current_user, warehouse_id)
     result = await db.execute(
         select(Shift)
@@ -94,7 +98,7 @@ async def close_with_manager(shift_id: uuid.UUID, data: CloseWithManagerRequest,
     shift = await db.get(Shift, shift_id)
     if shift:
         await verify_warehouse_access(db, current_user, shift.warehouse_id)
-    return await shift_service.close_shift_with_manager(db, shift_id, data, current_user.id)
+    return await shift_service.close_shift_with_manager(db, shift_id, data, current_user)
 
 
 # ── Revenue delivery ───────────────────────────────────────────────────────────
@@ -124,7 +128,7 @@ async def transfer_drawer(shift_id: uuid.UUID, data: TransferDrawerRequest, db: 
 # ── Summary ────────────────────────────────────────────────────────────────────
 
 @router.get("/{shift_id}/summary", response_model=ShiftSummary)
-async def shift_summary(shift_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def shift_summary(shift_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(_read)):
     shift = await _shift(db, shift_id)
     is_own = shift.cashier_id == current_user.id
     is_privileged = current_user.is_manager or can(current_user, "supervise")
@@ -148,7 +152,7 @@ async def add_transaction(shift_id: uuid.UUID, data: DrawerTxCreate, db: AsyncSe
 
 
 @router.get("/{shift_id}/transactions", response_model=list[DrawerTxOut])
-async def list_transactions(shift_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def list_transactions(shift_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(_read)):
     shift = await _shift(db, shift_id)
     is_own = shift.cashier_id == current_user.id
     is_privileged = current_user.is_manager or can(current_user, "supervise")
