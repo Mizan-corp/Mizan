@@ -80,7 +80,8 @@ A module is ready when all of these hold:
   FIN-9 (strict balance, recurring expenses), FIN-14 rest (categories, vendors, reject/edit expense,
   wallet reset); HR-9 (unrecovered advances), HR-12 (rules in settings, money in Decimal), HR-15
   (screens); REP-8/9/10/12/14/15 rest and screens for profit, cash flow, aging, ledgers, overview;
-  price-override control on the POS screen; operations numbering; the pharmacy batches posting.
+  price-override control on the POS screen; operations numbering; the pharmacy batches posting
+  (*done: `POST /pharmacy/batches` is 410, batches come in on the purchase receipt*).
 - **Phase D (tests and performance):** permission and isolation tests for every route; HR-13 (paging,
   bulk loads), HR-14 (audit); ACC-1 (numbering counter), ACC-2 (e2e for accounting); PLAT-9 rest; old
   idempotency keys clean-up; a test of simultaneous requests with one idempotency key.
@@ -188,9 +189,10 @@ A module is ready when all of these hold:
   include costs.
 - **INV-9** MEDIUM — missing screens: categories/subcategories (product create sends `subcategory_id:
   null` → 422), warehouses, adjustments and damage, transfers, barcodes, images, delete, movement log,
-  collections.
+  collections. *Done in phase C (fix/c-stock-pur); collections are still sold nowhere (README).*
 - **INV-10** MEDIUM — settings never read: `prevent_negative_stock`, `enable_reorder_alerts`,
-  `valuation_method` (offers unimplemented FIFO).
+  `valuation_method` (offers unimplemented FIFO). *Done in phase C: reorder alerts read the setting,
+  FIFO setting removed (average cost).*
 - **INV-11** LOW — `list_products` default `page_size=5000`; unbounded bulk reorder list; English errors.
 
 ## purchases
@@ -203,6 +205,7 @@ A module is ready when all of these hold:
   `SupplierIn`, negative quick-product prices.
 - **PUR-4** MEDIUM — lifecycle: no cancel/delete of drafts, no partial receipt, receipt screen can't enter
   quantities/cost/batch; no order detail/edit, invoice upload, price history, suggestions screens.
+  *Done in phase C (goods receipts, v104; the invoice upload is on the order screen).*
 - **PUR-5** MEDIUM — reads with sign-in only (supplier balances, ledgers, costs); supplier ledger
   unpaginated; suggestions scan all movements.
 - **PUR-6** MEDIUM — indexes (PLAT-9); `receive` lacks `require_open_period`.
@@ -286,7 +289,8 @@ A module is ready when all of these hold:
   remove from the UI.
 - **OPS-2** MEDIUM — no `verify_warehouse_access` on dispatch, receipt, request.
 - **OPS-3** MEDIUM — operations list with sign-in only (costs and suppliers).
-- **OPS-4** MEDIUM — stock requests are a dead end (no approve/fulfil/cancel, no audit).
+- **OPS-4** MEDIUM — stock requests are a dead end (no approve/fulfil/cancel, no audit). *Done in phase C
+  (`operations:approve`).*
 - **OPS-5** MEDIUM — no idempotency or reversal.
 - **OPS-6** LOW — unbounded items and values; shared numbering (PLAT-6); list without total; receipt
   overwrites `cost_price`; no manifest screens; stale README.
