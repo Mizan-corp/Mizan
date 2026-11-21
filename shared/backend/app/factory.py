@@ -18,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from app.core.config import settings
 from app.platform.tenancy.context import install_tenancy_events
@@ -26,6 +27,15 @@ from app.middleware import add_csrf_middleware
 from app.models.registry import load_all_models
 
 logger = logging.getLogger("validation")
+
+# SQLSTATE → (status, Arabic message) for input the database refuses; "22" is every data exception.
+DB_INPUT_ERRORS = {
+    "23503": (400, "أحد المعرّفات المرسلة غير موجود"),
+    "23505": (409, "القيمة مستخدمة من قبل"),
+    "23502": (400, "حقل مطلوب لم يُرسل"),
+    "23514": (400, "قيمة غير مقبولة"),
+    "22": (400, "قيمة غير صالحة (نص أطول من المسموح، أو رقم أو تاريخ خارج النطاق)"),
+}
 
 
 def _resolve_writable_dir(path: str) -> str:
@@ -90,6 +100,18 @@ def create_app(
                 clean_ctx[k] = str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
             safe_errors.append({**e, "ctx": clean_ctx})
         return JSONResponse(status_code=422, content={"detail": safe_errors})
+
+    @app.exception_handler(DBAPIError)
+    async def database_refused_input(request: Request, exc: DBAPIError):
+        """What the database refuses because of the request's input is a 4xx, not a 500: an id that
+        doesn't exist (or is another workspace's), a duplicate, a text too long, a number out of range.
+        Routes should check first; this is the safety net (the sweep found routes that didn't)."""
+        code = str(getattr(exc.orig, "pgcode", None) or getattr(exc.orig, "sqlstate", None) or "")
+        answer = DB_INPUT_ERRORS.get(code) or (DB_INPUT_ERRORS["22"] if code.startswith("22") else None)
+        if answer is None:
+            return await global_exception_handler(request, exc)
+        logger.warning("Database refused the input on %s %s: SQLSTATE %s", request.method, request.url.path, code)
+        return JSONResponse(status_code=answer[0], content={"detail": answer[1]})
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):

@@ -4,14 +4,14 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.framework.activation import require_module
 from app.db.base import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_perm
 from app.platform.auth.models.user import User
 from app.integrations.whatsapp_gateway.models import WhatsAppMessageLog
 
@@ -69,10 +69,11 @@ async def send_receipt(
     payload: SendReceiptRequest,
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
-    current_user: Any = Depends(get_current_user),
+    current_user: Any = Depends(require_perm("sales", "pos")),
     _mod: bool = Depends(require_module("whatsapp_gateway")),
 ):
-    """Queue a WhatsApp receipt message. Real dispatch happens via the worker."""
+    """Queue a WhatsApp receipt message (who sells: `sales` or `pos`). Real dispatch happens via the
+    worker."""
     log = WhatsAppMessageLog(
         id=str(uuid.uuid4()),
         tenant_id=tenant_id,
@@ -93,10 +94,12 @@ async def send_receipt(
 async def list_messages(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
-    limit: int = 50,
+    limit: int = Query(50, ge=1, le=500),
     _mod: bool = Depends(require_module("whatsapp_gateway")),
+    _user: Any = Depends(require_perm("sales", "pos", "settings")),
 ):
-    """List recent WhatsApp message log entries for the tenant."""
+    """Recent WhatsApp messages of the workspace (customers' phone numbers: who sells or runs the
+    workspace, not every signed-in user)."""
     result = await db.execute(
         select(WhatsAppMessageLog)
         .where(WhatsAppMessageLog.tenant_id == tenant_id)

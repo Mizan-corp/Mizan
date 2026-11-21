@@ -66,8 +66,8 @@ def test_hr_audit_log_is_paged(owner_api):
 
 def test_hr_employees_crud_and_attendance(owner_api, reg):
     e = _employee(owner_api, reg)
-    lst = owner_api.ok(owner_api.get("/hr/employees"))
-    assert any(x["id"] == e["id"] for x in lst)
+    lst = owner_api.ok(owner_api.get("/hr/employees", params={"q": e["emp_code"]}))
+    assert set(lst) == {"items", "total", "page", "page_size"} and [x["id"] for x in lst["items"]] == [e["id"]]
 
     upd = owner_api.ok(owner_api.put(f"/hr/employees/{e['id']}",
                                      json={"position": "مدير اختبار"}))
@@ -186,6 +186,18 @@ def test_payroll_reports(owner_api, reg):
     e = _employee(owner_api, reg)
     r = owner_api.get(f"/hr/payroll/report/employee/{e['id']}", params={"month": _now_month(), "token": _print_token(owner_api)})
     assert r.status_code == 200
+
+def test_employees_are_paged_and_their_changes_audited(owner_api, reg, db):
+    e = _employee(owner_api, reg)
+    page = owner_api.ok(owner_api.get("/hr/employees", params={"page_size": 1}))
+    assert len(page["items"]) == 1 and page["total"] >= 1
+    assert owner_api.get("/hr/employees", params={"page_size": 201}).status_code == 422
+    assert owner_api.delete(f"/hr/employees/{e['id']}").status_code == 204
+    owner_api.ok(owner_api.put(f"/hr/employees/{e['id']}", json={"is_active": True}))
+    actions = [r[0] for r in db.q("SELECT action_type FROM hr_audit_log WHERE entity_type = 'employee' AND entity_id = %s "
+                                    "ORDER BY created_at", (e["id"],))]
+    assert actions == ["create", "stop", "start"]
+
 
 def test_salary_change_is_audited_and_unknown_employee_is_404(owner_api, reg, db):
     e = _employee(owner_api, reg)

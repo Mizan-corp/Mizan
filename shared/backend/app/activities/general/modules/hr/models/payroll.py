@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func, text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -29,7 +29,9 @@ class HrEmployee(TenantScoped, Base):
     ignore_lateness: Mapped[bool | None] = mapped_column(Boolean, default=False, server_default=text("false"))
     max_lateness_before_overtime_cancellation: Mapped[int | None] = mapped_column(Integer, default=30, server_default="30")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    __table_args__ = (UniqueConstraint("tenant_id", "emp_code", name="uq_hr_employees_emp_code"),)
+    __table_args__ = (UniqueConstraint("tenant_id", "emp_code", name="uq_hr_employees_emp_code"),
+                      # The paged list (HR-13): active first, by name.
+                      Index("ix_hr_employees_list", "tenant_id", "is_active", "name"))
 
 class HrPayrollPeriod(TenantScoped, Base):
     """Maps to hr_payroll_periods table — payroll month tracking."""

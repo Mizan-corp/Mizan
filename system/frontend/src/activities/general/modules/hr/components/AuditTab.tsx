@@ -1,5 +1,6 @@
-// The HR audit log: salary changes, payroll entry adjustments, advances added, cancelled and
-// carried; newest first, paged.
+// The HR audit log (HR-14): employees added, edited, stopped and brought back; attendance saved by
+// hand or imported; advances added, cancelled and carried; entry adjustments; every step of a
+// payroll month (calculate, submit, approve, pay, reopen). Newest first, paged.
 import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ScrollText } from "lucide-react";
@@ -18,7 +19,10 @@ interface AuditRow {
 const PAGE_SIZE = 50;
 const FIELD: Record<string, string> = {
   monthly_salary: "الراتب", bonus: "المكافأة", deductions: "الخصومات", drawer_variance: "فرق الدرج", net_salary: "الصافي",
-  amount: "المبلغ", type: "النوع", month: "الشهر", from: "من شهر", to: "إلى شهر",
+  amount: "المبلغ", type: "النوع", month: "الشهر", from: "من", to: "إلى", name: "الاسم", position: "الوظيفة",
+  hire_date: "تاريخ التعيين", shift_id: "الوردية", shift_schedule: "المواعيد", is_active: "نشط", emp_code: "الكود",
+  date: "اليوم", check_in: "الحضور", check_out: "الانصراف", status: "الحالة", employees: "الموظفون", total: "الإجمالي",
+  added: "أُضيف", updated: "عُدّل", skipped: "تُخطّي", approved_amount: "المعتمد",
 };
 
 /** "الراتب: 2600 ← 3000 · المبلغ: 500" from the details the server logged. */

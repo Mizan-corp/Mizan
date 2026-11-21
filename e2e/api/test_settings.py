@@ -53,3 +53,19 @@ def test_upload_logo_rejects_invalid_image(admin_api):
         files={"file": ("logo.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 64, "image/png")},
     )
     assert r.status_code in (400, 422), r.text[:300]
+
+def test_module_settings_save_only_the_keys_sent(admin_api):
+    """A save changes the keys sent and keeps the others; unknown keys and wrong values are a 422."""
+    before = admin_api.ok(admin_api.get("/modules/pos/settings"))["values"]
+    try:
+        admin_api.ok(admin_api.post("/modules/pos/settings", json={"settings": {"auto_print_receipt": True}}))
+        values = admin_api.ok(admin_api.post("/modules/pos/settings",
+                                             json={"settings": {"enable_quick_numpad": False}}))["settings"]["values"]
+        assert values["auto_print_receipt"] is True and values["enable_quick_numpad"] is False
+        assert values["allow_price_override"] == before["allow_price_override"]
+        assert admin_api.post("/modules/pos/settings", json={"settings": {"auto_print_receipt": "yes"}}).status_code == 422
+        assert admin_api.post("/modules/pos/settings", json={"settings": {"no_such_key": 1}}).status_code == 422
+        assert admin_api.post("/modules/no_such_module/settings", json={"settings": {}}).status_code == 404
+    finally:
+        admin_api.ok(admin_api.post("/modules/pos/settings", json={"settings": {
+            "auto_print_receipt": before["auto_print_receipt"], "enable_quick_numpad": before["enable_quick_numpad"]}}))

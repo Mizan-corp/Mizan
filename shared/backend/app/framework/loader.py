@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib
 import json
 import logging
+import math
 import re
 from dataclasses import asdict, dataclass, field
 from functools import lru_cache
@@ -16,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.catalog import GENERAL, activities, families, family_of
@@ -40,6 +41,34 @@ class SettingField:
     default: Any
     description: str = ""
     options: list[str] | None = None
+
+
+class SettingsError(ValueError):
+    """A module setting that its manifest doesn't declare, or a value of the wrong kind."""
+
+
+SETTING_TEXT_MAX = 500
+
+
+def setting_problem(field: SettingField | None, key: str, value: Any) -> str | None:
+    """What is wrong with `value` for the declared setting `field` (None: nothing; null always
+    passes: it puts the key back to its default)."""
+    if field is None:
+        return f"إعداد غير معروف: {str(key)[:64]}"
+    if value is None:
+        return None
+    if field.type == "boolean":
+        ok = isinstance(value, bool)
+    elif field.type == "number":
+        ok = isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+    elif field.type == "select":
+        ok = isinstance(value, str) and value in (field.options or [])
+    else:
+        ok = isinstance(value, str) and len(value) <= SETTING_TEXT_MAX
+    if ok:
+        return None
+    expected = {"boolean": "نعم/لا", "number": "رقم", "select": "إحدى القيم: " + "، ".join(field.options or [])}
+    return f"قيمة غير صالحة لـ «{field.label}»: المطلوب {expected.get(field.type, f'نص حتى {SETTING_TEXT_MAX} حرف')}"
 
 
 @dataclass
@@ -272,9 +301,12 @@ class ModuleRegistry:
                 saved_values = json.loads(row.value)
             except Exception:
                 saved_values = {}
+        if not isinstance(saved_values, dict):
+            saved_values = {}
 
-        # Merge defaults with saved values
-        merged_values = {**defaults, **saved_values}
+        # Defaults, then the saved values of the keys the manifest still declares (a key a module
+        # dropped stays in the row but is neither shown nor sent back).
+        merged_values = {**defaults, **{k: v for k, v in saved_values.items() if k in defaults}}
 
         return {
             "module_id": module_id,
@@ -286,24 +318,41 @@ class ModuleRegistry:
     async def save_settings(
         self, db: AsyncSession, module_id: str, new_values: dict[str, Any]
     ) -> dict[str, Any]:
-        """Validate and persist updated settings for a module."""
+        """Change the settings sent and keep the others (a partial update: saving one key used to
+        drop every other saved value). Each value is checked against the manifest's
+        settings_schema (SettingsError, a 422 at the API); null puts a key back to its default.
+        The saved row is locked while it is merged, so two saves at once both count."""
         manifest = self.get_manifest(module_id)
         if not manifest:
             raise KeyError(f"Module '{module_id}' not found")
+        if not isinstance(new_values, dict):
+            raise SettingsError("الإعدادات يجب أن تكون قائمة مفاتيح وقيم")
+        fields = {f.key: f for f in manifest.settings_schema}
+        problems = [problem for k, v in new_values.items() if (problem := setting_problem(fields.get(k), k, v))]
+        if problems:
+            raise SettingsError("؛ ".join(problems))
 
-        # Filter and validate against schema keys
-        valid_keys = {f.key for f in manifest.settings_schema}
-        clean_values = {k: v for k, v in new_values.items() if k in valid_keys}
+        from app.platform.tenancy.context import current_tenant_id
 
         key = f"mod_settings_{module_id}"
-        stmt = select(StoreSetting).where(StoreSetting.key == key)
-        result = await db.execute(stmt)
-        row = result.scalar_one_or_none()
-
-        if row:
-            row.value = json.dumps(clean_values, ensure_ascii=False)
-        else:
-            db.add(StoreSetting(key=key, value=json.dumps(clean_values, ensure_ascii=False)))
+        await db.execute(text(
+            "INSERT INTO store_settings (id, tenant_id, key, value) "
+            "VALUES (gen_random_uuid(), COALESCE(CAST(:t AS uuid), NULLIF(current_setting('app.tenant_id', true), '')::uuid), :k, '{}') "
+            "ON CONFLICT (tenant_id, key) DO NOTHING"
+        ), {"t": current_tenant_id.get(), "k": key})
+        row = (await db.execute(select(StoreSetting).where(StoreSetting.key == key).with_for_update())).scalar_one()
+        try:
+            saved = json.loads(row.value) if row.value else {}
+        except ValueError:
+            saved = {}
+        if not isinstance(saved, dict):
+            saved = {}
+        for k, v in new_values.items():
+            if v is None:
+                saved.pop(k, None)
+            else:
+                saved[k] = v
+        row.value = json.dumps(saved, ensure_ascii=False)
 
         await db.commit()
         return await self.get_settings(db, module_id)

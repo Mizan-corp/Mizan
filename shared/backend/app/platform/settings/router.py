@@ -147,7 +147,7 @@ async def pwa_manifest(db: AsyncSession = Depends(get_db)):
 
 @router.get("")
 async def get_settings(db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)):
-    """The signed-in workspace's store settings. It used to be public: without a sign-in no workspace is
+    """The signed-in workspace's store settings (without modules' own). It used to be public: without a sign-in no workspace is
     bound, so it returned every workspace's settings merged (the login role bypasses RLS)."""
     import json as _json
 
@@ -155,6 +155,8 @@ async def get_settings(db: AsyncSession = Depends(get_db), _: User = Depends(get
     result = await db.execute(select(StoreSetting))
     out = {}
     for row in result.scalars().all():
+        if row.key.startswith("mod_settings_"):
+            continue  # modules' settings hold secrets; /modules/{id}/settings serves them under `settings`
         try:
             out[row.key] = _json.loads(row.value) if row.value and row.value.startswith(('[', '{')) else row.value
         except (ValueError, _json.JSONDecodeError):

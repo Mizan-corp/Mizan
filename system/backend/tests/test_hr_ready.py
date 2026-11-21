@@ -244,7 +244,7 @@ async def test_journal_writers_without_payroll_see_names_not_pay():
         clerk = User(id=uuid.uuid4(), tenant_id=ws["tid"], username="clerk", full_name="كاتب",
                      password_hash="x", is_active=True)
         clerk.effective_permissions = frozenset({"accounting:view", "accounting:journal"})
-        rows = await routes.list_employees(db=db, current_user=clerk)
+        rows = (await routes.list_employees(db=db, current_user=clerk))["items"]
     assert {r["name"] for r in rows} == {"موظف أ", "موظف ب"}
     assert all("monthly_salary" not in r for r in rows)
 

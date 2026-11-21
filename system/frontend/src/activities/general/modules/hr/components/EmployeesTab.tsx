@@ -9,9 +9,9 @@ import { sound } from "@/lib/sound";
 import { Badge, Button, ConfirmDialog, Empty, ErrorBox, Input, Modal, Select, Spinner, useToast } from "@/components/ui";
 import { printDocument } from "@app/lib/documents";
 import { moneyIn, useCurrency } from "@app/lib/currency";
-import { amountOrNull } from "../../finance/lib";
+import { amountOrNull, pageCount } from "../../finance/lib";
 import { currentMonth } from "../lib";
-import { type Employee, Rows, useEmployees, useShifts } from "./common";
+import { EMPLOYEES_PAGE, type Employee, Pager, Rows, useEmployees, useShifts } from "./common";
 
 interface Form {
   id?: string;
@@ -43,7 +43,9 @@ export function EmployeesTab() {
   const [form, setForm] = useState<Form | null>(null);
   const [stopping, setStopping] = useState<Employee | null>(null);
   const [report, setReport] = useState<{ emp: Employee; month: string } | null>(null);
-  const list = useEmployees(all);
+  const [page, setPage] = useState(1);
+  const [q, setQ] = useState("");
+  const list = useEmployees(all, page, q);
   const shifts = useShifts();
   const refresh = () => qc.invalidateQueries({ queryKey: ["hr-employees"] });
 
@@ -83,23 +85,29 @@ export function EmployeesTab() {
   });
 
   const activeShifts = (shifts.data ?? []).filter((s) => s.is_active || s.id === form?.shift_id);
-  const rows = list.data ?? [];
+  const rows = list.data?.items ?? [];
+  const total = list.data?.total ?? 0;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <label className="flex items-center gap-2 text-xs text-muted">
-          <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> إظهار الموظفين الموقوفين
-        </label>
+        <div className="flex flex-wrap items-center gap-3">
+          <Input className="w-56" type="search" maxLength={100} aria-label="بحث بالاسم أو الكود" placeholder="بحث بالاسم أو الكود"
+                 value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
+          <label className="flex items-center gap-2 text-xs text-muted">
+            <input type="checkbox" checked={all} onChange={(e) => { setAll(e.target.checked); setPage(1); }} /> إظهار الموظفين الموقوفين
+          </label>
+        </div>
         <Button onClick={() => setForm({ ...empty })}><UserPlus className="size-4" /> موظف جديد</Button>
       </div>
       {list.isLoading ? <Rows /> : list.isError ? (
         <ErrorBox message={(list.error as Error).message} onRetry={() => list.refetch()} />
       ) : !rows.length ? (
-        <Empty text="لا يوجد موظفون" hint="أضف الموظفين برواتبهم ووردياتهم لحساب الرواتب من الحضور" icon={<Users className="size-10" />}
+        <Empty text={q.trim() ? "لا يوجد موظف بهذا الاسم أو الكود" : "لا يوجد موظفون"} hint="أضف الموظفين برواتبهم ووردياتهم لحساب الرواتب من الحضور" icon={<Users className="size-10" />}
                action={<Button onClick={() => setForm({ ...empty })}><UserPlus className="size-4" /> موظف جديد</Button>} />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line bg-card">
+        <>
+          <div className="overflow-x-auto rounded-xl border border-line bg-card">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-line text-xs text-muted">
@@ -143,7 +151,9 @@ export function EmployeesTab() {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+          <Pager page={page} pages={pageCount(total, EMPLOYEES_PAGE)} total={total} unit="موظف" busy={list.isFetching} onPage={setPage} />
+        </>
       )}
 
       <Modal open={!!form} onClose={() => setForm(null)} title={form?.id ? `تعديل ${form.name}` : "موظف جديد"} wide>
@@ -204,7 +214,7 @@ export function EmployeesTab() {
                        onChange={(e) => setForm({ ...form, max_lateness: e.target.value })} />
               </div>
             </div>
-            <p className="text-[11px] text-muted">يُطبَّق الراتب والوردية الجديدان من الحساب التالي؛ الشهر المعتمد يبقى كما اعتُمد. تغيير الراتب يُسجَّل في سجل التدقيق.</p>
+            <p className="text-[11px] text-muted">يُطبَّق الراتب والوردية الجديدان من الحساب التالي؛ الشهر المعتمد يبقى كما اعتُمد. كل تعديل يُسجَّل في سجل التدقيق.</p>
             {save.isError && <ErrorBox message={(save.error as Error).message} />}
             <Button type="submit" className="w-full h-10 font-bold" disabled={save.isPending || !form.name.trim() || !salaryOk(form)}>
               {save.isPending ? <Spinner /> : "حفظ"}

@@ -223,7 +223,7 @@ async def test_shifts_and_employees_can_be_edited_and_stopped():
         assert (await c.put(f"/hr/employees/{emp}", headers=h, json={"shift_id": "nope"})).status_code == 404
         r = await c.put(f"/hr/employees/{emp}", headers=h, json={"shift_id": s["id"], "hire_date": "2024-05-01"})
         assert r.status_code == 200
-        rows = (await c.get("/hr/employees", headers=h)).json()
+        rows = (await c.get("/hr/employees", headers=h)).json()["items"]
         mine = next(e for e in rows if e["id"] == emp)
         assert (mine["shift_name"], mine["hire_date"]) == ("صباحي", "2024-05-01")
         # A shift in use is stopped, not deleted.
@@ -235,8 +235,8 @@ async def test_shifts_and_employees_can_be_edited_and_stopped():
         assert all(x["id"] != unused["id"] for x in (await c.get("/hr/shifts", headers=h)).json())
         # A stopped employee leaves the list, and comes back with include_inactive.
         assert (await c.delete(f"/hr/employees/{emp}", headers=h)).status_code == 204
-        assert emp not in {e["id"] for e in (await c.get("/hr/employees", headers=h)).json()}
-        everyone = (await c.get("/hr/employees", params={"include_inactive": "true"}, headers=h)).json()
+        assert emp not in {e["id"] for e in (await c.get("/hr/employees", headers=h)).json()["items"]}
+        everyone = (await c.get("/hr/employees", params={"include_inactive": "true"}, headers=h)).json()["items"]
         assert next(e for e in everyone if e["id"] == emp)["is_active"] is False
         assert (await c.put(f"/hr/employees/{emp}", headers=h, json={"is_active": True})).status_code == 200
 

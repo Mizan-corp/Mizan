@@ -397,6 +397,31 @@ async def set_active_modules(db: AsyncSession, modules: list[str], preset_id: st
     await db.commit()
 
 
+def require_activity(module_id: str):
+    """FastAPI dependency for an activity's module (gym, hotel, logistics…): the module, or another
+    module of the same activity, is on in the workspace. The activities' modules used to answer every
+    signed-in user of every workspace (a retail cashier could read and write gym members); the
+    activity's sub-modules (hotel_pms, housekeeping…) are reached from its main screen, so any module
+    of the activity opens them."""
+    module_id = canonical_module(module_id)
+
+    from app.dependencies import get_current_user
+
+    async def _activity_checker(db: AsyncSession = Depends(get_db), _user=Depends(get_current_user)):
+        index = manifest_index()
+        activity = index.get(module_id, {}).get("activity")
+        active = await get_active_modules(db)
+        if module_id in active or any(index.get(m, {}).get("activity") == activity for m in active):
+            return True
+        name = index.get(module_id, {}).get("name", module_id)
+        raise HTTPException(
+            status_code=403,
+            detail=f"وحدة «{name}» غير مفعلة في اشتراك المنشأة الحالي. يمكنك تفعيلها من متجر الإضافات.",
+        )
+
+    return _activity_checker
+
+
 def require_module(module_id: str):
     """FastAPI dependency to guard endpoints requiring a specific active module."""
     module_id = canonical_module(module_id)

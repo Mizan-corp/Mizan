@@ -53,7 +53,7 @@ Documents copy it onto their lines when they are made; changing it never changes
   collections and the stock balances (`/stock/balance/*`) need one of `inventory`, `purchases`,
   `operations`, `pos`, `sales`, `quotations`, `reports` (`services/products.READ_PERMISSIONS`): a
   cashier still finds what to sell, with its price and the branch's stock.
-- Costs (`cost_price`, `avg_cost`, and the items' `cost_price` in collections) only to `inventory`,
+- Costs (`cost_price`, `avg_cost`, and the items' `cost_price` and `avg_cost` in collections) only to `inventory`,
   `purchases` or `reports` (`COST_PERMISSIONS`); for the others they are `null`. The till's scan
   (`/pos/scan/{code}`) follows the same rule.
 - A product's movement log (`/products/{id}/movements`, with costs) needs `inventory`; its dates are
@@ -96,7 +96,8 @@ collections (`/inventory/collections`) and warehouses (`/inventory/warehouses`, 
 - **Adjustments and transfers:** adjustment in / out, damage (reason required), opening stock (with
   `inventory:opening`), batch and expiry for stock coming in; a transfer between two branches with
   the source's available quantity shown; the branch's latest movements.
-- **Collections:** add, edit, delete, and how many can be assembled in a branch.
+- **Collections:** add, edit, delete, what one costs (its items at average cost, for those who see
+  costs) and how many can be assembled in a branch. No selling price (see Collections).
 
 ## Settings (INV-10)
 - `prevent_negative_stock` (on by default): see Stock rules.
@@ -108,10 +109,21 @@ collections (`/inventory/collections`) and warehouses (`/inventory/warehouses`, 
 - `valuation_method` was removed: it offered FIFO, which was never built. Stock is valued at the
   weighted average cost (ADR-014 D5) everywhere: valuation, the ledger, cost of sales.
 
+## Collections: a stock-assembly helper, not sold (phase D)
+A collection (`product_collections`, `collection_items`) is a named set of products and quantities
+(a gift box's contents, a kit): the screen shows its items, its cost and how many a branch can
+assemble (`GET /collections/{id}/availability`). It is **not sold**: the till and the sales invoice
+sell products, and to sell a box its items are added to the invoice. Decided in phase D against
+selling it as a bundle: a sale line is one product (`sale_items.product_id`), and prices are
+checked per product, returns are made per product line, drafts and quotations are rebuilt from
+product lines, and the invoice, the receipt and the offline till print and store product lines.
+Selling a bundle (each item leaving stock at its own cost, the sale showing the collection, VAT
+per item's code) needs a parent line or a grouping of lines that every one of those paths
+understands: a sales/POS redesign, not a fix. The screen therefore offers no selling price; the
+API still accepts `retail_price` / `wholesale_price` (kept for older clients and data), and a `PUT`
+that doesn't send them keeps the stored ones (it used to zero them).
+
 ## Known limits
-- Collections are not sold anywhere: the till and the sales invoice sell products only. The screen
-  says so; selling a collection as a bundle (its items out of stock, its price shared over them)
-  belongs with the sales/POS work.
 - The availability of a collection whose items are all untracked is answered as 999 (the screen
   shows «not tracked»).
 - Workspaces whose balances were clamped at zero before this rule keep those rows: history is not

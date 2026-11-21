@@ -1,6 +1,8 @@
 """API router for Consulting & Professional Services module (CON-01..08)."""
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.framework.activation import require_module
@@ -191,16 +193,21 @@ DEFAULT_DEADLINES = [
 
 
 async def _ensure_seeded(db: AsyncSession) -> None:
+    # Fresh ids per workspace: the fixed demo ids ("eng-01") are primary keys, so only the first
+    # workspace could be seeded and every other one's screens failed.
     eng_res = await db.execute(select(ConsultingEngagement).limit(1))
+    ids = {e["id"]: str(uuid.uuid4()) for e in DEFAULT_ENGAGEMENTS}
     if eng_res.scalar_one_or_none() is None:
         for e in DEFAULT_ENGAGEMENTS:
-            db.add(ConsultingEngagement(**e))
+            db.add(ConsultingEngagement(**{**e, "id": ids[e["id"]]}))
         await db.commit()
+    else:
+        ids = {}
 
     time_res = await db.execute(select(ConsultingTimesheet).limit(1))
     if time_res.scalar_one_or_none() is None:
         for t in DEFAULT_TIMESHEETS:
-            db.add(ConsultingTimesheet(**t))
+            db.add(ConsultingTimesheet(**{**t, "engagement_id": ids.get(t["engagement_id"], t["engagement_id"])}))
         await db.commit()
 
     dead_res = await db.execute(select(ConsultingStatutoryDeadline).limit(1))

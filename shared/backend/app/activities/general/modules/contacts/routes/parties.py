@@ -19,6 +19,8 @@ from app.activities.general.modules.contacts import service as contacts_service
 router = APIRouter(tags=["parties"])
 
 NOT_FOUND = contacts_service.CUSTOMER_NOT_FOUND
+FULL_CUSTOMER_READERS = ("customers", "sales", "pos", "finance", "reports")
+PICKER_FIELDS = ("id", "name", "phone", "is_active")
 
 
 async def _clean_extra(db: AsyncSession, extra: dict | None, current: dict | None = None) -> dict:
@@ -42,9 +44,13 @@ def _filters(search: str | None, include_inactive: bool) -> tuple[str, dict]:
 @router.get("/customers")
 async def list_customers(search: Annotated[str | None, Query(max_length=128)] = None, include_inactive: bool = False,
                          limit: int = Query(200, ge=1, le=1000), offset: int = Query(0, ge=0),
-                         db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
+                         db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)):
     """Customers by name (the POS and every picker use it; a bare list, paged by limit/offset).
-    The totals of the same filter are at /customers/summary."""
+    The totals of the same filter are at /customers/summary. Balances, credit limits and the rest go
+    to who works with customers (`customers`, `sales`, `pos`, `finance`, `reports`); anyone else signed
+    in gets the picker's fields only."""
+    from app.platform.permissions.access import can
+
     where, params = _filters(search, include_inactive)
     rows = await db.execute(text(f"""
         SELECT c.*, c.balance AS balance_due
@@ -53,7 +59,9 @@ async def list_customers(search: Annotated[str | None, Query(max_length=128)] = 
         ORDER BY c.name, c.id
         LIMIT :limit OFFSET :offset
     """), {**params, "limit": limit, "offset": offset})
-    return [dict(r._mapping) for r in rows.fetchall()]
+    if can(user, *FULL_CUSTOMER_READERS):
+        return [dict(r._mapping) for r in rows.fetchall()]
+    return [{k: r._mapping[k] for k in PICKER_FIELDS} for r in rows.fetchall()]
 
 
 @router.get("/customers/summary")

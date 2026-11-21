@@ -204,9 +204,10 @@ async def delete_notification(
 async def create_in_app_notification(
     payload: CreateInAppNotificationIn,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_perm("settings")),
 ):
-    """Manually or programmatically trigger an in-app notification."""
+    """Send an in-app notification by hand (title, text and a link) to one user or everyone. It
+    needs `settings`: with a sign-in alone anyone could send colleagues a notice with any link."""
     notif = Notification(
         id=uuid.uuid4(),
         tenant_id=current_user.tenant_id,
