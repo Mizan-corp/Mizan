@@ -35,6 +35,7 @@ def load_all_models() -> None:
     import app.activities.general.modules.inventory.models.product
     import app.activities.general.modules.purchases.models.purchase
     import app.activities.general.modules.purchases.models.purchase_price_history
+    import app.activities.general.modules.purchases.models.purchase_receipt
     import app.activities.general.modules.purchases.models.purchase_return
     import app.activities.general.modules.finance.models.safe
     import app.activities.general.modules.sales.models.sale

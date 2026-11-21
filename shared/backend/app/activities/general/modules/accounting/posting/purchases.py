@@ -1,6 +1,7 @@
 """Posting rules for purchases, supplier accounts and purchase returns (ADR-014 D3, step 3).
 
-Purchase received (source 'purchase', event 'receive'), one entry, dated today:
+Purchase received (source 'purchase', the order), one entry per goods receipt, dated today: the
+order's first receipt under event 'receive', the next ones 'receive-2', 'receive-3'… (PUR-4):
     Dr inventory (the lines at their unit cost, without VAT), Dr VAT input (the order's tax_amount,
     ADR-014 D6) / Cr payables (party: the supplier) for the whole invoice
     and, for the amount paid at receipt: Dr payables (party) / Cr the safe or wallet it left from
@@ -40,8 +41,17 @@ async def on_purchase_received(db: AsyncSession, *, purchase: dict, user_id=None
     if paid > 0:
         money = await source_account(db, tid, safe_id=purchase.get("safe_id"), wallet_id=purchase.get("wallet_id"))
         lines += [dr(payables, paid, warehouse_id=wh, **party), cr(money, paid, warehouse_id=wh)]
-    await post(db, tid, "purchase", purchase["id"], "receive", today(), lines,
-               memo=f"فاتورة مشتريات {purchase['po_number']}", warehouse_id=wh, user_id=user_id)
+    seq = int(purchase.get("receipt_seq") or 1)
+    memo = f"فاتورة مشتريات {purchase['po_number']}"
+    if purchase.get("receipt_number"):
+        memo += f" — استلام {purchase['receipt_number']}"
+    await post(db, tid, "purchase", purchase["id"], receipt_event(seq), today(), lines,
+               memo=memo, warehouse_id=wh, user_id=user_id)
+
+
+def receipt_event(seq: int) -> str:
+    """The event of an order's receipt number `seq` (the first is 'receive', as before PUR-4)."""
+    return "receive" if seq <= 1 else f"receive-{seq}"
 
 
 async def on_supplier_payment(db: AsyncSession, *, transaction: dict, user_id=None, **_) -> None:

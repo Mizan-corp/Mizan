@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.activities.general.modules.finance.schemas.safe import Amount
 
@@ -47,6 +47,18 @@ class ExpenseCreate(BaseModel):
     recurring_end_date: date_type | None = None
     notes: str | None = Field(None, max_length=2000)
 
+    @model_validator(mode="after")
+    def _recurrence(self):
+        """A recurring expense repeats monthly unless told otherwise; one that doesn't recur keeps no
+        interval or end date."""
+        if self.is_recurring:
+            self.recurring_interval = self.recurring_interval or "monthly"
+            if self.date and self.recurring_end_date and self.recurring_end_date < self.date:
+                raise ValueError("تاريخ انتهاء التكرار قبل تاريخ المصروف")
+        else:
+            self.recurring_interval = self.recurring_end_date = None
+        return self
+
 
 class ExpenseUpdate(BaseModel):
     vendor_id: UUID | None = None
@@ -62,6 +74,10 @@ class ExpenseUpdate(BaseModel):
     # Not changed here: approve, reject and cancel have their own routes.
     status: ExpenseStatus | None = None
     notes: str | None = Field(None, max_length=2000)
+    # The recurrence moves no money: it can be switched off (or given an end) after a decision too.
+    is_recurring: bool | None = None
+    recurring_interval: RecurringInterval | None = None
+    recurring_end_date: date_type | None = None
 
 
 class ExpenseApprove(BaseModel):

@@ -398,7 +398,8 @@ async def test_bad_input_is_refused_not_a_500():
         assert (await c.post("/hr/shifts", headers=h, json={"name": "s", "start_time": "25:00", "end_time": "x"})).status_code == 422
         assert (await c.put("/hr/settings", headers=h, json={"settings": {"days_in_month": "x"}})).status_code == 422
         assert (await c.put("/hr/settings", headers=h, json={"settings": {"days_in_month": 30, "weekend_paid": False}})).status_code == 200
-        assert (await c.get("/hr/settings", headers=h)).json() == {"days_in_month": "30", "weekend_paid": "False"}
+        got = (await c.get("/hr/settings", headers=h)).json()  # typed, with the defaults (HR-12)
+        assert (got["days_in_month"], got["weekend_paid"], got["weekend_day"], got["paid_leave_days"]) == (30, False, 4, 4)
     db, _ = await _session(ws)
     async with db:
         assert await _scalar(db, "SELECT count(*) FROM hr_payroll_periods WHERE month='2031-01'") == 0

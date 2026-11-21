@@ -20,9 +20,22 @@ router = APIRouter(prefix="/stock", tags=["stock"])
 
 
 @router.get("/warehouses", response_model=list[dict])
-async def list_warehouses(db: AsyncSession = Depends(get_db), _=Depends(get_current_user)):
-    result = await db.execute(select(Warehouse).where(Warehouse.is_active))
-    return [{"id": str(w.id), "code": w.code, "name": w.name, "warehouse_type": w.warehouse_type} for w in result.scalars().all()]
+async def list_warehouses(include_inactive: bool = False, db: AsyncSession = Depends(get_db),
+                          current_user: User = Depends(get_current_user)):
+    """The workspace's active warehouses; with `include_inactive` (who manages them: `settings`) the
+    stopped ones too."""
+    from fastapi import HTTPException
+
+    from app.platform.permissions.access import can
+
+    if include_inactive and not can(current_user, "settings"):
+        raise HTTPException(403, "عرض المخازن الموقوفة يتطلب صلاحية الإعدادات")
+    q = select(Warehouse).order_by(Warehouse.code, Warehouse.name)
+    if not include_inactive:
+        q = q.where(Warehouse.is_active)
+    result = await db.execute(q)
+    return [{"id": str(w.id), "code": w.code, "name": w.name, "warehouse_type": w.warehouse_type, "is_active": w.is_active}
+            for w in result.scalars().all()]
 
 
 @router.post("/warehouses")
@@ -33,9 +46,12 @@ async def create_warehouse(data: WarehouseCreate, db: AsyncSession = Depends(get
     await warehouses_service.ensure_code_free(db, data.code)
     w = Warehouse(code=data.code, name=data.name, warehouse_type=data.warehouse_type)
     db.add(w)
+    await db.flush()
+    await audit_log(db, "warehouse", "create", current_user.id, current_user.full_name, w.id,
+                    {"code": data.code, "name": data.name, "warehouse_type": data.warehouse_type}, f"إضافة المخزن {data.name}")
     await db.commit()
     await db.refresh(w)
-    return {"id": str(w.id), "code": w.code, "name": w.name, "warehouse_type": w.warehouse_type}
+    return {"id": str(w.id), "code": w.code, "name": w.name, "warehouse_type": w.warehouse_type, "is_active": w.is_active}
 
 
 @router.put("/warehouses/{wh_id}")

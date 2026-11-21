@@ -1,9 +1,18 @@
+/**
+ * PAGE CONTRACT
+ * Page: التقارير (/reports)
+ * User: المدير والمحاسب (reports؛ التقارير المالية بصلاحية reports:finance)
+ * Purpose: المبيعات (يومي، شهري، الأكثر مبيعاً، حسب الكاشير، حسب حقل مخصص)، دفتر اليوم والدفتر الدوري،
+ * والتقارير المالية: الأرباح، التدفق النقدي، أعمار الديون، ونظرة عامة على الشركة. كلها بفلاتر الفترة والفرع
+ * (حيث يأخذها التقرير)، وتصدير وطباعة.
+ */
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { CalendarRange, Printer, Receipt } from "lucide-react";
+import { CalendarRange, Download, Printer, Receipt } from "lucide-react";
 import { api } from "@/lib/api";
-import { printDocument } from "@app/lib/documents";
+import { downloadFile, printDocument } from "@app/lib/documents";
 import { qty as fq } from "@/lib/format";
 import { Money, Num, PageHeader, StatCard, TableShell } from "@/components/app/shared";
 import { Button } from "@/components/kit/button";
@@ -15,15 +24,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/kit/tabs";
 import { Empty, ErrorBox } from "@/components/ui";
 import { useAuth } from "@/stores/auth";
+import type { Range } from "@activities/general/modules/accounting/components/shared";
+import { AgingView, CashFlowView, OverviewView, ProfitView } from "@activities/general/modules/reporting/components/FinanceReports";
+import { DailyItemsView, PeriodicLedgerView } from "@activities/general/modules/reporting/components/LedgerReports";
+import { monthToDate } from "@activities/general/modules/reporting/lib";
 import { CustomFieldReport } from "./CustomFieldReport";
 
 interface Warehouse { id: string; name: string }
-// Sales figures are after every discount, without VAT, less the returns made in the period.
-interface SalesTotals { total_sales: number; gross_sales: number; returns_total: number; invoice_count: number; returns_count: number }
+// Sales figures are after every discount, without VAT, less the returns made in the period. Money
+// comes as decimal strings (REP-15).
+interface SalesTotals { total_sales: string; gross_sales: string; returns_total: string; invoice_count: number; returns_count: number }
 interface DailyRow extends SalesTotals { date: string }
 interface MonthlyRow extends SalesTotals { year: number; month: number }
-interface TopProduct { product_id: string; product_name: string; unit: string | null; qty: number; revenue: number }
-interface CashierRow { cashier_id: string; cashier_name: string; invoice_count: number; gross_sales: number; returns_total: number; total_sales: number }
+interface TopProduct { product_id: string; product_name: string; unit: string | null; qty: number; revenue: string }
+interface CashierRow { cashier_id: string; cashier_name: string; invoice_count: number; gross_sales: string; returns_total: string; total_sales: string }
 
 const chartConfig = { revenue: { label: "الإيراد", color: "var(--chart-1)" } } satisfies ChartConfig;
 
@@ -40,8 +54,23 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+const TABS = [
+  { key: "daily", label: "يومي", perm: "reports" },
+  { key: "monthly", label: "شهري", perm: "reports" },
+  { key: "top", label: "الأكثر مبيعاً", perm: "reports" },
+  { key: "cashier", label: "حسب الكاشير", perm: "reports" },
+  { key: "fields", label: "حسب حقل مخصص", perm: "reports" },
+  { key: "items", label: "دفتر اليوم", perm: "reports" },
+  { key: "periodic", label: "الدفتر الدوري", perm: "reports" },
+  { key: "profit", label: "الأرباح", perm: "reports:finance" },
+  { key: "cashflow", label: "التدفق النقدي", perm: "reports:finance" },
+  { key: "aging", label: "أعمار الديون", perm: "reports:finance" },
+  { key: "overview", label: "نظرة عامة", perm: "reports:finance", allBranches: true },
+] as const;
+
 export default function ReportsPage() {
-  const [tab, setTab] = useState("daily");
+  const [params, setParams] = useSearchParams();
+  const can = useAuth((s) => s.can);
   const now = new Date();
   const [targetDate, setTargetDate] = useState(iso(now));
   const [year, setYear] = useState(now.getFullYear());
@@ -49,8 +78,13 @@ export default function ReportsPage() {
   const [from, setFrom] = useState(daysAgo(13));
   const [to, setTo] = useState(iso(now));
   const [wid, setWid] = useState("");
-  // Without "supervise" the server limits every report to the user's own branches.
-  const allBranches = useAuth((s) => Boolean(s.user?.is_manager) || s.can("supervise"));
+  // Without "supervise" (or reports:finance) the server limits every report to the user's own branches.
+  const allBranches = useAuth((s) => Boolean(s.user?.is_manager) || s.can("supervise") || s.can("reports:finance"));
+  const tabs = TABS.filter((t) => can(t.perm) && (!("allBranches" in t) || allBranches));
+  const tab = tabs.find((t) => t.key === params.get("tab"))?.key ?? "daily";
+  const setTab = (key: string) => setParams((p) => { p.set("tab", key); return p; }, { replace: true });
+  const [range, setRange] = useState<Range>(() => ({ ...monthToDate(), warehouse_id: "" }));
+  const [itemsDay, setItemsDay] = useState(iso(now));
 
   const wh = useQuery({ queryKey: ["warehouses"], queryFn: () => api.get<Warehouse[]>("/stock/warehouses") });
 
@@ -92,22 +126,24 @@ export default function ReportsPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="التقارير"
-        description="مبيعات ومخزون وأداء الكاشيرين"
+        description="المبيعات والدفاتر والأرباح والتدفق النقدي والديون"
         actions={
-          <Button variant="outline" disabled={!printWid} onClick={printInventory}>
-            <Printer data-icon="inline-start" />
-            تقرير الجرد
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => void downloadFile("/export/sales", { from_date: from, to_date: to, warehouse_id: wid || undefined }, "sales.xlsx")}>
+              <Download data-icon="inline-start" />
+              تصدير المبيعات (Excel)
+            </Button>
+            <Button variant="outline" disabled={!printWid} onClick={printInventory}>
+              <Printer data-icon="inline-start" />
+              تقرير الجرد
+            </Button>
+          </div>
         }
       />
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="daily">يومي</TabsTrigger>
-          <TabsTrigger value="monthly">شهري</TabsTrigger>
-          <TabsTrigger value="top">الأكثر مبيعاً</TabsTrigger>
-          <TabsTrigger value="cashier">حسب الكاشير</TabsTrigger>
-          <TabsTrigger value="fields">حسب حقل مخصص</TabsTrigger>
+        <TabsList className="h-auto flex-wrap">
+          {tabs.map((t) => <TabsTrigger key={t.key} value={t.key}>{t.label}</TabsTrigger>)}
         </TabsList>
       </Tabs>
 
@@ -186,7 +222,7 @@ export default function ReportsPage() {
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfig} className="aspect-auto h-80 w-full" dir="ltr">
-                    <BarChart data={top.data.map((p, i) => ({ name: p.product_name.slice(0, 18), rank: i + 1, revenue: p.revenue }))} layout="vertical" margin={{ left: 8, right: 16 }}>
+                    <BarChart data={top.data.map((p, i) => ({ name: p.product_name.slice(0, 18), rank: i + 1, revenue: Number(p.revenue) }))} layout="vertical" margin={{ left: 8, right: 16 }}>
                       <CartesianGrid horizontal={false} />
                       <XAxis type="number" tickLine={false} axisLine={false} tickFormatter={(v: number) => `${v / 1000}k`} />
                       <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} width={130} orientation="right" />
@@ -213,7 +249,7 @@ export default function ReportsPage() {
                         <TableCell className="w-full max-w-0 truncate font-medium">{p.product_name}</TableCell>
                         <TableCell className="num text-end">{fq(p.qty)} {p.unit ?? ""}</TableCell>
                         <TableCell className="num text-end font-semibold">
-                          <Money value={p.revenue} />
+                          <Money value={Number(p.revenue)} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -262,8 +298,8 @@ export default function ReportsPage() {
                     <TableRow key={c.cashier_id}>
                       <TableCell className="w-full max-w-0 truncate font-medium">{c.cashier_name}</TableCell>
                       <TableCell className="num text-end">{c.invoice_count}</TableCell>
-                      <TableCell className="num text-end"><Money value={c.gross_sales} /></TableCell>
-                      <TableCell className="num text-end"><Money value={c.returns_total} /></TableCell>
+                      <TableCell className="num text-end"><Money value={Number(c.gross_sales)} /></TableCell>
+                      <TableCell className="num text-end"><Money value={Number(c.returns_total)} /></TableCell>
                       <TableCell className="num text-end font-semibold">
                         <Money value={Number(c.total_sales)} />
                       </TableCell>
@@ -277,6 +313,12 @@ export default function ReportsPage() {
       )}
 
       {tab === "fields" && <CustomFieldReport from={from} to={to} onFrom={setFrom} onTo={setTo} Field={Field} />}
+      {tab === "items" && <DailyItemsView day={itemsDay} onDay={setItemsDay} />}
+      {tab === "periodic" && <PeriodicLedgerView />}
+      {tab === "profit" && <ProfitView range={range} onRange={setRange} />}
+      {tab === "cashflow" && <CashFlowView range={range} onRange={setRange} />}
+      {tab === "aging" && <AgingView range={range} onRange={setRange} />}
+      {tab === "overview" && <OverviewView range={range} onRange={setRange} />}
     </div>
   );
 }

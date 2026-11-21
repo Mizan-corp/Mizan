@@ -217,6 +217,13 @@ async def accounting_reconciliation(db: AsyncSession) -> dict[str, Any]:
     return await reconcile_all(db)
 
 
+async def recurring_expenses(db: AsyncSession) -> dict[str, Any]:
+    """The next draft of every recurring expense whose date has come, in every workspace (FIN-9)."""
+    from app.activities.general.modules.finance.services.recurring import run_all
+
+    return await run_all(db)
+
+
 async def owner_billing_reminders(db: AsyncSession) -> dict[str, Any]:
     """Trial and renewal reminders by email to owners with a verified address (#72)."""
     from app.platform.billing.owner_emails import billing_reminders
@@ -294,6 +301,13 @@ JOB_REGISTRY = {
         "description": "مقارنة حسابات الدفاتر بأرصدة العملاء والموردين والخزائن والمحافظ والمخزون، وتنبيه المحاسب عند وجود فروق",
         "cron": "30 4 * * *",
         "handler": accounting_reconciliation,
+    },
+    "recurring_expenses": {
+        "title": "إنشاء المصروفات الدورية",
+        "title_en": "Create recurring expenses",
+        "description": "إنشاء المصروف التالي لكل مصروف دوري حلّ موعده، مسودةً بانتظار الاعتماد (لا يُصرف شيء آليًا)",
+        "cron": "0 2 * * *",
+        "handler": recurring_expenses,
     },
 }
 

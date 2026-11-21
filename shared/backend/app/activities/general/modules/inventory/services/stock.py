@@ -320,6 +320,32 @@ async def get_valuation(db: AsyncSession, warehouse_id: uuid.UUID):
     return result.one()
 
 
+async def reorder_alerts_enabled(db: AsyncSession) -> bool:
+    """The inventory setting `enable_reorder_alerts` (on by default): whether stock reaching a
+    product's reorder level raises a notification (in the app and, where set up, by email)."""
+    from app.framework.loader import registry
+
+    try:
+        value = (await registry.get_settings(db, "inventory"))["values"].get("enable_reorder_alerts", True)
+    except KeyError:
+        return True
+    return str(value).strip().lower() not in ("false", "0", "no", "off")
+
+
+async def products_at_reorder_level(db: AsyncSession, limit: int = 50) -> list:
+    """Active tracked products whose stock in all warehouses is at or below their reorder level
+    (when they have one), lowest stock first: (id, name, qty, level)."""
+    return (await db.execute(text("""
+        SELECT p.id, p.name, COALESCE(b.qty, 0) AS qty, p.reorder_level AS level
+        FROM products p
+        LEFT JOIN (SELECT product_id, SUM(qty) AS qty FROM stock_balances GROUP BY product_id) b ON b.product_id = p.id
+        WHERE p.is_active AND p.stock_status = 'tracked' AND p.reorder_level > 0
+          AND COALESCE(b.qty, 0) <= p.reorder_level
+        ORDER BY COALESCE(b.qty, 0), p.name
+        LIMIT :lim
+    """), {"lim": limit})).all()
+
+
 async def check_low_stock_and_notify(
     db: AsyncSession,
     tenant_id: uuid.UUID | None,
@@ -329,10 +355,13 @@ async def check_low_stock_and_notify(
     """
     Check stock after sale. If current_qty <= product.reorder_level,
     creates in-app notification for managers and triggers optional email notification.
+    Nothing when the workspace switched `enable_reorder_alerts` off (INV-10).
     """
     from datetime import datetime, UTC, timedelta
     from app.platform.notifications.models.notification import Notification
 
+    if not await reorder_alerts_enabled(db):
+        return
     cutoff = datetime.now(UTC) - timedelta(hours=4)
 
     # Fetch products and their balances

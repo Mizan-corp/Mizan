@@ -59,6 +59,10 @@ def test_expense_create_approve(owner_api, reg, safe, wallet):
                                      json={"description": "e2e updated"}))
     assert upd["description"].startswith("e2e up")
 
+    # The safe is new and empty: `strict_safe_balance` (on by default) refuses the overdraft (FIN-9).
+    refused = owner_api.post(f"/expenses/{e['id']}/approve", json={})
+    assert refused.status_code == 400, refused.text[:200]
+    owner_api.ok(owner_api.post(f"/safes/{safe['id']}/deposit", json={"amount": "150", "notes": "e2e"}))
     appr = owner_api.ok(owner_api.post(f"/expenses/{e['id']}/approve", json={}))
     assert appr is not None
 
@@ -108,6 +112,7 @@ def test_approved_expense_is_paid_once(owner_api, reg, safe):
     def _bal():
         return float(next(s for s in owner_api.ok(owner_api.get("/safes")) if s["id"] == safe["id"])["balance"])
 
+    owner_api.ok(owner_api.post(f"/safes/{safe['id']}/deposit", json={"amount": "30", "notes": "e2e"}))
     before = _bal()
     owner_api.ok(owner_api.post(f"/expenses/{e['id']}/approve", json={"approved": True}))
     again = owner_api.post(f"/expenses/{e['id']}/approve", json={"approved": True})
@@ -144,3 +149,17 @@ def test_a_rejected_expense_is_not_approved_later(owner_api, reg, safe):
     again = owner_api.post(f"/expenses/{e['id']}/approve", json={"approved": True, "safe_id": safe["id"]})
     assert again.status_code == 409, again.text[:200]
     assert owner_api.put(f"/expenses/{e['id']}", json={"amount": "13"}).status_code == 409
+
+
+def test_recurrence_and_paging(owner_api, reg):
+    """A recurring expense is monthly unless told otherwise; after a decision only the notes and
+    the recurrence change; the list is paged (FIN-9, FIN-14)."""
+    e = owner_api.ok(owner_api.post("/expenses", json={"amount": "9", "description": "e2e recurring", "is_recurring": True}), 200, 201)
+    reg.add("expense", e["id"])
+    assert e["recurring_interval"] == "monthly"
+    rejected = owner_api.ok(owner_api.post(f"/expenses/{e['id']}/approve", json={"approved": False, "notes": "e2e"}))
+    assert rejected["status"] == "rejected"
+    stopped = owner_api.ok(owner_api.put(f"/expenses/{e['id']}", json={"is_recurring": False}))
+    assert stopped["is_recurring"] is False and stopped["recurring_interval"] is None
+    page = owner_api.ok(owner_api.get("/expenses", params={"page": 1, "page_size": 1}))
+    assert len(page["data"]) == 1 and page["total"] >= 1

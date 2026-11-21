@@ -47,7 +47,8 @@ class SubcategoryOut(BaseModel):
 
 class ProductCreate(BaseModel):
     model_config = _TRIM
-    subcategory_id: uuid.UUID
+    # Optional (INV-9): a workspace that hasn't made categories yet can still add products.
+    subcategory_id: uuid.UUID | None = None
     name: str = Field(..., min_length=1, max_length=256)
     code: str | None = Field(None, max_length=32)
     barcode: str | None = Field(None, max_length=64)
@@ -80,6 +81,8 @@ class ProductUpdate(BaseModel):
     wholesale_price: Decimal | None = Field(None, ge=0, le=PRICE_MAX)
     cost_price: Decimal | None = Field(None, ge=0, le=PRICE_MAX)
     subcategory_id: uuid.UUID | None = None
+    # subcategory_id null keeps it; this takes the product out of its category.
+    clear_subcategory: bool = False
     company: str | None = Field(None, max_length=128)
     size: str | None = Field(None, max_length=64)
     product_type: str | None = Field(None, max_length=64)
@@ -117,6 +120,7 @@ class ProductOut(BaseModel):
     material: str | None
     shelf_number: str | None
     is_active: bool
+    image_url: str | None = None
     description: str | None = None
     reorder_point: Decimal
     reorder_qty: Decimal

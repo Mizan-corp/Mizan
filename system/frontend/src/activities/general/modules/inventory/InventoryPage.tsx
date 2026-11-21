@@ -4,7 +4,6 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowUpRight,
-  Boxes,
   CheckCircle2,
   Printer,
   RefreshCw,
@@ -25,6 +24,8 @@ import { api, openPrintDoc } from "@/lib/api";
 import { dateTime, moneyEGP, qty as fq } from "@/lib/format";
 import { sound } from "@/lib/sound";
 import { cn } from "@/lib/utils";
+import { useTenantNav } from "@app/lib/tenant";
+import { InventoryHeader } from "./components/InventoryHeader";
 
 interface Product {
   id: string;
@@ -53,6 +54,7 @@ interface Movement {
 export default function InventoryPage() {
   const [tab, setTab] = useState<"valuation" | "low" | "movements">("valuation");
   const { warehouses, branchId, setBranchId } = useBranch();
+  const { tenantTo } = useTenantNav();
   const wid = branchId ?? (warehouses[0]?.id || "");
 
   // Valuation summary stats
@@ -83,58 +85,49 @@ export default function InventoryPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Page Header with Warehouse Synchronizer and Operations Quick-Link */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/60 pb-5">
-        <div>
-          <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
-            <Boxes className="size-6 text-primary" aria-hidden />
-            المخزون والتقييم اللحظي
-          </h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            كشف أرصدة المخازن، التقييم المالي بالتكلفة والبيع، ومتابعة حدود إعادة الطلب
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Select
-            value={wid}
-            onChange={(e) => {
-              sound.click();
-              setBranchId(e.target.value);
-            }}
-            className="h-9 w-48 text-xs font-semibold"
-            aria-label="تحديد الفرع أو المخزن"
-          >
-            {warehouses.map((w: { id: string; name: string }) => (
-              <option key={w.id} value={w.id}>
-                {w.name}
-              </option>
-            ))}
-          </Select>
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 gap-1.5 text-xs font-semibold"
-            onClick={() => {
-              sound.click();
-              openPrintDoc("/reports/inventory/print", { warehouse_id: wid });
-            }}
-          >
-            <Printer className="size-3.5 text-muted-foreground" />
-            طباعة كشف الجرد
-          </Button>
-
-          <Link
-            to="/operations"
-            className={cn(buttonVariants({ size: "sm" }), "h-9 gap-1.5 text-xs font-semibold")}
-          >
-            <SlidersHorizontal className="size-3.5" />
-            العمليات المخزنية
-            <ArrowUpRight className="size-3 opacity-70" />
-          </Link>
-        </div>
-      </div>
+      <InventoryHeader
+        title="المخزون والتقييم"
+        subtitle="أرصدة المخازن، التقييم بالتكلفة والبيع، وحدود إعادة الطلب"
+        actions={
+          <>
+            <Select
+              value={wid}
+              onChange={(e) => {
+                sound.click();
+                setBranchId(e.target.value);
+              }}
+              className="h-9 w-48 text-xs font-semibold"
+              aria-label="تحديد الفرع أو المخزن"
+            >
+              {warehouses.map((w: { id: string; name: string }) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </Select>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1.5 text-xs font-semibold"
+              onClick={() => {
+                sound.click();
+                openPrintDoc("/reports/inventory/print", { warehouse_id: wid });
+              }}
+            >
+              <Printer className="size-3.5 text-muted-foreground" />
+              طباعة كشف الجرد
+            </Button>
+            <Link
+              to={tenantTo("/operations")}
+              className={cn(buttonVariants({ size: "sm" }), "h-9 gap-1.5 text-xs font-semibold")}
+            >
+              <SlidersHorizontal className="size-3.5" />
+              العمليات المخزنية
+              <ArrowUpRight className="size-3 opacity-70" />
+            </Link>
+          </>
+        }
+      />
 
       {/* Financial Valuation KPI Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -252,7 +245,7 @@ export default function InventoryPage() {
         {/* Info strip about Operations unification */}
         <p className="text-[11px] text-muted-foreground hidden sm:block">
           لتحويل البضائع بين الفروع أو تسجيل محاضر الجرد، استخدم{" "}
-          <Link to="/operations" className="font-semibold text-primary underline underline-offset-2">
+          <Link to={tenantTo("/operations")} className="font-semibold text-primary underline underline-offset-2">
             شاشة العمليات المخزنية
           </Link>
           .
@@ -670,6 +663,7 @@ function DetailedLedgerTab({ wid }: { wid: string }) {
  * Dedicated Low Stock Alerts Tab
  */
 function LowStockAlertsTab({ wid }: { wid: string }) {
+  const { tenantTo } = useTenantNav();
   const q = useQuery({
     queryKey: ["low-stock-full", wid],
     queryFn: () =>
@@ -702,10 +696,10 @@ function LowStockAlertsTab({ wid }: { wid: string }) {
           يوجد <strong className="num font-bold">{q.data.length}</strong> أصناف قاربت على النفاد أو نفدت تماماً وتحتاج لأمر شراء توريد.
         </span>
         <Link
-          to="/purchases"
+          to={tenantTo("/purchases/suggestions")}
           className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-7 text-xs border-amber-500/30 bg-card")}
         >
-          إنشاء أمر شراء
+          اقتراحات الشراء
         </Link>
       </div>
 
@@ -735,7 +729,7 @@ function LowStockAlertsTab({ wid }: { wid: string }) {
                   <TableCell className="p-3 text-muted-foreground">{r.unit}</TableCell>
                   <TableCell className="p-3 text-end">
                     <Link
-                      to={`/purchases?product_id=${r.product_id}`}
+                      to={tenantTo("/purchases/suggestions")}
                       className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 gap-1 text-xs text-primary")}
                     >
                       طلب توريد

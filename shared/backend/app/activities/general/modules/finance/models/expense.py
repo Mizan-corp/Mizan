@@ -45,6 +45,10 @@ class Expense(TenantScoped, Base):
     is_recurring: Mapped[bool] = mapped_column(Boolean, default=False)
     recurring_interval: Mapped[str | None] = mapped_column(String(16))
     recurring_end_date: Mapped[date | None] = mapped_column(Date)
+    # A recurring expense's occurrence is used once (services/recurring.py): when its successor was
+    # made, and the occurrence a generated draft follows.
+    recurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    recurred_from: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("expenses.id", ondelete="SET NULL"))
     notes: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
     approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))

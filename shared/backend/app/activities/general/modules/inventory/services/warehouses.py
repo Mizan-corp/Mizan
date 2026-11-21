@@ -52,6 +52,11 @@ async def update(db: AsyncSession, warehouse_id: uuid.UUID, data, user) -> Wareh
         await ensure_code_free(db, changes["code"], exclude=w.id)
     if changes.get("is_active") is False and w.is_active:
         await ensure_can_deactivate(db, w)
+    if changes.get("is_active") is True and not w.is_active and w.tenant_id:
+        # Bringing one back counts against the plan's branches like adding one.
+        from app.platform.billing.services.plan_gating import check_branch_creation_limit
+
+        await check_branch_creation_limit(db, w.tenant_id)
     for k, v in changes.items():
         setattr(w, k, v)
     await audit_log(db, "warehouse", "update", user.id, user.full_name, w.id,

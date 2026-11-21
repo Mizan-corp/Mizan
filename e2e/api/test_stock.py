@@ -223,3 +223,17 @@ def test_transfer_to_the_same_warehouse_and_deactivating_a_stocked_one_are_refus
     assert r.status_code in (400, 422), r.text[:200]
     r = admin_api.put(f"/stock/warehouses/{w['id']}", json={"is_active": False})
     assert r.status_code == 409, r.text[:200]
+
+
+def test_warehouses_with_the_stopped_ones(admin_api, cashier_api, reg):
+    """Phase C (INV-9): the warehouses screen lists stopped warehouses too (`settings`)."""
+    w = admin_api.post("/stock/warehouses", json={"code": f"E2E-STOP-{uid('w')}", "name": f"E2E-STOP-{uid('w')}"})
+    if w.status_code == 403:  # the e2e workspace's plan has no branch left
+        return
+    w = admin_api.ok(w)
+    reg.add("warehouse", w["id"])
+    admin_api.ok(admin_api.put(f"/stock/warehouses/{w['id']}", json={"is_active": False}))
+    rows = admin_api.ok(admin_api.get("/stock/warehouses", params={"include_inactive": "true"}))
+    assert next(x for x in rows if x["id"] == w["id"])["is_active"] is False
+    assert w["id"] not in {x["id"] for x in admin_api.ok(admin_api.get("/stock/warehouses"))}
+    assert cashier_api.get("/stock/warehouses", params={"include_inactive": "true"}).status_code == 403

@@ -1,15 +1,73 @@
 """
 payroll_engine.py — Full payroll calculation matching the Qt موظفين system.
 Logic ported directly from models.py PayrollCalculator.calculate_payroll()
+
+The rules that used to be fixed (Friday weekend, the 5 am day rollover, 4 paid leave days a month,
+26 days a month, a 9-to-21 shift for an employee without one) are the workspace's HR settings
+(`SETTINGS`, today's values as defaults; HR-12). Money is Decimal end to end, rounded to the
+piastre (half up) only where a figure is stored; hours and minutes stay numbers of hours.
 """
 import calendar
+import re
 from collections import defaultdict
 from datetime import date, datetime, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 
 from app.platform.tenancy import clock
 
-# Egypt timezone offset
-LOCAL_TZ_OFFSET = timedelta(hours=2)
+CENT = Decimal("0.01")
+RATE = Decimal("0.0001")
+ZERO = Decimal("0")
+
+# The HR settings, with their defaults (what used to be hard-coded) and bounds. The schema
+# (schemas.HRSettingsValues) refuses anything else; a bad value stored before settings were typed
+# falls back to the default.
+SETTINGS: dict[str, dict] = {
+    "days_in_month": {"default": 26, "type": int, "min": 1, "max": 31},
+    "grace_period_minutes": {"default": 10, "type": int, "min": 0, "max": 240},
+    "late_penalty_multiplier": {"default": Decimal("2"), "type": Decimal, "min": 0, "max": 10},
+    "missing_checkout_penalty_hours": {"default": Decimal("2"), "type": Decimal, "min": 0, "max": 24},
+    "apply_missing_checkout_penalty": {"default": True, "type": bool},
+    "overtime_enabled": {"default": True, "type": bool},
+    "weekend_paid": {"default": True, "type": bool},
+    # Python's weekday: Monday 0 … Sunday 6 (Friday 4).
+    "weekend_day": {"default": 4, "type": int, "min": 0, "max": 6},
+    # A punch before this hour belongs to the day before (a night shift's check-out).
+    "day_start_hour": {"default": 5, "type": int, "min": 0, "max": 12},
+    # Leave days a month paid as a full shift; more are unpaid.
+    "paid_leave_days": {"default": 4, "type": int, "min": 0, "max": 31},
+    # The shift of an employee without one (whole hours, 24-hour clock).
+    "default_shift_start_hour": {"default": 9, "type": int, "min": 0, "max": 23},
+    "default_shift_end_hour": {"default": 21, "type": int, "min": 0, "max": 23},
+}
+
+
+def _money(value) -> Decimal:
+    return Decimal(str(value or 0))
+
+
+def _cents(value: Decimal) -> Decimal:
+    return value.quantize(CENT, rounding=ROUND_HALF_UP)
+
+
+def effective_settings(stored: dict | None) -> dict:
+    """Every HR setting, typed, from the stored key/value rows; a missing or bad value is the default."""
+    stored = stored or {}
+    out = {}
+    for key, spec in SETTINGS.items():
+        raw, default = stored.get(key), spec["default"]
+        if spec["type"] is bool:
+            out[key] = default if raw is None else str(raw).strip().lower() in ("true", "1", "yes")
+            continue
+        try:
+            value = Decimal(str(raw)) if raw is not None else Decimal(str(default))
+        except ArithmeticError:
+            value = Decimal(str(default))
+        if not value.is_finite() or value < spec["min"] or value > spec["max"]:
+            value = Decimal(str(default))
+        out[key] = int(value) if spec["type"] is int else value
+    return out
+
 
 def to_local(dt):
     """Return naive local datetime. DB stores Cairo time as UTC-marked — strip timezone only."""
@@ -21,12 +79,13 @@ def to_local(dt):
     return dt
 
 
-def parse_shift(shift_str: str, shifts_map: dict = None) -> tuple:
+def parse_shift(shift_str: str, shifts_map: dict = None, default: tuple[int, int] = (9, 21)) -> tuple:
     """Parse shift string → (start_hour, end_hour).
-    Handles: '11:00-23:00', '9-21', '11 صباحاً الى 11 مساءً', shift name/id lookup.
+    Handles: '11:00-23:00', '9-21', '11 صباحاً الى 11 مساءً', shift name/id lookup; `default` (the
+    workspace's default shift) when the string says nothing usable.
     """
     if not shift_str:
-        return 9, 21  # default 9am-9pm
+        return default
 
     # Try direct HH:MM-HH:MM or H-H
     try:
@@ -39,7 +98,6 @@ def parse_shift(shift_str: str, shifts_map: dict = None) -> tuple:
         pass
 
     # Try Arabic format: "9 صباحا الى 9 مساءً" or "11 صباحاً الى 11 مساءً"
-    import re
     nums = re.findall(r'\d+', shift_str)
     if len(nums) >= 2:
         s, e = int(nums[0]), int(nums[1])
@@ -73,7 +131,20 @@ def parse_shift(shift_str: str, shifts_map: dict = None) -> tuple:
                 except (ValueError, IndexError, KeyError):
                     pass
 
-    return 9, 21  # fallback
+    return default
+
+
+def employee_shift(employee: dict, shifts_map: dict | None) -> str:
+    """The shift an employee works: the shift chosen from the shifts list (`shift_id`), else the
+    schedule typed on the employee ("09:00-17:00")."""
+    shift = (shifts_map or {}).get(employee.get('shift_id')) if employee.get('shift_id') else None
+    if shift and shift.get('start_time') and shift.get('end_time'):
+        return f"{shift['start_time']}-{shift['end_time']}"
+    return employee.get('shift_schedule', '') or ''
+
+
+def shift_hours(start_h: int, end_h: int) -> int:
+    return (end_h - start_h) if end_h > start_h else (24 - start_h + end_h)
 
 
 def setting_number(settings: dict, key: str, default: float) -> float:
@@ -93,43 +164,48 @@ def setting_flag(settings: dict, key: str, default: bool) -> bool:
     return str(value).strip().lower() in ('true', '1', 'yes')
 
 
-def attendance_day(dt: datetime) -> date | None:
-    """5am rollover: timestamps before 5am belong to previous day."""
+def attendance_day(dt: datetime, day_start_hour: int = 5) -> date | None:
+    """The working day a punch belongs to: before `day_start_hour` it is the previous day's."""
     if not dt:
         return None
-    if dt.hour < 5:
+    if dt.hour < day_start_hour:
         return (dt - timedelta(days=1)).date()
     return dt.date()
 
 
 def calculate_payroll(employee: dict, attendances: list[dict], settings: dict,
-                      shifts_map: dict, bonus: float = 0, deduction: float = 0,
-                      advance: float = 0, month: str = None) -> dict:
+                      shifts_map: dict, bonus=0, deduction=0, advance=0, month: str = None) -> dict:
     """
     Full payroll calculation.
-    employee: dict with name, monthly_salary, shift_schedule, ignore_lateness, max_lateness_before_overtime_cancellation
+    employee: dict with name, monthly_salary, shift_id / shift_schedule, ignore_lateness, max_lateness_before_overtime_cancellation
     attendances: list of dicts with check_in, check_out, status, excuse_*, shift_override, edited
-    settings: dict from hr_settings table
+    settings: dict from hr_settings table (key → stored text), read through effective_settings
     shifts_map: {id: {name, start_time, end_time}}
     month: 'YYYY-MM' string
+    Money (salary, rate, deductions, pay, net) comes back as Decimal.
     """
-    monthly_salary = float(employee.get('monthly_salary') or 0)
-    # days_in_month from settings, default 26
-    days_in_month = max(1, int(setting_number(settings, 'days_in_month', 26)))
-    emp_shift = employee.get('shift_schedule', '') or ''
+    cfg = effective_settings(settings)
+    monthly_salary = _money(employee.get('monthly_salary'))
+    bonus, deduction, advance = _money(bonus), _money(deduction), _money(advance)
+    days_in_month = cfg['days_in_month']
+    default_shift = (cfg['default_shift_start_hour'], cfg['default_shift_end_hour'])
+    emp_shift = employee_shift(employee, shifts_map)
     ignore_lateness = bool(employee.get('ignore_lateness') or False)
     max_late = employee.get('max_lateness_before_overtime_cancellation')
     max_late_for_ot = int(30 if max_late is None else max_late)
 
-    grace_period = int(setting_number(settings, 'grace_period_minutes', 10))
-    multiplier = setting_number(settings, 'late_penalty_multiplier', 2.0)
-    missing_penalty_hours = setting_number(settings, 'missing_checkout_penalty_hours', 2.0)
-    apply_missing_penalty = setting_flag(settings, 'apply_missing_checkout_penalty', True)
-    overtime_enabled = setting_flag(settings, 'overtime_enabled', True)
-    weekend_paid = setting_flag(settings, 'weekend_paid', True)
+    grace_period = cfg['grace_period_minutes']
+    multiplier = cfg['late_penalty_multiplier']
+    missing_penalty_hours = float(cfg['missing_checkout_penalty_hours'])
+    apply_missing_penalty = cfg['apply_missing_checkout_penalty']
+    overtime_enabled = cfg['overtime_enabled']
+    weekend_paid = cfg['weekend_paid']
+    weekend_day = cfg['weekend_day']
+    day_start_hour = cfg['day_start_hour']
+    paid_leave_days = cfg['paid_leave_days']
 
-    start_h, end_h = parse_shift(emp_shift, shifts_map)
-    shift_length = (end_h - start_h) if end_h > start_h else (24 - start_h + end_h)
+    start_h, end_h = parse_shift(emp_shift, shifts_map, default_shift)
+    shift_length = shift_hours(start_h, end_h)
 
     # Determine month range
     if month:
@@ -157,12 +233,12 @@ def calculate_payroll(employee: dict, attendances: list[dict], settings: dict,
         elif co:
             ref_ts = to_local(co if isinstance(co, datetime) else datetime.fromisoformat(str(co)))
         if ref_ts:
-            day = attendance_day(ref_ts)
+            day = attendance_day(ref_ts, day_start_hour)
             if day:
                 grouped[day].append(att)
 
     scheduled_hours = days_in_month * shift_length if shift_length > 0 else 0
-    hourly_rate = (monthly_salary / scheduled_hours) if scheduled_hours > 0 else 0
+    hourly_rate = (monthly_salary / scheduled_hours) if scheduled_hours > 0 else ZERO
 
     total_hours = 0.0
     total_late_min = 0
@@ -195,8 +271,8 @@ def calculate_payroll(employee: dict, attendances: list[dict], settings: dict,
         day_items = grouped.get(current_day, [])
 
         if not day_items:
-            # Weekend (Friday = weekday 4)
-            if current_day.weekday() == 4 and weekend_paid:
+            # The weekly day off (the workspace's weekend day)
+            if current_day.weekday() == weekend_day and weekend_paid:
                 daily_breakdown.append({'date': current_day.isoformat(), 'status': 'weekend', 'note': 'عطلة أسبوعية',
                                          'work_hours': 0, 'late_minutes': 0, 'overtime_hours': 0})
                 current_day += timedelta(days=1)
@@ -220,8 +296,8 @@ def calculate_payroll(employee: dict, attendances: list[dict], settings: dict,
         edit_reason = next((a.get('edit_reason', '') for a in day_items if a.get('edit_reason')), '')
 
         eff_shift = shift_override if shift_override else emp_shift
-        s_h, e_h = parse_shift(eff_shift, shifts_map)
-        s_len = (e_h - s_h) if e_h > s_h else (24 - s_h + e_h)
+        s_h, e_h = parse_shift(eff_shift, shifts_map, default_shift)
+        s_len = shift_hours(s_h, e_h)
 
         # Collect all timestamps
         all_ts = []
@@ -246,12 +322,12 @@ def calculate_payroll(employee: dict, attendances: list[dict], settings: dict,
             note_parts.append(f'شيفت مؤقت: {shift_override}')
 
         if status == 'leave':
-            if leave_days_count < 4:
+            if leave_days_count < paid_leave_days:
                 work_hours = s_len
                 leave_days_count += 1
                 note_parts.append('إجازة مدفوعة')
             else:
-                note_parts.append('إجازة (تجاوز الحد 4 أيام)')
+                note_parts.append(f'إجازة (تجاوز الحد {paid_leave_days} أيام)')
         elif status == 'mission':
             work_hours = s_len
             note_parts.append('مأمورية عمل')
@@ -340,23 +416,27 @@ def calculate_payroll(employee: dict, attendances: list[dict], settings: dict,
         })
         current_day += timedelta(days=1)
 
-    # Final calculations
-    overtime_hours = sum(d.get('overtime_hours', 0) for d in daily_breakdown)
-    doubled = (total_late_min / 60) * multiplier
-    single = (total_early_min / 60) + (total_missing_min / 60)
-    lateness_deduction = (doubled + single) * hourly_rate if hourly_rate > 0 else 0
-    overtime_payment = overtime_hours * hourly_rate if hourly_rate > 0 else 0
+    # Final calculations, in Decimal: hours become exact decimals (the days' rounded hours), the
+    # money is rounded to the piastre once, where it is stored.
+    overtime_hours = sum((Decimal(str(d.get('overtime_hours', 0))) for d in daily_breakdown), ZERO)
+    late_hours = Decimal(total_late_min) / 60 * multiplier
+    other_hours = Decimal(total_early_min + total_missing_min) / 60
+    lateness_deduction = _cents((late_hours + other_hours) * hourly_rate)
+    overtime_payment = _cents(overtime_hours * hourly_rate)
     # Use the employee's standard shift length (not the last day's, which may be overridden)
-    std_shift_length = (end_h - start_h) if end_h > start_h else (24 - start_h + end_h)
+    std_shift_length = shift_hours(start_h, end_h)
     bonus_days = max(0, working_days - days_in_month)
-    bonus_payment = bonus_days * std_shift_length * hourly_rate if hourly_rate > 0 else 0
-    normal_hours = max(0.0, total_hours - overtime_hours)
-    base_pay = monthly_salary if normal_hours >= scheduled_hours else (monthly_salary * normal_hours / scheduled_hours if scheduled_hours > 0 else 0)
+    bonus_payment = _cents(bonus_days * std_shift_length * hourly_rate)
+    normal_hours = max(ZERO, Decimal(str(round(total_hours, 6))) - overtime_hours)
+    if normal_hours >= scheduled_hours:
+        base_pay = monthly_salary
+    else:
+        base_pay = _cents(monthly_salary * normal_hours / scheduled_hours) if scheduled_hours > 0 else ZERO
     final_salary = base_pay - lateness_deduction - deduction - advance + overtime_payment + bonus_payment + bonus
 
     return {
         'base_salary': monthly_salary,
-        'hourly_rate': round(hourly_rate, 4),
+        'hourly_rate': hourly_rate.quantize(RATE, rounding=ROUND_HALF_UP),
         'working_days': working_days,
         'actual_working_days': actual_working_days,
         'vacation_days': vacation_days,
@@ -365,15 +445,17 @@ def calculate_payroll(employee: dict, attendances: list[dict], settings: dict,
         'lateness_minutes': total_late_min,
         'early_leave_minutes': total_early_min,
         'missing_scan_minutes': total_missing_min,
-        'lateness_deduction': round(lateness_deduction, 2),
-        'overtime_hours': round(overtime_hours, 2),
-        'overtime_pay': round(overtime_payment, 2),
+        'lateness_deduction': lateness_deduction,
+        'overtime_hours': float(overtime_hours),
+        'overtime_pay': overtime_payment,
         'bonus_days': bonus_days,
-        'bonus_payment': round(bonus_payment, 2),
+        'bonus_payment': bonus_payment,
         'bonus': bonus,
         'deductions': deduction,
         'advances': advance,
-        'base_pay': round(base_pay, 2),
-        'net_salary': round(max(0, final_salary), 2),
+        'base_pay': _cents(base_pay),
+        'net_salary': _cents(max(ZERO, final_salary)),
+        'shift_length': std_shift_length,
+        'days_in_month': days_in_month,
         'daily_breakdown': daily_breakdown,
     }

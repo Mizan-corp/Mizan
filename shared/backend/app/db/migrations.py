@@ -4100,6 +4100,87 @@ MIGRATIONS = [
             END IF;
         END $$;
     """),
+
+    # Phase C, stock and purchases (PUR-4): an order is received in one or more goods receipts. Each
+    # receipt is its own document (GRN-000001), with what arrived per line (quantity, cost, batch,
+    # expiry, VAT), what was paid with it and from where; it posts its own `purchase.received`.
+    # Orders received before keep their single receipt in the order's lines.
+    ("v104_c_stock_pur", """
+        CREATE TABLE IF NOT EXISTS purchase_receipts (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                REFERENCES tenants(id) ON DELETE CASCADE,
+            receipt_number varchar(32) NOT NULL,
+            po_id uuid NOT NULL REFERENCES purchase_orders(id),
+            seq integer NOT NULL DEFAULT 1,
+            warehouse_id uuid NOT NULL REFERENCES warehouses(id),
+            supplier_id uuid REFERENCES suppliers(id) ON DELETE SET NULL,
+            total numeric(14,2) NOT NULL DEFAULT 0,
+            tax_amount numeric(14,2) NOT NULL DEFAULT 0,
+            amount_paid numeric(14,2) NOT NULL DEFAULT 0,
+            safe_id uuid REFERENCES safes(id),
+            wallet_id uuid REFERENCES payment_wallets(id),
+            prices_include_vat boolean,
+            notes text,
+            created_by uuid REFERENCES users(id) ON DELETE SET NULL,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            CONSTRAINT uq_purchase_receipts_number UNIQUE (tenant_id, receipt_number),
+            CONSTRAINT uq_purchase_receipts_seq UNIQUE (tenant_id, po_id, seq)
+        );
+        CREATE INDEX IF NOT EXISTS ix_purchase_receipts_tenant_id ON purchase_receipts (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_purchase_receipts_po_id ON purchase_receipts (po_id);
+
+        CREATE TABLE IF NOT EXISTS purchase_receipt_items (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid
+                REFERENCES tenants(id) ON DELETE CASCADE,
+            receipt_id uuid NOT NULL REFERENCES purchase_receipts(id) ON DELETE CASCADE,
+            po_item_id uuid REFERENCES purchase_order_items(id) ON DELETE SET NULL,
+            product_id uuid NOT NULL REFERENCES products(id),
+            qty numeric(12,3) NOT NULL,
+            unit_cost numeric(12,2) NOT NULL,
+            batch_number varchar(64),
+            expiry_date date,
+            tax_code varchar(16),
+            tax_rate numeric(5,2) NOT NULL DEFAULT 0,
+            tax_amount numeric(12,2) NOT NULL DEFAULT 0,
+            net_amount numeric(12,2)
+        );
+        CREATE INDEX IF NOT EXISTS ix_purchase_receipt_items_tenant_id ON purchase_receipt_items (tenant_id);
+        CREATE INDEX IF NOT EXISTS ix_purchase_receipt_items_receipt_id ON purchase_receipt_items (receipt_id);
+
+        ALTER TABLE purchase_receipts ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE purchase_receipts FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON purchase_receipts;
+        CREATE POLICY tenant_isolation ON purchase_receipts
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        ALTER TABLE purchase_receipt_items ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE purchase_receipt_items FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON purchase_receipt_items;
+        CREATE POLICY tenant_isolation ON purchase_receipt_items
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on')
+            WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
+
+    # Phase C, finance, HR and reporting. FIN-9: a recurring expense's occurrence records when its
+    # successor was made (the nightly job claims it under a row lock, so it is made once) and the
+    # occurrence a generated draft follows. HR-9: what a month's pay couldn't deduct of the
+    # advances is kept on the entry and carried to the next month as an open advance linked to the
+    # period (one per employee and period while active). HR-15: the attendance and advances lists
+    # are paged by date.
+    ("v105_c_fin_hr_rep", """
+        ALTER TABLE expenses ADD COLUMN IF NOT EXISTS recurred_at timestamptz;
+        ALTER TABLE expenses ADD COLUMN IF NOT EXISTS recurred_from uuid REFERENCES expenses(id) ON DELETE SET NULL;
+        CREATE INDEX IF NOT EXISTS ix_expenses_recurring_open ON expenses (tenant_id, date)
+            WHERE is_recurring AND recurred_at IS NULL;
+        ALTER TABLE hr_payroll_entries ADD COLUMN IF NOT EXISTS advances_carried numeric(12,2) NOT NULL DEFAULT 0;
+        ALTER TABLE hr_advances ADD COLUMN IF NOT EXISTS carried_from_period_id uuid REFERENCES hr_payroll_periods(id);
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_hr_advances_carried ON hr_advances (tenant_id, carried_from_period_id, employee_id)
+            WHERE carried_from_period_id IS NOT NULL AND status <> 'cancelled';
+        CREATE INDEX IF NOT EXISTS ix_hr_attendance_tenant_date ON hr_attendance (tenant_id, work_date);
+        CREATE INDEX IF NOT EXISTS ix_hr_advances_tenant_date ON hr_advances (tenant_id, date);
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

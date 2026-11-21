@@ -93,3 +93,42 @@ def test_purchase_reads_and_unknown_references(owner_api, product):
     assert owner_api.post("/purchases/quick-add-product", json={"name": "E2E-x", "retail_price": "-1"}).status_code == 422
     sug = owner_api.ok(owner_api.get("/purchases/suggestions"))
     assert len(sug) <= 500
+
+
+def test_partial_receipts_and_the_draft_lifecycle(owner_api, cashier_api, reg, product, supplier, wh):
+    """Phase C (PUR-4): an order received in two goods receipts (partial, then received), returns
+    limited to what arrived; drafts cancelled, deleted and edited; a partial order closed."""
+    po = owner_api.ok(owner_api.post("/purchases", json=_po_payload(product, wh, supplier, qty=10, cost="50")))
+    reg.add("purchase_order", po["id"])
+    line = owner_api.ok(owner_api.get(f"/purchases/{po['id']}"))["items"][0]
+    first = owner_api.ok(owner_api.post(f"/purchases/{po['id']}/receive", json={
+        "items": [{"item_id": line["id"], "qty_received": 4, "unit_cost": "52", "batch_number": "E2E-L1",
+                   "expiry_date": "2030-01-31"}]}))
+    assert first["status"] == "partial" and first["receipt_number"].startswith("GRN-")
+    r = owner_api.post(f"/purchases/{po['id']}/receive", json={"items": [{"item_id": line["id"], "qty_received": 7}]})
+    assert r.status_code == 400  # more than the 6 left
+    assert owner_api.post(f"/purchases/{po['id']}/returns", json={
+        "items": [{"product_id": product["id"], "qty": 5}]}).status_code == 400  # only 4 arrived
+    assert owner_api.ok(owner_api.post(f"/purchases/{po['id']}/receive", json={}))["status"] == "received"
+    detail = owner_api.ok(owner_api.get(f"/purchases/{po['id']}"))
+    assert [x["seq"] for x in detail["receipts"]] == [1, 2] and detail["receipts"][0]["items"][0]["batch_number"] == "E2E-L1"
+    assert owner_api.ok(owner_api.get("/purchases", params={"status": "received", "search": po["po_number"]}))["total"] == 1
+
+    draft = owner_api.ok(owner_api.post("/purchases", json=_po_payload(product, wh, supplier)))
+    reg.add("purchase_order", draft["id"])
+    owner_api.ok(owner_api.put(f"/purchases/{draft['id']}", json={"clear_supplier": True, "notes": "e2e"}))
+    assert owner_api.ok(owner_api.get(f"/purchases/{draft['id']}"))["supplier_id"] is None
+    assert cashier_api.post(f"/purchases/{draft['id']}/cancel").status_code == 403
+    assert owner_api.ok(owner_api.post(f"/purchases/{draft['id']}/cancel", json={"reason": "e2e"}))["status"] == "cancelled"
+    assert owner_api.delete(f"/purchases/{draft['id']}").status_code == 400  # no longer a draft
+
+    gone = owner_api.ok(owner_api.post("/purchases", json=_po_payload(product, wh, supplier)))
+    reg.add("purchase_order", gone["id"])
+    assert owner_api.delete(f"/purchases/{gone['id']}").status_code == 204
+    assert owner_api.get(f"/purchases/{gone['id']}").status_code == 404
+
+    part = owner_api.ok(owner_api.post("/purchases", json=_po_payload(product, wh, supplier, qty=3)))
+    reg.add("purchase_order", part["id"])
+    owner_api.ok(owner_api.post(f"/purchases/{part['id']}/receive", json={
+        "items": [{"product_id": product["id"], "qty_received": 1}]}))
+    assert owner_api.ok(owner_api.post(f"/purchases/{part['id']}/close"))["status"] == "received"

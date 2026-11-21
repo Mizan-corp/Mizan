@@ -84,13 +84,14 @@ and `manager` hold it. The clinical roles hold their own permissions only.
 
 | Permission | Who holds it by default | What it allows |
 |---|---|---|
-| `sales` / `pos` | cashier, manager, admin | Sell, read sales (in the branches the user is assigned; managers and `supervise` holders: all) |
+| `sales` / `pos` | cashier, manager, admin | Sell, read sales (in the branches the user is assigned; managers and `supervise` holders: all); make, edit, delete and confirm drafts |
+| `quotations` / `sales` | cashier, manager, admin | Make, edit, delete and confirm quotations (the money into one's own drawer, a safe, a wallet or on credit) |
 | `sales:return` | cashier, manager, admin | Full and partial returns; cash is refunded from the user's **own** open shift in the sale's branch |
 | `sales:cancel` | manager, admin | Cancel a confirmed sale |
 | `sales:override_price` | manager, admin | Sell at another price than the product's, only while the POS setting `allow_price_override` is on; discounts when the sales setting `allow_manual_discount` is off |
 | `sales:negative_stock` | manager, admin | Sell more than the branch's stock while the inventory setting `prevent_negative_stock` is on |
 | `shifts` / `pos` | cashier, manager, admin (pharmacist: `pos`) | Read a drawer (current shift, summary, rows, last amount): one's own, or any in reach for managers and `supervise` holders |
-| `supervise` (or the manager flag with `shifts`) | manager, admin | Approve at the counter with one's password: closing a shift with a manager, revenue delivery to a safe |
+| `supervise` (or the manager flag with `shifts`) | manager, admin | Approve at the counter with one's password: closing a shift with a manager, revenue delivery to a safe; cancel a drawer row entered by hand (it used to rest on the manager flag alone) |
 
 Manager approvals (POS-4) used to rest on `users.is_manager` alone. Now the approver's acting role
 must hold `supervise`, or the user must be flagged a manager **and** hold `shifts` (so managers
@@ -111,6 +112,7 @@ and `sales:return` respectively, so they keep what they did; workspaces' own rol
 | Opening stock by hand | `inventory:opening` | | | ✓ | ✓ |
 | Dispatch and stock requests | `operations` | ✓ | | ✓ | ✓ |
 | Cancel a dispatch (the stock goes back to the source) | `operations:cancel` | | | ✓ | ✓ |
+| Approve or reject a stock request (fulfilling an approved one needs `operations` and both warehouses) | `operations:approve` | | | ✓ | ✓ |
 | Purchase orders, receipts, purchase returns, suppliers and their prices | `purchases` | ✓ | ✓ | ✓ | ✓ |
 | Paying a supplier or charging their account, paying on receipt, a refund on a return | `finance` (with `purchases` for the order) | | ✓ | ✓ | ✓ |
 
@@ -127,8 +129,10 @@ permissions (none of the standard roles) can't any more.
 Every write on stock also needs access to the warehouse (`verify_warehouse_access`: assigned
 warehouses, or `supervise` / managers for all). Migration `v96_ready_stock_ops` gave workspaces' own
 roles holding `inventory` the new `purchases`, and those also holding `settings` `inventory:opening`;
-none got `finance` from it. `operations:cancel` is new (a dispatch couldn't be undone before), so
-workspaces' own roles get it only when their admin grants it.
+none got `finance` from it. `operations:cancel` is new (a dispatch couldn't be undone before), and so
+is `operations:approve` (phase C, OPS-4: stock requests couldn't be approved before), so workspaces'
+own roles get them only when their admin grants them. A request's maker may cancel it while it is
+pending with `operations` alone.
 
 ## 3. Permissions from the extension platform
 

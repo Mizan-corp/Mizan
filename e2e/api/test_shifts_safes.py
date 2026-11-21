@@ -119,6 +119,21 @@ def test_shift_close_with_manager(owner_api, reg, wh):
     assert closed.get("status") == "closed" or "final_amount" in closed
 
 
+def test_shift_people_and_cancelling_a_drawer_row(admin_api, reg, wh):
+    sh = open_shift(admin_api, reg, wh["id"], initial="0")
+    people = admin_api.ok(admin_api.get(f"/shifts/{sh['id']}/people"))
+    assert set(people) == {"approvers", "receivers"}
+    assert all(p["id"] != sh["cashier_id"] for p in people["receivers"])
+    tx = admin_api.ok(admin_api.post(f"/shifts/{sh['id']}/transactions", json={"amount": 12, "type": "expense"}))
+    reg.add("drawer_tx", tx["id"])
+    r = admin_api.delete(f"/shifts/transactions/{tx['id']}")
+    assert r.status_code == 204, r.text[:200]
+    rows = admin_api.ok(admin_api.get(f"/shifts/{sh['id']}/transactions"))
+    assert next(t for t in rows if t["id"] == tx["id"])["cancelled_at"]
+    assert admin_api.delete(f"/shifts/transactions/{tx['id']}").status_code == 400
+    admin_api.ok(admin_api.post(f"/shifts/{sh['id']}/close", json={"closing_balance": "0"}))
+
+
 def test_last_drawer(admin_api, reg, wh):
     open_shift(admin_api, reg, wh["id"], initial="10")
     last = admin_api.ok(admin_api.get("/shifts/last-drawer", params={"warehouse_id": wh["id"]}))

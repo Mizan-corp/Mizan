@@ -1,8 +1,10 @@
 import uuid
-from datetime import date, timedelta
+from datetime import date
+from decimal import Decimal
+from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy import or_, select, text
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -18,6 +20,8 @@ from app.activities.general.modules.sales.schemas import (
     SaleCreate,
     SaleItemUpdate,
     SaleOut,
+    SalesPage,
+    SalesSummary,
     UpdateSale,
 )
 from app.activities.general.modules.sales.services import sales as sale_service
@@ -96,11 +100,93 @@ async def confirm_draft(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), 
     return await sale_service.confirm_draft_sale(db, sale_id, current_user.id, actor=current_user)
 
 
+def _may_change(user: User, sale: Sale) -> None:
+    """Editing or deleting a document nothing was taken or paid for: a quotation with
+    `quotations` or `sales`, a draft with `sales` or `pos` (those who make them)."""
+    from app.platform.permissions.access import can
+
+    if sale.status == SaleStatus.quotation and not can(user, "quotations", "sales"):
+        raise HTTPException(403, "ليس لديك صلاحية تعديل عروض الأسعار")
+    if sale.status == SaleStatus.draft and not can(user, "sales", "pos"):
+        raise HTTPException(403, "ليس لديك صلاحية تعديل المسودات")
+
+
 @router.delete("/{sale_id}", status_code=204)
-async def delete_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("sales"))):
+async def delete_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db),
+                      current_user: User = Depends(require_perm("sales", "pos", "quotations"))):
     """Delete a draft or quotation."""
-    await _sale_in_reach(db, sale_id, current_user)
+    _may_change(current_user, await _sale_in_reach(db, sale_id, current_user))
     await sale_service.delete_draft_or_quotation(db, sale_id, current_user.id, actor=current_user)
+
+
+# What the sales screen's tabs show: invoices (sales, returns, cancelled ones) or the documents
+# nothing was taken or paid for yet (quotations and drafts).
+_KINDS = {"invoices": ("confirmed", "returned", "cancelled"), "quotations": ("quotation", "draft")}
+
+
+async def _filters(db: AsyncSession, user: User, *, from_date=None, to_date=None, cashier_id=None, warehouse_id=None,
+                   status=None, kind=None, product_search=None, search=None) -> list:
+    """The WHERE clauses of a sales list or summary (Sale joined to Customer). Days are the
+    workspace's (Africa/Cairo), the last one whole; branches are the user's (SAL-6)."""
+    from app.activities.general.modules.contacts.models.party import Customer
+    from app.platform.tenancy.clock import day_bounds
+
+    where = []
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        where.append(or_(Sale.invoice_number.ilike(term), Customer.name.ilike(term)))
+    branches = await _branches(db, user)
+    if branches is not None:
+        where.append(Sale.warehouse_id.in_(branches))
+    if warehouse_id:
+        await verify_warehouse_access(db, user, warehouse_id)
+        where.append(Sale.warehouse_id == warehouse_id)
+    start, end = day_bounds(from_date, to_date)
+    if start is not None:
+        where.append(Sale.created_at >= start)
+    if end is not None:
+        where.append(Sale.created_at < end)
+    if cashier_id:
+        where.append(Sale.cashier_id == cashier_id)
+    if status:
+        where.append(Sale.status == status)
+    if kind:
+        where.append(Sale.status.in_(_KINDS[kind]))
+    if product_search and product_search.strip():
+        term = f"%{product_search.strip()}%"
+        where.append(Sale.id.in_(select(SaleItem.sale_id).join(Product, Product.id == SaleItem.product_id)
+                                 .where(Product.name.ilike(term))))
+    return where
+
+
+async def _rows_out(db: AsyncSession, rows) -> list[dict]:
+    """The listed sales with their customer, creator and product names (one query each)."""
+    user_ids = list({sale.created_by for sale, _ in rows if sale.created_by})
+    user_names: dict = {}
+    if user_ids:
+        urows = await db.execute(text("SELECT id, full_name FROM users WHERE id = ANY(:ids)"), {"ids": user_ids})
+        user_names = {r.id: r.full_name for r in urows.fetchall()}
+    all_pids = list({i.product_id for s, _ in rows for i in (s.items or [])})
+    pnames: dict = {}
+    if all_pids:
+        prod_rows = await db.execute(text("SELECT id, name FROM products WHERE id = ANY(:ids)"), {"ids": all_pids})
+        pnames = {r.id: r.name for r in prod_rows.fetchall()}
+    result = []
+    for sale, cname in rows:
+        d = SaleOut.model_validate(sale).model_dump()
+        d["customer_name"] = cname
+        d["created_by_name"] = user_names.get(sale.created_by, "")
+        for item in d.get("items") or []:
+            item["product_name"] = pnames.get(item["product_id"], "")
+        result.append(d)
+    return result
+
+
+def _listing(where: list):
+    from app.activities.general.modules.contacts.models.party import Customer
+
+    return (select(Sale, Customer.name.label("customer_name")).outerjoin(Customer, Sale.customer_id == Customer.id)
+            .where(*where))
 
 
 @router.get("", response_model=list[SaleOut])
@@ -108,71 +194,109 @@ async def list_sales(
     from_date: date | None = None,
     to_date: date | None = None,
     cashier_id: uuid.UUID | None = None,
+    warehouse_id: uuid.UUID | None = None,
     status: SaleStatus | None = None,
-    product_search: str | None = None,
-    search: str | None = None,
+    kind: Literal["invoices", "quotations"] | None = None,
+    product_search: str | None = Query(None, max_length=200),
+    search: str | None = Query(None, max_length=200),
     page: int | None = Query(None, ge=1),
     page_size: int | None = Query(None, ge=1, le=200),
-    limit: int = Query(50, le=200),
+    limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(_read),
 ):
-    from sqlalchemy import text as sqlt
-
-    from app.activities.general.modules.contacts.models.party import Customer
+    """Sales, newest first, as a plain list (the POS widgets, the SDK). The sales screen uses
+    /sales/page, which also gives the total."""
     if page_size is not None:
         limit = page_size
     if page is not None:
         offset = (page - 1) * limit
+    where = await _filters(db, current_user, from_date=from_date, to_date=to_date, cashier_id=cashier_id,
+                           warehouse_id=warehouse_id, status=status, kind=kind, product_search=product_search,
+                           search=search)
+    q = (_listing(where).options(selectinload(Sale.items))
+         .order_by(Sale.created_at.desc(), Sale.id.desc()).limit(limit).offset(offset))
+    return await _rows_out(db, (await db.execute(q)).all())
 
-    q = select(Sale, Customer.name.label("customer_name")).outerjoin(Customer, Sale.customer_id == Customer.id)
-    q = q.options(selectinload(Sale.items)).order_by(Sale.created_at.desc()).limit(limit).offset(offset)
-    if search and search.strip():
-        term = f"%{search.strip()}%"
-        q = q.where(or_(Sale.invoice_number.ilike(term), Customer.name.ilike(term)))
-    branches = await _branches(db, current_user)
-    if branches is not None:
-        q = q.where(Sale.warehouse_id.in_(branches))
-    if from_date:
-        q = q.where(Sale.created_at >= from_date)
-    if to_date:
-        q = q.where(Sale.created_at < to_date + timedelta(days=1))  # the whole last day
-    if cashier_id:
-        q = q.where(Sale.cashier_id == cashier_id)
-    if status:
-        q = q.where(Sale.status == status)
-    if product_search:
-        term = f"%{product_search}%"
-        subq = select(SaleItem.sale_id).join(Product, Product.id == SaleItem.product_id).where(Product.name.ilike(term))
-        matching = [r[0] for r in (await db.execute(subq)).fetchall()]
-        if not matching:
-            return []
-        q = q.where(Sale.id.in_(matching))
-    rows = (await db.execute(q)).all()
-    # Get user names in one query
-    user_ids = list({str(sale.created_by) for sale, _ in rows if sale.created_by})
-    user_names: dict = {}
-    if user_ids:
-        urows = await db.execute(sqlt("SELECT id, full_name FROM users WHERE id = ANY(:ids)"), {"ids": user_ids})
-        user_names = {str(r.id): r.full_name for r in urows.fetchall()}
-    # Get product names for items
-    items_list = [i for s, _ in rows for i in (s.items or [])]
-    all_pids = list({i.product_id for i in items_list})
-    pnames = {}
-    if all_pids:
-        prod_rows = await db.execute(sqlt("SELECT id, name FROM products WHERE id = ANY(:ids)"), {"ids": [str(p) for p in all_pids]})
-        pnames = {str(r.id): r.name for r in prod_rows.fetchall()}
-    result = []
-    for sale, cname in rows:
-        d = SaleOut.model_validate(sale).model_dump()
-        d['customer_name'] = cname
-        d['created_by_name'] = user_names.get(str(sale.created_by), '')
-        for item in d.get('items') or []:
-            item['product_name'] = pnames.get(str(item['product_id']), '')
-        result.append(d)
-    return result
 
+@router.get("/page", response_model=SalesPage)
+async def page_sales(
+    from_date: date | None = None,
+    to_date: date | None = None,
+    cashier_id: uuid.UUID | None = None,
+    warehouse_id: uuid.UUID | None = None,
+    status: SaleStatus | None = None,
+    kind: Literal["invoices", "quotations"] | None = None,
+    product_search: str | None = Query(None, max_length=200),
+    search: str | None = Query(None, max_length=200),
+    page: int = Query(1, ge=1, le=100000),
+    page_size: int = Query(25, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(_read),
+):
+    """One page of the sales screen with the number of documents the filter matches: every
+    filter (the tab, dates, search) is applied on the server before paging (SAL-11)."""
+    where = await _filters(db, current_user, from_date=from_date, to_date=to_date, cashier_id=cashier_id,
+                           warehouse_id=warehouse_id, status=status, kind=kind, product_search=product_search,
+                           search=search)
+    from app.activities.general.modules.contacts.models.party import Customer
+
+    total = (await db.execute(select(func.count()).select_from(Sale)
+                              .outerjoin(Customer, Sale.customer_id == Customer.id).where(*where))).scalar_one()
+    q = (_listing(where).options(selectinload(Sale.items))
+         .order_by(Sale.created_at.desc(), Sale.id.desc()).limit(page_size).offset((page - 1) * page_size))
+    return {"items": await _rows_out(db, (await db.execute(q)).all()), "total": total, "page": page,
+            "page_size": page_size}
+
+
+@router.get("/summary", response_model=SalesSummary)
+async def sales_summary(
+    from_date: date | None = None,
+    to_date: date | None = None,
+    cashier_id: uuid.UUID | None = None,
+    warehouse_id: uuid.UUID | None = None,
+    search: str | None = Query(None, max_length=200),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(_read),
+):
+    """The figures of the sales screen's cards, counted as the reports count them (ADR-014 D4,
+    D6): a document's value is its net_total less its VAT; sales are the confirmed invoices,
+    returns the return documents made in the period, taken off. `outstanding` is what is still
+    owed on the credit invoices listed (after their returns and payments)."""
+    from app.activities.general.modules.contacts.models.party import Customer
+
+    where = await _filters(db, current_user, from_date=from_date, to_date=to_date, cashier_id=cashier_id,
+                           warehouse_id=warehouse_id, search=search)
+    value = func.coalesce(Sale.net_total, 0) - func.coalesce(Sale.tax_amount, 0)
+    confirmed = Sale.status == SaleStatus.confirmed
+    is_return = and_(Sale.status == SaleStatus.returned, Sale.return_of.isnot(None))
+    owed = func.greatest(func.coalesce(Sale.net_total, 0) - func.coalesce(Sale.returns_total, 0)
+                         - func.coalesce(Sale.paid_amount, 0), 0)
+    row = (await db.execute(
+        select(
+            func.count().filter(confirmed).label("invoices"),
+            func.count().filter(is_return).label("returns"),
+            func.count().filter(Sale.status == SaleStatus.cancelled).label("cancelled"),
+            func.count().filter(Sale.status == SaleStatus.quotation).label("quotations"),
+            func.count().filter(Sale.status == SaleStatus.draft).label("drafts"),
+            func.coalesce(func.sum(value).filter(confirmed), 0).label("sales"),
+            func.coalesce(func.sum(value).filter(is_return), 0).label("returned"),
+            func.coalesce(func.sum(func.coalesce(Sale.tax_amount, 0)).filter(confirmed), 0).label("tax"),
+            func.coalesce(func.sum(func.coalesce(Sale.tax_amount, 0)).filter(is_return), 0).label("tax_returned"),
+            func.coalesce(func.sum(owed).filter(and_(confirmed, Sale.is_credit.is_(True))), 0).label("owed"),
+        ).select_from(Sale).outerjoin(Customer, Sale.customer_id == Customer.id).where(*where)
+    )).one()
+    cent = Decimal("0.01")
+    return {
+        "net_sales": (Decimal(row.sales) - Decimal(row.returned)).quantize(cent),
+        "gross_sales": Decimal(row.sales).quantize(cent),
+        "returns_total": Decimal(row.returned).quantize(cent),
+        "tax_total": (Decimal(row.tax) - Decimal(row.tax_returned)).quantize(cent),
+        "outstanding": Decimal(row.owed).quantize(cent),
+        "invoice_count": row.invoices, "returns_count": row.returns, "cancelled_count": row.cancelled,
+        "quotation_count": row.quotations, "draft_count": row.drafts,
+    }
 
 
 @router.post("/quotations", response_model=SaleOut)
@@ -184,12 +308,14 @@ async def create_quotation(data: SaleCreate, db: AsyncSession = Depends(get_db),
 
 @router.post("/{sale_id}/confirm-quotation", response_model=SaleOut)
 async def confirm_quotation(sale_id: uuid.UUID, data: ConfirmQuotationRequest | None = None, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("quotations", "sales"))):
-    """تحويل عرض السعر إلى فاتورة مبيعات مؤكدة — المقبوض يذهب إلى درج أو خزنة."""
+    """A quotation becomes a confirmed sale; its money goes into the user's own open shift's
+    drawer, a safe, a wallet, or the customer's account."""
     await _sale_in_reach(db, sale_id, current_user)
     return await sale_service.confirm_quotation(
         db, sale_id, current_user.id,
         destination=data.destination if data else "drawer",
         safe_id=data.safe_id if data else None,
+        wallet_id=data.wallet_id if data else None,
         actor=current_user,
     )
 
@@ -325,9 +451,10 @@ async def get_sale(sale_id: uuid.UUID, db: AsyncSession = Depends(get_db), curre
 
 
 @router.put("/{sale_id}")
-async def update_sale(sale_id: uuid.UUID, data: UpdateSale, db: AsyncSession = Depends(get_db), current_user: User = Depends(require_perm("quotations"))):
-    """Edit a quotation (status=quotation only)."""
-    await _sale_in_reach(db, sale_id, current_user)
+async def update_sale(sale_id: uuid.UUID, data: UpdateSale, db: AsyncSession = Depends(get_db),
+                      current_user: User = Depends(require_perm("sales", "pos", "quotations"))):
+    """Edit a quotation or a draft; confirmed documents are cancelled or returned, never edited."""
+    _may_change(current_user, await _sale_in_reach(db, sale_id, current_user))
     await sale_service.update_quotation(db, sale_id, data, current_user.id, actor=current_user)
     return {"id": str(sale_id)}
 

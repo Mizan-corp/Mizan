@@ -32,17 +32,31 @@ paid one never.
   period's `approved_amount`, and posts `payroll.approved`. Pay moves exactly `approved_amount` out of
   the chosen safe or wallet (refused with 409 if the entries no longer add up to it) and leaves the
   expense's amount alone; it posts `payroll.paid`. Reopen cancels the expense and posts
-  `payroll.reopened` (the approval is reversed).
+  `payroll.reopened` (the approval is reversed). A month whose nets are all zero but whose salaries
+  were earned (an advance recovered from them) still gets its expense (of 0) and its ledger entry.
 
 ## Entries (`hr_payroll_entries`)
 
 Calculated by `services/payroll_engine.py` from attendance, the employee's shift and the HR
 settings. `base_pay` is the base salary prorated to the hours worked; the net is
 `base_pay − lateness − deductions − advances + overtime + extra days + bonus (+ drawer variance)`,
-never below zero. A manager's adjustments (`PUT /hr/payroll/{id}`: bonus, deductions, drawer
+never below zero. Money is `Decimal` end to end (the engine included), rounded half up to the
+piastre where it is stored; hours are numbers of hours. A manager's adjustments (`PUT /hr/payroll/{id}`: bonus, deductions, drawer
 variance, notes; no `status`) compose the net the same way, while the month is draft or in review.
 A recalculation replaces bonus and deductions with the month's records and keeps the drawer
 variance and notes.
+
+## Advances the month can't cover (HR-9)
+
+The advances are deducted from what the month pays (`services/payroll.settle`). When they exceed
+it, the net is 0 and the rest is `advances_carried` on the entry. Approving the month makes it an
+open advance of the next month (`hr_advances`, record type سلفة, dated the next month's first day,
+`carried_from_period_id` = the period; no cash moves, nothing is posted), which that month deducts
+like any other. The ledger's approval entry recovers only what was deducted
+(`advances − advances_carried`), so the employee's balance in employee advances is exactly what is
+carried. A carried advance is cancelled only by reopening the month it came from (its cancel route
+is a 409), and that month can't be reopened once the next one is approved or paid. Approving a month
+whose carry would land in an approved or paid month is a 409.
 
 ## Attendance
 
@@ -58,20 +72,45 @@ workspace before any money moves. `POST /hr/advances/{id}/cancel` cancels a reco
 an advance's cash goes back to its safe or wallet (`hr_advance_cancel`) and its entry is reversed
 (`hr_advance.cancelled`); payroll ignores cancelled records.
 
+## Lists
+
+`GET /hr/attendance` and `GET /hr/advances` (filters `employee_id`, `month`) and `GET /hr/audit-log`
+(`entity_type`) are paged: `{items, total, page, page_size}`, `page_size` up to 200, newest first.
+`GET /hr/employees?include_inactive=true` lists the stopped employees too (with `payroll`), each
+with its shift's name. `GET /hr/payroll/{id}/breakdown` gives the entry's days and how its net was
+composed.
+
+## Shifts
+
+`GET /hr/shifts` (every shift, with how many active employees work it), `POST`, `PUT /hr/shifts/{id}`
+(the fields sent), `DELETE /hr/shifts/{id}` (an unused shift is deleted; one an employee or an
+attendance day names is stopped). An employee's shift is chosen from them (`shift_id`, checked in
+the workspace: 404 otherwise) or typed (`shift_schedule`, "09:00-17:00"); the chosen one wins. The
+engine counts whole hours (the minutes of a shift's times are ignored).
+
 ## Reports
 
 `/hr/payroll/report/monthly`, `/hr/payroll/report/employee/{id}` (`report_type=detailed|ticket`)
 and `/hr/attendance/report` render from the stored entries and their daily breakdown; an approved or
 paid month only from them. A month not calculated yet is previewed with the engine. Every text is
-HTML-escaped (`printing.routes.h`).
+HTML-escaped (`printing.routes.h`). Amounts carry the workspace's currency (store settings
+`currency`, an ISO code shown by its Arabic short name; the Egyptian pound when unset); the
+attendance report marks the workspace's weekend day; a payslip shows the advance carried to the
+next month.
 
-## Settings (`PUT /hr/settings`)
+## Settings (`GET` / `PUT /hr/settings`)
 
-Typed: `days_in_month` (1–31), `grace_period_minutes`, `late_penalty_multiplier`,
-`missing_checkout_penalty_hours`, `apply_missing_checkout_penalty`, `overtime_enabled`,
-`weekend_paid`; anything else is a 422. A bad stored value falls back to the default. Each
-workspace has its own values (`(tenant_id, key)` is unique; migration `v102_b_platform` removed the
-baseline's primary key on `key` alone, which let only one workspace save a setting of a name).
+Typed (`services/payroll_engine.SETTINGS`), each with its default, the value that used to be fixed
+(HR-12): `days_in_month` (26; also the reports' month), `grace_period_minutes` (10),
+`late_penalty_multiplier` (2), `missing_checkout_penalty_hours` (2),
+`apply_missing_checkout_penalty`, `overtime_enabled`, `weekend_paid` (on), `weekend_day` (Python's
+weekday, Friday 4), `day_start_hour` (5: a punch before it belongs to the previous day),
+`paid_leave_days` (4 a month), `default_shift_start_hour` / `default_shift_end_hour` (9 and 21, for
+an employee without a shift). `GET` returns them all, typed; anything else is a 422, and a bad stored
+value falls back to the default. Each workspace has its own values (`(tenant_id, key)` is unique;
+migration `v102_b_platform` removed the baseline's primary key on `key` alone, which let only one
+workspace save a setting of a name). The manifest's unused `standard_work_hours` was removed (the
+hours come from the shifts and the default shift).
 
 The default month, "today" (the last day counted in the current month, an advance's date) and the
 dates printed on reports come from the workspace's clock (`app/platform/tenancy/clock.py`), not the
@@ -79,12 +118,23 @@ server's.
 
 ## Tests
 
-`system/backend/tests/test_hr_ready.py`, `test_money_flows_finance.py`, `test_accounting_postings_2.py`;
+`system/backend/tests/test_hr_ready.py`, `test_c_hr.py`, `test_money_flows_finance.py`, `test_accounting_postings_2.py`;
 `e2e/api/test_hr.py`, `test_periods.py`, `test_security.py`, `test_sessions.py`.
+
+## Screens
+
+`/hr` (`system/frontend/src/activities/general/modules/hr/HrPage.tsx`, tabs in `components/`):
+employees (create, edit with hire date and shift, stop and bring back, an employee's detailed report
+or payslip for a month), attendance (paged by month and employee, a day entered or corrected by
+hand, the CSV import with its result, the month's report), advances / deductions / bonuses (paged,
+Arabic types and statuses, carried ones marked), shifts, the payroll settings, the audit log.
+`/hr/payroll` (`PayrollPage.tsx`): the month's steps with Arabic statuses (a period that can't be
+read is an error, not a draft), each entry's adjustments (draft or review) and its days, the carried
+advances, reopening with a confirmation. Money shows the workspace's currency.
 
 ## Known limits
 
-Still hard-coded: Friday weekend, the 5 am day rollover, 4 paid leave days, the Egypt time zone
-(HR-12). Lists aren't paged (HR-13). The audit log covers salary changes, entry edits and advances
-(HR-14). Unrecovered advances are dropped when the net is clamped at zero (HR-9). Missing screens:
-employee edit/deactivate, shifts, settings, CSV import, audit log, adjustments (HR-15).
+Still fixed: the Egypt time zone. The engine counts shifts in whole hours. The audit log covers
+salary changes, entry edits and advances (HR-14); employees' other edits and stops aren't logged.
+The employees list isn't paged (HR-13). A carried advance of an employee who is stopped before the
+next month waits in the advances list (and the ledger) until the employee is active again.

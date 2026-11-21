@@ -86,6 +86,21 @@ def _listed_price(product, sale_mode) -> Decimal:
     return retail
 
 
+async def fill_listed_prices(db: AsyncSession, items, sale_mode) -> None:
+    """Lines sent without a price (an edited draft or quotation) take the product's price now."""
+    missing = [i for i in items if i.unit_price is None]
+    if not missing:
+        return
+    rows = {r.id: r for r in (await db.execute(text(
+        "SELECT id, retail_price, wholesale_price FROM products WHERE id = ANY(:ids)"
+    ), {"ids": list({i.product_id for i in missing})})).all()}
+    for item in missing:
+        product = rows.get(item.product_id)
+        if product is None:
+            raise NotFoundError("الصنف غير موجود")
+        item.unit_price = _listed_price(product, sale_mode)
+
+
 async def check_prices(db: AsyncSession, items, sale_mode, invoice_discount, actor) -> None:
     """Every line is a product of this workspace sold at its price, and discounts are allowed
     (SAL-1). `items` have product_id, unit_price and discount."""

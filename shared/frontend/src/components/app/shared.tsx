@@ -71,7 +71,7 @@ export function StatCard({
         <span className="text-xs font-medium">{label}</span>
         {Icon && (
           <div className={cn(
-            "flex size-7 items-center justify-center rounded-lg bg-muted text-muted-foreground",
+            "flex size-7 items-center justify-center rounded-lg bg-secondary text-secondary-foreground",
             tone === 'success' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
             tone === 'warning' && 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
             tone === 'destructive' && 'bg-destructive/15 text-destructive-ink'
@@ -302,7 +302,7 @@ const STATUS_PILL: Record<string, string> = {
   warning: 'bg-warning/20 text-warning-ink',
   destructive: 'bg-destructive/15 text-destructive-ink',
   info: 'bg-chart-4/15 text-chart-4',
-  secondary: 'bg-muted text-muted-foreground',
+  secondary: 'bg-secondary text-secondary-foreground',
   outline: 'border border-border text-muted-foreground',
 }
 

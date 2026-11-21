@@ -86,6 +86,8 @@ class HrPayrollEntry(TenantScoped, Base):
     bonus: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True, default=0)
     deductions: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     advances: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    # The part of `advances` the month's pay couldn't cover, carried to the next month (HR-9).
+    advances_carried: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0, server_default="0")
     drawer_variance: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     net_salary: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     hourly_rate: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
