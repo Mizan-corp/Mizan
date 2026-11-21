@@ -78,13 +78,19 @@ A module is ready when all of these hold:
   (partial receipts as GRN documents, one ledger entry each), OPS-4, pharmacy batches through purchases;
   FIN-9 (strict safe balance, recurring expenses that recur), FIN-14, HR-9 (carried advances), HR-12,
   HR-15, and the reporting screens (profit, cash flow from the ledger, aging, overview, ledgers).
-- **Phase D** (2026-11-20): the route security sweep (`tests/test_route_security_sweep.py`: every route
+- **Phase D** (#167, 2026-11-20): the route security sweep (`tests/test_route_security_sweep.py`: every route
   signed in or on a reviewed allow-list, permission denials, cross-workspace reads) and the 15 holes it
   found (module settings exposing secrets, 29 activity modules open to any signed-in user, notifications
   spoofing, customer balances to everyone, demo seeds crashing every workspace but the first, …);
   ACC-2 (accounting e2e); the receipt cancel that left invoices paid; partial module-settings saves;
   collections as an assembly helper (not sold); HR-13, HR-14; ACC-1 (journal numbers from a counter);
   PLAT-9; idempotency keys cleaned nightly.
+
+**In production (2026-11-21):** phases B, C and D were released on 2026-11-21 (release `607534cd`,
+migrations through `v107_d_fixes`; latitude's standby replicated). The phase B release first failed twice:
+after the move to Mizan-corp the images still went to `ghcr.io/ammar0xff` (fixed by #165), then the
+pre-release backup couldn't write because homie's `media` partition hadn't been mounted since the
+2026-11-19 boot (mounted again; docker now waits for `/mnt/media`).
 
 **Status after phase D:** every finding of the 2026-11-17 audit for the 11 built modules is closed or
 recorded as a known limit below. Known limits kept on purpose: collections can't be sold (a bundle needs a
