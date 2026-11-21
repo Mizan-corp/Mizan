@@ -14,7 +14,7 @@ on tags).
 
 **The CI runner** (`latitude-e6530:~/mizan-runner/compose.yaml`): `docker compose up -d` starts it,
 `docker compose logs -f runner` follows it. It registered once with a token from
-`gh api -X POST repos/ammar0xff/Mizan/actions/runners/registration-token` (kept in `runner.env`);
+`gh api -X POST repos/mizan-corp/Mizan/actions/runners/registration-token` (kept in `runner.env`);
 the registration is kept in a volume across restarts. If the laptop is off, CI waits until it is
 back, and so does the release. Free disk now and then:
 `docker compose exec dind docker system prune -af`.

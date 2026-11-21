@@ -132,7 +132,7 @@ MIZAN_MODE=lan MIZAN_WEB_DIR=/tmp/mizan-web MIZAN_CLOUD_URL=http://localhost:800
 ## Phase 2 — what's built
 
 Released as **Mizan Setup v1.0.0** for Windows and Linux
-([mizan-releases](https://github.com/ammar0xff/mizan-releases)); details in
+([mizan-releases](https://github.com/mizan-corp/mizan-releases)); details in
 [`installer/README.md`](../../installer/README.md).
 
 - `installer/server/mizan_server/`: **mizan-server**: the install engine (JSON progress for

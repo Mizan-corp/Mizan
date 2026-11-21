@@ -45,7 +45,7 @@ Download. The workspace page lists the installed devices and when they last chec
 
 **Download** (`DownloadDialog.tsx`, `GET /account/workspaces/{id}/download`) gives:
 - **Mizan Setup** for Windows and Linux, listed from `MIZAN_INSTALLERS` on the owner API
-  (links to the public [mizan-releases](https://github.com/ammar0xff/mizan-releases); see
+  (links to the public [mizan-releases](https://github.com/mizan-corp/mizan-releases); see
   `shared/backend/app/core/releases.py` and `installer/README.md`). Unset, the dialog says
   the installer is being prepared.
 - **The licence file** "Mizan - <workspace>.mzn" (made in the browser from the key). Saved

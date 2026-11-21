@@ -10,7 +10,7 @@
 An Arabic-first, multi-tenant ERP that shapes itself around the business using it,
 whether that's a corner shop, a restaurant, a pharmacy, a hotel or a factory.
 
-[![CI/CD](https://github.com/ammar0xff/Mizan/actions/workflows/ci.yml/badge.svg)](https://github.com/ammar0xff/Mizan/actions/workflows/ci.yml)
+[![CI/CD](https://github.com/mizan-corp/Mizan/actions/workflows/ci.yml/badge.svg)](https://github.com/mizan-corp/Mizan/actions/workflows/ci.yml)
 &nbsp;![RTL](https://img.shields.io/badge/Arabic-RTL%20first-651E2C)
 &nbsp;![Stack](https://img.shields.io/badge/FastAPI%20·%20React%2019%20·%20PostgreSQL-262321)
 
@@ -166,7 +166,7 @@ in the URL fragment: signing up on the website opens the owner panel, and "Open 
 | **Backend** | Python 3.12 · FastAPI · SQLAlchemy 2.0 (async) · Pydantic v2 · PostgreSQL 18 |
 | **Frontend** | React 19 · TypeScript (strict) · Vite · Tailwind CSS v4 · shadcn/ui on Base UI · TanStack Query · Zustand · Motion · Recharts |
 | **Hosting** | Mizan's own server with Docker Compose (the four APIs in one process, nginx for the apps, PostgreSQL), behind Cloudflare (DNS, TLS, tunnel) on `allmizan.live` ([ADR-011](docs/decisions/ADR-011-self-hosted-production.md), [ADR-008](docs/decisions/ADR-008-one-domain.md)) · Docker Compose for local development |
-| **On site** | Mizan Setup (Tauri 2 + React) · `mizan-server` (the API packaged with PyInstaller) · PostgreSQL 16 bundled · systemd or a Windows service · releases in [mizan-releases](https://github.com/ammar0xff/mizan-releases) |
+| **On site** | Mizan Setup (Tauri 2 + React) · `mizan-server` (the API packaged with PyInstaller) · PostgreSQL 16 bundled · systemd or a Windows service · releases in [mizan-releases](https://github.com/mizan-corp/mizan-releases) |
 
 ### Five ideas that hold it together
 
@@ -282,7 +282,7 @@ The full canon lives in [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md),
 | 🚧 **Deployment modes, next** | Checks on real tills (#88) · encrypted cloud backup (#117) · bring your own database (#91, designed in ADR-009) · Windows code signing (#93) |
 | 🗺️ **Planned** | Egyptian Tax Authority e-invoicing · loyalty points · full hospital suite (EMR, inpatient, radiology, theatre) |
 
-Open work (features, tests, chores, manual follow-ups) is tracked in [GitHub issues](https://github.com/ammar0xff/Mizan/issues).
+Open work (features, tests, chores, manual follow-ups) is tracked in [GitHub issues](https://github.com/mizan-corp/Mizan/issues).
 The high-level roadmap lives in [`TASKS.md`](TASKS.md) and [`docs/DEVELOPMENT_ROADMAP.md`](docs/DEVELOPMENT_ROADMAP.md).
 Independent audits, and what was fixed after them, live in [`docs/audit/`](docs/audit/).
 
@@ -371,7 +371,7 @@ before its migrations, and a failed migration stops the release.
 - The four APIs share one database and one `SECRET_KEY`; production settings live in
   `/srv/mizan/mizan.env` on the server (`deploy/server/README.md`).
 - **Installers ship separately**: a `v*` tag builds them and publishes to the public
-  [mizan-releases](https://github.com/ammar0xff/mizan-releases); the owner panel links there
+  [mizan-releases](https://github.com/mizan-corp/mizan-releases); the owner panel links there
   through `MIZAN_INSTALLERS` on `mizan-owner-api`. See [`installer/README.md`](installer/README.md#publishing).
 
 ---

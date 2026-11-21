@@ -1,6 +1,6 @@
 # ميزان (Mizan) — Roadmap & Delivery Status
 
-Current as of 2026-11-13. **Open work is tracked in [GitHub issues](https://github.com/ammar0xff/Mizan/issues)**; this file is the high-level summary of what has shipped.
+Current as of 2026-11-13. **Open work is tracked in [GitHub issues](https://github.com/mizan-corp/Mizan/issues)**; this file is the high-level summary of what has shipped.
 
 ## 0. Priority plan (updated 2026-11-13)
 

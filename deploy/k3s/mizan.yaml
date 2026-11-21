@@ -117,7 +117,7 @@ spec:
       securityContext: {runAsUser: 10001, runAsGroup: 10001, fsGroup: 10001}
       containers:
         - name: api
-          image: ghcr.io/ammar0xff/mizan-api:MIZAN_TAG
+          image: ghcr.io/mizan-corp/mizan-api:MIZAN_TAG
           imagePullPolicy: IfNotPresent
           envFrom: [{secretRef: {name: mizan-env}}]
           env:   # as in deploy/server/compose.yaml
@@ -161,7 +161,7 @@ spec:
       imagePullSecrets: [{name: ghcr}]
       containers:
         - name: web
-          image: ghcr.io/ammar0xff/mizan-web:MIZAN_TAG
+          image: ghcr.io/mizan-corp/mizan-web:MIZAN_TAG
           imagePullPolicy: IfNotPresent
           ports: [{containerPort: 8080}]
           readinessProbe: {tcpSocket: {port: 8080}, periodSeconds: 10}
