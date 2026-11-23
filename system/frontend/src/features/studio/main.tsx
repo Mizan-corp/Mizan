@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DRAFT_KEY, PROFILE_KEY, initialProject, loadDraft, moveSection, safeImage, validateProject, type Device, type Project, type Section } from './model';
 import './studio.css';
+import NativeStudio from './NativeStudio';
 import ChromeInspector from './ChromeInspector';
 import { previewPayload, toPageTree, sectionNodePrefix } from './pagetree';
 import TreePreview from './treerender';
@@ -164,4 +165,4 @@ function Studio() {
     </div>
   </div>;
 }
-createRoot(document.getElementById('root')!).render(<Studio />);
+createRoot(document.getElementById('root')!).render(new URLSearchParams(location.search).get('editor') === 'tree' ? <NativeStudio/> : <Studio />);
