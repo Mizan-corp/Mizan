@@ -61,3 +61,29 @@ describe('fromPageTree', () => {
     expect(() => fromPageTree(noHeading, initialProject)).toThrow();
   });
 });
+
+it('preserves literal entity-looking plain heading and button text', () => {
+  const p = structuredClone(initialProject);
+  p.sections[0].title = 'Literal &amp; and &lt;text&gt;';
+  p.sections[0].button = 'Buy &amp; keep';
+  expect(roundTrip(p).sections[0].title).toBe(p.sections[0].title);
+  expect(roundTrip(p).sections[0].button).toBe(p.sections[0].button);
+});
+
+it('rejects all values the narrow editor would drop, without changing input', () => {
+  const mutations = [
+    (t: ReturnType<typeof toPageTree>) => { t.settings.desktop.padding = 's'; },
+    (t: ReturnType<typeof toPageTree>) => { const c=t.children![0].children![0].children!; c.push(structuredClone(c[0])); },
+    (t: ReturnType<typeof toPageTree>) => { t.children![0].children![0].children![3].content.en.href = '/real-checkout'; },
+    (t: ReturnType<typeof toPageTree>) => { t.children![0].children![0].children![1].content.ar = {text:'ترجمة'}; },
+    (t: ReturnType<typeof toPageTree>) => { t.children![0].children![1].children![0].content.en.alt = 'Meaningful alt'; },
+    (t: ReturnType<typeof toPageTree>) => { t.children![0].children![0].children![2].content.en.html = '<p><strong>Keep markup</strong></p>'; },
+    (t: ReturnType<typeof toPageTree>) => { t.children![0].settings.mobile.gap = 's'; },
+  ];
+  for (const mutate of mutations) {
+    const tree = toPageTree(initialProject); mutate(tree);
+    const before = JSON.stringify(tree);
+    expect(() => fromPageTree(tree, initialProject)).toThrow();
+    expect(JSON.stringify(tree)).toBe(before);
+  }
+});
