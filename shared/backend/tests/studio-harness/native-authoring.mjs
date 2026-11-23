@@ -73,9 +73,9 @@ window.fetch=async(url,init={})=>{
  const id=String(url).includes('native-two')?'native-two':'native-one';const i=id==='native-two'?1:0;
  const trees=JSON.parse(sessionStorage.getItem('native-fixtures'));
  window.__calls.push({url:String(url),method:init.method||'GET',body:init.body?JSON.parse(init.body):null});
- if(init.method==='PUT'){const body=JSON.parse(init.body);if(Object.keys(body).join()!=='tree')throw Error('extra write fields');trees[i]=body.tree;sessionStorage.setItem('native-fixtures',JSON.stringify(trees));}
+ if(init.method==='PUT'){const body=JSON.parse(init.body);if(Object.keys(body).sort().join()!=='expected_token,tree')throw Error('extra write fields');trees[i]=body.tree;sessionStorage.setItem('native-fixtures',JSON.stringify(trees));}
  const draft=new URL(location.href).searchParams.has('unsupported')?{...trees[i],type:'canvas'}:trees[i];
- return new Response(JSON.stringify({id,slug:id,titles:{en:'Independent page title',ar:'عنوان الصفحة'},status:'draft',draft_tree:draft,published_tree:null}),{status:200,headers:{'Content-Type':'application/json'}});
+ return new Response(JSON.stringify({id,slug:id,titles:{en:'Independent page title',ar:'عنوان الصفحة'},status:'draft',edit_token:'a'.repeat(64),draft_tree:draft,published_tree:null}),{status:200,headers:{'Content-Type':'application/json'}});
 };`});
 async function load(id,extra=''){await send('Page.navigate',{url:'http://127.0.0.1:5188/studio.html?editor=tree&page='+id+extra});await sleep(350);await waitFor(`!!document.querySelector('.native-node') || !!document.querySelector('[role="alert"]')`);}
 async function click(text){await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent===${JSON.stringify(text)}).click()`);await sleep(100);}
