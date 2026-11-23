@@ -77,13 +77,13 @@ window.fetch=async(url,init={})=>{
  return new Response(JSON.stringify({id:'native-one',slug:'native-one',titles:{en:'Original page'},status:'draft',draft_tree:JSON.parse(sessionStorage.getItem('structure-tree')),published_tree:null}),{status:200});
 };`});
 await send('Page.navigate',{url:'http://127.0.0.1:5188/studio.html?editor=tree&page=native-one'});await sleep(400);await waitFor(`!!document.querySelector('.native-node')`);
-async function selectType(type){await evaluate(`[...document.querySelectorAll('.native-node')].find(b=>b.querySelector('b').textContent===${JSON.stringify(type)}).click()`);await sleep(80);}
+async function selectType(type){await evaluate(`[...document.querySelectorAll('.native-node')].find(b=>b.dataset.nodeType===${JSON.stringify(type)}).click()`);await sleep(80);}
 async function click(text){await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent===${JSON.stringify(text)}).click()`);await sleep(80);}
-await selectType('column');await click('+ Add heading');
+await selectType('column');await click('+ Add Heading');
 const newId=await evaluate(`document.querySelector('.native-id').textContent`);
 await evaluate(`(()=>{const e=document.querySelector('[aria-label="Native text"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'New no-code section heading');e.dispatchEvent(new Event('input',{bubbles:true}));})()`);await sleep(100);
 await click('Move earlier');await click('Remove selected subtree');await click('Undo');
-if(!(await evaluate(`[...document.querySelectorAll('.native-node small')].some(e=>e.textContent===${JSON.stringify(newId)})`)))throw Error('undo lost added ID');
+if(!(await evaluate(`[...document.querySelectorAll('.native-node')].some(e=>e.dataset.nodeId===${JSON.stringify(newId)})`)))throw Error('undo lost added ID');
 await selectType('text');
 await evaluate(`(()=>{const e=document.querySelector('[aria-label="Native rich text"]');e.innerHTML='<p><strong>No-code formatted copy</strong></p>';e.dispatchEvent(new Event('input',{bubbles:true}));})()`);await sleep(100);
 await evaluate(`(()=>{const e=document.querySelector('[aria-label="Native rich text"]');e.focus();const r=document.createRange();r.selectNodeContents(e);const selection=getSelection();selection.removeAllRanges();selection.addRange(r);})()`);
