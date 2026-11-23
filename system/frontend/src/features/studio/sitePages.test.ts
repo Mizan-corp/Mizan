@@ -198,3 +198,11 @@ describe('site-wide settings across distinct page trees', () => {
     expect(settingsPayload(initialProject).footer?.links).toBeUndefined();
   });
 });
+
+it('preserves an existing page title independently of the global brand on draft save', async () => {
+  const {calls,fetchImpl} = mockFetch(200,{});
+  const client = createSitePagesClient({baseUrl:'',fetchImpl});
+  await client.saveDraft('stable-page-id', {...initialProject,name:'Changed global brand'}, {en:'Original page title'});
+  expect(calls[0].input).toBe('/site/pages/stable-page-id/draft');
+  expect(JSON.parse(String(calls[0].init?.body)).titles).toEqual({en:'Original page title'});
+});
