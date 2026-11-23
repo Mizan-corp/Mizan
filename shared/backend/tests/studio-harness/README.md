@@ -23,3 +23,8 @@ storage in the isolated browser profile. Start local Vite and Chromium CDP on 92
 then run STUDIO_OUT=/path/to/existing/output node chrome-controls.mjs. Browser-only
 persistence, not an API e2e or full-app test. run_db_tests.py now has 15 checks,
 including two persisted pages rendering one shared settings record.
+
+protected-page.mjs: MOCKED backend unsupported-tree regression, checks a visible
+protection warning, absent backend save/publish controls and zero API writes.
+Uses local Vite + isolated Chromium CDP on 9222. Clears that profile's localStorage.
+Not a live backend or full-app test. STUDIO_OUT selects the screenshot directory.
