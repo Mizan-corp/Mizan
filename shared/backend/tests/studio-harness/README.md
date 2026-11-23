@@ -38,3 +38,8 @@ save-snapshot.mjs: MOCKED delayed API regression for serialized save/publish,
 newer edits while operations run, dirty publish refusal, partial settings failure
 and retry. Uses isolated local Vite/Chromium CDP, clears localStorage, overrides
 confirmation only in that test page. Not atomicity or cross-session validation.
+
+leave-guard.mjs: mocked offline/local quota-failure test for distinct browser vs
+backend status, dirty synthetic beforeunload cancellation, retained edits and retry.
+Native browser dialog is NOT tested. Prompts are browser-dependent and best effort.
+No automatic saves. Use isolated local Vite/Chromium CDP as above.
