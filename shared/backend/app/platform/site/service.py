@@ -11,6 +11,7 @@ transaction, and raise HTTPException with an Arabic message for the user
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import uuid
@@ -58,8 +59,22 @@ def check_slug(slug) -> str:
     return slug
 
 
-async def get_page(db: AsyncSession, page_id: uuid.UUID) -> SitePage:
-    page = await db.get(SitePage, page_id)
+def page_token(page: SitePage) -> str:
+    """Opaque snapshot token. Equality is checked only after a fresh locked read."""
+    snapshot = {"id": str(page.id), "status": page.status, "titles": page.titles,
+                "draft": page.draft_tree, "published": page.published_tree,
+                "updated_at": page.updated_at.isoformat() if page.updated_at else None}
+    return hashlib.sha256(json.dumps(snapshot, sort_keys=True, ensure_ascii=False,
+                                     separators=(",", ":")).encode()).hexdigest()
+
+
+async def get_page(db: AsyncSession, page_id: uuid.UUID, *, locked: bool = False) -> SitePage:
+    if locked:
+        result = await db.execute(select(SitePage).where(SitePage.id == page_id)
+                                  .with_for_update().execution_options(populate_existing=True))
+        page = result.scalar_one_or_none()
+    else:
+        page = await db.get(SitePage, page_id)
     if page is None:
         raise HTTPException(404, "الصفحة غير موجودة")
     return page
@@ -84,9 +99,12 @@ async def create_page(db: AsyncSession, *, slug: str, titles: dict, tree: dict |
     return page
 
 
-async def save_draft(db: AsyncSession, page_id: uuid.UUID, *, tree: dict, titles: dict | None = None) -> SitePage:
+async def save_draft(db: AsyncSession, page_id: uuid.UUID, *, tree: dict, titles: dict | None = None, expected_token: str | None = None) -> SitePage:
     """Autosave and explicit save: the draft only, never the published tree."""
-    page = await get_page(db, page_id)
+    page = await get_page(db, page_id, locked=True)
+    if expected_token is not None and expected_token != page_token(page):
+        await db.rollback()
+        raise HTTPException(409, "The page changed in another session. Your local edits were not saved.")
     if page.status == "archived":
         raise HTTPException(409, "الصفحة مؤرشفة؛ أعد فتحها قبل التعديل")
     check_tree(tree)
@@ -106,7 +124,7 @@ async def publish(db: AsyncSession, page_id: uuid.UUID, user_id: uuid.UUID | Non
     Edge-cache purge (Cloudflare, ADR-015 D6) lands with the site service that serves the
     public pages; it is not part of this storage step.
     """
-    page = await get_page(db, page_id)
+    page = await get_page(db, page_id, locked=True)
     if page.draft_tree is None:
         raise HTTPException(409, "لا توجد مسودة للنشر")
     check_tree(page.draft_tree)
@@ -135,7 +153,7 @@ async def list_revisions(db: AsyncSession, page_id: uuid.UUID) -> list[SitePageR
 async def rollback(db: AsyncSession, page_id: uuid.UUID, revision_id: uuid.UUID) -> SitePage:
     """Copy a revision into the draft. The published tree changes only on the next publish
     (page-engine.md: "rollback copies a revision into the draft")."""
-    page = await get_page(db, page_id)
+    page = await get_page(db, page_id, locked=True)
     revision = await db.get(SitePageRevision, revision_id)
     if revision is None or revision.page_id != page.id:
         raise HTTPException(404, "المراجعة غير موجودة")
@@ -151,7 +169,7 @@ async def rollback(db: AsyncSession, page_id: uuid.UUID, revision_id: uuid.UUID)
 async def archive(db: AsyncSession, page_id: uuid.UUID) -> SitePage:
     """Archive instead of delete (docs/MODULE_STANDARD.md); the public site stops serving
     the page, the draft and the revisions stay."""
-    page = await get_page(db, page_id)
+    page = await get_page(db, page_id, locked=True)
     page.status = "archived"
     await db.commit()
     # func.now() onupdate leaves updated_at expired; refresh it inside the session,
@@ -161,7 +179,7 @@ async def archive(db: AsyncSession, page_id: uuid.UUID) -> SitePage:
 
 
 async def reopen(db: AsyncSession, page_id: uuid.UUID) -> SitePage:
-    page = await get_page(db, page_id)
+    page = await get_page(db, page_id, locked=True)
     if page.status != "archived":
         raise HTTPException(409, "الصفحة ليست مؤرشفة")
     page.status = "published" if page.published_tree is not None else "draft"
