@@ -117,3 +117,15 @@ Read-only inspection of the 39 retrieved e2e files found localhost API/browser t
 ### Independent implementation work
 
 While clean-source validation is blocked, the S3 studio work can continue as explicitly unmerged, unready branch work: style the header/footer inspector rows; expose the renderer's footer-link controls; add multi-page global-settings tests; and address the draft/settings partial-save design. R0 engine hardening, production preview/auth integration and R1 ERP integration remain separate unfinished gates. Test-mode commerce only. None of these UI tasks requires a CI dispatch, deployment or real payment.
+
+## S3 follow-up: header/footer controls (23 November 2026)
+
+Local exercise, still INCOMPLETE and not clean-source/full-app validated:
+- Extracted ChromeInspector with stacked label/destination fields, counts, empty states, add/remove/reorder buttons and invalid-destination feedback. The inspector explains that saved settings are site-wide.
+- Added optional footerLinks to the transitional editing model. Older projects remain compatible. Footer links pass through preview/settings serialization and restore, including explicit empty-list clearing. The existing renderer and backend validation are unchanged.
+- Studio unit tests: 39 passed plus 1 skipped, including two new shared-settings mapping tests. The two page projects retain distinct content, get the same stored chrome and do not share mutable link objects.
+- Reduced DB harness: 15 checks passed. The new check persists two distinct pages, commits site-wide header/footer settings, clears the session identity map, reloads and renders both pages with the shared chrome and distinct content. Still uses the reduced schema and two shims described above. It is not a full-app test.
+- Local browser exercise: footer add/edit, local save/reload restoration, reorder, remove, invalid-destination feedback and preview rejection passed. Actual screenshot pixels were inspected. This pass used browser-only local persistence, not a new API e2e run.
+- Reproducible driver: shared/backend/tests/studio-harness/chrome-controls.mjs. With local Vite and isolated Chromium CDP on 9222 as above, run `STUDIO_OUT=/path/to/existing/output node shared/backend/tests/studio-harness/chrome-controls.mjs`. It clears the isolated browser's local storage. Do not run it against a personal browser profile.
+
+Multi-page UI selection/switching, live global-settings propagation to an already-open second page, full-app startup/migrations and clean-checkout validation remain UNVERIFIED. Existing two-request draft/settings save is unchanged. No CI, merge, PR, deployment, real order or payment.
