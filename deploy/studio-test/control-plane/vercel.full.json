@@ -1,0 +1,107 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/owner.py",
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": [
+          "app/**",
+          "owner_api/**"
+        ]
+      }
+    },
+    {
+      "src": "api/admin.py",
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": [
+          "app/**",
+          "admin_api/**"
+        ]
+      }
+    },
+    {
+      "src": "api/website.py",
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": [
+          "app/**",
+          "website_api/**"
+        ]
+      }
+    },
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": [
+          "app/**",
+          "system_api/**"
+        ]
+      }
+    },
+    {
+      "src": "static/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/owner-api(?:/.*)?",
+      "dest": "/api/owner.py"
+    },
+    {
+      "src": "/owner/assets/(.*)",
+      "dest": "/static/owner/assets/$1"
+    },
+    {
+      "src": "/owner(?:/.*)?",
+      "dest": "/static/owner/index.html"
+    },
+    {
+      "src": "/admin-api(?:/.*)?",
+      "dest": "/api/admin.py"
+    },
+    {
+      "src": "/admin/assets/(.*)",
+      "dest": "/static/admin/assets/$1"
+    },
+    {
+      "src": "/admin(?:/.*)?",
+      "dest": "/static/admin/index.html"
+    },
+    {
+      "src": "/website-api(?:/.*)?",
+      "dest": "/api/website.py"
+    },
+    {
+      "src": "/website/assets/(.*)",
+      "dest": "/static/website/assets/$1"
+    },
+    {
+      "src": "/website(?:/.*)?",
+      "dest": "/static/website/index.html"
+    },
+    {
+      "src": "/api(?:/.*)?",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/erp/assets/(.*)",
+      "dest": "/static/erp/assets/$1"
+    },
+    {
+      "src": "/erp/(sw.js|manifest.webmanifest|icon.svg)",
+      "dest": "/static/erp/$1"
+    },
+    {
+      "src": "/erp(?:/.*)?",
+      "dest": "/static/erp/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/static/$1"
+    }
+  ]
+}
