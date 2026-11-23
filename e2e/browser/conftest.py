@@ -12,6 +12,7 @@ removed at the end.
 from __future__ import annotations
 
 import os
+import time
 import uuid
 
 import httpx
@@ -100,6 +101,28 @@ def page(browser: Browser) -> Page:
     pg = context.new_page()
     yield pg
     context.close()
+
+
+def retry_after(r) -> float:
+    """Seconds to wait after a 429 (headers of an httpx or Playwright response)."""
+    value = r.headers.get("Retry-After") or r.headers.get("retry-after") or "60"
+    return max(int(value), 1) + 1
+
+
+def erp_login(slug: str, login: str, password: str, attempts: int = 3) -> httpx.Response:
+    """POST /auth/login for a workspace user, waiting out the sign-in rate limit.
+
+    The limit is 10 sign-ins a minute per client address, and here every client (this process,
+    the browser through the dev servers, the API suite before it) is the same address, the
+    Docker gateway. The API suite's last sign-ins can still be in the window when these tests
+    run, so a 429 says nothing about the flow under test: wait as helpers.Api.login does."""
+    for _ in range(attempts):
+        r = httpx.post(f"{API}/auth/login", headers={"X-Tenant-Slug": slug}, timeout=30,
+                       json={"username": login, "password": password})
+        if r.status_code != 429:
+            return r
+        time.sleep(retry_after(r))
+    raise AssertionError(f"sign-in still rate-limited after {attempts} attempts: {r.text[:200]}")
 
 
 def owner_sign_in(page: Page, login: str, password: str) -> None:

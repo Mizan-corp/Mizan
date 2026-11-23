@@ -19,7 +19,7 @@ permissions:
 jobs:
   build:
     name: Image (${{ matrix.image }})
-    runs-on: [self-hosted, ci]   # waits for CI only; latitude-e6530
+    runs-on: [self-hosted, ci]   # waits for CI only; latitude-ci or workstation-ci (.github/RUNNERS.md)
     strategy:
       matrix:
         image: [api, web]
