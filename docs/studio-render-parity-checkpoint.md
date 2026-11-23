@@ -129,3 +129,13 @@ Local exercise, still INCOMPLETE and not clean-source/full-app validated:
 - Reproducible driver: shared/backend/tests/studio-harness/chrome-controls.mjs. With local Vite and isolated Chromium CDP on 9222 as above, run `STUDIO_OUT=/path/to/existing/output node shared/backend/tests/studio-harness/chrome-controls.mjs`. It clears the isolated browser's local storage. Do not run it against a personal browser profile.
 
 Multi-page UI selection/switching, live global-settings propagation to an already-open second page, full-app startup/migrations and clean-checkout validation remain UNVERIFIED. Existing two-request draft/settings save is unchanged. No CI, merge, PR, deployment, real order or payment.
+
+## R0 follow-up: protect unsupported backend drafts
+
+Source review found a destructive-save risk in the prototype, not evidence of actual data loss: an unsupported draft could fail to restore, yet remain the active backend save target for the unrelated browser copy. This is now blocked. Unsupported or archived pages, and page titles/languages the prototype cannot preserve, put the connection into a protected state. Backend save and publish are unavailable; a visible warning explains that the canvas is the browser copy, not the backend page. Local save/export stay available. A create conflict stops instead of adopting the conflicting page as a save target.
+
+Reverse conversion now compares the reconstructed supported tree with the source, excluding generated node ids only. Extra blocks, rich markup, translations, custom button destinations, image alt text and uneditable device settings are refused rather than silently dropped. Literal entity-looking plain heading/button text is retained. This is conservative refusal, not support for editing those formats. The transitional editor and its generated ids are not a complete page-tree editor.
+
+Local studio tests: 44 passed plus 1 skipped. New regression coverage checks protected targets and source immutability, rejected fields, and supported roundtrips. `protected-page.mjs` is a browser regression with MOCKED backend responses: warning visible, no backend Save/Publish buttons and zero write requests. It does not test a real backend or full-app persistence. Run with isolated local Vite/Chromium CDP as the other harness drivers; it clears that isolated profile's local storage. Actual screenshot pixels were inspected.
+
+No new full-app, clean-source, concurrency, optimistic-locking, production-auth or API authorization claim. The two-request draft/settings save remains non-atomic. No CI, PR, merge or deployment.
