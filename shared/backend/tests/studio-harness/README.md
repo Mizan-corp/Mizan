@@ -59,3 +59,10 @@ URL refusal/acceptance, media description, save/reload, read-only saved chrome/t
 and zero global settings writes. Exports /tmp/native-structural-tree.json for a
 separate real page_problems validator check. Local Vite + isolated CDP only;
 not authenticated live API e2e. No upload, purchase, Publish or deployment.
+
+
+native-drag.mjs: MOCKED native mouse palette insertion, visible marker, compatible
+node cross-column move and sibling reorder, undo, Escape cancellation, Enter/Tab
+position activation, CDP-emulated touch insertion/handle move and draft save/reload.
+Not physical-touch or screen-reader acceptance. No edge auto-scroll. Uses same
+isolated Vite/CDP setup, never production accounts.
