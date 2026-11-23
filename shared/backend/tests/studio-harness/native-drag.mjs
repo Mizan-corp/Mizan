@@ -102,6 +102,8 @@ await dragTo('#'+moving,'#'+tree.children[0].children[0].children[0].id);if(!(aw
 // Escape cancels an active pointer move without adding a node.
 const cancelStart=await rect('.native-element-grid button:nth-child(3)');await send('Input.dispatchMouseEvent',{type:'mousePressed',x:cancelStart.x+10,y:cancelStart.y+10,button:'left',clickCount:1});await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:cancelStart.x+10,y:cancelStart.y+10,button:'left',clickCount:1});if(await evaluate(`document.querySelectorAll('.native-node').length`)!==before)throw Error('cancel changed tree');
 
+// Selection now focuses the edit dock. Reopen Add before a palette gesture.
+await click('+ Add');
 // Touch uses the same pointer flow, with CDP touch events rather than mouse emulation.
 await send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
 const a=await rect('.native-element-grid button:nth-child(4)');await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:a.x+a.width/2,y:a.y+a.height/2,id:1}]});
