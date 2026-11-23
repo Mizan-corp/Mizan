@@ -38,3 +38,5 @@
 .studio-inspector input[aria-invalid=true]{border-color:#bc7267}.link-group button:focus-visible,.link-group input:focus-visible,.link-group textarea:focus-visible{outline:2px solid #6b8b54;outline-offset:2px}
 
 .studio-protection{padding:12px 24px;color:#764720;background:#fff2dc;border-bottom:1px solid #e9cda3;font-size:12px}.studio-protection strong{display:block;margin-bottom:3px}.studio-root:has(.studio-protection) .studio-workspace{height:calc(100vh - 185px)}
+
+.studio-loading{padding:12px 24px;background:#eef3e8;color:#48603d;border-bottom:1px solid #d6e1ce}.studio-workspace[inert]{opacity:.6}.studio-root:has(.studio-loading) .studio-workspace{height:calc(100vh - 150px)}
