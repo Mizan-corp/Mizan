@@ -30,3 +30,90 @@ Status: INCOMPLETE branch, NOT for merge, NOT deployed, NOT validated from a cle
 - Parity captures hide scrollbars in the shared tab only. This is a harness capture condition, not a production layout fix.
 - The harness fault switch (/__test/fail-settings) is test-only and lives in the harness server, not in the app package.
 - No merge, deploy, spend or security changes were made.
+
+## Validation closeout (23 November 2026)
+
+The repository API fallback retrieved 1,935 backend files from a branch name. It was not a git clone, did not establish a pinned commit SHA, and did not prove a complete source tree. Directory previews are capped; code search is not an authoritative tree listing. Retrieval was stopped. Do not count these files as clean-checkout evidence.
+
+One no-shim System API import was attempted using those files, with dummy local database settings. It failed immediately because the local Python environment lacks pydantic_settings. No dependency workaround, replacement settings class or loader shim was used in that attempt. Full-app import, startup, migrations and tests remain UNVERIFIED. Earlier reduced-harness results remain valid only within their stated scope.
+
+### Reproduction prerequisites
+
+Use a disposable Linux development environment with repository access, Git, Node 24 with npm, Python 3.12 or newer and venv/pip. The backend includes native dependencies, including WeasyPrint runtime libraries; follow the repository's Dockerfiles for those OS packages. Browser checks additionally need a local Chromium with CDP support. Use a fresh throwaway Postgres for database tests. Do not point any test at production or an existing development database. Do not copy a production .env or payment credentials into this checkout.
+
+The commands below are a reproducibility recipe, NOT a record of successful execution. A maintainer must record the resolved SHA and results. Use a full 40-character commit SHA independently verified as the intended branch commit. Branch names can move.
+
+```bash
+git clone --branch feat/studio-render-parity --single-branch https://github.com/Mizan-corp/Mizan.git Mizan-studio-check
+cd Mizan-studio-check
+# Set this to the verified full commit SHA before continuing.
+: "${EXPECTED_SHA:?Set the verified full commit SHA}"
+git checkout --detach "$EXPECTED_SHA"
+test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+test -z "$(git status --porcelain)"
+node --version
+python3 --version
+npm ci
+npm exec -w system/frontend -- vitest run src/features/studio
+npm exec -w system/frontend -- vitest run
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -e shared/backend -e system/backend -e website/backend -e owner/backend -e admin/backend
+python -m pip install -r shared/backend/requirements-dev.txt ruff
+export DATABASE_URL=postgresql+asyncpg://ci:ci@127.0.0.1:5432/ci
+export SECRET_KEY=ci-secret-key-not-for-production-32ch
+# Import only. This dummy DB is not expected to exist. Do not start the app here.
+for svc in system website owner admin; do
+  (cd "$svc/backend" && python -c 'import main; print(len(main.app.routes), "routes")') || exit 1
+done
+ruff check shared/backend system/backend website/backend owner/backend admin/backend sdk/python --select E9,F63,F7,F82,F821,F601,F401,F841
+```
+
+Expected historical frontend count for this branch is 54 passed plus 1 skipped, including 37 passed plus 1 skipped in the studio folder. A changed count requires investigation, not automatic acceptance. The four full-app import commands and repository-wide lint above have NOT passed in this work. A successful import is not a successful startup or database migration.
+
+### Reduced harness commands and limits
+
+The following is a diagnostic recipe against the real checked-out app files, not a promise it passes without the two earlier shims. A failure must be recorded; do not insert those shims and call the result full-app validation. These scripts create a reduced schema and metadata stubs. Even a pass does not validate all app migrations or the complete app.
+
+```bash
+# From the checkout root, with .venv activated.
+python -m pip install pgserver
+export STUDIO_BACKEND_ROOT="$PWD/shared/backend"
+export STUDIO_PGDATA="$(mktemp -d)"
+export STUDIO_OUT="$(mktemp -d)"
+python shared/backend/tests/studio-harness/run_db_tests.py
+# Continue only after the DB checks pass.
+python shared/backend/tests/studio-harness/serve_http.py
+```
+
+Keep that local-only API in a separate terminal. It binds 127.0.0.1:8791. It writes a throwaway local-test token into shared/backend/roundtrip_token.txt. Do not commit or share that token. In a second activated terminal from the same checkout root:
+
+```bash
+export MIZAN_SITE_BACKEND="$PWD/shared/backend"
+export MIZAN_SITE_API=http://127.0.0.1:8791
+export MIZAN_SITE_TOKEN="$(cat shared/backend/roundtrip_token.txt)"
+cd system/frontend
+npm exec -- vite --config vite.studio.config.ts
+```
+
+In a third terminal, start an isolated local Chromium (replace chromium with the installed executable name), then run the driver using Node 24. Set STUDIO_OUT to an existing writable directory. Do not reuse a personal browser profile.
+
+```bash
+chromium --headless --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222 --user-data-dir="$(mktemp -d)" about:blank
+# In another terminal, from the checkout root:
+STUDIO_OUT="$(mktemp -d)" node shared/backend/tests/studio-harness/e2e.mjs
+```
+
+Stop the local processes after testing. Delete the throwaway token and database only after all test processes are stopped. Keep logs and screenshots with the pinned SHA. The fault endpoint in serve_http.py must never be mounted in the production app.
+
+### CI risk correction, no dispatch performed
+
+ci.yml has no job-selection inputs. A manual dispatch runs all four jobs on the persistent shared self-hosted runner, including compose teardown with volume deletion and full e2e. It is not an isolated unit-test command. No CI, Deploy or Jobs workflow was dispatched in this work.
+
+The workflow has no explicit secrets references, but that does NOT establish the self-hosted runner environment or default repository token permissions. Compose permits inherited payment environment values and defaults its payment host to Paymob's live endpoint. Therefore the earlier claim that CI cannot reach production or cannot receive production secrets was not established and must not be relied on.
+
+Read-only inspection of the 39 retrieved e2e files found localhost API/browser targets and no non-localhost HTTP URL. The cross-app browser test leaves payment checkout outside its scope. This does not prove transitive backend code cannot call an external service. Dependency setup also downloads packages and browser/runtime binaries. A green CI run can satisfy the separate deployment workflow's same-SHA gate if someone manually dispatches deployment later; CI itself does not automatically dispatch it. No approval to run CI or deployment is implied by this document.
+
+### Independent implementation work
+
+While clean-source validation is blocked, the S3 studio work can continue as explicitly unmerged, unready branch work: style the header/footer inspector rows; expose the renderer's footer-link controls; add multi-page global-settings tests; and address the draft/settings partial-save design. R0 engine hardening, production preview/auth integration and R1 ERP integration remain separate unfinished gates. Test-mode commerce only. None of these UI tasks requires a CI dispatch, deployment or real payment.
