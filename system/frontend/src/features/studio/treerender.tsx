@@ -1,0 +1,231 @@
+// React renderer for the S2 page tree: mirrors shared/backend/app/platform/site/render.py
+// block-for-block (same mz-* classes, same settings cascade, same visibility and content
+// rules) so the studio's live preview shows exactly what the durable tree holds. If a
+// block cannot be represented, both renderers must grow together - never diverge.
+import type { CSSProperties } from 'react';
+import type { PageNode } from './pagetree';
+
+export type Device = 'desktop' | 'tablet' | 'mobile';
+
+const SPACER_PX: Record<string, number> = { none: 0, xs: 8, s: 16, m: 32, l: 64, xl: 128 };
+
+// Registry enum tokens that become mz-<key>-<value> classes (must mirror PAGE_BLOCKS).
+const ENUM_SETTINGS: Record<string, string[]> = {
+  padding: ['none', 'xs', 's', 'm', 'l', 'xl'],
+  gap: ['none', 'xs', 's', 'm', 'l', 'xl'],
+  height: ['none', 'xs', 's', 'm', 'l', 'xl'],
+  background: ['background', 'card', 'primary'],
+  max_width: ['narrow', 'normal', 'wide', 'full'],
+  width: ['auto', 'full', 'half', 'third', 'two_thirds'],
+  align: ['start', 'center', 'end'],
+  min_height: ['s', 'm', 'l'],
+};
+
+function settingsOf(node: PageNode, device: Device): Record<string, string | number | boolean> {
+  const per = node.settings || {};
+  return { ...(per.desktop || {}), ...(device === 'desktop' ? {} : (per[device] || {})) };
+}
+
+function contentOf(node: PageNode, lang: string): Record<string, unknown> {
+  return (node.content?.[lang] || {}) as Record<string, unknown>;
+}
+
+const SAFE_TAGS = new Set(['p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'a', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'span']);
+const DROP_WITH_CONTENT = new Set(['script', 'style', 'iframe', 'object', 'embed', 'template', 'svg', 'math']);
+
+function safeUrl(value: unknown, kind: 'href' | 'url' | 'embed'): string | null {
+  if (typeof value !== 'string' || !value || value.length > 2000) return null;
+  if (/[\x00-\x20\x7f\\<>"']/.test(value)) return null;
+  if (value.startsWith('/')) return kind !== 'embed' && !value.startsWith('//') ? value : null;
+  if (value.startsWith('#')) return kind === 'href' ? value : null;
+  try {
+    const u = new URL(value);
+    if (kind === 'href' && (u.protocol === 'mailto:' || u.protocol === 'tel:')) return u.username ? null : value;
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    if (u.username || u.password) return null;
+    return value;
+  } catch { return null; }
+}
+
+/** Allowlist-sanitize rich text to the same shape render.py's sanitize_html produces. */
+export function sanitizeHtml(markup: unknown): string {
+  if (typeof markup !== 'string') return '';
+  const doc = new DOMParser().parseFromString(markup, 'text/html');
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const walk = (el: Node): string => {
+    if (el.nodeType === Node.TEXT_NODE) return esc(el.textContent || '');
+    if (el.nodeType !== Node.ELEMENT_NODE) return '';
+    const tag = (el as Element).tagName.toLowerCase();
+    if (DROP_WITH_CONTENT.has(tag)) return '';
+    const kids = [...el.childNodes].map(walk).join('');
+    if (!SAFE_TAGS.has(tag)) return kids;
+    if (tag === 'a') {
+      const href = safeUrl((el as Element).getAttribute('href'), 'href');
+      const title = (el as Element).getAttribute('title');
+      const attrs = (href ? ` href="${esc(href)}"` : '') + (title ? ` title="${esc(title)}"` : '');
+      return `<a${attrs}>${kids}</a>`;
+    }
+    return `<${tag}>${kids}</${tag}>`;
+  };
+  return [...doc.body.childNodes].map(walk).join('');
+}
+
+function enumClasses(s: Record<string, string | number | boolean>): string[] {
+  const out: string[] = [];
+  for (const [key, tokens] of Object.entries(ENUM_SETTINGS)) {
+    const v = s[key];
+    if (typeof v === 'string' && tokens.includes(v)) out.push(`mz-${key.replace('_', '-')}-${v}`);
+  }
+  if (s.rounded === true) out.push('mz-rounded');
+  return out;
+}
+
+function NodeView({ node, lang, device }: { node: PageNode; lang: string; device: Device }) {
+  const s = settingsOf(node, device);
+  if (s.visible === false) return null;
+  const c = contentOf(node, lang);
+  const ordered = s.reverse === true && node.type === 'columns' ? [...(node.children || [])].reverse() : (node.children || []);
+  const kids = ordered.map(k => <NodeView key={k.id} node={k} lang={lang} device={device} />);
+  let inner: React.ReactNode = null;
+  switch (node.type) {
+    case 'section': inner = <section className="mz-section">{kids}</section>; break;
+    case 'columns': {
+      const declared = s.columns;
+      const count = typeof declared === 'number' ? declared : (node.children?.length || 1);
+      inner = <div className={`mz-columns mz-columns-${count}${s.stack ? ' mz-stack' : ''}`}>{kids}</div>; break;
+    }
+    case 'column': inner = <div className="mz-column">{kids}</div>; break;
+    case 'canvas': inner = <div className="mz-canvas">{kids}</div>; break;
+    case 'heading': {
+      const level = typeof s.level === 'number' && s.level >= 1 && s.level <= 6 ? s.level : 2;
+      const Tag = `h${level}` as 'h1';
+      inner = <Tag className="mz-heading">{String(c.text ?? '')}</Tag>; break;
+    }
+    case 'text': {
+      const variant = s.variant === 'eyebrow' || s.variant === 'note' ? ` mz-text-${s.variant}` : '';
+      inner = <div className={`mz-text${variant}`} dangerouslySetInnerHTML={{ __html: sanitizeHtml(c.html) }} />; break;
+    }
+    case 'image': {
+      const src = safeUrl(c.src, 'url');
+      if (!src) {
+        // Registered decorative art, kept in sync with render.py's image branch.
+        const art = s.art === 'sculpture' || s.art === 'sculpture_alt' ? String(s.art).replace('_', '-') : '';
+        if (!art) return null;
+        inner = <div className={`mz-art mz-art-${art}`} role="img" aria-label={String(c.alt ?? '')}><div className="mz-art-orb" /><div className="mz-art-plinth" /></div>; break;
+      }
+      inner = <img className="mz-image" src={src} alt={String(c.alt ?? '')} loading="lazy" />; break;
+    }
+    case 'gallery': {
+      const mode = s.mode === 'slider' ? 'slider' : 'grid';
+      const imgs = (Array.isArray(c.images) ? c.images : [])
+        .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
+        .map((e, i) => { const src = safeUrl(e.src, 'url'); return src ? <img key={i} src={src} alt={String(e.alt ?? '')} loading="lazy" /> : null; });
+      inner = <div className="mz-gallery" data-mode={mode}>{imgs}</div>; break;
+    }
+    case 'video_embed': {
+      const url = safeUrl(c.url, 'embed');
+      if (!url || !/^https:\/\/(www\.youtube(-nocookie)?\.com\/embed\/|player\.vimeo\.com\/video\/|www\.google\.com\/maps\/embed)/.test(url)) return null;
+      inner = <div className="mz-embed" data-aspect={String(s.aspect ?? '16:9')}><iframe src={url} loading="lazy" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" /></div>; break;
+    }
+    case 'button': {
+      const href = safeUrl(c.href, 'href');
+      if (!href) return null;
+      const style = ['primary', 'secondary', 'ghost'].includes(String(s.style)) ? String(s.style) : 'primary';
+      inner = <a className={`mz-button mz-button-${style}`} href={href} onClick={e => e.preventDefault()}>{String(c.label ?? '')}</a>; break;
+    }
+    case 'icon_list': {
+      const items = (Array.isArray(c.items) ? c.items : [])
+        .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object' && typeof e.icon === 'string')
+        .map((e, i) => <li key={i}><i data-lucide={String(e.icon)} /> {String(e.text ?? '')}</li>);
+      inner = <ul className="mz-icon-list">{items}</ul>; break;
+    }
+    case 'spacer': {
+      const px = SPACER_PX[String(s.height)] ?? 0;
+      inner = <div className="mz-spacer" aria-hidden="true" style={{ height: px }} />; break;
+    }
+    case 'divider': {
+      const style = ['solid', 'dashed', 'dotted'].includes(String(s.style)) ? String(s.style) : 'solid';
+      inner = <hr className={`mz-divider mz-divider-${style}`} />; break;
+    }
+    case 'html': inner = <div className="mz-html" dangerouslySetInnerHTML={{ __html: sanitizeHtml(c.html) }} />; break;
+    default: return null; // unknown block: render nothing, like render.py
+  }
+  return <div id={node.id} className={`mz-node ${enumClasses(s).join(' ')}`}>{inner}</div>;
+}
+
+export interface ThemeChrome {
+  brand?: string;
+  links?: { label: string; href: string }[];
+  actions?: { label: string; href: string }[];
+}
+
+export interface ThemeSpec {
+  colors?: { light?: Record<string, string> };
+  typography?: { family?: string };
+  shape?: { radius?: number };
+  header?: ThemeChrome;
+  footer?: { lines?: string[]; links?: { label: string; href: string }[] };
+}
+
+function cleanLinks(entries: ThemeChrome['links'], limit = 8) {
+  return (entries || []).slice(0, limit)
+    .map(e => ({ href: safeUrl(e?.href, 'href'), label: String(e?.label ?? '').trim().slice(0, 40) }))
+    .filter((e): e is { href: string; label: string } => !!e.href && !!e.label);
+}
+
+const FONT_STACKS: Record<string, string> = {
+  'sans-serif': 'system-ui,sans-serif',
+  serif: "Georgia,'Times New Roman',serif",
+  monospace: 'ui-monospace,Menlo,monospace',
+};
+
+export function themeStyle(theme?: ThemeSpec): CSSProperties {
+  const allowed = new Set(['background', 'foreground', 'card', 'primary', 'primary-foreground']);
+  const style: Record<string, string> = {};
+  for (const [k, v] of Object.entries(theme?.colors?.light || {})) {
+    if (allowed.has(k) && /^#[0-9a-fA-F]{6}$/.test(v)) style[`--${k}`] = v;
+  }
+  const radius = theme?.shape?.radius;
+  if (typeof radius === 'number' && Number.isInteger(radius) && radius >= 0 && radius <= 64) style['--radius'] = `${radius}px`;
+  const stack = FONT_STACKS[theme?.typography?.family || ''];
+  if (stack) style.fontFamily = stack;
+  return style as CSSProperties;
+}
+
+export function ThemeHeader({ header }: { header?: ThemeChrome }) {
+  if (!header) return null;
+  const links = cleanLinks(header.links);
+  const actions = cleanLinks(header.actions, 4);
+  const brand = header.brand ? String(header.brand).slice(0, 80) : '';
+  if (!brand && !links.length && !actions.length) return null;
+  return (
+    <header className="mz-site-header">
+      {brand && <span className="mz-site-brand">{brand}</span>}
+      {!!links.length && <nav>{links.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</nav>}
+      {!!actions.length && <div className="mz-site-actions">{actions.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</div>}
+    </header>
+  );
+}
+
+export function ThemeFooter({ footer }: { footer?: ThemeSpec['footer'] }) {
+  if (!footer) return null;
+  const lines = (footer.lines || []).slice(0, 4).filter(x => typeof x === 'string' && x.trim()).map(x => String(x).slice(0, 120));
+  const links = cleanLinks(footer.links);
+  if (!lines.length && !links.length) return null;
+  return (
+    <footer className="mz-site-footer">
+      {lines.map((x, i) => <span key={i}>{x}</span>)}
+      {links.map((l, i) => <a key={`l${i}`} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}
+    </footer>
+  );
+}
+
+export default function TreePreview({ tree, lang, device, theme }: { tree: PageNode; lang: string; device: Device; theme?: ThemeSpec }) {
+  return (
+    <div className="mz-site" dir={lang.split('-')[0] === 'ar' ? 'rtl' : 'ltr'} style={themeStyle(theme)}>
+      <ThemeHeader header={theme?.header} />
+      <NodeView node={tree} lang={lang} device={device} />
+      <ThemeFooter footer={theme?.footer} />
+    </div>
+  );
+}
