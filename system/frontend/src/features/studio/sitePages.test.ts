@@ -206,3 +206,13 @@ it('preserves an existing page title independently of the global brand on draft 
   expect(calls[0].input).toBe('/site/pages/stable-page-id/draft');
   expect(JSON.parse(String(calls[0].init?.body)).titles).toEqual({en:'Original page title'});
 });
+
+it('native tree save sends the original tree only, without titles or global settings', async () => {
+  const {calls,fetchImpl}=mockFetch(200,{});
+  const client=createSitePagesClient({baseUrl:'',fetchImpl});
+  const tree=toPageTree(initialProject);
+  await client.saveTreeDraft('native-original',tree);
+  expect(calls).toHaveLength(1);
+  expect(calls[0].input).toBe('/site/pages/native-original/draft');
+  expect(JSON.parse(String(calls[0].init?.body))).toEqual({tree});
+});
