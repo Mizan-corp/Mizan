@@ -2,7 +2,7 @@ import type { PageNode } from './pagetree';
 import { createPreset, createTemplate, type TemplateKind, type PresetKind } from './nativePresets';
 import { assertNativeTree, nativeNodes, type NativeHistory } from './nativeTree';
 
-export type StructureEdit = {kind:'template';template:TemplateKind} | {kind:'preset';preset:PresetKind} | { kind:'insert'; parentId:string; type:string; id:string; index?:number } | {kind:'remove'; id:string} | {kind:'move'; id:string; direction:-1|1} | {kind:'relocate'; id:string; parentId:string; index:number};
+export type StructureEdit = {kind:'template';template:TemplateKind} | {kind:'preset';preset:PresetKind;index?:number} | { kind:'insert'; parentId:string; type:string; id:string; index?:number } | {kind:'remove'; id:string} | {kind:'move'; id:string; direction:-1|1} | {kind:'relocate'; id:string; parentId:string; index:number};
 export function childTypes(type:string):string[]{return type==='section'?['columns']:type==='columns'?['column']:type==='column'?['heading','text','image','button']:[];}
 function createNode(type:string,id:string):PageNode {
   const content: Record<string,Record<string,unknown>> = type==='heading'?{en:{text:'New heading'}}:type==='text'?{en:{html:'<p>New text</p>'}}:type==='image'?{en:{alt:''}}:type==='button'?{en:{label:'New button',href:'#'}}:{};
@@ -13,7 +13,7 @@ export function changeStructure(state:NativeHistory,edit:StructureEdit):NativeHi
   let next=structuredClone(state.tree);const nodes=nativeNodes(next);
   if(edit.kind==='template'){next=createTemplate(next,edit.template);
   }else if(edit.kind==='preset'){
-    next.children=[...(next.children??[]),createPreset(next,edit.preset)];
+    const index=edit.index??(next.children?.length??0);if(!Number.isInteger(index)||index<0||index>(next.children?.length??0))throw Error('Invalid section drop position.');next.children=[...(next.children??[])];next.children.splice(index,0,createPreset(next,edit.preset));
   }else if(edit.kind==='insert'){
     const parent=nodes.find(n=>n.id===edit.parentId);
     if(!parent||!childTypes(parent.type).includes(edit.type))throw Error('This node cannot contain that block.');
@@ -60,4 +60,4 @@ export function newNativeId(tree:PageNode):string {
     if(!ids.has(id))return id;
   }
   throw Error('Could not allocate a unique node ID.');
-}
+      }
