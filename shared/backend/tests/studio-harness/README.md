@@ -28,3 +28,8 @@ protected-page.mjs: MOCKED backend unsupported-tree regression, checks a visible
 protection warning, absent backend save/publish controls and zero API writes.
 Uses local Vite + isolated Chromium CDP on 9222. Clears that profile's localStorage.
 Not a live backend or full-app test. STUDIO_OUT selects the screenshot directory.
+
+page-identity.mjs: MOCKED API regression for delayed load guards, stable page ID
+selection/save/reload despite changed brand, preserved independent page titles,
+ambiguous/missing target refusal and create conflict without draft overwrite.
+Uses isolated local Vite/Chromium CDP and clears isolated localStorage.
