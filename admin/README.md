@@ -20,6 +20,7 @@ creates `platform` / `changeme` (override with `MIZAN_PLATFORM_USERNAME` /
 | **Workspaces** | Search and filter every company; last-sale activity per workspace. A workspace page has its summary, plan & billing (change plan, extend trial, invoices), modules, people, activity and settings (rename, URL name, delete) |
 | **Billing** | Invoices (mark paid with a transfer reference) and upgrade requests |
 | **Activity** | The audit log of every change made here, as sentences |
+| **Website** | allmizan.live's own visit counters (ADR-016): page views per day, pages, languages, referring sites, WhatsApp/phone clicks, demo requests and signups. Cookieless counts, no visitor data |
 | **Team** | Who can use this panel; give or remove access |
 | **System** | Live database health, migration status and stored records |
 

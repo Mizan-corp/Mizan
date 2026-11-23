@@ -1,4 +1,6 @@
-import { useParams, Link, Navigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { Link } from "@app/seo/LocaleLink";
+import NotFoundPage from "./NotFoundPage";
 import {
   Clock,
   ArrowRight,
@@ -23,7 +25,7 @@ export default function BlogPostPage() {
   const isAr = locale === "ar";
 
   if (!post) {
-    return <Navigate to="/blog" replace />;
+    return <NotFoundPage />;
   }
 
   const relatedPosts = BLOG_POSTS.filter((p) => p.slug !== post.slug).slice(0, 3);
@@ -96,8 +98,11 @@ export default function BlogPostPage() {
           {/* 3. Header Architectural Banner Image matching Screen 10 */}
           <div className="relative rounded-3xl overflow-hidden border border-[#E7D6C1] aspect-[21/9] bg-[#35151D] shadow-md">
             <img
-              src={assetUrl("assets/marketing/blog-post-arch.jpg")}
-              alt={post.title}
+              src={assetUrl("assets/marketing/blog-post-arch.webp")}
+              alt=""
+              width={548}
+              height={192}
+              decoding="async"
               className="w-full h-full object-cover opacity-95 hover:scale-105 transition-transform duration-700"
             />
           </div>
@@ -106,8 +111,12 @@ export default function BlogPostPage() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center pt-2">
             <div className="md:col-span-5 rounded-2xl overflow-hidden border border-[#E7D6C1] shadow-md bg-white p-2">
               <img
-                src={assetUrl("assets/marketing/blog-post-laptop.jpg")}
-                alt="Mizan Dashboard on Laptop"
+                src={assetUrl("assets/marketing/blog-post-laptop.webp")}
+                alt=""
+                width={300}
+                height={180}
+                decoding="async"
+                loading="lazy"
                 className="w-full h-auto object-cover rounded-xl"
               />
             </div>
@@ -171,8 +180,8 @@ export default function BlogPostPage() {
               <p className="text-xs text-[#B86B76] font-mono">{post.author.role}</p>
               <p className="text-xs text-[#77716E] pt-1 leading-relaxed">
                 {isAr
-                  ? "فريق هندسي متخصص في بناء المحركات السحابية المعزولة، معمارية PostgreSQL RLS، وبروتوكولات نقاط البيع غير التزامنية."
-                  : "Core engineering group dedicated to high-availability multi-tenant cloud architectures and sub-10ms cashier transaction processing."}
+                  ? "الفريق الذي يبني سحابة ميزان وعزل بياناتها في PostgreSQL ونقطة البيع."
+                  : "The team that builds Mizan's cloud, its data isolation in PostgreSQL, and its point of sale."}
               </p>
             </div>
           </div>

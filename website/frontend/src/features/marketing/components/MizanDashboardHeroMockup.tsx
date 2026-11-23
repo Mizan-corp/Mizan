@@ -73,8 +73,11 @@ export function MizanDashboardHeroMockup() {
         } z-10 w-28 h-32 rounded-2xl overflow-hidden border border-white/20 shadow-2xl`}
       >
         <img
-          src={assetUrl("assets/marketing/arch-floating-card.jpg")}
-          alt="Mizan Architectural Balance"
+          src={assetUrl("assets/marketing/arch-floating-card.webp")}
+          alt=""
+          width={130}
+          height={140}
+          decoding="async"
           className="w-full h-full object-cover brightness-95 hover:scale-105 transition-transform duration-500"
           onError={(e) => {
             // Fallback gradient if file not yet loaded
@@ -91,7 +94,7 @@ export function MizanDashboardHeroMockup() {
           <div className="space-y-4">
             {/* Sidebar Brand Header */}
             <div className="flex items-center gap-2 px-2 py-1 border-b border-white/10 pb-3">
-              <MizanLogo size="sm" variant="icon" theme="dark" />
+              <MizanLogo size="sm" variant="icon" theme="dark" locale={locale} />
               <span className={`font-semibold text-sm text-[#FAF6F0] ${isAr ? "font-serif-ar" : "font-serif-en"}`}>
                 {isAr ? "ميزان" : "Mizan"}
               </span>
@@ -204,7 +207,11 @@ export function MizanDashboardHeroMockup() {
 
             {/* Notification & User Profile */}
             <div className="flex items-center gap-2">
-              <button className="relative flex h-8 w-8 items-center justify-center rounded-full bg-[#FFFFFF] border border-[#DECFC0] text-[#55504D] hover:bg-[#EFE4D6]">
+              <button
+                type="button"
+                aria-label={isAr ? "الإشعارات" : "Notifications"}
+                className="relative flex h-8 w-8 items-center justify-center rounded-full bg-[#FFFFFF] border border-[#DECFC0] text-[#55504D] hover:bg-[#EFE4D6]"
+              >
                 <Bell className="h-3.5 w-3.5" />
                 <span className="absolute top-1 end-1 h-1.5 w-1.5 rounded-full bg-[#651E2C]" />
               </button>

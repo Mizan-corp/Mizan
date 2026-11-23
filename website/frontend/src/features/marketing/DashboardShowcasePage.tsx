@@ -127,18 +127,18 @@ export default function DashboardShowcasePage() {
           <div className="mx-auto max-w-3xl text-center space-y-4">
             <div className="inline-flex items-center gap-2 rounded-full border border-[#E7D6C1] bg-white px-4 py-1.5 text-xs font-semibold text-[#651E2C] shadow-xs">
               <Sparkles className="size-3.5 text-[#B86B76]" />
-              <span>{isAr ? "معاينة النظام الحي التفاعلية" : "Interactive Live ERP Environment"}</span>
+              <span>{isAr ? "معاينة تفاعلية ببيانات تجريبية" : "Interactive preview with sample data"}</span>
             </div>
 
             <h1 className="font-display text-4xl sm:text-5xl font-normal tracking-tight text-[#262321] leading-tight">
               {isAr ? (
                 <>
-                  شاهد بيئة العمل الحقيقية <br />
-                  <span className="italic text-[#651E2C]">بالنمطين الفاتح والداكن (Pixel Match)</span>
+                  شاهد شاشات ميزان <br />
+                  <span className="italic text-[#651E2C]">بالنمطين الفاتح والداكن</span>
                 </>
               ) : (
                 <>
-                  Experience the live platform <br />
+                  See Mizan's screens <br />
                   <span className="italic text-[#651E2C]">in Light & Dark Modes</span>
                 </>
               )}
@@ -227,7 +227,7 @@ export default function DashboardShowcasePage() {
               <div className="space-y-6">
                 {/* Logo & Workspace Brand */}
                 <div className="flex items-center gap-2.5 pb-4 border-b border-white/10">
-                  <MizanLogo className="h-8 w-auto text-white" />
+                  <MizanLogo className="h-8 w-auto text-white" locale={locale} />
                   <div>
                     <span className="font-display text-sm font-bold block text-white">Mizan ERP</span>
                     <span className="text-[10px] text-[#E7D6C1]/80 block font-mono">v3.0 Production</span>

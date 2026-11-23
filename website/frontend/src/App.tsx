@@ -1,29 +1,30 @@
 import { lazy, Suspense, type ReactNode } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
-import LandingPage from "@app/features/marketing/LandingPage";
-import SignupPage from "@app/features/marketing/SignupPage";
-import OnboardingWizard from "@app/features/marketing/OnboardingWizard";
-import { MarketingLayout } from "@app/features/marketing/MarketingLayout";
+import { Route, Routes } from "react-router-dom";
 import { AdoptSession, SignOut } from "@app/features/session/SessionRoutes";
-import PricingPage from "@/features/billing/PricingPage";
-import { openWithSession } from "@/lib/handoff";
-import { useOwner } from "@app/lib/ownerSession";
 import { appUrl } from "@/lib/urls";
 import { DEV_HOST } from "@app/features/developers/paths";
+import { LangScope } from "@app/seo/LocaleLink";
+import type { Lang } from "@app/seo/paths";
 
+// Every page is its own chunk: a visitor downloads the page they open (the pre-rendered HTML
+// preloads it, ADR-016), not the whole site.
+const LandingPage = lazy(() => import("@app/features/marketing/LandingPage"));
 const ProductPage = lazy(() => import("@app/features/marketing/ProductPage"));
 const FeaturesPage = lazy(() => import("@app/features/marketing/FeaturesPage"));
 const FeatureDetailPage = lazy(() => import("@app/features/marketing/FeatureDetailPage"));
 const IndustriesPage = lazy(() => import("@app/features/marketing/IndustriesPage"));
+const PricingRoute = lazy(() => import("@app/features/marketing/PricingRoute"));
 const AboutPage = lazy(() => import("@app/features/marketing/AboutPage"));
 const ContactPage = lazy(() => import("@app/features/marketing/ContactPage"));
 const BlogPage = lazy(() => import("@app/features/marketing/BlogPage"));
 const BlogPostPage = lazy(() => import("@app/features/marketing/BlogPostPage"));
 const DashboardShowcasePage = lazy(() => import("@app/features/marketing/DashboardShowcasePage"));
+const NotFoundPage = lazy(() => import("@app/features/marketing/NotFoundPage"));
+const SignupPage = lazy(() => import("@app/features/marketing/SignupPage"));
+const OnboardingWizard = lazy(() => import("@app/features/marketing/OnboardingWizard"));
 const LegalPage = lazy(() => import("@app/features/legal/LegalPage"));
-const DocsLayout = lazy(() => import("@app/features/docs/DocsLayout").then((m) => ({ default: m.DocsLayout })));
-const DocsHomePage = lazy(() => import("@app/features/docs/DocsHomePage"));
-const DocsArticlePage = lazy(() => import("@app/features/docs/DocsArticlePage"));
+const DocsHomeRoute = lazy(() => import("@app/features/docs/DocsRoutes").then((m) => ({ default: m.DocsHomeRoute })));
+const DocsArticleRoute = lazy(() => import("@app/features/docs/DocsRoutes").then((m) => ({ default: m.DocsArticleRoute })));
 const DevRoutes = lazy(() => import("@app/features/developers/DevRoutes"));
 
 function Page({ children }: { children: ReactNode }) {
@@ -46,6 +47,46 @@ function ToOwnerLogin() {
   return null;
 }
 
+/**
+ * The public site in one language: Arabic at "/…", English under "/en/…" (ADR-016). English has
+ * the key pages only (src/seo/paths.ts EN_PAGES); any other English address is a 404.
+ */
+function Site({ lang }: { lang: Lang }) {
+  const ar = lang === "ar";
+  return (
+    <LangScope lang={lang}>
+      <Routes>
+        <Route index element={<Page><LandingPage /></Page>} />
+        <Route path="product" element={<Page><ProductPage /></Page>} />
+        <Route path="features" element={<Page><FeaturesPage /></Page>} />
+        <Route path="features/inventory" element={<Page><FeatureDetailPage /></Page>} />
+        <Route path="industries" element={<Page><IndustriesPage /></Page>} />
+        <Route path="pricing" element={<Page><PricingRoute /></Page>} />
+        <Route path="about" element={<Page><AboutPage /></Page>} />
+        <Route path="contact" element={<Page><ContactPage /></Page>} />
+        <Route path="demo" element={<Page><DashboardShowcasePage /></Page>} />
+        <Route path="terms" element={<Page><LegalPage slug="terms" /></Page>} />
+        <Route path="privacy" element={<Page><LegalPage slug="privacy" /></Page>} />
+        <Route path="refund-policy" element={<Page><LegalPage slug="refund-policy" /></Page>} />
+        <Route path="signup" element={<Page><SignupPage /></Page>} />
+        {ar && (
+          <>
+            <Route path="blog" element={<Page><BlogPage /></Page>} />
+            <Route path="blog/:slug" element={<Page><BlogPostPage /></Page>} />
+            <Route path="docs" element={<Page><DocsHomeRoute /></Page>} />
+            <Route path="docs/*" element={<Page><DocsArticleRoute /></Page>} />
+            <Route path="onboarding" element={<Page><OnboardingWizard /></Page>} />
+            <Route path="login" element={<ToOwnerLogin />} />
+            <Route path="session" element={<AdoptSession />} />
+            <Route path="signout" element={<SignOut />} />
+          </>
+        )}
+        <Route path="*" element={<Page><NotFoundPage /></Page>} />
+      </Routes>
+    </LangScope>
+  );
+}
+
 export default function App() {
   // dev.allmizan.live is the developer platform (ADR-007 D6); elsewhere it lives under /dev.
   if (DEV_HOST) {
@@ -57,40 +98,9 @@ export default function App() {
   }
   return (
     <Routes>
-      <Route path="/" element={<Page><LandingPage /></Page>} />
-      <Route path="/product" element={<Page><ProductPage /></Page>} />
-      <Route path="/features" element={<Page><FeaturesPage /></Page>} />
-      <Route path="/features/details" element={<Page><FeatureDetailPage /></Page>} />
-      <Route path="/features/:slug" element={<Page><FeatureDetailPage /></Page>} />
-      <Route path="/industries" element={<Page><IndustriesPage /></Page>} />
-      <Route path="/pricing" element={<Page><WebsitePricing /></Page>} />
-      <Route path="/about" element={<Page><AboutPage /></Page>} />
-      <Route path="/contact" element={<Page><ContactPage /></Page>} />
-      <Route path="/blog" element={<Page><BlogPage /></Page>} />
-      <Route path="/blog/:slug" element={<Page><BlogPostPage /></Page>} />
-      <Route path="/demo" element={<Page><DashboardShowcasePage /></Page>} />
-      <Route path="/terms" element={<Page><LegalPage slug="terms" /></Page>} />
-      <Route path="/privacy" element={<Page><LegalPage slug="privacy" /></Page>} />
-      <Route path="/refund-policy" element={<Page><LegalPage slug="refund-policy" /></Page>} />
-
-      <Route path="/docs" element={<Page><DocsLayout><DocsHomePage /></DocsLayout></Page>} />
-      <Route path="/docs/*" element={<Page><DocsLayout><DocsArticlePage /></DocsLayout></Page>} />
-
       <Route path="/dev/*" element={<Page><DevRoutes /></Page>} />
-
-      <Route path="/signup" element={<SignupPage />} />
-      <Route path="/onboarding" element={<OnboardingWizard />} />
-      <Route path="/login" element={<ToOwnerLogin />} />
-      <Route path="/session" element={<AdoptSession />} />
-      <Route path="/signout" element={<SignOut />} />
-
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/en/*" element={<Site lang="en" />} />
+      <Route path="/*" element={<Site lang="ar" />} />
     </Routes>
   );
-}
-
-/** The pricing page, aware of a signed-in owner (#79): plan buttons open their panel. */
-function WebsitePricing() {
-  const owner = useOwner();
-  return <PricingPage layout={MarketingLayout} ownerPanel={owner ? (path) => openWithSession("owner", path, owner.token) : null} />;
 }

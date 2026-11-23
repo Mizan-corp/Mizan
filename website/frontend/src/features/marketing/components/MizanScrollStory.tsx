@@ -10,7 +10,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useTranslation } from "@/i18n";
-import { gsap, ScrollTrigger } from "@/lib/gsap";
 import { EASINGS, DURATIONS } from "@/lib/motion";
 
 interface StoryStep {
@@ -42,15 +41,15 @@ export function MizanScrollStory() {
       id: "pos",
       badgeAr: "المرحلة الأولى: نقطة البيع",
       badgeEn: "Stage 1: Fast Checkout",
-      titleAr: "بيع لحظي في أقل من ثانيتين وطباعة حرارية فورية",
-      titleEn: "Instant Sub-2s Checkout & Live Thermal Printing",
+      titleAr: "بيع سريع بالباركود وإيصال حراري فوري",
+      titleEn: "Fast barcode checkout and an instant thermal receipt",
       descAr:
-        "يمرر الكاشير الباركود، فتصدر الفاتورة الضريبية متوافقة مع متطلبات الـ QR كود، وتتحول العملية فوراً لكافة أقسام المنظومة.",
+        "يمرر الكاشير الباركود، فتصدر الفاتورة وتُطبع، وتنتقل العملية فوراً لكافة أقسام المنظومة.",
       descEn:
-        "The cashier scans the barcode, the tax receipt prints with ZATCA/ETA QR code, and data cascades instantly across all modules.",
-      metricLabelAr: "متوسط سرعة الفاتورة",
-      metricLabelEn: "Avg. Checkout Latency",
-      metricVal: "0.45s",
+        "The cashier scans the barcode, the receipt prints, and the sale flows straight into every other module.",
+      metricLabelAr: "عرض الإيصال الحراري",
+      metricLabelEn: "Thermal receipt width",
+      metricVal: "80/58mm",
       icon: ShoppingCart,
       renderVisual: (ar) => (
         <div className="space-y-4">
@@ -96,15 +95,15 @@ export function MizanScrollStory() {
       id: "wms",
       badgeAr: "المرحلة الثانية: الخصم المخزني",
       badgeEn: "Stage 2: WMS Stock Sync",
-      titleAr: "مزامنة المخازن والفروع بدون جرد يدوي",
-      titleEn: "Multi-Branch Stock Rebalancing in Real-Time",
+      titleAr: "رصيد المخزن يتحدث مع كل بيعة",
+      titleEn: "Stock updates with every sale",
       descAr:
         "بمجرد اعتماد الفاتورة، يُحدث ميزان رصيد المخزن الفعلي في الفرع، ويطلق تنبيهاً ذكياً إذا وصل الصنف لحد إعادة الطلب.",
       descEn:
-        "Instantly decrements physical branch warehouse stock and triggers automatic reorder notifications when safety thresholds are met.",
-      metricLabelAr: "دقة مطابقة المخزون",
-      metricLabelEn: "Inventory Accuracy",
-      metricVal: "99.8%",
+        "The branch's stock goes down as soon as the invoice is confirmed, and Mizan alerts you when an item reaches its reorder level.",
+      metricLabelAr: "تنبيه عند حد الطلب",
+      metricLabelEn: "Reorder alert",
+      metricVal: "✓",
       icon: Boxes,
       renderVisual: (ar) => (
         <div className="space-y-4">
@@ -153,15 +152,15 @@ export function MizanScrollStory() {
       id: "ledger",
       badgeAr: "المرحلة الثالثة: القيد المحاسبي",
       badgeEn: "Stage 3: Automated Ledger",
-      titleAr: "توليد قيود اليومية آلياً دون أخطاء بشرية",
-      titleEn: "Zero-Human-Error Double Entry Posting",
+      titleAr: "قيود اليومية تُنشأ تلقائيًا مع كل بيعة",
+      titleEn: "Journal entries posted automatically with every sale",
       descAr:
-        "يتم تحويل حركة البيع تلقائياً إلى قيد محاسبي مزدوج متزن (من حـ/ الخزينة إلى حـ/ المبيعات والضريبة) مع تحديث ميزان المراجعة.",
+        "مع تفعيل المحاسبة تتحول حركة البيع تلقائياً إلى قيد مزدوج متزن (من حـ/ الخزينة إلى حـ/ المبيعات والضريبة) مع تحديث ميزان المراجعة.",
       descEn:
-        "Transforms transaction into balanced double-entry vouchers: Cash Account debited, Sales & VAT credited with zero lag.",
-      metricLabelAr: "وفر ساعات المحاسبين",
-      metricLabelEn: "Accounting Hours Saved",
-      metricVal: "18h/wk",
+        "With accounting on, the sale becomes a balanced double entry: cash debited, sales and VAT credited, and the trial balance updates.",
+      metricLabelAr: "كل قيد متوازن",
+      metricLabelEn: "Every entry balances",
+      metricVal: "Dr = Cr",
       icon: Calculator,
       renderVisual: (ar) => (
         <div className="space-y-4">
@@ -206,15 +205,15 @@ export function MizanScrollStory() {
       id: "analytics",
       badgeAr: "المرحلة الرابعة: القرار التنفيذي",
       badgeEn: "Stage 4: Executive Insights",
-      titleAr: "لوحة تحكم تنفيذية تكشف هوامش الربح الحقيقية",
-      titleEn: "Executive Dashboards Showing Net Profit Margins",
+      titleAr: "تقارير تكشف أرباحك الحقيقية",
+      titleEn: "Reports that show your real profit",
       descAr:
-        "يستعرض صاحب العمل تقارير التدفق النقدي وهوامش الربحية لكل صنف وفرع لحظة بلحظة على هاتفه الذكي من أي مكان في العالم.",
+        "يتابع صاحب العمل المبيعات والأرباح والتدفق النقدي لكل فرع من أي متصفح، حتى على الموبايل.",
       descEn:
-        "Business owners inspect cashflow trends and net margins per item & branch in real-time from anywhere.",
-      metricLabelAr: "نمو هامش الربح",
-      metricLabelEn: "Net Margin Expansion",
-      metricVal: "+14.2%",
+        "Owners follow sales, profit and cash flow per branch from any browser, phone included.",
+      metricLabelAr: "قائمة دخل لكل فرع",
+      metricLabelEn: "Income statement per branch",
+      metricVal: "P&L",
       icon: BarChart3,
       renderVisual: (ar) => (
         <div className="space-y-4">
@@ -269,24 +268,33 @@ export function MizanScrollStory() {
     const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
     if (!isDesktop || !triggerRef.current) return;
 
-    const ctx = gsap.context(() => {
-      ScrollTrigger.create({
-        trigger: triggerRef.current,
-        start: "top 15%",
-        end: "bottom 85%",
-        scrub: 0.5,
-        onUpdate: (self) => {
-          const progress = self.progress;
-          const stepIndex = Math.min(
-            Math.floor(progress * steps.length),
-            steps.length - 1
-          );
-          setActiveStep(stepIndex);
-        },
-      });
-    }, triggerRef);
+    // GSAP loads only on desktop, where the story is pinned, and after the page is up.
+    let ctx: { revert: () => void } | null = null;
+    let cancelled = false;
+    void import("@/lib/gsap").then(({ gsap, ScrollTrigger }) => {
+      if (cancelled) return;
+      ctx = gsap.context(() => {
+        ScrollTrigger.create({
+          trigger: triggerRef.current,
+          start: "top 15%",
+          end: "bottom 85%",
+          scrub: 0.5,
+          onUpdate: (self) => {
+            const progress = self.progress;
+            const stepIndex = Math.min(
+              Math.floor(progress * steps.length),
+              steps.length - 1
+            );
+            setActiveStep(stepIndex);
+          },
+        });
+      }, triggerRef);
+    });
 
-    return () => ctx.revert();
+    return () => {
+      cancelled = true;
+      ctx?.revert();
+    };
   }, [shouldReduceMotion, steps.length]);
 
   return (
@@ -303,13 +311,13 @@ export function MizanScrollStory() {
         </div>
         <h2 className="text-3xl sm:text-4xl font-bold text-[#262321] font-display">
           {isAr
-            ? "رحلة الفاتورة: من الكاشير إلى الميزانية في ثانية واحدة"
-            : "The Invoice Journey: From Checkout to Ledger in 1s"}
+            ? "رحلة الفاتورة: من الكاشير إلى الميزانية تلقائيًا"
+            : "The invoice's journey: from the till to the ledger, by itself"}
         </h2>
         <p className="text-sm sm:text-base text-[#77716E] leading-relaxed">
           {isAr
             ? "شاهد كيف تتدفق البيانات تلقائياً بين موديولات ميزان بدون تدخل يدوي وبدون فقدان مليم واحد."
-            : "See how operational data cascades seamlessly across Mizan modules without human error."}
+            : "See how a sale flows through Mizan's modules without anyone typing it twice."}
         </p>
       </div>
 
@@ -359,6 +367,8 @@ export function MizanScrollStory() {
                   <button
                     key={idx}
                     onClick={() => setActiveStep(idx)}
+                    aria-label={isAr ? `المرحلة ${idx + 1}` : `Stage ${idx + 1}`}
+                    aria-current={activeStep === idx ? "step" : undefined}
                     className={`h-2 rounded-full transition-all ${
                       idx === activeStep
                         ? "w-8 bg-[#651E2C]"

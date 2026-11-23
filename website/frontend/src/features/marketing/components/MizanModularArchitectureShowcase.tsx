@@ -46,8 +46,8 @@ const MODULE_NODES: ModuleNode[] = [
     nameAr: "نقاط البيع السريعة",
     nameEn: "High-Velocity POS",
     icon: ShoppingCart,
-    descriptionAr: "إصدار الفواتير في أجزاء من الثانية مع دعم الباركود المباشر والطباعة الحرارية ESC/POS.",
-    descriptionEn: "Sub-second checkout with continuous barcode scanning & 80mm ESC/POS thermal printing.",
+    descriptionAr: "بيع سريع بالباركود وطباعة إيصالات حرارية 80mm و58mm.",
+    descriptionEn: "Fast barcode checkout and 80mm/58mm thermal receipts.",
     badgeAr: "العمليات النقدية",
     badgeEn: "Fast POS",
     color: "#B86B76",
@@ -72,8 +72,8 @@ const MODULE_NODES: ModuleNode[] = [
     nameAr: "المشتريات والموردين",
     nameEn: "Procurement & Vendors",
     icon: Truck,
-    descriptionAr: "أوامر الشراء، مطابقة الفواتير مع عروض الأسعار، وجدولة المستحقات بدقة.",
-    descriptionEn: "Purchase orders, three-way matching, and scheduled vendor payables tracking.",
+    descriptionAr: "أوامر الشراء واستلامها، فواتير ومرتجعات الشراء، وأرصدة الموردين.",
+    descriptionEn: "Purchase orders and receiving, purchase bills and returns, and supplier balances.",
     badgeAr: "التوريد",
     badgeEn: "Procurement",
     color: "#35151D",
@@ -86,7 +86,7 @@ const MODULE_NODES: ModuleNode[] = [
     nameEn: "HR & Payroll",
     icon: Users,
     descriptionAr: "ملفات الموظفين والحضور واستيراده من ملفات CSV، واحتساب الرواتب والبدلات وتوزيع الورديات.",
-    descriptionEn: "Employee records, attendance with CSV import, shift planning and compliant payroll.",
+    descriptionEn: "Employee records, attendance with CSV import, shifts, and payroll from attendance.",
     badgeAr: "شؤون الموظفين",
     badgeEn: "Workforce",
     color: "#C58A35",
@@ -95,13 +95,13 @@ const MODULE_NODES: ModuleNode[] = [
   },
   {
     id: "tax",
-    nameAr: "الفاتورة والضرائب (ETA)",
-    nameEn: "Tax & e-Invoicing Compliance",
+    nameAr: "ضريبة القيمة المضافة",
+    nameEn: "VAT",
     icon: ShieldCheck,
-    descriptionAr: "توليد كود الـ UUID والتوقيع الإلكتروني المتوافق مع مصلحة الضرائب المصرية 100%.",
-    descriptionEn: "UUID generation, cryptographic signing, and 100% ETA e-Invoice compliance.",
-    badgeAr: "الامتثال القانوني",
-    badgeEn: "Compliance",
+    descriptionAr: "ضريبة القيمة المضافة على الأصناف والفواتير، وتقرير شهري للضريبة على المخرجات والمدخلات من دفتر الأستاذ.",
+    descriptionEn: "VAT on items and invoices, and a monthly report of output and input VAT from the ledger.",
+    badgeAr: "الضرائب",
+    badgeEn: "Tax",
     color: "#27835C",
     x: 50,
     y: 88,
@@ -133,11 +133,11 @@ export function MizanModularArchitectureShowcase() {
               : "Smart Modular Architecture"}
           </span>
         </div>
-        <h3 className="text-2xl sm:text-3xl font-bold text-[#262321] font-display">
+        <h2 className="text-2xl sm:text-3xl font-bold text-[#262321] font-display">
           {isAr
             ? "نواة مركزية موحدة، وموديولات متصلة بلا انقطاع"
             : "One Unified Core, Seamlessly Interconnected Modules"}
-        </h3>
+        </h2>
         <p className="text-sm text-[#77716E] leading-relaxed">
           {isAr
             ? "انقر على أي موديول لاستكشاف مسار تدفق البيانات والتكامل اللحظي مع قاعدة البيانات المشتركة عبر PostgreSQL RLS."
@@ -238,6 +238,8 @@ export function MizanModularArchitectureShowcase() {
               <motion.button
                 key={node.id}
                 onClick={() => setActiveNode(node)}
+                aria-label={isAr ? node.nameAr : node.nameEn}
+                aria-pressed={isSelected}
                 whileHover={shouldReduceMotion ? undefined : { scale: 1.08 }}
                 whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
                 className={`absolute z-20 flex items-center gap-2 p-2 rounded-xl transition-all text-start ${
@@ -301,7 +303,7 @@ export function MizanModularArchitectureShowcase() {
               <div className="flex justify-between text-[#77716E]">
                 <span>{isAr ? "طريقة الربط:" : "Integration Protocol:"}</span>
                 <span className="font-mono font-semibold text-[#262321]">
-                  Internal Kernel Bus (Zero-Latency)
+                  Internal event bus
                 </span>
               </div>
               <div className="flex justify-between text-[#77716E]">

@@ -44,7 +44,12 @@ CSRF_EXEMPT_SUFFIXES = (
     "/account/paymob/callback",
     # On-premise installs; authenticated by their signed licence key.
     "/installations/check-in",
+    # The website's visit counter (ADR-016): signed-out, changes nothing but a count.
+    "/analytics/event",
 )
+
+# Answers that must not set the CSRF cookie: the visit counter promises no cookies (ADR-016).
+NO_COOKIE_PATHS = ("/analytics/event",)
 
 MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
@@ -98,7 +103,7 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
 
         # Issue a token to any client that doesn't have one yet (login included).
-        if not cookie_token:
+        if not cookie_token and _script_rel_path(path) not in NO_COOKIE_PATHS:
             response.set_cookie(
                 key=CSRF_COOKIE,
                 value=secrets.token_urlsafe(32),

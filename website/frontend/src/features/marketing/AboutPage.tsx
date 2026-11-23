@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "@app/seo/LocaleLink";
 import {
   Eye,
   Target,
@@ -32,8 +32,8 @@ export default function AboutPage() {
       icon: Target,
       titleAr: "مهمتنا",
       titleEn: "Our Mission",
-      descAr: "تمكين المنشآت التجارية من إدارة أعمالها بنظام موحد يجمع السرعة القصوى مع الدقة المحاسبية المطلقة.",
-      descEn: "Empowering businesses through unified software that marries sub-10ms velocity with mathematical precision.",
+      descAr: "تمكين المنشآت التجارية من إدارة أعمالها بنظام موحد سريع في الاستخدام ودقيق في حساباته.",
+      descEn: "Helping businesses run everything in one system that is quick to use and exact in its accounts.",
     },
     {
       icon: Shield,
@@ -57,8 +57,11 @@ export default function AboutPage() {
             <div className="lg:col-span-6 flex justify-center lg:justify-start order-2 lg:order-1">
               <div className="relative w-full max-w-lg aspect-[4/3] rounded-3xl overflow-hidden border border-[#E7D6C1] shadow-xl bg-white p-2">
                 <img
-                  src={assetUrl("assets/marketing/about-building.jpg")}
-                  alt={isAr ? "مقر وتطوير ميزان" : "Mizan Headquarters"}
+                  src={assetUrl("assets/marketing/about-building.webp")}
+                  alt=""
+                  width={308}
+                  height={184}
+                  decoding="async"
                   className="w-full h-full object-cover rounded-2xl hover:scale-105 transition-transform duration-700"
                 />
               </div>
