@@ -144,7 +144,7 @@ export default function FeatureDetailPage() {
       titleAr: "الضبط والتهيئة",
       titleEn: "Configuration & Setup",
       descAr: "تهيئة المستودعات، تعريف الأصناف والباركود، وربط مستويات التكلفة وحدود إعادة الطلب الآلي.",
-      descEn: "Configure warehouses, barcodes, automated safety reorder thresholds, and unit of measure matrices.",
+      descEn: "Set up warehouses, items and barcodes, costs and reorder levels.",
     },
     {
       step: 2,
@@ -152,15 +152,15 @@ export default function FeatureDetailPage() {
       titleAr: "الربط المباشر مع نقاط البيع",
       titleEn: "Instant Cashier Sync",
       descAr: "حسم فوري للأرصدة مع كل فاتورة بيع صادرة، وتحديث لحظي لدفتر المخزن بدون تأخير أو أخطاء بشرية.",
-      descEn: "Real-time stock deduction upon POS transaction checkout with zero delay across branches.",
+      descEn: "Stock leaves the branch's warehouse the moment the till confirms the sale.",
     },
     {
       step: 3,
       icon: Bell,
-      titleAr: "التنبؤ الذكي وإعادة الطلب",
-      titleEn: "Smart Forecasting & Alerts",
+      titleAr: "حد الطلب واقتراحات الشراء",
+      titleEn: "Reorder levels & suggestions",
       descAr: "تنبيهات استباقية بالكميات المنخفضة، وتحليل معدلات الاستهلاك، وتوليد أوامر شراء مؤتمتة للموردين.",
-      descEn: "Proactive depletion alerts, consumption burn velocity analytics, and auto-generated supplier POs.",
+      descEn: "Alerts when an item reaches its reorder level, and purchase suggestions to turn into supplier orders.",
     },
   ];
 
@@ -197,7 +197,7 @@ export default function FeatureDetailPage() {
               <p className="max-w-xl text-base sm:text-lg text-[#77716E] font-body leading-relaxed">
                 {isAr
                   ? "تحكم كامل في مخزونك، وتحقيق أفضل استغلال للموارد مع تتبع دقيق للأرصدة عبر المستودعات والفروع وتنبيهات إعادة الطلب الفورية."
-                  : "Complete command of multi-branch stock levels, automated safety reorder points, lot tracking, and warehouse optimization."}
+                  : "Stock levels in every branch, reorder alerts, batches and expiry dates on incoming goods, and transfers between warehouses."}
               </p>
 
               <div className="pt-2 flex flex-wrap items-center gap-4">
@@ -481,7 +481,7 @@ export default function FeatureDetailPage() {
               <p className="text-xs sm:text-sm text-[#E7D6C1] leading-relaxed">
                 {isAr
                   ? "ابدأ اليوم تجربة ميزان المجانية واختبر المزامنة الفورية لنقاط البيع والمخازن مع دعم كامل لأجهزة الباركود والطباعة الحرارية."
-                  : "Deploy Mizan today. Experience instant cashier sync, automatic reorder forecasting, and offline resilience."}
+                  : "Start your free trial: stock that follows every sale, reorder alerts, and sales kept when the internet drops."}
               </p>
               <div className="pt-2 flex flex-wrap justify-center gap-4">
                 <Button

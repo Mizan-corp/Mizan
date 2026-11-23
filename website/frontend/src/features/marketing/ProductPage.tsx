@@ -27,30 +27,30 @@ export default function ProductPage() {
     {
       titleAr: "1. حركة بيع في الكاشير (POS)",
       titleEn: "1. Cashier Point of Sale Transaction",
-      descAr: "يقوم الكاشير بمسح باركود المنتج وإصدار الفاتورة الضريبية الفورية مع طباعة الإيصال الحراري ونبضة فتح الدرج.",
-      descEn: "Cashier scans barcode and issues immediate tax-compliant receipt with 80mm thermal printing and cash drawer pulse.",
+      descAr: "يمسح الكاشير باركود المنتج ويصدر الفاتورة ويطبع الإيصال الحراري.",
+      descEn: "The cashier scans the barcode, issues the invoice and prints the thermal receipt.",
       badge: "POS Terminal",
     },
     {
       titleAr: "2. خصم المخزون اللحظي (WMS)",
       titleEn: "2. Instant Warehouse Inventory Deduction",
-      descAr: "يقوم محرك المخزون بخصم الكميات من المستودع المحدد فورياً، وتتبع التشغيلة FEFO، وتحديث حد إعادة الطلب.",
-      descEn: "Inventory engine deducts item quantities from specific warehouse instantly and updates stock reorder thresholds.",
+      descAr: "تُخصم الكميات من مخزن الفرع فورًا، وينبّهك ميزان إذا وصل الصنف إلى حد إعادة الطلب.",
+      descEn: "The quantities leave the branch's warehouse at once, and Mizan alerts you when an item reaches its reorder level.",
       badge: "Inventory Sync",
     },
     {
       titleAr: "3. ترحيل القيود لدفتر الأستاذ (GL)",
       titleEn: "3. Automated General Ledger Journal Posting",
-      descAr: "يتم إنشاء قيد محاسبي مزدوج تلقائي: مدين (الخزينة) ودائن (إيراد المبيعات + ضريبة القيمة المضافة) بدون تدخل يدوي.",
-      descEn: "Creates automated double-entry ledger entry: Debit (Treasury) and Credit (Sales Revenue + VAT) without manual intervention.",
+      descAr: "مع تفعيل المحاسبة يُنشأ قيد مزدوج تلقائي: مدين (الخزينة) ودائن (إيراد المبيعات + ضريبة القيمة المضافة) بدون تدخل يدوي.",
+      descEn: "With accounting on, a double-entry posting is made automatically: debit the cash account, credit sales revenue and VAT.",
       badge: "General Ledger",
     },
     {
-      titleAr: "4. احتساب عمولة الموظف والوردية (HR)",
-      titleEn: "4. Shift Handover & Commission Audit",
-      descAr: "يتم تسجيل العملية في سجل تدقيق الكاشير، وربط المبيعات بمسير الحوافز والرواتب الشهري المعتمد.",
-      descEn: "The sale is logged in the cashier's audit trail and counted towards the month's commissions and payroll.",
-      badge: "HR & Shift Audit",
+      titleAr: "4. تقفيل الوردية ومطابقة الدرج",
+      titleEn: "4. Shift close and drawer count",
+      descAr: "تُسجَّل الفاتورة على وردية الكاشير، وعند التقفيل يُطابَق نقد الدرج مع المبيعات ويُرحَّل أي عجز أو زيادة.",
+      descEn: "The sale is recorded on the cashier's shift; at closing, the cash in the drawer is checked against it and any shortage or surplus is posted.",
+      badge: "Shift close",
     },
   ];
 
@@ -91,7 +91,7 @@ export default function ProductPage() {
                   { nameAr: "المستودعات والمخازن", nameEn: "Warehouses", color: "#48151F" },
                   { nameAr: "المشتريات والموردين", nameEn: "Procurement", color: "#B86B76" },
                   { nameAr: "الموارد البشرية HR", nameEn: "Human Resources", color: "#D4626E" },
-                  { nameAr: "المشاريع والأتمتة", nameEn: "Projects & Tasks", color: "#35151D" },
+                  { nameAr: "العملاء والموردون", nameEn: "Customers & Suppliers", color: "#35151D" },
                 ].map((block, i) => (
                   <div
                     key={i}
@@ -106,7 +106,7 @@ export default function ProductPage() {
                     <span className="text-xs font-bold text-[#262321] text-center">
                       {isAr ? block.nameAr : block.nameEn}
                     </span>
-                    <span className="text-[10px] text-[#27835C] font-mono mt-0.5">● Active Core</span>
+                    <span className="text-[10px] text-[#27835C] font-mono mt-0.5">●</span>
                   </div>
                 ))}
               </div>
@@ -137,7 +137,7 @@ export default function ProductPage() {
               <p className="text-xs sm:text-sm text-[#77716E]">
                 {isAr
                   ? "تصميم هندسي يجمع بين صلابة النواة ومرونة التخصيص المستقل"
-                  : "Engineered to deliver high-performance scalability with zero data leakage"}
+                  : "A solid core with modules you switch on, and each business's data kept apart"}
               </p>
             </div>
 
@@ -161,8 +161,8 @@ export default function ProductPage() {
                 </div>
                 <p className="text-xs sm:text-sm text-[#55504D] leading-relaxed">
                   {isAr
-                    ? "تتولى إدارة المستخدمين، المصادقة وتشفير البيانات، شجرة الحسابات العامة، سجل التدقيق الرقابي غير القابل للتعديل، وسياسات عزل المنشآت الحسابية RLS."
-                    : "Manages user access, authentication, encryption, general ledger tree, immutable audit log, and tenant isolation policies."}
+                    ? "تتولى المستخدمين والصلاحيات، تسجيل الدخول وكلمات المرور المشفرة، شجرة الحسابات، سجل العمليات المهمة، وعزل بيانات كل منشأة (RLS)."
+                    : "Users and permissions, sign-in and hashed passwords, the chart of accounts, a log of important actions, and each business's data isolation (RLS)."}
                 </p>
               </div>
 
@@ -199,8 +199,8 @@ export default function ProductPage() {
                     </div>
                     <span className="font-bold text-sm sm:text-base text-[#262321]">
                       {isAr
-                        ? "الطبقة الثالثة: التكامل والأجهزة الطرفية (Hardware & ETA API)"
-                        : "Layer 3: Hardware Drivers & Tax API Integration"}
+                        ? "الطبقة الثالثة: الأجهزة الطرفية (Hardware)"
+                        : "Layer 3: Hardware"}
                     </span>
                   </div>
                   <span className="text-[11px] font-semibold text-[#C58A35] bg-[#C58A35]/10 px-2.5 py-0.5 rounded-full">
@@ -209,8 +209,8 @@ export default function ProductPage() {
                 </div>
                 <p className="text-xs sm:text-sm text-[#55504D] leading-relaxed">
                   {isAr
-                    ? "محرك تشغيل العتاد (طابعات الإيصالات 80mm/58mm عبر ESC/POS، قارئات الباركود وموازين الوزن الإلكترونية) وبوابة الفاتورة الإلكترونية ETA."
-                    : "Native hardware integration (thermal receipt printers, barcode readers, weight scales) and official Egyptian Tax Authority integration."}
+                    ? "يعمل مع أجهزتك الحالية: أي طابعة إيصالات حرارية معرّفة على الجهاز (80mm أو 58mm)، قارئات الباركود، وملصقات باركود موازين الوزن في محلات التجزئة."
+                    : "Works with the hardware you already have: any thermal receipt printer installed on the computer (80mm or 58mm), barcode scanners, and the barcode labels of retail weighing scales."}
                 </p>
               </div>
             </div>
@@ -276,8 +276,8 @@ export default function ProductPage() {
             </h2>
             <p className="text-xs sm:text-sm text-[#E7D6C1]/80 max-w-md mx-auto">
               {isAr
-                ? "ابدأ تجربتك المجانية لمدة 14 يوماً بكامل المزايا والوحدات بدون الحاجة لبطاقة دفع."
-                : "Start your 14-day full feature trial with zero risk and instant cloud setup."}
+                ? "ابدأ تجربتك المجانية لمدة 14 يوماً بدون الحاجة لبطاقة دفع."
+                : "Start your free 14-day trial: no card, instant cloud setup."}
             </p>
             <div className="pt-2">
               <MizanMagnetic>

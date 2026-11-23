@@ -65,38 +65,38 @@ export default function LandingPage() {
       id: "finance",
       titleEn: "Accounting & Finance",
       titleAr: "المحاسبة والمالية المتقدمة",
-      descEn: "A ready chart of accounts, automatic journal entries, cost centres, and live closing reports and balance sheet.",
-      descAr: "شجرة حسابات ذكية، قيود يومية آلية، مراكز تكلفة، وتقارير ختامية وميزانية عمومية لحظية متوافقة مع ETA.",
+      descEn: "A ready Egyptian chart of accounts you can extend, automatic journal entries for every operation, trial balance, income statement, balance sheet and a VAT report.",
+      descAr: "شجرة حسابات مصرية جاهزة تضيف إليها حساباتك، قيود يومية تلقائية مع كل عملية، ميزان مراجعة وقائمة دخل وميزانية عمومية، وتقرير ضريبة القيمة المضافة.",
       icon: BarChart3,
-      statsEn: "99.98% ledger accuracy",
-      statsAr: "دقة محاسبية 99.98%",
+      statsEn: "Every entry balances",
+      statsAr: "قيود متوازنة دائمًا",
     },
     {
       id: "sales",
       titleEn: "Sales & POS Terminal",
       titleAr: "المبيعات ونقاط البيع السريعة",
-      descEn: "High-speed 2-second cashier checkout, thermal printing, barcode scanner integration, and offline-first data sync.",
-      descAr: "إصدار فواتير في ثانيتين، ربط قارئات الباركود وطابعات الإيصالات 80mm، ونمط تشغيل أوفلاين كامل بدون إنترنت.",
+      descEn: "Fast barcode checkout, 80mm and 58mm thermal receipts, split payments and held bills. If the internet drops at checkout, the sale is kept on the device and sent when it's back.",
+      descAr: "بيع سريع بالباركود، إيصالات حرارية 80mm و58mm، الدفع بأكثر من طريقة، وتعليق الفواتير. وإذا انقطع الإنترنت عند الدفع تُحفظ الفاتورة على الجهاز وتُرسل عند عودته.",
       icon: Zap,
-      statsEn: "< 2s checkout speed",
-      statsAr: "إصدار الفاتورة < ثانيتين",
+      statsEn: "Sales kept when offline",
+      statsAr: "الفاتورة لا تضيع عند انقطاع النت",
     },
     {
       id: "inventory",
       titleEn: "Inventory & Warehouses",
-      titleAr: "المخازن والمستودعات والوحدات",
-      descEn: "Compound units conversion (meter, carton, bag), batch tracking, barcode label printing, and multi-branch stock transfers.",
-      descAr: "معاملات تحويل الوحدات المركبة (متر، لفة، كرتونة)، تنبيهات نواقص المخزون، ونقل بضائع سلس بين الفروع.",
+      titleAr: "المخازن والمستودعات",
+      descEn: "Stock of every item in every warehouse, batches and expiry dates on incoming goods, reorder alerts, and transfers between branches.",
+      descAr: "رصيد كل صنف في كل مخزن، تشغيلات وتواريخ صلاحية للبضاعة الواردة، تنبيهات حد الطلب، وتحويلات بين الفروع.",
       icon: Layers,
-      statsEn: "Zero stock discrepancies",
-      statsAr: "مطابقة رصيد المخزن الفعلي",
+      statsEn: "Live stock per warehouse",
+      statsAr: "رصيد لحظي لكل مخزن",
     },
     {
       id: "purchases",
       titleEn: "Procurement & Vendors",
       titleAr: "المشتريات ويومية الموردين",
-      descEn: "Vendor ledger reconciliation, payment schedules, purchase orders tracking, and automated cost averaging.",
-      descAr: "متابعة حسابات الموردين والأجل، مسحوبات البضائع، الشيكات المستحقة، ومتوسط تكلفة الشراء المرجح.",
+      descEn: "Purchase orders and receiving, purchase bills and returns, each supplier's prices and statement, and weighted average cost.",
+      descAr: "أوامر الشراء واستلامها، فواتير ومرتجعات الشراء، أسعار كل مورد وكشف حسابه، ومتوسط التكلفة المرجح.",
       icon: Box,
       statsEn: "Full payables control",
       statsAr: "ضبط مديونيات الموردين بدقة",
@@ -105,11 +105,11 @@ export default function LandingPage() {
       id: "hr",
       titleEn: "HR & Shift Attendance",
       titleAr: "الموارد البشرية وورديات العمل",
-      descEn: "Biometric attendance tracking, shift handover audits, commissions, advances deductions, and payroll calculation.",
-      descAr: "توثيق حضور الموظفين، تقارير Z-Report لتسليم الوردية، سلف العمال، وحساب الرواتب والبدلات آلياً.",
+      descEn: "Employee files, attendance entered by hand or imported from your fingerprint device's file, advances, deductions and bonuses, and payroll you calculate and approve.",
+      descAr: "ملفات الموظفين، الحضور يدويًا أو باستيراد ملف جهاز البصمة، السلف والخصومات والمكافآت، وحساب الرواتب واعتمادها.",
       icon: Users,
-      statsEn: "Seamless shift audit",
-      statsAr: "تسليم وردية ومطابقة درج 100%",
+      statsEn: "Payroll from attendance",
+      statsAr: "الرواتب من الحضور مباشرة",
     },
   ];
 
@@ -213,30 +213,30 @@ export default function LandingPage() {
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5 text-xl sm:text-2xl font-bold font-mono text-[#FAF6F0]">
                       <Building2 className="h-4 w-4 text-[#D4626E] shrink-0" />
-                      <span>{isAr ? "+100" : "100+"}</span>
+                      <span>14</span>
                     </div>
                     <div className="text-xs text-[#E7D6C1]/75">
-                      {isAr ? "شركة تعتمد علينا" : "Companies"}
+                      {isAr ? "يومًا تجربة مجانية" : "day free trial"}
                     </div>
                   </div>
 
                   <div className="space-y-1 border-s border-white/10 ps-4">
                     <div className="flex items-center gap-1.5 text-xl sm:text-2xl font-bold font-mono text-[#FAF6F0]">
                       <Users className="h-4 w-4 text-[#D4626E] shrink-0" />
-                      <span>{isAr ? "+1,500" : "1,500+"}</span>
+                      <span>3</span>
                     </div>
                     <div className="text-xs text-[#E7D6C1]/75">
-                      {isAr ? "مستخدم متزامن" : "Concurrent Users"}
+                      {isAr ? "طرق تشغيل: سحابي، جهاز، شبكة" : "ways to run: cloud, PC, LAN"}
                     </div>
                   </div>
 
                   <div className="space-y-1 border-s border-white/10 ps-4">
                     <div className="flex items-center gap-1.5 text-xl sm:text-2xl font-bold font-mono text-[#FAF6F0]">
                       <ShieldCheck className="h-4 w-4 text-[#27835C] shrink-0" />
-                      <span>99.9%</span>
+                      <span>{isAr ? "ع · EN" : "AR · EN"}</span>
                     </div>
                     <div className="text-xs text-[#E7D6C1]/75">
-                      {isAr ? "وقت التشغيل" : "Uptime"}
+                      {isAr ? "بالعربية والإنجليزية" : "Arabic and English"}
                     </div>
                   </div>
                 </div>
@@ -370,7 +370,7 @@ export default function LandingPage() {
                     </div>
                     <div>
                       <h3 className="text-base font-semibold text-[#262321]">
-                        {isAr ? "أمان بمعايير عالمية" : "Enterprise-Grade Security"}
+                        {isAr ? "بيانات معزولة ومحمية" : "Isolated, protected data"}
                       </h3>
                       <p className="text-xs sm:text-sm text-[#77716E]">
                         {isAr
@@ -535,7 +535,7 @@ export default function LandingPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#262321]">
                       <div className="flex items-center gap-2">
                         <Check className="h-4 w-4 text-[#27835C] shrink-0" />
-                        <span>{isAr ? "قاعدة بيانات مستقلة وعزل كامل" : "Tenant Isolation & RLS Security"}</span>
+                        <span>{isAr ? "عزل كامل لبيانات كل منشأة" : "Each business's data isolated"}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Check className="h-4 w-4 text-[#27835C] shrink-0" />
@@ -816,8 +816,8 @@ export default function LandingPage() {
 
             <p className="text-xs sm:text-sm text-[#E7D6C1]/80 max-w-lg mx-auto">
               {isAr
-                ? "فترة تجريبية 14 يوماً بكامل المزايا · بدون بطاقة بنكية · جاهز للعمل السحابي فوراً."
-                : "14-day full feature trial · No credit card required · Instant cloud setup."}
+                ? "فترة تجريبية 14 يوماً · بدون بطاقة بنكية · جاهز للعمل السحابي فوراً."
+                : "14-day free trial · No credit card required · Instant cloud setup."}
             </p>
 
             <div className="pt-4 flex justify-center">

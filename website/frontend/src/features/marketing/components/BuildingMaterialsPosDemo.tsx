@@ -339,7 +339,7 @@ export function BuildingMaterialsPosDemo({ compact = false }: PosDemoProps) {
             </div>
 
             <div className="text-center pt-2 text-muted-foreground text-xs border-t border-dashed border-border">
-              الفاتورة متوافقة مع منظومة ETA الإلكترونية المصرية
+              عرض تجريبي للكاشير
             </div>
           </div>
         </div>

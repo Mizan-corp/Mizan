@@ -84,10 +84,10 @@ export const PLANS: Plan[] = [
     features: [
       "حتى 3 فروع و15 مستخدماً متزامناً",
       "كافة كوليكشنات الأنشطة (نوادي، مطاعم، مدارس، عيادات)",
-      "قاعدة بيانات سحابية مستقلة (Neon Postgres)",
+      "بيانات كل منشأة معزولة ومحمية",
       "إدارة الرواتب والموظفين HR والورديات",
       "نسخ احتياطي يومي مشفر تلقائي",
-      "دعم فني مباشر على مدار الساعة",
+      "دعم فني عبر واتساب والهاتف",
     ],
     en: {
       name: "Pro",
@@ -96,10 +96,10 @@ export const PLANS: Plan[] = [
       features: [
         "Up to 3 branches and 15 users at a time",
         "Every activity package (clubs, restaurants, schools, clinics)",
-        "Separate cloud database (Neon Postgres)",
+        "Each business's data isolated and protected",
         "Payroll, staff and shift management (HR)",
         "Automatic encrypted daily backup",
-        "Live technical support around the clock",
+        "Support over WhatsApp and phone",
       ],
     },
   },
@@ -117,7 +117,7 @@ export const PLANS: Plan[] = [
       "خادم VPS مخصص مع عزل أمني فائق",
       "ترخيص نسخة سطح مكتب أوفلاين (.exe) بلا إنترنت",
       "نطاق مخصص وشهادة SSL خاصة (Custom Domain)",
-      "تخزين سحابي S3 غير محدود للأرشفة والوثائق",
+      "تخزين سحابي غير محدود للأرشفة والوثائق",
       "مدير حساب تقني ودعم مخصص للأجهزة والعتاد",
     ],
     en: {
@@ -129,7 +129,7 @@ export const PLANS: Plan[] = [
         "Dedicated VPS with strong security isolation",
         "Offline desktop licence (.exe), no internet needed",
         "Custom domain with its own SSL certificate",
-        "Unlimited S3 cloud storage for archives and documents",
+        "Unlimited cloud storage for archives and documents",
         "Technical account manager and dedicated hardware support",
       ],
     },
@@ -504,7 +504,7 @@ export const DEPLOYMENT_MODES = [
       "تشغيل فوري عبر متصفح الويب من أي جهاز",
       "نسخ احتياطي يومي مشفر وتلقائي",
       "شهادة أمان SSL ونطاق فرعي مخصص للمنشأة",
-      "قواعد بيانات متدرجة التوسع (Neon / PostgreSQL)",
+      "قاعدة بيانات PostgreSQL",
     ],
   },
   {
@@ -514,7 +514,7 @@ export const DEPLOYMENT_MODES = [
     badge: "دون اتصال نهائياً",
     bullets: [
       "لا يشترط وجود اتصال بالإنترنت للتشغيل والبيع",
-      "قاعدة بيانات SQLite محلية مدمجة وسريعة",
+      "قاعدة بيانات PostgreSQL مدمجة في البرنامج",
       "ترخيص رقمي مشفر بـ HMAC-SHA256 مقيد بالجهاز",
       "مثالي للمناطق النائية أو الفروع ذات الاتصال غير المستقر",
     ],

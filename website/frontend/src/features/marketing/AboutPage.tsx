@@ -32,8 +32,8 @@ export default function AboutPage() {
       icon: Target,
       titleAr: "مهمتنا",
       titleEn: "Our Mission",
-      descAr: "تمكين المنشآت التجارية من إدارة أعمالها بنظام موحد يجمع السرعة القصوى مع الدقة المحاسبية المطلقة.",
-      descEn: "Empowering businesses through unified software that marries sub-10ms velocity with mathematical precision.",
+      descAr: "تمكين المنشآت التجارية من إدارة أعمالها بنظام موحد سريع في الاستخدام ودقيق في حساباته.",
+      descEn: "Helping businesses run everything in one system that is quick to use and exact in its accounts.",
     },
     {
       icon: Shield,

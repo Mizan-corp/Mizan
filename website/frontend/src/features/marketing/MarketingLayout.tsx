@@ -421,8 +421,8 @@ export function MarketingLayout({ children, notFound = false }: MarketingLayoutP
               </Link>
               <p className="text-xs sm:text-sm leading-relaxed text-[#E7D6C1]/80 max-w-sm">
                 {isAr
-                  ? "منصة ميزان السحابية المتكاملة لإدارة العمليات المالية والتشغيلية والمخازن. صُممت لتحقيق التوازن الدقيق والكفاءة المؤسسية العالية."
-                  : "Mizan is an enterprise multi-tenant ERP platform uniting financial, administrative, and operational activities into one balanced ecosystem."}
+                  ? "ميزان يجمع حساباتك ومخازنك ومبيعاتك وموظفيك في نظام واحد، على السحابة أو على أجهزتك."
+                  : "Mizan brings your accounts, stock, sales and staff into one system, in the cloud or on your own computers."}
               </p>
 
               {/* Security & Reliability Badges */}
@@ -471,7 +471,7 @@ export function MarketingLayout({ children, notFound = false }: MarketingLayoutP
                 </li>
                 <li>
                   <Link to="/features" className="hover:text-[#FAF6F0] transition-colors">
-                    {isAr ? "المشاريع والأتمتة الذكية" : "Projects & Workflow Automation"}
+                    {isAr ? "التقارير ولوحة المتابعة" : "Reports & Dashboard"}
                   </Link>
                 </li>
               </ul>
@@ -528,8 +528,8 @@ export function MarketingLayout({ children, notFound = false }: MarketingLayoutP
                   </Link>
                 </li>
                 <li>
-                  <Link to="/docs" className="hover:text-[#FAF6F0] transition-colors">
-                    {isAr ? "مرجع REST API الموثق" : "REST API Reference"}
+                  <Link to="/docs/deploy/modes" className="hover:text-[#FAF6F0] transition-colors">
+                    {isAr ? "التشغيل على جهاز أو شبكة" : "Run it on your own computers"}
                   </Link>
                 </li>
                 <li>

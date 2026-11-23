@@ -180,8 +180,8 @@ export default function BlogPostPage() {
               <p className="text-xs text-[#B86B76] font-mono">{post.author.role}</p>
               <p className="text-xs text-[#77716E] pt-1 leading-relaxed">
                 {isAr
-                  ? "فريق هندسي متخصص في بناء المحركات السحابية المعزولة، معمارية PostgreSQL RLS، وبروتوكولات نقاط البيع غير التزامنية."
-                  : "Core engineering group dedicated to high-availability multi-tenant cloud architectures and sub-10ms cashier transaction processing."}
+                  ? "الفريق الذي يبني سحابة ميزان وعزل بياناتها في PostgreSQL ونقطة البيع."
+                  : "The team that builds Mizan's cloud, its data isolation in PostgreSQL, and its point of sale."}
               </p>
             </div>
           </div>

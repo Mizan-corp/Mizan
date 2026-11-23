@@ -66,8 +66,7 @@ export default function PricingPage({
   const isAr = locale === "ar";
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
-  const [currency, setCurrency] = useState<"USD" | "EGP">("USD");
-  // The price animates when the visitor changes the cycle or currency, not on the first paint.
+  // The price animates when the visitor changes the billing cycle, not on the first paint.
   const [priceChanged, setPriceChanged] = useState(false);
 
   // Live Subscription Status (if logged in)
@@ -119,14 +118,13 @@ export default function PricingPage({
   const comparisonFeatures = [
     { nameAr: "المستخدمين النشطين", nameEn: "Active Users", starter: "5", pro: "15", enterprise: "غير محدود / Unlimited" },
     { nameAr: "الفروع والمخازن المتصلة", nameEn: "Branches & Warehouses", starter: "1", pro: "3", enterprise: "غير محدود / Unlimited" },
-    { nameAr: "المعمارية ونمط العمل الأوفلاين", nameEn: "Offline-First Engine", starter: true, pro: true, enterprise: true },
-    { nameAr: "قاعدة بيانات معزولة RLS مشفرة", nameEn: "Encrypted Isolated RLS Database", starter: true, pro: true, enterprise: true },
-    { nameAr: "كافة الـ 47 موديول قطاعي", nameEn: "Full 47 Sector Modules", starter: false, pro: true, enterprise: true },
-    { nameAr: "شاشات المطابخ KDS وبوالص الشحن", nameEn: "Kitchen KDS & Fleet Dispatch", starter: false, pro: true, enterprise: true },
-    { nameAr: "استيراد ملفات وتكامل REST API", nameEn: "REST API & Webhooks Access", starter: false, pro: true, enterprise: true },
+    { nameAr: "حفظ الفواتير عند انقطاع الإنترنت", nameEn: "Sales kept when the internet drops", starter: true, pro: true, enterprise: true },
+    { nameAr: "عزل بيانات كل منشأة (RLS)", nameEn: "Each business's data isolated (RLS)", starter: true, pro: true, enterprise: true },
+    { nameAr: "الأنشطة المتاحة", nameEn: "Business activities", starter: "الأساسية / Core", pro: "التجارية والخدمية / Trade & services", enterprise: "كلها / All" },
+    { nameAr: "شاشة المطبخ KDS", nameEn: "Kitchen display (KDS)", starter: true, pro: true, enterprise: true },
     { nameAr: "خادم مخصص ونطاق خاص (Custom Domain)", nameEn: "Dedicated Server & Custom Domain", starter: false, pro: false, enterprise: true },
     { nameAr: "ترخيص مكتبي .exe محلي للأجهزة", nameEn: "Local .exe Desktop License", starter: false, pro: false, enterprise: true },
-    { nameAr: "مدير حساب هندسي ودعم 24/7", nameEn: "Dedicated Engineering Manager", starter: "Standard", pro: "Priority", enterprise: "24/7 SLA" },
+    { nameAr: "الدعم الفني", nameEn: "Support", starter: "واتساب وهاتف / WhatsApp & phone", pro: "واتساب وهاتف / WhatsApp & phone", enterprise: "مدير حساب / Account manager" },
   ];
 
 
@@ -164,7 +162,7 @@ export default function PricingPage({
               : "Choose the package tailored to your business scale. No hidden fees, upgrade or adjust branches anytime."}
           </p>
 
-          {/* Billing Cycle & Currency Toggles */}
+          {/* Billing cycle toggle */}
           <div className="pt-4 flex flex-wrap items-center justify-center gap-4">
             {/* Monthly / Annual Toggle with sliding layoutId indicator */}
             <div className="relative inline-flex items-center rounded-full border border-[#E7D6C1] bg-white p-1 shadow-xs">
@@ -210,36 +208,12 @@ export default function PricingPage({
                       : "bg-[#B86B76]/20 text-[#651E2C]"
                   }`}
                 >
-                  {isAr ? "وفر 20%" : "Save 20%"}
+                  {isAr ? "شهران مجانًا" : "2 months free"}
                 </span>
               </button>
             </div>
 
-            {/* Currency Switcher */}
-            <div className="inline-flex items-center rounded-full border border-[#E7D6C1] bg-white p-1 shadow-xs">
-              <button
-                type="button"
-                onClick={() => { setCurrency("USD"); setPriceChanged(true); }}
-                className={`rounded-full px-4 py-2 text-xs font-bold transition-all ${
-                  currency === "USD"
-                    ? "bg-[#651E2C] text-white shadow-xs"
-                    : "text-[#77716E] hover:text-[#262321]"
-                }`}
-              >
-                USD ($)
-              </button>
-              <button
-                type="button"
-                onClick={() => { setCurrency("EGP"); setPriceChanged(true); }}
-                className={`rounded-full px-4 py-2 text-xs font-bold transition-all ${
-                  currency === "EGP"
-                    ? "bg-[#651E2C] text-white shadow-xs"
-                    : "text-[#77716E] hover:text-[#262321]"
-                }`}
-              >
-                EGP (ج.م)
-              </button>
-            </div>
+            {/* Plans are sold in Egyptian pounds only (Paymob): the price shown is the price charged. */}
           </div>
 
           {/* Active Tenant Workspace Quota Status */}
@@ -293,18 +267,9 @@ export default function PricingPage({
               const isPopular = plan.popular;
               const isCurrent = isCurrentPlan(plan.id);
 
-              const usdRates: Record<string, { monthly: number; annual: number }> = {
-                starter: { monthly: 49, annual: 39 },
-                pro: { monthly: 99, annual: 79 },
-                enterprise: { monthly: 199, annual: 159 },
-              };
-
-              const price = currency === "USD"
-                ? (billingCycle === "annual" ? (usdRates[plan.id]?.annual ?? 49) : (usdRates[plan.id]?.monthly ?? 49))
-                : (billingCycle === "annual" ? Math.round(plan.price_annual_egp / 12) : plan.price_egp);
-
-              const symbol = currency === "USD" ? "$" : "";
-              const period = currency === "USD" ? (isAr ? "/ شهر" : "/ mo") : (isAr ? "ج.م / شهر" : "EGP / mo");
+              const price = billingCycle === "annual" ? Math.round(plan.price_annual_egp / 12) : plan.price_egp;
+              const symbol = "";
+              const period = isAr ? "ج.م / شهر" : "EGP / mo";
 
               return (
                 <div
@@ -351,7 +316,7 @@ export default function PricingPage({
                       </div>
                       <p className="mt-1 text-[11px] text-[#B86B76] font-medium font-mono">
                         {billingCycle === "annual"
-                          ? (isAr ? "(تدفع سنوياً مع خصم 20%)" : "(Billed annually, save 20%)")
+                          ? (isAr ? "(تُدفع سنويًا: شهران مجانًا)" : "(Billed yearly: 2 months free)")
                           : (isAr ? "(فاتورة شهرية مرنة)" : "(Flexible monthly billing)")}
                       </p>
                     </div>
@@ -537,8 +502,8 @@ export default function PricingPage({
               </h2>
               <p className="mx-auto max-w-xl text-xs sm:text-sm text-[#E7D6C1] font-body leading-relaxed">
                 {isAr
-                  ? "فريقنا الهندسي مستعد لمساعدتك في تخطيط استضافة مخصصة، نقل البيانات التاريخية، وتدريب طاقم العمل."
-                  : "Our engineering consultants will assist you with custom deployments, legacy data migration, and on-premise setups."}
+                  ? "تواصل معنا لنخطط معك الاستضافة المخصصة أو التشغيل داخل منشأتك ونقل بياناتك الحالية."
+                  : "Talk to us about a dedicated server, running Mizan on your own premises, and bringing your existing data over."}
               </p>
               <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
                 <Button
@@ -547,7 +512,7 @@ export default function PricingPage({
                   size="lg"
                   className="bg-[#651E2C] text-white hover:bg-[#8A293B] rounded-full px-6 py-2.5 text-xs font-bold"
                 >
-                  {isAr ? "حجز جلسة استشارية مع مهندس حلول" : "Book Enterprise Architecture Session"}
+                  {isAr ? "تواصل معنا" : "Contact us"}
                 </Button>
                 {ownerPanel ? (
                   <Button

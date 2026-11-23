@@ -142,22 +142,22 @@ export default function SignupPage() {
 
           <p className="text-xs sm:text-sm text-[#E7D6C1]/80 leading-relaxed font-light">
             {isAr
-              ? "تجربة سحابية مجانية لمدة 14 يوماً بكامل المزايا. بدون بطاقة ائتمانية وبجاهزية تشغيل فورية."
-              : "Full-feature 14-day trial. No credit card required. Instant multi-tenant deployment."}
+              ? "تجربة سحابية مجانية لمدة 14 يوماً. بدون بطاقة ائتمانية وبجاهزية تشغيل فورية."
+              : "A free 14-day trial. No credit card required. Ready in a minute."}
           </p>
 
           <div className="pt-4 flex flex-col gap-2 text-start text-xs text-[#E7D6C1]/90 bg-white/5 p-4 rounded-2xl border border-white/10">
             <div className="flex items-center gap-2">
               <Check className="h-4 w-4 text-[#27835C] shrink-0" />
-              <span>{isAr ? "عزل بيانات مشفر لكل منشأة" : "Encrypted tenant data isolation"}</span>
+              <span>{isAr ? "عزل كامل لبيانات كل منشأة" : "Each business's data isolated"}</span>
             </div>
             <div className="flex items-center gap-2">
               <Check className="h-4 w-4 text-[#27835C] shrink-0" />
-              <span>{isAr ? "كاشير أوفلاين مع فواتير سريعة" : "Offline-first POS with fast invoicing"}</span>
+              <span>{isAr ? "كاشير سريع يحفظ الفواتير عند انقطاع النت" : "A fast till that keeps sales when offline"}</span>
             </div>
             <div className="flex items-center gap-2">
               <Check className="h-4 w-4 text-[#27835C] shrink-0" />
-              <span>{isAr ? "دعم فني وتدريب مجاني" : "Dedicated setup and support"}</span>
+              <span>{isAr ? "دعم فني عبر واتساب والهاتف" : "Support over WhatsApp and phone"}</span>
             </div>
           </div>
         </div>
