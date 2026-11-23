@@ -216,6 +216,32 @@ async def main():
         await db.rollback()
         await unbind_tenant(db)
 
+    # 15. A single tenant setting is consumed by distinct persisted page trees.
+    async with AsyncSessionLocal() as db:
+        from app.platform.site.render import render_document
+        await bind_tenant(db, one)
+        first = await service.get_page(db, page.id)
+        second = await service.create_page(db, slug="about", titles={"en": "About"}, tree=tree("About content"))
+        await service.save_draft(db, first.id, tree=tree("Home content"), titles={"en": "Home"})
+        shared = {"header": {"brand": "Shared brand", "links": [{"label": "About", "href": "/about"}]},
+                  "footer": {"lines": ["Shared footer"], "links": [{"label": "Returns", "href": "/returns"}]}}
+        await service.put_settings(db, value=shared)
+        await db.commit()
+        db.expunge_all()
+        await bind_tenant(db, one)
+        first = await service.get_page(db, page.id)
+        second = await service.get_page(db, second.id)
+        stored = await service.get_settings(db)
+        home_html = render_document(first.draft_tree, {"titles": first.titles}, stored, "ar", "desktop")
+        about_html = render_document(second.draft_tree, {"titles": second.titles}, stored, "ar", "desktop")
+        for html in (home_html, about_html):
+            assert "Shared brand" in html and "Shared footer" in html and 'href="/returns"' in html
+        assert "Home content" in home_html and "About content" in about_html
+        assert "About content" not in home_html and "Home content" not in about_html
+        print("15. two persisted pages render shared header/footer links with distinct content  OK")
+        await db.rollback()
+        await unbind_tenant(db)
+
     # cleanup: drop the throwaway tenants (cascade)
     async with AsyncSessionLocal() as db:
         from sqlalchemy import text
