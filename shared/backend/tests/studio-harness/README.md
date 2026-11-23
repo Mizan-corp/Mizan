@@ -66,3 +66,8 @@ node cross-column move and sibling reorder, undo, Escape cancellation, Enter/Tab
 position activation, CDP-emulated touch insertion/handle move and draft save/reload.
 Not physical-touch or screen-reader acceptance. No edge auto-scroll. Uses same
 isolated Vite/CDP setup, never production accounts.
+
+
+native-hover.mjs: MOCKED real mouse deepest-node hover/click, separate selection
+border, ancestor breadcrumb selection and inspector sync. Screenshot evidence.
+Uses isolated Vite/CDP; no real API or physical-device accessibility claim.
