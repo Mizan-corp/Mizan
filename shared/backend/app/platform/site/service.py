@@ -21,7 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.framework.manifest import page_problems
-from app.platform.site.models import SitePage, SitePageRevision
+from app.platform.site.models import SitePage, SitePageRevision, SiteSettings
 
 SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 LANGUAGES = ("ar", "en")  # ADR-015 D7: Arabic and English first.
@@ -170,3 +170,98 @@ async def reopen(db: AsyncSession, page_id: uuid.UUID) -> SitePage:
     # an expired-attribute read after commit is implicit IO and breaks under async.
     await db.refresh(page)
     return page
+
+
+HEX = re.compile(r"#[0-9a-fA-F]{6}")
+COLOR_TOKENS = {"background", "foreground", "card", "primary", "primary-foreground"}
+FONT_FAMILIES = ("sans-serif", "serif", "monospace")
+MAX_SETTINGS_BYTES = 20_000
+
+
+def _check_links(entries, limit: int) -> list:
+    if entries is None:
+        return []
+    if not isinstance(entries, list) or len(entries) > limit:
+        raise HTTPException(422, "روابط الموقع غير صالحة")
+    out = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise HTTPException(422, "روابط الموقع غير صالحة")
+        label, href = entry.get("label"), entry.get("href")
+        if (not isinstance(label, str) or not label.strip() or len(label) > 40
+                or not isinstance(href, str) or not href.startswith(("#", "/", "https://")) or len(href) > 200):
+            raise HTTPException(422, "روابط الموقع غير صالحة")
+        out.append({"label": label.strip(), "href": href})
+    return out
+
+
+def check_settings(value) -> dict:
+    """Validate and normalize the theme document: known keys only, same constraints the
+    renderer enforces, so a stored value can never carry markup or CSS expressions."""
+    if not isinstance(value, dict):
+        raise HTTPException(422, "إعدادات الموقع غير صالحة")
+    if len(json.dumps(value, ensure_ascii=False).encode()) > MAX_SETTINGS_BYTES:
+        raise HTTPException(422, "إعدادات الموقع أكبر من الحد المسموح")
+    out: dict = {}
+    colors = value.get("colors")
+    if colors is not None:
+        if not isinstance(colors, dict) or not isinstance(colors.get("light"), dict):
+            raise HTTPException(422, "ألوان الموقع غير صالحة")
+        light = {k: v for k, v in colors["light"].items()
+                 if k in COLOR_TOKENS and isinstance(v, str) and HEX.fullmatch(v)}
+        out["colors"] = {"light": light}
+    typography = value.get("typography")
+    if typography is not None:
+        if not isinstance(typography, dict) or typography.get("family") not in FONT_FAMILIES:
+            raise HTTPException(422, "خط الموقع غير صالح")
+        out["typography"] = {"family": typography["family"]}
+    shape = value.get("shape")
+    if shape is not None:
+        radius = shape.get("radius") if isinstance(shape, dict) else None
+        if not isinstance(radius, int) or isinstance(radius, bool) or not 0 <= radius <= 64:
+            raise HTTPException(422, "حواف الموقع غير صالحة")
+        out["shape"] = {"radius": radius}
+    header = value.get("header")
+    if header is not None:
+        if not isinstance(header, dict):
+            raise HTTPException(422, "ترويسة الموقع غير صالحة")
+        brand = header.get("brand")
+        if brand is not None and (not isinstance(brand, str) or len(brand.strip()) > 80):
+            raise HTTPException(422, "اسم المتجر غير صالح")
+        out["header"] = {"brand": (brand or "").strip(),
+                         "links": _check_links(header.get("links"), 8),
+                         "actions": _check_links(header.get("actions"), 4)}
+    footer = value.get("footer")
+    if footer is not None:
+        if not isinstance(footer, dict):
+            raise HTTPException(422, "تذييل الموقع غير صالح")
+        lines = footer.get("lines") or []
+        if not isinstance(lines, list) or len(lines) > 4 or any(
+                not isinstance(x, str) or not x.strip() or len(x) > 120 for x in lines):
+            raise HTTPException(422, "تذييل الموقع غير صالح")
+        out["footer"] = {"lines": [x.strip() for x in lines], "links": _check_links(footer.get("links"), 8)}
+    unknown = set(value) - {"colors", "typography", "shape", "header", "footer"}
+    if unknown:
+        raise HTTPException(422, "إعدادات الموقع تحتوي مفاتيح غير معروفة")
+    return out
+
+
+async def get_settings(db: AsyncSession) -> dict:
+    res = await db.execute(select(SiteSettings).limit(1))
+    row = res.scalars().first()
+    return dict(row.value) if row else {}
+
+
+async def put_settings(db: AsyncSession, *, value: dict) -> dict:
+    """Upsert the workspace's single settings row."""
+    clean = check_settings(value)
+    res = await db.execute(select(SiteSettings).limit(1))
+    row = res.scalars().first()
+    if row is None:
+        row = SiteSettings(value=clean)
+        db.add(row)
+    else:
+        row.value = clean
+    await db.commit()
+    await db.refresh(row)
+    return dict(row.value)
