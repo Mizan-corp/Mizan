@@ -33,6 +33,26 @@ export function workspaceUrl(slug: string, path = "/"): string {
   return appUrl("system", `/c/${slug}${p === "/" ? "" : p}`);
 }
 
+/**
+ * The workspace ERP's path prefix on its host (ADR-015 S1): the storefront takes the
+ * workspace host's root and the ERP moves under /admin. Empty until that move ships; set
+ * VITE_ERP_BASE=/admin when it does. Every ERP-bound link goes through erpUrl so the
+ * prefix lives in exactly one place (and S6 custom domains touch one function).
+ */
+const ERP_BASE = ((import.meta.env.VITE_ERP_BASE as string | undefined) ?? "").replace(/\/+$/, "");
+
+/**
+ * Absolute URL to a page of a workspace's ERP (today the workspace host itself; after S1,
+ * <host>/<ERP_BASE>/...). Without a slug (older deployments, development) the ERP is the
+ * system app. Links to a workspace's public pages (its site) keep using workspaceUrl.
+ */
+export function erpUrl(slug: string | null | undefined, path = "/"): string {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  const full = p === "/" ? ERP_BASE || "/" : `${ERP_BASE}${p}`;
+  if (slug) return workspaceUrl(slug, full);
+  return appUrl("system", full);
+}
+
 /** Absolute URL to a path in another app (or this one). */
 export function appUrl(app: AppKind, path = "/"): string {
   return `${APP_URLS[app]}${path.startsWith("/") ? path : `/${path}`}`;
@@ -51,3 +71,4 @@ export function safeInternalPath(raw: string | null | undefined, fallback = "/")
     return fallback;
   }
 }
+
