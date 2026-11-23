@@ -71,3 +71,9 @@ isolated Vite/CDP setup, never production accounts.
 native-hover.mjs: MOCKED real mouse deepest-node hover/click, separate selection
 border, ancestor breadcrumb selection and inspector sync. Screenshot evidence.
 Uses isolated Vite/CDP; no real API or physical-device accessibility claim.
+
+
+native-ux.mjs: MOCKED semantic sidebar/ready section acceptance. Preset insertion,
+undo/redo, fresh IDs, content-derived layer names, editable heading, save/reload.
+Exports /tmp/native-preset-tree.json for separate real backend page_problems check.
+All native drivers now select nodes via data-node-id/type, not visible technical IDs.
