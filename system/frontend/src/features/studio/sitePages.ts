@@ -141,7 +141,7 @@ export function createSitePagesClient(options: { baseUrl: string; fetchImpl?: Fe
     listPages: () => call<ListResponse<PageSummary>>('GET', '/site/pages'),
     createPage: (project: Project) => call<PageDetail>('POST', '/site/pages', createPayload(project)),
     getPage: (pageId: string) => call<PageDetail>('GET', `/site/pages/${pageId}`),
-    saveDraft: (pageId: string, project: Project) => call<PageDetail>('PUT', `/site/pages/${pageId}/draft`, draftPayload(project)),
+    saveDraft: (pageId: string, project: Project, titles?: Record<string, string>) => call<PageDetail>('PUT', `/site/pages/${pageId}/draft`, { ...draftPayload(project), ...(titles ? { titles } : {}) }),
     publish: (pageId: string) => call<PageDetail>('POST', `/site/pages/${pageId}/publish`),
     listRevisions: (pageId: string) => call<ListResponse<Revision>>('GET', `/site/pages/${pageId}/revisions`),
     rollback: (pageId: string, revisionId: string) => call<PageDetail>('POST', `/site/pages/${pageId}/rollback/${revisionId}`),
