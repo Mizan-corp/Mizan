@@ -170,3 +170,31 @@ describe('site settings client + mapping', () => {
     expect(bad.chrome?.footer).toEqual([]);
   });
 });
+
+
+describe('site-wide settings across distinct page trees', () => {
+  it('applies the same stored chrome to two pages without changing their content', () => {
+    const home = structuredClone(initialProject);
+    const about = structuredClone(initialProject);
+    about.sections[0].title = 'Our separate about page';
+    const theme = structuredClone(initialProject);
+    theme.chrome = { links: [{ label: 'About', href: '/about' }], actions: [], footer: ['Shared footer'], footerLinks: [{ label: 'Returns', href: '/returns' }] };
+    const stored = settingsPayload(theme);
+    const restoredHome = applySettings(home, stored);
+    const restoredAbout = applySettings(about, stored);
+    expect(restoredHome.chrome).toEqual(restoredAbout.chrome);
+    expect(restoredHome.chrome?.footerLinks).toEqual([{ label: 'Returns', href: '/returns' }]);
+    expect(restoredHome.sections).toEqual(home.sections);
+    expect(restoredAbout.sections).toEqual(about.sections);
+    restoredHome.chrome!.footerLinks![0].label = 'Changed locally';
+    expect(restoredAbout.chrome?.footerLinks?.[0].label).toBe('Returns');
+    expect(stored.footer?.links?.[0].label).toBe('Returns');
+  });
+  it('clears footer links explicitly and leaves older saved projects compatible', () => {
+    const base = structuredClone(initialProject);
+    base.chrome = { links: [], actions: [], footer: [], footerLinks: [{ label: 'Contact', href: '/contact' }] };
+    expect(applySettings(base, { footer: { links: [] } }).chrome?.footerLinks).toEqual([]);
+    expect(applySettings(base, { footer: { links: [{ label: 'Bad', href: 'javascript:alert(1)' }] } }).chrome?.footerLinks).toEqual(base.chrome.footerLinks);
+    expect(settingsPayload(initialProject).footer?.links).toBeUndefined();
+  });
+});
