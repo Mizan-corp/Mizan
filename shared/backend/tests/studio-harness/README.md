@@ -16,3 +16,10 @@ Scripts:
 - parity.mjs / parity-img.mjs: paired react vs shared Python renderer captures. They hide scrollbars in the shared tab only (a capture condition, NOT a production layout fix).
 
 Run order: start serve_http.py, start vite with vite.studio.config.ts (MIZAN_SITE_API, MIZAN_SITE_TOKEN from roundtrip_token.txt, MIZAN_SITE_BACKEND), start headless Chrome with --remote-debugging-port=9222, then node e2e.mjs.
+
+Follow-up driver: chrome-controls.mjs exercises footer link add/edit, local save/reload,
+reordering, removal, invalid destination feedback and preview rejection. It clears local
+storage in the isolated browser profile. Start local Vite and Chromium CDP on 9222,
+then run STUDIO_OUT=/path/to/existing/output node chrome-controls.mjs. Browser-only
+persistence, not an API e2e or full-app test. run_db_tests.py now has 15 checks,
+including two persisted pages rendering one shared settings record.
