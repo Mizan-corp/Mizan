@@ -1,26 +1,9 @@
+import {pageRecipes} from './library/pages/recipes';
 import type { PageNode } from './pagetree';
 import { nativeNodes } from './nativeTree';
 export type PresetKind='hero'|'story'|'callout'|'features'|'quote'|'contact'|'hero_center'|'feedback_cards'|'features_split'|'pricing_cards'|'pricing_simple'|'faq_list'|'faq_columns'|'contact_split'|'gallery_pair'|'gallery_grid'|'team_pair'|'team_grid';
 export type TemplateKind='studio'|'service'|'editorial';
-export const blockCatalog: {id:PresetKind;name:string;category:string;description:string}[]=[
-{id:'hero',name:'Intro + image',category:'Hero sections',description:'A headline, introduction, button and editable art.'},
-{id:'story',name:'Image + story',category:'Stories',description:'A two-column story with artwork first.'},
-{id:'callout',name:'Call to action',category:'Calls to action',description:'A focused message and one clear next step.'},
-{id:'features',name:'Three benefits',category:'Features',description:'Three editable columns for your strongest ideas.'},
-{id:'quote',name:'Featured quote',category:'Feedback',description:'A centered quote with an attribution.'},
-{id:'contact',name:'Contact invitation',category:'Contact',description:'A contact headline and editable contact-page link.'},
-{id:'hero_center',name:'Centered introduction',category:'Hero sections',description:'A centered headline with art beneath.'},
-{id:'feedback_cards',name:'Two customer stories',category:'Feedback',description:'Two editable testimonial cards. Replace all sample quotes.'},
-{id:'features_split',name:'Benefit + illustration',category:'Features',description:'An illustration beside a focused benefit story.'},
-{id:'pricing_cards',name:'Three plans',category:'Pricing',description:'Editable plan copy and enquiry links. No checkout connection.'},
-{id:'pricing_simple',name:'Single offer',category:'Pricing',description:'One offer and a contact link. Sample prices are not live prices.'},
-{id:'faq_list',name:'Questions & answers',category:'FAQ',description:'Readable editable answers, always visible, no accordion behavior.'},
-{id:'faq_columns',name:'Two-column FAQ',category:'FAQ',description:'Side-by-side questions and answers, no accordion behavior.'},
-{id:'contact_split',name:'Contact + artwork',category:'Contact',description:'A message and contact-page link beside artwork.'},
-{id:'gallery_pair',name:'Two-image gallery',category:'Galleries',description:'Two editable decorative images. Replace with your own media.'},
-{id:'gallery_grid',name:'Three-image gallery',category:'Galleries',description:'A responsive row of three editable images.'},
-{id:'team_pair',name:'Meet the founders',category:'Teams',description:'Two profiles with editable art, names and roles.'},
-{id:'team_grid',name:'Meet the team',category:'Teams',description:'Three editable profiles. All names are sample copy.'}];
+export {blockCatalog} from './library/blocks/catalog';
 export const templateCatalog:{id:TemplateKind;name:string;description:string}[]=[
 {id:'studio',name:'Independent studio',description:'An intro, studio story, three values and contact section.'},
 {id:'service',name:'Creative services',description:'A service introduction, benefits, client quote and enquiry invitation.'},
@@ -65,7 +48,7 @@ export function createPreset(tree:PageNode,kind:PresetKind):PageNode {
 export function createTemplate(tree:PageNode,kind:TemplateKind):PageNode {
  if(!templateCatalog.some(t=>t.id===kind))throw Error('Unknown template.');
  const next=structuredClone(tree),reserved=structuredClone(tree);next.children=[];
- const sequence:PresetKind[]=kind==='studio'?['hero','story','features','contact']:kind==='service'?['hero','features','quote','contact']:['hero','story','quote','callout'];
+ const sequence=pageRecipes[kind];
  for(const block of sequence){const section=createPreset(reserved,block);next.children.push(section);reserved.children=[...(reserved.children??[]),section];}
  const copy:Record<TemplateKind,string[]>={studio:['Independent ideas. Thoughtfully made.','We are a small studio with a clear point of view.','A studio built around people'],service:['A fresh perspective for your next project.','We turn complex challenges into clear, useful experiences.','Services that move your work forward'],editorial:['Stories for a more considered life.','An independent journal of ideas, people and everyday discoveries.','The art of paying attention']};
  const all=nativeNodes(next),headings=all.filter(n=>n.type==='heading'),texts=all.filter(n=>n.type==='text');
