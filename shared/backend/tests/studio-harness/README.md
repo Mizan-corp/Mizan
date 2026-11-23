@@ -93,3 +93,5 @@ native-simple.mjs: MOCKED canvas-first default smoke: panels closed, truthful
 local save state, Add/preset, relevant editing with technical settings collapsed,
 closing panels keeps dirtiness, Save updates state. Other drivers use + Add and
 Save after simplification. Not nontechnical-user usability proof.
+
+`native-canva.mjs` checks the Canva-directed rail and focused dock, actual canvas pointer selection, contextual Layout, content edit/save and 390px mobile sheet/no document overflow. Uses the same mocked local Vite/CDP harness as native-simple; not full-app acceptance.
