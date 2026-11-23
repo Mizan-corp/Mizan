@@ -94,6 +94,9 @@ async def save_draft(db: AsyncSession, page_id: uuid.UUID, *, tree: dict, titles
     if titles is not None:
         page.titles = check_titles(titles)
     await db.commit()
+    # func.now() onupdate leaves updated_at expired; refresh it inside the session,
+    # an expired-attribute read after commit is implicit IO and breaks under async.
+    await db.refresh(page)
     return page
 
 
@@ -115,6 +118,9 @@ async def publish(db: AsyncSession, page_id: uuid.UUID, user_id: uuid.UUID | Non
     page.published_tree = page.draft_tree
     page.status = "published"
     await db.commit()
+    # func.now() onupdate leaves updated_at expired; refresh it inside the session,
+    # an expired-attribute read after commit is implicit IO and breaks under async.
+    await db.refresh(page)
     return page
 
 
@@ -136,6 +142,9 @@ async def rollback(db: AsyncSession, page_id: uuid.UUID, revision_id: uuid.UUID)
     page.draft_tree = revision.tree
     page.titles = dict(revision.titles or page.titles)
     await db.commit()
+    # func.now() onupdate leaves updated_at expired; refresh it inside the session,
+    # an expired-attribute read after commit is implicit IO and breaks under async.
+    await db.refresh(page)
     return page
 
 
@@ -145,6 +154,9 @@ async def archive(db: AsyncSession, page_id: uuid.UUID) -> SitePage:
     page = await get_page(db, page_id)
     page.status = "archived"
     await db.commit()
+    # func.now() onupdate leaves updated_at expired; refresh it inside the session,
+    # an expired-attribute read after commit is implicit IO and breaks under async.
+    await db.refresh(page)
     return page
 
 
@@ -154,4 +166,7 @@ async def reopen(db: AsyncSession, page_id: uuid.UUID) -> SitePage:
         raise HTTPException(409, "الصفحة ليست مؤرشفة")
     page.status = "published" if page.published_tree is not None else "draft"
     await db.commit()
+    # func.now() onupdate leaves updated_at expired; refresh it inside the session,
+    # an expired-attribute read after commit is implicit IO and breaks under async.
+    await db.refresh(page)
     return page
