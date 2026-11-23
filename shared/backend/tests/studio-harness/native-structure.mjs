@@ -74,7 +74,7 @@ window.fetch=async(url,init={})=>{
  const path=String(url),method=init.method||'GET';window.__calls.push({path,method,body:init.body?JSON.parse(init.body):null});
  if(path.endsWith('/site/settings'))return new Response(JSON.stringify({value:window.__theme}),{status:200});
  if(method==='PUT')sessionStorage.setItem('structure-tree',JSON.stringify(JSON.parse(init.body).tree));
- return new Response(JSON.stringify({id:'native-one',slug:'native-one',titles:{en:'Original page'},status:'draft',draft_tree:JSON.parse(sessionStorage.getItem('structure-tree')),published_tree:null}),{status:200});
+ return new Response(JSON.stringify({id:'native-one',slug:'native-one',titles:{en:'Original page'},status:'draft',edit_token:'a'.repeat(64),draft_tree:JSON.parse(sessionStorage.getItem('structure-tree')),published_tree:null}),{status:200});
 };`});
 await send('Page.navigate',{url:'http://127.0.0.1:5188/studio.html?editor=tree&page=native-one'});await sleep(400);await waitFor(`!!document.querySelector('.native-node')`);
 async function selectType(type){await evaluate(`[...document.querySelectorAll('.native-node')].find(b=>b.dataset.nodeType===${JSON.stringify(type)}).click()`);await sleep(80);}
@@ -97,7 +97,7 @@ await evaluate(`(()=>{const e=document.querySelector('[aria-label="Native href"]
 await selectType('image');
 await evaluate(`(()=>{const e=document.querySelector('[aria-label="Native alt"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'Editable media description');e.dispatchEvent(new Event('input',{bubbles:true}));})()`);await sleep(100);
 await click('Save native draft');await waitFor(`document.querySelector('.studio-notice').textContent.startsWith('Native tree draft saved')`);
-if(!(await evaluate(`window.__calls.filter(c=>c.method!=='GET').every(c=>c.path.endsWith('/draft')&&Object.keys(c.body).join()==='tree') && document.querySelector('.mz-site-brand').textContent==='Saved native brand' && JSON.stringify(window.__theme)===${JSON.stringify(JSON.stringify(theme))}`)))throw Error('theme preservation failed');
+if(!(await evaluate(`window.__calls.filter(c=>c.method!=='GET').every(c=>c.path.endsWith('/draft')&&Object.keys(c.body).sort().join()==='expected_token,tree') && document.querySelector('.mz-site-brand').textContent==='Saved native brand' && JSON.stringify(window.__theme)===${JSON.stringify(JSON.stringify(theme))}`)))throw Error('theme preservation failed');
 await send('Page.reload');await sleep(400);await waitFor(`!!document.querySelector('.native-node')`);
 if(!(await evaluate(`document.body.textContent.includes('New no-code section heading') && document.body.textContent.includes('No-code formatted copy') && !!document.querySelector('.mz-site-footer a[href="/returns"]')`)))throw Error('save reload failed');
 await selectType('image');await shot((process.env.STUDIO_OUT||'/downloads')+'/native-media-theme.png');
