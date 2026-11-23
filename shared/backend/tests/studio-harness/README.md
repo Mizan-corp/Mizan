@@ -97,3 +97,5 @@ Save after simplification. Not nontechnical-user usability proof.
 `native-canva.mjs` checks the Canva-directed rail and focused dock, actual canvas pointer selection, contextual Layout, content edit/save and 390px mobile sheet/no document overflow. Uses the same mocked local Vite/CDP harness as native-simple; not full-app acceptance.
 
 `native-library.mjs` verifies ready-block search/insert, complete native template preview and reversible apply/save/reload, keyboard/mobile preview, Explorer search/list failure retry and dirty-switch guards. Its API is mocked. `native-real.mjs` now also verifies template persistence and Explorer against the actual reduced authenticated router/service/DB, still not the full application.
+
+`native-motion.mjs`: constrained motion CSS playback and reduced-motion/browser persistence plus Python-exported document check. Run `check_motion.py` first to generate the exported fixture after native-library generated its category trees. `STUDIO_BACKEND_ROOT` and `STUDIO_WORK_ROOT` select local reduced API/source roots. This is a reduced harness, not full application validation.
