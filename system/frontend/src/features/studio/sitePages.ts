@@ -93,8 +93,8 @@ export type SiteSettingsValue = {
   colors?: { light?: Record<string, string> };
   typography?: { family?: string };
   shape?: { radius?: number };
-  header?: { brand?: string; links?: { label: string; href: string }[]; actions?: { label: string; href: string }[] };
-  footer?: { lines?: string[]; links?: { label: string; href: string }[] };
+  header?: { layout?: 'inline'|'centered'; brand?: string; links?: { label: string; href: string }[]; actions?: { label: string; href: string }[] };
+  footer?: { layout?: 'split'|'stacked'; lines?: string[]; links?: { label: string; href: string }[] };
 };
 
 export function settingsPayload(project: Project): SiteSettingsValue {
@@ -147,7 +147,8 @@ export function createSitePagesClient(options: { baseUrl: string; fetchImpl?: Fe
     publish: (pageId: string) => call<PageDetail>('POST', `/site/pages/${pageId}/publish`),
     listRevisions: (pageId: string) => call<ListResponse<Revision>>('GET', `/site/pages/${pageId}/revisions`),
     rollback: (pageId: string, revisionId: string) => call<PageDetail>('POST', `/site/pages/${pageId}/rollback/${revisionId}`),
-    getSettings: () => call<{ value: SiteSettingsValue }>('GET', '/site/settings'),
+    getSettings: () => call<{ value: SiteSettingsValue; edit_token?:string }>('GET', '/site/settings'),
+    saveSharedSettings: (value:SiteSettingsValue, expectedToken:string) => call<{value:SiteSettingsValue;edit_token:string}>('PUT','/site/settings',{value,expected_token:expectedToken}),
     putSettings: (project: Project) => call<{ value: SiteSettingsValue }>('PUT', '/site/settings', { value: settingsPayload(project) }),
     archive: (pageId: string) => call<PageSummary>('POST', `/site/pages/${pageId}/archive`),
     reopen: (pageId: string) => call<PageSummary>('POST', `/site/pages/${pageId}/reopen`),
