@@ -3,10 +3,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Workspaces on their own subdomain (ADR-008): the domain comes from VITE_WORKSPACE_DOMAIN,
 // read when the modules load, so each case loads them fresh.
-async function load(domain: string) {
+async function load(domain: string, erpBase = "") {
   vi.resetModules();
   vi.stubEnv("VITE_WORKSPACE_DOMAIN", domain);
   vi.stubEnv("VITE_SYSTEM_URL", "https://app.example");
+  vi.stubEnv("VITE_ERP_BASE", erpBase);
   const tenant = await import("@app/lib/tenant");
   const urls = await import("@/lib/urls");
   return { ...tenant, ...urls };
@@ -38,4 +39,18 @@ describe("workspace addresses", () => {
     expect(workspaceUrl("acme")).toBe("https://app.example/c/acme");
     expect(workspaceUrl("acme", "/login")).toBe("https://app.example/c/acme/login");
   });
+
+  it("builds ERP links at the workspace root until the S1 move, then under the ERP base", async () => {
+    let { erpUrl } = await load("allmizan.live");
+    expect(erpUrl("acme")).toBe("https://acme.allmizan.live/");
+    expect(erpUrl("acme", "/pos")).toBe("https://acme.allmizan.live/pos");
+    expect(erpUrl(null, "/login")).toBe("https://app.example/login");
+    ({ erpUrl } = await load("allmizan.live", "/admin"));
+    expect(erpUrl("acme")).toBe("https://acme.allmizan.live/admin");
+    expect(erpUrl("acme", "/pos")).toBe("https://acme.allmizan.live/admin/pos");
+    expect(erpUrl(null, "/login")).toBe("https://app.example/admin/login");
+    ({ erpUrl } = await load("", "/admin"));
+    expect(erpUrl("acme", "/pos")).toBe("https://app.example/c/acme/admin/pos");
+  });
 });
+
