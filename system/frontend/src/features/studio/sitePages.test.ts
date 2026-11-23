@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SiteApiError, applySettings, createPayload, createSitePagesClient, draftPayload, settingsPayload, slugFromName } from './sitePages';
+import { siteRequestHeaders, SiteApiError, applySettings, createPayload, createSitePagesClient, draftPayload, settingsPayload, slugFromName } from './sitePages';
 import { initialProject } from './model';
 import { toPageTree } from './pagetree';
 
@@ -221,4 +221,19 @@ it('native concurrency save sends expected token without titles or settings',asy
  const {calls,fetchImpl}=mockFetch(200,{});const client=createSitePagesClient({baseUrl:'',fetchImpl});const tree=toPageTree(initialProject);
  await client.saveTreeDraft('native-original',tree,'a'.repeat(64));
  expect(JSON.parse(String(calls[0].init?.body))).toEqual({tree,expected_token:'a'.repeat(64)});
+});
+
+
+describe('native cookie CSRF protocol', () => {
+ it('echoes the token on same-origin mutations, including bodyless publish', () => {
+  for(const method of ['POST','PUT','PATCH','DELETE']) expect(siteRequestHeaders('/api',method,false,'other=x; csrf_token=a%2Bb')).toEqual({'X-CSRF-Token':'a+b'});
+ });
+ it('never leaks readable cookies to external or protocol-relative destinations', () => {
+  for(const base of ['https://api.example','//api.example','/a//b']) expect(siteRequestHeaders(base,'PUT',true,'csrf_token=private')).toEqual({'Content-Type':'application/json'});
+ });
+ it('does not echo on reads or fail on malformed/missing cookie data', () => {
+  expect(siteRequestHeaders('/api','GET',false,'csrf_token=x')).toEqual({});
+  expect(siteRequestHeaders('/api','POST',false,'csrf_token=%QQ')).toEqual({});
+  expect(siteRequestHeaders('/api','POST',false,'other=x')).toEqual({});
+ });
 });
