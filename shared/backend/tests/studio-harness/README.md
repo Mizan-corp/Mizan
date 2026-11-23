@@ -33,3 +33,8 @@ page-identity.mjs: MOCKED API regression for delayed load guards, stable page ID
 selection/save/reload despite changed brand, preserved independent page titles,
 ambiguous/missing target refusal and create conflict without draft overwrite.
 Uses isolated local Vite/Chromium CDP and clears isolated localStorage.
+
+save-snapshot.mjs: MOCKED delayed API regression for serialized save/publish,
+newer edits while operations run, dirty publish refusal, partial settings failure
+and retry. Uses isolated local Vite/Chromium CDP, clears localStorage, overrides
+confirmation only in that test page. Not atomicity or cross-session validation.
