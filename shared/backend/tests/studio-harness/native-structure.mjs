@@ -96,7 +96,7 @@ if(!(await evaluate(`document.querySelector('.link-error')?.textContent.includes
 await evaluate(`(()=>{const e=document.querySelector('[aria-label="Native href"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'/new-contact');e.dispatchEvent(new FocusEvent('focusout',{bubbles:true}));})()`);await sleep(100);
 await selectType('image');
 await evaluate(`(()=>{const e=document.querySelector('[aria-label="Native alt"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'Editable media description');e.dispatchEvent(new Event('input',{bubbles:true}));})()`);await sleep(100);
-await click('Save native draft');await waitFor(`document.querySelector('.studio-notice').textContent.startsWith('Native tree draft saved')`);
+await click('Save');await waitFor(`document.querySelector('.studio-notice').textContent.startsWith('Native tree draft saved')`);
 if(!(await evaluate(`window.__calls.filter(c=>c.method!=='GET').every(c=>c.path.endsWith('/draft')&&Object.keys(c.body).sort().join()==='expected_token,tree') && document.querySelector('.mz-site-brand').textContent==='Saved native brand' && JSON.stringify(window.__theme)===${JSON.stringify(JSON.stringify(theme))}`)))throw Error('theme preservation failed');
 await send('Page.reload');await sleep(400);await waitFor(`!!document.querySelector('.native-node')`);
 if(!(await evaluate(`document.body.textContent.includes('New no-code section heading') && document.body.textContent.includes('No-code formatted copy') && !!document.querySelector('.mz-site-footer a[href="/returns"]')`)))throw Error('save reload failed');
