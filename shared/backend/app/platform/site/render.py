@@ -2,21 +2,23 @@
 docs/builder/page-engine.md).
 
 Platform side only: the SDK ships the validator (app/framework/manifest.py, copied byte for
-byte), not this renderer. At v0 every block renders from the platform templates here; theme HTML
-templates in a sandboxed Jinja2 environment land with site themes (ADR-015 D6) at S5.
+byte), not this renderer. At v0 every block renders from fixed platform templates. The document wrapper uses sandboxed Jinja2; arbitrary theme
+templates are not supported by this experimental slice.
 
 Everything the tree carries is untrusted: text is escaped, rich text and html blocks pass
 through the allow-list sanitizer, and iframes exist only for video_embed's allow-listed hosts,
-so this output is what the site runtime CSP (ADR-015 D7) permits. Blocks without per-device
+CSP response headers still belong to the future site service (ADR-015 D2), not this module. Blocks without per-device
 visibility render on every device; the studio and the API validate with page_problems() before
 a tree reaches this renderer.
 """
 from __future__ import annotations
 
 import html as _html
-from html.parser import HTMLParser
+import nh3
+from jinja2 import StrictUndefined
+from jinja2.sandbox import SandboxedEnvironment
 
-from app.framework.manifest import PAGE_BLOCKS, PAGE_EMBED_HOSTS, color_rgb, page_problems
+from app.framework.manifest import PAGE_BLOCKS, page_url, page_problems
 
 # Rich text (the text block) may use these; the html block adds EXTRA_TAGS. No inline styles,
 # no event handlers, no scripts: the runtime CSP forbids them, so the sanitizer drops them.
@@ -32,82 +34,31 @@ RTL = ("ar", "he", "fa", "ur")
 
 
 def _safe_href(value) -> str | None:
-    if not isinstance(value, str) or len(value) > 2000:
-        return None
-    if value.startswith(("https://", "http://", "mailto:", "tel:", "/", "#")):
-        return value
-    return None
+    return value if page_url(value, "href") else None
 
 
 def _safe_src(value) -> str | None:
-    if not isinstance(value, str) or len(value) > 2000:
-        return None
-    if value.startswith(("https://", "http://", "/")):
-        return value
-    return None
-
-
-class _Sanitizer(HTMLParser):
-    def __init__(self, extra: tuple[str, ...] = ()):
-        super().__init__(convert_charrefs=True)
-        self.allowed = set(SAFE_TAGS) | set(extra)
-        self.out: list[str] = []
-        self.dropping = 0
-
-    def handle_starttag(self, tag, attrs):
-        if tag in DROP_CONTENT:
-            self.dropping += 1
-            return
-        if self.dropping or tag not in self.allowed:
-            return
-        kept = []
-        for name, value in attrs:
-            if value is None or name.startswith("on"):
-                continue
-            if tag == "a" and name in ("href", "title"):
-                if name == "href":
-                    value = _safe_href(value)
-                    if value is None:
-                        continue
-                kept.append((name, value))
-            elif tag == "img" and name in ("src", "alt"):
-                if name == "src":
-                    value = _safe_src(value)
-                    if value is None:
-                        continue
-                kept.append((name, value))
-            elif tag in ("td", "th") and name in ("colspan", "rowspan") and value.isdigit():
-                kept.append((name, value))
-        rendered = "".join(f' {name}="{_html.escape(value, quote=True)}"' for name, value in kept)
-        self.out.append(f"<{tag}{rendered}>")
-
-    def handle_startendtag(self, tag, attrs):
-        if tag in DROP_CONTENT:
-            return  # self-closing: nothing to drop, and no dangling drop state
-        self.handle_starttag(tag, attrs)
-
-    def handle_endtag(self, tag):
-        if tag in DROP_CONTENT:
-            self.dropping = max(0, self.dropping - 1)
-            return
-        if self.dropping or tag not in self.allowed or tag in VOID_TAGS:
-            return
-        self.out.append(f"</{tag}>")
-
-    def handle_data(self, data):
-        if not self.dropping:
-            self.out.append(_html.escape(data))
+    return value if page_url(value, "url") else None
 
 
 def sanitize_html(markup: str, extra: tuple[str, ...] = ()) -> str:
-    """Rich text reduced to the allow list: formatting tags survive, scripts, event handlers,
-    javascript: links and foreign iframes do not (page-engine.md, html block)."""
+    """HTML5 parser-based allow list. No styles, classes, events, SVG or frames."""
     if not isinstance(markup, str):
         return ""
-    parser = _Sanitizer(extra)
-    parser.feed(markup)
-    parser.close()
-    return "".join(parser.out)
+
+    def attribute(tag, name, value):
+        if name == "href" and not page_url(value, "href"):
+            return None
+        if name == "src" and not page_url(value, "url"):
+            return None
+        return value
+
+    return nh3.clean(markup, tags=set(SAFE_TAGS) | set(extra),
+                     clean_content_tags=set(DROP_CONTENT),
+                     attributes={"a": {"href", "title"}, "img": {"src", "alt"},
+                                 "td": {"colspan", "rowspan"}, "th": {"colspan", "rowspan"}},
+                     attribute_filter=attribute, url_schemes={"https", "http", "mailto", "tel"},
+                     strip_comments=True)
 
 
 def _esc(value) -> str:
@@ -130,7 +81,7 @@ def _content(node: dict, lang: str) -> dict:
 _SPACER_PX = {"none": 0, "xs": 8, "s": 16, "m": 32, "l": 64, "xl": 128}
 
 
-def _render_node(node: dict, lang: str, device: str) -> str:
+def _render_node_inner(node: dict, lang: str, device: str) -> str:
     ntype = node.get("type")
     if ntype not in PAGE_BLOCKS:
         return ""
@@ -176,10 +127,7 @@ def _render_node(node: dict, lang: str, device: str) -> str:
         return f'<div class="mz-gallery" data-mode="{mode}">{"".join(imgs)}</div>'
     if ntype == "video_embed":
         url = c.get("url")
-        host = None
-        if isinstance(url, str) and url.startswith("https://"):
-            host = url[len("https://"):].split("/", 1)[0].split(":", 1)[0].lower() or None
-        if host not in PAGE_EMBED_HOSTS:
+        if not page_url(url, "embed"):
             return ""
         return (f'<div class="mz-embed" data-aspect="{_esc(s.get("aspect", "16:9"))}">'
                 f'<iframe src="{_esc(url)}" loading="lazy" allowfullscreen '
@@ -197,15 +145,42 @@ def _render_node(node: dict, lang: str, device: str) -> str:
                 items.append(f'<li><i data-lucide="{_esc(entry["icon"])}"></i> {_esc(entry.get("text", ""))}</li>')
         return f'<ul class="mz-icon-list">{"".join(items)}</ul>'
     if ntype == "spacer":
-        height = s.get("height")
-        px = _SPACER_PX.get(height, 32) if isinstance(height, str) else 32
-        return f'<div class="mz-spacer" aria-hidden="true" style="height:{px}px"></div>'
+        return '<div class="mz-spacer" aria-hidden="true"></div>'
     if ntype == "divider":
         style = s.get("style") if s.get("style") in ("solid", "dashed", "dotted") else "solid"
         return f'<hr class="mz-divider mz-divider-{style}">'
     if ntype == "html":
         return f'<div class="mz-html">{sanitize_html(c.get("html", ""), EXTRA_TAGS)}</div>'
     return ""
+
+
+def _render_node(node: dict, lang: str, device: str) -> str:
+    if _settings(node, device).get("visible") is False:
+        return ""
+    rendered = _render_node_inner(node, lang, device)
+    if not rendered:
+        return ""
+    # Only registry enum tokens become classes, never arbitrary CSS from the tree.
+    settings = _settings(node, device)
+    schema = PAGE_BLOCKS[node["type"]]["settings"]
+    classes = []
+    for key, value in settings.items():
+        spec = schema.get(key)
+        if isinstance(spec, tuple) and spec[0] == "choice" and value in spec[1]:
+            classes.append("mz-" + key.replace("_", "-") + "-" + value)
+    if settings.get("rounded") is True:
+        classes.append("mz-rounded")
+    class_value = _esc(" ".join(classes))
+    return f'<div id="{_esc(node["id"])}" class="mz-node {class_value}">{rendered}</div>'
+
+
+_BASE_CSS = """
+*{box-sizing:border-box}body{margin:0;background:var(--background,#FAF6F0);color:var(--foreground,#262321);font:18px/1.6 system-ui,sans-serif}
+.mz-section{padding:32px;max-width:1200px;margin:auto}.mz-columns{display:grid;gap:24px}.mz-columns-1{grid-template-columns:1fr}.mz-columns-2{grid-template-columns:repeat(2,minmax(0,1fr))}.mz-columns-3{grid-template-columns:repeat(3,minmax(0,1fr))}.mz-columns-4{grid-template-columns:repeat(4,minmax(0,1fr))}.mz-columns-5{grid-template-columns:repeat(5,minmax(0,1fr))}.mz-columns-6{grid-template-columns:repeat(6,minmax(0,1fr))}.mz-stack{grid-template-columns:1fr}
+.mz-heading{line-height:1.15;margin:0 0 24px;font-weight:750}h1{font-size:clamp(32px,4.8vw,64px)}.mz-text p{margin:0 0 24px}.mz-image{display:block;width:100%;height:auto}.mz-rounded img{border-radius:16px}.mz-button{display:inline-block;padding:12px 24px;border-radius:8px;text-decoration:none;background:var(--primary,#651E2C);color:var(--primary-foreground,#FAF6F0)}.mz-button-secondary{background:var(--foreground,#262321);color:var(--background,#FAF6F0)}.mz-button-ghost{background:none;color:var(--primary,#651E2C);outline:1px solid currentColor}.mz-icon-list{padding-inline-start:24px;margin:24px 0}.mz-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.mz-gallery img{width:100%}.mz-gallery[data-mode=slider]{display:flex;overflow:auto;scroll-snap-type:x mandatory}.mz-gallery[data-mode=slider] img{flex:0 0 85%;scroll-snap-align:start}.mz-embed iframe{width:100%;aspect-ratio:16/9;border:0}.mz-embed[data-aspect="4:3"] iframe{aspect-ratio:4/3}.mz-embed[data-aspect="1:1"] iframe{aspect-ratio:1}.mz-divider-dashed{border-style:dashed}.mz-divider-dotted{border-style:dotted}.mz-align-start{text-align:start}.mz-align-center{text-align:center}.mz-align-end{text-align:end}.mz-background-background{background:var(--background,#FAF6F0)}.mz-background-card{background:var(--card,#fff)}.mz-background-primary{background:var(--primary,#651E2C);color:var(--primary-foreground,#FAF6F0)}.mz-max-width-narrow{max-width:720px;margin:auto}.mz-max-width-normal{max-width:1000px;margin:auto}.mz-max-width-wide{max-width:1400px;margin:auto}.mz-max-width-full{max-width:none}.mz-width-auto{width:auto}.mz-width-full{width:100%}.mz-width-half{width:50%}.mz-width-third{width:33.333%}.mz-width-two_thirds{width:66.666%}.mz-min-height-s{min-height:240px}.mz-min-height-m{min-height:480px}.mz-min-height-l{min-height:720px}.mz-canvas{position:relative;display:flex;flex-wrap:wrap;gap:16px}
+"""
+for _token, _size in _SPACER_PX.items():
+    _BASE_CSS += f".mz-padding-{_token}{{padding:{_size}px}}.mz-gap-{_token}{{gap:{_size}px}}.mz-height-{_token} .mz-spacer{{height:{_size}px}}"
 
 
 def render_page(tree: dict, lang: str = "ar", device: str = "desktop", validate: bool = True) -> str:
@@ -216,17 +191,24 @@ def render_page(tree: dict, lang: str = "ar", device: str = "desktop", validate:
 
 
 def _theme_style(theme: dict | None) -> str:
-    """The theme's colors as CSS variables. Only values that parse as colors are emitted."""
-    if not isinstance(theme, dict):
+    """Constrained v0 palette: known tokens with hex colors only; no CSS expressions."""
+    import re
+
+    if not isinstance(theme, dict) or not isinstance(theme.get("colors"), dict):
         return ""
-    colors = (theme.get("colors") or {}).get("light") or {}
-    variables = []
-    for token, value in colors.items():
-        if isinstance(token, str) and token.replace("-", "").isalnum() and color_rgb(value) is not None:
-            variables.append(f"--{token}:{value}")
-    if not variables:
+    colors = theme["colors"].get("light")
+    if not isinstance(colors, dict):
         return ""
-    return "<style>:root{" + ";".join(variables) + "}</style>"
+    allowed = {"background", "foreground", "card", "primary", "primary-foreground"}
+    variables = [f"--{token}:{value}" for token, value in colors.items()
+                 if token in allowed and isinstance(value, str)
+                 and re.fullmatch(r"#[0-9a-fA-F]{6}", value)]
+    return "<style>:root{" + ";".join(variables) + "}</style>" if variables else ""
+
+
+_DOCUMENT = SandboxedEnvironment(autoescape=True, undefined=StrictUndefined).from_string(
+    '<!doctype html>\n<html lang="{{ language }}" dir="{{ direction }}">\n'
+    '<head>{{ head | safe }}</head>\n<body>{{ body | safe }}</body>\n</html>\n')
 
 
 def render_document(tree: dict, meta: dict, theme: dict | None = None, lang: str = "ar",
@@ -238,7 +220,7 @@ def render_document(tree: dict, meta: dict, theme: dict | None = None, lang: str
     descriptions = meta.get("descriptions") or {}
     title = titles.get(lang) or next(iter(titles.values()), "")
     description = descriptions.get(lang) or next(iter(descriptions.values()), "")
-    canonical = meta.get("canonical") if isinstance(meta.get("canonical"), str) else ""
+    canonical = meta.get("canonical") if page_url(meta.get("canonical"), "url") else ""
     direction = "rtl" if lang.split("-")[0] in RTL else "ltr"
 
     head = [f'<meta charset="utf-8">',
@@ -249,9 +231,11 @@ def render_document(tree: dict, meta: dict, theme: dict | None = None, lang: str
     if canonical:
         head.append(f'<link rel="canonical" href="{_esc(canonical)}">')
         head.append(f'<meta property="og:url" content="{_esc(canonical)}">')
-    for code in meta.get("languages") or []:
-        if isinstance(code, str) and canonical:
-            head.append(f'<link rel="alternate" hreflang="{_esc(code)}" href="{_esc(canonical)}">')
+    alternates = meta.get("alternates")
+    if isinstance(alternates, dict):
+        for code, url in alternates.items():
+            if isinstance(code, str) and page_url(url, "url"):
+                head.append(f'<link rel="alternate" hreflang="{_esc(code)}" href="{_esc(url)}">')
     head.append('<meta property="og:type" content="website">')
     if title:
         head.append(f'<meta property="og:title" content="{_esc(title)}">')
@@ -259,6 +243,5 @@ def render_document(tree: dict, meta: dict, theme: dict | None = None, lang: str
         head.append(f'<meta property="og:description" content="{_esc(description)}">')
 
     body = render_page(tree, lang=lang, device=device)
-    return ("<!doctype html>\n"
-            f'<html lang="{_esc(lang)}" dir="{direction}">\n<head>\n' + "\n".join(head)
-            + _theme_style(theme) + "\n</head>\n<body>\n" + body + "\n</body>\n</html>\n")
+    return _DOCUMENT.render(language=lang, direction=direction,
+                            head="\n".join(head) + _theme_style(theme) + "<style>" + _BASE_CSS + "</style>", body=body)
