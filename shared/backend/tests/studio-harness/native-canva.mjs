@@ -85,7 +85,7 @@ async function click(text){await evaluate(`[...document.querySelectorAll('button
 
 
 await shot('/downloads/native-canva-default.png');
-await click('+ Add');await shot('/downloads/native-canva-add.png');
+await click('+ Add');await evaluate(`document.querySelector('.library-basic').open=true`);await shot('/downloads/native-canva-add.png');
 if(!(await evaluate(`!document.querySelector('.studio-layers').hidden && document.querySelector('.studio-inspector').hidden`)))throw Error('Add must have one dock');
 await evaluate(`document.querySelector('[aria-label="Close tools"]').click()`);
 // Real canvas pointer selects the deepest heading and opens its content dock.
@@ -102,7 +102,7 @@ await evaluate(`(()=>{const e=document.querySelector('.studio-inspector textarea
 if(!(await evaluate(`document.querySelector('.simple-save-state').textContent==='Unsaved changes'`)))throw Error('edit not dirty');
 await shot('/downloads/native-canva-edit.png');
 await click('Layers');if(!(await evaluate(`!document.querySelector('.studio-layers').hidden && document.querySelector('.studio-inspector').hidden`)))throw Error('Layers competes with edit');
-await evaluate(`document.querySelector('.studio-rail>button').click()`);await sleep(80);
+await evaluate(`document.querySelector('[aria-label="Edit selected element"]').click()`);await sleep(80);
 await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await sleep(80);await evaluate(`document.querySelector('.studio-canvas').scrollTop=0`);await shot('/downloads/native-canva-mobile.png');
 if(!(await evaluate(`document.querySelector('.studio-inspector').getBoundingClientRect().width>=320 && document.querySelector('.studio-inspector').getBoundingClientRect().left===60 && document.querySelector('.studio-inspector').getBoundingClientRect().top>250 && document.documentElement.scrollWidth<=390`)))throw Error('mobile sheet/overflow');
 await send('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
