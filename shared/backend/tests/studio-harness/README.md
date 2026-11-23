@@ -87,3 +87,9 @@ deliberate reload/fresh save. Writes only throwaway local DB and /downloads expo
 Same reduced schema/config+loader shims, NOT full-app validation. run_db_tests.py
 now17checks, adding two independent session race/stale rejection/fresh retry/tenancy.
 Legacy callers without expected_token remain unprotected from later overwrite.
+
+
+native-simple.mjs: MOCKED canvas-first default smoke: panels closed, truthful
+local save state, Add/preset, relevant editing with technical settings collapsed,
+closing panels keeps dirtiness, Save updates state. Other drivers use + Add and
+Save after simplification. Not nontechnical-user usability proof.
