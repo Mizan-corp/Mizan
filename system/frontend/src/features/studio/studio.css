@@ -40,3 +40,5 @@
 .studio-protection{padding:12px 24px;color:#764720;background:#fff2dc;border-bottom:1px solid #e9cda3;font-size:12px}.studio-protection strong{display:block;margin-bottom:3px}.studio-root:has(.studio-protection) .studio-workspace{height:calc(100vh - 185px)}
 
 .studio-loading{padding:12px 24px;background:#eef3e8;color:#48603d;border-bottom:1px solid #d6e1ce}.studio-workspace[inert]{opacity:.6}.studio-root:has(.studio-loading) .studio-workspace{height:calc(100vh - 150px)}
+
+.persistence-bar{display:flex;flex-wrap:wrap;gap:8px 18px;padding:8px 24px;border-bottom:1px solid #dbe2d6;background:#fff;font-size:10px;color:#5c6c56}.persistence-bar span:before{content:'•';margin-right:6px}.persistence-bar .leave-warning{color:#8c5925}.storage-error{padding:10px 24px;background:#fff0ed;color:#923f34;font-size:12px}.studio-workspace{height:calc(100vh - 137px)}.studio-root:has(.studio-protection) .studio-workspace{height:calc(100vh - 217px)}.studio-root:has(.studio-loading) .studio-workspace{height:calc(100vh - 182px)}
