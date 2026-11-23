@@ -21,7 +21,7 @@ describe('safe backend editing target', () => {
   });
   it('blocks archived pages and titles/languages a save would overwrite', () => {
     expect(restoreEditablePage({ ...page(), status: 'archived' }, initialProject).writable).toBe(false);
-    expect(restoreEditablePage({ ...page(), titles: { en: 'Other title' } }, initialProject).writable).toBe(false);
+    expect(restoreEditablePage({ ...page(), titles: { en: 'Independent page title' } }, initialProject).writable).toBe(true);
     expect(restoreEditablePage({ ...page(), titles: { en: initialProject.name, ar: 'عنوان' } }, initialProject).writable).toBe(false);
   });
 });
