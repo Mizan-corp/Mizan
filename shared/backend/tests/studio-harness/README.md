@@ -77,3 +77,13 @@ native-ux.mjs: MOCKED semantic sidebar/ready section acceptance. Preset insertio
 undo/redo, fresh IDs, content-derived layer names, editable heading, save/reload.
 Exports /tmp/native-preset-tree.json for separate real backend page_problems check.
 All native drivers now select nodes via data-node-id/type, not visible technical IDs.
+
+
+native-real.mjs: REAL reduced loopback API native acceptance, no fetch mock. Requires
+serve_http.py seeded local reduced API on8791, Vite bridge configured with its local
+test token, isolated CDP. Exact tree save/reload; other-session conditional write;
+stale native rejection retaining local/server content; exported unsaved JSON check;
+deliberate reload/fresh save. Writes only throwaway local DB and /downloads export.
+Same reduced schema/config+loader shims, NOT full-app validation. run_db_tests.py
+now17checks, adding two independent session race/stale rejection/fresh retry/tenancy.
+Legacy callers without expected_token remain unprotected from later overwrite.
