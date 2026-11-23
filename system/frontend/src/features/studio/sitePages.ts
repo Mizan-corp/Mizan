@@ -118,10 +118,11 @@ export function applySettings(project: Project, value: SiteSettingsValue): Proje
   if (typeof family === 'string' && FONTS.has(family)) next.font = family as Project['font'];
   const radius = value.shape?.radius;
   if (typeof radius === 'number' && Number.isInteger(radius) && radius >= 0 && radius <= 40) next.radius = radius;
-  const links = value.header?.links, actions = value.header?.actions, lines = value.footer?.lines;
-  if (links !== undefined || actions !== undefined || lines !== undefined) {
+  const links = value.header?.links, actions = value.header?.actions, lines = value.footer?.lines, footerLinks = value.footer?.links;
+  if (links !== undefined || actions !== undefined || lines !== undefined || footerLinks !== undefined) {
     const base = next.chrome ?? { links: [], actions: [], footer: [] };
     const chrome = { ...base };
+    if (validChromeLinks(footerLinks, 8)) chrome.footerLinks = footerLinks.map(l => ({ label: l.label.trim(), href: l.href }));
     if (validChromeLinks(links, 8)) chrome.links = links.map(l => ({ label: l.label.trim(), href: l.href }));
     if (validChromeLinks(actions, 4)) chrome.actions = actions.map(l => ({ label: l.label.trim(), href: l.href }));
     if (Array.isArray(lines) && lines.length <= 4 && lines.every(x => typeof x === 'string' && x.trim() && x.length <= 120)) chrome.footer = lines.map(x => x.trim());
