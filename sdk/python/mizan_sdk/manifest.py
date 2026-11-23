@@ -603,7 +603,7 @@ PAGE_BLOCKS = {
                 "content": {}},
     "columns": {"version": 1, "category": "layout", "children": ("column",),
                 "settings": {"visible": "bool", "columns": _count(1, 6), "gap": _choices(*PAGE_SPACING),
-                             "stack": "bool"},
+                             "stack": "bool", "reverse": "bool"},
                 "content": {}},
     "column": {"version": 1, "category": "layout", "children": "blocks",
                "settings": {"visible": "bool", "width": _choices("auto", "full", "half", "third", "two_thirds"), "padding": _choices(*PAGE_SPACING),
@@ -616,10 +616,12 @@ PAGE_BLOCKS = {
                 "settings": {"visible": "bool", "level": _count(1, 6), "align": _choices("start", "center", "end")},
                 "content": {"text": ("text", 200)}},
     "text": {"version": 1, "category": "basic",
-             "settings": {"visible": "bool", "align": _choices("start", "center", "end")},
+             "settings": {"visible": "bool", "align": _choices("start", "center", "end"),
+                          "variant": _choices("body", "eyebrow", "note")},
              "content": {"html": ("text", 20000)}},
     "image": {"version": 1, "category": "basic",
-              "settings": {"visible": "bool", "width": _choices("auto", "full", "half", "third", "two_thirds"), "rounded": "bool"},
+              "settings": {"visible": "bool", "width": _choices("auto", "full", "half", "third", "two_thirds"), "rounded": "bool",
+                       "art": _choices("none", "sculpture", "sculpture_alt")},
               "content": {"src": "url", "alt": ("text", 300)}},
     "gallery": {"version": 1, "category": "basic",
                 "settings": {"visible": "bool", "mode": _choices("grid", "slider"), "gap": _choices(*PAGE_SPACING)},
@@ -644,6 +646,16 @@ PAGE_BLOCKS = {
              "settings": {"visible": "bool"},
              "content": {"html": ("text", 50000)}},
 }
+
+
+# Shared motion contract: finite entrance effects only, no script/CSS payloads.
+PAGE_ANIMATIONS = ("none", "fade", "rise", "slide", "zoom")
+for _motion_block in PAGE_BLOCKS.values():
+    _motion_block["settings"].update({
+        "animation": _choices(*PAGE_ANIMATIONS),
+        "animation_speed": _choices("quick", "normal", "slow"),
+        "animation_delay": _choices("none", "short", "long"),
+    })
 
 
 def page_url(value, kind: str = "href") -> bool:
