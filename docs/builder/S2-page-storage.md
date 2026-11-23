@@ -42,14 +42,32 @@ revisions"), in `app/platform/site/`:
 - Slugs are lower-case latin (`a-z0-9-`), unique per workspace; titles are per language
   (`ar`, `en` first, ADR-015 D7).
 
+## Verified locally (23 Nov 2026, throwaway local Postgres, documented subset harness)
+
+- DB layer, 11/11 checks: draft-only saves, publish with immutable revisions 1 then 2,
+  rollback, archive/reopen, duplicate-slug 409, per-request tenant binding, cross-workspace
+  isolation, and raw SQL as the `mizan_app` NOBYPASSRLS role under FORCE RLS seeing only
+  the bound workspace's rows.
+- HTTP layer, 15/15 checks through a real FastAPI app mounting this branch's real
+  router/service/auth chain with real JWTs and real role resolution: 401 without/with an
+  invalid token, 403 for a role without `site.manage`, the full lifecycle over HTTP,
+  duplicate-slug 409, invalid-tree 422, archive blocks edits, and workspace isolation.
+- That testing caught a real bug, fixed in `service.py`: after UPDATE commits,
+  `updated_at` (a `func.now()` onupdate) is expired, and the router reading it to
+  serialize the response was implicit IO that breaks under async; the service now
+  refreshes the page inside the session after update commits.
+- Harness scope: local Postgres with a documented subset schema (auth tables from the
+  real models, a manifest_index-only loader shim, a harness JWT secret). This is not the
+  full backend suite, not CI, and the migration has never run on a real database.
+
 ## Not done yet (before merge)
 
-- The migration is committed but **not applied anywhere**; the lifecycle tests need a
-  database with it applied (CI or a local Postgres).
+- The migration is committed but **not applied anywhere real** (CI or a managed database).
 - **Edge-cache purge on publish** (Cloudflare, ADR-015 D6) is out of scope here; it belongs
   to the site service that will serve public pages.
 - The public read path (serve the published tree through the renderer by slug) is part of
   the site service step, not this storage step.
-- Studio wiring (the prototype at `feat/studio-local-prototype` saves to localStorage; it
-  must call this API) is the S3 studio step.
+- Studio wiring: the typed client exists on `feat/studio-storage-client` (unit-tested and
+  round-tripped against the local harness stack), but the studio UI does not call it yet
+  and still saves to localStorage only.
 - Full backend test suite and CI on the branch.
