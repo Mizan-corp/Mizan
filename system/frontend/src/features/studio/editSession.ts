@@ -7,7 +7,7 @@ export type PageRestore = { writable: true; project: Project } | { writable: fal
 // This narrow prototype must never silently replace data it cannot represent.
 export function restoreEditablePage(page: PageDetail, base: Project): PageRestore {
   if (page.status === 'archived') return { writable: false, reason: 'This page is archived.' };
-  if (Object.keys(page.titles).length !== 1 || page.titles[base.language] !== base.name) {
+  if (Object.keys(page.titles).length !== 1 || typeof page.titles[base.language] !== 'string' || !page.titles[base.language]?.trim()) {
     return { writable: false, reason: 'This page has titles or languages this prototype cannot preserve.' };
   }
   const tree = page.draft_tree ?? page.published_tree;
