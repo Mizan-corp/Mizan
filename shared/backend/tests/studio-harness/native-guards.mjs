@@ -71,6 +71,7 @@ await send('Page.addScriptToEvaluateOnNewDocument',{source:`
 window.__calls=[];window.__release=null;window.__dirtyCheck=()=>{const e=new Event('beforeunload',{cancelable:true});dispatchEvent(e);return e.defaultPrevented};
 window.fetch=async(url,init={})=>{
  const mode=new URL(location.href).searchParams.get('mode');const method=init.method||'GET';window.__calls.push({url:String(url),method,body:init.body?JSON.parse(init.body):null});
+ if(String(url).includes('/settings'))return new Response(JSON.stringify({value:{}}),{status:200});
  if(mode==='loading'&&method==='GET')await new Promise(r=>window.__release=r);
  if(method==='PUT')await new Promise(r=>window.__release=r);
  let status=method==='PUT'&&mode==='failure'?500:200;
