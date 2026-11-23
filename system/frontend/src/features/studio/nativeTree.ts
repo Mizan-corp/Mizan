@@ -49,7 +49,7 @@ export function assertNativeTree(tree: PageNode): void {
     }
     if (n.children !== undefined && !Array.isArray(n.children)) throw Error('Malformed children.');
     if (!['section','columns','column'].includes(n.type) && n.children?.length) throw Error('Leaf node has children.');
-    if (n.type==='columns' && (n.children?.length ?? 0)>6) throw Error('Too many columns.');
+    if (n.type==='columns' && ((n.children?.length ?? 0)<1 || (n.children?.length ?? 0)>6)) throw Error('A row needs one to six columns.');
     for(const child of n.children ?? []) visit(child,n.type,depth+1);
   };
   visit(tree,null,0);
