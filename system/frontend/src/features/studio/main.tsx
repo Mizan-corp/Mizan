@@ -1,10 +1,11 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DRAFT_KEY, PROFILE_KEY, initialProject, loadDraft, moveSection, safeImage, validateProject, type Device, type Project, type Section } from './model';
 import './studio.css';
 import ChromeInspector from './ChromeInspector';
 import { previewPayload, toPageTree, sectionNodePrefix } from './pagetree';
 import TreePreview from './treerender';
+import { createOperationGate, snapshotKey, saveResultNotice } from './saveState';
 import { choosePage } from './pageIdentity';
 import { restoreEditablePage } from './editSession';
 import { SiteApiError, applySettings, createSitePagesClient, type PageDetail } from './sitePages';
@@ -17,6 +18,10 @@ type Conn = { state: 'blocked'; reason: string } | { state: 'checking' } | { sta
 
 function Studio() {
   const [project, setProject] = useState<Project>(() => loadDraft(localStorage));
+  const currentProject = useRef(project); currentProject.current = project;
+  const gate = useRef(createOperationGate());
+  const [busy, setBusy] = useState<'save'|'publish'|null>(null);
+  const [savedKey, setSavedKey] = useState<string | null>(null);
   const [selected, select] = useState(project.sections[0].id);
   const [device, setDevice] = useState<Device>('desktop');
   const [conn, setConn] = useState<Conn>({ state: 'checking' });
@@ -29,11 +34,11 @@ function Studio() {
         if (cancelled) return;
         // Durable theme/chrome: apply the stored settings before the tree restore so a
         // wiped browser still gets the workspace's saved palette, typeface and radius.
-        let base = project;
+        let base = project; let settingsLoaded = false;
         try {
           const settings = await api.getSettings();
           if (cancelled) return;
-          base = applySettings(project, settings.value);
+          base = applySettings(project, settings.value); settingsLoaded = true;
         } catch { /* settings are additive: a missing record never blocks the page restore */ }
         const choice = choosePage(list.items, new URLSearchParams(window.location.search).get('page'));
         if (choice.kind === 'blocked') { setConn({state:'blocked',reason:choice.reason}); setNotice('No writable backend page selected. Browser copy only.'); return; }
@@ -46,7 +51,7 @@ function Studio() {
           setNotice('Backend page protected. Showing the browser copy only, not the backend page.');
           return;
         }
-        setProject(restored.project); select(restored.project.sections[0].id);
+        setProject(restored.project); setSavedKey(settingsLoaded && (detail.draft_tree || detail.published_tree) ? snapshotKey(restored.project) : null); select(restored.project.sections[0].id);
         setNotice('Loaded the draft and site settings from the local test backend.');
         const url = new URL(window.location.href); url.searchParams.set('page', detail.id); window.history.replaceState(null, '', url);
         setConn({ state: 'on', page: detail });
@@ -61,12 +66,14 @@ function Studio() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const saveServer = async () => {
-    if (conn.state !== 'on') return;
+    if (conn.state !== 'on' || !gate.current.start()) return;
+    const snapshot = structuredClone(project); const key = snapshotKey(snapshot);
+    setBusy('save'); setSavedKey(null); setNotice('Saving a snapshot to the local test backend... You can keep editing.');
     try {
       let page = conn.page;
       if (!page) {
         try {
-          page = await api.createPage(project);
+          page = await api.createPage(snapshot);
         } catch (e) {
           if (!(e instanceof SiteApiError && e.isConflict)) throw e;
           setConn({ state: 'blocked', reason: 'A page with this address already exists. Reload to check whether it can be edited safely.' });
@@ -74,20 +81,21 @@ function Studio() {
           return;
         }
       }
-      if (!(project.language in page.titles) || Object.keys(page.titles).length !== 1) {
+      if (!(snapshot.language in page.titles) || Object.keys(page.titles).length !== 1) {
         setConn({state:'blocked',reason:'The preview language does not match this page. Reload to restore its original language before saving.'});
         setNotice('Backend page protected. Language changes were not saved.'); return;
       }
       // Brand changes are global settings, never a rename of the page title or slug.
-      page = await api.saveDraft(page.id, project, page.titles);
+      page = await api.saveDraft(page.id, snapshot, page.titles);
       const url = new URL(window.location.href); url.searchParams.set('page', page.id); window.history.replaceState(null, '', url);
       setConn({ state: 'on', page });
       // Two separate requests: draft first, settings second. They are NOT atomic, so a
       // settings failure after a successful draft save must be reported as exactly that,
       // never as a whole-save failure and never as a whole-save success.
       try {
-        await api.putSettings(project);
-        setNotice('Draft and site settings saved to the local test backend (not the public site).');
+        await api.putSettings(snapshot);
+        setSavedKey(key);
+        setNotice(saveResultNotice(key, snapshotKey(currentProject.current)));
       } catch (settingsError) {
         setNotice(`Draft saved, but saving site settings FAILED (${settingsError instanceof SiteApiError ? settingsError.detail || settingsError.status : 'unreachable'}). The saved draft keeps the previous theme on reload; press Save to local backend to retry settings.`);
         return;
@@ -95,18 +103,24 @@ function Studio() {
     } catch (e) {
       if (e instanceof SiteApiError && (e.isAuth || e.isForbidden)) { setConn({ state: 'off', reason: 'the local backend refused the session' }); }
       setNotice(`Save to local backend failed (${e instanceof SiteApiError ? e.detail || e.status : 'unreachable'}). Browser copy kept; use Save local draft.`);
-    }
+    } finally { gate.current.finish(); setBusy(null); }
   };
   const publishServer = async () => {
-    if (conn.state !== 'on' || !conn.page) return;
-    if (!window.confirm('Publish to the LOCAL TEST backend only. This does not change any public or production site.')) return;
+    if (conn.state !== 'on' || !conn.page || gate.current.active) return;
+    const key = snapshotKey(project);
+    if (savedKey !== key) { setNotice('Save all current changes successfully before publishing.'); return; }
+    if (!window.confirm('Publish the SAVED snapshot to the LOCAL TEST backend only. This does not change any public or production site.')) return;
+    if (!gate.current.start()) return;
+    setBusy('publish'); setNotice('Publishing the saved snapshot to the local test database...');
     try {
       const page = await api.publish(conn.page.id);
       setConn({ state: 'on', page });
-      setNotice('Marked published in the local test database. Nothing was deployed or made public.');
+      setNotice(snapshotKey(currentProject.current) === key
+        ? 'Saved snapshot marked published in the local test database. Nothing was deployed or made public.'
+        : 'Earlier saved snapshot marked published in the local test database. Newer local changes are NOT saved or published. Nothing was deployed.');
     } catch (e) {
       setNotice(`Publish failed (${e instanceof SiteApiError ? e.detail || e.status : 'unreachable'}).`);
-    }
+    } finally { gate.current.finish(); setBusy(null); }
   };
   const [serverPreview,setServerPreview] = useState<string>('');
   const sharedPreview = async () => { try {const response=await fetch('/__studio/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(previewPayload(project,device))});if(!response.ok)throw Error();setServerPreview(await response.text());setNotice('Snapshot from the shared Python renderer. Refresh after edits.');}catch{setNotice('Shared renderer unavailable or rejected the tree. Local illustration is not server parity.');} };
@@ -123,8 +137,8 @@ function Studio() {
   const selectFromPreview = (e: React.MouseEvent) => { const el = (e.target as HTMLElement).closest('[id^="n_"]'); if (!el) return; const hit = project.sections.find(s => el.id.startsWith(sectionNodePrefix(s.id))); if (hit) select(hit.id); };
   const colorStyle = { '--paper': project.colors.background, '--ink': project.colors.foreground, '--accent': project.colors.accent, '--radius': `${project.radius}px`, fontFamily: project.font } as CSSProperties;
   return <div className="studio-root">
-    <header className="studio-top"><div className="studio-brand"><b>m.</b><span>Web studio <small>EXPERIMENTAL</small></span></div><span className="project-name">{project.name} <i>Draft</i></span><div className="top-actions" inert={conn.state === 'checking'}><button disabled={conn.state === 'checking' || !history.length} onClick={() => { const last = history.at(-1); if (last) { setProject(last); setHistory(h => h.slice(0,-1)); } }}>Undo</button><button disabled={conn.state === 'checking'} onClick={exportFile}>Export</button><button disabled={conn.state === 'checking'} onClick={sharedPreview}>Shared renderer</button>{conn.state === 'on' && <button className="save" onClick={saveServer}>Save to local backend</button>}{conn.state === 'on' && conn.page && <button onClick={publishServer}>Publish (local test)</button>}<button disabled={conn.state === 'checking'} className="save" onClick={save}>Save local draft</button></div></header>
-    <div className="studio-notice" role="status">{notice} <span>{conn.state === 'on' ? `Local test backend only · page: ${conn.page?.slug ?? 'not created yet'} · never the public site` : 'No server publishing · no customer data'}</span></div>
+    <header className="studio-top"><div className="studio-brand"><b>m.</b><span>Web studio <small>EXPERIMENTAL</small></span></div><span className="project-name">{project.name} <i>Draft</i></span><div className="top-actions" inert={conn.state === 'checking'}><button disabled={conn.state === 'checking' || !history.length} onClick={() => { const last = history.at(-1); if (last) { setProject(last); setHistory(h => h.slice(0,-1)); } }}>Undo</button><button disabled={conn.state === 'checking'} onClick={exportFile}>Export</button><button disabled={conn.state === 'checking'} onClick={sharedPreview}>Shared renderer</button>{conn.state === 'on' && <button disabled={!!busy} className="save" onClick={saveServer}>{busy === 'save' ? 'Saving snapshot...' : 'Save to local backend'}</button>}{conn.state === 'on' && conn.page && <button disabled={!!busy || savedKey !== snapshotKey(project)} title={savedKey !== snapshotKey(project) ? 'Save current changes before publishing' : 'Publish the saved local-test snapshot'} onClick={publishServer}>{busy === 'publish' ? 'Publishing snapshot...' : 'Publish (local test)'}</button>}<button disabled={conn.state === 'checking'} className="save" onClick={save}>Save local draft</button></div></header>
+    <div className="studio-notice" role="status" aria-busy={!!busy}>{notice} <span>{conn.state === 'on' ? `Local test backend only · page: ${conn.page?.slug ?? 'not created yet'} · never the public site` : 'No server publishing · no customer data'}</span></div>
     {conn.state === 'blocked' && <div className="studio-protection" role="alert"><strong>Backend page is read-only in this prototype.</strong> {conn.reason} Backend save and publish are unavailable. Its data is unchanged. You may edit, save or export the browser copy only.</div>}
     {conn.state === 'checking' && <div className="studio-loading" role="status">Loading backend page and settings. Editing is paused to protect your browser copy.</div>}
     <div className="studio-workspace" inert={conn.state === 'checking'}>
