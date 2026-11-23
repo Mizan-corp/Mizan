@@ -78,14 +78,14 @@ window.fetch=async(url,init={})=>{
  const id=mode==='wrong'?'wrong-id':'native-one';
  let draft=${JSON.stringify(tree)};
  if(method==='PUT'&&mode!=='mismatch')draft=JSON.parse(init.body).tree;
- const body=status===500?{detail:'mock storage failure'}:{id,slug:'native-one',titles:{en:'Original title'},status:mode==='archived'?'archived':'draft',draft_tree:draft,published_tree:null};
+ const body=status===500?{detail:'mock storage failure'}:{id,slug:'native-one',titles:{en:'Original title'},edit_token:mode==='no-token'?undefined:'a'.repeat(64),status:mode==='archived'?'archived':'draft',draft_tree:draft,published_tree:null};
  return new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 };`});
 async function load(mode,id='native-one'){await send('Page.navigate',{url:'http://127.0.0.1:5188/studio.html?editor=tree'+(id?'&page='+id:'')+'&mode='+mode});await sleep(300);}
 async function heading(text){const target=tree.children[0].children[0].children.find(n=>n.type==='heading').id;await evaluate(`[...document.querySelectorAll('.native-node')].find(b=>b.dataset.nodeId===${JSON.stringify(target)}).click()`);await sleep(60);await evaluate(`(()=>{const e=document.querySelector('[aria-label="Native text"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,${JSON.stringify(text)});e.dispatchEvent(new Event('input',{bubbles:true}));})()`);await sleep(80);}
 async function clickSave(){await evaluate(`document.querySelector('.top-actions .save').click()`);await sleep(80);}
 async function release(){await evaluate(`window.__release();window.__release=null`);await sleep(150);}
-for(const mode of ['archived','wrong']){await load(mode);await waitFor(`!!document.querySelector('[role="alert"]')`);await clickSave();if(!(await evaluate(`window.__calls.every(c=>c.method==='GET') && document.querySelector('.top-actions .save').disabled`)))throw Error('read-only target writable');}
+for(const mode of ['archived','wrong','no-token']){await load(mode);await waitFor(`!!document.querySelector('[role="alert"]')`);await clickSave();if(!(await evaluate(`window.__calls.every(c=>c.method==='GET') && document.querySelector('.top-actions .save').disabled`)))throw Error('read-only target writable');}
 await load('normal','');await waitFor(`!!document.querySelector('[role="alert"]')`);if(!(await evaluate(`window.__calls.length===0`)))throw Error('missing ID contacted backend');
 await load('loading');await waitFor(`!!window.__release`);await clickSave();if(!(await evaluate(`window.__calls.length===1 && document.querySelector('.top-actions .save').disabled`)))throw Error('save during load');await release();await waitFor(`!!document.querySelector('.native-node')`);
 if(await evaluate(`window.__dirtyCheck()`))throw Error('loaded tree warned');
