@@ -77,18 +77,18 @@ window.fetch=async(url,init={})=>{
  return new Response(JSON.stringify({id:'native-one',slug:'native-one',titles:{en:'Original page'},status:'draft',draft_tree:JSON.parse(sessionStorage.getItem('structure-tree')),published_tree:null}),{status:200});
 };`});
 await send('Page.navigate',{url:'http://127.0.0.1:5188/studio.html?editor=tree&page=native-one'});await sleep(400);await waitFor(`!!document.querySelector('.native-node')`);
-async function selectType(type){await evaluate(`[...document.querySelectorAll('.native-node')].find(b=>b.querySelector('b').textContent===${JSON.stringify(type)}).click()`);await sleep(80);}
+async function selectType(type){await evaluate(`[...document.querySelectorAll('.native-node')].find(b=>b.dataset.nodeType===${JSON.stringify(type)}).click()`);await sleep(80);}
 async function click(text){await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent===${JSON.stringify(text)}).click()`);await sleep(80);}
 
 const col=tree.children[0].children[0].id;
 async function rect(selector){return evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}})()`)}
 async function dragTo(source,target){const a=await rect(source);await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:a.x+a.width/2,y:a.y+a.height/2});await send('Input.dispatchMouseEvent',{type:'mousePressed',x:a.x+a.width/2,y:a.y+a.height/2,button:'left',clickCount:1});const b=await rect(target);await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:b.x+20,y:b.y+2,button:'left',buttons:1});await sleep(100);if(!(await evaluate(`!!document.querySelector('.native-drop-marker')`)))throw Error('drop marker missing');await shot('/downloads/native-drag-position.png');await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:b.x+20,y:b.y+2,button:'left',clickCount:1});await sleep(120);}
 const before=await evaluate(`document.querySelectorAll('.native-node').length`);
-await dragTo('.native-palette button:nth-child(3)','#'+col);
+await dragTo('.native-element-grid button:nth-child(3)','#'+col);
 if(await evaluate(`document.querySelectorAll('.native-node').length`)!==before+1)throw Error('pointer palette insertion failed');
 await click('Undo');if(await evaluate(`document.querySelectorAll('.native-node').length`)!==before)throw Error('pointer insert undo failed');
 // Keyboard-only selection and activation of a drop position.
-await evaluate(`document.querySelector('.native-palette button:nth-child(3)').focus()`);await send('Input.dispatchKeyEvent',{type:'keyDown',text:'\r',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await sleep(80);
+await evaluate(`document.querySelector('.native-element-grid button:nth-child(3)').focus()`);await send('Input.dispatchKeyEvent',{type:'keyDown',text:'\r',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await sleep(80);
 await evaluate(`document.querySelector('.native-drop-options summary').focus()`);await send('Input.dispatchKeyEvent',{type:'keyDown',text:'\r',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
 await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});await send('Input.dispatchKeyEvent',{type:'keyDown',text:'\r',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await sleep(100);
 if(await evaluate(`document.querySelectorAll('.native-node').length`)!==before+1)throw Error('keyboard insertion failed');
@@ -99,17 +99,17 @@ if(!(await evaluate(`document.querySelector('#${targetCol} #${moving}')!==null`)
 await click('Undo');if(!(await evaluate(`document.querySelector('#${col} #${moving}')!==null`)))throw Error('cross-container undo failed');
 await dragTo('#'+moving,'#'+tree.children[0].children[0].children[0].id);if(!(await evaluate(`document.querySelector('#${col} .mz-column').firstElementChild.id===${JSON.stringify(moving)}`)))throw Error('same-container reorder failed');await click('Undo');
 // Escape cancels an active pointer move without adding a node.
-const cancelStart=await rect('.native-palette button:nth-child(3)');await send('Input.dispatchMouseEvent',{type:'mousePressed',x:cancelStart.x+10,y:cancelStart.y+10,button:'left',clickCount:1});await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:cancelStart.x+10,y:cancelStart.y+10,button:'left',clickCount:1});if(await evaluate(`document.querySelectorAll('.native-node').length`)!==before)throw Error('cancel changed tree');
+const cancelStart=await rect('.native-element-grid button:nth-child(3)');await send('Input.dispatchMouseEvent',{type:'mousePressed',x:cancelStart.x+10,y:cancelStart.y+10,button:'left',clickCount:1});await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:cancelStart.x+10,y:cancelStart.y+10,button:'left',clickCount:1});if(await evaluate(`document.querySelectorAll('.native-node').length`)!==before)throw Error('cancel changed tree');
 
 // Touch uses the same pointer flow, with CDP touch events rather than mouse emulation.
 await send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
-const a=await rect('.native-palette button:nth-child(4)');await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:a.x+a.width/2,y:a.y+a.height/2,id:1}]});
+const a=await rect('.native-element-grid button:nth-child(4)');await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:a.x+a.width/2,y:a.y+a.height/2,id:1}]});
 const b=await rect('#'+col);await send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:b.x+30,y:b.y+30,id:1}]});await sleep(120);
 if(!(await evaluate(`!!document.querySelector('.native-drop-marker')`)))throw Error('touch drop position absent');
 await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await sleep(120);
 if(await evaluate(`document.querySelectorAll('.native-node').length`)!==before+1)throw Error('touch insertion failed');
 // Touch move uses explicit handle so normal preview swipes stay available.
-await selectType('heading');const h=await rect('.native-palette button:last-child');await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:h.x+h.width/2,y:h.y+h.height/2,id:2}]});const t=await rect('#'+targetCol);await send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:t.x+20,y:t.y+2,id:2}]});await sleep(80);await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await sleep(100);if(!(await evaluate(`document.querySelector('#${targetCol} #${moving}')!==null`)))throw Error('touch handle move failed');await click('Undo');
+await selectType('heading');const h=await rect('.native-palette button:first-child');await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:h.x+h.width/2,y:h.y+h.height/2,id:2}]});const t=await rect('#'+targetCol);await send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:t.x+20,y:t.y+2,id:2}]});await sleep(80);await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await sleep(100);if(!(await evaluate(`document.querySelector('#${targetCol} #${moving}')!==null`)))throw Error('touch handle move failed');await click('Undo');
 await evaluate(`document.querySelector('.studio-canvas').scrollTop=0`);await shot('/downloads/native-drag-result.png');
 
 await click('Save native draft');await waitFor(`document.querySelector('.studio-notice').textContent.startsWith('Native tree draft saved')`);await send('Page.reload');await sleep(300);await waitFor(`!!document.querySelector('.native-node')`);if(await evaluate(`document.querySelectorAll('.native-node').length`)!==before+1)throw Error('drag save/reload failed');
