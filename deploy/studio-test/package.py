@@ -22,6 +22,10 @@ if out.exists():
 for needed in [r/"shared/backend/app", r/"system/backend/system_api", a.studio_build/"studio-preview.html", a.erp_build/"index.html"]:
     if not needed.exists():
         raise SystemExit(f"Missing required build/source: {needed}")
+# Catch the repository production-env default before packaging a test ERP.
+for asset in (a.erp_build/"assets").glob("*.js"):
+    if "https://api.allmizan.live/api" in asset.read_text():
+        raise SystemExit("ERP build targets the existing external API. Rebuild with VITE_API_URL=/api.")
 out.mkdir(parents=True)
 ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".ruff_cache", ".pytest_cache", ".env*", "*.egg-info", "build")
 shutil.copytree(r/"shared/backend/app", out/"app", ignore=ignore)
