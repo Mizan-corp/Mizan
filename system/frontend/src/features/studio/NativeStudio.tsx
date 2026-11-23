@@ -3,7 +3,7 @@ import { changeStructure, childTypes, newNativeId, type StructureEdit } from './
 import { readableName, readableType } from './nativePresets';
 import NativeDragCanvas from './NativeDragCanvas';
 import NativeContentControls from './NativeContentControls';
-import { createSitePagesClient, type PageDetail } from './sitePages';
+import { createSitePagesClient, type PageDetail, SiteApiError } from './sitePages';
 import { assertNativeTree, nativeTreeKey, nativeChange, nativeNodes, nativeUndo, nativeRedo, nativeSettingChoices, type NativeHistory, type NativeEdit, type NativeDevice } from './nativeTree';
 import TreePreview, { type ThemeSpec } from './treerender';
 import { createOperationGate } from './saveState';
@@ -21,6 +21,7 @@ export default function NativeStudio(){
   const [busy,setBusy]=useState(false);
   const [theme,setTheme]=useState<ThemeSpec|undefined>();
   const [themeNotice,setThemeNotice]=useState('Loading saved site appearance...');
+  const [conflict,setConflict]=useState(false);
   const [error,setError]=useState('');
   const gate=useRef(createOperationGate());
   const current=useRef(history);current.current=history;
@@ -32,6 +33,7 @@ export default function NativeStudio(){
         const id=new URLSearchParams(location.search).get('page');if(!id)throw Error('Open an explicit ?editor=tree&page=PAGE_ID link.');
         const detail=await api.getPage(id);if(cancelled)return;
         if(detail.id!==id)throw Error('Backend returned a different page identity.');
+        if(!/^[0-9a-f]{64}$/.test(detail.edit_token??''))throw Error('Backend has no native conflict-protection token. Update the local backend before editing.');
         if(detail.status==='archived')throw Error('Archived page is read-only.');
         const tree=detail.draft_tree??detail.published_tree;if(!tree)throw Error('This editor needs an existing supported tree.');
         assertNativeTree(tree);
@@ -57,21 +59,21 @@ export default function NativeStudio(){
     catch(e){setNotice(`Structure edit refused: ${e instanceof Error?e.message:'unsupported operation'}`)}
   };
   const save=async()=>{
-    if(!history||!page||!gate.current.start())return;
+    if(!history||!page||conflict||!gate.current.start())return;
     const snapshot=structuredClone(history.tree),snapshotKey=nativeTreeKey(snapshot);setBusy(true);setNotice('Saving native tree snapshot...');
     try{
-      const detail=await api.saveTreeDraft(page.id,snapshot);
-      if(detail.status==='archived'||detail.id!==page.id||nativeTreeKey(detail.draft_tree)!==snapshotKey)throw Error('Backend response differs from the submitted tree. Save not verified.');
+      const detail=await api.saveTreeDraft(page.id,snapshot,page.edit_token);
+      if(!/^[0-9a-f]{64}$/.test(detail.edit_token??'')||detail.status==='archived'||detail.id!==page.id||nativeTreeKey(detail.draft_tree)!==snapshotKey)throw Error('Backend response differs from the submitted tree. Save not verified.');
       setPage(detail);setSaved(snapshotKey);setNotice(nativeTreeKey(current.current?.tree)===snapshotKey?'Native tree draft saved to the local test backend. Titles and site settings were not changed.':'Earlier native snapshot saved. Newer edits remain unsaved.');
-    }catch(e){setNotice(`Native save failed or unverified: ${e instanceof Error?e.message:'unreachable'}. Editor copy retained.`);}
+    }catch(e){if(e instanceof SiteApiError&&e.isConflict)setConflict(true);setNotice(`Native save failed or unverified: ${e instanceof Error?e.message:'unreachable'}. Editor copy retained.`);}
     finally{gate.current.finish();setBusy(false);}
   };
   const nodes=history?nativeNodes(history.tree):[];
   const node=nodes.find(n=>n.id===selected);
   return <div className="studio-root native-studio">
-    <header className="studio-top"><div className="studio-brand"><b>m.</b><span>Mizan Studio <small>EXPERIMENTAL · NATIVE EDITOR</small></span></div><div className="top-actions"><button disabled={!history?.past.length} onClick={()=>history&&setHistory(nativeUndo(history))}>Undo</button><button disabled={!history?.future.length} onClick={()=>history&&setHistory(nativeRedo(history))}>Redo</button><button disabled={!history||busy} className="save" onClick={save}>{busy?'Saving native snapshot...':'Save native draft'}</button></div></header>
+    <header className="studio-top"><div className="studio-brand"><b>m.</b><span>Mizan Studio <small>EXPERIMENTAL · NATIVE EDITOR</small></span></div><div className="top-actions"><button disabled={!history?.past.length} onClick={()=>history&&setHistory(nativeUndo(history))}>Undo</button><button disabled={!history?.future.length} onClick={()=>history&&setHistory(nativeRedo(history))}>Redo</button><button disabled={!history||busy||conflict} className="save" onClick={save}>{busy?'Saving native snapshot...':'Save native draft'}</button></div></header>
     <div className="studio-notice" role="status">{notice}</div>
-    <div className="persistence-bar"><span title={themeNotice}>{themeNotice}</span><span>{page?`Page: ${page.slug}`:'No writable page'}</span><span>{key&&key===saved?'Backend tree snapshot loaded/saved':'Native edits not saved'}</span><span>No publish or global-settings writes · native tree only</span></div>
+    {conflict&&<div className="native-conflict" role="alert"><strong>Server page changed. Your edits stay here.</strong><p>Saving is paused to avoid overwriting another session. Export your local tree before leaving, then reload deliberately to load the server version.</p><button onClick={()=>{if(!history)return;const url=URL.createObjectURL(new Blob([JSON.stringify(history.tree,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='mizan-unsaved-tree.json';a.click();URL.revokeObjectURL(url)}}>Export my unsaved tree</button></div>}<div className="persistence-bar"><span title={themeNotice}>{themeNotice}</span><span>{page?`Page: ${page.slug}`:'No writable page'}</span><span>{key&&key===saved?'Backend tree snapshot loaded/saved':'Native edits not saved'}</span><span>No publish or global-settings writes · native tree only</span></div>
     {error?<div className="studio-protection" role="alert"><strong>Source protected. Native editing unavailable.</strong>{error} Nothing was saved. The existing prototype safeguards remain unchanged.</div>:<div className="studio-workspace">
       <aside className="studio-layers"><div className="panel-title">PAGE CONTENT</div><h2>{page?.titles[lang]??'Loading page'}</h2><p className="hint">Select a nested element here or directly in the preview.</p>{history&&<><div className="native-panel-tabs"><button aria-pressed={panel==='add'} onClick={()=>setPanel('add')}>Add</button><button aria-pressed={panel==='layers'} onClick={()=>setPanel('layers')}>Layers</button></div><div hidden={panel!=='add'}><div className="native-add-tools"><h3>Add elements</h3><p className="hint">Drag to the page, or choose a position with the keyboard.</p><div id="native-add-panel"/></div><div className="native-presets"><h3>Ready sections</h3><p>Insert, then change the words, art and layout.</p>{(['hero','story','callout'] as const).map(preset=><button key={preset} onClick={()=>structure({kind:'preset',preset})}><span className={`preset-mini ${preset}`} aria-hidden="true">▰ ▤</span><b>{preset==='hero'?'Intro + image':preset==='story'?'Image + story':'Call to action'}</b><small>Add editable section</small></button>)}</div></div><div hidden={panel!=='layers'} className="native-outline"><div className="panel-title">LAYERS</div>{(()=>{const render=(n:typeof history.tree,depth:number):React.ReactNode=><div className="native-layer-group" key={n.id}>{n.children?.length?<details open><summary><button data-node-id={n.id} data-node-type={n.type} className={`native-node ${selected===n.id?'active':''}`} style={{paddingInlineStart:8}} onClick={e=>{e.preventDefault();setSelected(n.id)}}><b>{readableName(n,lang)}</b><small>{readableType(n.type)}</small></button></summary>{n.children.map(c=>render(c,depth+1))}</details>:<button data-node-id={n.id} data-node-type={n.type} className={`native-node ${selected===n.id?'active':''}`} style={{paddingInlineStart:8}} onClick={()=>setSelected(n.id)}><b>{readableName(n,lang)}</b><small>{readableType(n.type)}</small></button>}</div>;return render(history.tree,0)})()}</div></>}</aside>
       <main className="studio-canvas"><div className="canvas-bar"><div className="device-switch">{(['desktop','tablet','mobile']as const).map(d=><button key={d} aria-pressed={device===d} onClick={()=>setDevice(d)}>{d}</button>)}</div><label>Content language <select aria-label="Native content language" value={lang} onChange={e=>setLang(e.target.value as 'en'|'ar')}><option value="en">English</option><option value="ar">Arabic</option></select></label></div>{history&&<div className={`preview-frame ${device}`}><NativeDragCanvas tree={history.tree} selected={selected} onSelect={setSelected} onChange={structure}><TreePreview tree={history.tree} lang={lang} device={device} theme={theme}/></NativeDragCanvas></div>}</main>
