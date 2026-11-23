@@ -1,63 +1,80 @@
-# S2: the page engine lands
+# S2 page engine: experimental partial implementation
 
 ## Status
 
-Proposed 2026-11-23. Working note for ADR-015 step S2, not yet accepted architecture.
-The contract lives in [page-engine.md](page-engine.md); this note records what of it is code.
+Proposed 2026-11-23. **INCOMPLETE, NOT READY TO MERGE OR DEPLOY.** This branch is a partial
+implementation of ADR-015 S2, not a completed page engine or the studio web interface.
+ADR-016 and page-engine.md remain Proposed. This note records the supported subset rather
+than changing the ADR roadmap.
 
-## What landed (branch `feat/s2-page-engine`)
+## Implemented subset
 
-| Piece | File | Notes |
-|---|---|---|
-| Block registry v0 + page-tree validator | `shared/backend/app/framework/manifest.py` (appended section) | `PAGE_BLOCKS` is data, versioned per block; `page_problems()` returns what is wrong, manifest-style |
-| The SDK copy | `sdk/python/mizan_sdk/manifest.py` | Byte for byte the same file; a drift test keeps them identical (ADR-016 D4) |
-| Server renderer | `shared/backend/app/platform/site/render.py` | Platform side only; stdlib-only like the validator |
-| Platform tests | `system/backend/tests/test_site_pages.py` | 20 tests, no database needed |
-| SDK tests | `sdk/python/tests/test_pagetree.py` | 2 tests: the validator ships and a minimal page round-trips |
+- `shared/backend/app/framework/manifest.py`: version-1 block registry and `page_problems()`.
+  `sdk/python/mizan_sdk/manifest.py` is the byte-identical copy. The SDK drift test checks bytes.
+- `shared/backend/app/platform/site/render.py`: fixed platform block rendering, escaped text,
+  HTML5 parser sanitization through pinned `nh3`, and a fixed sandboxed Jinja2 document wrapper.
+  No user-supplied theme templates or JavaScript execute here.
+- `system/backend/tests/test_site_pages.py` and `sdk/python/tests/test_pagetree.py`: focused
+  validator, sanitizer, URL, rendering, metadata and byte-copy tests. No database required.
+- `shared/backend/pyproject.toml`: declares `jinja2==3.1.6` and `nh3==0.3.2` for the renderer.
 
-## Validator coverage
+## Supported data and rendering
 
-- Root must be a `section`; levels `section → columns → column → blocks`, with `canvas` as the
-  one free-positioning section child allowed per page.
-- Node ids (`n_…`) are well-formed and unique across the page; unknown block types fail.
-- Settings are per device (`desktop`, `tablet`, `mobile`); only schema-declared keys, typed
-  values (`bool`, spacing tokens, choices, 1–6 counts).
-- Content is per language; only the block's declared fields, in the site's languages when given.
-- `button` hrefs are http(s), `mailto:`, `tel:`, site paths or anchors. `video_embed` frames only
-  the allow-listed hosts (`PAGE_EMBED_HOSTS`, ADR-015 D2). Size limits: 500 nodes, 12 deep.
+The root is one section. It contains columns containers or at most one canvas; columns hold
+one to six column nodes, columns/canvas hold basic blocks. Node ids are unique. The current
+schema constrains spacing, alignment, widths, backgrounds and sizes to enum tokens, not raw
+CSS. Content keys are language codes; content fields follow the registry. The validator caps
+nodes and depth. It does not yet provide reusable references or enforce required content for
+each language. Empty content renders an empty block or no media/link.
 
-## Renderer coverage
+Rendering selects a device explicitly, merging that device's settings over desktop. It is
+not automatic responsive device detection, and a pre-rendered desktop document does not
+switch to the mobile tree when resized. CSS covers the supported tokens and grid columns;
+galleries support a grid or CSS scroll-snap strip. Icon lists currently fall back to text
+bullets, not loaded Lucide glyphs. Canvas children currently flow in a flex container, not
+free-positioned coordinates. A real canvas arrangement remains unimplemented.
 
-- Every string is escaped; `text` and `html` blocks pass an allow-list sanitizer (formatting
-  tags survive; scripts, styles, event handlers, `javascript:` URLs and foreign iframes do not).
-  The `html` block adds structural tags (`div`, `img`, tables, `h2–h4`) and still no iframes.
-- `video_embed` renders an `<iframe>` only for allow-listed hosts.
-- Per-device visibility applies at render; the published tree renders identically on every pass
-  (no mutation of the input tree).
-- `render_document()` emits the SEO head: per-language title and description, canonical,
-  hreflang alternates, Open Graph, `dir="rtl"` for RTL languages, and the theme's colors as CSS
-  variables (only values that parse as colors are emitted).
+Image/link URLs reject protocol-relative paths, backslashes, controls, credentials, raw quote
+or markup characters, and unexpected ports. Images permit http(s) URLs or site paths. Links
+also permit mailto, tel and anchors. Embeds permit HTTPS default-port YouTube embed paths and
+Google Maps embed paths only. No URL fetching or media-library ownership check occurs here.
+External URLs can still disclose visitor request metadata when loaded; this is not a privacy
+or SSRF certification.
 
-## Not in this slice (per the ADR-015 roadmap)
+Rich text uses `nh3` with an explicit tag/attribute/scheme allow list. Advanced HTML adds
+structural tags, images and tables, but no CSS, event attributes, frames, SVG or MathML.
+Provider frames are emitted only by the dedicated embed block. This is intentionally narrower
+than the eventual ADR HTML feature. Palette output accepts only five known color tokens with
+six-digit hex values. Rich color expressions and custom CSS are unsupported in this slice.
 
-- Storage (`site_pages`, `site_page_revisions`), the REST API and publish/rollback flows: S2's
-  next slice, together with RLS tests.
-- Theme HTML templates in sandboxed Jinja2 (ADR-015 D6): arrive with site themes at S5; v0 blocks
-  render from platform templates only.
-- The site runtime script, edge caching and purge hooks: with the site service.
-- The studio (the builder web interface, ADR-016 D3): S3, on top of this engine.
+The document includes escaped title/description, canonical and Open Graph metadata. `alternates`
+is a language-to-URL map: no alternate URL is invented from a canonical. A caller must supply
+correct absolute production URLs. Sitemap, robots and route-level SEO are not implemented.
 
-## Verification
+## Remaining S2 work
 
-Run on a monorepo mirror with the changed files overlaid:
+- Tenant models, migration, immutable revisions, RLS and cross-tenant tests.
+- Authenticated draft/save/publish/rollback API and public published-only routes.
+- Site service integration, CSP response headers, caching and purge hooks.
+- Full page collections, header/footer composition, languages and shared references.
+- Theme template validation and supported sandbox context. The fixed Jinja2 wrapper is not a
+  theme system. Nothing in this branch changes S2 requirements or defers them by assertion.
+- Full supported-setting semantics, free-positioned canvas and preview/device integration.
+- Adversarial browser testing and integration tests under the real site's CSP/session model.
 
-- `system/backend/tests/test_site_pages.py`: 20 passed.
-- `sdk/python/tests/test_pagetree.py`: 2 passed.
-- `ruff check --select E9,F63,F7,F82,F821,F601,F401,F841` (the CI selection): clean on every
-  touched file.
-- Existing validator behaviour unchanged: the change to `manifest.py` is additive (module
-  docstring plus an appended section); the full backend suites need the CI runners and were not
-  run here.
+Studio editing, autosave, undo/redo and publish UI remain S3. No studio web app exists on this
+branch. No production server or existing runner checkout was changed.
 
-A rendered demo (Arabic RTL and English, desktop and mobile, using Mizan's own theme) is
-attached to the branch discussion as `demo-*.html`.
+## Verification scope
+
+Focused platform and SDK tests run in a standalone repository-layout fixture, using real
+manifest.py and the changed files. This avoids the backend conftest/database fixtures, so it
+is not a full backend-suite or full-monorepo run. CI's selected Ruff rules are checked on
+changed Python files. The repository targets Python 3.12; the local fixture uses Python 3.10.
+The complete dependency install, database tests, packaging, real HTTP CSP and production
+integration remain unverified.
+
+Arabic desktop/mobile renderer fixtures were captured in Chrome and visually inspected:
+two-column hero and gallery on desktop; stacked hero and a hidden gallery on mobile. All
+media in those screenshots is a local illustration labeled RENDERER FIXTURE. They are
+renderer evidence, not screenshots of the studio UI, and are not deployed site pages.
