@@ -37,3 +37,18 @@ it('new rows start with a valid column and refuse last-column deletion',()=>{
  expect(row.children).toHaveLength(1);expect(row.children![0].type).toBe('column');expect(row.children![0].id).toMatch(/^n_[a-z0-9]{4,16}$/);
  expect(()=>changeStructure(state,{kind:'remove',id:row.children![0].id})).toThrow('Keep at least one column');
 });
+
+it('places inserts and moves across compatible columns with original subtree IDs and undo',()=>{
+ const tree=toPageTree(initialProject),source=tree.children![0].children![0],target=tree.children![0].children![1],node=source.children![0];
+ const state={tree,past:[],future:[]};
+ const moved=changeStructure(state,{kind:'relocate',id:node.id,parentId:target.id,index:0});
+ expect(moved.tree.children![0].children![1].children![0]).toEqual(node);
+ expect(nativeUndo(moved).tree).toEqual(tree);
+ expect(nativeNodes(moved.tree).map(n=>n.id).sort()).toEqual(nativeNodes(tree).map(n=>n.id).sort());
+ const inserted=changeStructure(state,{kind:'insert',parentId:source.id,type:'heading',id:'n_positioned',index:0});
+ expect(inserted.tree.children![0].children![0].children![0].id).toBe('n_positioned');
+ expect(()=>changeStructure(state,{kind:'relocate',id:node.id,parentId:tree.id,index:0})).toThrow();
+ expect(()=>changeStructure(state,{kind:'relocate',id:source.id,parentId:source.id,index:0})).toThrow();
+ expect(()=>changeStructure(state,{kind:'insert',parentId:source.id,type:'text',id:'n_invalidpos',index:999})).toThrow();
+ expect(state.tree).toEqual(tree);
+});
