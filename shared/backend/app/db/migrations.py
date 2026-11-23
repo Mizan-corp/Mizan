@@ -4239,6 +4239,22 @@ MIGRATIONS = [
         CREATE POLICY tenant_isolation ON site_page_revisions
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    ("v109_site_settings", """
+        CREATE TABLE IF NOT EXISTS site_settings (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+                DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+            value jsonb NOT NULL DEFAULT '{}'::jsonb,
+            created_at timestamptz DEFAULT now(),
+            updated_at timestamptz
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_site_settings_tenant ON site_settings (tenant_id);
+        ALTER TABLE site_settings ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE site_settings FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON site_settings;
+        CREATE POLICY tenant_isolation ON site_settings
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables
