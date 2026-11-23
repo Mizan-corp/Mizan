@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ExternalLink, LogIn } from "lucide-react";
 import { toast } from "sonner";
-import { openWithSession, openWorkspaceWithSession } from "@/lib/handoff";
+import { openErpWithSession } from "@/lib/handoff";
 import { workspaceUrl } from "@/lib/urls";
 import { actions, type Module, useAction, useModules, useOwners, useWorkspace, type WorkspaceDetail as Detail } from "@app/lib/data";
 import { ago, categoryLabel, date, dateTime, errorText, moduleLabel, modeLabel, money, num, PLANS, planLabel, plural, pulse, sectorLabel, trialText } from "@app/lib/format";
@@ -571,8 +571,7 @@ export default function WorkspaceDetail() {
     try {
       const r = await actions.impersonate(w.id);
       toast.success(`Opening as ${r.as_user}`);
-      if (r.slug) openWorkspaceWithSession(r.slug, "/", r.access_token);
-      else openWithSession("system", "/", r.access_token);
+      openErpWithSession(r.slug, "/", r.access_token);
     } catch (e) {
       toast.error(errorText(e));
       setOpening(false);
@@ -657,3 +656,4 @@ export default function WorkspaceDetail() {
     </>
   );
 }
+
