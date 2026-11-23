@@ -43,3 +43,11 @@ leave-guard.mjs: mocked offline/local quota-failure test for distinct browser vs
 backend status, dirty synthetic beforeunload cancellation, retained edits and retry.
 Native browser dialog is NOT tested. Prompts are browser-dependent and best effort.
 No automatic saves. Use isolated local Vite/Chromium CDP as above.
+
+native-authoring.mjs: MOCKED sessionStorage-backed API for two distinct native-tree
+compositions. Checks one-field-only JSON change, stable IDs, undo/redo, save/reload
+and unsupported load refusal. native-guards.mjs checks the NEW native entry's loading,
+archived/wrong/missing identity, serialized saves, newer edits, failure/echo mismatch,
+retry and synthetic beforeunload. Both require isolated local Vite/Chromium CDP.
+These are not live API e2e. run_db_tests.py now has 16 reduced checks, adding native
+JSON save/reload through the service while preserving fields and multilingual titles.
