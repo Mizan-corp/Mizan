@@ -85,8 +85,8 @@ async function click(text){await evaluate(`[...document.querySelectorAll('button
 
 await shot('/downloads/native-simple-default.png');
 if(!(await evaluate(`document.querySelector('.studio-layers').hidden && document.querySelector('.studio-inspector').hidden && document.querySelector('.simple-save-state').textContent.includes('Saved to local test copy')`)))throw Error('default not simple/truthful');
-await click('+ Add');if(!(await evaluate(`!document.querySelector('.studio-layers').hidden && !!document.querySelector('#native-add-panel button')`)))throw Error('add unavailable');
-await evaluate(`[...document.querySelectorAll('.native-presets button')].find(b=>b.textContent.includes('Intro + image')).click()`);await sleep(80);
+await click('+ Add');await evaluate(`document.querySelector('.library-basic').open=true`);if(!(await evaluate(`!document.querySelector('.studio-layers').hidden && !!document.querySelector('#native-add-panel button')`)))throw Error('add unavailable');
+await evaluate(`document.querySelector('[aria-label="Preview Intro + image"]').click()`);await sleep(50);await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent==='Add this block').click()`);await sleep(80);
 await evaluate(`[...document.querySelectorAll('.native-node')].filter(e=>e.dataset.nodeType==='heading').at(-1).click()`);await sleep(80);
 if(!(await evaluate(`!document.querySelector('.studio-inspector').hidden && !document.querySelector('.simple-more').open`)))throw Error('edit/default advanced failed');
 await evaluate(`document.querySelector('.native-selected-node').scrollIntoView({block:'center'})`);await shot('/downloads/native-simple-edit.png');
