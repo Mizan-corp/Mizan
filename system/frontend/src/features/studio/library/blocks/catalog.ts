@@ -1,0 +1,20 @@
+import type {PresetKind} from '../../nativePresets';
+export const blockCatalog: {id:PresetKind;name:string;category:string;description:string}[]=[
+{id:'hero',name:'Intro + image',category:'Hero sections',description:'A headline, introduction, button and editable art.'},
+{id:'story',name:'Image + story',category:'Stories',description:'A two-column story with artwork first.'},
+{id:'callout',name:'Call to action',category:'Calls to action',description:'A focused message and one clear next step.'},
+{id:'features',name:'Three benefits',category:'Features',description:'Three editable columns for your strongest ideas.'},
+{id:'quote',name:'Featured quote',category:'Feedback',description:'A centered quote with an attribution.'},
+{id:'contact',name:'Contact invitation',category:'Contact',description:'A contact headline and editable contact-page link.'},
+{id:'hero_center',name:'Centered introduction',category:'Hero sections',description:'A centered headline with art beneath.'},
+{id:'feedback_cards',name:'Two customer stories',category:'Feedback',description:'Two editable testimonial cards. Replace all sample quotes.'},
+{id:'features_split',name:'Benefit + illustration',category:'Features',description:'An illustration beside a focused benefit story.'},
+{id:'pricing_cards',name:'Three plans',category:'Pricing',description:'Editable plan copy and enquiry links. No checkout connection.'},
+{id:'pricing_simple',name:'Single offer',category:'Pricing',description:'One offer and a contact link. Sample prices are not live prices.'},
+{id:'faq_list',name:'Questions & answers',category:'FAQ',description:'Readable editable answers, always visible, no accordion behavior.'},
+{id:'faq_columns',name:'Two-column FAQ',category:'FAQ',description:'Side-by-side questions and answers, no accordion behavior.'},
+{id:'contact_split',name:'Contact + artwork',category:'Contact',description:'A message and contact-page link beside artwork.'},
+{id:'gallery_pair',name:'Two-image gallery',category:'Galleries',description:'Two editable decorative images. Replace with your own media.'},
+{id:'gallery_grid',name:'Three-image gallery',category:'Galleries',description:'A responsive row of three editable images.'},
+{id:'team_pair',name:'Meet the founders',category:'Teams',description:'Two profiles with editable art, names and roles.'},
+{id:'team_grid',name:'Meet the team',category:'Teams',description:'Three editable profiles. All names are sample copy.'}];
