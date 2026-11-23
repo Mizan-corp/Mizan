@@ -6,7 +6,7 @@ import re
 import uuid
 
 import httpx
-from conftest import ADMIN, API, OWNER, WEBSITE, owner_sign_in, skip_tour, workspace_url
+from conftest import ADMIN, API, OWNER, WEBSITE, erp_login, owner_sign_in, retry_after, skip_tour, workspace_url
 from playwright.sync_api import Page, expect
 
 
@@ -57,8 +57,7 @@ def test_unsafe_next_is_ignored(page: Page, workspace):
 
 
 def test_employees_are_pointed_to_their_workspace_sign_in(page: Page, workspace):
-    erp = httpx.post(f"{API}/auth/login", headers={"X-Tenant-Slug": workspace["slug"]},
-                     json={"username": workspace["login"], "password": workspace["password"]}, timeout=30)
+    erp = erp_login(workspace["slug"], workspace["login"], workspace["password"])
     erp.raise_for_status()
     clerk = f"e2e-clerk-{uuid.uuid4().hex[:6]}"
     r = httpx.post(f"{API}/users", headers={"Authorization": f"Bearer {erp.json()['access_token']}"}, timeout=30,
@@ -98,11 +97,10 @@ def test_the_website_follows_the_owners_session_and_sign_out_clears_both(page: P
 
 
 def test_a_suspended_workspace_cannot_sign_in_until_reactivated(page: Page, workspace, platform_admin):
-    def erp_login() -> int:
-        return httpx.post(f"{API}/auth/login", headers={"X-Tenant-Slug": workspace["slug"]}, timeout=30,
-                          json={"username": workspace["login"], "password": workspace["password"]}).status_code
+    def status() -> int:
+        return erp_login(workspace["slug"], workspace["login"], workspace["password"]).status_code
 
-    assert erp_login() == 200
+    assert status() == 200
     page.goto(f"{ADMIN}/")
     page.locator("input").nth(0).fill(platform_admin["login"])
     page.locator("input[type=password]").fill(platform_admin["password"])
@@ -115,19 +113,25 @@ def test_a_suspended_workspace_cannot_sign_in_until_reactivated(page: Page, work
     page.get_by_role("dialog").get_by_role("button", name="Suspend workspace").click()
     expect(root.get_by_role("button", name="Reactivate", exact=True)).to_be_visible()
     expect(page.get_by_role("dialog")).to_have_count(0)
-    assert erp_login() in (401, 403)
+    assert status() in (401, 403)
 
-    # The workspace's own sign-in page refuses too.
+    # The workspace's own sign-in page refuses too (refused, not rate-limited: see erp_login).
     staff = page.context.new_page()
     staff.goto(workspace_url(workspace["slug"], "/login"))
     staff.locator("input").nth(0).fill(workspace["login"])
     staff.locator("input[type=password]").fill(workspace["password"])
-    staff.locator("button[type=submit]").click()
-    staff.wait_for_timeout(2500)
+    for _ in range(3):
+        with staff.expect_response(lambda r: r.url.endswith("/auth/login")) as answer:
+            staff.locator("button[type=submit]").click()
+        if answer.value.status != 429:
+            break
+        staff.wait_for_timeout(retry_after(answer.value) * 1000)
+    assert answer.value.status in (401, 403)
+    staff.wait_for_timeout(1000)
     assert "/login" in staff.url
     staff.close()
 
     root.get_by_role("button", name="Reactivate", exact=True).click()
     page.get_by_role("dialog").get_by_role("button", name="Reactivate", exact=True).click()
     expect(root.get_by_role("button", name="Suspend", exact=True)).to_be_visible()
-    assert erp_login() == 200
+    assert status() == 200
