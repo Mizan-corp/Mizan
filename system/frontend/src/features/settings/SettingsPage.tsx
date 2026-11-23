@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useHref } from "react-router-dom";
 import { IS_ON_PREMISE } from "@app/lib/deployment";
 import { NetworkDevices } from "./NetworkDevices";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -166,7 +167,7 @@ export default function SettingsPage() {
     }
   }
 
-  const previewLoginUrl = tenant?.slug ? `/c/${tenant.slug}/login` : "/login";
+  const previewLoginUrl = useHref(tenant?.slug ? `/c/${tenant.slug}/login` : "/login");
 
   type StoreFieldKey =
     | "store_name"
