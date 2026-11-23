@@ -80,7 +80,7 @@ await send('Page.navigate',{url:'http://127.0.0.1:5188/studio.html?editor=tree&p
 async function selectType(type){await evaluate(`[...document.querySelectorAll('.native-node')].find(b=>b.dataset.nodeType===${JSON.stringify(type)}).click()`);await sleep(80);}
 async function click(text){await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent===${JSON.stringify(text)}).click()`);await sleep(80);}
 
-await click('+ Add');
+await click('+ Add');await evaluate(`document.querySelector('.library-basic').open=true`);
 const col=tree.children[0].children[0].id;
 async function rect(selector){return evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}})()`)}
 async function dragTo(source,target){const a=await rect(source);await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:a.x+a.width/2,y:a.y+a.height/2});await send('Input.dispatchMouseEvent',{type:'mousePressed',x:a.x+a.width/2,y:a.y+a.height/2,button:'left',clickCount:1});const b=await rect(target);await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:b.x+20,y:b.y+2,button:'left',buttons:1});await sleep(100);if(!(await evaluate(`!!document.querySelector('.native-drop-marker')`)))throw Error('drop marker missing');await shot('/downloads/native-drag-position.png');await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:b.x+20,y:b.y+2,button:'left',clickCount:1});await sleep(120);}
@@ -103,7 +103,7 @@ await dragTo('#'+moving,'#'+tree.children[0].children[0].children[0].id);if(!(aw
 const cancelStart=await rect('.native-element-grid button:nth-child(3)');await send('Input.dispatchMouseEvent',{type:'mousePressed',x:cancelStart.x+10,y:cancelStart.y+10,button:'left',clickCount:1});await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:cancelStart.x+10,y:cancelStart.y+10,button:'left',clickCount:1});if(await evaluate(`document.querySelectorAll('.native-node').length`)!==before)throw Error('cancel changed tree');
 
 // Selection now focuses the edit dock. Reopen Add before a palette gesture.
-await click('+ Add');
+await click('+ Add');await evaluate(`document.querySelector('.library-basic').open=true`);
 // Touch uses the same pointer flow, with CDP touch events rather than mouse emulation.
 await send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
 const a=await rect('.native-element-grid button:nth-child(4)');await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:a.x+a.width/2,y:a.y+a.height/2,id:1}]});
