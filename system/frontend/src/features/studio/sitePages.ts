@@ -149,4 +149,4 @@ export function createSitePagesClient(options: { baseUrl: string; fetchImpl?: Fe
     archive: (pageId: string) => call<PageSummary>('POST', `/site/pages/${pageId}/archive`),
     reopen: (pageId: string) => call<PageSummary>('POST', `/site/pages/${pageId}/reopen`),
   };
-    }
+}
