@@ -82,9 +82,9 @@ async function click(text){await evaluate(`[...document.querySelectorAll('button
 
 
 
-await click('+ Add');
+await click('+ Add');await evaluate(`document.querySelector('.library-basic').open=true`);
 const before=await evaluate(`document.querySelectorAll('.native-node').length`);
-await evaluate(`[...document.querySelectorAll('.native-presets button')].find(b=>b.textContent.includes('Intro + image')).click()`);await sleep(100);
+await evaluate(`document.querySelector('[aria-label="Preview Intro + image"]').click()`);await sleep(50);await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent==='Add this block').click()`);await sleep(100);
 if(await evaluate(`document.querySelectorAll('.native-node').length`)<=before)throw Error('preset did not insert');
 await click('Undo');if(await evaluate(`document.querySelectorAll('.native-node').length`)!==before)throw Error('preset undo failed');
 await click('Redo');
