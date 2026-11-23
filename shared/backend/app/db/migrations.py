@@ -4198,6 +4198,47 @@ MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS ix_hr_audit_log_tenant_created ON hr_audit_log (tenant_id, created_at);
         CREATE INDEX IF NOT EXISTS ix_idempotency_keys_created_at ON idempotency_keys (created_at);
     """),
+    # ADR-015 S2: the site builder's pages and publish revisions (page-engine.md). Drafts are
+    # studio-only; the published tree is what the public renderer serves.
+    ("v108_site_pages", """
+        CREATE TABLE IF NOT EXISTS site_pages (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+                DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+            slug varchar(80) NOT NULL,
+            titles jsonb NOT NULL DEFAULT '{}'::jsonb,
+            status varchar(16) NOT NULL DEFAULT 'draft',
+            draft_tree jsonb,
+            published_tree jsonb,
+            created_at timestamptz DEFAULT now(),
+            updated_at timestamptz
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_site_pages_slug ON site_pages (tenant_id, slug);
+        CREATE INDEX IF NOT EXISTS ix_site_pages_tenant ON site_pages (tenant_id, status);
+        ALTER TABLE site_pages ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE site_pages FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON site_pages;
+        CREATE POLICY tenant_isolation ON site_pages
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+        CREATE TABLE IF NOT EXISTS site_page_revisions (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+                DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+            page_id uuid NOT NULL REFERENCES site_pages(id) ON DELETE CASCADE,
+            number integer NOT NULL,
+            tree jsonb NOT NULL,
+            titles jsonb NOT NULL DEFAULT '{}'::jsonb,
+            created_by uuid,
+            created_at timestamptz DEFAULT now()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_site_page_revisions_number ON site_page_revisions (page_id, number);
+        CREATE INDEX IF NOT EXISTS ix_site_page_revisions_page ON site_page_revisions (page_id, number DESC);
+        ALTER TABLE site_page_revisions ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE site_page_revisions FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON site_page_revisions;
+        CREATE POLICY tenant_isolation ON site_page_revisions
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables
