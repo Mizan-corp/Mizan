@@ -17,7 +17,8 @@ from app.dependencies import require_perm
 from app.platform.auth.models.user import User
 from app.platform.site import service
 
-router = APIRouter(prefix="/site/pages", tags=["Site pages"])
+pages_router = APIRouter(prefix="/site/pages", tags=["Site pages"])
+settings_router = APIRouter(prefix="/site/settings", tags=["Site settings"])
 
 
 class PageIn(BaseModel):
@@ -52,56 +53,78 @@ def _revision(rev) -> dict:
     }
 
 
-@router.get("")
+@pages_router.get("")
 async def list_pages(db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("site.manage"))):
     return {"items": [_summary(p) for p in await service.list_pages(db)]}
 
 
-@router.post("", status_code=201)
+@pages_router.post("", status_code=201)
 async def create_page(data: PageIn, db: AsyncSession = Depends(get_db),
                       user: User = Depends(require_perm("site.manage"))):
     page = await service.create_page(db, slug=data.slug, titles=data.titles, tree=data.tree)
     return _detail(page)
 
 
-@router.get("/{page_id}")
+@pages_router.get("/{page_id}")
 async def get_page(page_id: uuid.UUID, db: AsyncSession = Depends(get_db),
                    user: User = Depends(require_perm("site.manage"))):
     return _detail(await service.get_page(db, page_id))
 
 
-@router.put("/{page_id}/draft")
+@pages_router.put("/{page_id}/draft")
 async def save_draft(page_id: uuid.UUID, data: DraftIn, db: AsyncSession = Depends(get_db),
                      user: User = Depends(require_perm("site.manage"))):
     """Save and autosave: the draft only (page-engine.md)."""
     return _detail(await service.save_draft(db, page_id, tree=data.tree, titles=data.titles))
 
 
-@router.post("/{page_id}/publish")
+@pages_router.post("/{page_id}/publish")
 async def publish(page_id: uuid.UUID, db: AsyncSession = Depends(get_db),
                   user: User = Depends(require_perm("site.manage"))):
     return _detail(await service.publish(db, page_id, user.id))
 
 
-@router.get("/{page_id}/revisions")
+@pages_router.get("/{page_id}/revisions")
 async def revisions(page_id: uuid.UUID, db: AsyncSession = Depends(get_db),
                     user: User = Depends(require_perm("site.manage"))):
     return {"items": [_revision(r) for r in await service.list_revisions(db, page_id)]}
 
 
-@router.post("/{page_id}/rollback/{revision_id}")
+@pages_router.post("/{page_id}/rollback/{revision_id}")
 async def rollback(page_id: uuid.UUID, revision_id: uuid.UUID, db: AsyncSession = Depends(get_db),
                    user: User = Depends(require_perm("site.manage"))):
     return _detail(await service.rollback(db, page_id, revision_id))
 
 
-@router.post("/{page_id}/archive")
+@pages_router.post("/{page_id}/archive")
 async def archive(page_id: uuid.UUID, db: AsyncSession = Depends(get_db),
                   user: User = Depends(require_perm("site.manage"))):
     return _summary(await service.archive(db, page_id))
 
 
-@router.post("/{page_id}/reopen")
+@pages_router.post("/{page_id}/reopen")
 async def reopen(page_id: uuid.UUID, db: AsyncSession = Depends(get_db),
                  user: User = Depends(require_perm("site.manage"))):
     return _summary(await service.reopen(db, page_id))
+
+
+class SettingsIn(BaseModel):
+    value: dict
+
+
+@settings_router.get("")
+async def get_settings(db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("site.manage"))):
+    """The workspace's durable theme and chrome; {} when never saved."""
+    return {"value": await service.get_settings(db)}
+
+
+@settings_router.put("")
+async def put_settings(data: SettingsIn, db: AsyncSession = Depends(get_db),
+                       user: User = Depends(require_perm("site.manage"))):
+    return {"value": await service.put_settings(db, value=data.value)}
+
+
+# Combined router: mounts pages and settings routes under the same site API.
+router = APIRouter()
+router.include_router(pages_router)
+router.include_router(settings_router)
