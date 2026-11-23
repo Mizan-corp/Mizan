@@ -23,6 +23,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.framework.manifest import page_problems
 from app.platform.site.models import SitePage, SitePageRevision, SiteSettings
+from app.platform.tenancy.context import current_tenant_id
+from app.platform.tenancy.models import Tenant
 
 SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 LANGUAGES = ("ar", "en")  # ADR-015 D7: Arabic and English first.
@@ -249,6 +251,10 @@ def check_settings(value) -> dict:
         out["header"] = {"brand": (brand or "").strip(),
                          "links": _check_links(header.get("links"), 8),
                          "actions": _check_links(header.get("actions"), 4)}
+        if "layout" in header:
+            if header["layout"] not in ("inline", "centered"):
+                raise HTTPException(422, "Invalid header layout")
+            out["header"]["layout"] = header["layout"]
     footer = value.get("footer")
     if footer is not None:
         if not isinstance(footer, dict):
@@ -258,6 +264,10 @@ def check_settings(value) -> dict:
                 not isinstance(x, str) or not x.strip() or len(x) > 120 for x in lines):
             raise HTTPException(422, "تذييل الموقع غير صالح")
         out["footer"] = {"lines": [x.strip() for x in lines], "links": _check_links(footer.get("links"), 8)}
+        if "layout" in footer:
+            if footer["layout"] not in ("split", "stacked"):
+                raise HTTPException(422, "Invalid footer layout")
+            out["footer"]["layout"] = footer["layout"]
     unknown = set(value) - {"colors", "typography", "shape", "header", "footer"}
     if unknown:
         raise HTTPException(422, "إعدادات الموقع تحتوي مفاتيح غير معروفة")
@@ -270,11 +280,32 @@ async def get_settings(db: AsyncSession) -> dict:
     return dict(row.value) if row else {}
 
 
-async def put_settings(db: AsyncSession, *, value: dict) -> dict:
-    """Upsert the workspace's single settings row."""
+def settings_token(value: dict) -> str:
+    """Tenant-bound content fingerprint, not a monotonic revision counter."""
+    snapshot = {"tenant": str(current_tenant_id.get()), "value": value}
+    return hashlib.sha256(json.dumps(snapshot, sort_keys=True, ensure_ascii=False,
+                                     separators=(",", ":")).encode()).hexdigest()
+
+
+async def put_settings(db: AsyncSession, *, value: dict, expected_token: str | None = None) -> dict:
+    """Serialize even first creation on the tenant row, then compare a fresh snapshot.
+
+    Legacy callers may omit the token. Those writes are serialized but unconditional.
+    Shared settings are live configuration, not a page draft or publish transaction.
+    """
     clean = check_settings(value)
-    res = await db.execute(select(SiteSettings).limit(1))
+    tid = current_tenant_id.get()
+    if tid is None:
+        raise HTTPException(409, "Workspace context required for site settings")
+    tenant = await db.execute(select(Tenant.id).where(Tenant.id == tid).with_for_update())
+    if tenant.scalar_one_or_none() is None:
+        raise HTTPException(404, "Workspace not found")
+    res = await db.execute(select(SiteSettings).limit(1).with_for_update()
+                           .execution_options(populate_existing=True))
     row = res.scalars().first()
+    current = dict(row.value) if row else {}
+    if expected_token is not None and expected_token != settings_token(current):
+        raise HTTPException(409, "Shared site settings changed in another session. Local changes were not saved.")
     if row is None:
         row = SiteSettings(value=clean)
         db.add(row)
