@@ -77,7 +77,7 @@ window.fetch=async(url,init={})=>{
  return new Response(JSON.stringify({id:'native-one',slug:'native-one',titles:{en:'Original page'},status:'draft',draft_tree:JSON.parse(sessionStorage.getItem('structure-tree')),published_tree:null}),{status:200});
 };`});
 await send('Page.navigate',{url:'http://127.0.0.1:5188/studio.html?editor=tree&page=native-one'});await sleep(400);await waitFor(`!!document.querySelector('.native-node')`);
-async function selectType(type){await evaluate(`[...document.querySelectorAll('.native-node')].find(b=>b.querySelector('b').textContent===${JSON.stringify(type)}).click()`);await sleep(80);}
+async function selectType(type){await evaluate(`[...document.querySelectorAll('.native-node')].find(b=>b.dataset.nodeType===${JSON.stringify(type)}).click()`);await sleep(80);}
 async function click(text){await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent===${JSON.stringify(text)}).click()`);await sleep(80);}
 
 
@@ -86,9 +86,9 @@ await evaluate(`document.getElementById('${heading}').scrollIntoView({block:'cen
 await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:r.x,y:r.y});await sleep(80);
 if(!(await evaluate(`document.querySelector('.native-hover-node')?.id==='${heading}'`)))throw Error('deepest hover failed');
 await send('Input.dispatchMouseEvent',{type:'mousePressed',x:r.x,y:r.y,button:'left',clickCount:1});await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:r.x,y:r.y,button:'left',clickCount:1});await sleep(80);
-if(!(await evaluate(`document.querySelector('.native-selected-node')?.id==='${heading}' && document.querySelector('.native-breadcrumb').textContent.includes('column') && !document.querySelector('.native-drop-marker')`)))throw Error('deepest selection/breadcrumb failed');
+if(!(await evaluate(`document.querySelector('.native-selected-node')?.id==='${heading}' && document.querySelector('.native-breadcrumb').textContent.includes('Column') && !document.querySelector('.native-drop-marker')`)))throw Error('deepest selection/breadcrumb failed');
 await shot('/downloads/native-hover-child.png');
-await evaluate(`[...document.querySelectorAll('.native-breadcrumb button')].find(e=>e.textContent==='column').click()`);await sleep(80);
+await evaluate(`[...document.querySelectorAll('.native-breadcrumb button')].find(e=>e.textContent==='Column').click()`);await sleep(80);
 if(!(await evaluate(`document.querySelector('.native-selected-node')?.id==='${col}' && document.querySelector('.native-id').textContent==='${col}'`)))throw Error('ancestor selection failed');
 await shot('/downloads/native-hover-parent.png');
 console.log('PASS MOCKED deepest hover/type label, selected child border, ancestor breadcrumb selection and inspector sync');ws.close();
