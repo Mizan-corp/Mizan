@@ -19,6 +19,9 @@ const ENUM_SETTINGS: Record<string, string[]> = {
   width: ['auto', 'full', 'half', 'third', 'two_thirds'],
   align: ['start', 'center', 'end'],
   min_height: ['s', 'm', 'l'],
+  animation: ['none','fade','rise','slide','zoom'],
+  animation_speed:['quick','normal','slow'],
+  animation_delay:['none','short','long'],
 };
 
 function settingsOf(node: PageNode, device: Device): Record<string, string | number | boolean> {
@@ -228,4 +231,4 @@ export default function TreePreview({ tree, lang, device, theme }: { tree: PageN
       <ThemeFooter footer={theme?.footer} />
     </div>
   );
-}
+        }
