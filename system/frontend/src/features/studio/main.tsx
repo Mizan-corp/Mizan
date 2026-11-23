@@ -5,6 +5,7 @@ import './studio.css';
 import ChromeInspector from './ChromeInspector';
 import { previewPayload, toPageTree, sectionNodePrefix } from './pagetree';
 import TreePreview from './treerender';
+import { shouldWarnBeforeLeave, browserSaveLabel, backendSaveLabel } from './persistenceState';
 import { createOperationGate, snapshotKey, saveResultNotice } from './saveState';
 import { choosePage } from './pageIdentity';
 import { restoreEditablePage } from './editSession';
@@ -18,6 +19,11 @@ type Conn = { state: 'blocked'; reason: string } | { state: 'checking' } | { sta
 
 function Studio() {
   const [project, setProject] = useState<Project>(() => loadDraft(localStorage));
+  const baseline = useRef(snapshotKey(project));
+  const [browserKey, setBrowserKey] = useState<string | null>(() => {
+    try { const raw = localStorage.getItem(DRAFT_KEY); const value: unknown = JSON.parse(raw || 'null'); return validateProject(value) ? snapshotKey(value) : null; } catch { return null; }
+  });
+  const [storageError, setStorageError] = useState('');
   const currentProject = useRef(project); currentProject.current = project;
   const gate = useRef(createOperationGate());
   const [busy, setBusy] = useState<'save'|'publish'|null>(null);
@@ -26,6 +32,13 @@ function Studio() {
   const [device, setDevice] = useState<Device>('desktop');
   const [conn, setConn] = useState<Conn>({ state: 'checking' });
   const [notice, setNotice] = useState('Local prototype. Checking for a local test backend...');
+  const leaveState = { current: snapshotKey(project), baseline: baseline.current, browserSaved: browserKey, backendSaved: savedKey, backendConnected: conn.state === 'on', busy: !!busy };
+  useEffect(() => {
+    if (!shouldWarnBeforeLeave(leaveState)) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [leaveState.current, leaveState.baseline, browserKey, savedKey, conn.state, busy]);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -42,7 +55,7 @@ function Studio() {
         } catch { /* settings are additive: a missing record never blocks the page restore */ }
         const choice = choosePage(list.items, new URLSearchParams(window.location.search).get('page'));
         if (choice.kind === 'blocked') { setConn({state:'blocked',reason:choice.reason}); setNotice('No writable backend page selected. Browser copy only.'); return; }
-        if (choice.kind === 'new') { setConn({ state: 'on', page: null }); if (base !== project) { setProject(base); } setNotice('Connected to the local test backend. Saves go to its database only, never the public site.'); return; }
+        if (choice.kind === 'new') { setConn({ state: 'on', page: null }); if (base !== project) { baseline.current = snapshotKey(base); setProject(base); } setNotice('Connected to the local test backend. Saves go to its database only, never the public site.'); return; }
         const detail = await api.getPage(choice.id);
         if (cancelled) return;
         const restored = restoreEditablePage(detail, base);
@@ -51,6 +64,7 @@ function Studio() {
           setNotice('Backend page protected. Showing the browser copy only, not the backend page.');
           return;
         }
+        baseline.current = snapshotKey(restored.project);
         setProject(restored.project); setSavedKey(settingsLoaded && (detail.draft_tree || detail.published_tree) ? snapshotKey(restored.project) : null); select(restored.project.sections[0].id);
         setNotice('Loaded the draft and site settings from the local test backend.');
         const url = new URL(window.location.href); url.searchParams.set('page', detail.id); window.history.replaceState(null, '', url);
@@ -128,7 +142,7 @@ function Studio() {
   const current = project.sections.find(s => s.id === selected) || project.sections[0];
   const update = (next: Project) => { setHistory(h => [...h.slice(-29), project]); setProject(next); setNotice('Unsaved local changes'); };
   const change = (values: Partial<Section>) => update({ ...project, sections: project.sections.map(s => s.id === current.id ? { ...s, ...values } : s) });
-  const save = () => { if (conn.state === 'checking') return; try { localStorage.setItem(DRAFT_KEY, JSON.stringify(project)); setNotice('Saved on this browser only. Reload to verify.'); } catch { setNotice('Save failed. Export a copy before leaving.'); } };
+  const save = () => { if (conn.state === 'checking') return; try { localStorage.setItem(DRAFT_KEY, JSON.stringify(project)); setBrowserKey(snapshotKey(project)); setStorageError(''); setNotice('Saved on this browser only. Reload to verify.'); } catch { setStorageError('Browser save failed. Your edits remain in the editor. Export a copy before leaving.'); setNotice('Browser save failed. Backend save status is unchanged.'); } };
   const profile = () => { try { localStorage.setItem(PROFILE_KEY, JSON.stringify(project)); setNotice('Profile saved locally.'); } catch { setNotice('Profile save failed.'); } };
   const restore = () => { try { const p: unknown = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null'); if (!validateProject(p)) throw Error(); update(p); select(p.sections[0].id); setNotice('Local profile applied. Save draft to keep it.'); } catch { setNotice('No valid local profile yet.'); } };
   const exportFile = () => { const url = URL.createObjectURL(new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = 'mizan-studio-project.json'; a.click(); URL.revokeObjectURL(url); };
@@ -139,7 +153,9 @@ function Studio() {
   return <div className="studio-root">
     <header className="studio-top"><div className="studio-brand"><b>m.</b><span>Web studio <small>EXPERIMENTAL</small></span></div><span className="project-name">{project.name} <i>Draft</i></span><div className="top-actions" inert={conn.state === 'checking'}><button disabled={conn.state === 'checking' || !history.length} onClick={() => { const last = history.at(-1); if (last) { setProject(last); setHistory(h => h.slice(0,-1)); } }}>Undo</button><button disabled={conn.state === 'checking'} onClick={exportFile}>Export</button><button disabled={conn.state === 'checking'} onClick={sharedPreview}>Shared renderer</button>{conn.state === 'on' && <button disabled={!!busy} className="save" onClick={saveServer}>{busy === 'save' ? 'Saving snapshot...' : 'Save to local backend'}</button>}{conn.state === 'on' && conn.page && <button disabled={!!busy || savedKey !== snapshotKey(project)} title={savedKey !== snapshotKey(project) ? 'Save current changes before publishing' : 'Publish the saved local-test snapshot'} onClick={publishServer}>{busy === 'publish' ? 'Publishing snapshot...' : 'Publish (local test)'}</button>}<button disabled={conn.state === 'checking'} className="save" onClick={save}>Save local draft</button></div></header>
     <div className="studio-notice" role="status" aria-busy={!!busy}>{notice} <span>{conn.state === 'on' ? `Local test backend only · page: ${conn.page?.slug ?? 'not created yet'} · never the public site` : 'No server publishing · no customer data'}</span></div>
-    {conn.state === 'blocked' && <div className="studio-protection" role="alert"><strong>Backend page is read-only in this prototype.</strong> {conn.reason} Backend save and publish are unavailable. Its data is unchanged. You may edit, save or export the browser copy only.</div>}
+    <div className="persistence-bar" aria-label="Save status"><span>{browserSaveLabel(snapshotKey(project), browserKey)}</span><span>{backendSaveLabel(snapshotKey(project), savedKey, conn.state === 'on')}</span>{busy && <strong>Operation in progress</strong>}{shouldWarnBeforeLeave(leaveState) && <span className="leave-warning">Leaving may lose edits or interrupt an operation.</span>}</div>
+    {storageError && <div className="storage-error" role="alert">{storageError}</div>}
+    {conn.state === 'blocked'  && <div className="studio-protection" role="alert"><strong>Backend page is read-only in this prototype.</strong> {conn.reason} Backend save and publish are unavailable. Its data is unchanged. You may edit, save or export the browser copy only.</div>}
     {conn.state === 'checking' && <div className="studio-loading" role="status">Loading backend page and settings. Editing is paused to protect your browser copy.</div>}
     <div className="studio-workspace" inert={conn.state === 'checking'}>
       <aside className="studio-layers"><div className="panel-title">PAGE STRUCTURE <span>{project.sections.length}</span></div><h2>{conn.state === 'on' && conn.page ? conn.page.titles[project.language] ?? conn.page.slug : 'Browser page'}</h2><p className="hint">Select a section to edit it.</p>{project.sections.map((s,i) => <div key={s.id} className={`layer ${current.id === s.id ? 'active' : ''}`}><button onClick={() => select(s.id)}><span>▦</span> {i === 0 ? 'Hero' : 'Content'} <small>{s.eyebrow.slice(0,19)}</small></button><div className="layer-tools"><button aria-label={`Move ${s.id} up`} onClick={() => update(moveSection(project,s.id,-1))} disabled={!i}>↑</button><button aria-label={`Move ${s.id} down`} onClick={() => update(moveSection(project,s.id,1))} disabled={i === project.sections.length-1}>↓</button></div></div>)}<button className="add-section" onClick={() => { const s = { ...structuredClone(initialProject.sections[1]), id: `section-${Date.now()}` }; update({ ...project, sections: [...project.sections,s] }); select(s.id); }} disabled={project.sections.length >= 20}>+ Add section</button><div className="layers-bottom"><button onClick={profile}>Save as local profile</button><button onClick={restore}>Apply saved profile</button><label className="import-button">Import project<input type="file" accept="application/json" onChange={async e => { const f=e.target.files?.[0]; if (!f) return; try { if(f.size > 200000) throw Error(); const p:unknown=JSON.parse(await f.text()); if(!validateProject(p)) throw Error(); update(p);select(p.sections[0].id); } catch {setNotice('Import refused: invalid or oversized project.');} e.target.value=''; }} /></label></div></aside>
