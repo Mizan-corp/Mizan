@@ -86,7 +86,7 @@ for(const [i,id]of ['native-one','native-two'].entries()){
  await evaluate(`[...document.querySelectorAll('.native-node')].find(b=>b.dataset.nodeId===${JSON.stringify(target)}).click()`);await sleep(100);
  await edit('Native edit '+i);await click('Undo');
  if(!(await evaluate(`document.querySelector('[aria-label="Native text"]').value===${JSON.stringify(i===0?tree.children[0].children[0].children.find(n=>n.type==='heading').content.en.text:'Distinct page')}`)))throw Error('undo failed');
- await click('Redo');await click('Save native draft');await waitFor(`document.querySelector('.studio-notice').textContent.includes('Native tree draft saved')`);
+ await click('Redo');await click('Save');await waitFor(`document.querySelector('.studio-notice').textContent.includes('Native tree draft saved')`);
  if(!(await evaluate(`(()=>{const expected=structuredClone(window.__originals[${i}]);const find=n=>n.id===${JSON.stringify(target)}?n:(n.children||[]).map(find).find(Boolean);find(expected).content.en.text='Native edit ${i}';return JSON.stringify(JSON.parse(sessionStorage.getItem('native-fixtures'))[${i}])===JSON.stringify(expected)})()`)))throw Error('unrelated JSON changed');
  await send('Page.reload');await sleep(400);await waitFor(`!!document.querySelector('.native-node')`);
  if(!(await evaluate(`[...document.querySelectorAll('.mz-heading')].some(h=>h.textContent==='Native edit ${i}')`)))throw Error('reload missed native edit');
