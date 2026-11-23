@@ -139,3 +139,13 @@ Reverse conversion now compares the reconstructed supported tree with the source
 Local studio tests: 44 passed plus 1 skipped. New regression coverage checks protected targets and source immutability, rejected fields, and supported roundtrips. `protected-page.mjs` is a browser regression with MOCKED backend responses: warning visible, no backend Save/Publish buttons and zero write requests. It does not test a real backend or full-app persistence. Run with isolated local Vite/Chromium CDP as the other harness drivers; it clears that isolated profile's local storage. Actual screenshot pixels were inspected.
 
 No new full-app, clean-source, concurrency, optimistic-locking, production-auth or API authorization claim. The two-request draft/settings save remains non-atomic. No CI, PR, merge or deployment.
+
+## R0 follow-up: stable page identity, brand separation and loading
+
+Page selection no longer derives from the mutable global brand. An explicit `?page=PAGE_ID` selects that exact backend identity. Without one, only a sole existing page is selected; an empty list permits initial creation. Multiple pages without a choice, or a missing explicit identity, block backend writes instead of picking a fallback. After supported load or save, the current page ID is retained in the URL. This is not a page-management or switching UI.
+
+Existing page titles are preserved on draft save, independent of brand changes. A single supported-language title need not match the brand (this supersedes the prior conservative brand-equality restriction). Multiple languages, unsupported trees and archived pages remain protected. Changing preview language to a different page language blocks saving rather than overwriting titles. Initial loading makes editor and top actions inert so a delayed response cannot replace newly typed edits. A create conflict still stops without adopting the conflicting identity.
+
+Local studio tests: 48 passed plus 1 skipped. `page-identity.mjs` is a MOCKED browser regression covering delayed-loading guards, changed-brand restore with an independent page title, same-ID save/reload, ambiguous/stale selection refusal and create-conflict with no draft overwrite. Actual loading and restored-state screenshot pixels were inspected. The API responses are mocked, not new live persistence evidence. Run with local Vite and isolated Chromium CDP as the other drivers; the driver clears isolated localStorage and never sends writes to a real backend. No test demonstrates full page management, simultaneous edits, optimistic locking or startup in the full app.
+
+Clean-source/full-app validation remains blocked. No CI, PR, merge, deployment or real payment.
