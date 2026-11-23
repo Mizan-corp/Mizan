@@ -36,3 +36,5 @@
 .link-row-title .remove-link{border:0;background:none;color:#8b5047;padding:5px 0}.link-order{display:flex;gap:6px}.link-order button{flex:1}
 .link-group .add-link{width:100%;border-style:dashed;background:#f7faf4;margin-top:6px;padding:10px}.link-group .link-error{color:#9d4438;font-size:10px;line-height:1.5;margin:6px 0 10px}
 .studio-inspector input[aria-invalid=true]{border-color:#bc7267}.link-group button:focus-visible,.link-group input:focus-visible,.link-group textarea:focus-visible{outline:2px solid #6b8b54;outline-offset:2px}
+
+.studio-protection{padding:12px 24px;color:#764720;background:#fff2dc;border-bottom:1px solid #e9cda3;font-size:12px}.studio-protection strong{display:block;margin-bottom:3px}.studio-root:has(.studio-protection) .studio-workspace{height:calc(100vh - 185px)}
