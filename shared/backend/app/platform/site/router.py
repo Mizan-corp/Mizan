@@ -29,6 +29,7 @@ class PageIn(BaseModel):
 
 class DraftIn(BaseModel):
     tree: dict
+    expected_token: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     titles: dict[str, str] | None = None
 
 
@@ -42,7 +43,7 @@ def _summary(page) -> dict:
 
 
 def _detail(page) -> dict:
-    return {**_summary(page), "draft_tree": page.draft_tree, "published_tree": page.published_tree}
+    return {**_summary(page), "draft_tree": page.draft_tree, "published_tree": page.published_tree, "edit_token": service.page_token(page)}
 
 
 def _revision(rev) -> dict:
@@ -75,7 +76,7 @@ async def get_page(page_id: uuid.UUID, db: AsyncSession = Depends(get_db),
 async def save_draft(page_id: uuid.UUID, data: DraftIn, db: AsyncSession = Depends(get_db),
                      user: User = Depends(require_perm("site.manage"))):
     """Save and autosave: the draft only (page-engine.md)."""
-    return _detail(await service.save_draft(db, page_id, tree=data.tree, titles=data.titles))
+    return _detail(await service.save_draft(db, page_id, tree=data.tree, titles=data.titles, expected_token=data.expected_token))
 
 
 @pages_router.post("/{page_id}/publish")
