@@ -268,6 +268,49 @@ async def main():
         await db.rollback()
         await unbind_tenant(db)
 
+    # Two genuinely independent sessions race on the same loaded token.
+    async with AsyncSessionLocal() as db:
+        await bind_tenant(db, one)
+        race = await service.create_page(db, slug="race-" + uuid.uuid4().hex[:6], titles={"en": "Race"}, tree=tree())
+        race_id, token = race.id, service.page_token(race)
+    async def attempt(label):
+        async with AsyncSessionLocal() as db:
+            await bind_tenant(db, one)
+            await service.get_page(db, race_id)  # deliberately stale identity-map entry
+            await asyncio.sleep(0.01)
+            try:
+                result = await service.save_draft(db, race_id, tree=tree(label), expected_token=token)
+                return ("saved", service.page_token(result))
+            except HTTPException as exc:
+                assert exc.status_code == 409
+                return ("conflict", None)
+    results = await asyncio.gather(attempt("Session A"), attempt("Session B"))
+    assert sorted(r[0] for r in results) == ["conflict", "saved"], results
+    async with AsyncSessionLocal() as db:
+        await bind_tenant(db, one)
+        live = await service.get_page(db, race_id)
+        unchanged = __import__("copy").deepcopy(live.draft_tree)
+        try:
+            await service.save_draft(db, race_id, tree=tree("Stale overwrite"), expected_token=token)
+            raise AssertionError("stale save accepted")
+        except HTTPException as exc:
+            assert exc.status_code == 409
+        db.expunge_all()
+        live = await service.get_page(db, race_id)
+        assert live.draft_tree == unchanged
+        fresh = service.page_token(live)
+        await service.save_draft(db, race_id, tree=tree("Deliberate fresh save"), expected_token=fresh)
+        await unbind_tenant(db)
+        await bind_tenant(db, two)
+        try:
+            await service.save_draft(db, race_id, tree=tree("Wrong tenant"), expected_token=fresh)
+            raise AssertionError("cross-tenant save accepted")
+        except HTTPException as exc:
+            assert exc.status_code == 404
+        await db.rollback()
+        await unbind_tenant(db)
+    print("17. independent session race, stale rejection, fresh retry, tenant isolation  OK")
+
     # cleanup: drop the throwaway tenants (cascade)
     async with AsyncSessionLocal() as db:
         from sqlalchemy import text
