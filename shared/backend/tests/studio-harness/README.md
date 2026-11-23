@@ -95,3 +95,5 @@ closing panels keeps dirtiness, Save updates state. Other drivers use + Add and
 Save after simplification. Not nontechnical-user usability proof.
 
 `native-canva.mjs` checks the Canva-directed rail and focused dock, actual canvas pointer selection, contextual Layout, content edit/save and 390px mobile sheet/no document overflow. Uses the same mocked local Vite/CDP harness as native-simple; not full-app acceptance.
+
+`native-library.mjs` verifies ready-block search/insert, complete native template preview and reversible apply/save/reload, keyboard/mobile preview, Explorer search/list failure retry and dirty-switch guards. Its API is mocked. `native-real.mjs` now also verifies template persistence and Explorer against the actual reduced authenticated router/service/DB, still not the full application.
