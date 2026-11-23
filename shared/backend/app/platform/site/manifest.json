@@ -1,0 +1,26 @@
+{
+  "id": "site",
+  "name": "الموقع",
+  "name_en": "Site",
+  "activity": "general",
+  "kind": "platform",
+  "status": "active",
+  "version": "0.1.0",
+  "icon": "Globe",
+  "description": "باني المواقع: صفحات الموقع ومسوداتها ونشرها ومراجعاتها (ADR-015، الخطوة S2).",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [
+    {
+      "id": "site.manage",
+      "name": "إدارة صفحات الموقع ونشرها",
+      "name_en": "Manage and publish site pages"
+    }
+  ],
+  "screens": [],
+  "widgets": [],
+  "srs": [],
+  "settings_schema": [],
+  "is_core": true
+}
