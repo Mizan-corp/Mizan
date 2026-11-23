@@ -7,7 +7,8 @@ import { clearOwnerSession, saveOwnerSession } from "@app/lib/ownerSession";
 const safePath = (raw: string | null) => safeInternalPath(raw);
 
 // Read once at load: the handoff is consumed from the address bar on first read.
-const handedOff = window.location.pathname === "/session" ? takeHandedOffSession() : null;
+const sessionPath = `${import.meta.env.BASE_URL.replace(/\/+$/, "")}/session`;
+const handedOff = window.location.pathname === sessionPath ? takeHandedOffSession() : null;
 
 /** The app's /login passes the owner session through here on its way to the owner panel. */
 export function AdoptSession() {
