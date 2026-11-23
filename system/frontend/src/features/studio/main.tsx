@@ -5,14 +5,14 @@ import './studio.css';
 import ChromeInspector from './ChromeInspector';
 import { previewPayload, toPageTree, sectionNodePrefix } from './pagetree';
 import TreePreview from './treerender';
-import { fromPageTree } from './fromtree';
+import { restoreEditablePage } from './editSession';
 import { SiteApiError, applySettings, createSitePagesClient, slugFromName, type PageDetail } from './sitePages';
 
 // The local-only backend bridge (vite.studio.config.ts): present only when a developer
 // boots a LOOPBACK test API with MIZAN_SITE_API + MIZAN_SITE_TOKEN. Saves through it go
 // to that local test database, never to a shared server or the public site.
 const api = createSitePagesClient({ baseUrl: '/__studio/api' });
-type Conn = { state: 'checking' } | { state: 'off'; reason: string } | { state: 'on'; page: PageDetail | null };
+type Conn = { state: 'blocked'; reason: string } | { state: 'checking' } | { state: 'off'; reason: string } | { state: 'on'; page: PageDetail | null };
 
 function Studio() {
   const [project, setProject] = useState<Project>(() => loadDraft(localStorage));
@@ -39,18 +39,14 @@ function Studio() {
         if (!found) { setConn({ state: 'on', page: null }); if (base !== project) { setProject(base); } setNotice('Connected to the local test backend. Saves go to its database only, never the public site.'); return; }
         const detail = await api.getPage(found.id);
         if (cancelled) return;
-        const tree = detail.draft_tree ?? detail.published_tree;
-        if (tree) {
-          try {
-            const restored = fromPageTree(tree, base);
-            setProject(restored); select(restored.sections[0].id);
-            setNotice('Loaded the draft and site settings from the local test backend.');
-          } catch {
-            setNotice('Local backend draft uses blocks this prototype cannot edit. Left untouched; showing the local draft.');
-          }
-        } else {
-          setNotice('Connected to the local test backend. Saves go to its database only, never the public site.');
+        const restored = restoreEditablePage(detail, base);
+        if (!restored.writable) {
+          setConn({ state: 'blocked', reason: restored.reason });
+          setNotice('Backend page protected. Showing the browser copy only, not the backend page.');
+          return;
         }
+        setProject(restored.project); select(restored.project.sections[0].id);
+        setNotice('Loaded the draft and site settings from the local test backend.');
         setConn({ state: 'on', page: detail });
       } catch (e) {
         if (cancelled) return;
@@ -71,10 +67,9 @@ function Studio() {
           page = await api.createPage(project);
         } catch (e) {
           if (!(e instanceof SiteApiError && e.isConflict)) throw e;
-          const list = await api.listPages();
-          const found = list.items.find(p => p.slug === slugFromName(project.name));
-          if (!found) throw e;
-          page = await api.getPage(found.id);
+          setConn({ state: 'blocked', reason: 'A page with this address already exists. Reload to check whether it can be edited safely.' });
+          setNotice('Backend page protected. Your browser copy was not saved over the existing page.');
+          return;
         }
       }
       page = await api.saveDraft(page.id, project);
@@ -122,6 +117,7 @@ function Studio() {
   return <div className="studio-root">
     <header className="studio-top"><div className="studio-brand"><b>m.</b><span>Web studio <small>EXPERIMENTAL</small></span></div><span className="project-name">{project.name} <i>Draft</i></span><div className="top-actions"><button onClick={() => { const last = history.at(-1); if (last) { setProject(last); setHistory(h => h.slice(0,-1)); } }} disabled={!history.length}>Undo</button><button onClick={exportFile}>Export</button><button onClick={sharedPreview}>Shared renderer</button>{conn.state === 'on' && <button className="save" onClick={saveServer}>Save to local backend</button>}{conn.state === 'on' && conn.page && <button onClick={publishServer}>Publish (local test)</button>}<button className="save" onClick={save}>Save local draft</button></div></header>
     <div className="studio-notice" role="status">{notice} <span>{conn.state === 'on' ? `Local test backend only · page: ${conn.page?.slug ?? 'not created yet'} · never the public site` : 'No server publishing · no customer data'}</span></div>
+    {conn.state === 'blocked' && <div className="studio-protection" role="alert"><strong>Backend page is read-only in this prototype.</strong> {conn.reason} Backend save and publish are unavailable. Its data is unchanged. You may edit, save or export the browser copy only.</div>}
     <div className="studio-workspace">
       <aside className="studio-layers"><div className="panel-title">PAGE STRUCTURE <span>{project.sections.length}</span></div><h2>Home page</h2><p className="hint">Select a section to edit it.</p>{project.sections.map((s,i) => <div key={s.id} className={`layer ${current.id === s.id ? 'active' : ''}`}><button onClick={() => select(s.id)}><span>▦</span> {i === 0 ? 'Hero' : 'Content'} <small>{s.eyebrow.slice(0,19)}</small></button><div className="layer-tools"><button aria-label={`Move ${s.id} up`} onClick={() => update(moveSection(project,s.id,-1))} disabled={!i}>↑</button><button aria-label={`Move ${s.id} down`} onClick={() => update(moveSection(project,s.id,1))} disabled={i === project.sections.length-1}>↓</button></div></div>)}<button className="add-section" onClick={() => { const s = { ...structuredClone(initialProject.sections[1]), id: `section-${Date.now()}` }; update({ ...project, sections: [...project.sections,s] }); select(s.id); }} disabled={project.sections.length >= 20}>+ Add section</button><div className="layers-bottom"><button onClick={profile}>Save as local profile</button><button onClick={restore}>Apply saved profile</button><label className="import-button">Import project<input type="file" accept="application/json" onChange={async e => { const f=e.target.files?.[0]; if (!f) return; try { if(f.size > 200000) throw Error(); const p:unknown=JSON.parse(await f.text()); if(!validateProject(p)) throw Error(); update(p);select(p.sections[0].id); } catch {setNotice('Import refused: invalid or oversized project.');} e.target.value=''; }} /></label></div></aside>
       <main className="studio-canvas">{serverPreview && <div className="shared-preview"><button onClick={()=>setServerPreview('')}>Close shared snapshot</button><iframe title="Shared Python renderer snapshot" sandbox="" srcDoc={serverPreview}/></div>}<div className="canvas-bar"><span>LIVE LOCAL PREVIEW</span><div className="device-switch">{(['desktop','tablet','mobile'] as Device[]).map(d => <button key={d} aria-pressed={device===d} onClick={() => setDevice(d)}>{d}</button>)}</div><span>{device==='desktop'?'Fluid':device==='tablet'?'768px':'390px'}</span></div><div className={`preview-frame ${device}`} style={colorStyle} dir={project.language==='ar'?'rtl':'ltr'} onClick={selectFromPreview}><TreePreview tree={previewTree} lang={project.language} device={device} theme={previewTheme as never} /></div></main>
