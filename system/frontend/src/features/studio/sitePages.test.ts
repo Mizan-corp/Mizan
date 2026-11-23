@@ -216,3 +216,9 @@ it('native tree save sends the original tree only, without titles or global sett
   expect(calls[0].input).toBe('/site/pages/native-original/draft');
   expect(JSON.parse(String(calls[0].init?.body))).toEqual({tree});
 });
+
+it('native concurrency save sends expected token without titles or settings',async()=>{
+ const {calls,fetchImpl}=mockFetch(200,{});const client=createSitePagesClient({baseUrl:'',fetchImpl});const tree=toPageTree(initialProject);
+ await client.saveTreeDraft('native-original',tree,'a'.repeat(64));
+ expect(JSON.parse(String(calls[0].init?.body))).toEqual({tree,expected_token:'a'.repeat(64)});
+});
