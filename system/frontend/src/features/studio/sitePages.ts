@@ -48,11 +48,23 @@ export class SiteApiError extends Error {
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
+export function siteRequestHeaders(baseUrl: string, method: string, hasBody: boolean, cookies: string): Record<string, string> {
+  const headers: Record<string, string> = hasBody ? { 'Content-Type': 'application/json' } : {};
+  // Match the native workspace client's double-submit cookie protocol. Never forward
+  // this readable cookie to a caller-supplied external API origin.
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && (baseUrl === '' || (baseUrl.startsWith('/') && !baseUrl.includes('//')))) {
+    const csrf = cookies.split(';').map(part => part.trim()).find(part => part.startsWith('csrf_token='))?.slice('csrf_token='.length);
+    if (csrf) { try { headers['X-CSRF-Token'] = decodeURIComponent(csrf); } catch { /* malformed cookie: server refuses write */ } }
+  }
+  return headers;
+}
+
 async function request<T>(fetchImpl: FetchLike, baseUrl: string, method: string, path: string, body?: unknown): Promise<T> {
+  const headers = siteRequestHeaders(baseUrl, method, body !== undefined, typeof document === 'undefined' ? '' : document.cookie);
   const response = await fetchImpl(`${baseUrl}${path}`, {
     method,
     credentials: 'include',
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!response.ok) {
@@ -153,4 +165,4 @@ export function createSitePagesClient(options: { baseUrl: string; fetchImpl?: Fe
     archive: (pageId: string) => call<PageSummary>('POST', `/site/pages/${pageId}/archive`),
     reopen: (pageId: string) => call<PageSummary>('POST', `/site/pages/${pageId}/reopen`),
   };
-}
+                                                                                 }
