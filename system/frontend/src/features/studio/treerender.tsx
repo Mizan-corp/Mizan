@@ -157,6 +157,7 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
 }
 
 export interface ThemeChrome {
+  layout?: 'inline'|'centered';
   brand?: string;
   links?: { label: string; href: string }[];
   actions?: { label: string; href: string }[];
@@ -167,7 +168,7 @@ export interface ThemeSpec {
   typography?: { family?: string };
   shape?: { radius?: number };
   header?: ThemeChrome;
-  footer?: { lines?: string[]; links?: { label: string; href: string }[] };
+  footer?: { layout?:'split'|'stacked'; lines?: string[]; links?: { label: string; href: string }[] };
 }
 
 function cleanLinks(entries: ThemeChrome['links'], limit = 8) {
@@ -202,7 +203,7 @@ export function ThemeHeader({ header }: { header?: ThemeChrome }) {
   const brand = header.brand ? String(header.brand).slice(0, 80) : '';
   if (!brand && !links.length && !actions.length) return null;
   return (
-    <header className="mz-site-header">
+    <header className={`mz-site-header${header?.layout==='centered'?' mz-header-centered':''}`}>
       {brand && <span className="mz-site-brand">{brand}</span>}
       {!!links.length && <nav>{links.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</nav>}
       {!!actions.length && <div className="mz-site-actions">{actions.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</div>}
@@ -216,7 +217,7 @@ export function ThemeFooter({ footer }: { footer?: ThemeSpec['footer'] }) {
   const links = cleanLinks(footer.links);
   if (!lines.length && !links.length) return null;
   return (
-    <footer className="mz-site-footer">
+    <footer className={`mz-site-footer${footer?.layout==='stacked'?' mz-footer-stacked':''}`}>
       {lines.map((x, i) => <span key={i}>{x}</span>)}
       {links.map((l, i) => <a key={`l${i}`} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}
     </footer>
@@ -231,4 +232,4 @@ export default function TreePreview({ tree, lang, device, theme }: { tree: PageN
       <ThemeFooter footer={theme?.footer} />
     </div>
   );
-        }
+}
