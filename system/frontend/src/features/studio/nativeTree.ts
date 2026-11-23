@@ -16,6 +16,8 @@ const settings: Record<string, Record<string, readonly (string|number|boolean)[]
   button:{visible:[true,false],style:['primary','secondary','ghost'],align},
 };
 const fields: Record<string, Record<string, number>> = {section:{},columns:{},column:{},heading:{text:200},text:{html:20000},image:{src:2000,alt:300},button:{label:80,href:2000}};
+const motion={animation:['none','fade','rise','slide','zoom'],animation_speed:['quick','normal','slow'],animation_delay:['none','short','long']};
+for(const schema of Object.values(settings))Object.assign(schema,motion);
 export function safeNativeUrl(value: string, image = false): boolean {
   if (!value) return true;
   if (/[\x00-\x20\x7f\\<>"']/.test(value) || value.startsWith('//')) return false;
