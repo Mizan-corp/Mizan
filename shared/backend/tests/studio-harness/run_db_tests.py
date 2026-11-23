@@ -311,6 +311,69 @@ async def main():
         await unbind_tenant(db)
     print("17. independent session race, stale rejection, fresh retry, tenant isolation  OK")
 
+    # Shared settings first-create race, fresh identity-map compare and tenant separation.
+    settings_tid = uuid.uuid4()
+    async with AsyncSessionLocal() as db:
+        db.add(Tenant(id=settings_tid, name="site-settings-" + settings_tid.hex[:8], sector="retail", scale="small"))
+        await db.commit()
+        await bind_tenant(db, settings_tid)
+        empty_token = service.settings_token(await service.get_settings(db))
+    async def settings_attempt(label):
+        async with AsyncSessionLocal() as db:
+            await bind_tenant(db, settings_tid)
+            await service.get_settings(db)
+            await asyncio.sleep(.01)
+            try:
+                await service.put_settings(db, value={"header":{"brand":label}}, expected_token=empty_token)
+                return "saved"
+            except HTTPException as exc:
+                assert exc.status_code == 409
+                await db.rollback()
+                return "conflict"
+    assert sorted(await asyncio.gather(settings_attempt("A"), settings_attempt("B"))) == ["conflict", "saved"]
+    async with AsyncSessionLocal() as db:
+        await bind_tenant(db, settings_tid)
+        current = await service.get_settings(db)
+        token = service.settings_token(current)
+        try:
+            await service.put_settings(db, value={"header":{"brand":"stale"}}, expected_token=empty_token)
+            raise AssertionError("stale settings saved")
+        except HTTPException as exc:
+            assert exc.status_code == 409
+        assert await service.get_settings(db) == current
+        await db.rollback()
+        await service.put_settings(db, value=current, expected_token=token)
+        await unbind_tenant(db)
+        await bind_tenant(db, two)
+        assert service.settings_token(current) != token
+        await db.rollback()
+        await unbind_tenant(db)
+    print("18. settings first-create session race, stale nonmutation, fresh retry, tenant-bound token  OK")
+
+    async with AsyncSessionLocal() as db:
+        await bind_tenant(db, settings_tid)
+        update_token = service.settings_token(await service.get_settings(db))
+    async def settings_update(label):
+        async with AsyncSessionLocal() as db:
+            await bind_tenant(db, settings_tid)
+            await service.get_settings(db)
+            await asyncio.sleep(.01)
+            try:
+                await service.put_settings(db, value={"header":{"brand":label}}, expected_token=update_token)
+                return "saved"
+            except HTTPException as exc:
+                assert exc.status_code == 409
+                await db.rollback()
+                return "conflict"
+    assert sorted(await asyncio.gather(settings_update("Update A"), settings_update("Update B"))) == ["conflict", "saved"]
+    async with AsyncSessionLocal() as db:
+        try:
+            await service.put_settings(db, value={}, expected_token=update_token)
+            raise AssertionError("missing context accepted")
+        except HTTPException as exc:
+            assert exc.status_code == 409
+    print("19. settings existing-row independent-session race and missing-context refusal  OK")
+
     # cleanup: drop the throwaway tenants (cascade)
     async with AsyncSessionLocal() as db:
         from sqlalchemy import text
