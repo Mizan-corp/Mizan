@@ -51,3 +51,20 @@ class SitePageRevision(TenantScoped, Base):
     titles: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SiteSettings(TenantScoped, Base):
+    """One row per workspace: the site's durable theme and chrome (ADR-015 D4/D5).
+
+    The value is the validated theme document the renderer consumes (colors,
+    typography, shape) plus the header and footer chrome. Until now theme and chrome
+    were synthesized per preview call; this record makes them survive reloads.
+    """
+
+    __tablename__ = "site_settings"
+    __table_args__ = (UniqueConstraint("tenant_id", name="uq_site_settings_tenant"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    value: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now())
