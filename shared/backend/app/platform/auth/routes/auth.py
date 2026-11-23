@@ -41,7 +41,7 @@ async def login(data: LoginRequest, request: Request, db: AsyncSession = Depends
         key="access_token",
         value=token["access_token"],
         httponly=True,
-        secure=settings.IS_PRODUCTION,
+        secure=settings.is_production,
         samesite="lax",
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
@@ -111,7 +111,7 @@ async def me(current_user: User = Depends(get_current_user), db: AsyncSession = 
 
 
 def _session_cookie(resp: JSONResponse, token: str) -> JSONResponse:
-    resp.set_cookie(key="access_token", value=token, httponly=True, secure=settings.IS_PRODUCTION,
+    resp.set_cookie(key="access_token", value=token, httponly=True, secure=settings.is_production,
                     samesite="lax", max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60, path="/")
     return resp
 
