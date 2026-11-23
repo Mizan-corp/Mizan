@@ -51,3 +51,11 @@ archived/wrong/missing identity, serialized saves, newer edits, failure/echo mis
 retry and synthetic beforeunload. Both require isolated local Vite/Chromium CDP.
 These are not live API e2e. run_db_tests.py now has 16 reduced checks, adding native
 JSON save/reload through the service while preserving fields and multilingual titles.
+
+
+native-structure.mjs: MOCKED native structural/content/saved-theme test. Checks add,
+move, remove/undo with stable IDs, rich field and selected-text Italic toolbar action,
+URL refusal/acceptance, media description, save/reload, read-only saved chrome/theme
+and zero global settings writes. Exports /tmp/native-structural-tree.json for a
+separate real page_problems validator check. Local Vite + isolated CDP only;
+not authenticated live API e2e. No upload, purchase, Publish or deployment.
