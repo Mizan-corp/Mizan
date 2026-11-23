@@ -242,6 +242,32 @@ async def main():
         await db.rollback()
         await unbind_tenant(db)
 
+    # 16. Native JSON edit roundtrip: preserve IDs, alternate language, markup and settings.
+    async with AsyncSessionLocal() as db:
+        import copy
+        await bind_tenant(db, one)
+        original = tree("Native original")
+        heading = original["children"][0]["children"][0]["children"][0]
+        heading["content"]["en"]["text"] = "Original English"
+        original["children"][0]["children"][0]["children"][1]["content"]["ar"]["html"] = "<p><strong>Keep rich markup</strong></p>"
+        alternate = copy.deepcopy(original)
+        alternate["id"] = "n_alternateroot"
+        alternate["settings"]["desktop"]["padding"] = "s"
+        alternate["children"][0]["settings"]["desktop"]["gap"] = "s"
+        for number, source in enumerate((original, alternate)):
+            created = await service.create_page(db, slug=f"native-{number}", titles={"en": "Page title", "ar": "عنوان"}, tree=source)
+            page_id = created.id
+            expected = copy.deepcopy(source)
+            expected["children"][0]["children"][0]["children"][0]["content"]["en"]["text"] = "Native changed field"
+            await service.save_draft(db, page_id, tree=expected)
+            db.expunge_all()
+            reloaded = await service.get_page(db, page_id)
+            assert reloaded.draft_tree == expected
+            assert reloaded.titles == {"en": "Page title", "ar": "عنوان"}
+        print("16. two native tree JSON draft save/reloads preserve all fields and titles  OK")
+        await db.rollback()
+        await unbind_tenant(db)
+
     # cleanup: drop the throwaway tenants (cascade)
     async with AsyncSessionLocal() as db:
         from sqlalchemy import text
