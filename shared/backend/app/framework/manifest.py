@@ -1,5 +1,6 @@
 """What outside developers ship, checked the same way by the platform and the `mizan` CLI:
-community module manifests and entities (ADR-007), theme packs and activity packages (ADR-010).
+community module manifests and entities (ADR-007), theme packs and activity packages (ADR-010),
+and site page trees (ADR-015 S2, experimental and not wired into public routes).
 Standard library only, so mizan-sdk ships this file as is (a test keeps the copy identical).
 
 Official modules' manifest v2 checks stay in loader.manifest_problems().
@@ -565,3 +566,262 @@ def activity_package_problems(files: dict[str, bytes], known: dict | None = None
                 p.append(f"{name}: records may only use {s['entity']}'s fields")
                 break
     return p
+
+
+# --- Site page trees (ADR-015 step S2, docs/builder/page-engine.md) -------------------------------
+#
+# A page is a JSON tree of nodes {"id", "type", "settings", "content", "children"}: the root is a
+# section, sections hold columns containers or one canvas, columns hold column, and columns/canvas
+# hold the basic blocks. This registry is data, versioned, and shared with the SDK byte for byte
+# (this file is that copy), so the studio, the API and `mizan site-theme` all validate the same way.
+
+PAGE_DEVICES = ("desktop", "tablet", "mobile")
+PAGE_SPACING = ("none", "xs", "s", "m", "l", "xl")
+PAGE_NODE_ID = re.compile(r"^n_[a-z0-9]{4,16}$")
+PAGE_LANGUAGE = re.compile(r"^[a-z]{2,3}(-[A-Za-z]{2,4})?$")  # ar, en, en-US
+PAGE_MAX_NODES = 500
+PAGE_MAX_DEPTH = 12
+# The only hosts a video_embed may frame (ADR-015 D2); the html block may not frame anything.
+PAGE_EMBED_HOSTS = ("www.youtube.com", "www.youtube-nocookie.com", "maps.google.com", "www.google.com")
+
+
+def _choices(*values):
+    return ("choice", values)
+
+
+def _count(lo: int, hi: int):
+    return ("count", lo, hi)
+
+
+# Each block declares: version, category, which children it holds, a settings schema (validated
+# per device) and a translatable content schema. Settings kinds: "bool", "string", ("choice", …),
+# ("count", lo, hi). Content kinds: ("text", limit), "url", "href", "embed", "images", "icons".
+PAGE_BLOCKS = {
+    "section": {"version": 1, "category": "layout", "children": ("columns", "canvas"),
+                "settings": {"visible": "bool", "padding": _choices(*PAGE_SPACING), "gap": _choices(*PAGE_SPACING),
+                             "background": _choices("background", "card", "primary"), "max_width": _choices("narrow", "normal", "wide", "full")},
+                "content": {}},
+    "columns": {"version": 1, "category": "layout", "children": ("column",),
+                "settings": {"visible": "bool", "columns": _count(1, 6), "gap": _choices(*PAGE_SPACING),
+                             "stack": "bool"},
+                "content": {}},
+    "column": {"version": 1, "category": "layout", "children": "blocks",
+               "settings": {"visible": "bool", "width": _choices("auto", "full", "half", "third", "two_thirds"), "padding": _choices(*PAGE_SPACING),
+                            "align": _choices("start", "center", "end")},
+               "content": {}},
+    "canvas": {"version": 1, "category": "layout", "children": "blocks", "per_page": 1,
+               "settings": {"visible": "bool", "min_height": _choices("s", "m", "l")},
+               "content": {}},
+    "heading": {"version": 1, "category": "basic",
+                "settings": {"visible": "bool", "level": _count(1, 6), "align": _choices("start", "center", "end")},
+                "content": {"text": ("text", 200)}},
+    "text": {"version": 1, "category": "basic",
+             "settings": {"visible": "bool", "align": _choices("start", "center", "end")},
+             "content": {"html": ("text", 20000)}},
+    "image": {"version": 1, "category": "basic",
+              "settings": {"visible": "bool", "width": _choices("auto", "full", "half", "third", "two_thirds"), "rounded": "bool"},
+              "content": {"src": "url", "alt": ("text", 300)}},
+    "gallery": {"version": 1, "category": "basic",
+                "settings": {"visible": "bool", "mode": _choices("grid", "slider"), "gap": _choices(*PAGE_SPACING)},
+                "content": {"images": "images"}},
+    "video_embed": {"version": 1, "category": "basic",
+                    "settings": {"visible": "bool", "aspect": _choices("16:9", "4:3", "1:1")},
+                    "content": {"url": "embed"}},
+    "button": {"version": 1, "category": "basic",
+               "settings": {"visible": "bool", "style": _choices("primary", "secondary", "ghost"),
+                            "align": _choices("start", "center", "end")},
+               "content": {"label": ("text", 80), "href": "href"}},
+    "icon_list": {"version": 1, "category": "basic",
+                  "settings": {"visible": "bool", "gap": _choices(*PAGE_SPACING)},
+                  "content": {"items": "icons"}},
+    "spacer": {"version": 1, "category": "basic",
+               "settings": {"visible": "bool", "height": _choices(*PAGE_SPACING)},
+               "content": {}},
+    "divider": {"version": 1, "category": "basic",
+                "settings": {"visible": "bool", "style": _choices("solid", "dashed", "dotted")},
+                "content": {}},
+    "html": {"version": 1, "category": "advanced",
+             "settings": {"visible": "bool"},
+             "content": {"html": ("text", 50000)}},
+}
+
+
+def page_url(value, kind: str = "href") -> bool:
+    """Constrained URLs: no protocol-relative paths, backslashes, controls or credentials.
+    Embeds use HTTPS, default ports and provider-specific embed paths only."""
+    from urllib.parse import urlsplit
+
+    if not isinstance(value, str) or not 0 < len(value) <= 2000:
+        return False
+    if any(ord(c) < 33 or ord(c) == 127 for c in value) or "\\" in value:
+        return False
+    if any(c in value for c in '<>"\''):
+        return False
+    if value.startswith("/"):
+        return kind != "embed" and not value.startswith("//")
+    if value.startswith("#"):
+        return kind == "href"
+    try:
+        u = urlsplit(value)
+        if kind == "href" and u.scheme in ("mailto", "tel"):
+            return bool(u.path) and not u.netloc
+        if u.scheme not in (("https",) if kind == "embed" else ("http", "https")):
+            return False
+        if not u.hostname or u.username is not None or u.password is not None:
+            return False
+        if u.port not in (None, 443 if u.scheme == "https" else 80):
+            return False
+        host = u.hostname.lower()
+    except ValueError:
+        return False
+    if kind != "embed":
+        return True
+    return ((host in ("www.youtube.com", "www.youtube-nocookie.com") and u.path.startswith("/embed/"))
+            or (host in ("www.google.com", "maps.google.com") and u.path.startswith("/maps/embed")))
+
+
+def _page_value_problems(where: str, kind, value) -> list[str]:
+    """One content value against its schema kind."""
+    if isinstance(kind, tuple) and kind[0] == "text":
+        if not isinstance(value, str) or len(value) > kind[1]:
+            return [f"{where} must be text of at most {kind[1]} characters"]
+        return []
+    if kind in ("url", "href", "embed"):
+        if page_url(value, kind):
+            return []
+        return [f"{where} must be a permitted {kind} link; embed hosts and paths are allow-listed"]
+    if kind in ("images", "icons"):
+        if not isinstance(value, list) or len(value) > 24:
+            return [f"{where} must be a list of at most 24 entries"]
+        problems = []
+        for i, entry in enumerate(value):
+            if not isinstance(entry, dict):
+                problems.append(f"{where}[{i}] must be an object")
+                continue
+            if kind == "images":
+                problems += _page_value_problems(f"{where}[{i}].src", "url", entry.get("src"))
+                problems += _page_value_problems(f"{where}[{i}].alt", ("text", 300), entry.get("alt", ""))
+            else:
+                if not (isinstance(entry.get("icon"), str) and ICON.match(entry["icon"])):
+                    problems.append(f"{where}[{i}].icon must be a lucide icon name, e.g. CalendarCheck")
+                problems += _page_value_problems(f"{where}[{i}].text", ("text", 120), entry.get("text", ""))
+            if set(entry) - ({"src", "alt"} if kind == "images" else {"icon", "text"}):
+                problems.append(f"{where}[{i}] has fields it shouldn't")
+        return problems
+    return [f"{where} has a kind this validator doesn't know"]  # a registry bug, not user data
+
+
+def _page_setting_problems(where: str, kind, value) -> list[str]:
+    if kind == "bool":
+        return [] if isinstance(value, bool) else [f"{where} must be true or false"]
+    if kind == "string":
+        return [] if isinstance(value, str) and len(value) <= 200 else [f"{where} must be text of at most 200 characters"]
+    if isinstance(kind, tuple) and kind[0] == "choice":
+        return [] if value in kind[1] else [f"{where} must be one of: {', '.join(map(str, kind[1]))}"]
+    if isinstance(kind, tuple) and kind[0] == "count":
+        ok = isinstance(value, int) and not isinstance(value, bool) and kind[1] <= value <= kind[2]
+        return [] if ok else [f"{where} must be a whole number between {kind[1]} and {kind[2]}"]
+    return [f"{where} has a kind this validator doesn't know"]  # a registry bug, not user data
+
+
+def page_problems(tree: dict, languages: tuple[str, ...] | None = None) -> list[str]:
+    """What's wrong with a page tree; [] when it's fine. `languages`: the site's language codes;
+    content in any other language is rejected. None accepts any well-formed code."""
+    if not isinstance(tree, dict):
+        return ["the page tree must be a JSON object"]
+    if tree.get("type") != "section":
+        return ["the root of a page is a section"]
+    problems: list[str] = []
+    state = {"nodes": 0, "canvas": 0, "ids": set()}
+
+    def walk(node, where: str, depth: int, allowed: tuple[str, ...] | str | None):
+        state["nodes"] += 1
+        if state["nodes"] > PAGE_MAX_NODES:
+            problems.append(f"a page holds at most {PAGE_MAX_NODES} blocks")
+            return
+        if depth > PAGE_MAX_DEPTH:
+            problems.append(f"{where}: blocks nest at most {PAGE_MAX_DEPTH} levels deep")
+            return
+        if not isinstance(node, dict):
+            problems.append(f"{where} must be an object")
+            return
+        nid = node.get("id")
+        ntype = node.get("type")
+        label = f"{where} › {ntype} {nid}" if isinstance(ntype, str) else where
+        extra = set(node) - {"id", "type", "settings", "content", "children"}
+        for k in sorted(extra):
+            problems.append(f"{label}: '{k}' isn't a page node field")
+        if not isinstance(nid, str) or not PAGE_NODE_ID.match(nid):
+            problems.append(f"{label}: id must look like n_k3j9x2 (n_ plus 4–16 lower-case letters or digits)")
+        elif nid in state["ids"]:
+            problems.append(f"{label}: this id is already used in the page")
+        else:
+            state["ids"].add(nid)
+        block = PAGE_BLOCKS.get(ntype) if isinstance(ntype, str) else None
+        if block is None:
+            problems.append(f"{label}: unknown block type")
+            return
+        if allowed == "blocks":
+            if block["category"] == "layout":
+                problems.append(f"{label}: a {ntype} block can't sit here")
+        elif allowed is None or ntype not in allowed:
+            problems.append(f"{label}: a {ntype} block can't sit here")
+        if ntype == "canvas":
+            state["canvas"] += 1
+
+        settings = node.get("settings", {})
+        if not isinstance(settings, dict):
+            problems.append(f"{label}: settings must be per device")
+            settings = {}
+        for device, declared in settings.items():
+            if device not in PAGE_DEVICES:
+                problems.append(f"{label}: settings.{device} isn't a device ({', '.join(PAGE_DEVICES)})")
+                continue
+            if not isinstance(declared, dict):
+                problems.append(f"{label}: settings.{device} must be an object")
+                continue
+            for key, value in declared.items():
+                kind = block["settings"].get(key)
+                if kind is None:
+                    problems.append(f"{label}: '{key}' isn't a {ntype} setting")
+                else:
+                    problems.extend(_page_setting_problems(f"{label} {device}.{key}", kind, value))
+
+        content = node.get("content", {})
+        if not isinstance(content, dict):
+            problems.append(f"{label}: content must be keyed by language")
+            content = {}
+        for lang, fields in content.items():
+            if not isinstance(lang, str) or not PAGE_LANGUAGE.match(lang):
+                problems.append(f"{label}: '{lang}' isn't a language code")
+                continue
+            if languages is not None and lang not in languages:
+                problems.append(f"{label}: the site has no '{lang}' language")
+                continue
+            if not isinstance(fields, dict):
+                problems.append(f"{label}: content.{lang} must be an object")
+                continue
+            for field, value in fields.items():
+                kind = block["content"].get(field)
+                if kind is None:
+                    problems.append(f"{label}: '{field}' isn't a {ntype} content field")
+                else:
+                    problems.extend(_page_value_problems(f"{label} {lang}.{field}", kind, value))
+
+        children = node.get("children", [])
+        if block["category"] != "layout" and children not in ([], None):
+            problems.append(f"{label}: a {ntype} block holds no children")
+            return
+        if block["category"] == "layout":
+            if not isinstance(children, list):
+                problems.append(f"{label}: children must be a list")
+                return
+            if ntype == "columns" and not 1 <= len(children) <= 6:
+                problems.append(f"{label}: columns holds 1 to 6 column nodes")
+            for child in children[:PAGE_MAX_NODES + 1]:
+                walk(child, label, depth + 1, block["children"])
+
+    walk(tree, "page", 1, ("section",))
+    if state["canvas"] > 1:
+        problems.append("a page holds at most one canvas")
+    return problems
