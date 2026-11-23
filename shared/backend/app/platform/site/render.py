@@ -198,6 +198,7 @@ _BASE_CSS = """
 _BASE_CSS += """
 .mz-node{--mz-duration:.6s;--mz-delay:0s}.mz-animation-fade{animation:mz-fade var(--mz-duration,.6s) ease-out var(--mz-delay,0s) both}.mz-animation-rise{animation:mz-rise var(--mz-duration,.6s) ease-out var(--mz-delay,0s) both}.mz-animation-slide{animation:mz-slide var(--mz-duration,.6s) ease-out var(--mz-delay,0s) both}.mz-animation-zoom{animation:mz-zoom var(--mz-duration,.6s) ease-out var(--mz-delay,0s) both}.mz-animation-speed-quick{--mz-duration:.3s}.mz-animation-speed-normal{--mz-duration:.6s}.mz-animation-speed-slow{--mz-duration:1s}.mz-animation-delay-none{--mz-delay:0s}.mz-animation-delay-short{--mz-delay:.15s}.mz-animation-delay-long{--mz-delay:.35s}@keyframes mz-fade{from{opacity:0}to{opacity:1}}@keyframes mz-rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}@keyframes mz-slide{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:none}}@keyframes mz-zoom{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}@media(prefers-reduced-motion:reduce){.mz-animation-fade,.mz-animation-rise,.mz-animation-slide,.mz-animation-zoom{animation:none!important;opacity:1;transform:none}}
 """
+_BASE_CSS += ".mz-header-centered{flex-direction:column;text-align:center}.mz-footer-stacked{flex-direction:column;align-items:center;text-align:center}"
 for _token, _size in _SPACER_PX.items():
     _BASE_CSS += f".mz-padding-{_token}{{padding:{_size}px}}.mz-gap-{_token}{{gap:{_size}px}}.mz-height-{_token} .mz-spacer{{height:{_size}px}}"
 
@@ -236,7 +237,8 @@ def _theme_chrome(theme: dict | None) -> tuple[str, str]:
         nav = f"<nav>{links}</nav>" if links else ""
         act = f'<div class="mz-site-actions">{actions}</div>' if actions else ""
         if brand_html or nav or act:
-            head_html = f'<header class="mz-site-header">{brand_html}{nav}{act}</header>'
+            header_class = "mz-site-header mz-header-centered" if header.get("layout") == "centered" else "mz-site-header"
+            head_html = f'<header class="{header_class}">{brand_html}{nav}{act}</header>'
     footer = theme.get("footer")
     foot_html = ""
     if isinstance(footer, dict):
@@ -244,7 +246,8 @@ def _theme_chrome(theme: dict | None) -> tuple[str, str]:
         links = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(footer.get("links")))
         parts = "".join(f"<span>{_esc(x)}</span>" for x in lines) + links
         if parts:
-            foot_html = f'<footer class="mz-site-footer">{parts}</footer>'
+            footer_class = "mz-site-footer mz-footer-stacked" if footer.get("layout") == "stacked" else "mz-site-footer"
+            foot_html = f'<footer class="{footer_class}">{parts}</footer>'
     return head_html, foot_html
 
 
