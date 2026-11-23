@@ -1,0 +1,43 @@
+{
+ "version": 1,
+ "name": "Northline studio",
+ "language": "en",
+ "colors": {
+  "background": "#f3f5f2",
+  "foreground": "#122c2b",
+  "accent": "#c3ed8d"
+ },
+ "font": "sans-serif",
+ "radius": 24,
+ "motion": false,
+ "sections": [
+  {
+   "id": "hero-1",
+   "eyebrow": "DESIGNED FOR EVERYDAY",
+   "title": "Better things.\nMade for your space.",
+   "description": "Thoughtfully selected essentials for the way you live. Make room for something worth keeping.",
+   "button": "Explore the collection",
+   "image": "https://picsum.photos/seed/northline-a/900/700",
+   "visible": {
+    "desktop": true,
+    "tablet": true,
+    "mobile": true
+   },
+   "reversed": false
+  },
+  {
+   "id": "story-1",
+   "eyebrow": "A DIFFERENT PERSPECTIVE",
+   "title": "Less noise.\nMore intention.",
+   "description": "Good design starts with a simple idea. Keep what matters, and make it your own.",
+   "button": "Our approach",
+   "image": "https://picsum.photos/seed/northline-b/900/700",
+   "visible": {
+    "desktop": true,
+    "tablet": true,
+    "mobile": true
+   },
+   "reversed": true
+  }
+ ]
+}
