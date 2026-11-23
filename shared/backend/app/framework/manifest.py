@@ -648,6 +648,16 @@ PAGE_BLOCKS = {
 }
 
 
+# Shared motion contract: finite entrance effects only, no script/CSS payloads.
+PAGE_ANIMATIONS = ("none", "fade", "rise", "slide", "zoom")
+for _motion_block in PAGE_BLOCKS.values():
+    _motion_block["settings"].update({
+        "animation": _choices(*PAGE_ANIMATIONS),
+        "animation_speed": _choices("quick", "normal", "slow"),
+        "animation_delay": _choices("none", "short", "long"),
+    })
+
+
 def page_url(value, kind: str = "href") -> bool:
     """Constrained URLs: no protocol-relative paths, backslashes, controls or credentials.
     Embeds use HTTPS, default ports and provider-specific embed paths only."""
