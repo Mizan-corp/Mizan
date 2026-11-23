@@ -98,6 +98,8 @@ def _render_node_inner(node: dict, lang: str, device: str) -> str:
         count = declared if isinstance(declared, int) and not isinstance(declared, bool) else 0
         count = count or len(node.get("children") or []) or 1
         stack = " mz-stack" if s.get("stack") else ""
+        if s.get("reverse") is True:
+            kids = "".join(_render_node(k, lang, device) for k in reversed(node.get("children") or []) if isinstance(k, dict))
         return f'<div class="mz-columns mz-columns-{int(count)}{stack}">{kids}</div>'
     if ntype == "column":
         return f'<div class="mz-column">{kids}</div>'
@@ -109,11 +111,20 @@ def _render_node_inner(node: dict, lang: str, device: str) -> str:
             level = 2
         return f'<h{level} class="mz-heading">{_esc(c.get("text", ""))}</h{level}>'
     if ntype == "text":
-        return f'<div class="mz-text">{sanitize_html(c.get("html", ""))}</div>'
+        variant = s.get("variant") if s.get("variant") in ("eyebrow", "note") else ""
+        cls = f"mz-text mz-text-{variant}" if variant else "mz-text"
+        return f'<div class="{cls}">{sanitize_html(c.get("html", ""))}</div>'
     if ntype == "image":
         src = _safe_src(c.get("src"))
         if src is None:
-            return ""
+            # Registered decorative art, a durable settings token in the tree - never
+            # silently dropped media. "none" renders nothing, as before.
+            art = s.get("art") if s.get("art") in ("sculpture", "sculpture_alt") else ""
+            if not art:
+                return ""
+            cls = "mz-art mz-art-" + art.replace("_", "-")
+            return (f'<div class="{cls}" role="img" aria-label="{_esc(c.get("alt", ""))}">'
+                    f'<div class="mz-art-orb"></div><div class="mz-art-plinth"></div></div>')
         return f'<img class="mz-image" src="{_esc(src)}" alt="{_esc(c.get("alt", ""))}" loading="lazy">'
     if ntype == "gallery":
         mode = s.get("mode") if s.get("mode") in ("grid", "slider") else "grid"
@@ -177,7 +188,12 @@ def _render_node(node: dict, lang: str, device: str) -> str:
 _BASE_CSS = """
 *{box-sizing:border-box}body{margin:0;background:var(--background,#FAF6F0);color:var(--foreground,#262321);font:18px/1.6 system-ui,sans-serif}
 .mz-section{padding:32px;max-width:1200px;margin:auto}.mz-columns{display:grid;gap:24px}.mz-columns-1{grid-template-columns:1fr}.mz-columns-2{grid-template-columns:repeat(2,minmax(0,1fr))}.mz-columns-3{grid-template-columns:repeat(3,minmax(0,1fr))}.mz-columns-4{grid-template-columns:repeat(4,minmax(0,1fr))}.mz-columns-5{grid-template-columns:repeat(5,minmax(0,1fr))}.mz-columns-6{grid-template-columns:repeat(6,minmax(0,1fr))}.mz-stack{grid-template-columns:1fr}
-.mz-heading{line-height:1.15;margin:0 0 24px;font-weight:750}h1{font-size:clamp(32px,4.8vw,64px)}.mz-text p{margin:0 0 24px}.mz-image{display:block;width:100%;height:auto}.mz-rounded img{border-radius:16px}.mz-button{display:inline-block;padding:12px 24px;border-radius:8px;text-decoration:none;background:var(--primary,#651E2C);color:var(--primary-foreground,#FAF6F0)}.mz-button-secondary{background:var(--foreground,#262321);color:var(--background,#FAF6F0)}.mz-button-ghost{background:none;color:var(--primary,#651E2C);outline:1px solid currentColor}.mz-icon-list{padding-inline-start:24px;margin:24px 0}.mz-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.mz-gallery img{width:100%}.mz-gallery[data-mode=slider]{display:flex;overflow:auto;scroll-snap-type:x mandatory}.mz-gallery[data-mode=slider] img{flex:0 0 85%;scroll-snap-align:start}.mz-embed iframe{width:100%;aspect-ratio:16/9;border:0}.mz-embed[data-aspect="4:3"] iframe{aspect-ratio:4/3}.mz-embed[data-aspect="1:1"] iframe{aspect-ratio:1}.mz-divider-dashed{border-style:dashed}.mz-divider-dotted{border-style:dotted}.mz-align-start{text-align:start}.mz-align-center{text-align:center}.mz-align-end{text-align:end}.mz-background-background{background:var(--background,#FAF6F0)}.mz-background-card{background:var(--card,#fff)}.mz-background-primary{background:var(--primary,#651E2C);color:var(--primary-foreground,#FAF6F0)}.mz-max-width-narrow{max-width:720px;margin:auto}.mz-max-width-normal{max-width:1000px;margin:auto}.mz-max-width-wide{max-width:1400px;margin:auto}.mz-max-width-full{max-width:none}.mz-width-auto{width:auto}.mz-width-full{width:100%}.mz-width-half{width:50%}.mz-width-third{width:33.333%}.mz-width-two_thirds{width:66.666%}.mz-min-height-s{min-height:240px}.mz-min-height-m{min-height:480px}.mz-min-height-l{min-height:720px}.mz-canvas{position:relative;display:flex;flex-wrap:wrap;gap:16px}
+.mz-heading{line-height:1.15;margin:0 0 24px;font-weight:750}h1{font-size:clamp(32px,4.8vw,64px)}.mz-text p{margin:0 0 24px}.mz-image{display:block;width:100%;height:auto}.mz-rounded img{border-radius:var(--radius,16px)}.mz-button{display:inline-block;padding:12px 24px;border-radius:var(--radius,8px);text-decoration:none;background:var(--primary,#651E2C);color:var(--primary-foreground,#FAF6F0)}.mz-button-secondary{background:var(--foreground,#262321);color:var(--background,#FAF6F0)}.mz-button-ghost{background:none;color:var(--primary,#651E2C);outline:1px solid currentColor}.mz-icon-list{padding-inline-start:24px;margin:24px 0}.mz-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.mz-gallery img{width:100%}.mz-gallery[data-mode=slider]{display:flex;overflow:auto;scroll-snap-type:x mandatory}.mz-gallery[data-mode=slider] img{flex:0 0 85%;scroll-snap-align:start}.mz-embed iframe{width:100%;aspect-ratio:16/9;border:0}.mz-embed[data-aspect="4:3"] iframe{aspect-ratio:4/3}.mz-embed[data-aspect="1:1"] iframe{aspect-ratio:1}.mz-divider-dashed{border-style:dashed}.mz-divider-dotted{border-style:dotted}.mz-align-start{text-align:start}.mz-align-center{text-align:center}.mz-align-end{text-align:end}.mz-background-background{background:var(--background,#FAF6F0)}.mz-background-card{background:var(--card,#fff)}.mz-background-primary{background:var(--primary,#651E2C);color:var(--primary-foreground,#FAF6F0)}.mz-max-width-narrow{max-width:720px;margin:auto}.mz-max-width-normal{max-width:1000px;margin:auto}.mz-max-width-wide{max-width:1400px;margin:auto}.mz-max-width-full{max-width:none}.mz-width-auto{width:auto}.mz-width-full{width:100%}.mz-width-half{width:50%}.mz-width-third{width:33.333%}.mz-width-two_thirds{width:66.666%}.mz-min-height-s{min-height:240px}.mz-min-height-m{min-height:480px}.mz-min-height-l{min-height:720px}.mz-canvas{position:relative;display:flex;flex-wrap:wrap;gap:16px}
+.mz-art{min-height:320px;height:100%;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:radial-gradient(ellipse at 45% 25%,#f2f4e8,transparent 65%),#d9e3d5}.mz-art-orb{width:150px;height:195px;border-radius:48% 48% 38% 38%;background:linear-gradient(115deg,#c0caac,#718463 75%,#516a50);box-shadow:inset -18px -10px 30px #344a3229,20px 25px 30px #40543f30;position:relative;z-index:2;transform:rotate(-12deg) translateY(-20px)}.mz-art-orb:before{content:'';display:block;width:60px;height:14px;background:#536b49;border-radius:50%;margin:15px auto;box-shadow:inset 0 5px 8px #182d1b66}.mz-art-plinth{position:absolute;width:220px;height:120px;background:linear-gradient(90deg,#ececdb,#b9c4ae);bottom:35px;border-radius:50% 50% 8% 8%;box-shadow:0 20px 30px #6879602a}.mz-art-sculpture-alt{background:radial-gradient(ellipse at 45% 25%,#f2f4e8,transparent 65%),#d8d4c7}.mz-art-sculpture-alt .mz-art-orb{border-radius:50%;width:185px;height:185px;background:linear-gradient(115deg,#e5d1a8,#ad8f60);transform:rotate(15deg) translateY(-20px)}
+.mz-text-eyebrow p{text-transform:uppercase;letter-spacing:.14em;font-size:13px;opacity:.75}.mz-text-note p{text-transform:uppercase;letter-spacing:.1em;font-size:12px;opacity:.55}
+.mz-site-header{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px 32px;border-bottom:1px solid color-mix(in srgb,currentColor 12%,transparent)}.mz-site-header nav{display:flex;gap:20px}.mz-site-header a{color:inherit;text-decoration:none}.mz-site-brand{font-weight:750;font-size:20px}.mz-site-header .mz-site-actions{display:flex;gap:16px;font-size:15px}
+.mz-site-footer{padding:32px;border-top:1px solid color-mix(in srgb,currentColor 12%,transparent);display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between;font-size:15px;opacity:.8}
+@media (max-width:768px){.mz-site-header{flex-wrap:wrap;gap:12px;padding:12px 16px}.mz-site-header nav{order:3;width:100%;justify-content:space-between}}
 """
 for _token, _size in _SPACER_PX.items():
     _BASE_CSS += f".mz-padding-{_token}{{padding:{_size}px}}.mz-gap-{_token}{{gap:{_size}px}}.mz-height-{_token} .mz-spacer{{height:{_size}px}}"
@@ -190,20 +206,80 @@ def render_page(tree: dict, lang: str = "ar", device: str = "desktop", validate:
     return _render_node(tree, lang, device)
 
 
+def _theme_links(entries, limit: int = 8) -> list:
+    links = []
+    for entry in (entries or [])[:limit]:
+        if not isinstance(entry, dict):
+            continue
+        href = _safe_href(entry.get("href"))
+        label = entry.get("label")
+        if href is None or not isinstance(label, str) or not label.strip():
+            continue
+        links.append((href, label.strip()[:40]))
+    return links
+
+
+def _theme_chrome(theme: dict | None) -> tuple[str, str]:
+    """Constrained v0 site chrome: escaped brand, allow-listed links; no markup from the theme."""
+    if not isinstance(theme, dict):
+        return "", ""
+    header = theme.get("header")
+    head_html = ""
+    if isinstance(header, dict):
+        brand = header.get("brand")
+        brand_html = f'<span class="mz-site-brand">{_esc(str(brand)[:80])}</span>' if brand else ""
+        links = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(header.get("links")))
+        actions = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(header.get("actions"), 4))
+        nav = f"<nav>{links}</nav>" if links else ""
+        act = f'<div class="mz-site-actions">{actions}</div>' if actions else ""
+        if brand_html or nav or act:
+            head_html = f'<header class="mz-site-header">{brand_html}{nav}{act}</header>'
+    footer = theme.get("footer")
+    foot_html = ""
+    if isinstance(footer, dict):
+        lines = [str(x)[:120] for x in (footer.get("lines") or [])[:4] if isinstance(x, str) and x.strip()]
+        links = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(footer.get("links")))
+        parts = "".join(f"<span>{_esc(x)}</span>" for x in lines) + links
+        if parts:
+            foot_html = f'<footer class="mz-site-footer">{parts}</footer>'
+    return head_html, foot_html
+
+
+_FONT_STACKS = {
+    "sans-serif": "system-ui,sans-serif",
+    "serif": "Georgia,'Times New Roman',serif",
+    "monospace": "ui-monospace,Menlo,monospace",
+}
+
+
 def _theme_style(theme: dict | None) -> str:
-    """Constrained v0 palette: known tokens with hex colors only; no CSS expressions."""
+    """Constrained v0 theme: known palette tokens with hex colors only, an allow-listed
+    typeface family, and an integer corner radius. No CSS expressions, ever."""
     import re
 
-    if not isinstance(theme, dict) or not isinstance(theme.get("colors"), dict):
+    if not isinstance(theme, dict):
         return ""
-    colors = theme["colors"].get("light")
-    if not isinstance(colors, dict):
-        return ""
-    allowed = {"background", "foreground", "card", "primary", "primary-foreground"}
-    variables = [f"--{token}:{value}" for token, value in colors.items()
-                 if token in allowed and isinstance(value, str)
-                 and re.fullmatch(r"#[0-9a-fA-F]{6}", value)]
-    return "<style>:root{" + ";".join(variables) + "}</style>" if variables else ""
+    rules = []
+    variables = []
+    colors = theme.get("colors")
+    if isinstance(colors, dict) and isinstance(colors.get("light"), dict):
+        allowed = {"background", "foreground", "card", "primary", "primary-foreground"}
+        variables += [f"--{token}:{value}" for token, value in colors["light"].items()
+                      if token in allowed and isinstance(value, str)
+                      and re.fullmatch(r"#[0-9a-fA-F]{6}", value)]
+    shape = theme.get("shape")
+    if isinstance(shape, dict):
+        radius = shape.get("radius")
+        if isinstance(radius, int) and not isinstance(radius, bool) and 0 <= radius <= 64:
+            variables.append(f"--radius:{radius}px")
+    if variables:
+        rules.append(":root{" + ";".join(variables) + "}")
+    typography = theme.get("typography")
+    if isinstance(typography, dict):
+        stack = _FONT_STACKS.get(typography.get("family"))
+        if stack:
+            rules.append(f"body{{font-family:{stack}}}")
+    return "<style>" + "".join(rules) + "</style>" if rules else ""
 
 
 _DOCUMENT = SandboxedEnvironment(autoescape=True, undefined=StrictUndefined).from_string(
@@ -242,6 +318,7 @@ def render_document(tree: dict, meta: dict, theme: dict | None = None, lang: str
     if description:
         head.append(f'<meta property="og:description" content="{_esc(description)}">')
 
-    body = render_page(tree, lang=lang, device=device)
+    header_html, footer_html = _theme_chrome(theme)
+    body = header_html + render_page(tree, lang=lang, device=device) + footer_html
     return _DOCUMENT.render(language=lang, direction=direction,
-                            head="\n".join(head) + _theme_style(theme) + "<style>" + _BASE_CSS + "</style>", body=body)
+                            head="\n".join(head) + "<style>" + _BASE_CSS + "</style>" + _theme_style(theme), body=body)
