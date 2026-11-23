@@ -44,6 +44,7 @@ def load_all_models() -> None:
     import app.platform.settings.models
     import app.platform.community.models
     import app.platform.developers.models
+    import app.platform.site_analytics.models
     import app.platform.themes.models
     import app.platform.marketplace.listings
     import app.platform.auth.services.owner_mail

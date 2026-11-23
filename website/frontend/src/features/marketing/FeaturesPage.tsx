@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "@app/seo/LocaleLink";
 import {
   BarChart3,
   ShoppingCart,
@@ -14,6 +14,15 @@ import {
 import { Button } from "@/components/kit/button";
 import { MarketingLayout } from "./MarketingLayout";
 import { useTranslation } from "@/i18n";
+
+/** Where each module is explained in depth: its page, or its chapter of the user guide. */
+const FEATURE_DETAIL: Record<string, string> = {
+  finance: "/docs/modules/accounting",
+  sales: "/docs/modules/pos",
+  hr: "/docs/modules/hr",
+  inventory: "/features/inventory",
+  purchasing: "/docs/modules/purchasing",
+};
 
 export default function FeaturesPage() {
   const { locale } = useTranslation();
@@ -217,13 +226,17 @@ export default function FeaturesPage() {
                     </div>
                   </div>
 
-                  <Link
-                    to={feat.id === "inventory" ? "/features/inventory" : `/features/${feat.id}`}
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#651E2C] hover:text-[#521723] pt-2"
-                  >
-                    <span>{isAr ? "استكشف تفاصيل الميزة" : "Explore Feature Details"}</span>
-                    {isAr ? <ArrowLeft className="h-3.5 w-3.5" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                  </Link>
+                  {FEATURE_DETAIL[feat.id] && (
+                    <Link
+                      to={FEATURE_DETAIL[feat.id]}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#651E2C] hover:text-[#521723] pt-2"
+                    >
+                      <span>
+                        {isAr ? `تفاصيل ${feat.titleAr}` : `More on ${feat.titleEn}`}
+                      </span>
+                      {isAr ? <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> : <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />}
+                    </Link>
+                  )}
                 </div>
               );
             })}

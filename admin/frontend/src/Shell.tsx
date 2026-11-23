@@ -1,6 +1,6 @@
 import { useState, type ComponentType } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { Activity, Building2, Contact, CreditCard, Gauge, LogOut, Menu, ServerCog, Store, Users } from "lucide-react";
+import { Activity, Building2, Contact, CreditCard, Gauge, Globe, LogOut, Menu, ServerCog, Store, Users } from "lucide-react";
 import { MizanLogo } from "@/components/MizanLogo";
 import { Avatar, AvatarFallback } from "@/components/kit/avatar";
 import { Button } from "@/components/kit/button";
@@ -39,6 +39,7 @@ function Sidebar({ onNavigate, primary }: { onNavigate?: () => void; primary?: b
           icon: Store,
           count: overview.data?.attention.filter((a) => a.kind === "marketplace_review").length || undefined,
         },
+        { to: "/website", label: "Website", icon: Globe },
         { to: "/team", label: "Team", icon: Users },
         { to: "/system", label: "System", icon: ServerCog },
       ],

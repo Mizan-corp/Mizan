@@ -7,6 +7,8 @@ export interface BlogPost {
   categoryLabel: string;
   readTime: string;
   date: string;
+  /** The same date, ISO (structured data and the sitemap). */
+  published: string;
   author: {
     name: string;
     role: string;
@@ -37,10 +39,11 @@ export const BLOG_POSTS: BlogPost[] = [
     categoryLabel: "هندسة البرمجيات",
     readTime: "7 دقائق",
     date: "28 أكتوبر 2026",
+    published: "2026-10-28",
     author: {
       name: "فريق هندسة النواة",
       role: "Core Architecture Team",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop",
+      avatar: "/assets/marketing/avatar-1.webp",
     },
     content: {
       intro:
@@ -80,10 +83,11 @@ export const BLOG_POSTS: BlogPost[] = [
     categoryLabel: "العتاد والأجهزة",
     readTime: "6 دقائق",
     date: "25 أكتوبر 2026",
+    published: "2026-10-25",
     author: {
       name: "مهندس تكامل العتاد",
       role: "IoT & POS Hardware Lead",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
+      avatar: "/assets/marketing/avatar-2.webp",
     },
     content: {
       intro:
@@ -118,10 +122,11 @@ export const BLOG_POSTS: BlogPost[] = [
     categoryLabel: "إدارة الأعمال",
     readTime: "5 دقائق",
     date: "19 أكتوبر 2026",
+    published: "2026-10-19",
     author: {
       name: "مستشار حلول الأعمال",
       role: "Enterprise Solutions Consultant",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop",
+      avatar: "/assets/marketing/avatar-3.webp",
     },
     content: {
       intro:
@@ -152,10 +157,11 @@ export const BLOG_POSTS: BlogPost[] = [
     categoryLabel: "التجزئة والكاشير",
     readTime: "6 دقائق",
     date: "12 أكتوبر 2026",
+    published: "2026-10-12",
     author: {
       name: "مهندس أداء النظم",
       role: "Performance Engineering",
-      avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop",
+      avatar: "/assets/marketing/avatar-4.webp",
     },
     content: {
       intro:

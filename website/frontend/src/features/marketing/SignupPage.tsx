@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { Link } from "@app/seo/LocaleLink";
 import {
   User as UserIcon,
   AtSign,
@@ -19,9 +20,10 @@ import { useTranslation } from "@/i18n";
 import { appUrl } from "@/lib/urls";
 import { openWithSession } from "@/lib/handoff";
 import { useOwner } from "@app/lib/ownerSession";
+import { track } from "@app/analytics";
 
 export default function SignupPage() {
-  const { locale, dir, toggleLocale } = useTranslation();
+  const { locale, dir } = useTranslation();
   const isAr = locale === "ar";
 
   const draft: { full_name?: string; username?: string; email?: string; phone?: string } = (() => {
@@ -80,6 +82,7 @@ export default function SignupPage() {
       const payload = JSON.stringify({ full_name: fullName, username, password, email: email.trim(), phone: phone.trim() });
       sessionStorage.setItem("mizan.owner", payload);
       setSignupDraft();
+      track("signup_start");
       navigate("/onboarding");
     } catch (err: any) {
       sound.error();
@@ -103,16 +106,18 @@ export default function SignupPage() {
       <div className="lg:col-span-5 bg-[#35151D] text-[#FAF6F0] hero-concentric-arcs p-8 sm:p-12 lg:p-16 flex flex-col justify-between relative overflow-hidden border-b lg:border-b-0 lg:border-e border-[#481822]">
         {/* Top Header */}
         <div className="flex items-center justify-between z-10">
-          <Link to="/" aria-label="Mizan ERP">
+          <Link to="/" aria-label={isAr ? "ميزان ERP: الصفحة الرئيسية" : "Mizan ERP: home"}>
             <MizanLogo size="lg" theme="dark" locale={locale} />
           </Link>
-          <button
-            onClick={toggleLocale}
+          <RouterLink
+            to={isAr ? "/en/signup" : "/signup"}
+            hrefLang={isAr ? "en" : "ar"}
+            lang={isAr ? "en" : "ar"}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/15 bg-white/5 text-xs text-[#E7D6C1] hover:bg-white/10 transition-colors"
           >
-            <Globe className="h-3.5 w-3.5 text-[#D4626E]" />
+            <Globe className="h-3.5 w-3.5 text-[#D4626E]" aria-hidden="true" />
             <span>{isAr ? "English" : "العربية"}</span>
-          </button>
+          </RouterLink>
         </div>
 
         {/* Center Brand Statement matching Image 4 */}
@@ -159,7 +164,7 @@ export default function SignupPage() {
 
         {/* Bottom Status */}
         <div className="pt-6 border-t border-white/10 flex items-center justify-between text-xs text-[#E7D6C1]/60 z-10 font-mono">
-          <span>© {new Date().getFullYear()} Mizan ERP</span>
+          <span>© {__BUILD_YEAR__} Mizan ERP</span>
           <span className="flex items-center gap-1.5 text-[#27835C]">
             <span className="w-1.5 h-1.5 rounded-full bg-[#27835C]" />
             <span>{isAr ? "تسجيل آمن ومشفر" : "Secure Registration"}</span>

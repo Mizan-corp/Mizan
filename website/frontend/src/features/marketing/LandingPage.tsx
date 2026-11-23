@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { lazy, Suspense, useState } from "react";
+import { Link } from "@app/seo/LocaleLink";
 import { motion, useReducedMotion } from "motion/react";
 import {
   ArrowRight,
@@ -18,15 +18,24 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/kit/button";
 import { MarketingLayout } from "./MarketingLayout";
-import { MizanDashboardHeroMockup } from "./components/MizanDashboardHeroMockup";
-import { BuildingMaterialsPosDemo } from "./components/BuildingMaterialsPosDemo";
-import { MizanScrollStory } from "./components/MizanScrollStory";
+
+// The page's heavy interactive parts are separate chunks and Suspense boundaries: the HTML has
+// them already, and React brings each to life on its own, in small steps (ADR-016).
+const MizanDashboardHeroMockup = lazy(() =>
+  import("./components/MizanDashboardHeroMockup").then((m) => ({ default: m.MizanDashboardHeroMockup })),
+);
+const BuildingMaterialsPosDemo = lazy(() =>
+  import("./components/BuildingMaterialsPosDemo").then((m) => ({ default: m.BuildingMaterialsPosDemo })),
+);
+const MizanScrollStory = lazy(() => import("./components/MizanScrollStory").then((m) => ({ default: m.MizanScrollStory })));
 import { MizanMagnetic } from "@/components/motion/MizanMagnetic";
 import { PLANS } from "@/lib/plans";
 import { useTranslation } from "@/i18n";
 import { assetUrl } from "@/lib/utils";
 import { useOwner } from "@app/lib/ownerSession";
 import { openWithSession } from "@/lib/handoff";
+import { useEntrance } from "@app/lib/entrance";
+import { HOME_FAQS } from "./faqs";
 
 export default function LandingPage() {
   const { locale } = useTranslation();
@@ -37,6 +46,8 @@ export default function LandingPage() {
   const toPanel = (path = "/") => owner && openWithSession("owner", path, owner.token);
   const isAr = locale === "ar";
   const shouldReduceMotion = useReducedMotion();
+  const heroCopyFrom = useEntrance(shouldReduceMotion ? false : { opacity: 0, y: 20 });
+  const heroMockupFrom = useEntrance(shouldReduceMotion ? false : { opacity: 0, scale: 0.95 });
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
@@ -54,7 +65,7 @@ export default function LandingPage() {
       id: "finance",
       titleEn: "Accounting & Finance",
       titleAr: "المحاسبة والمالية المتقدمة",
-      descEn: "Multi-currency general ledger, real-time balance sheet, tax-compliant invoicing, and automated bank reconciliation.",
+      descEn: "A ready chart of accounts, automatic journal entries, cost centres, and live closing reports and balance sheet.",
       descAr: "شجرة حسابات ذكية، قيود يومية آلية، مراكز تكلفة، وتقارير ختامية وميزانية عمومية لحظية متوافقة مع ETA.",
       icon: BarChart3,
       statsEn: "99.98% ledger accuracy",
@@ -102,32 +113,6 @@ export default function LandingPage() {
     },
   ];
 
-  const faqs = [
-    {
-      qEn: "How does Mizan guarantee uninterrupted sales when the internet disconnects?",
-      qAr: "كيف يضمن ميزان استمرار البيع عند انقطاع كابل الإنترنت؟",
-      aEn: "The POS cashier application is built offline-first. It caches all products, prices, and discounts locally in encrypted storage. You can scan barcodes, issue invoices, and print receipts normally without internet. All data synchronizes automatically to the cloud as soon as connection restores.",
-      aAr: "يعمل تطبيق الكاشير بنمط Offline-First؛ حيث يحتفظ بنسخة مشفرة من الأصناف والأسعار محلياً داخل جهازك. يمكنك مسح الباركود، إصدار الفواتير، وطباعة الإيصالات بشكل طبيعي، وتتم المزامنة التلقائية مع السحابة فور عودة الاتصال.",
-    },
-    {
-      qEn: "Does Mizan support standard thermal receipt printers and barcode scanners?",
-      qAr: "هل يدعم النظام طابعات الإيصالات الحرارية وقوارئ الباركود المتوفرة بالمحل؟",
-      aEn: "Yes. Mizan integrates directly with standard ESC/POS USB and network receipt printers (80mm and 58mm), wired and wireless barcode scanners, and electronic barcode weight scales without requiring proprietary hardware.",
-      aAr: "نعم. يتكامل ميزان مباشرة مع كافة طابعات الإيصالات الحرارية القياسية عبر USB أو الشبكة (80 مم و58 مم) ببروتوكول ESC/POS، بالإضافة إلى قارئات الباركود السلكية واللاسلكية وموازين الباركود الإلكترونية.",
-    },
-    {
-      qEn: "Can businesses activate only the modules they need?",
-      qAr: "هل يمكن تفعيل الوحدات والموديولات التي يحتاجها نشاطي فقط؟",
-      aEn: "Absolutely. Mizan is completely modular. You can start with POS and Inventory, and later activate Accounting, HR, or Manufacturing with a single click as your business expands, keeping your subscription and interface clean.",
-      aAr: "بالتأكيد. ميزان مصمم ببنية معيارية مرنة؛ يمكنك البدء بالكاشير والمخازن فقط، وتفعيل المحاسبة المتقدمة أو الموارد البشرية أو التصنيع بنقرة زر واحدة كلما نما عملك، دون أي تكاليف أو تعقيدات إضافية.",
-    },
-    {
-      qEn: "Are Mizan invoices compliant with the Egyptian Tax Authority (ETA) requirements?",
-      qAr: "هل تتوافق الفواتير مع اشتراطات الفاتورة الإلكترونية المصرية (ETA)؟",
-      aEn: "Yes. Invoices include cryptographic QR codes according to Egyptian tax standards, along with tax registration numbers, commercial register details, and buyer data according to ETA regulations.",
-      aAr: "نعم. يولد النظام رمز الاستجابة السريعة المشفر وفق المعايير الضريبية المصرية، ويتيح إدراج الرقم الضريبي والسجل التجاري وبيانات المشتري وفق ضوابط مصلحة الضرائب المصرية.",
-    },
-  ];
 
   return (
     <MarketingLayout>
@@ -141,7 +126,7 @@ export default function LandingPage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
               {/* Left Column (LTR) / Right Column (RTL): Copy & CTAs */}
               <motion.div
-                initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
+                initial={heroCopyFrom}
                 animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
                 className="lg:col-span-5 space-y-6 text-start"
@@ -259,12 +244,14 @@ export default function LandingPage() {
 
               {/* Right Column (LTR) / Left Column (RTL): Dashboard Mockup Frame */}
               <motion.div
-                initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.95 }}
+                initial={heroMockupFrom}
                 animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
                 transition={{ duration: 0.7, delay: 0.1 }}
                 className="lg:col-span-7"
               >
-                <MizanDashboardHeroMockup />
+                <Suspense fallback={null}>
+                  <MizanDashboardHeroMockup />
+                </Suspense>
               </motion.div>
             </div>
           </div>
@@ -290,8 +277,12 @@ export default function LandingPage() {
                   {/* High-Resolution Architectural Archways Photograph */}
                   <div className="relative z-10 rounded-2xl sm:rounded-3xl overflow-hidden border border-[#DECFC0] shadow-2xl bg-[#EFE4D6]">
                     <img
-                      src={assetUrl("assets/marketing/arch-hero-feature.jpg")}
-                      alt="Mizan Architectural Balance & Structure"
+                      src={assetUrl("assets/marketing/arch-hero-feature.webp")}
+                      alt=""
+                      width={310}
+                      height={200}
+                      decoding="async"
+                      loading="lazy"
                       className="w-full h-80 sm:h-96 object-cover hover:scale-105 transition-transform duration-700"
                     />
                   </div>
@@ -413,7 +404,9 @@ export default function LandingPage() {
         {/* ================================================================= */}
         <section className="bg-[#FAF6F0] border-b border-[#E6DCD2]">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <MizanScrollStory />
+            <Suspense fallback={null}>
+              <MizanScrollStory />
+            </Suspense>
           </div>
         </section>
 
@@ -588,7 +581,9 @@ export default function LandingPage() {
             </div>
 
             {/* The Working Interactive POS Demo */}
-            <BuildingMaterialsPosDemo />
+            <Suspense fallback={null}>
+              <BuildingMaterialsPosDemo />
+            </Suspense>
           </div>
         </section>
 
@@ -772,7 +767,7 @@ export default function LandingPage() {
             </div>
 
             <div className="divide-y divide-[#DECFC0] border-y border-[#DECFC0]">
-              {faqs.map((faq, idx) => {
+              {HOME_FAQS.map((faq, idx) => {
                 const isOpen = openFaqIndex === idx;
                 return (
                   <div key={idx} className="py-4">
@@ -780,6 +775,7 @@ export default function LandingPage() {
                       onClick={() => toggleFaq(idx)}
                       className="w-full flex items-center justify-between text-start gap-4 min-h-[44px] text-sm sm:text-base font-semibold text-[#262321] hover:text-[#651E2C] transition-colors"
                       aria-expanded={isOpen}
+                      aria-controls={`home-faq-${idx}`}
                     >
                       <span>{isAr ? faq.qAr : faq.qEn}</span>
                       <ChevronDown
@@ -788,16 +784,10 @@ export default function LandingPage() {
                         }`}
                       />
                     </button>
-                    {isOpen && (
-                      <motion.div
-                        initial={shouldReduceMotion ? false : { opacity: 0, height: 0 }}
-                        animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, height: "auto" }}
-                        transition={{ duration: 0.15 }}
-                        className="pt-2 text-xs sm:text-sm leading-relaxed text-[#55504D]"
-                      >
-                        {isAr ? faq.aAr : faq.aEn}
-                      </motion.div>
-                    )}
+                    {/* In the page even when closed: the answers are the FAQ structured data's text. */}
+                    <div id={`home-faq-${idx}`} hidden={!isOpen} className="pt-2 text-xs sm:text-sm leading-relaxed text-[#55504D]">
+                      {isAr ? faq.aAr : faq.aEn}
+                    </div>
                   </div>
                 );
               })}

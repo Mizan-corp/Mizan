@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@app/seo/LocaleLink";
 import { motion, useReducedMotion } from "motion/react";
 import { MizanMagnetic } from "@/components/motion/MizanMagnetic";
 import {
@@ -232,8 +232,11 @@ export default function FeatureDetailPage() {
               <div className="relative w-full max-w-md aspect-[4/5] rounded-t-[140px] rounded-b-3xl overflow-hidden border border-[#E7D6C1] shadow-2xl bg-[#FAF6F0] p-1.5">
                 <div className="w-full h-full rounded-t-[136px] rounded-b-[22px] overflow-hidden relative">
                   <img
-                    src={assetUrl("assets/marketing/feature-detail-arch.jpg")}
-                    alt={isAr ? "إدارة المخزون — ميزان" : "Mizan Inventory Management"}
+                    src={assetUrl("assets/marketing/feature-detail-arch.webp")}
+                    alt=""
+                    width={156}
+                    height={320}
+                    decoding="async"
                     className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#35151D]/60 via-transparent to-transparent" />
@@ -361,7 +364,7 @@ export default function FeatureDetailPage() {
                       {/* Available Qty */}
                       <td className="py-3.5 px-4">
                         <span className="font-mono text-sm font-bold text-[#262321]">
-                          {item.qty.toLocaleString()}
+                          {item.qty.toLocaleString("en-US")}
                         </span>{" "}
                         <span className="text-[11px] text-[#77716E]">{isAr ? item.unitAr : item.unitEn}</span>
                       </td>

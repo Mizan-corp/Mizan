@@ -10,7 +10,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useTranslation } from "@/i18n";
-import { gsap, ScrollTrigger } from "@/lib/gsap";
 import { EASINGS, DURATIONS } from "@/lib/motion";
 
 interface StoryStep {
@@ -269,24 +268,33 @@ export function MizanScrollStory() {
     const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
     if (!isDesktop || !triggerRef.current) return;
 
-    const ctx = gsap.context(() => {
-      ScrollTrigger.create({
-        trigger: triggerRef.current,
-        start: "top 15%",
-        end: "bottom 85%",
-        scrub: 0.5,
-        onUpdate: (self) => {
-          const progress = self.progress;
-          const stepIndex = Math.min(
-            Math.floor(progress * steps.length),
-            steps.length - 1
-          );
-          setActiveStep(stepIndex);
-        },
-      });
-    }, triggerRef);
+    // GSAP loads only on desktop, where the story is pinned, and after the page is up.
+    let ctx: { revert: () => void } | null = null;
+    let cancelled = false;
+    void import("@/lib/gsap").then(({ gsap, ScrollTrigger }) => {
+      if (cancelled) return;
+      ctx = gsap.context(() => {
+        ScrollTrigger.create({
+          trigger: triggerRef.current,
+          start: "top 15%",
+          end: "bottom 85%",
+          scrub: 0.5,
+          onUpdate: (self) => {
+            const progress = self.progress;
+            const stepIndex = Math.min(
+              Math.floor(progress * steps.length),
+              steps.length - 1
+            );
+            setActiveStep(stepIndex);
+          },
+        });
+      }, triggerRef);
+    });
 
-    return () => ctx.revert();
+    return () => {
+      cancelled = true;
+      ctx?.revert();
+    };
   }, [shouldReduceMotion, steps.length]);
 
   return (
@@ -359,6 +367,8 @@ export function MizanScrollStory() {
                   <button
                     key={idx}
                     onClick={() => setActiveStep(idx)}
+                    aria-label={isAr ? `المرحلة ${idx + 1}` : `Stage ${idx + 1}`}
+                    aria-current={activeStep === idx ? "step" : undefined}
                     className={`h-2 rounded-full transition-all ${
                       idx === activeStep
                         ? "w-8 bg-[#651E2C]"

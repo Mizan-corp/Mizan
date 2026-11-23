@@ -7,10 +7,10 @@
 
 /* ── shadcn design tokens (exact port from the approved prototype) ── */
 @theme inline {
-  --font-sans: "Manrope", "IBM Plex Sans Arabic", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Cormorant Garamond", Georgia, serif;
-  --font-serif-en: "Cormorant Garamond", Georgia, serif;
-  --font-serif-ar: "Noto Naskh Arabic", "Cormorant Garamond", serif;
+  --font-sans: "Manrope", "Manrope Fallback", "IBM Plex Sans Arabic", "IBM Plex Sans Arabic Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Cormorant Garamond", "Cormorant Garamond Fallback", Georgia, serif;
+  --font-serif-en: "Cormorant Garamond", "Cormorant Garamond Fallback", Georgia, serif;
+  --font-serif-ar: "Noto Naskh Arabic", "Cormorant Garamond", "Noto Naskh Arabic Fallback", serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
   /* Mizan Official Palette */
@@ -775,27 +775,27 @@ button:not(:disabled) { cursor: pointer; }
 
 /* ═══════════════ MIZAN WARM EDITORIAL LUXURY UTILITIES ═══════════════ */
 .font-serif-en {
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: "Cormorant Garamond", "Cormorant Garamond Fallback", Georgia, serif;
 }
 
 .font-serif-ar {
-  font-family: "Noto Naskh Arabic", "Cormorant Garamond", serif;
+  font-family: "Noto Naskh Arabic", "Cormorant Garamond", "Noto Naskh Arabic Fallback", serif;
 }
 
 html[dir="rtl"] .font-display {
-  font-family: "Noto Naskh Arabic", "Cormorant Garamond", serif;
+  font-family: "Noto Naskh Arabic", "Cormorant Garamond", "Noto Naskh Arabic Fallback", serif;
 }
 
 html[dir="ltr"] .font-display {
-  font-family: "Cormorant Garamond", Georgia, serif;
+  font-family: "Cormorant Garamond", "Cormorant Garamond Fallback", Georgia, serif;
 }
 
 html[dir="rtl"] .font-body {
-  font-family: "IBM Plex Sans Arabic", sans-serif;
+  font-family: "IBM Plex Sans Arabic", "Manrope", "IBM Plex Sans Arabic Fallback", sans-serif;
 }
 
 html[dir="ltr"] .font-body {
-  font-family: "Manrope", sans-serif;
+  font-family: "Manrope", "Manrope Fallback", sans-serif;
 }
 
 .text-rose-coral {

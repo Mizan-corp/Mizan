@@ -1,0 +1,23 @@
+{
+  "source": "https://web-api.allmizan.live/api/platform/plans",
+  "fetched": "2026-11-23",
+  "trial_days": 14,
+  "plans": [
+    {
+      "id": "starter",
+      "name": "باقة البداية (Starter)",
+      "price_egp": 450
+    },
+    {
+      "id": "pro",
+      "name": "باقة المحترفين (Pro)",
+      "price_egp": 850,
+      "popular": true
+    },
+    {
+      "id": "enterprise",
+      "name": "باقة المؤسسات (Enterprise)",
+      "price_egp": 1950
+    }
+  ]
+}

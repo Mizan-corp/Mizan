@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useParams, Link, Navigate } from "react-router-dom";
+import { useParams, Navigate } from "react-router-dom";
+import { Link } from "@app/seo/LocaleLink";
 import {
   Copy,
   Check,

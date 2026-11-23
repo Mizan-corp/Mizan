@@ -133,11 +133,11 @@ export function MizanModularArchitectureShowcase() {
               : "Smart Modular Architecture"}
           </span>
         </div>
-        <h3 className="text-2xl sm:text-3xl font-bold text-[#262321] font-display">
+        <h2 className="text-2xl sm:text-3xl font-bold text-[#262321] font-display">
           {isAr
             ? "نواة مركزية موحدة، وموديولات متصلة بلا انقطاع"
             : "One Unified Core, Seamlessly Interconnected Modules"}
-        </h3>
+        </h2>
         <p className="text-sm text-[#77716E] leading-relaxed">
           {isAr
             ? "انقر على أي موديول لاستكشاف مسار تدفق البيانات والتكامل اللحظي مع قاعدة البيانات المشتركة عبر PostgreSQL RLS."
@@ -238,6 +238,8 @@ export function MizanModularArchitectureShowcase() {
               <motion.button
                 key={node.id}
                 onClick={() => setActiveNode(node)}
+                aria-label={isAr ? node.nameAr : node.nameEn}
+                aria-pressed={isSelected}
                 whileHover={shouldReduceMotion ? undefined : { scale: 1.08 }}
                 whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
                 className={`absolute z-20 flex items-center gap-2 p-2 rounded-xl transition-all text-start ${

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link as RouterLink, useLocation } from "react-router-dom";
+import { Link } from "@app/seo/LocaleLink";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import {
   Menu,
@@ -14,6 +15,9 @@ import {
 } from "lucide-react";
 import { BUSINESS } from "@app/features/legal/business";
 import { useTranslation } from "@/i18n";
+import { alternatePath, basePath, withLang } from "@app/seo/paths";
+import { useEntrance } from "@app/lib/entrance";
+import { ANALYTICS_CONFIGURABLE, reopenConsent } from "@app/analytics/consent";
 import { MizanLogo } from "@/components/MizanLogo";
 import { SmoothScroll } from "@/components/SmoothScroll";
 import { MizanReadingProgress } from "@/components/motion/MizanReadingProgress";
@@ -27,13 +31,27 @@ import { signOutEverywhere } from "@app/features/session/SessionRoutes";
 
 interface MarketingLayoutProps {
   children?: React.ReactNode;
+  /** The "page not found" page: its language switch leads to the other language's home. */
+  notFound?: boolean;
 }
 
-export function MarketingLayout({ children }: MarketingLayoutProps) {
+export function MarketingLayout({ children, notFound = false }: MarketingLayoutProps) {
   const location = useLocation();
   const owner = useOwner();
-  const { locale, dir, toggleLocale } = useTranslation();
+  const { locale, dir } = useTranslation();
   const shouldReduceMotion = useReducedMotion();
+  const pageFrom = useEntrance("initial" as const);
+  const current = basePath(location.pathname);
+  // The other language's page (or its home). The choice is also remembered for the owner panel.
+  const otherLang = locale === "ar" ? "en" : "ar";
+  const switchTo = notFound ? withLang("/", otherLang) : alternatePath(location.pathname, otherLang);
+  const rememberLang = () => {
+    try {
+      localStorage.setItem("mizan.locale", otherLang);
+    } catch {
+      /* not remembered */
+    }
+  };
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
@@ -129,20 +147,26 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
           isAr ? "font-body" : "font-sans"
         }`}
       >
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:start-3 focus:z-[70] focus:rounded-full focus:bg-[#651E2C] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-[#FAF6F0]"
+      >
+        {isAr ? "تخطَّ إلى المحتوى" : "Skip to content"}
+      </a>
       {/* 1. Top Navigation Bar — Warm Ivory Light background matching design */}
       <header className="sticky top-0 z-50 w-full border-b border-[#E6DCD2] bg-[#FAF6F0]/95 backdrop-blur-md">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Brand Logo */}
           <div className="flex items-center gap-3">
-            <Link to="/" className="flex items-center py-2" aria-label="Mizan ERP">
+            <Link to="/" className="flex items-center py-2" aria-label={isAr ? "ميزان ERP: الصفحة الرئيسية" : "Mizan ERP: home"}>
               <MizanLogo size="lg" locale={locale} />
             </Link>
           </div>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-1.5" aria-label="Main Navigation">
+          <nav className="hidden lg:flex items-center gap-1.5" aria-label={isAr ? "القائمة الرئيسية" : "Main navigation"}>
             {currentNav.map((link) => {
-              const isActive = location.pathname === link.href;
+              const isActive = current === link.href;
 
               if (link.hasDropdown && link.items) {
                 const isOpen = dropdownOpen === link.label;
@@ -219,21 +243,23 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
               to="/docs"
               className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full text-[#77716E] hover:text-[#262321] hover:bg-[#EFE4D6]/70 transition-colors"
               title={isAr ? "بحث في التوثيق" : "Search docs"}
-              aria-label="Search"
+              aria-label={isAr ? "البحث في دليل الاستخدام" : "Search the documentation"}
             >
               <Search className="h-4 w-4" />
             </Link>
 
-            {/* Language Switcher Pill */}
-            <button
-              onClick={toggleLocale}
+            {/* Language switcher: the same page in the other language (ADR-016) */}
+            <RouterLink
+              to={switchTo}
+              onClick={rememberLang}
+              hrefLang={otherLang}
+              lang={otherLang}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#DECFC0] bg-[#FAF6F0] text-xs font-medium text-[#262321] hover:bg-[#EFE4D6] transition-colors"
               title={isAr ? "Switch to English" : "التبديل إلى العربية"}
-              aria-label="Toggle language"
             >
-              <Globe className="h-3.5 w-3.5 text-[#651E2C]" />
+              <Globe className="h-3.5 w-3.5 text-[#651E2C]" aria-hidden="true" />
               <span>{isAr ? "English" : "العربية"}</span>
-            </button>
+            </RouterLink>
 
             {/* Signed-in owner: back to the owner panel + sign out; otherwise sign in + get started */}
             {owner ? (
@@ -301,7 +327,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
             >
               <div className="flex flex-col space-y-2">
                 {currentNav.map((link) => {
-                  const isActive = location.pathname === link.href;
+                  const isActive = current === link.href;
                   return (
                     <Link
                       key={link.href}
@@ -320,13 +346,16 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
                 <div className="pt-3 border-t border-[#DECFC0] flex flex-col gap-2.5">
                   <div className="flex items-center justify-between px-2 py-1">
                     <span className="text-xs text-[#77716E]">{isAr ? "اللغة" : "Language"}</span>
-                    <button
-                      onClick={toggleLocale}
+                    <RouterLink
+                      to={switchTo}
+                      onClick={rememberLang}
+                      hrefLang={otherLang}
+                      lang={otherLang}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#DECFC0] bg-white text-xs font-medium text-[#262321]"
                     >
-                      <Globe className="h-3.5 w-3.5 text-[#651E2C]" />
+                      <Globe className="h-3.5 w-3.5 text-[#651E2C]" aria-hidden="true" />
                       <span>{isAr ? "English" : "العربية"}</span>
-                    </button>
+                    </RouterLink>
                   </div>
 
                   {owner ? (
@@ -371,9 +400,10 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
 
       {/* 2. Main Page Content with Editorial Page Transition */}
       <motion.main
+        id="main-content"
         key={location.pathname}
         variants={pageTransitionVariant}
-        initial="initial"
+        initial={pageFrom}
         animate="animate"
         className="flex-1"
       >
@@ -386,7 +416,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
           <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-5">
             {/* Col 1 & 2: Brand Identity & Equilibrium Philosophy */}
             <div className="lg:col-span-2 space-y-4">
-              <Link to="/" className="inline-flex items-center" aria-label="Mizan Home">
+              <Link to="/" className="inline-flex items-center" aria-label={isAr ? "ميزان ERP: الصفحة الرئيسية" : "Mizan ERP: home"}>
                 <MizanLogo size="lg" theme="dark" locale={locale} />
               </Link>
               <p className="text-xs sm:text-sm leading-relaxed text-[#E7D6C1]/80 max-w-sm">
@@ -529,7 +559,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
           {/* Bottom Bar — Hairline top border in Merlot tone */}
           <div className="mt-12 flex flex-col items-center justify-between border-t border-white/10 pt-6 text-xs text-[#E7D6C1]/70 sm:flex-row gap-3">
             <div>
-              © {new Date().getFullYear()} {isAr ? `ميزان ERP · ${BUSINESS.seller.ar}، ${BUSINESS.city.ar}. جميع الحقوق محفوظة.` : `Mizan ERP · ${BUSINESS.seller.en}, ${BUSINESS.city.en}. All rights reserved.`}
+              © {__BUILD_YEAR__} {isAr ? `ميزان ERP · ${BUSINESS.seller.ar}، ${BUSINESS.city.ar}. جميع الحقوق محفوظة.` : `Mizan ERP · ${BUSINESS.seller.en}, ${BUSINESS.city.en}. All rights reserved.`}
             </div>
             <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
               <Link to="/about" className="hover:text-[#FAF6F0] transition-colors">
@@ -550,6 +580,11 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
               <Link to="/refund-policy" className="hover:text-[#FAF6F0] transition-colors">
                 {isAr ? "الاسترداد والإلغاء" : "Refunds"}
               </Link>
+              {ANALYTICS_CONFIGURABLE && (
+                <button type="button" onClick={reopenConsent} className="hover:text-[#FAF6F0] transition-colors">
+                  {isAr ? "إعدادات الإحصاءات" : "Analytics settings"}
+                </button>
+              )}
             </div>
           </div>
         </div>

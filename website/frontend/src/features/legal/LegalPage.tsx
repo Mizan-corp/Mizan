@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@app/seo/LocaleLink";
 import { Check, MessageCircle, Phone, Scale } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { MarketingLayout } from "@app/features/marketing/MarketingLayout";
@@ -37,10 +36,6 @@ export default function LegalPage({ slug }: { slug: LegalSlug }) {
   const lang = isAr ? "ar" : "en";
   const doc = LEGAL_DOCS[slug][lang];
 
-  useEffect(() => {
-    document.title = `${doc.title} · ${BUSINESS.product[lang]}`;
-    window.scrollTo(0, 0);
-  }, [doc.title, lang]);
 
   return (
     <MarketingLayout>

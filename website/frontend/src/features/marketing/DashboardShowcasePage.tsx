@@ -227,7 +227,7 @@ export default function DashboardShowcasePage() {
               <div className="space-y-6">
                 {/* Logo & Workspace Brand */}
                 <div className="flex items-center gap-2.5 pb-4 border-b border-white/10">
-                  <MizanLogo className="h-8 w-auto text-white" />
+                  <MizanLogo className="h-8 w-auto text-white" locale={locale} />
                   <div>
                     <span className="font-display text-sm font-bold block text-white">Mizan ERP</span>
                     <span className="text-[10px] text-[#E7D6C1]/80 block font-mono">v3.0 Production</span>

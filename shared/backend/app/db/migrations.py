@@ -4198,6 +4198,19 @@ MIGRATIONS = [
         CREATE INDEX IF NOT EXISTS ix_hr_audit_log_tenant_created ON hr_audit_log (tenant_id, created_at);
         CREATE INDEX IF NOT EXISTS ix_idempotency_keys_created_at ON idempotency_keys (created_at);
     """),
+    # The public website's cookieless visit counters (ADR-016, app/platform/site_analytics): counts only.
+    ("v108_site_analytics", """
+        CREATE TABLE IF NOT EXISTS site_analytics_daily (
+            day date NOT NULL,
+            kind varchar(16) NOT NULL,
+            name varchar(32) NOT NULL,
+            path varchar(160) NOT NULL,
+            lang varchar(2) NOT NULL,
+            ref_host varchar(100) NOT NULL DEFAULT '',
+            count integer NOT NULL DEFAULT 0,
+            PRIMARY KEY (day, kind, name, path, lang, ref_host)
+        );
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables

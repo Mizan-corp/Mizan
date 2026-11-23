@@ -9,6 +9,8 @@ export interface Plan {
   maxStorageMb: number;
   features: string[];
   recommendedFor: string;
+  /** English copy for the website's English pricing page (ADR-016); same claims as the Arabic. */
+  en: { name: string; tagline: string; recommendedFor: string; features: string[] };
 }
 
 /* Canonical SaaS plans aligned with Admoon control plane and platform API */
@@ -28,6 +30,17 @@ export const PLANS: Plan[] = [
       "تقارير مبيعات وورديات يومية",
       "دعم فني عبر البريد وتحديثات سحابية",
     ],
+    en: {
+      name: "Trial",
+      tagline: "The full cloud service for 14 days, no card needed",
+      recommendedFor: "Exploring the platform and trying the retail setup",
+      features: [
+        "Fast point of sale with instant invoices",
+        "Inventory, suppliers and customers",
+        "Daily sales and shift reports",
+        "Support by email, with cloud updates",
+      ],
+    },
   },
   {
     id: "starter",
@@ -45,6 +58,18 @@ export const PLANS: Plan[] = [
       "أرشفة سحابية وتنبيهات نواقص المخزون",
       "شاشات مطبخ KDS أو ماسح باركود سريع",
     ],
+    en: {
+      name: "Starter",
+      tagline: "For new shops and small businesses: one complete branch",
+      recommendedFor: "Single shops, small cafés and service offices",
+      features: [
+        "Up to 5 users with role-based permissions",
+        "Everything in point of sale and stock management",
+        "80mm/58mm thermal receipt printing",
+        "Cloud archive and low-stock alerts",
+        "Kitchen display (KDS) or fast barcode scanning",
+      ],
+    },
   },
   {
     id: "pro",
@@ -64,6 +89,19 @@ export const PLANS: Plan[] = [
       "نسخ احتياطي يومي مشفر تلقائي",
       "دعم فني مباشر على مدار الساعة",
     ],
+    en: {
+      name: "Pro",
+      tagline: "Most popular: gyms, restaurants and growing centres",
+      recommendedFor: "Gyms, restaurant chains, training and medical centres",
+      features: [
+        "Up to 3 branches and 15 users at a time",
+        "Every activity package (clubs, restaurants, schools, clinics)",
+        "Separate cloud database (Neon Postgres)",
+        "Payroll, staff and shift management (HR)",
+        "Automatic encrypted daily backup",
+        "Live technical support around the clock",
+      ],
+    },
   },
   {
     id: "enterprise",
@@ -82,6 +120,19 @@ export const PLANS: Plan[] = [
       "تخزين سحابي S3 غير محدود للأرشفة والوثائق",
       "مدير حساب تقني ودعم مخصص للأجهزة والعتاد",
     ],
+    en: {
+      name: "Enterprise",
+      tagline: "For large chains and multi-branch operations",
+      recommendedFor: "Large companies and branch chains with audit requirements",
+      features: [
+        "Unlimited branches and users",
+        "Dedicated VPS with strong security isolation",
+        "Offline desktop licence (.exe), no internet needed",
+        "Custom domain with its own SSL certificate",
+        "Unlimited S3 cloud storage for archives and documents",
+        "Technical account manager and dedicated hardware support",
+      ],
+    },
   },
 ];
 

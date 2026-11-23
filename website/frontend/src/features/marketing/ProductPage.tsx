@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { lazy, Suspense, useState } from "react";
+import { Link } from "@app/seo/LocaleLink";
 import {
   Boxes,
   Database,
@@ -10,7 +10,11 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/kit/button";
 import { MarketingLayout } from "./MarketingLayout";
-import { MizanModularArchitectureShowcase } from "./components/MizanModularArchitectureShowcase";
+
+// A separate chunk and Suspense boundary: hydrated on its own, after the page (ADR-016).
+const MizanModularArchitectureShowcase = lazy(() =>
+  import("./components/MizanModularArchitectureShowcase").then((m) => ({ default: m.MizanModularArchitectureShowcase })),
+);
 import { MizanMagnetic } from "@/components/motion/MizanMagnetic";
 import { useTranslation } from "@/i18n";
 
@@ -45,7 +49,7 @@ export default function ProductPage() {
       titleAr: "4. احتساب عمولة الموظف والوردية (HR)",
       titleEn: "4. Shift Handover & Commission Audit",
       descAr: "يتم تسجيل العملية في سجل تدقيق الكاشير، وربط المبيعات بمسير الحوافز والرواتب الشهري المعتمد.",
-      descEn: "Logs operation in cashier audit trail and links revenue to approved monthly commission and payroll payroll rules.",
+      descEn: "The sale is logged in the cashier's audit trail and counted towards the month's commissions and payroll.",
       badge: "HR & Shift Audit",
     },
   ];
@@ -111,7 +115,9 @@ export default function ProductPage() {
 
           {/* Interactive Ecosystem Canvas */}
           <div className="pt-10 max-w-6xl mx-auto">
-            <MizanModularArchitectureShowcase />
+            <Suspense fallback={null}>
+              <MizanModularArchitectureShowcase />
+            </Suspense>
           </div>
         </div>
 
