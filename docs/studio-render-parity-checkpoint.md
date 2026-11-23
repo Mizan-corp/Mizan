@@ -218,3 +218,12 @@ Native Publish, page create/switching, media management, theme editing, cross-se
 
 
 User steering after this milestone: actual drag-and-drop is required for adding and moving elements, not merely Add/Move buttons. Next native implementation must cover palette-to-canvas insertion, compatible cross-container moves, visible drop positions and undo, preserving IDs/schema and guards. Pointer/touch and keyboard access need explicit design and tests. None is implemented or verified by the button-based milestone above.
+
+
+## Native drag-and-drop milestone (bounded)
+
+Native preview now accepts pointer palette insertion and existing-node sibling reorder or compatible cross-container move. Blue marker shows insertion position before release. Original subtree IDs and fields remain intact. Root/self-descendant/invalid containment, last source-column and target overflow are refused by the core. Undo/redo reuse native history; no second persistence model.
+
+For touch, tap to select, then drag the explicit Move selected handle. Handles use touch-action:none; preview itself retains normal touch scrolling. Keyboard users choose a palette item or selected-node move, expand Keyboard/click drop positions and activate a labeled position. Escape and pointercancel cancel. This fallback is intentionally explicit, not a claim of full screen-reader accessibility. Palette stays sticky in the preview. Edge auto-scroll is not implemented, so long-page moves may require the keyboard/click destination list or scrolling before dragging. Narrow viewport and physical mobile ergonomics are not yet accepted.
+
+Scoped checks: 65 studio passed + 1 skipped, focused TypeScript, isolated studio build. MOCKED native-drag.mjs uses real CDP mouse input for palette insertion, visible marker, compatible cross-column move, sibling reorder and undo; Escape cancellation; Enter/Tab activation of palette/position; CDP-emulated touch insertion and selected-node-handle move; tree draft save/reload. Native structure, authoring and guard drivers rerun successfully. Touch emulation is not a physical device test. Keyboard test is not screen-reader proof. Existing low-contrast theme caveat remains. No full-app/live API e2e, clean-source or cross-session/atomicity claim. No CI, PR, merge, deploy or spend.
