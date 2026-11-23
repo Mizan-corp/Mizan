@@ -82,6 +82,7 @@ async function click(text){await evaluate(`[...document.querySelectorAll('button
 
 
 
+await click('+ Add');
 const before=await evaluate(`document.querySelectorAll('.native-node').length`);
 await evaluate(`[...document.querySelectorAll('.native-presets button')].find(b=>b.textContent.includes('Intro + image')).click()`);await sleep(100);
 if(await evaluate(`document.querySelectorAll('.native-node').length`)<=before)throw Error('preset did not insert');
@@ -91,7 +92,7 @@ const ids=await evaluate(`[...document.querySelectorAll('.native-node')].map(e=>
 await evaluate(`[...document.querySelectorAll('.native-node')].filter(e=>e.dataset.nodeType==='heading').at(-1).click()`);await sleep(80);
 await evaluate(`(()=>{const e=document.querySelector('[aria-label="Native text"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'A ready section, made yours');e.dispatchEvent(new Event('input',{bubbles:true}));})()`);await sleep(100);
 if(!(await evaluate(`document.querySelector('.native-node.active b').textContent==='A ready section, made yours'`)))throw Error('readable layer name stale');
-await click('Save native draft');await waitFor(`document.querySelector('.studio-notice').textContent.startsWith('Native tree draft saved')`);
+await click('Save');await waitFor(`document.querySelector('.studio-notice').textContent.startsWith('Native tree draft saved')`);
 writeFileSync('/tmp/native-preset-tree.json',await evaluate(`sessionStorage.getItem('structure-tree')`));
 await send('Page.reload');await sleep(300);await waitFor(`!!document.querySelector('.native-node')`);
 if(!(await evaluate(`document.body.textContent.includes('A ready section, made yours') && !!document.querySelector('#native-add-panel button')`)))throw Error('preset save/reload failed');
