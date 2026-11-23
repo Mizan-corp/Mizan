@@ -9,7 +9,7 @@ import { useSearchParams } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { MizanLogo } from "@/components/MizanLogo";
 import { openWithSession } from "@/lib/handoff";
-import { appUrl, safeInternalPath, workspaceUrl } from "@/lib/urls";
+import { appUrl, erpUrl, safeInternalPath } from "@/lib/urls";
 import { Button, ErrorNote, Field, Input } from "@app/ui";
 
 const SYSTEM_API = ((import.meta.env.VITE_SYSTEM_API_URL as string | undefined) ?? "/system-api").replace(/\/+$/, "");
@@ -185,10 +185,10 @@ export default function Login() {
               <p className="rounded-lg bg-info-soft p-3 text-sm text-info">
                 هذا حساب موظف. يدخل الموظفون من صفحة الدخول الخاصة بمساحة عملهم؛ احفظ رابطها.
               </p>
-              <a href={workspaceUrl(notice.slug, "/login")} className="block">
+              <a href={erpUrl(notice.slug, "/login")} className="block">
                 <Button variant="primary" className="w-full">الذهاب إلى صفحة دخول مساحة العمل</Button>
               </a>
-              <p className="code text-center text-[12px] text-mute" dir="ltr">{workspaceUrl(notice.slug, "/login").replace(/^https?:\/\//, "")}</p>
+              <p className="code text-center text-[12px] text-mute" dir="ltr">{erpUrl(notice.slug, "/login").replace(/^https?:\/\//, "")}</p>
             </div>
           ) : (
             <form onSubmit={submit} className="mt-6 grid gap-4">
@@ -221,3 +221,4 @@ export default function Login() {
     </main>
   );
 }
+
