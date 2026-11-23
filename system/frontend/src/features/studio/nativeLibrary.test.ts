@@ -14,3 +14,5 @@ it('complete templates retain root identity/metadata and are reversible native c
  expect(tree).toEqual(original);
 });
 it('rejects unknown templates without mutating source',()=>{const tree=toPageTree(initialProject),original=structuredClone(tree);expect(()=>createTemplate(tree,'bad' as never)).toThrow();expect(tree).toEqual(original)});
+
+it('inserts ready section at the marked position and refuses an invalid drop',()=>{const tree=toPageTree(initialProject),state={tree,past:[],future:[]};const next=changeStructure(state,{kind:'preset',preset:'quote',index:0});expect(next.tree.children!.slice(1)).toEqual(tree.children);expect(()=>changeStructure(state,{kind:'preset',preset:'quote',index:999})).toThrow();expect(tree).toEqual(state.tree)});
