@@ -3,8 +3,8 @@
 // (fail closed - the studio must never silently load a tree it cannot edit faithfully).
 // Project-level fields (colors, font, radius, motion, language) are not stored in the
 // tree; they are kept from the project passed in.
-import type { PageNode } from './pagetree';
-import type { Device, Project, Section } from './model';
+import { toPageTree, type PageNode } from './pagetree';
+import { validateProject, type Device, type Project, type Section } from './model';
 
 function unescape(value: string): string {
   return value.replace(/&(#39|amp|lt|gt|quot);/g, (_, c: string) => ({ 'amp': '&', 'lt': '<', 'gt': '>', 'quot': '"', '#39': "'" }[c] ?? ''));
@@ -48,9 +48,9 @@ function sectionFromRow(row: PageNode, index: number, lang: string): Section {
   return {
     id: `section-${index}`,
     eyebrow: texts.length > 0 ? htmlText(texts[0], lang) : '',
-    title: unescape(title),
+    title,
     description: texts.length > 1 ? htmlText(texts[1], lang) : '',
-    button: unescape(label),
+    button: label,
     image: typeof src === 'string' ? src : '',
     visible: { desktop: visible(row, 'desktop'), tablet: visible(row, 'tablet'), mobile: visible(row, 'mobile') },
     reversed,
@@ -61,6 +61,24 @@ export function fromPageTree(tree: PageNode, base: Project): Project {
   if (!tree || tree.type !== 'section' || !Array.isArray(tree.children) || tree.children.length === 0) {
     throw new Error('not a studio page tree');
   }
+  if (JSON.stringify(tree).length > 200000 || tree.children.length > 20) throw new Error('oversized studio tree');
   const sections = tree.children.map((row, i) => sectionFromRow(row, i, base.language));
-  return { ...base, sections };
+  const restored = { ...base, sections };
+  if (!validateProject(restored)) throw new Error('invalid restored project');
+  // Rebuilding must preserve every editable value and every fixed setting/content
+  // field. Only generated node ids are excluded; arbitrary extra keys are not.
+  // This catches rich markup, extra blocks, translations, image alt text/crop,
+  // custom destinations and per-device settings the prototype has no controls for.
+  const canonical = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(canonical);
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value).filter(([key]) => !(key === 'id' && 'type' in value && 'settings' in value && 'content' in value))
+        .sort(([a], [b]) => a.localeCompare(b)).map(([key, entry]) => [key, canonical(entry)]));
+    }
+    return value;
+  };
+  if (JSON.stringify(canonical(tree)) !== JSON.stringify(canonical(toPageTree(restored)))) {
+    throw new Error('tree contains data this prototype cannot preserve');
+  }
+  return restored;
 }
