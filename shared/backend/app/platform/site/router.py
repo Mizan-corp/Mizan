@@ -111,18 +111,21 @@ async def reopen(page_id: uuid.UUID, db: AsyncSession = Depends(get_db),
 
 class SettingsIn(BaseModel):
     value: dict
+    expected_token: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 @settings_router.get("")
 async def get_settings(db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("site.manage"))):
     """The workspace's durable theme and chrome; {} when never saved."""
-    return {"value": await service.get_settings(db)}
+    value = await service.get_settings(db)
+    return {"value": value, "edit_token": service.settings_token(value)}
 
 
 @settings_router.put("")
 async def put_settings(data: SettingsIn, db: AsyncSession = Depends(get_db),
                        user: User = Depends(require_perm("site.manage"))):
-    return {"value": await service.put_settings(db, value=data.value)}
+    value = await service.put_settings(db, value=data.value, expected_token=data.expected_token)
+    return {"value": value, "edit_token": service.settings_token(value)}
 
 
 # Combined router: mounts pages and settings routes under the same site API.
