@@ -4385,5 +4385,11 @@ async def apply_migrations(session: AsyncSession) -> List[str]:
     return applied_now
 
 # Additive atomic Help Desk step, errors propagate through the Python migration path.
+MIGRATIONS.append(("v113_site_activation_app_grants", """
+    -- v112 created site_activation after the ALL TABLES grant ran, so the
+    -- request-scoped role mizan_app has no privileges on it. RLS (FORCE, tenant
+    -- match) still governs every row; this only lets the role attempt them.
+    GRANT SELECT, INSERT, UPDATE, DELETE ON site_activation TO mizan_app;
+"""))
 MIGRATIONS.append(("v110_helpdesk_offerings", "python:app.activities.general.modules.helpdesk.migrate:migrate"))
 MIGRATIONS.append(("v111_helpdesk_execution_actuals", "python:app.activities.general.modules.helpdesk.migrate_actuals:migrate"))

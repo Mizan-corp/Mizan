@@ -17,5 +17,9 @@ describe('single-editor snapshot operations', () => {
     const later = structuredClone(initialProject);later.sections[0].title='New unsaved text';
     expect(saveResultNotice(snapshot,snapshotKey(later))).toContain('Newer local changes are NOT saved');
     expect(saveResultNotice(snapshot,snapshot)).toContain('Draft and site settings saved');
+    expect(saveResultNotice(snapshot,snapshot,true)).toContain('the workspace backend');
+    expect(saveResultNotice(snapshot,snapshot,true)).not.toContain('local test backend');
+    expect(saveResultNotice(snapshot,snapshotKey(later),true)).toContain('the workspace backend');
+    expect(saveResultNotice(snapshot,snapshot,false)).toContain('local test backend');
   });
 });

@@ -17,7 +17,7 @@ import re
 import uuid
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -303,6 +303,73 @@ def check_settings(value) -> dict:
     if unknown:
         raise HTTPException(422, "إعدادات الموقع تحتوي مفاتيح غير معروفة")
     return out
+
+
+# --- Public activation (visitor runtime, synthetic scope) ----------------------
+
+# The anonymous visitor route serves /site/{slug}/{page_path} only when an
+# enabled site_activation row exists for the exact (host, slug, page_path)
+# triple (website_api/routers/public_pages.py). This is the scoped UI-driven
+# form of that step: rows are pinned to the deployment's own configured host
+# (PUBLIC_SITE_HOST from trusted server config, never a client header), the
+# fixed synthetic test-site slug, and allow_connected_data=False. Connected
+# business data exposure stays a manual, separately reviewed operation; this
+# flow can never create it.
+PUBLIC_SITE_SLUG = "studio"
+_AUDIENCE_POLICY = "v1"
+
+
+def _public_host() -> str:
+    from app.core.config import settings
+    host = (settings.PUBLIC_SITE_HOST or "").strip().lower()
+    if not host:
+        raise HTTPException(409, "This deployment has no public site host configured")
+    return host
+
+
+async def get_public_access(db: AsyncSession, page_id: uuid.UUID) -> dict:
+    """Activation state for one page on this deployment's public host."""
+    page = await get_page(db, page_id)
+    from app.core.config import settings
+    host = (settings.PUBLIC_SITE_HOST or "").strip().lower() or None
+    enabled = False
+    if host:
+        row = (await db.execute(text(
+            "SELECT enabled FROM site_activation"
+            " WHERE host = :h AND slug = :s AND page_path = :p"
+        ), {"h": host, "s": PUBLIC_SITE_SLUG, "p": page.slug})).first()
+        enabled = bool(row and row.enabled)
+    return {"enabled": enabled, "host": host,
+            "url": f"https://{host}/site/{PUBLIC_SITE_SLUG}/{page.slug}" if host and enabled else None}
+
+
+async def set_public_access(db: AsyncSession, page_id: uuid.UUID, *, enabled: bool,
+                            user_id: uuid.UUID | None = None) -> dict:
+    """Enable or disable anonymous access to one published page, synthetic scope.
+
+    Only published pages can be made reachable; disabling is always allowed.
+    The activation theme snapshots the workspace's saved site settings so the
+    public header/colors match what the studio's settings describe, without
+    ever reading the tenant's shared settings at request time.
+    """
+    page = await get_page(db, page_id, locked=True)
+    if enabled and (page.status != "published" or page.published_tree is None):
+        raise HTTPException(409, "Publish the page before making it public")
+    host = _public_host()
+    theme = await get_settings(db)
+    await db.execute(text("""
+        INSERT INTO site_activation (tenant_id, host, slug, page_path, enabled,
+                                     allow_connected_data, theme, audience_policy_version,
+                                     activated_by, created_at, updated_at)
+        VALUES (:tid, :h, :s, :p, :en, false, CAST(:theme AS jsonb), :apv, :uid, now(), now())
+        ON CONFLICT (host, slug, page_path) DO UPDATE
+        SET enabled = :en, theme = CAST(:theme AS jsonb), audience_policy_version = :apv,
+            activated_by = :uid, updated_at = now()
+    """), {"tid": current_tenant_id.get(), "h": host, "s": PUBLIC_SITE_SLUG,
+           "p": page.slug, "en": enabled, "theme": json.dumps(theme, ensure_ascii=False),
+           "apv": _AUDIENCE_POLICY, "uid": user_id})
+    await db.commit()
+    return await get_public_access(db, page_id)
 
 
 async def get_settings(db: AsyncSession) -> dict:

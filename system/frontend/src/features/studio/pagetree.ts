@@ -4,18 +4,23 @@ export type PageNode = { id: string; type: string; settings: Record<string, Reco
 export function toPageTree(project: Project): PageNode {
  const lang = project.language;
  const node = (id:string,type:string,content:Record<string,unknown>={},settings:PageNode['settings']={},children?:PageNode[]):PageNode => ({id,type,settings,content:Object.keys(content).length?{[lang]:content}:{},...(children?{children}:{})});
- return node('n_root01','section',{}, {desktop:{padding:'l',max_width:'wide'},mobile:{padding:'m'}}, project.sections.map(section=> {
+ return node('n_root01','section',{}, {desktop:{padding:'l',max_width:'wide'},mobile:{padding:'m'}}, project.sections.map((section, index)=> {
   const id = hash(section.id);
+  // The CTA scrolls to the next section, or back to the page top from the last
+  // one: every published anchor resolves to a node id this same tree renders,
+  // so the button behaves identically in the local preview and on a public page.
+  const next = project.sections[index + 1];
+  const cta = next ? `#n_${hash(next.id)}rw` : '#n_root01';
   const copy = node(`n_${id}cp`,'column',{}, {}, [
    node(`n_${id}eb`,'text',{html:`<p>${escape(section.eyebrow)}</p>`},{desktop:{variant:'eyebrow'}}),
    node(`n_${id}hd`,'heading',{text:section.title},{desktop:{level:1}}),
    node(`n_${id}tx`,'text',{html:`<p>${escape(section.description)}</p>`}),
-   node(`n_${id}bt`,'button',{label:section.button,href:'#preview'},{desktop:{style:'primary'}}),
-   node(`n_${id}nt`,'text',{html:`<p>${escape(String(project.sections.indexOf(section)+1).padStart(2,'0'))} / INTENTIONAL BY DESIGN</p>`},{desktop:{variant:'note'}}),
+   node(`n_${id}bt`,'button',{label:section.button,href:cta},{desktop:{style:'primary'}}),
+   node(`n_${id}nt`,'text',{html:`<p>${escape(String(index+1).padStart(2,'0'))} / INTENTIONAL BY DESIGN</p>`},{desktop:{variant:'note'}}),
   ]);
   // The two-column composition (copy + media) is part of the design, with or without a
   // photo: an empty image keeps its column as registered decorative art, never dropped.
-  const art = section.image ? 'none' : (project.sections.indexOf(section) % 2 ? 'sculpture_alt' : 'sculpture');
+  const art = section.image ? 'none' : (index % 2 ? 'sculpture_alt' : 'sculpture');
   const imageContent = section.image ? {src:section.image,alt:''} : {alt:''};
   const image = node(`n_${id}im`,'column',{}, {}, [node(`n_${id}ph`,'image',imageContent,{desktop:{rounded:true,art}})]);
   // Child order stays copy-first; reversal is a desktop-only presentation setting so

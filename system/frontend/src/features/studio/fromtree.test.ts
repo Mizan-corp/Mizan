@@ -8,6 +8,26 @@ function roundTrip(project: Project) {
 }
 
 describe('fromPageTree', () => {
+  it('refuses a custom button destination but accepts and upgrades the legacy #preview constant', () => {
+    const tree = toPageTree(initialProject);
+    const rows = tree.children!;
+    const buttonOf = (row: (typeof rows)[number]) => {
+      const copy = row.children![0];
+      return copy.children!.find(c => c.type === 'button')!;
+    };
+    const custom = structuredClone(tree);
+    (buttonOf(custom.children![0]).content.en as { href: string }).href = 'https://example.com/elsewhere';
+    expect(() => fromPageTree(custom, initialProject)).toThrow('custom button destination');
+
+    const legacy = structuredClone(tree);
+    for (const row of legacy.children!) (buttonOf(row).content.en as { href: string }).href = '#preview';
+    const restored = fromPageTree(legacy, initialProject);
+    expect(restored.sections).toHaveLength(initialProject.sections.length);
+    // The next save rewrites the href to the generated anchor form.
+    const regenerated = toPageTree({ ...initialProject, sections: restored.sections });
+    expect((regenerated.children![0].children![0].children!.find(c => c.type === 'button')!.content.en as { href: string }).href).toBe(`#${regenerated.children![1].id}`);
+  });
+
   it('round-trips the initial project (section content, order, flags)', () => {
     const restored = roundTrip(initialProject);
     expect(restored.sections).toHaveLength(initialProject.sections.length);

@@ -109,6 +109,26 @@ async def reopen(page_id: uuid.UUID, db: AsyncSession = Depends(get_db),
     return _summary(await service.reopen(db, page_id))
 
 
+class PublicAccessIn(BaseModel):
+    enabled: bool
+
+
+@pages_router.get("/{page_id}/public-access")
+async def get_public_access(page_id: uuid.UUID, db: AsyncSession = Depends(get_db),
+                            user: User = Depends(require_perm("site.manage"))):
+    """Anonymous-access state for this page on the deployment's public host."""
+    return await service.get_public_access(db, page_id)
+
+
+@pages_router.put("/{page_id}/public-access")
+async def put_public_access(page_id: uuid.UUID, data: PublicAccessIn,
+                            db: AsyncSession = Depends(get_db),
+                            user: User = Depends(require_perm("site.manage"))):
+    """Synthetic scope only: pins allow_connected_data=False and the
+    deployment's own configured host; see service.set_public_access."""
+    return await service.set_public_access(db, page_id, enabled=data.enabled, user_id=user.id)
+
+
 class SettingsIn(BaseModel):
     value: dict
     expected_token: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")

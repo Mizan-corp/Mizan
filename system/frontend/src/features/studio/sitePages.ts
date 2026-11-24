@@ -24,6 +24,7 @@ export type PageDetail = PageSummary & {
   published_tree: PageNode | null;
 };
 
+export type PublicAccess = { enabled: boolean; host: string | null; url: string | null };
 export type Revision = {
   id: string;
   number: number;
@@ -160,6 +161,8 @@ export function createSitePagesClient(options: { baseUrl: string; fetchImpl?: Fe
     saveTreeDraft: (pageId: string, tree: PageNode, expectedToken?: string, titles?:Record<string,string>) => call<PageDetail>('PUT', `/site/pages/${pageId}/draft`, { tree, ...(expectedToken?{expected_token:expectedToken}:{}),...(titles?{titles}:{}) }),
     saveDraft: (pageId: string, project: Project, titles?: Record<string, string>) => call<PageDetail>('PUT', `/site/pages/${pageId}/draft`, { ...draftPayload(project), ...(titles ? { titles } : {}) }),
     publish: (pageId: string) => call<PageDetail>('POST', `/site/pages/${pageId}/publish`),
+    getPublicAccess: (pageId: string) => call<PublicAccess>('GET', `/site/pages/${pageId}/public-access`),
+    setPublicAccess: (pageId: string, enabled: boolean) => call<PublicAccess>('PUT', `/site/pages/${pageId}/public-access`, { enabled }),
     listRevisions: (pageId: string) => call<ListResponse<Revision>>('GET', `/site/pages/${pageId}/revisions`),
     rollback: (pageId: string, revisionId: string) => call<PageDetail>('POST', `/site/pages/${pageId}/rollback/${revisionId}`),
     getSettings: () => call<{ value: SiteSettingsValue; edit_token?:string }>('GET', '/site/settings'),

@@ -198,6 +198,12 @@ _BASE_CSS = """
 @media(max-width:768px){.mz-site-header nav{gap:8px}.mz-site-header nav a{font-size:15px}}
 
 .mz-background-primary .mz-button-primary{background:var(--primary-foreground,#fff);color:var(--primary,#007DA6)}
+/* Responsive collapse: the visitor route renders the desktop settings once, so
+   narrow-viewport stacking and gutter tightening live in real media queries
+   instead of device-rendered classes. Mirrors the editor's own mobile intent
+   (toPageTree sets stack on multi-column blocks for mobile). */
+@media(max-width:1024px){.mz-columns-4,.mz-columns-5,.mz-columns-6{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:768px){.mz-columns-2,.mz-columns-3,.mz-columns-4,.mz-columns-5,.mz-columns-6{grid-template-columns:1fr}.mz-columns{gap:16px}.mz-section{padding:24px 16px}.mz-width-half,.mz-width-third,.mz-width-two_thirds{width:100%}}
 """
 _BASE_CSS += """
 .mz-node{--mz-duration:.6s;--mz-delay:0s}.mz-animation-fade{animation:mz-fade var(--mz-duration,.6s) ease-out var(--mz-delay,0s) both}.mz-animation-rise{animation:mz-rise var(--mz-duration,.6s) ease-out var(--mz-delay,0s) both}.mz-animation-slide{animation:mz-slide var(--mz-duration,.6s) ease-out var(--mz-delay,0s) both}.mz-animation-zoom{animation:mz-zoom var(--mz-duration,.6s) ease-out var(--mz-delay,0s) both}.mz-animation-speed-quick{--mz-duration:.3s}.mz-animation-speed-normal{--mz-duration:.6s}.mz-animation-speed-slow{--mz-duration:1s}.mz-animation-delay-none{--mz-delay:0s}.mz-animation-delay-short{--mz-delay:.15s}.mz-animation-delay-long{--mz-delay:.35s}@keyframes mz-fade{from{opacity:0}to{opacity:1}}@keyframes mz-rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}@keyframes mz-slide{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:none}}@keyframes mz-zoom{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}@media(prefers-reduced-motion:reduce){.mz-animation-fade,.mz-animation-rise,.mz-animation-slide,.mz-animation-zoom{animation:none!important;opacity:1;transform:none}}

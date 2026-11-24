@@ -8,8 +8,12 @@ export function createOperationGate() {
   };
 }
 export function snapshotKey(value: unknown): string { return JSON.stringify(value); }
-export function saveResultNotice(saved: string, current: string): string {
+export function saveResultNotice(saved: string, current: string, hosted = false): string {
   return saved === current
-    ? 'Draft and site settings saved to the local test backend (not the public site).'
-    : 'Earlier snapshot saved to the local test backend. Newer local changes are NOT saved. Save again before publishing.';
+    ? (hosted
+      ? 'Draft and site settings saved to the workspace backend. Nothing is public until the page is published and made public.'
+      : 'Draft and site settings saved to the local test backend (not the public site).')
+    : (hosted
+      ? 'Earlier snapshot saved to the workspace backend. Newer local changes are NOT saved. Save again before publishing.'
+      : 'Earlier snapshot saved to the local test backend. Newer local changes are NOT saved. Save again before publishing.');
 }
