@@ -72,7 +72,10 @@ async def preview(data: PreviewIn, db: AsyncSession = Depends(get_db), _=Depends
     ctx=await context(db,data.language)
     try:
         from .repeats import has_repeat, resolve_repeat
-        if has_repeat(data.tree):
+        from .card_runtime import has_card, resolve_cards
+        if has_card(data.tree):
+            tree=await resolve_cards(db,data.tree,ctx)
+        elif has_repeat(data.tree):
             from app.framework.storefront_collections import CollectionRuntime
             from .collections import navigation_labels_provider
             from .composition import resolve_composition
