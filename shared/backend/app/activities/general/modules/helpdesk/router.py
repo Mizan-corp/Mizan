@@ -66,3 +66,10 @@ async def archive_offering(offering_id: UUID, payload: OfferingArchive,
           {"is_active": {"before": before, "after": row.is_active}})
     await db.commit()
     return result
+
+@router.get("/work")
+async def list_legacy_work(db: AsyncSession = Depends(get_db),
+                           user=Depends(require_perm("helpdesk:work:view")),
+                           _=Depends(require_perm("operations"))):
+    from .work import list_source_work
+    return await list_source_work(db, user)
