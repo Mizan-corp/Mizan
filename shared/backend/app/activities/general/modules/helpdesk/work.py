@@ -7,6 +7,7 @@ from dataclasses import asdict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.framework.activation import get_active_modules
+from app.framework.loader import registry
 from app.framework.helpdesk_contract import source_work_summary
 from app.activities.maintenance.modules.field_service.models import FsmWorkOrder
 from app.activities.property.modules.real_estate.models import RecMaintenanceTicket
@@ -40,7 +41,8 @@ async def list_source_work(db: AsyncSession, user, limit: int = 100):
                 invalid_source_rows[source] = invalid_source_rows.get(source, 0) + 1
                 continue
             items.append(item)
-    return {"items": items, "limit_per_source": limit,
+    values = (await registry.get_settings(db, "helpdesk"))["values"]
+    return {"work_completion_enabled": values.get("work_completion") is True, "items": items, "limit_per_source": limit,
             "source_modules": sorted(active & {source for source, _, _ in sources}),
             "read_only": True, "truncated_sources": truncated_sources,
             "invalid_source_rows": invalid_source_rows}
