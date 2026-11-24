@@ -1,6 +1,6 @@
 # Existing offering edit acceptance
 
-24 November 2026, isolated feature branch. LOCAL accepted, hosting pending.
+24 November 2026, isolated feature branch. LOCAL and HOSTED accepted. See current-status page for the latest source/deployment.
 
 ## Contract
 
@@ -18,3 +18,7 @@ No quote acceptance, invoice, payment, stock or prior-request change is performe
 - Temporary users, source rows and settings were inside an outer rolled-back transaction, verified removed. No persistent schema change.
 
 Screenshots are isolated acceptance data. Hosted verification remains a separate gate. Full Help Desk unification remains incomplete.
+
+## Hosted followthrough, 10:31
+
+Canonical isolated test, source c2fe4f1a7a32ef1f40bdb23ec2aa79b91608cf69, deployment dpl_3ry5MJgAMdHoa2j9V229142aKD6f. Restricted actual role/UI passed all-four-field save/reload, stable identity,409 stale concurrent conflict and recovery, archived edit/reload retaining archive state, desktop/mobile390 and no page errors. DB confirmed exactly three expected update audits and no private descriptions. General settings unchanged and static Studio entry byte-identical. Exact raw settings/module activation/original offering IDs restored; bounded offering, its audits and temporary restricted user removed. Credential file deleted. No schema/sector change. Catalog restored off. Acceptance enabled the catalog using authenticated module Settings API; no additional Settings UI persistence claim is made by this harness. All screenshots show temporary records, now removed.
