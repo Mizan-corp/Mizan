@@ -1,3 +1,4 @@
+import {bindingProblem} from './nativeBindings';
 import type { PageNode } from './pagetree';
 
 export type NativeDevice = 'desktop' | 'tablet' | 'mobile';
@@ -34,8 +35,9 @@ export function assertNativeTree(tree: PageNode): void {
   const ids = new Set<string>(); let count=0;
   const visit=(n: PageNode, parent: string|null, depth: number) => {
     if (!n || typeof n !== 'object' || !settings[n.type] || !/^n_[a-z0-9]{4,16}$/.test(n.id) || ids.has(n.id) || ++count > 500 || depth > 12) throw Error('Unsupported node, duplicate ID or tree limit.');
+    if(n.bindings!==undefined&&bindingProblem(n.bindings,n.type))throw Error('Unsupported dynamic binding. Source is protected.');
     ids.add(n.id);
-    if (Object.keys(n).some(k=>!['id','type','settings','content','children'].includes(k))) throw Error('Unsupported node metadata. Source is protected.');
+    if (Object.keys(n).some(k=>!['id','type','settings','content','children','bindings'].includes(k))) throw Error('Unsupported node metadata. Source is protected.');
     if (parent === null ? n.type !== 'section' : parent === 'section' ? n.type !== 'columns' : parent === 'columns' ? n.type !== 'column' : parent === 'column' ? ['section','columns','column'].includes(n.type) : true) throw Error('Unsupported composition.');
     if (!n.settings || !n.content || typeof n.settings !== 'object' || typeof n.content !== 'object' || Array.isArray(n.settings) || Array.isArray(n.content)) throw Error('Malformed node fields.');
     for (const [device,values] of Object.entries(n.settings)) {
