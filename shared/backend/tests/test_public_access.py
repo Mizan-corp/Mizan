@@ -84,6 +84,18 @@ class GetPublicAccessTests(unittest.IsolatedAsyncioTestCase):
 
 
 class SetPublicAccessTests(unittest.IsolatedAsyncioTestCase):
+    async def test_enable_refuses_a_published_tree_with_bound_nodes(self):
+        for marker in ("bindings", "card", "repeat"):
+            pg = page()
+            pg.published_tree = {"type": "section", "children": [{marker: {}}]}
+            db = db_with(activation_enabled=False)
+            with patched_page(pg), patch.object(settings, "PUBLIC_SITE_HOST", HOST):
+                with self.assertRaises(HTTPException) as ctx:
+                    await service.set_public_access(db, PAGE_ID, enabled=True, user_id=UID)
+            self.assertEqual(ctx.exception.status_code, 409)
+            self.assertIn("business data", str(ctx.exception.detail))
+            self.assertFalse(any("INSERT INTO site_activation" in sql for sql, _ in db._calls))
+
     async def test_enable_requires_a_published_page(self):
         for status, published in (("draft", False), ("published", False), ("archived", True)):
             db = db_with(activation_enabled=False)
@@ -141,6 +153,67 @@ class SetPublicAccessTests(unittest.IsolatedAsyncioTestCase):
                 await service.set_public_access(db, PAGE_ID, enabled=True, user_id=UID)
         self.assertEqual(ctx.exception.status_code, 409)
         self.assertFalse(any("INSERT INTO site_activation" in sql for sql, _ in db._calls))
+
+
+def _fake_revision_model():
+    # Stand-in for the SitePageRevision ORM model: publish() only needs the
+    # .number/.page_id expressions for the next-number select and a callable
+    # constructor; real mapper configuration is covered by integration paths.
+    from sqlalchemy import literal_column
+    fake = MagicMock()
+    fake.number = literal_column("1")
+    fake.page_id = literal_column("page_id")
+    return fake
+
+
+class PublishThemeRefreshTests(unittest.IsolatedAsyncioTestCase):
+    def _published_page(self):
+        pg = page()
+        pg.draft_tree = {"type": "section", "children": []}
+        return pg
+
+    async def test_publish_refreshes_the_activation_theme_snapshot(self):
+        pg = self._published_page()
+        db = db_with()
+        token = service.current_tenant_id.set(TID)
+        try:
+            with patched_page(pg), \
+                 patch.object(settings, "PUBLIC_SITE_HOST", HOST), \
+                 patch.object(service, "SitePageRevision", _fake_revision_model()), \
+                 patch.object(service, "get_settings", new=AsyncMock(return_value={"colors": {"light": {"background": "#EEEEEE"}}})), \
+                 patch.object(service, "check_bound_tree", new=AsyncMock()):
+                await service.publish(db, PAGE_ID, UID)
+        finally:
+            service.current_tenant_id.reset(token)
+        updates = [(sql, params) for sql, params in db._calls if "UPDATE site_activation SET theme" in sql]
+        self.assertEqual(len(updates), 1)
+        _, params = updates[0]
+        self.assertEqual(json.loads(params["theme"]), {"colors": {"light": {"background": "#EEEEEE"}}})
+        self.assertEqual(params["h"], HOST)
+        self.assertEqual(params["s"], "studio")
+        self.assertEqual(params["p"], "hello")
+
+    async def test_publish_skips_theme_refresh_without_a_configured_host(self):
+        pg = self._published_page()
+        db = db_with()
+        with patched_page(pg), \
+             patch.object(settings, "PUBLIC_SITE_HOST", ""), \
+             patch.object(service, "SitePageRevision", _fake_revision_model()), \
+             patch.object(service, "check_bound_tree", new=AsyncMock()):
+            await service.publish(db, PAGE_ID, UID)
+        self.assertFalse(any("site_activation" in sql for sql, _ in db._calls))
+
+
+class PublicAccessRequestTests(unittest.TestCase):
+    def test_request_model_carries_no_host_field(self):
+        from app.platform.site.service import PublicAccessIn
+        body = PublicAccessIn.model_validate({"enabled": True, "host": "evil.example",
+                                              "slug": "other", "allow_connected_data": True})
+        self.assertTrue(body.enabled)
+        self.assertFalse(hasattr(body, "host"))
+        self.assertFalse(hasattr(body, "slug"))
+        self.assertFalse(hasattr(body, "allow_connected_data"))
+        self.assertEqual(body.model_dump(), {"enabled": True})
 
 
 class ResponsiveCssTests(unittest.TestCase):

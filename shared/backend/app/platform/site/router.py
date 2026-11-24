@@ -109,10 +109,6 @@ async def reopen(page_id: uuid.UUID, db: AsyncSession = Depends(get_db),
     return _summary(await service.reopen(db, page_id))
 
 
-class PublicAccessIn(BaseModel):
-    enabled: bool
-
-
 @pages_router.get("/{page_id}/public-access")
 async def get_public_access(page_id: uuid.UUID, db: AsyncSession = Depends(get_db),
                             user: User = Depends(require_perm("site.manage"))):
@@ -121,7 +117,7 @@ async def get_public_access(page_id: uuid.UUID, db: AsyncSession = Depends(get_d
 
 
 @pages_router.put("/{page_id}/public-access")
-async def put_public_access(page_id: uuid.UUID, data: PublicAccessIn,
+async def put_public_access(page_id: uuid.UUID, data: service.PublicAccessIn,
                             db: AsyncSession = Depends(get_db),
                             user: User = Depends(require_perm("site.manage"))):
     """Synthetic scope only: pins allow_connected_data=False and the

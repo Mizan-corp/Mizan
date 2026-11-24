@@ -17,6 +17,7 @@ import re
 import uuid
 
 from fastapi import HTTPException
+from pydantic import BaseModel
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -168,6 +169,11 @@ async def publish(db: AsyncSession, page_id: uuid.UUID, user_id: uuid.UUID | Non
     page.published_tree = page.draft_tree
     page.status = "published"
     await db.commit()
+    # If this page is publicly activated, its activation theme is a snapshot of
+    # the workspace settings; refresh it on publish so the ordinary
+    # Save -> Publish flow updates content and chrome together. Enabled state,
+    # the host/slug pinning and allow_connected_data=false are never touched.
+    await _refresh_activation_theme(db, page)
     # func.now() onupdate leaves updated_at expired; refresh it inside the session,
     # an expired-attribute read after commit is implicit IO and breaks under async.
     await db.refresh(page)
@@ -317,6 +323,18 @@ def check_settings(value) -> dict:
 # flow can never create it.
 PUBLIC_SITE_SLUG = "studio"
 _AUDIENCE_POLICY = "v1"
+_BOUND_KEYS = ("bindings", "card", "repeat")
+
+
+def _has_bound_node(node) -> bool:
+    """Any data binding/provider node anywhere in the tree."""
+    if isinstance(node, dict):
+        if any(k in node for k in _BOUND_KEYS):
+            return True
+        return any(_has_bound_node(v) for v in node.values())
+    if isinstance(node, list):
+        return any(_has_bound_node(v) for v in node)
+    return False
 
 
 def _public_host() -> str:
@@ -343,6 +361,13 @@ async def get_public_access(db: AsyncSession, page_id: uuid.UUID) -> dict:
             "url": f"https://{host}/site/{PUBLIC_SITE_SLUG}/{page.slug}" if host and enabled else None}
 
 
+class PublicAccessIn(BaseModel):
+    # Deliberately the ONLY client-controlled field: the host comes from server
+    # config, the slug is the fixed synthetic site slug, and connected data
+    # stays pinned off; extra body fields are ignored by pydantic.
+    enabled: bool
+
+
 async def set_public_access(db: AsyncSession, page_id: uuid.UUID, *, enabled: bool,
                             user_id: uuid.UUID | None = None) -> dict:
     """Enable or disable anonymous access to one published page, synthetic scope.
@@ -355,6 +380,11 @@ async def set_public_access(db: AsyncSession, page_id: uuid.UUID, *, enabled: bo
     page = await get_page(db, page_id, locked=True)
     if enabled and (page.status != "published" or page.published_tree is None):
         raise HTTPException(409, "Publish the page before making it public")
+    if enabled and _has_bound_node(page.published_tree):
+        # publish() already refuses bound trees; this guards pages published
+        # before that rule or through any other path. Synthetic scope serves
+        # content only.
+        raise HTTPException(409, "Pages that read business data cannot be made public in synthetic scope")
     host = _public_host()
     theme = await get_settings(db)
     await db.execute(text("""
@@ -370,6 +400,22 @@ async def set_public_access(db: AsyncSession, page_id: uuid.UUID, *, enabled: bo
            "apv": _AUDIENCE_POLICY, "uid": user_id})
     await db.commit()
     return await get_public_access(db, page_id)
+
+
+async def _refresh_activation_theme(db: AsyncSession, page) -> None:
+    """Re-snapshot the workspace settings into this page's activation row, if
+    one exists on this deployment's host. No-op without a configured host."""
+    from app.core.config import settings
+    host = (settings.PUBLIC_SITE_HOST or "").strip().lower()
+    if not host:
+        return
+    theme = await get_settings(db)
+    await db.execute(text(
+        "UPDATE site_activation SET theme = CAST(:theme AS jsonb), updated_at = now()"
+        " WHERE host = :h AND slug = :s AND page_path = :p"
+    ), {"theme": json.dumps(theme, ensure_ascii=False), "h": host,
+        "s": PUBLIC_SITE_SLUG, "p": page.slug})
+    await db.commit()
 
 
 async def get_settings(db: AsyncSession) -> dict:
