@@ -52,3 +52,8 @@ class PropertyRequestCreate(BaseModel):
     @field_validator('operation_id','unit_id')
     @classmethod
     def valid_uuid(cls,value):return str(UUID(value))
+
+class OfferingUpdate(BaseModel):
+    model_config = ConfigDict(extra='forbid',strict=True)
+    expected: OfferingCreate
+    values: OfferingCreate
