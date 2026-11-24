@@ -13,10 +13,18 @@ from app.framework.storefront_values import check_money, money_text, check_media
 
 
 def checked_card_template(tree, plan):
-    if not isinstance(plan, dict) or set(plan) != {'template_id', 'module', 'source', 'limit', 'targets'}:
+    if not isinstance(plan, dict) or set(plan) not in ({'template_id', 'module', 'source', 'limit', 'targets'}, {'template_id', 'module', 'source', 'limit', 'targets', 'products'}):
         raise SourceUnavailable('Exact reviewed card plan required.')
     if plan['module'] != 'inventory' or plan['source'] != 'website_cards' or type(plan['limit']) is not int or not 1 <= plan['limit'] <= 6:
         raise SourceUnavailable('Unsupported card source or bound.')
+    if 'products' in plan:
+        from uuid import UUID
+        products=plan['products']
+        try:
+            if not isinstance(products,list) or len(products)>6 or any(not isinstance(x,str) or str(UUID(x))!=x for x in products) or len(set(products))!=len(products):
+                raise SourceUnavailable('Exact bounded section products required.')
+        except (TypeError,ValueError):
+            raise SourceUnavailable('Invalid section products.') from None
     targets = plan['targets']
     if not isinstance(targets, dict) or set(targets) != {'name', 'price', 'image'}:
         raise SourceUnavailable('Exact reviewed card targets required.')
