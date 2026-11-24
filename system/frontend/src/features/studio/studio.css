@@ -329,7 +329,7 @@
 .mz-editor .native-drag-preview .native-hover-node{outline:1.5px dashed var(--ink-3);outline-offset:2px;border-radius:8px;opacity:.85}
 .mz-editor .native-drag-preview .native-hover-node::after{display:none}
 .mz-editor .native-drag-preview .native-selected-node{outline:2px solid var(--teal);outline-offset:7px;border-radius:16px}
-.mz-editor .native-drag-preview .native-selected-node::before{content:attr(data-native-type) ' — اضغط للتعديل';position:absolute;top:-32px;inset-inline-start:-7px;background:var(--teal);color:#fff;font-size:11px;font-weight:700;font-family:var(--font-text);border-radius:8px;padding:4px 10px;white-space:nowrap;z-index:3;pointer-events:none}
+.mz-editor .native-drag-preview .native-selected-node::before{content:attr(data-native-label);position:absolute;top:-32px;inset-inline-start:-7px;background:var(--teal);color:#fff;font-size:11px;font-weight:700;font-family:var(--font-text);border-radius:8px;padding:4px 10px;white-space:nowrap;z-index:3;pointer-events:none}
 .mz-editor .context-toolbar{position:sticky;top:10px;z-index:8;display:flex;align-items:center;gap:2px;width:fit-content;max-width:100%;margin:0 auto 16px;padding:6px;background:var(--ink);border:none;border-radius:14px;box-shadow:var(--shadow-pop);color:#E9EFEC;font-size:12px;flex-wrap:wrap}
 .mz-editor .context-toolbar strong{padding:0 10px;font-weight:600;font-size:12px}
 .mz-editor .context-toolbar button{width:auto;min-width:36px;height:36px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;color:#E9EFEC;background:none;border:none;font-size:12px;padding:0 10px;cursor:pointer}
