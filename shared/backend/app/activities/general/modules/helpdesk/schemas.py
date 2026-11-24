@@ -40,3 +40,15 @@ class FsmCompletion(BaseModel):
     def meaningful_notes(cls,value):
         if not value.strip():raise ValueError('completion notes required')
         return value
+
+class PropertyRequestCreate(BaseModel):
+    model_config = ConfigDict(extra='forbid',strict=True,str_strip_whitespace=True)
+    operation_id: str
+    unit_id: str = Field(min_length=1,max_length=36)
+    category: str = Field(min_length=1,max_length=64)
+    description: str = Field(min_length=1,max_length=5000)
+    reported_by: str = Field(min_length=1,max_length=128)
+
+    @field_validator('operation_id','unit_id')
+    @classmethod
+    def valid_uuid(cls,value):return str(UUID(value))
