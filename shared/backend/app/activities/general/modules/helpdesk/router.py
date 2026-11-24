@@ -10,7 +10,7 @@ from app.framework.loader import registry
 import json
 from app.platform.audit.models import AuditLog
 from .models import HelpdeskOffering
-from .schemas import OfferingCreate, OfferingArchive, FsmCompletion
+from .schemas import OfferingCreate, OfferingArchive, FsmCompletion, PropertyRequestCreate
 
 router = APIRouter(prefix="/helpdesk", tags=["Help Desk"], dependencies=[Depends(require_module("helpdesk"))])
 
@@ -89,6 +89,39 @@ async def complete_field_service(source_id: str, payload: FsmCompletion,
         result = await complete_fsm(db,user=user,source_id=source_id,
             operation_id=UUID(payload.operation_id),expected_status=payload.expected_status,
             completion_notes=payload.completion_notes)
+        await db.commit()
+        return result
+    except Exception:
+        await db.rollback()
+        raise
+
+@router.get('/work/{source}/{source_id}/history')
+async def work_history(source: str, source_id: str,
+        db: AsyncSession=Depends(get_db),
+        user=Depends(require_perm('helpdesk:work:view')),
+        _source=Depends(require_perm('operations'))):
+    from .history import source_history
+    return await source_history(db,user=user,source=source,source_id=source_id)
+
+async def intake_allowed(db: AsyncSession=Depends(get_db),
+        _create=Depends(require_perm('helpdesk:work:create')),
+        _read=Depends(require_perm('helpdesk:work:view')),
+        _source=Depends(require_perm('operations')),
+        _module=Depends(require_module('real_estate'))):
+    if (await registry.get_settings(db,'helpdesk'))['values'].get('work_intake') is not True:
+        raise HTTPException(409,'Property request intake is disabled')
+
+@router.get('/work/real_estate/units',dependencies=[Depends(intake_allowed)])
+async def intake_units(db: AsyncSession=Depends(get_db),user=Depends(require_perm('helpdesk:work:create'))):
+    from .intake import unit_choices
+    return await unit_choices(db,user)
+
+@router.post('/work/real_estate/requests',status_code=201,dependencies=[Depends(intake_allowed)])
+async def property_intake(payload: PropertyRequestCreate,db: AsyncSession=Depends(get_db),
+        user=Depends(require_perm('helpdesk:work:create'))):
+    from .intake import create_property_request
+    try:
+        result=await create_property_request(db,user=user,payload=payload)
         await db.commit()
         return result
     except Exception:
