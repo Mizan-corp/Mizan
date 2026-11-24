@@ -383,4 +383,4 @@ const en:Record<string,string>={
   "٤ صفحات مترابطة كمسودات":'',
   "⠿ تحريك":'',
 };
-export function t(ar:string):string{return current==='ar'?ar:(en[ar]??ar);}
+export function t(ar:string):string{if(current==='ar')return ar;const v=en[ar];return v&&v.length>0?v:ar;}
