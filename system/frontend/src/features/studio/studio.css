@@ -394,7 +394,7 @@
 .mz-publish-card{width:min(480px,100%);background:var(--surface,#fff);border-radius:18px;box-shadow:0 2px 6px rgba(31,42,38,.08),0 18px 48px rgba(31,42,38,.14);padding:22px;display:flex;flex-direction:column;gap:14px;max-height:calc(100vh - 60px);overflow:auto}
 .mz-publish-address{background:var(--sand);border:1px solid var(--hairline);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
 .mz-publish-address span{font-size:11.5px;color:var(--ink-3)}
-.mz-publish-address b{font-size:14px;color:var(--ink);word-break:break-all}
+.mz-publish-address b{font-size:13px;color:var(--ink);line-height:1.8;display:block}.mz-url{direction:ltr;unicode-bidi:isolate;text-align:start;display:inline-block;max-width:100%}
 .mz-publish-address small{font-size:11px;color:var(--ink-2);line-height:1.7}
 .mz-publish-checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .mz-publish-checks li{border-radius:12px;padding:10px 14px;font-size:12.5px;border:1px solid var(--hairline);background:var(--sand);color:var(--ink);line-height:1.7}
@@ -407,3 +407,10 @@
 .mz-publish-revisions summary{cursor:pointer;color:var(--ink-2);font-size:12.5px}
 .mz-revision{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--hairline);font-size:12.5px;color:var(--ink)}
 .mz-inline{background:none;border:0;color:var(--teal-dark);font-weight:700;cursor:pointer;text-decoration:underline;padding:0;font-size:inherit}
+.mz-publish-linkrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.mz-publish-linkrow .mz-publish-link{flex:1;min-width:0;word-break:normal}
+.mz-editor .mz-publish-link{word-break:normal}
+.mz-publish-checks li{display:flex;gap:9px;align-items:flex-start}
+.mz-publish-checks li:before{content:'!';flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;background:var(--sand-2);color:var(--ink-2)}
+.mz-publish-checks li.ok:before{content:'✓';background:var(--teal);color:#fff}
+.mz-publish-checks li.warn:before{content:'!';background:var(--amber);color:#fff}
