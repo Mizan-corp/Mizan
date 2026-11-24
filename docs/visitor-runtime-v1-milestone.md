@@ -49,3 +49,37 @@ No anonymous tree submissions, provider query API, module discovery, product sea
 2. Candidate deploy on the isolated project; G1-G2, G4-G6 verified while disabled.
 3. Only after D1-D4: enable activation for the isolated fixture site, run G3 and G5 anonymously, revoke-and-retry drill.
 4. Reversible canonical test promotion, immediate checks, rollback path armed. No production-business deployment at any step.
+
+## Live verification record (24 Nov 2026, isolated host)
+
+Tenant isolation mechanism (verified on the real pooled Neon DB, not only in unit
+tests): the activation lookup runs a transaction-local `set_config('app.bypass',
+'on', true)` that is cleared in the same transaction before any tenant-scoped
+read; `bind_tenant` then sets transaction-local `app.tenant_id` AND performs
+`SET LOCAL ROLE mizan_app` (via `restrict_to_app_role`). `mizan_app` has
+`rolbypassrls = false`, so the forced-RLS `tenant_isolation` policy genuinely
+filters every tenant-scoped read the handler makes, raw SQL included. The
+Neon owner role itself has `rolbypassrls = true`, which is why the role switch
+is load-bearing. Adversarial live evidence: an enabled activation row owned by
+tenant A pointing at tenant B's published page returns the generic 404, while a
+matched control row (same tenant for activation and page) returns 200 with its
+own synthetic chrome; both fixture rows were removed afterwards. Forty
+interleaved cross-tenant requests (two tenants, two activation rows) each
+returned exactly their own tenant's activation chrome with no bleed and no 5xx.
+
+Operational note for future probes: the pooled endpoint preserves session-level
+`SET ROLE`/`SET` on its backends; probes must use transaction-local
+`set_config(..., true)` only, or they dirty pooled connections.
+
+Other live results: anonymous smoke 15/15 (CSP default-src 'none', no-store,
+nosniff, no script tags, byte-identical generic 404s for unknown site/page,
+spoofed-Host 404, X-Forwarded-Host ignored, malformed slugs 404, HEAD parity,
+60/min rate limit, no internal markers); synthetic boundary live negative (a
+published page containing a card node with an enabled activation row returns
+404); the registered Host never reaches preview ingress (edge routes by Host),
+which is also the spoofed-registered-Host-on-another-ingress negative.
+
+Activation state: exactly one enabled row (studio/welcome, synthetic theme,
+allow_connected_data=false) serving the reviewed synthetic tree at
+https://mizan-studio-feature-test.vercel.app/site/studio/welcome
+(desktop and mobile pixel-verified).
