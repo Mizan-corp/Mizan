@@ -368,3 +368,17 @@
 .mz-editor .native-help{display:none}
 .mz-editor .studio-inspector h2{font-family:var(--font-display);font-size:15px;color:var(--ink)}
 .mz-editor .studio-inspector label{color:var(--ink-2)}
+.mz-editor .context-toolbar{position:fixed;margin:0;top:auto;left:auto;z-index:30}
+.mz-editor .studio-inspector button,.mz-editor .studio-layers button{border:1px solid var(--hairline);background:var(--sand);color:var(--ink);border-radius:10px;padding:8px 12px;font-size:12.5px}
+.mz-editor .studio-inspector button[aria-pressed=true],.mz-editor .studio-layers button[aria-pressed=true]{background:var(--teal-tint);color:var(--teal-dark);border-color:var(--teal-soft);font-weight:600}
+.mz-editor .studio-inspector .simple-panel-head button{width:29px;height:29px;border-radius:50%;background:var(--sand-2);color:var(--ink-2);border:none;font-size:16px;padding:0}
+.mz-editor .studio-inspector input:not([type=checkbox]):not([type=color]),.mz-editor .studio-inspector select,.mz-editor .studio-inspector textarea,.mz-editor .studio-layers input:not([type=checkbox]),.mz-editor .studio-layers select,.mz-editor .studio-layers textarea{background:var(--sand);border:1px solid var(--hairline);border-radius:10px;color:var(--ink);padding:9px 11px;font-size:13px}
+.mz-editor .studio-inspector input:focus,.mz-editor .studio-inspector select:focus,.mz-editor .studio-inspector textarea:focus,.mz-editor .studio-layers input:focus,.mz-editor .studio-layers select:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-tint)}
+.mz-editor .studio-inspector .native-remove{background:var(--danger);color:#fff;border-color:var(--danger)}
+.mz-editor .studio-layers .library-insert,.mz-editor .studio-layers .entry-primary,.mz-editor .studio-inspector .entry-primary{background:var(--teal);color:#fff;border-color:var(--teal);box-shadow:0 4px 14px rgba(14,124,102,.28)}
+.mz-editor .shared-warning{background:var(--amber-tint);color:#8a5c0e;border:1px solid #EBD9B4;border-radius:12px;padding:10px 14px;font-size:12px;line-height:1.7}
+.mz-editor .studio-inspector details,.mz-editor .studio-layers details{border-color:var(--hairline)}
+.mz-editor .studio-inspector summary,.mz-editor .studio-layers summary{color:var(--ink-2)}
+.mz-editor .studio-inspector fieldset,.mz-editor .studio-layers fieldset{border:1px solid var(--hairline);border-radius:12px}
+.mz-editor .studio-inspector legend,.mz-editor .studio-layers legend{color:var(--ink-2)}
+.mz-editor .mz-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
