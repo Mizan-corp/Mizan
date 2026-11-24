@@ -30,3 +30,7 @@ See core-site-reflection-scope.md for local real-owner API/UI/DB rollback proof,
 ## Remaining
 
 Complete exact branch source checkpoint/readback/build, isolated test deployment and hosted acceptance. Money/media, general pagination, mixed scalar/repeat pages, protected shopper identity and own-record access, public dynamic rendering and commerce commands are not implemented. No benchmark completion claim.
+
+## Composition continuation
+
+A local composition adapter now permits scalar module-profile siblings alongside one heading-repeat template. All languages and both provider declarations validate before reads. The original static native tree remains unchanged. Same-node scalar/repeat, multiple repeat templates and expanded page bounds fail closed. Exact source and UI/DB evidence is recorded in core-site-reflection-scope.md. Earlier one-template/no-scalar restriction above describes the first hosted checkpoint, not the new local adapter. Multiple templates, arbitrary repeated card subtrees, typed prices/media and public dynamic rendering remain outside this slice.
