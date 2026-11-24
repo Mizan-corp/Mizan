@@ -34,6 +34,7 @@ function Thumb({tone}:{tone:'store'|'blog'|'land'}){
 }
 export default function PreviewSession({config}:{config:PreviewConfig}){
   const uiLang=useUILang();
+   const go=uiDir(uiLang)==='rtl'?'←':'→';
  const [state,setState]=useState<'checking'|'signin'|'ready'>('checking');
  const [username,setUsername]=useState(''),[password,setPassword]=useState(''),[workspace,setWorkspace]=useState('studio-test');
  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[pages,setPages]=useState<Page[]>([]);
@@ -89,19 +90,19 @@ export default function PreviewSession({config}:{config:PreviewConfig}){
      <button className="mz-btn ghost big" onClick={()=>document.getElementById('mz-templates')?.scrollIntoView({behavior:'smooth'})}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg>{t('اتفرّج على القوالب')}</button>
     </div>
    </div>
-   <div className="mz-sec-head"><h2>{t('صفحاتك')}</h2><span className="mz-count">{arNum(filtered.length)} {pagesWord(filtered.length)}{query.trim()?(getUILang()==='en'?` (of ${pages.length})`:` (من ${arNum(pages.length)})`):''}</span>{query.trim()&&<button className="mz-more" onClick={()=>setQuery('')}>{t('كل الصفحات ←')}</button>}</div>
+   <div className="mz-sec-head"><h2>{t('صفحاتك')}</h2><span className="mz-count">{arNum(filtered.length)} {pagesWord(filtered.length)}{query.trim()?(getUILang()==='en'?` (of ${pages.length})`:` (من ${arNum(pages.length)})`):''}</span>{query.trim()&&<button className="mz-more" onClick={()=>setQuery('')}>{t('كل الصفحات')} {go}</button>}</div>
    {creating?<NewPage apiBase={config.apiBase} onCancel={()=>setCreating(false)} onCreated={page=>{setCreating(false);open(page.id)}}/>
    :kitOpen?<DraftPageKit apiBase={config.apiBase} onCancel={()=>setKitOpen(false)} onDone={()=>{setKitOpen(false);check().catch(()=>{})}}/>
    :filtered.length===0?<div className="mz-empty">{pages.length===0?t('لسه مفيش صفحات. ابدأ بأول صفحة ليك من الزرار اللي فوق.'):t('مفيش صفحة بالاسم ده.')}</div>
    :<div className="mz-cards">{filtered.map((p,i)=><button key={p.id} className="mz-pcard" onClick={()=>open(p.id)}>
      <div className="mz-thumb"><Thumb tone={(['store','blog','land'] as const)[i%3]}/></div>
-     <div className="mz-meta"><div><div className="mz-name">{pageTitle(p)}</div><div className="mz-sub">{ago(p.updated_at)}</div></div><span className={'mz-status '+(p.published||p.status==='published'?'pub':'draft')}>{p.published||p.status==='published'?t('منشورة'):t('مسودة')}</span><span className="mz-go">←</span></div>
+     <div className="mz-meta"><div><div className="mz-name">{pageTitle(p)}</div><div className="mz-sub">{ago(p.updated_at)}</div></div><span className={'mz-status '+(p.published||p.status==='published'?'pub':'draft')}>{p.published||p.status==='published'?t('منشورة'):t('مسودة')}</span><span className="mz-go">{go}</span></div>
     </button>)}</div>}
    <div className="mz-sec-head" id="mz-templates"><h2>{t('قوالب تبدأ منها')}</h2><span className="mz-count">{t('صفحات جاهزة تتعدل بمزاجك، وبتتساب كمسودات لحد ما تنشر بنفسك')}</span></div>
    <div className="mz-cards">
-    <button className="mz-pcard" onClick={()=>setKitOpen(true)}><div className="mz-thumb" style={{background:'#EFF4F1'}}><Thumb tone="store"/></div><div className="mz-meta"><div><div className="mz-name">{t('مجموعة المتجر التقني')}</div><div className="mz-sub">{t('٤ صفحات مترابطة كمسودات')}</div></div><span className="mz-go">←</span></div></button>
-    <button className="mz-pcard" onClick={()=>setKitOpen(true)}><div className="mz-thumb" style={{background:'#F7F3EC'}}><Thumb tone="blog"/></div><div className="mz-meta"><div><div className="mz-name">{t('مجموعة صفحات الكتالوج')}</div><div className="mz-sub">{t('٤ صفحات إرشادية كمسودات')}</div></div><span className="mz-go">←</span></div></button>
-    <button className="mz-pcard" onClick={()=>setCreating(true)}><div className="mz-thumb" style={{background:'#F3EEE7'}}><Thumb tone="land"/></div><div className="mz-meta"><div><div className="mz-name">{t('قالب صفحة من المكتبة')}</div><div className="mz-sub">{t('أنشئ صفحة وطبّق عليها قالب من جوه المحرر')}</div></div><span className="mz-go">←</span></div></button>
+    <button className="mz-pcard" onClick={()=>setKitOpen(true)}><div className="mz-thumb" style={{background:'#EFF4F1'}}><Thumb tone="store"/></div><div className="mz-meta"><div><div className="mz-name">{t('مجموعة المتجر التقني')}</div><div className="mz-sub">{t('٤ صفحات مترابطة كمسودات')}</div></div><span className="mz-go">{go}</span></div></button>
+    <button className="mz-pcard" onClick={()=>setKitOpen(true)}><div className="mz-thumb" style={{background:'#F7F3EC'}}><Thumb tone="blog"/></div><div className="mz-meta"><div><div className="mz-name">{t('مجموعة صفحات الكتالوج')}</div><div className="mz-sub">{t('٤ صفحات إرشادية كمسودات')}</div></div><span className="mz-go">{go}</span></div></button>
+    <button className="mz-pcard" onClick={()=>setCreating(true)}><div className="mz-thumb" style={{background:'#F3EEE7'}}><Thumb tone="land"/></div><div className="mz-meta"><div><div className="mz-name">{t('قالب صفحة من المكتبة')}</div><div className="mz-sub">{t('أنشئ صفحة وطبّق عليها قالب من جوه المحرر')}</div></div><span className="mz-go">{go}</span></div></button>
    </div>
   </div>
  </div>;

@@ -271,6 +271,7 @@ const en:Record<string,string>={
   "قفل معاينة المكتبة":"Close library preview",
   "قوالب تبدأ منها":"Templates to start from",
   "كل الصفحات ←":"All pages ←",
+  "كل الصفحات":"All pages",
   "كلمة السر":"Password",
   "كمان مراجعة":"Keep reviewing",
   "كمبيوتر":"Desktop",
