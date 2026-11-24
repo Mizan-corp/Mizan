@@ -1,5 +1,5 @@
 import { defaultChrome, type Project } from './model';
-export type PageNode = { id: string; type: string; settings: Record<string, Record<string, string | number | boolean>>; content: Record<string, Record<string, unknown>>; children?: PageNode[]; bindings?:import('./nativeBindings').NativeBindings; repeat?:import('./nativeBindings').NativeRepeat };
+export type PageNode = { id: string; type: string; settings: Record<string, Record<string, string | number | boolean>>; content: Record<string, Record<string, unknown>>; children?: PageNode[]; bindings?:import('./nativeBindings').NativeBindings; repeat?:import('./nativeBindings').NativeRepeat; card?:import('./nativeCards').NativeCard };
 // One conversion path for preview/export. IDs are deterministic and remain stable across edits.
 export function toPageTree(project: Project): PageNode {
  const lang = project.language;
