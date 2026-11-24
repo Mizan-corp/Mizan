@@ -25,6 +25,15 @@
   "settings": {},
   "menu": [
     {
+      "id": "helpdesk",
+      "label": "الخدمات والدعم",
+      "items": [
+        {
+          "screen": "helpdesk.catalog"
+        }
+      ]
+    },
+    {
       "id": "main",
       "label": "التشغيل والعمليات",
       "items": [
