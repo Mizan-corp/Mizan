@@ -1,5 +1,7 @@
 # Native work writes: consolidation review
 
+Current implementation: see [Help Desk current status](helpdesk-current-status.md). Earlier sections below are dated local/source review stages.
+
 Status: source review, not implemented shared writes. No production or commerce effects.
 
 ## Current source behavior
@@ -52,3 +54,7 @@ Actual JWT API acceptance passes anonymous401, each missing grant403, default/di
 Actual full ERP UI passes review/notes/explicit confirmation, native completed after reload, no repeat action, unchanged property native status, catalog-only regression and mobile390 no overflow. Work-read-only roles see no write action. Writable view describes native completion effects rather than incorrectly saying read-only. All colors inherit configured ERP tokens.
 
 Remaining: local only, not source-checkpointed/deployed. General/activity/custom menu precedence remains unchanged. No legacy route replacement, property write path, customer intake, billing, notifications, or complete Help Desk migration. The primitive's deterministic audit ID is a scoped deduplication contract, not a claim that unrelated AuditLog records become globally immutable.
+
+## Hosted acceptance,24November09:46
+
+Source b6a8c76120517af8f4feb203a18c7795cd1bb302 is deployed to the separate test project. Normal ERP Settings, restricted-role list/completion, explicit confirmation, completed reload, unchanged property state, mobile390, disabled409, unchanged general settings/Studio page and no page errors pass. DB postcheck verifies one technician increment/available status and one audit without notes. Exact fixture activation/sector/raw settings restored and bounded source rows/user/audit removed. No new migration or automatic grant. See current-status page for remaining scope.
