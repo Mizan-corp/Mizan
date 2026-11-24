@@ -56,8 +56,10 @@ async def read_cards(db, context, limit, products=None):
             selected=tuple(UUID(x) for x in products)
         except (ValueError,TypeError):
             raise SourceUnavailable('Invalid section product identity.') from None
-        if not set(selected).issubset(policy['products']):
-            raise SourceUnavailable('Section selection exceeds website card consent.')
+        # Revoked products drop out of the rendered rows; still-consented
+        # selections and the rest of the page keep rendering. An empty
+        # remainder hides the card row downstream (project_cards zero rows).
+        selected=tuple(x for x in selected if x in policy['products'])
     if not selected:
         return []
     # Do not even select optional fields before explicit field-level opt-in.
