@@ -10,7 +10,7 @@ from app.framework.loader import registry
 import json
 from app.platform.audit.models import AuditLog
 from .models import HelpdeskOffering
-from .schemas import OfferingCreate, OfferingArchive
+from .schemas import OfferingCreate, OfferingArchive, FsmCompletion
 
 router = APIRouter(prefix="/helpdesk", tags=["Help Desk"], dependencies=[Depends(require_module("helpdesk"))])
 
@@ -73,3 +73,24 @@ async def list_legacy_work(db: AsyncSession = Depends(get_db),
                            _=Depends(require_perm("operations"))):
     from .work import list_source_work
     return await list_source_work(db, user)
+
+@router.post('/work/field_service/{source_id}/complete')
+async def complete_field_service(source_id: str, payload: FsmCompletion,
+        db: AsyncSession = Depends(get_db),
+        user=Depends(require_perm('helpdesk:work:complete')),
+        _read=Depends(require_perm('helpdesk:work:view')),
+        _source=Depends(require_perm('operations')),
+        _module=Depends(require_module('field_service'))):
+    from .completion import complete_fsm
+    values = (await registry.get_settings(db, 'helpdesk'))['values']
+    if values.get('work_completion') is not True:
+        raise HTTPException(409, 'Field-service work completion is disabled')
+    try:
+        result = await complete_fsm(db,user=user,source_id=source_id,
+            operation_id=UUID(payload.operation_id),expected_status=payload.expected_status,
+            completion_notes=payload.completion_notes)
+        await db.commit()
+        return result
+    except Exception:
+        await db.rollback()
+        raise
