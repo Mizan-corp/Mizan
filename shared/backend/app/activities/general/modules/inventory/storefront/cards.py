@@ -43,12 +43,22 @@ def card_policy(raw):
     return {'products': parsed, 'show_price': value['show_price'], 'show_image': value['show_image'], 'currency': currency}
 
 
-async def read_cards(db, context, limit):
+async def read_cards(db, context, limit, products=None):
     if current_tenant_id.get() != context.tenant_id or 'inventory' not in context.active_modules or type(limit) is not int or not 1 <= limit <= 6:
         raise SourceUnavailable('Website card source unavailable.')
     raw = await db.scalar(select(StoreSetting.value).where(StoreSetting.tenant_id == context.tenant_id, StoreSetting.key == SETTING_KEY))
     policy = card_policy(raw)
-    if not policy['products']:
+    selected=policy['products']
+    if products is not None:
+        try:
+            if not isinstance(products,list) or len(products)>6 or any(not isinstance(x,str) or str(UUID(x))!=x for x in products) or len(set(products))!=len(products):
+                raise SourceUnavailable('Exact bounded section product selection required.')
+            selected=tuple(UUID(x) for x in products)
+        except (ValueError,TypeError):
+            raise SourceUnavailable('Invalid section product identity.') from None
+        if not set(selected).issubset(policy['products']):
+            raise SourceUnavailable('Section selection exceeds website card consent.')
+    if not selected:
         return []
     # Do not even select optional fields before explicit field-level opt-in.
     columns = [Product.id, Product.name]
@@ -56,7 +66,7 @@ async def read_cards(db, context, limit):
         columns.append(Product.retail_price)
     if policy['show_image']:
         columns.append(Product.image_url)
-    rows = (await db.execute(select(*columns).where(Product.tenant_id == context.tenant_id, Product.is_active.is_(True), Product.id.in_(policy['products'])).order_by(Product.id).limit(limit))).all()
+    rows = (await db.execute(select(*columns).where(Product.tenant_id == context.tenant_id, Product.is_active.is_(True), Product.id.in_(selected)).order_by(Product.id).limit(limit))).all()
     out = []
     for row in rows:
         product_id, name, *optional = row
