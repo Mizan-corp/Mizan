@@ -20,3 +20,23 @@ class OfferingCreate(BaseModel):
 class OfferingArchive(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     is_active: bool
+
+from uuid import UUID
+from typing import Literal
+
+class FsmCompletion(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    operation_id: str
+    expected_status: Literal['dispatched','on_site','parts_needed']
+    completion_notes: str = Field(min_length=1,max_length=5000)
+
+    @field_validator('operation_id')
+    @classmethod
+    def valid_operation(cls,value):
+        return str(UUID(value))
+
+    @field_validator('completion_notes')
+    @classmethod
+    def meaningful_notes(cls,value):
+        if not value.strip():raise ValueError('completion notes required')
+        return value
