@@ -143,3 +143,6 @@ async def update_offering(offering_id: UUID,payload: OfferingUpdate,
         'price_kind':'starting_at','currency':row.currency})
     await db.commit()
     return project(row)
+
+from .actuals_router import router as actuals_router
+router.include_router(actuals_router)
