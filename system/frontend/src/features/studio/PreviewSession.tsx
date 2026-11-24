@@ -5,7 +5,7 @@ import DraftPageKit from './DraftPageKit';
 import {type PreviewConfig} from './previewConfig';
 import {t,getUILang,useUILang,uiDir} from './uiStrings';
 type Page={id:string;slug:string;titles:Record<string,string>;status:string;updated_at?:string|null;published?:boolean};
-function arNum(n:number){return n.toLocaleString('ar-EG')}
+function arNum(n:number){return getUILang()==='en'?String(n):n.toLocaleString('ar-EG')}
 function pagesWord(n:number){if(n===1)return t('صفحة');if(n===2)return t('صفحتين');if(n>=3&&n<=10)return t('صفحات');return t('صفحة')}
 function ago(iso:string|null|undefined):string{
  if(!iso)return '';

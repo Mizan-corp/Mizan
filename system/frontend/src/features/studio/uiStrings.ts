@@ -38,7 +38,7 @@ const en:Record<string,string>={
   "إعادة تحميل شكل الموقع":"Reload site appearance",
   "إلغاء المعاينة":"Cancel preview",
   "إلغاء تحديد العنصر":"Deselect element",
-  "إيه اللي هتصنع":"What are you building?",
+  "إيه اللي هتصنع":"What are you building",
   "اتأكد من اسم المستخدم وكلمة السر وبعدين جرّب تاني.":"Check the username and password, then try again.",
   "اتحفظ لكل الصفحات":"Saved for all pages",
   "اتعدلت إمبارح":"Edited yesterday",
