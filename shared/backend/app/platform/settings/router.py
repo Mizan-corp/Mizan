@@ -155,7 +155,7 @@ async def get_settings(db: AsyncSession = Depends(get_db), _: User = Depends(get
     result = await db.execute(select(StoreSetting))
     out = {}
     for row in result.scalars().all():
-        if row.key.startswith("mod_settings_") or row.key in ("core_website_profile_v0", "inventory_website_publication_v0"):
+        if row.key.startswith("mod_settings_") or row.key in ("core_website_profile_v0", "inventory_website_publication_v0", "inventory_website_cards_v0"):
             continue  # modules' settings hold secrets; /modules/{id}/settings serves them under `settings`
         try:
             out[row.key] = _json.loads(row.value) if row.value and row.value.startswith(('[', '{')) else row.value
@@ -171,7 +171,7 @@ async def update_settings(data: dict[str, Any], db: AsyncSession = Depends(get_d
 
     from app.platform.settings.models import StoreSetting
     items = data.get("settings") if isinstance(data.get("settings"), dict) else data
-    if {"core_website_profile_v0", "inventory_website_publication_v0"}.intersection(items):
+    if {"core_website_profile_v0", "inventory_website_publication_v0", "inventory_website_cards_v0"}.intersection(items):
         raise HTTPException(422, "Website publication settings require the dedicated reviewed controls.")
     items = await _check_vat_settings(db, dict(items))
     for key, value in items.items():
