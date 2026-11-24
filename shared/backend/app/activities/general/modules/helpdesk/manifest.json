@@ -1,0 +1,48 @@
+{
+  "id": "helpdesk",
+  "name": "مكتب الخدمات والدعم",
+  "name_en": "Help Desk",
+  "activity": "general",
+  "kind": "business",
+  "status": "active",
+  "version": "0.1.0",
+  "icon": "Headset",
+  "description": "Internal service offerings with independent optional catalog. Request/work compatibility in progress.",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [
+    {
+      "id": "helpdesk:view",
+      "name": "عرض الخدمات",
+      "name_en": "View service offerings"
+    },
+    {
+      "id": "helpdesk:manage",
+      "name": "إدارة الخدمات",
+      "name_en": "Manage service offerings"
+    }
+  ],
+  "screens": [
+    {
+      "id": "helpdesk.catalog",
+      "path": "/helpdesk",
+      "label": "مكتب الخدمات والدعم",
+      "icon": "Headset",
+      "permission": "helpdesk:view"
+    }
+  ],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "settings_schema": [
+    {
+      "key": "service_catalog",
+      "label": "كتالوج الخدمات",
+      "type": "boolean",
+      "default": false,
+      "description": "Independent module feature, available in every variation. Disabling preserves service records."
+    }
+  ]
+}
