@@ -151,20 +151,39 @@ export default function NativeStudio({apiBase='/__studio/api',previewLabel:_prev
     try{const result=await api.listPages();const matches=result.items.filter(p=>'/'+p.slug===href&&p.status!=='archived'&&p.has_draft);if(matches.length!==1){setNotice('This destination is not an available private draft. No external link was opened.');return;}openPage(matches[0].id)}catch{setNotice('Private draft navigation unavailable. No external link was opened.')}
   }
   useEffect(()=>{
-    if(!selected||selected===history?.tree.id||previewOnly){setTbPos(null);return;}
+    const clearSpace=()=>document.querySelectorAll('.mz-tb-below,.mz-tb-above').forEach(n=>n.classList.remove('mz-tb-below','mz-tb-above'));
+    if(!selected||selected===history?.tree.id||previewOnly){clearSpace();setTbPos(null);return;}
     const update=()=>{
       const el=document.getElementById(selected);const tb=document.querySelector<HTMLElement>('.context-toolbar');
-      if(!el||!tb){setTbPos(null);return;}
-      const r=el.getBoundingClientRect();const w=tb.offsetWidth||320;const h=tb.offsetHeight||48;
-      let top=r.bottom+12;if(top+h>window.innerHeight-10)top=Math.max(70,r.top-h-12);
-      const left=Math.min(Math.max(r.left+r.width/2-w/2,8),Math.max(8,window.innerWidth-w-8));
-      setTbPos({top,left});
+      if(!el||!tb){clearSpace();setTbPos(null);return;}
+      clearSpace();
+      const w=tb.offsetWidth||320,h=tb.offsetHeight||48;
+      const frame=el.closest('.preview-frame');
+      const others=[...(frame?frame.querySelectorAll('.mz-node'):[])].filter(n=>n!==el&&!n.contains(el)&&!el.contains(n)).map(n=>n.getBoundingClientRect()).filter(o=>o.width>0&&o.height>0);
+      const free=(t:number,l:number)=>!others.some(o=>!(l+w<=o.left||l>=o.right||t+h<=o.top||t>=o.bottom));
+      const clampX=(x:number)=>Math.min(Math.max(x,8),Math.max(8,window.innerWidth-w-8));
+      const xs=(r:DOMRect)=>[r.left+r.width/2-w/2,r.left,r.right-w].map(clampX);
+      let r=el.getBoundingClientRect();
+      let placed=false;
+      const order=[r.bottom+12+h<=window.innerHeight-10?'below':'above','below','above'].filter((m,i,a)=>a.indexOf(m)===i);
+      for(const m of order){
+        const t=m==='below'?r.bottom+12:r.top-h-38;
+        if(t<70||t+h>window.innerHeight-10)continue;
+        for(const l of xs(r))if(free(t,l)){setTbPos({top:t,left:l});placed=true;break;}
+        if(placed)break;
+      }
+      if(!placed){
+        const mode=r.bottom+12+h<=window.innerHeight-10?'below':'above';
+        el.classList.add(mode==='below'?'mz-tb-below':'mz-tb-above');
+        r=el.getBoundingClientRect();
+        setTbPos({top:mode==='below'?r.bottom+10:Math.max(70,r.top-h-38),left:xs(r)[0]});
+      }
     };
     const raf=requestAnimationFrame(update);
     const canvas=document.querySelector('.studio-canvas');
     canvas?.addEventListener('scroll',update,{passive:true});
     addEventListener('resize',update);
-    return()=>{cancelAnimationFrame(raf);canvas?.removeEventListener('scroll',update);removeEventListener('resize',update)};
+    return()=>{cancelAnimationFrame(raf);canvas?.removeEventListener('scroll',update);removeEventListener('resize',update);clearSpace()};
   },[selected,device,lang,key,previewOnly,panel]);
   const nodes=history?nativeNodes(history.tree):[];
   const node=nodes.find(n=>n.id===selected);

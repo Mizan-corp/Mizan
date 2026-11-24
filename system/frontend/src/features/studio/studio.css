@@ -382,3 +382,11 @@
 .mz-editor .studio-inspector fieldset,.mz-editor .studio-layers fieldset{border:1px solid var(--hairline);border-radius:12px}
 .mz-editor .studio-inspector legend,.mz-editor .studio-layers legend{color:var(--ink-2)}
 .mz-editor .mz-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mz-editor .mz-node.mz-tb-below{margin-bottom:64px!important}
+.mz-editor .mz-node.mz-tb-above{margin-top:96px!important}
+.mz-editor .native-data-controls{border:1px solid var(--hairline);border-radius:14px;background:var(--surface,#fff);color:var(--ink)}
+.mz-editor .native-data-controls strong{color:var(--ink)}
+.mz-editor .data-mode button,.mz-editor .data-source{border:1px solid var(--hairline);background:var(--sand);color:var(--ink);border-radius:10px}
+.mz-editor .data-mode button[aria-pressed=true]{background:var(--teal-tint);color:var(--teal-dark);border-color:var(--teal-soft);font-weight:600}
+.mz-editor .data-example{background:var(--sand-2);color:var(--ink-2);font-family:var(--font-text)}
+.mz-editor .native-content-controls .hint,.mz-editor .native-data-controls p{color:var(--ink-2)}
