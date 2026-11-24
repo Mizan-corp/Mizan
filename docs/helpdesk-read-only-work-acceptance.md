@@ -1,5 +1,7 @@
 # Help Desk read-only work adapters
 
+Historical local acceptance record. Current implementation: see [Help Desk current status](helpdesk-current-status.md). Hosted test now also has a separately gated source-specific FSM completion capability; read-only roles remain read-only.
+
 Status: local acceptance only, not committed or deployed. Hosted service catalog remains on e7399f387d3d2d107f142257654bba371d83f0b4. Full Help Desk unification is incomplete.
 
 ## Accepted
@@ -20,7 +22,7 @@ Status: local acceptance only, not committed or deployed. Hosted service catalog
 - Latest-per-source 100 cap and truncated_sources pass with 101 actual FSM rows, while the separate property row remains visible.
 - Catalog-only role create/reload/archive/reload/restore passes after shared header revision. Work section stays hidden for catalog-only role.
 - Work-only users can open the route directly, but activity/custom role menus may omit it. General default includes the screen; existing activity/role/workspace precedence is deliberately retained. Decide a non-destructive discovery route rather than overwriting menus.
-- Local snapshot preserved. Source checkpoint only. No deployment for this delta.
+- Local snapshot preserved. No Git commit or new deployment for this delta.
 
 ## Evidence
 
