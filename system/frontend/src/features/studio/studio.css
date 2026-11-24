@@ -348,11 +348,13 @@
 .mz-editor .native-drag-ghost{background:var(--surface);border:1px solid var(--hairline);border-radius:12px;box-shadow:var(--shadow-pop);color:var(--ink)}
 @media (prefers-reduced-motion:reduce){.mz-editor *{transition:none!important}}
 @media (max-width:700px){
- .mz-editor .studio-top{height:56px;padding:0 10px;gap:8px}
+ .mz-editor .studio-top{height:auto;min-height:56px;padding:6px 10px;gap:8px;flex-wrap:wrap;row-gap:6px}
+ .mz-editor .top-actions{flex-wrap:wrap;gap:6px;justify-content:flex-end}
+ .mz-editor .top-actions button{padding:6px 9px;font-size:11px}
  .mz-editor .page-name .crumb{display:none}
  .mz-editor .mz-top-center{display:none}
  .mz-editor .mz-saved{display:none}
- .mz-editor .studio-workspace,.mz-editor.tools-open .studio-workspace,.mz-editor.selection-open .studio-workspace,.mz-editor.tools-open.selection-open .studio-workspace{display:block;height:calc(100dvh - 56px)!important;padding-bottom:66px;box-sizing:border-box;position:relative}
+ .mz-editor .studio-workspace,.mz-editor.tools-open .studio-workspace,.mz-editor.selection-open .studio-workspace,.mz-editor.tools-open.selection-open .studio-workspace{display:block;height:auto!important;min-height:calc(100dvh - 120px);padding-bottom:66px;box-sizing:border-box;position:relative}
  .mz-editor .studio-rail{position:fixed;bottom:0;right:0;left:0;top:auto;height:64px;z-index:40;flex-direction:row;justify-content:space-around;padding:0 6px;border-inline-end:none;border-top:1px solid var(--hairline)}
  .mz-editor .studio-rail button{width:auto;min-width:48px;padding:6px 8px;gap:3px}
  .mz-editor .journey-rail-divider{display:none}
