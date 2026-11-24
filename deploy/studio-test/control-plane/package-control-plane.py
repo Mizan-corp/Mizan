@@ -27,6 +27,9 @@ for kind in ("owner", "admin", "website"):
     shutil.copytree(a.service_source/kind/"backend"/(kind+"_api"), a.output/(kind+"_api"), ignore=ignore)
     shutil.copy(recipe/(kind+".py"), a.output/"api"/(kind+".py"))
     shutil.copytree(a.frontend_builds/kind, a.output/"static"/kind, ignore=ignore)
+if not (a.frontend_builds/"studio"/"studio.html").exists():
+    raise SystemExit("Missing prepared studio build: studio/studio.html")
+shutil.copytree(a.frontend_builds/"studio", a.output/"static"/"studio", ignore=ignore)
 shutil.copy(recipe/"vercel.full.json", a.output/"vercel.json")
 for preserved in ["api/index.py", "static/index.html", "static/erp/index.html"]:
     if (a.base_package/preserved).read_bytes() != (a.output/preserved).read_bytes():

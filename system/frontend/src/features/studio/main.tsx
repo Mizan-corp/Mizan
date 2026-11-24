@@ -15,7 +15,13 @@ import { SiteApiError, applySettings, createSitePagesClient, type PageDetail } f
 // The local-only backend bridge (vite.studio.config.ts): present only when a developer
 // boots a LOOPBACK test API with MIZAN_SITE_API + MIZAN_SITE_TOKEN. Saves through it go
 // to that local test database, never to a shared server or the public site.
-const api = createSitePagesClient({ baseUrl: '/__studio/api' });
+// Hosted mode: a build with VITE_STUDIO_API set (e.g. '/api') talks to the deployment's own
+// system API with the signed-in workspace session (double-submit CSRF, same-origin only).
+// Otherwise the local-only loopback bridge exactly as before.
+const API_BASE: string = import.meta.env.VITE_STUDIO_API ?? '/__studio/api';
+const HOSTED = API_BASE !== '/__studio/api';
+const BACKEND_LABEL = HOSTED ? 'the workspace backend' : 'the local test backend';
+const api = createSitePagesClient({ baseUrl: API_BASE });
 type Conn = { state: 'blocked'; reason: string } | { state: 'checking' } | { state: 'off'; reason: string } | { state: 'on'; page: PageDetail | null };
 
 function Studio() {
@@ -32,7 +38,7 @@ function Studio() {
   const [selected, select] = useState(project.sections[0].id);
   const [device, setDevice] = useState<Device>('desktop');
   const [conn, setConn] = useState<Conn>({ state: 'checking' });
-  const [notice, setNotice] = useState('Local prototype. Checking for a local test backend...');
+  const [notice, setNotice] = useState(HOSTED ? 'Checking the workspace backend...' : 'Local prototype. Checking for a local test backend...');
   const leaveState = { current: snapshotKey(project), baseline: baseline.current, browserSaved: browserKey, backendSaved: savedKey, backendConnected: conn.state === 'on', busy: !!busy };
   useEffect(() => {
     if (!shouldWarnBeforeLeave(leaveState)) return;
@@ -56,7 +62,7 @@ function Studio() {
         } catch { /* settings are additive: a missing record never blocks the page restore */ }
         const choice = choosePage(list.items, new URLSearchParams(window.location.search).get('page'));
         if (choice.kind === 'blocked') { setConn({state:'blocked',reason:choice.reason}); setNotice('No writable backend page selected. Browser copy only.'); return; }
-        if (choice.kind === 'new') { setConn({ state: 'on', page: null }); if (base !== project) { baseline.current = snapshotKey(base); setProject(base); } setNotice('Connected to the local test backend. Saves go to its database only, never the public site.'); return; }
+        if (choice.kind === 'new') { setConn({ state: 'on', page: null }); if (base !== project) { baseline.current = snapshotKey(base); setProject(base); } setNotice(HOSTED ? 'Connected to the workspace backend. Publishing an activated page changes what visitors see on the public test host.' : 'Connected to the local test backend. Saves go to its database only, never the public site.'); return; }
         const detail = await api.getPage(choice.id);
         if (cancelled) return;
         const restored = restoreEditablePage(detail, base);
@@ -67,14 +73,14 @@ function Studio() {
         }
         baseline.current = snapshotKey(restored.project);
         setProject(restored.project); setSavedKey(settingsLoaded && (detail.draft_tree || detail.published_tree) ? snapshotKey(restored.project) : null); select(restored.project.sections[0].id);
-        setNotice('Loaded the draft and site settings from the local test backend.');
+        setNotice(`Loaded the draft and site settings from ${BACKEND_LABEL}.`);
         const url = new URL(window.location.href); url.searchParams.set('page', detail.id); window.history.replaceState(null, '', url);
         setConn({ state: 'on', page: detail });
       } catch (e) {
         if (cancelled) return;
-        const reason = e instanceof SiteApiError && (e.isAuth || e.isForbidden) ? 'the local backend refused the session' : 'no local test backend is running';
+        const reason = e instanceof SiteApiError && (e.isAuth || e.isForbidden) ? (HOSTED ? 'sign-in required: open the workspace app and sign in first' : 'the local backend refused the session') : (HOSTED ? 'the workspace backend is unreachable' : 'no local test backend is running');
         setConn({ state: 'off', reason });
-        setNotice(`Local prototype: ${reason}. Saving stays in this browser only.`);
+        setNotice(HOSTED ? `Not connected: ${reason}. Editing continues in this browser only; nothing is saved to the workspace.` : `Local prototype: ${reason}. Saving stays in this browser only.`);
       }
     })();
     return () => { cancelled = true; };
@@ -83,7 +89,7 @@ function Studio() {
   const saveServer = async () => {
     if (conn.state !== 'on' || !gate.current.start()) return;
     const snapshot = structuredClone(project); const key = snapshotKey(snapshot);
-    setBusy('save'); setSavedKey(null); setNotice('Saving a snapshot to the local test backend... You can keep editing.');
+    setBusy('save'); setSavedKey(null); setNotice(`Saving a snapshot to ${BACKEND_LABEL}... You can keep editing.`);
     try {
       let page = conn.page;
       if (!page) {
@@ -124,21 +130,31 @@ function Studio() {
     if (conn.state !== 'on' || !conn.page || gate.current.active) return;
     const key = snapshotKey(project);
     if (savedKey !== key) { setNotice('Save all current changes successfully before publishing.'); return; }
-    if (!window.confirm('Publish the SAVED snapshot to the LOCAL TEST backend only. This does not change any public or production site.')) return;
+    if (!window.confirm(HOSTED ? 'Publish the SAVED snapshot on this workspace. If this page has an active public activation, visitors see the update.' : 'Publish the SAVED snapshot to the LOCAL TEST backend only. This does not change any public or production site.')) return;
     if (!gate.current.start()) return;
-    setBusy('publish'); setNotice('Publishing the saved snapshot to the local test database...');
+    setBusy('publish'); setNotice(HOSTED ? 'Publishing the saved snapshot...' : 'Publishing the saved snapshot to the local test database...');
     try {
       const page = await api.publish(conn.page.id);
       setConn({ state: 'on', page });
       setNotice(snapshotKey(currentProject.current) === key
-        ? 'Saved snapshot marked published in the local test database. Nothing was deployed or made public.'
-        : 'Earlier saved snapshot marked published in the local test database. Newer local changes are NOT saved or published. Nothing was deployed.');
+        ? (HOSTED ? 'Saved snapshot published. An active public activation for this page now serves it.' : 'Saved snapshot marked published in the local test database. Nothing was deployed or made public.')
+        : (HOSTED ? 'Earlier saved snapshot published. Newer unsaved changes are NOT published.' : 'Earlier saved snapshot marked published in the local test database. Newer local changes are NOT saved or published. Nothing was deployed.'));
     } catch (e) {
       setNotice(`Publish failed (${e instanceof SiteApiError ? e.detail || e.status : 'unreachable'}).`);
     } finally { gate.current.finish(); setBusy(null); }
   };
   const [serverPreview,setServerPreview] = useState<string>('');
-  const sharedPreview = async () => { try {const response=await fetch('/__studio/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(previewPayload(project,device))});if(!response.ok)throw Error();setServerPreview(await response.text());setNotice('Snapshot from the shared Python renderer. Refresh after edits.');}catch{setNotice('Shared renderer unavailable or rejected the tree. Local illustration is not server parity.');} };
+  const sharedPreview = async () => {
+    if (HOSTED) {
+      // Hosted parity snapshot: the deployment's own shared renderer via /api/site/data/preview.
+      try {
+        const payload = previewPayload(project, device);
+        const result = await api.previewData(payload.tree as never, project.language, device);
+        setServerPreview(result.html); setNotice('Snapshot from the shared server renderer. Refresh after edits.');
+      } catch { setNotice('Shared renderer unavailable or rejected the tree. Local illustration is not server parity.'); }
+      return;
+    }
+    try {const response=await fetch('/__studio/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(previewPayload(project,device))});if(!response.ok)throw Error();setServerPreview(await response.text());setNotice('Snapshot from the shared Python renderer. Refresh after edits.');}catch{setNotice('Shared renderer unavailable or rejected the tree. Local illustration is not server parity.');} };
   const [history, setHistory] = useState<Project[]>([]);
   const current = project.sections.find(s => s.id === selected) || project.sections[0];
   const update = (next: Project) => { setHistory(h => [...h.slice(-29), project]); setProject(next); setNotice('Unsaved local changes'); };

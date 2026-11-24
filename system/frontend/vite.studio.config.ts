@@ -12,7 +12,7 @@ import { spawn } from 'node:child_process';
 const apiTarget = process.env.MIZAN_SITE_API || '';
 const apiToken = process.env.MIZAN_SITE_TOKEN || '';
 const apiOk = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(apiTarget) && apiToken.length > 0;
-export default defineConfig({ plugins: [react(), { name:'experimental-python-preview', configureServer(server) {
+export default defineConfig({ base: process.env.VITE_STUDIO_BASE || '/', plugins: [react(), { name:'experimental-python-preview', configureServer(server) {
  server.middlewares.use('/__studio/api', (req,res) => {
   if(req.headers.host!=='127.0.0.1:5188' || (req.headers.origin && req.headers.origin!=='http://127.0.0.1:5188')) {res.statusCode=403;res.end('Local POST only');return;}
   res.setHeader('Cache-Control','no-store');

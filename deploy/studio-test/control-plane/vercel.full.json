@@ -104,6 +104,14 @@
       "dest": "/api/website.py"
     },
     {
+      "src": "/studio/assets/(.*)",
+      "dest": "/static/studio/assets/$1"
+    },
+    {
+      "src": "/studio(?:/.*)?",
+      "dest": "/static/studio/studio.html"
+    },
+    {
       "src": "/(.*)",
       "dest": "/static/$1"
     }
