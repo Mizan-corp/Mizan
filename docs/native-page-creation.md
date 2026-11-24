@@ -1,0 +1,9 @@
+# Native draft creation, 24 November 2026
+
+The isolated Studio entry now includes an explicit New page form. This closes the former empty-workspace dead end without applying a template or publishing content.
+
+Title (1–120 characters), explicit lowercase Latin address and English/Arabic content language produce an ordinary native S2 tree containing one heading. Creation uses the existing permission-checked tenant-bound API and CSRF client. The response must match identity/address/titles/tree/draft state before opening. Duplicate address errors retain input and never replace a page. Uncertain network/server results disable repeat submission and require closing/refreshing the list first. Existing page cards are disabled while the creation form is open. No page content, shared site appearance or existing published tree is overwritten.
+
+Validation: 93 Studio unit tests passed, one skipped; focused TypeScript and isolated build pass. Desktop1440 and mobile390 local browser tests check Arabic payload, conflict input retention, uncertain-response repeat refusal, close/refresh and no horizontal overflow. Real isolated API with local frontend check created a new draft in the dedicated owner-acceptance-test workspace through UI, edited heading, saved, reloaded, confirmed persisted tree and unpublished state; a second same-address request returned409 and left the saved tree exact. These are scripted checks, not ordinary-user research or the allwirya no-code benchmark. UI screenshots inspected. Physical-mobile behavior is unverified.
+
+No third-party template integration, checkout, email, publish, production mutation, merge or destructive cleanup. This checkpoint is not full SDK/builder readiness. It does not add media upload, functional forms/auth binding, multi-page kits or a module Data Explorer.
