@@ -1,5 +1,6 @@
 import type {PresetKind} from '../../nativePresets';
 export const blockCatalog: {id:PresetKind;name:string;category:string;description:string}[]=[
+{id:'product_card',name:'Product-card template',category:'Catalog',description:'Editable heading, display price text and image. Connect the column separately, with explicit module consent.'},
 {id:'hero',name:'Intro + image',category:'Hero sections',description:'A headline, introduction, button and editable art.'},
 {id:'story',name:'Image + story',category:'Stories',description:'A two-column story with artwork first.'},
 {id:'callout',name:'Call to action',category:'Calls to action',description:'A focused message and one clear next step.'},
