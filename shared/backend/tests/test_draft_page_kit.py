@@ -20,6 +20,15 @@ class DraftKitTests(unittest.TestCase):
    check_tree(page['tree'])
    self.assertNotIn('bindings',str(page));self.assertNotIn('repeat',str(page))
   self.assertEqual([v['href'] for v in theme('tech')['header']['links']],['/'+p['slug'] for p in pages])
+ def test_native_card_surface_and_renderer(self):
+  from app.platform.site.tech_kit import make_tech_pages
+  from app.platform.site.render import _render_node
+  tree=make_tech_pages('tech')[1]['tree']
+  markup=_render_node(tree,'en','desktop')
+  self.assertIn('mz-background-card',markup);self.assertIn('mz-rounded',markup)
+  card=tree['children'][1]['children'][0]
+  card['settings']['desktop']['background']='url(https://bad.test)'
+  with self.assertRaises(HTTPException):check_tree(tree)
  def test_no_shared_object_state(self):
   first=make_pages('one');first[0]['tree']['settings']['changed']=True
   self.assertNotIn('changed',make_pages('one')[0]['tree']['settings'])
