@@ -207,6 +207,10 @@ def render_page(tree: dict, lang: str = "ar", device: str = "desktop", validate:
     """The page body: every visible block of the published tree, in order."""
     if validate and page_problems(tree):
         raise ValueError("render_page() takes a tree that passed page_problems()")
+    def unresolved(node):
+        return isinstance(node, dict) and ("bindings" in node or any(unresolved(c) for c in node.get("children", []) or []))
+    if unresolved(tree):
+        raise ValueError("Dynamic content requires authorized provider resolution before rendering.")
     return _render_node(tree, lang, device)
 
 
