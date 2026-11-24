@@ -161,6 +161,17 @@ async def publish(db: AsyncSession, page_id: uuid.UUID, user_id: uuid.UUID | Non
         return "bindings" in node or "repeat" in node or "card" in node or any(has_bindings(c) for c in node.get("children", []))
     if has_bindings(page.draft_tree):
         raise HTTPException(409,"Dynamic pages are preview-only until public provider resolution is available.")
+    # Synthetic-scope preflight: what publish would make publicly servable must pass
+    # the visitor contract on this deployment's host. Refuses with a readable error
+    # BEFORE any mutation, so a failed publish keeps the previous published snapshot.
+    from app.core.config import settings as _settings
+    _host = (_settings.PUBLIC_SITE_HOST or "").strip().lower()
+    if _host:
+        problems = synthetic_scope_violations(page.draft_tree, _host)
+        if problems:
+            raise HTTPException(422, "This page cannot be published for the public test host: it references "
+                                + ", ".join(problems) + f". Public pages in synthetic scope only allow addresses on {_host} "
+                                "or relative links. Replace or remove them and publish again; the previously published page is unchanged.")
     number = await db.scalar(
         select(func.coalesce(func.max(SitePageRevision.number), 0) + 1).where(SitePageRevision.page_id == page.id)
     )
@@ -337,6 +348,46 @@ def _has_bound_node(node) -> bool:
     return False
 
 
+_ABS_URL_RE = re.compile(r"^(https?://|mailto:|tel:)", re.IGNORECASE)
+
+
+def _off_host_urls(node, host: str, out: list[str], limit: int = 3) -> None:
+    """Collect absolute URLs the synthetic visitor contract refuses: mailto:/tel:
+    outright, and http(s) URLs outside the activation host. Mirrors the request-time
+    enforcement in website_api/routers/public_pages.py so publish/Make-public fail
+    with a readable error instead of a silent public 404."""
+    from urllib.parse import urlsplit
+    if len(out) >= limit:
+        return
+    if isinstance(node, str):
+        if not _ABS_URL_RE.match(node):
+            return
+        if not node.lower().startswith(("http://", "https://")):
+            out.append(node.split(":", 1)[0] + ": links")
+            return
+        try:
+            if urlsplit(node).hostname != host:
+                out.append(node)
+        except ValueError:
+            out.append(node)
+        return
+    if isinstance(node, dict):
+        for value in node.values():
+            _off_host_urls(value, host, out, limit)
+    elif isinstance(node, list):
+        for value in node:
+            _off_host_urls(value, host, out, limit)
+
+
+def synthetic_scope_violations(tree, host: str) -> list[str]:
+    """Readable reasons a tree cannot be publicly served in synthetic scope."""
+    problems: list[str] = []
+    if _has_bound_node(tree):
+        problems.append("it reads business data (bound/provider nodes)")
+    _off_host_urls(tree, host, problems)
+    return problems
+
+
 def _public_host() -> str:
     from app.core.config import settings
     host = (settings.PUBLIC_SITE_HOST or "").strip().lower()
@@ -386,6 +437,12 @@ async def set_public_access(db: AsyncSession, page_id: uuid.UUID, *, enabled: bo
         # content only.
         raise HTTPException(409, "Pages that read business data cannot be made public in synthetic scope")
     host = _public_host()
+    if enabled:
+        problems = synthetic_scope_violations(page.published_tree, host)
+        if problems:
+            raise HTTPException(422, "This page cannot be made public: it references " + ", ".join(problems)
+                                + f". Public pages in synthetic scope only allow addresses on {host} or relative links. "
+                                "Edit the page, publish it again, then make it public; it stays private meanwhile.")
     theme = await get_settings(db)
     await db.execute(text("""
         INSERT INTO site_activation (tenant_id, host, slug, page_path, enabled,

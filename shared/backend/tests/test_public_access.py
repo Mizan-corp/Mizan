@@ -286,3 +286,103 @@ class ResponsiveCssTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SyntheticScopePreflightTests(unittest.IsolatedAsyncioTestCase):
+    """Publish/Make-public refuse trees the visitor contract would 404, with a
+    readable error, before any mutation (public_pages.py request-time enforcement
+    stays as the backstop)."""
+
+    OFF_HOST = {"type": "section", "children": [
+        {"type": "columns", "settings": {}, "content": {}, "children": [
+            {"type": "column", "settings": {}, "content": {}, "children": [
+                {"type": "gallery", "settings": {}, "content": {"en": {"images": [
+                    {"src": "https://picsum.photos/seed/x/800/600", "alt": "x"}]}}}]}]}]}
+    SAME_HOST = {"type": "section", "children": [
+        {"type": "columns", "settings": {}, "content": {}, "children": [
+            {"type": "column", "settings": {}, "content": {}, "children": [
+                {"type": "gallery", "settings": {}, "content": {"en": {"images": [
+                    {"src": f"https://{HOST}/studio-assets/tech-laptop.svg", "alt": "x"}]}}}]}]}]}
+
+    async def test_enable_refuses_off_host_urls_without_writing(self):
+        pg = page()
+        pg.published_tree = self.OFF_HOST
+        db = db_with(activation_enabled=False)
+        with patched_page(pg), patch.object(settings, "PUBLIC_SITE_HOST", HOST):
+            with self.assertRaises(HTTPException) as ctx:
+                await service.set_public_access(db, PAGE_ID, enabled=True, user_id=UID)
+        self.assertEqual(ctx.exception.status_code, 422)
+        self.assertIn("picsum.photos", str(ctx.exception.detail))
+        self.assertIn(HOST, str(ctx.exception.detail))
+        self.assertFalse(any("INSERT INTO site_activation" in sql for sql, _ in db._calls))
+
+    async def test_enable_refuses_mailto_links(self):
+        pg = page()
+        pg.published_tree = {"type": "section", "children": [
+            {"type": "button", "settings": {}, "content": {"en": {"label": "mail", "href": "mailto:a@b.c"}}}]}
+        db = db_with(activation_enabled=False)
+        with patched_page(pg), patch.object(settings, "PUBLIC_SITE_HOST", HOST):
+            with self.assertRaises(HTTPException) as ctx:
+                await service.set_public_access(db, PAGE_ID, enabled=True, user_id=UID)
+        self.assertEqual(ctx.exception.status_code, 422)
+        self.assertIn("mailto:", str(ctx.exception.detail))
+
+    async def test_enable_allows_same_host_urls(self):
+        pg = page()
+        pg.published_tree = self.SAME_HOST
+        db = db_with(activation_enabled=False)
+        token = service.current_tenant_id.set(TID)
+        try:
+            with patched_page(pg), \
+                 patch.object(settings, "PUBLIC_SITE_HOST", HOST), \
+                 patch.object(service, "get_settings", new=AsyncMock(return_value={})):
+                out = await service.set_public_access(db, PAGE_ID, enabled=True, user_id=UID)
+        finally:
+            service.current_tenant_id.reset(token)
+        self.assertTrue(any("INSERT INTO site_activation" in sql for sql, _ in db._calls))
+        self.assertIn("enabled", out)
+
+    async def test_publish_refuses_off_host_urls_and_keeps_the_previous_snapshot(self):
+        pg = page()
+        pg.published_tree = self.SAME_HOST  # the live snapshot visitors keep
+        pg.draft_tree = self.OFF_HOST       # the offending new draft
+        db = db_with()
+        with patched_page(pg), patch.object(settings, "PUBLIC_SITE_HOST", HOST), \
+             patch.object(service, "check_bound_tree", new=AsyncMock()):
+            with self.assertRaises(HTTPException) as ctx:
+                await service.publish(db, PAGE_ID, UID)
+        self.assertEqual(ctx.exception.status_code, 422)
+        self.assertIn("picsum.photos", str(ctx.exception.detail))
+        self.assertIn("previously published page is unchanged", str(ctx.exception.detail))
+        db.add.assert_not_called()           # no revision row
+        db.commit.assert_not_called()
+        self.assertIs(pg.published_tree, self.SAME_HOST)  # live snapshot untouched
+        self.assertEqual(pg.status, "published")
+
+    async def test_publish_allows_same_host_urls(self):
+        pg = page()
+        pg.draft_tree = self.SAME_HOST
+        db = db_with()
+        token = service.current_tenant_id.set(TID)
+        try:
+            with patched_page(pg), \
+                 patch.object(settings, "PUBLIC_SITE_HOST", HOST), \
+                 patch.object(service, "SitePageRevision", _fake_revision_model()), \
+                 patch.object(service, "get_settings", new=AsyncMock(return_value={})), \
+                 patch.object(service, "check_bound_tree", new=AsyncMock()):
+                await service.publish(db, PAGE_ID, UID)
+        finally:
+            service.current_tenant_id.reset(token)
+        self.assertIs(pg.published_tree, self.SAME_HOST)
+        self.assertEqual(pg.status, "published")
+
+    async def test_publish_skips_the_check_without_a_configured_host(self):
+        pg = page()
+        pg.draft_tree = self.OFF_HOST
+        db = db_with()
+        with patched_page(pg), \
+             patch.object(settings, "PUBLIC_SITE_HOST", ""), \
+             patch.object(service, "SitePageRevision", _fake_revision_model()), \
+             patch.object(service, "check_bound_tree", new=AsyncMock()):
+            await service.publish(db, PAGE_ID, UID)  # no public host: nothing can be served
+        self.assertIs(pg.published_tree, self.OFF_HOST)

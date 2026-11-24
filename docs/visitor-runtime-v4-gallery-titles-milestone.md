@@ -59,16 +59,36 @@ synthetic fixture tenant `owner-acceptance-test`. No production-business mutatio
 - Suites: studio vitest 132 passed (5 new: gallery round trip, emitted shape, empty-src drop,
   refusal paths, layout-switch preservation), shared backend pytest 95 passed.
 
+## Publish/Make-public preflight (closes the silent-404 landmine)
+
+`service.publish` and `service.set_public_access` now run the visitor contract
+(`synthetic_scope_violations`: bound/provider nodes, mailto:/tel:, absolute URLs outside the
+deployment's configured PUBLIC_SITE_HOST) BEFORE any mutation and refuse with a readable 422
+naming the offending addresses. A failed publish adds no revision and leaves the published
+snapshot serving; a failed Make-public leaves the page private. Private draft authoring is
+unchanged (save never validates this), and the request-time 404 enforcement in
+website_api/routers/public_pages.py stays as the backstop. Nothing was silently dropped and
+the anonymous network/data scope is unchanged.
+
+Live evidence (deployment is82m5vbo): gallery image set to an off-host URL -> draft saved
+fine, Publish refused with "This page cannot be published for the public test host: it
+references https://picsum.photos/... only allow addresses on <host> or relative links... the
+previously published page is unchanged."; visitor kept serving the previous snapshot (verified
+200 with the same-host images). Image pointed back at a same-host asset -> Save -> Publish
+succeeded and the visitor serves it. Tests: 6 new in test_public_access.py (off-host/mailto
+refusal without writes, same-host allowed, snapshot preservation, unconfigured-host skip);
+backend suite 101 passed.
+
 ## Synthetic-content boundary discovered (design tension, reported not resolved)
 
 The public route's synthetic scope refuses any page whose tree contains an absolute URL outside
 the activation host (`_urls_stay_on_host`): a gallery (or split-section image) pointing at an
 external HTTPS image makes the whole public page 404, with no publish-time warning in the
-Studio. First observed live with picsum.photos images; the fixture now uses same-host assets
-(`/studio-assets/*.svg`). The boundary is the intended synthetic enforcement, but the failure
-mode (silent 404 after a successful publish) is a no-code UX landmine. Options: publish-time
-`page_problems` check that rejects off-host media with a readable error, or renderer-side
-dropping of off-host media with the rest of the page intact.
+Studio. First observed live with picsum.photos images. CLOSED by the preflight above: publish and
+Make-public now refuse off-host media with a readable error instead of a silent 404. The
+fixture uses same-host assets (`/studio-assets/*.svg`). Remaining tension for the real-store
+goal: genuine product imagery will usually be external, which synthetic scope cannot serve;
+that is the connected-data/public-media decision, not error handling.
 
 ## Known gaps (unchanged unless noted)
 
