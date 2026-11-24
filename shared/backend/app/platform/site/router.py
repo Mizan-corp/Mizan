@@ -136,3 +136,9 @@ router.include_router(settings_router)
 # Experimental authenticated provider discovery and native preview.
 from .storefront.router import router as storefront_data_router
 router.include_router(storefront_data_router)
+
+# Explicit reviewed website settings, each retaining its module permission.
+from app.platform.core.storefront.router import router as core_website_router
+from app.activities.general.modules.inventory.storefront.router import router as inventory_website_router
+router.include_router(core_website_router)
+router.include_router(inventory_website_router)
