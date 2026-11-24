@@ -18,31 +18,34 @@ async def log(
     changes: dict | None = None,
     note: str | None = None,
 ):
+    # Write only columns the canonical model and migration suite guarantee
+    # (action_type/details/reason); fresh databases carry no other shape.
     tid = current_tenant_id.get()
+    details = json.dumps(changes) if changes else None
     if tid is not None:
         await db.execute(text("""
-            INSERT INTO audit_log (tenant_id, entity_type, entity_id, action, user_id, user_name, changes, note)
-            VALUES (:tid, :etype, :eid, :action, :uid, :uname, CAST(:changes AS jsonb), :note)
+            INSERT INTO audit_log (tenant_id, entity_type, entity_id, action_type, user_id, user_name, details, reason)
+            VALUES (:tid, :etype, :eid, :atype, :uid, :uname, :det, :why)
         """), {
             "tid": tid,
             "etype": entity_type,
             "eid": entity_id,
-            "action": action,
+            "atype": action,
             "uid": user_id,
             "uname": user_name,
-            "changes": json.dumps(changes) if changes else None,
-            "note": note,
+            "det": details,
+            "why": note,
         })
     else:
         await db.execute(text("""
-            INSERT INTO audit_log (entity_type, entity_id, action, user_id, user_name, changes, note)
-            VALUES (:etype, :eid, :action, :uid, :uname, CAST(:changes AS jsonb), :note)
+            INSERT INTO audit_log (entity_type, entity_id, action_type, user_id, user_name, details, reason)
+            VALUES (:etype, :eid, :atype, :uid, :uname, :det, :why)
         """), {
             "etype": entity_type,
             "eid": entity_id,
-            "action": action,
+            "atype": action,
             "uid": user_id,
             "uname": user_name,
-            "changes": json.dumps(changes) if changes else None,
-            "note": note,
+            "det": details,
+            "why": note,
         })
