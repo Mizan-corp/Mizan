@@ -160,3 +160,67 @@ describe('feature-cards sections', () => {
     expect(() => fromPageTree(tree, featuresProject)).toThrow();
   });
 });
+
+describe('gallery sections', () => {
+  const galleryProject: Project = {
+    ...initialProject,
+    sections: [
+      initialProject.sections[0],
+      { id: 'gallery-1', eyebrow: 'IN THE ROOM', title: 'Every angle', description: 'Shot in natural light.', button: '', image: '', visible: { desktop: true, tablet: true, mobile: true }, reversed: false, kind: 'gallery', images: [
+        { src: 'https://images.example.test/one.jpg', alt: 'Chair in a room' },
+        { src: 'https://images.example.test/two.jpg', alt: 'Table detail' },
+      ] },
+    ],
+  };
+
+  it('round-trips a gallery section (lead copy plus every image with alt text)', () => {
+    const restored = roundTrip(galleryProject);
+    const section = restored.sections[1];
+    expect(section.kind).toBe('gallery');
+    expect(section.title).toBe('Every angle');
+    expect(section.images).toEqual(galleryProject.sections[1].images);
+    expect(section.button).toBe('');
+    expect(section.image).toBe('');
+  });
+
+  it('emits one full-width column whose gallery block carries grid mode', () => {
+    const tree = toPageTree(galleryProject);
+    const row = tree.children![1];
+    expect(row.settings.desktop?.columns).toBe(1);
+    expect(row.children).toHaveLength(1);
+    const gallery = row.children![0].children!.find(c => c.type === 'gallery');
+    expect(gallery?.settings.desktop?.mode).toBe('grid');
+    expect((gallery?.content.en as { images: unknown[] }).images).toHaveLength(2);
+  });
+
+  it('drops empty-src rows from the emitted tree but keeps the section valid', () => {
+    const withEmpty: Project = { ...galleryProject, sections: [galleryProject.sections[0], { ...galleryProject.sections[1], images: [{ src: '', alt: 'unfinished' }, ...galleryProject.sections[1].images!] }] };
+    expect(validateProject(withEmpty)).toBe(true);
+    const restored = roundTrip(withEmpty);
+    expect(restored.sections[1].images).toEqual(galleryProject.sections[1].images);
+  });
+
+  it('refuses a gallery block with non-string image fields, and validateProject rejects unsafe sources', () => {
+    const tree = toPageTree(galleryProject);
+    const gallery = tree.children![1].children![0].children!.find(c => c.type === 'gallery')!;
+    (gallery.content.en as { images: unknown[] }).images = [{ src: 42, alt: 'x' }];
+    expect(() => fromPageTree(tree, galleryProject)).toThrow();
+    expect(validateProject({ ...galleryProject, sections: [{ ...galleryProject.sections[1], images: [{ src: 'http://insecure.example/x.jpg', alt: '' }] }] })).toBe(false);
+    expect(validateProject({ ...galleryProject, sections: [{ ...galleryProject.sections[1], images: Array.from({ length: 9 }, () => ({ src: 'https://images.example.test/x.jpg', alt: '' })) }] })).toBe(false);
+  });
+});
+
+describe('layout switching', () => {
+  it('keeps copy fields and per-kind data when a section changes layout and back', () => {
+    const split = initialProject.sections[0];
+    const asFeatures = { ...split, kind: 'features' as const, cards: [{ title: 'One', text: 'Two' }] };
+    const asGallery = { ...asFeatures, kind: 'gallery' as const, images: [{ src: 'https://images.example.test/a.jpg', alt: 'a' }] };
+    const backToFeatures = { ...asGallery, kind: 'features' as const };
+    expect(backToFeatures.cards).toEqual(asFeatures.cards);
+    expect(backToFeatures.images).toEqual(asGallery.images);
+    expect(backToFeatures.title).toBe(split.title);
+    expect(validateProject({ ...initialProject, sections: [backToFeatures] })).toBe(true);
+    const restored = roundTrip({ ...initialProject, sections: [backToFeatures, initialProject.sections[1]] });
+    expect(restored.sections[0].kind).toBe('features');
+  });
+});

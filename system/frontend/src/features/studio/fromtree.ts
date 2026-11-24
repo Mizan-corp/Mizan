@@ -42,6 +42,32 @@ function sectionFromRow(row: PageNode, index: number, lang: string, nextRowId: s
   const leadCol = row.children[0];
   const leadBlocks = leadCol?.type === 'column' ? leadCol.children ?? [] : [];
   const leadHasButton = leadBlocks.some(b => b.type === 'button');
+  if (!anyImage && !leadHasButton && leadBlocks.some(b => b.type === 'gallery')) {
+    // Gallery row: one full-width lead column (eyebrow, heading, intro) with a gallery
+    // block. Emitted by toPageTree for kind 'gallery'.
+    if (row.children.length !== 1) throw new Error('gallery row with unsupported column count');
+    if (leadBlocks.some(c => !['text', 'heading', 'gallery'].includes(c.type))) throw new Error('unsupported gallery lead block');
+    const heading = leadBlocks.find(c => c.type === 'heading');
+    const gallery = leadBlocks.find(c => c.type === 'gallery');
+    if (!heading || !gallery) throw new Error('gallery lead without heading or gallery block');
+    const title = (heading.content[lang] as { text?: string } | undefined)?.text ?? (heading.content.en as { text?: string } | undefined)?.text ?? (heading.content.ar as { text?: string } | undefined)?.text;
+    if (typeof title !== 'string') throw new Error('gallery heading without content');
+    const rawImages = (gallery.content[lang] as { images?: unknown } | undefined)?.images ?? (gallery.content.en as { images?: unknown } | undefined)?.images ?? (gallery.content.ar as { images?: unknown } | undefined)?.images;
+    if (!Array.isArray(rawImages) || rawImages.some(g => !g || typeof (g as {src?:unknown}).src !== 'string' || typeof (g as {alt?:unknown}).alt !== 'string')) throw new Error('gallery block with unsupported images');
+    const texts = leadBlocks.filter(c => c.type === 'text');
+    return {
+      id: `section-${index}`,
+      eyebrow: texts.length > 0 ? htmlText(texts[0], lang) : '',
+      title,
+      description: texts.length > 1 ? htmlText(texts[1], lang) : '',
+      button: '',
+      image: '',
+      visible: { desktop: visible(row, 'desktop'), tablet: visible(row, 'tablet'), mobile: visible(row, 'mobile') },
+      reversed: false,
+      kind: 'gallery',
+      images: (rawImages as { src: string; alt: string }[]).map(g => ({ src: g.src, alt: g.alt })),
+    };
+  }
   if (!anyImage && !leadHasButton) {
     // Feature-cards row: lead copy column (eyebrow, heading, intro; no button/note)
     // plus 1-4 card columns (heading + text). Emitted by toPageTree for kind 'features'.

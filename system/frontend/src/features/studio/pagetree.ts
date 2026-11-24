@@ -27,6 +27,20 @@ export function toPageTree(project: Project): PageNode {
    const count = 1 + cards.length;
    return node(`n_${id}rw`,'columns',{}, {desktop:{columns:count,visible:section.visible.desktop,gap:'l'},tablet:{visible:section.visible.tablet,columns:Math.min(count,2)},mobile:{visible:section.visible.mobile,stack:true}},[lead,...cards]);
   }
+  if (section.kind === 'gallery') {
+   // Image gallery: one full-width lead column (eyebrow, heading, intro) followed by a
+   // gallery block. No button/note/image columns; fromtree tells this shape apart by
+   // the gallery block, fail closed. Empty-src rows are dropped here but stay in the
+   // browser draft so an unfinished row is never a data-loss trap.
+   const images = (section.images ?? []).filter(g => g.src).slice(0, 8).map(g => ({src:g.src, alt:g.alt}));
+   const col = node(`n_${id}cp`,'column',{}, {}, [
+    node(`n_${id}eb`,'text',{html:`<p>${escape(section.eyebrow)}</p>`},{desktop:{variant:'eyebrow'}}),
+    node(`n_${id}hd`,'heading',{text:section.title},{desktop:{level:2}}),
+    node(`n_${id}tx`,'text',{html:`<p>${escape(section.description)}</p>`}),
+    node(`n_${id}gl`,'gallery',{images},{desktop:{mode:'grid'}}),
+   ]);
+   return node(`n_${id}rw`,'columns',{}, {desktop:{columns:1,visible:section.visible.desktop,gap:'l'},tablet:{visible:section.visible.tablet},mobile:{visible:section.visible.mobile,stack:true}},[col]);
+  }
   const copy = node(`n_${id}cp`,'column',{}, {}, [
    node(`n_${id}eb`,'text',{html:`<p>${escape(section.eyebrow)}</p>`},{desktop:{variant:'eyebrow'}}),
    node(`n_${id}hd`,'heading',{text:section.title},{desktop:{level:1}}),

@@ -20,8 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 async def audit(db: AsyncSession, action: str, entity_type: str, entity_id, user_id, reason: str | None = None,
                 details: dict | None = None) -> None:
     await db.execute(text("""
-        INSERT INTO hr_audit_log (action_type, entity_type, entity_id, performed_by, reason, details)
-        VALUES (:action, :entity, :eid, :by, :reason, CAST(:det AS jsonb))
+        INSERT INTO hr_audit_log (id, tenant_id, action_type, entity_type, entity_id, performed_by, reason, details)
+        VALUES (gen_random_uuid(), NULLIF(current_setting('app.tenant_id', true), '')::uuid, :action, :entity, :eid, :by, :reason, CAST(:det AS jsonb))
     """), {"action": action, "entity": entity_type, "eid": str(entity_id) if entity_id is not None else None,
            "by": str(user_id) if user_id else None, "reason": reason or "",
            "det": json.dumps(jsonable_encoder(details or {}), ensure_ascii=False)})

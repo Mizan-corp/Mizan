@@ -143,8 +143,8 @@ async def reset_password(user_id: uuid.UUID, data: PasswordReset, db: AsyncSessi
     user.password_hash = hash_password(data.password)
     user.tokens_valid_after = sessions_end_now()  # their open sessions end (#77)
     await db.execute(sqlt(
-        "INSERT INTO hr_audit_log (action_type, entity_type, entity_id, performed_by, reason, details) VALUES ('update', 'user', :eid, :by, 'إعادة تعيين كلمة المرور', CAST(:det AS jsonb))"
-    ), {"eid": str(user_id), "by": current_user.id, "det": '{"action":"password_reset"}'})
+        "INSERT INTO hr_audit_log (id, tenant_id, action_type, entity_type, entity_id, performed_by, reason, details) VALUES (gen_random_uuid(), :tid, 'update', 'user', :eid, :by, 'إعادة تعيين كلمة المرور', CAST(:det AS jsonb))"
+    ), {"tid": str(current_user.tenant_id), "eid": str(user_id), "by": current_user.id, "det": '{"action":"password_reset"}'})
     await db.commit()
 
 
