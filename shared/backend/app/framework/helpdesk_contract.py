@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 CONTRACT_VERSION = 1
-FEATURES = frozenset({"service_catalog"})
+FEATURES = frozenset({"service_catalog", "work_completion"})
 
 
 def feature_state(saved: Mapping[str, Any] | None) -> dict[str, bool]:
