@@ -92,8 +92,12 @@ export function slugFromName(name: string): string {
   return slug || 'home';
 }
 
-export function createPayload(project: Project): { slug: string; titles: Record<string, string>; tree: PageNode } {
-  return { slug: slugFromName(project.name), titles: { [project.language]: project.name }, tree: toPageTree(project) };
+export function createPayload(project: Project, slugOverride?: string): { slug: string; titles: Record<string, string>; tree: PageNode } {
+  const requested = (slugOverride ?? '').trim();
+  if (requested && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(requested)) {
+    throw new Error('Use lowercase letters, numbers and single hyphens for the page address.');
+  }
+  return { slug: requested || slugFromName(project.name), titles: { [project.language]: project.name }, tree: toPageTree(project) };
 }
 
 export function draftPayload(project: Project): { tree: PageNode; titles: Record<string, string> } {
@@ -155,7 +159,7 @@ export function createSitePagesClient(options: { baseUrl: string; fetchImpl?: Fe
     discoverData: () => call<{modules:unknown[];collections?:unknown[]}>('GET','/site/data'),
     previewData: (tree:PageNode,language:string,device:string) => call<{tree:PageNode;html:string}>('POST','/site/data/preview',{tree,language,device}),
     listPages: () => call<ListResponse<PageSummary>>('GET', '/site/pages'),
-    createPage: (project: Project) => call<PageDetail>('POST', '/site/pages', createPayload(project)),
+    createPage: (project: Project, slug?: string) => call<PageDetail>('POST', '/site/pages', createPayload(project, slug)),
     createNativePage: (payload: {slug:string;titles:Record<string,string>;tree:PageNode}) => call<PageDetail>('POST', '/site/pages', payload),
     getPage: (pageId: string) => call<PageDetail>('GET', `/site/pages/${pageId}`),
     saveTreeDraft: (pageId: string, tree: PageNode, expectedToken?: string, titles?:Record<string,string>) => call<PageDetail>('PUT', `/site/pages/${pageId}/draft`, { tree, ...(expectedToken?{expected_token:expectedToken}:{}),...(titles?{titles}:{}) }),

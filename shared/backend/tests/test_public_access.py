@@ -261,6 +261,20 @@ class ResponsiveCssTests(unittest.TestCase):
         self.assertIn('href="/welcome"', html)
         self.assertNotIn("/site/studio", html)
 
+    def test_content_button_links_rebase_under_the_site_base(self):
+        from app.platform.site import render
+        tree = {"type": "section", "id": "s1", "settings": {},
+                "children": [{"type": "button", "id": "b1", "settings": {},
+                              "content": {"en": {"label": "Go", "href": "/welcome"}}},
+                             {"type": "button", "id": "b2", "settings": {},
+                              "content": {"en": {"label": "Top", "href": "#top"}}}]}
+        with patch("app.platform.site.render.page_problems", return_value=[]):
+            html = render.render_document(tree, {"titles": {"en": "Hi"}, "languages": ["en"]},
+                                          None, lang="en", link_base="/site/studio")
+        self.assertIn('href="/site/studio/welcome"', html)
+        self.assertIn('href="#top"', html)
+        self.assertNotIn('href="/welcome"', html)
+
     def test_anchor_absolute_and_protocol_relative_links_are_never_rebased(self):
         html = self._chrome_html(
             [{"label": "A", "href": "#top"}, {"label": "B", "href": "https://example.com/x"}],

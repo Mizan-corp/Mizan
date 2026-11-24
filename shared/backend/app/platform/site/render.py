@@ -81,7 +81,7 @@ def _content(node: dict, lang: str) -> dict:
 _SPACER_PX = {"none": 0, "xs": 8, "s": 16, "m": 32, "l": 64, "xl": 128}
 
 
-def _render_node_inner(node: dict, lang: str, device: str) -> str:
+def _render_node_inner(node: dict, lang: str, device: str, link_base: str | None = None) -> str:
     ntype = node.get("type")
     if ntype not in PAGE_BLOCKS:
         return ""
@@ -89,7 +89,7 @@ def _render_node_inner(node: dict, lang: str, device: str) -> str:
     if s.get("visible") is False:
         return ""
     c = _content(node, lang)
-    kids = "".join(_render_node(k, lang, device) for k in node.get("children") or [] if isinstance(k, dict))
+    kids = "".join(_render_node(k, lang, device, link_base) for k in node.get("children") or [] if isinstance(k, dict))
 
     if ntype == "section":
         return f'<section class="mz-section">{kids}</section>'
@@ -99,7 +99,7 @@ def _render_node_inner(node: dict, lang: str, device: str) -> str:
         count = count or len(node.get("children") or []) or 1
         stack = " mz-stack" if s.get("stack") else ""
         if s.get("reverse") is True:
-            kids = "".join(_render_node(k, lang, device) for k in reversed(node.get("children") or []) if isinstance(k, dict))
+            kids = "".join(_render_node(k, lang, device, link_base) for k in reversed(node.get("children") or []) if isinstance(k, dict))
         return f'<div class="mz-columns mz-columns-{int(count)}{stack}">{kids}</div>'
     if ntype == "column":
         return f'<div class="mz-column">{kids}</div>'
@@ -147,6 +147,7 @@ def _render_node_inner(node: dict, lang: str, device: str) -> str:
         href = _safe_href(c.get("href"))
         if href is None:
             return ""
+        href = _site_link(href, link_base)
         style = s.get("style") if s.get("style") in ("primary", "secondary", "ghost") else "primary"
         return f'<a class="mz-button mz-button-{style}" href="{_esc(href)}">{_esc(c.get("label", ""))}</a>'
     if ntype == "icon_list":
@@ -165,10 +166,10 @@ def _render_node_inner(node: dict, lang: str, device: str) -> str:
     return ""
 
 
-def _render_node(node: dict, lang: str, device: str) -> str:
+def _render_node(node: dict, lang: str, device: str, link_base: str | None = None) -> str:
     if _settings(node, device).get("visible") is False:
         return ""
-    rendered = _render_node_inner(node, lang, device)
+    rendered = _render_node_inner(node, lang, device, link_base)
     if not rendered:
         return ""
     # Only registry enum tokens become classes, never arbitrary CSS from the tree.
@@ -213,7 +214,8 @@ for _token, _size in _SPACER_PX.items():
     _BASE_CSS += f".mz-padding-{_token}{{padding:{_size}px}}.mz-gap-{_token}{{gap:{_size}px}}.mz-height-{_token} .mz-spacer{{height:{_size}px}}"
 
 
-def render_page(tree: dict, lang: str = "ar", device: str = "desktop", validate: bool = True) -> str:
+def render_page(tree: dict, lang: str = "ar", device: str = "desktop", validate: bool = True,
+                link_base: str | None = None) -> str:
     """The page body: every visible block of the published tree, in order."""
     if validate and page_problems(tree):
         raise ValueError("render_page() takes a tree that passed page_problems()")
@@ -221,7 +223,7 @@ def render_page(tree: dict, lang: str = "ar", device: str = "desktop", validate:
         return isinstance(node, dict) and ("bindings" in node or "repeat" in node or "card" in node or any(unresolved(c) for c in node.get("children", []) or []))
     if unresolved(tree):
         raise ValueError("Dynamic content requires authorized provider resolution before rendering.")
-    return _render_node(tree, lang, device)
+    return _render_node(tree, lang, device, link_base)
 
 
 def _site_link(href: str, link_base: str | None) -> str:
@@ -350,6 +352,6 @@ def render_document(tree: dict, meta: dict, theme: dict | None = None, lang: str
         head.append(f'<meta property="og:description" content="{_esc(description)}">')
 
     header_html, footer_html = _theme_chrome(theme, link_base=link_base)
-    body = header_html + render_page(tree, lang=lang, device=device) + footer_html
+    body = header_html + render_page(tree, lang=lang, device=device, link_base=link_base) + footer_html
     return _DOCUMENT.render(language=lang, direction=direction,
                             head="\n".join(head) + "<style>" + _BASE_CSS + "</style>" + _theme_style(theme), body=body)

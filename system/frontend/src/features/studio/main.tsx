@@ -10,7 +10,7 @@ import { shouldWarnBeforeLeave, browserSaveLabel, backendSaveLabel } from './per
 import { createOperationGate, snapshotKey, saveResultNotice } from './saveState';
 import { choosePage } from './pageIdentity';
 import { restoreEditablePage } from './editSession';
-import { SiteApiError, applySettings, createSitePagesClient, type PageDetail, type PublicAccess } from './sitePages';
+import { SiteApiError, applySettings, createSitePagesClient, type PageDetail, type PageSummary, type PublicAccess } from './sitePages';
 
 // The local-only backend bridge (vite.studio.config.ts): present only when a developer
 // boots a LOOPBACK test API with MIZAN_SITE_API + MIZAN_SITE_TOKEN. Saves through it go
@@ -39,6 +39,8 @@ function Studio() {
   const [selected, select] = useState(project.sections[0].id);
   const [device, setDevice] = useState<Device>('desktop');
   const [conn, setConn] = useState<Conn>({ state: 'checking' });
+  const [pageList, setPageList] = useState<PageSummary[]>([]);
+  const [newSlug, setNewSlug] = useState('');
   const [notice, setNotice] = useState(HOSTED ? 'Checking the workspace backend...' : 'Local prototype. Checking for a local test backend...');
   const leaveState = { current: snapshotKey(project), baseline: baseline.current, browserSaved: browserKey, backendSaved: savedKey, backendConnected: conn.state === 'on', busy: !!busy };
   useEffect(() => {
@@ -53,6 +55,7 @@ function Studio() {
       try {
         const list = await api.listPages();
         if (cancelled) return;
+        setPageList(list.items.filter(p => p.status !== 'archived'));
         // Durable theme/chrome: apply the stored settings before the tree restore so a
         // wiped browser still gets the workspace's saved palette, typeface and radius.
         let base = project; let settingsLoaded = false;
@@ -122,7 +125,7 @@ function Studio() {
       let page = conn.page;
       if (!page) {
         try {
-          page = await api.createPage(snapshot);
+          page = await api.createPage(snapshot, newSlug || undefined);
         } catch (e) {
           if (!(e instanceof SiteApiError && e.isConflict)) throw e;
           setConn({ state: 'blocked', reason: 'A page with this address already exists. Reload to check whether it can be edited safely.' });
@@ -196,7 +199,7 @@ function Studio() {
   const selectFromPreview = (e: React.MouseEvent) => { const el = (e.target as HTMLElement).closest('[id^="n_"]'); if (!el) return; const hit = project.sections.find(s => el.id.startsWith(sectionNodePrefix(s.id))); if (hit) select(hit.id); };
   const colorStyle = { '--paper': project.colors.background, '--ink': project.colors.foreground, '--accent': project.colors.accent, '--radius': `${project.radius}px`, fontFamily: project.font } as CSSProperties;
   return <div className="studio-root">
-    <header className="studio-top"><div className="studio-brand"><b>m.</b><span>Web studio <small>EXPERIMENTAL</small></span></div><span className="project-name">{project.name} <i>Draft</i></span><div className="top-actions" inert={conn.state === 'checking'}><button disabled={conn.state === 'checking' || !history.length} onClick={() => { const last = history.at(-1); if (last) { setProject(last); setHistory(h => h.slice(0,-1)); } }}>Undo</button><button disabled={conn.state === 'checking'} onClick={exportFile}>Export</button><button disabled={conn.state === 'checking'} onClick={sharedPreview}>Shared renderer</button>{conn.state === 'on' && <button disabled={!!busy} className="save" onClick={saveServer}>{busy === 'save' ? 'Saving snapshot...' : (HOSTED ? 'Save to workspace' : 'Save to local backend')}</button>}{conn.state === 'on' && conn.page && <button disabled={!!busy || savedKey !== snapshotKey(project)} title={savedKey !== snapshotKey(project) ? 'Save current changes before publishing' : (HOSTED ? 'Publish the saved snapshot on this workspace' : 'Publish the saved local-test snapshot')} onClick={publishServer}>{busy === 'publish' ? 'Publishing snapshot...' : (HOSTED ? 'Publish' : 'Publish (local test)')}</button>}{HOSTED && conn.state === 'on' && conn.page && conn.page.published && <button disabled={!!busy} title="Synthetic scope: anonymous visitors see content only, never business data" onClick={togglePublic}>{access?.enabled ? 'Make private' : 'Make public'}</button>}<button disabled={conn.state === 'checking'} className="save" onClick={save}>Save local draft</button></div></header>
+    <header className="studio-top"><div className="studio-brand"><b>m.</b><span>Web studio <small>EXPERIMENTAL</small></span></div><span className="project-name">{project.name} <i>Draft</i></span>{conn.state !== 'checking' && pageList.length > 0 && <select className="page-switcher" aria-label="Open page" value={conn.state === 'on' ? (conn.page ? conn.page.id : 'new') : ''} onChange={e => { const url = new URL(window.location.href); url.searchParams.set('page', e.target.value); window.location.href = url.toString(); }}>{conn.state !== 'on' && <option value="" disabled>Choose a page</option>}{pageList.map(p => <option key={p.id} value={p.id}>{p.titles[project.language] ?? p.titles.en ?? p.slug}{p.published ? ' · published' : ''}</option>)}<option value="new">+ New page</option></select>}{conn.state === 'on' && !conn.page && <label className="slug-field">Page address <input aria-label="New page address" value={newSlug} maxLength={80} placeholder={project.name ? undefined : 'about-us'} spellCheck={false} onChange={e => setNewSlug(e.target.value.toLowerCase())}/> <small>Lowercase letters, numbers, hyphens. Fixed after the first save.</small></label>}<div className="top-actions" inert={conn.state === 'checking'}><button disabled={conn.state === 'checking' || !history.length} onClick={() => { const last = history.at(-1); if (last) { setProject(last); setHistory(h => h.slice(0,-1)); } }}>Undo</button><button disabled={conn.state === 'checking'} onClick={exportFile}>Export</button><button disabled={conn.state === 'checking'} onClick={sharedPreview}>Shared renderer</button>{conn.state === 'on' && <button disabled={!!busy} className="save" onClick={saveServer}>{busy === 'save' ? 'Saving snapshot...' : (HOSTED ? 'Save to workspace' : 'Save to local backend')}</button>}{conn.state === 'on' && conn.page && <button disabled={!!busy || savedKey !== snapshotKey(project)} title={savedKey !== snapshotKey(project) ? 'Save current changes before publishing' : (HOSTED ? 'Publish the saved snapshot on this workspace' : 'Publish the saved local-test snapshot')} onClick={publishServer}>{busy === 'publish' ? 'Publishing snapshot...' : (HOSTED ? 'Publish' : 'Publish (local test)')}</button>}{HOSTED && conn.state === 'on' && conn.page && conn.page.published && <button disabled={!!busy} title="Synthetic scope: anonymous visitors see content only, never business data" onClick={togglePublic}>{access?.enabled ? 'Make private' : 'Make public'}</button>}<button disabled={conn.state === 'checking'} className="save" onClick={save}>Save local draft</button></div></header>
     <div className="studio-notice" role="status" aria-busy={!!busy}>{notice} {access?.enabled && access.url && <a className="public-link" href={access.url} target="_blank" rel="noreferrer">Public: {access.url}</a>} <span>{conn.state === 'on' ? (HOSTED ? `Workspace backend · page: ${conn.page?.slug ?? 'not created yet'} · publishing an activated page changes the public test host` : `Local test backend only · page: ${conn.page?.slug ?? 'not created yet'} · never the public site`) : 'No server publishing · no customer data'}</span></div>
     <div className="persistence-bar" aria-label="Save status"><span>{browserSaveLabel(snapshotKey(project), browserKey)}</span><span>{backendSaveLabel(snapshotKey(project), savedKey, conn.state === 'on')}</span>{busy && <strong>Operation in progress</strong>}{shouldWarnBeforeLeave(leaveState) && <span className="leave-warning">Leaving may lose edits or interrupt an operation.</span>}</div>
     {storageError && <div className="storage-error" role="alert">{storageError}</div>}
