@@ -35,3 +35,20 @@ Actual-router regression additionally verified generic-settings GET omits the ke
 Discovery currently exposes existing scalar/name collections only. Card UI has a fixed reviewed inventory capability; do not describe generic arbitrary module-card discovery as complete. SDK Python manifest mirrors backend; no separate public SDK typed media helpers shipped yet.
 
 Limitations: one card template, no heading-repeat mixing, direct targets only, no public dynamic route/cache, cart/orders/checkout, upload control or signed-in shopper resources. No allwirya parity claim. The data scope remains explicit, default-empty and internal ERP modules remain private.
+
+
+## Hosted follow-up, 06:52 Cairo
+
+The name plus price subset passed on the isolated canonical test site https://mizan-studio-feature-test.vercel.app/ . Deployment dpl_GFbMUYD57gB9GBARvnn8pksBSzg6 was built from application checkpoint 9b92e8213153ab50b0e223823362b551563d7905. Protected candidate Studio/ERP HTML and all nine referenced JS/CSS files were checked before test canonical promotion. Immediate normal ERP login and settled products body passed.
+
+Normal owner UI added the card template, selected the fixture product through separate card policy, opted into retail display price and explicitly chose EGP. Column targets were mapped through Layers/inspector, draft saved and fully reloaded. Product name and exact 12.50 EGP displayed. Mobile device mode at 390px passed no horizontal overflow. Public dynamic publish stayed409. Page/policy authoring was UI-only; fixture provisioning and cleanup were outside UI. Compare-before-restore verified exact original policy, page tree, titles, published tree and status; the temporary product was deleted and absence checked. Credential files removed.
+
+Hosted image consent stayed OFF. The test tenant has zero existing product-image metadata and zero product image URLs, checked live. No other tenant media was borrowed, no private file exposed, no paid upload made. Hosted owned-image storage/delivery remains UNVERIFIED. Local metadata plus loading proof above does not remove this caveat.
+
+### Additional rollback and permission checks
+
+Real database transaction checks refused missing file metadata, wrong product owner, wrong kind, SVG MIME, URL mismatch and wrong tenant URL even with a matching file record. Exact tenant/product/kind/URL/raster metadata was accepted; inactive product returned no row; dedicated settings refused inactive inventory422. Outer transaction rolled back, temporary product and file rows were confirmed absent. No storage upload.
+
+Actual FastAPI route dependencies were tested with injected identity and no DB: no grants, site.manage only and inventory only each got403 for card settings GET/PUT. Inventory-only preview got403. This checks the real permission dependencies, not a fresh persisted-user login. Existing hosted test used the ordinary authenticated owner.
+
+This follow-up supersedes the earlier no-deployment statement for the name/price subset only. It does not change any unfinished-public-runtime, media, template or commerce boundary.
