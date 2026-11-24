@@ -1,7 +1,7 @@
 import {pageRecipes} from './library/pages/recipes';
 import type { PageNode } from './pagetree';
 import { nativeNodes } from './nativeTree';
-export type PresetKind='hero'|'story'|'callout'|'features'|'quote'|'contact'|'hero_center'|'feedback_cards'|'features_split'|'pricing_cards'|'pricing_simple'|'faq_list'|'faq_columns'|'contact_split'|'gallery_pair'|'gallery_grid'|'team_pair'|'team_grid';
+export type PresetKind='product_card'|'hero'|'story'|'callout'|'features'|'quote'|'contact'|'hero_center'|'feedback_cards'|'features_split'|'pricing_cards'|'pricing_simple'|'faq_list'|'faq_columns'|'contact_split'|'gallery_pair'|'gallery_grid'|'team_pair'|'team_grid';
 export type TemplateKind='studio'|'service'|'editorial';
 export {blockCatalog} from './library/blocks/catalog';
 export const templateCatalog:{id:TemplateKind;name:string;description:string}[]=[
@@ -24,6 +24,7 @@ export function createPreset(tree:PageNode,kind:PresetKind):PageNode {
  const row=(children:PageNode[])=>node('columns',{}, {desktop:{columns:children.length,gap:'m'},mobile:{stack:true}},children);
  const art=(alt:string,alternate=false)=>node('image',{alt},{desktop:{art:alternate?'sculpture_alt':'sculpture',rounded:true}});
  const link=(label:string)=>node('button',{label,href:'/contact'},{desktop:{style:'secondary'}});
+ if(kind==='product_card')return row([col([h('Product card template'),t('Display price placeholder, hidden unless explicitly connected'),node('image',{alt:'Product image placeholder'},{desktop:{art:'none',rounded:true}})])]);
  if(kind==='hero_center')return row([col([h('A new way to see your everyday.',1),t('Your headline, your vision. Tell people what you are here to make possible.'),link('Start a conversation'),art('Editable introduction artwork')],'center')]);
  if(kind==='feedback_cards')return row([col([h('“A thoughtful experience from start to finish.”'),t('Sample testimonial. Replace with a real quote you have permission to use.'),t('Customer name · Role')]),col([h('“The detail made all the difference.”'),t('Sample testimonial. Replace before publishing.'),t('Customer name · Role')])]);
  if(kind==='features_split')return row([col([art('Editable benefit illustration',true)]),col([h('One idea. A meaningful difference.',2),t('Describe a clear benefit and show why it matters. Keep the explanation in your own voice.'),link('Learn more')])]);
