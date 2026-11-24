@@ -453,6 +453,19 @@ async def set_public_access(db: AsyncSession, page_id: uuid.UUID, *, enabled: bo
         raise HTTPException(409, "Pages that read business data cannot be made public in synthetic scope")
     host = _public_host()
     if enabled:
+        # Fail-closed on managed rows (review F1): an activation row carrying
+        # allow_connected_data=True can only come from a separately approved
+        # operation. An ordinary availability toggle must not re-enable such a
+        # row: that would expose connected data publicly without renewed scope.
+        # Refuse instead of silently stripping the approved flag. Disabling is
+        # unaffected and never touches the flag.
+        existing = (await db.execute(text(
+            "SELECT allow_connected_data FROM site_activation"
+            " WHERE host = :h AND slug = :s AND page_path = :p"
+        ), {"h": host, "s": PUBLIC_SITE_SLUG, "p": page.slug})).first()
+        if existing is not None and existing.allow_connected_data:
+            raise HTTPException(409, "This address has a managed connected-data activation. "
+                                "Re-enabling public access needs the separately approved operation; the page stays private.")
         problems = synthetic_scope_violations(page.published_tree, host)
         if problems:
             raise HTTPException(422, "This page cannot be made public: it references " + ", ".join(problems)

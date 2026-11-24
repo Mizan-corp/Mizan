@@ -38,9 +38,10 @@ def page(slug="hello", status="published", published=True):
     return p
 
 
-def db_with(activation_enabled=None):
+def db_with(activation_enabled=None, allow_connected_data=False):
     db = AsyncMock()
-    row = (MagicMock(enabled=activation_enabled) if activation_enabled is not None else None)
+    row = (MagicMock(enabled=activation_enabled, allow_connected_data=allow_connected_data)
+           if activation_enabled is not None else None)
     calls = []
 
     async def _exec(stmt, params=None):
@@ -153,6 +154,54 @@ class SetPublicAccessTests(unittest.IsolatedAsyncioTestCase):
                 await service.set_public_access(db, PAGE_ID, enabled=True, user_id=UID)
         self.assertEqual(ctx.exception.status_code, 409)
         self.assertFalse(any("INSERT INTO site_activation" in sql for sql, _ in db._calls))
+
+
+class ManagedActivationConflictTests(unittest.IsolatedAsyncioTestCase):
+    """Review F1 (fail-closed conflict path): an activation row carrying
+    allow_connected_data=True comes only from a separately approved operation.
+    The ordinary availability toggle must never re-enable it - that would
+    expose connected data publicly without renewed scope. Disabling stays
+    allowed and leaves the approved flag untouched."""
+
+    async def test_enable_refuses_managed_connected_data_activation(self):
+        db = db_with(activation_enabled=False, allow_connected_data=True)
+        with patched_page(page()), patch.object(settings, "PUBLIC_SITE_HOST", HOST):
+            with self.assertRaises(HTTPException) as ctx:
+                await service.set_public_access(db, PAGE_ID, enabled=True, user_id=UID)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertIn("managed connected-data activation", str(ctx.exception.detail))
+        self.assertFalse(any("INSERT INTO site_activation" in sql for sql, _ in db._calls))
+
+    async def test_disable_keeps_managed_activation_flag(self):
+        db = db_with(activation_enabled=True, allow_connected_data=True)
+        token = service.current_tenant_id.set(TID)
+        try:
+            with patched_page(page()), \
+                 patch.object(settings, "PUBLIC_SITE_HOST", HOST), \
+                 patch.object(service, "get_settings", new=AsyncMock(return_value={})):
+                await service.set_public_access(db, PAGE_ID, enabled=False, user_id=UID)
+        finally:
+            service.current_tenant_id.reset(token)
+        upserts = [(sql, params) for sql, params in db._calls if "INSERT INTO site_activation" in sql]
+        self.assertEqual(len(upserts), 1)
+        sql, params = upserts[0]
+        self.assertEqual(params["en"], False)
+        # The conflict UPDATE must never touch allow_connected_data.
+        self.assertNotIn("allow_connected_data", sql.split("DO UPDATE", 1)[1])
+
+    async def test_enable_existing_plain_activation_still_works(self):
+        db = db_with(activation_enabled=False, allow_connected_data=False)
+        token = service.current_tenant_id.set(TID)
+        try:
+            with patched_page(page()), \
+                 patch.object(settings, "PUBLIC_SITE_HOST", HOST), \
+                 patch.object(service, "get_settings", new=AsyncMock(return_value={})):
+                await service.set_public_access(db, PAGE_ID, enabled=True, user_id=UID)
+        finally:
+            service.current_tenant_id.reset(token)
+        upserts = [(sql, params) for sql, params in db._calls if "INSERT INTO site_activation" in sql]
+        self.assertEqual(len(upserts), 1)
+        self.assertEqual(upserts[0][1]["en"], True)
 
 
 def _fake_revision_model():

@@ -87,3 +87,13 @@ Hosted mobile390 controls and preview were inspected; no physical-device accepta
 Final tests: frontend101passed/1skip, backend22passed, focused TS/build passed. Local browser desktop/mobile source failure and409 save-conflict checks passed. The actual authenticated cross-tenant page request returned404 and client-provided tenant override422. Three no-grant principal dependency checks returned403, labeled as dependency tests rather than real non-owner login.
 
 This slice supports only scalar plain-text heading binding to site-owned saved website brand. It does not support product collections, prices/currency, media, commands, cart/checkout, general package discovery or public dynamic publishing. Dynamic publish stays409 until public site-service resolution exists. It is a first real no-code data binding, not benchmark recreation or full readiness. Rollback deployment is dpl_9jN8ZgUBxKaHjELPjTTBJdt7gxHi. Other application frontend entries, API adapters and routing config were preserved byte-for-byte; the shared site backend changed only for this experimental binding slice.
+
+### Known limitation: activation key is per deployment host, not per tenant
+
+`site_activation` is unique on `(host, slug, page_path)` with no `tenant_id`
+in the key. That is safe only because each deployment's `PUBLIC_SITE_HOST` is
+a single-tenant host (the isolated test host today). A future multi-tenant
+shared host would let one tenant's toggle collide with another tenant's row;
+that needs a grounded schema plan (tenant in the key) before any such host is
+configured. Recorded per review finding F2; no schema redesign without that
+plan.
