@@ -235,4 +235,4 @@ function Studio() {
     </div>
   </div>;
 }
-createRoot(document.getElementById('root')!).render(new URLSearchParams(location.search).get('editor') === 'tree' ? <NativeStudio/> : <Studio />);
+createRoot(document.getElementById('root')!).render(new URLSearchParams(location.search).get('editor') === 'tree' ? <NativeStudio apiBase={API_BASE}/> : <Studio />);
