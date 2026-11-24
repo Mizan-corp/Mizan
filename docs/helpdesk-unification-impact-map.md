@@ -1,5 +1,7 @@
 # Unified Help Desk: impact map and migration boundary
 
+Current implementation: see [Help Desk current status](helpdesk-current-status.md). The dated checkpoints below describe their time, not the latest hosted state.
+
 Status: implementation direction approved by24November08:16–08:20user messages; this document is the reversible architecture checkpoint, not completed migration. Current healthy isolated deployment remains unchanged.
 
 ## Two independent axes
