@@ -26,6 +26,11 @@
       "id": "helpdesk:work:view",
       "name": "عرض طلبات العمل الموحدة",
       "name_en": "View unified service work"
+    },
+    {
+      "id": "helpdesk:work:complete",
+      "name": "إنهاء أوامر الصيانة الميدانية",
+      "name_en": "Complete field-service work"
     }
   ],
   "screens": [
@@ -48,6 +53,13 @@
       "type": "boolean",
       "default": false,
       "description": "Independent module feature, available in every variation. Disabling preserves service records."
+    },
+    {
+      "key": "work_completion",
+      "label": "إنهاء أوامر الصيانة الميدانية",
+      "type": "boolean",
+      "default": false,
+      "description": "Independent module feature in every variation. Requires completion, work-read and source permissions. Does not enable property status writes."
     }
   ]
 }
