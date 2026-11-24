@@ -813,9 +813,15 @@ def page_card_problems(value, node_type, languages=None):
     errors=[]
     for language, plan in content.items():
         if language not in ("en","ar") or (languages is not None and language not in languages):errors.append("card: unsupported language")
-        if not isinstance(plan, dict) or set(plan) != {"module","source","limit","targets"}:
+        if not isinstance(plan, dict) or set(plan) not in ({"module","source","limit","targets"},{"module","source","limit","targets","products"}):
             errors.append("card: exact source and targets required");continue
         if plan['module'] != 'inventory' or plan['source'] != 'website_cards' or type(plan['limit']) is not int or not 1 <= plan['limit'] <= 6:errors.append("card: unsupported source or bound")
+        if 'products' in plan:
+            from uuid import UUID
+            ids=plan['products']
+            try:
+                if not isinstance(ids,list) or len(ids)>6 or any(not isinstance(x,str) or str(UUID(x))!=x for x in ids) or len(set(ids))!=len(ids):errors.append('card: exact bounded product subset required')
+            except (ValueError,TypeError):errors.append('card: invalid product identity')
         targets=plan['targets']
         if not isinstance(targets,dict) or set(targets) != {'name','price','image'} or any(not isinstance(v,str) or not PAGE_NODE_ID.fullmatch(v) for v in targets.values()) or len(set(v for v in targets.values() if isinstance(v,str))) != 3:errors.append("card: distinct native targets required")
     return errors
