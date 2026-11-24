@@ -1,3 +1,7 @@
+# Current state, 24 November 2026 at11:34
+
+The bounded non-posting execution worksheet is now hosted at https://mizan-studio-feature-test.vercel.app/, source ba722ca8a5bb39e70bd91dc2baca09cdadb51ad8. Four independent default-off Help Desk features are deployed. Hosted real-JWT/API and full-ERP UI acceptance/cleanup passed; see helpdesk-current-status.md for current evidence. Earlier local-only statements below are dated implementation history. No stock/financial posting or complete business-flow claim.
+
 # Unified service execution and cost trace
 
 24 November 2026. Corrected design after the user's site-work/resource concern and whole-business instruction. This supersedes the dispatch-only proposal as the next implementation direction. No claim of completed workflow.
