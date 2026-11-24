@@ -271,3 +271,4 @@
 .mz-home .entry-primary{background:var(--teal);color:#fff;border:none;border-radius:12px;padding:11px 22px;font-size:14px;font-weight:600;box-shadow:0 4px 14px rgba(14,124,102,.28)}
 .mz-home .entry-new-actions{display:flex;gap:10px;margin-top:8px}
 .mz-home .entry-new-actions button:not(.entry-primary){background:var(--surface);border:1px solid var(--hairline);border-radius:12px;padding:11px 18px;font-size:13.5px;font-weight:600;color:var(--ink)}
+.mz-more{margin-inline-start:auto;font-size:13px;color:var(--teal);font-weight:600;background:none;border:none;padding:4px 6px}

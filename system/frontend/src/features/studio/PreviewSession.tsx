@@ -36,6 +36,7 @@ export default function PreviewSession({config}:{config:PreviewConfig}){
  const [username,setUsername]=useState(''),[password,setPassword]=useState(''),[workspace,setWorkspace]=useState('studio-test');
  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[pages,setPages]=useState<Page[]>([]);
  const [creating,setCreating]=useState(false),[kitOpen,setKitOpen]=useState(false),[query,setQuery]=useState('');
+ const [displayName,setDisplayName]=useState('');
  const [pageId,setPageId]=useState(()=>new URLSearchParams(location.search).get('page')??'');
  async function check(){
   const result=await fetch(config.apiBase+'/site/pages',{credentials:'include',cache:'no-store'});
@@ -43,6 +44,7 @@ export default function PreviewSession({config}:{config:PreviewConfig}){
   if(!result.ok)throw Error(result.status===403?'الحساب ده مش من حقه يعدّل الموقع ده. سجّل دخولك بحساب الاستوديو بتاعك.':'مقدرناش نفتح مساحة العمل. صفحاتك زي ما هي، جرّب تاني.');
   const data=await result.json();if(!Array.isArray(data.items))throw Error('مقدرناش نحمّل صفحاتك. جرّب تاني.');
   setPages(data.items.filter((p:Page)=>p.status!=='archived'));setState('ready');
+  fetch(config.apiBase+'/auth/me',{credentials:'include',cache:'no-store'}).then(r=>r.ok?r.json():null).then(me=>{const n=(me?.full_name??'').trim();if(n)setDisplayName(n.split(/\s+/)[0])}).catch(()=>{});
  }
  useEffect(()=>{check().catch(e=>{setError(e.message);setState('signin')})},[]);
  async function signIn(e:React.FormEvent){e.preventDefault();if(busy)return;setBusy(true);setError('');
@@ -66,7 +68,7 @@ export default function PreviewSession({config}:{config:PreviewConfig}){
    <button className="mz-btn primary big" type="submit" style={{width:'100%',justifyContent:'center',marginTop:6}}>{busy?'بنسجّل دخولك…':'دخول'}</button>
   </fieldset>
  </form></div></div>;
- const name=username.trim();
+ const name=displayName||username.trim();
  return <div className="mz-home">
   <div className="mz-topbar">
    <div className="mz-logo"><div className="mz-logo-mark"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round"><path d="M12 4v13M8 20h8M4 8h16"/><circle cx="7" cy="12.5" r="2.6"/><circle cx="17" cy="12.5" r="2.6"/></svg></div>ميزان ستوديو</div>
@@ -85,7 +87,7 @@ export default function PreviewSession({config}:{config:PreviewConfig}){
      <button className="mz-btn ghost big" onClick={()=>document.getElementById('mz-templates')?.scrollIntoView({behavior:'smooth'})}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg>اتفرّج على القوالب</button>
     </div>
    </div>
-   <div className="mz-sec-head"><h2>صفحاتك</h2><span className="mz-count">{arNum(filtered.length)} {pagesWord(filtered.length)}{query.trim()?` (من ${arNum(pages.length)})`:''}</span></div>
+   <div className="mz-sec-head"><h2>صفحاتك</h2><span className="mz-count">{arNum(filtered.length)} {pagesWord(filtered.length)}{query.trim()?` (من ${arNum(pages.length)})`:''}</span>{query.trim()&&<button className="mz-more" onClick={()=>setQuery('')}>كل الصفحات ←</button>}</div>
    {creating?<NewPage apiBase={config.apiBase} onCancel={()=>setCreating(false)} onCreated={page=>{setCreating(false);open(page.id)}}/>
    :kitOpen?<DraftPageKit apiBase={config.apiBase} onCancel={()=>setKitOpen(false)} onDone={()=>{setKitOpen(false);check().catch(()=>{})}}/>
    :filtered.length===0?<div className="mz-empty">{pages.length===0?'لسه مفيش صفحات. ابدأ بأول صفحة ليك من الزرار اللي فوق.':'مفيش صفحة بالاسم ده.'}</div>
