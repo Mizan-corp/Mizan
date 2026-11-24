@@ -163,13 +163,29 @@ class ManagedActivationConflictTests(unittest.IsolatedAsyncioTestCase):
     expose connected data publicly without renewed scope. Disabling stays
     allowed and leaves the approved flag untouched."""
 
-    async def test_enable_refuses_managed_connected_data_activation(self):
+    async def test_enable_refuses_managed_disabled_activation(self):
         db = db_with(activation_enabled=False, allow_connected_data=True)
         with patched_page(page()), patch.object(settings, "PUBLIC_SITE_HOST", HOST):
             with self.assertRaises(HTTPException) as ctx:
                 await service.set_public_access(db, PAGE_ID, enabled=True, user_id=UID)
         self.assertEqual(ctx.exception.status_code, 409)
-        self.assertIn("managed connected-data activation", str(ctx.exception.detail))
+        self.assertIn("currently disabled", str(ctx.exception.detail))
+        # A disabled managed row: the refusal may say it stays unchanged.
+        self.assertIn("unchanged", str(ctx.exception.detail))
+        self.assertFalse(any("INSERT INTO site_activation" in sql for sql, _ in db._calls))
+
+    async def test_enable_refuses_managed_enabled_activation_without_privacy_claim(self):
+        # Already-public managed row: the refusal must describe the unchanged
+        # managed state and must NOT claim the page is or stays private.
+        db = db_with(activation_enabled=True, allow_connected_data=True)
+        with patched_page(page()), patch.object(settings, "PUBLIC_SITE_HOST", HOST):
+            with self.assertRaises(HTTPException) as ctx:
+                await service.set_public_access(db, PAGE_ID, enabled=True, user_id=UID)
+        self.assertEqual(ctx.exception.status_code, 409)
+        detail = str(ctx.exception.detail)
+        self.assertIn("public under a managed connected-data activation", detail)
+        self.assertIn("unchanged", detail)
+        self.assertNotIn("private", detail)
         self.assertFalse(any("INSERT INTO site_activation" in sql for sql, _ in db._calls))
 
     async def test_disable_keeps_managed_activation_flag(self):
@@ -202,6 +218,22 @@ class ManagedActivationConflictTests(unittest.IsolatedAsyncioTestCase):
         upserts = [(sql, params) for sql, params in db._calls if "INSERT INTO site_activation" in sql]
         self.assertEqual(len(upserts), 1)
         self.assertEqual(upserts[0][1]["en"], True)
+
+
+class ActivationThemeRefreshTests(unittest.IsolatedAsyncioTestCase):
+    """The theme-refresh writer must never touch activation privacy flags
+    (enabled / allow_connected_data): it snapshots theme only."""
+
+    async def test_theme_refresh_updates_theme_only(self):
+        db = db_with()
+        with patch.object(settings, "PUBLIC_SITE_HOST", HOST):
+            await service._refresh_activation_theme(db, page())
+        updates = [sql for sql, _ in db._calls if "UPDATE site_activation" in sql]
+        self.assertEqual(len(updates), 1)
+        sql = updates[0]
+        self.assertIn("SET theme", sql)
+        self.assertNotIn("enabled", sql)
+        self.assertNotIn("allow_connected_data", sql)
 
 
 def _fake_revision_model():

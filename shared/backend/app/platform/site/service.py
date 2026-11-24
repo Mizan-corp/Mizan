@@ -460,12 +460,18 @@ async def set_public_access(db: AsyncSession, page_id: uuid.UUID, *, enabled: bo
         # Refuse instead of silently stripping the approved flag. Disabling is
         # unaffected and never touches the flag.
         existing = (await db.execute(text(
-            "SELECT allow_connected_data FROM site_activation"
+            "SELECT enabled, allow_connected_data FROM site_activation"
             " WHERE host = :h AND slug = :s AND page_path = :p"
         ), {"h": host, "s": PUBLIC_SITE_SLUG, "p": page.slug})).first()
         if existing is not None and existing.allow_connected_data:
-            raise HTTPException(409, "This address has a managed connected-data activation. "
-                                "Re-enabling public access needs the separately approved operation; the page stays private.")
+            if existing.enabled:
+                # Already public under the managed activation: refusing the
+                # toggle changes nothing, so say exactly that - never claim
+                # the page is private when it is not.
+                raise HTTPException(409, "This address is public under a managed connected-data activation. "
+                                    "The ordinary availability toggle cannot change a managed activation; its current state is unchanged.")
+            raise HTTPException(409, "This address has a managed connected-data activation, currently disabled. "
+                                "Re-enabling public access needs the separately approved operation; the ordinary toggle leaves it unchanged.")
         problems = synthetic_scope_violations(page.published_tree, host)
         if problems:
             raise HTTPException(422, "This page cannot be made public: it references " + ", ".join(problems)
