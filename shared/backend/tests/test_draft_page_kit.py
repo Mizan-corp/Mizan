@@ -29,6 +29,19 @@ class DraftKitTests(unittest.TestCase):
   card=tree['children'][1]['children'][0]
   card['settings']['desktop']['background']='url(https://bad.test)'
   with self.assertRaises(HTTPException):check_tree(tree)
+ def test_products_page_has_card_ready_selected_section(self):
+  from app.platform.site.tech_kit import make_tech_pages
+  tree=make_tech_pages('tech')[1]['tree']
+  cols=[r['children'][0] for r in tree['children'] if r.get('type')=='columns' and len(r['children'])==1 and r['children'][0].get('settings',{}).get('desktop',{}).get('background')=='card']
+  self.assertEqual(len(cols),1)
+  col=cols[0]
+  self.assertEqual(col['type'],'column')
+  self.assertEqual([c['type'] for c in col['children']],['image','heading','text'])
+  self.assertIn('Selected product name',str(col))
+  def walk(node):
+   self.assertNotIn('card',node)
+   for child in node.get('children',[]):walk(child)
+  walk(tree)
  def test_no_shared_object_state(self):
   first=make_pages('one');first[0]['tree']['settings']['changed']=True
   self.assertNotIn('changed',make_pages('one')[0]['tree']['settings'])

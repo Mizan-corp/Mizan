@@ -16,7 +16,7 @@ class RepeatTests(unittest.IsolatedAsyncioTestCase):
   runtime=collections.CollectionRuntime((collections.CollectionProvider(C,read,True),));source=repeated();before=copy.deepcopy(source);self.assertEqual(manifest.page_problems(source),[])
   out=await p.resolve_repeat(source,runtime,r.SourceContext(A,'en',frozenset()));self.assertEqual(out['children'][0]['children'][0]['children'][0]['content']['en']['text'],'A');self.assertEqual(source,before)
   out=await p.resolve_repeat(source,runtime,r.SourceContext(A,'ar',frozenset()));self.assertEqual(out['children'][0]['children'][0]['children'][0]['content']['ar']['text'],'ثابت');self.assertNotIn('repeat',out['children'][0]['children'][0]['children'][0])
-  self.assertEqual((ROOT/'app/framework/manifest.py').read_bytes(),(ROOT.parent/'sdk/python/mizan_sdk/manifest.py').read_bytes())
+  self.assertEqual((ROOT/'app/framework/manifest.py').read_bytes(),next(q/'sdk/python/mizan_sdk/manifest.py' for q in ROOT.parents if (q/'sdk/python/mizan_sdk/manifest.py').exists()).read_bytes())
  async def test_malformed_envelopes_and_inactive_language_rejected_before_read(self):
   async def read(*_):raise AssertionError('must not read')
   runtime=collections.CollectionRuntime((collections.CollectionProvider(C,read,True),));ctx=r.SourceContext(A,'en',frozenset())

@@ -1,6 +1,6 @@
 # Technical business composition
 
-Status: LOCAL ONLY, not checkpointed or deployed, 24 November 2026 12:13 Cairo.
+Status: hosted on the isolated test project, source d4cc36c7, canonical alias promoted 12:40 Cairo, 24 November 2026. Earlier paragraphs dated 12:13 and 12:30 below are historical staged statuses kept for the record; the 12:24 and 12:40 hosted sections describe current canonical state.
 
 The user rejected the visual quality of the plain instructional kit. It remains supported for compatibility, not design acceptance.
 
@@ -23,3 +23,11 @@ The composition and private preview traversal are hosted on the isolated test pr
 ## Native card-surface followup, 12:30 Cairo
 
 LOCAL ONLY pending source checkpoint and hosted proof: column background uses existing `background`, `card`, `primary` roles and an independent boolean `rounded`. Platform registry, native authoring validation and both renderers agree. Existing pages are unchanged. Technical sample uses these native controls for service/catalog/contact cards. Real local UI changed a card to primary and square, saved/reloaded and verified retained settings, with exact rollback afterward. Five backend unit tests,120Studio tests/1skip, typecheck/build pass. Narrow navigation wraps with readable44px targets and reduced mobile gap/font. Final local390px pixels rechecked. Extra hosted preview-only check identified the narrow292px clipping case and images captured before lazy load; those images were not accepted as proof. Current new local visual harness waits for illustration decode. Next release must prove these changes on the isolated host before promotion.
+
+## Native card-surface hosted closeout, 12:40 Cairo
+
+The card-surface followup is hosted and promoted on the isolated test project: source `d4cc36c746d9e2395c4e1a75fc42e318b580a29d`, deployment `dpl_EHWBxrzDwBGUrvyYfJTUi4rFa8Zo`; the canonical alias resolves to this deployment. Hosted owner UI exercised the native column background (`background`/`card`/`primary`) and `rounded` controls: a sample card set to primary and square, saved, fully reloaded and verified retained. Final primary-card button contrast fix inspected. Preview4/traverse4/create4, separate shared save/edit/save/reload, private 3-page traversal, mobile 390 and duplicate409 all pass with no pageerrors. The four known unpublished fixture drafts were removed with no revisions; original pages and shared design restored and verified. No functional storefront, connected data or benchmark acceptance claim.
+
+## Card-ready selected-products section, 13:00 Cairo
+
+LOCAL ONLY pending source checkpoint and hosted proof: the `tech-business-v0` Products page gains a "Selected from your catalog" block after the category cards: an intro row explaining the no-code connection, then one dedicated single-column row whose card-surface column holds exactly image, heading and text children ("Selected product name", "Optional display price"). This is the reviewed card-template shape that NativeCardControls auto-picks and `card_projection` accepts, so an owner can connect this column to consented inventory products in one step from Studio. Installed trees remain binding-free: no `card` declaration, no repeat, no consent change. Sample copy states the card is placeholder until connected and that the connected section hides itself when no products are consented. This change also repairs two pre-existing branch defects: the Python SDK manifest mirror now matches `shared/backend/app/framework/manifest.py` (column background/rounded settings), and `test_collection_repeats.py` resolves the SDK manifest through an upward parents scan instead of the nonexistent `shared/sdk` path. Seventy backend tests and 206 Studio tests/1skip pass. Hosted connection-flow acceptance (install, consent, one-click connect, preview, disconnect, consent-off hide) is still owed before any canonical promotion.

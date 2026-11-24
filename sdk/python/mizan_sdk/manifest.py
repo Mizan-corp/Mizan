@@ -607,7 +607,7 @@ PAGE_BLOCKS = {
                 "content": {}},
     "column": {"version": 1, "category": "layout", "children": "blocks",
                "settings": {"visible": "bool", "width": _choices("auto", "full", "half", "third", "two_thirds"), "padding": _choices(*PAGE_SPACING),
-                            "align": _choices("start", "center", "end")},
+                            "align": _choices("start", "center", "end"), "background": _choices("background", "card", "primary"), "rounded": "bool"},
                "content": {}},
     "canvas": {"version": 1, "category": "layout", "children": "blocks", "per_page": 1,
                "settings": {"visible": "bool", "min_height": _choices("s", "m", "l")},
