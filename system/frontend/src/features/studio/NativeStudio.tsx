@@ -22,6 +22,14 @@ import TreePreview, { type ThemeSpec } from './treerender';
 import type {PageNode} from './pagetree';
 import { createOperationGate } from './saveState';
 
+function arPreflight(detail:string):string{
+ const urls=detail.match(/https?:\/\/[^\s,]+/g)||[];
+ const host=(detail.match(/only allow addresses on ([^\s.]+[^\s.]*)/)||[])[1];
+ const list=urls.length?urls.join('، '):'عناوين خارجية';
+ if(detail.startsWith('This page cannot be published for the public test host'))return `الصفحة دي فيها عناوين خارجية (${list}) ومينفعش تتنشر على مضيف الاختبار العام. الصفحات العامة في النطاق التجريبي بتسمح بس بعناوين على ${host?host+' ':''}أو روابط نسبية. بدّلها أو شيلها وانشر تاني. النسخة المنشورة السابقة زي ما هي.`;
+ if(detail.startsWith('This page cannot be made public'))return `الصفحة دي فيها عناوين خارجية (${list}) ومينفعش تتاح للعامة دلوقتي. المسموح بس عناوين ${host?host+' ':''}أو روابط نسبية. عدّل الصفحة وانشرها تاني وبعدين فعّل الإتاحة العامة. الصفحة بتفضل خاصة لحد كده.`;
+ return '';
+}
 export default function NativeStudio({apiBase='/__studio/api',previewLabel:_previewLabel,onHome}:{apiBase?:string;previewLabel?:string;onHome?:()=>void}={}){
   const api=useRef(createSitePagesClient({baseUrl:apiBase})).current;
   const [history,setHistory]=useState<NativeHistory|null>(null);
@@ -158,14 +166,14 @@ export default function NativeStudio({apiBase='/__studio/api',previewLabel:_prev
       if(detail.id!==page.id||!detail.published)throw Error('Publish response could not be verified.');
       setPage(detail);
       const [acc,revs]=await Promise.all([api.getPublicAccess(page.id),api.listRevisions(page.id)]);setPubAccess(acc);setRevisions(revs.items);setPubDone(true);
-    }catch(e){setPubError(e instanceof SiteApiError?(e.isAuth?'انتهت الجلسة. سجّل دخول من جديد، تغييراتك المحفوظة زي ما هي.':e.isForbidden?'الحساب ده مش من حقه ينشر الصفحة دي.':e.isConflict?(e.detail.includes('Dynamic pages')?'النشر اترفض: الصفحة دي فيها عناصر مربوطة ببيانات مباشرة، والنشر العام للصفحات المربوطة لسه مش متاح. الصفحة متاحة للمعاينة بس دلوقتي، والنسخة المنشورة زي ما هي.':'النشر اترفض: '+(e.detail||'تعارض مع الحالة الحالية.')):e.isInvalid?`النشر اترفض في مراجعة ما قبل النشر: ${e.detail||'سبب غير موضح من الخادم'}`:e.message):'تعذّر النشر. حاول تاني.');}
+    }catch(e){setPubError(e instanceof SiteApiError?(e.isAuth?'انتهت الجلسة. سجّل دخول من جديد، تغييراتك المحفوظة زي ما هي.':e.isForbidden?'الحساب ده مش من حقه ينشر الصفحة دي.':e.isConflict?(e.detail.includes('Dynamic pages')?'النشر اترفض: الصفحة دي فيها عناصر مربوطة ببيانات مباشرة، والنشر العام للصفحات المربوطة لسه مش متاح. الصفحة متاحة للمعاينة بس دلوقتي، والنسخة المنشورة زي ما هي.':'النشر اترفض: '+(e.detail||'تعارض مع الحالة الحالية.')):e.isInvalid?(arPreflight(e.detail||'')||'النشر اترفض في مراجعة ما قبل النشر. المسودة محفوظة والنسخة المنشورة زي ما هي.'):e.message):'تعذّر النشر. حاول تاني.');}
     finally{setPubBusy(false)}
   };
   const togglePublic=async()=>{
     if(!page||!pubAccess||pubBusy)return;
     setPubBusy(true);setPubError('');
     try{setPubAccess(await api.setPublicAccess(page.id,!pubAccess.enabled))}
-    catch(e){setPubError(e instanceof SiteApiError&&e.isForbidden?'الحساب ده مش من حقه يغيّر الإتاحة.':'تعذّر تغيير الإتاحة. حاول تاني.')}
+    catch(e){setPubError(e instanceof SiteApiError?(e.isForbidden?'الحساب ده مش من حقه يغيّر الإتاحة.':e.isInvalid?(arPreflight(e.detail||'')||'مراجعة ما قبل النشر رفضت الإتاحة العامة. الصفحة بتفضل خاصة.'):'تعذّر تغيير الإتاحة. حاول تاني.'):'تعذّر تغيير الإتاحة. حاول تاني.')}
     finally{setPubBusy(false)}
   };
   const doRollback=async(rid:string)=>{
