@@ -1,3 +1,5 @@
+> Historical dispatch-only proposal. Superseded as the next implementation direction by helpdesk-execution-cost-trace.md after the user clarified whole-business execution/resource traceability. No dispatch schema/code was created. The source field map below remains research, not the chosen workflow.
+
 # Property request to field-service handoff: source map
 
 24 November 2026. Read-only design and acceptance fixtures. Writable dispatch, link schema and automatic source-status changes are NOT implemented. User decision on manual reviewed versus automatic dispatch is pending.
