@@ -47,11 +47,17 @@ async def check_bound_tree(db: AsyncSession, tree: dict) -> None:
     check_tree(tree)
     from app.framework.activation import get_active_modules
     from app.framework.storefront_runtime import ProviderRegistry, SourceContext, SourceUnavailable
-    from .storefront.provider import site_provider
+    from .storefront.registry import scalar_registry, collection_registry
     from .storefront.bindings import validate_tree_bindings
     try:
         context=SourceContext(current_tenant_id.get(), 'en', frozenset(await get_active_modules(db)))
-        validate_tree_bindings(tree,ProviderRegistry((site_provider(db),)),context,lambda t:page_problems(t,LANGUAGES))
+        from .storefront.repeats import has_repeat, validate_repeat
+        if has_repeat(tree):
+            from app.framework.storefront_collections import CollectionRuntime
+            from .storefront.collections import navigation_labels_provider
+            validate_repeat(tree,collection_registry(db),context)
+        else:
+            validate_tree_bindings(tree,scalar_registry(db),context,lambda t:page_problems(t,LANGUAGES))
     except SourceUnavailable:
         raise HTTPException(422,"Page binding source is unavailable or incompatible.") from None
 
@@ -147,7 +153,7 @@ async def publish(db: AsyncSession, page_id: uuid.UUID, user_id: uuid.UUID | Non
     # Authenticated preview is implemented first. Public site-service resolution
     # is not wired yet, so do not produce published pages that cannot render.
     def has_bindings(node):
-        return "bindings" in node or any(has_bindings(c) for c in node.get("children", []))
+        return "bindings" in node or "repeat" in node or any(has_bindings(c) for c in node.get("children", []))
     if has_bindings(page.draft_tree):
         raise HTTPException(409,"Dynamic pages are preview-only until public provider resolution is available.")
     number = await db.scalar(
