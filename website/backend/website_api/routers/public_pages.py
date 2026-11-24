@@ -154,7 +154,8 @@ async def _activation(db: AsyncSession, host: str, slug: str, page_path: str):
     return row
 
 
-async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id: uuid.UUID, canonical: str) -> str:
+async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id: uuid.UUID, canonical: str,
+                         link_base: str | None = None) -> str:
     from app.framework.manifest import page_problems
     from app.platform.site import service
     from app.platform.site.render import render_document
@@ -178,7 +179,8 @@ async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id
     else:
         resolved = await resolve_tree(tree, scalar_registry(db), ctx, lambda t: page_problems(t, ("en", "ar")))
     meta = {"canonical": canonical, "titles": titles, "descriptions": {}, "languages": languages}
-    return render_document(resolved, meta, settings_value if isinstance(settings_value, dict) else None, lang=lang)
+    return render_document(resolved, meta, settings_value if isinstance(settings_value, dict) else None,
+                           lang=lang, link_base=link_base)
 
 
 @router.api_route("/site/{slug}/{page_path}", methods=["GET", "HEAD"], response_class=HTMLResponse)
@@ -221,6 +223,7 @@ async def public_page(slug: str, page_path: str, request: Request, db: AsyncSess
             html = await _render_public(
                 db, page, theme, row.tid,
                 f"https://{host}/site/{slug}/{page_path}",
+                link_base=f"/site/{slug}",
             )
         except (SourceUnavailable, ProjectionInvalid, ValueError):
             raise _unavailable() from None

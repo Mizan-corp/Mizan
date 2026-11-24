@@ -239,6 +239,36 @@ class ResponsiveCssTests(unittest.TestCase):
                                           None, lang="en")
         self.assertIn("@media(max-width:768px)", html)
 
+    def _chrome_html(self, links, link_base=None):
+        from app.platform.site import render
+        tree = {"type": "section", "id": "s1", "settings": {},
+                "children": [{"type": "text", "id": "t1", "content": {"en": {"html": "<p>hi</p>"}}, "settings": {}}]}
+        theme = {"header": {"brand": "B", "links": links},
+                 "footer": {"lines": ["x"], "links": links}}
+        with patch("app.platform.site.render.page_problems", return_value=[]):
+            return render.render_document(tree, {"titles": {"en": "Hi"}, "languages": ["en"]},
+                                          theme, lang="en", link_base=link_base)
+
+    def test_root_relative_theme_links_resolve_under_the_site_base(self):
+        html = self._chrome_html([{"label": "Welcome", "href": "/welcome"}], link_base="/site/studio")
+        self.assertIn('href="/site/studio/welcome"', html)
+        # Header and footer share the same base handling: two occurrences.
+        self.assertEqual(html.count('href="/site/studio/welcome"'), 2)
+        self.assertNotIn('href="/welcome"', html)
+
+    def test_theme_links_unchanged_without_link_base(self):
+        html = self._chrome_html([{"label": "Welcome", "href": "/welcome"}])
+        self.assertIn('href="/welcome"', html)
+        self.assertNotIn("/site/studio", html)
+
+    def test_anchor_absolute_and_protocol_relative_links_are_never_rebased(self):
+        html = self._chrome_html(
+            [{"label": "A", "href": "#top"}, {"label": "B", "href": "https://example.com/x"}],
+            link_base="/site/studio")
+        self.assertIn('href="#top"', html)
+        self.assertIn('href="https://example.com/x"', html)
+        self.assertNotIn("/site/studio", html)
+
 
 if __name__ == "__main__":
     unittest.main()

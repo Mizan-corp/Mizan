@@ -224,7 +224,16 @@ def render_page(tree: dict, lang: str = "ar", device: str = "desktop", validate:
     return _render_node(tree, lang, device)
 
 
-def _theme_links(entries, limit: int = 8) -> list:
+def _site_link(href: str, link_base: str | None) -> str:
+    """Root-relative theme links (\"/about\") only resolve when the page is served
+    under a mounted site base (e.g. \"/site/studio\"). Anchors, protocol-relative
+    and absolute URLs are returned unchanged."""
+    if link_base and href.startswith("/") and not href.startswith("//"):
+        return link_base.rstrip("/") + href
+    return href
+
+
+def _theme_links(entries, limit: int = 8, link_base: str | None = None) -> list:
     links = []
     for entry in (entries or [])[:limit]:
         if not isinstance(entry, dict):
@@ -233,11 +242,11 @@ def _theme_links(entries, limit: int = 8) -> list:
         label = entry.get("label")
         if href is None or not isinstance(label, str) or not label.strip():
             continue
-        links.append((href, label.strip()[:40]))
+        links.append((_site_link(href, link_base), label.strip()[:40]))
     return links
 
 
-def _theme_chrome(theme: dict | None) -> tuple[str, str]:
+def _theme_chrome(theme: dict | None, link_base: str | None = None) -> tuple[str, str]:
     """Constrained v0 site chrome: escaped brand, allow-listed links; no markup from the theme."""
     if not isinstance(theme, dict):
         return "", ""
@@ -246,8 +255,8 @@ def _theme_chrome(theme: dict | None) -> tuple[str, str]:
     if isinstance(header, dict):
         brand = header.get("brand")
         brand_html = f'<span class="mz-site-brand">{_esc(str(brand)[:80])}</span>' if brand else ""
-        links = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(header.get("links")))
-        actions = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(header.get("actions"), 4))
+        links = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(header.get("links"), link_base=link_base))
+        actions = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(header.get("actions"), 4, link_base=link_base))
         nav = f"<nav>{links}</nav>" if links else ""
         act = f'<div class="mz-site-actions">{actions}</div>' if actions else ""
         if brand_html or nav or act:
@@ -257,7 +266,7 @@ def _theme_chrome(theme: dict | None) -> tuple[str, str]:
     foot_html = ""
     if isinstance(footer, dict):
         lines = [str(x)[:120] for x in (footer.get("lines") or [])[:4] if isinstance(x, str) and x.strip()]
-        links = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(footer.get("links")))
+        links = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(footer.get("links"), link_base=link_base))
         parts = "".join(f"<span>{_esc(x)}</span>" for x in lines) + links
         if parts:
             footer_class = "mz-site-footer mz-footer-stacked" if footer.get("layout") == "stacked" else "mz-site-footer"
@@ -308,10 +317,12 @@ _DOCUMENT = SandboxedEnvironment(autoescape=True, undefined=StrictUndefined).fro
 
 
 def render_document(tree: dict, meta: dict, theme: dict | None = None, lang: str = "ar",
-                    device: str = "desktop") -> str:
+                    device: str = "desktop", link_base: str | None = None) -> str:
     """A full HTML document: SEO head (title and description per language, canonical, hreflang,
     Open Graph) plus the rendered page. `meta`: {"canonical": url, "titles": {lang: …},
-    "descriptions": {lang: …}, "languages": [codes]}."""
+    "descriptions": {lang: …}, "languages": [codes]}. `link_base`: when the page is served
+    under a mounted site path (e.g. \"/site/studio\"), root-relative theme links are prefixed
+    with it so site navigation resolves for visitors."""
     titles = meta.get("titles") or {}
     descriptions = meta.get("descriptions") or {}
     title = titles.get(lang) or next(iter(titles.values()), "")
@@ -338,7 +349,7 @@ def render_document(tree: dict, meta: dict, theme: dict | None = None, lang: str
     if description:
         head.append(f'<meta property="og:description" content="{_esc(description)}">')
 
-    header_html, footer_html = _theme_chrome(theme)
+    header_html, footer_html = _theme_chrome(theme, link_base=link_base)
     body = header_html + render_page(tree, lang=lang, device=device) + footer_html
     return _DOCUMENT.render(language=lang, direction=direction,
                             head="\n".join(head) + "<style>" + _BASE_CSS + "</style>" + _theme_style(theme), body=body)
