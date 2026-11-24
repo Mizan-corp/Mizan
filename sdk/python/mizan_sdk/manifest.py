@@ -736,6 +736,45 @@ def _page_setting_problems(where: str, kind, value) -> list[str]:
     return [f"{where} has a kind this validator doesn't know"]  # a registry bug, not user data
 
 
+PAGE_BINDINGS_SCHEMA = "mizan.page-bindings.experimental.v0"
+
+
+def page_binding_problems(value, node_type, languages=None) -> list[str]:
+    """Shape only. Provider existence, activation and access require runtime checks.
+
+    This explicit experimental extension never embeds executable expressions or values.
+    Unknown schemas, targets and fields fail closed. Static content remains independently
+    validated and is retained when a binding is removed.
+    """
+    if not isinstance(value, dict) or set(value) != {"schema", "content"}:
+        return ["bindings: schema and content are required, no extra fields"]
+    if value.get("schema") != PAGE_BINDINGS_SCHEMA:
+        return ["bindings: unsupported experimental schema"]
+    content=value.get("content")
+    if not isinstance(content, dict) or not content or len(content)>2:
+        return ["bindings: bounded nonempty language map required"]
+    errors=[]
+    for language, fields in content.items():
+        if not isinstance(language,str) or language not in ("en", "ar") or (languages is not None and language not in languages):
+            errors.append("bindings: unsupported language")
+        if not isinstance(node_type,str) or node_type != "heading" or not isinstance(fields,dict) or set(fields)!={"text"}:
+            errors.append("bindings: only heading.text supported")
+            continue
+        b=fields["text"]
+        required={"mode","module","source","field","on_missing"}
+        if not isinstance(b,dict) or set(b)!=required:
+            errors.append("bindings: exact declarative reference required")
+            continue
+        if b.get("mode")!="dynamic" or b.get("on_missing") not in ("hide","empty"):
+            errors.append("bindings: explicit dynamic mode and missing behavior required")
+        for key in ("module","source","field"):
+            v=b.get(key)
+            pattern=r"[a-z][a-z0-9_]{0,47}(?:\.[a-z][a-z0-9_]{0,47})?" if key=="module" else r"[a-z][a-z0-9_]{0,47}"
+            if not isinstance(v,str) or re.fullmatch(pattern,v) is None:
+                errors.append("bindings: invalid source identifier")
+    return errors
+
+
 def page_problems(tree: dict, languages: tuple[str, ...] | None = None) -> list[str]:
     """What's wrong with a page tree; [] when it's fine. `languages`: the site's language codes;
     content in any other language is rejected. None accepts any well-formed code."""
@@ -760,7 +799,7 @@ def page_problems(tree: dict, languages: tuple[str, ...] | None = None) -> list[
         nid = node.get("id")
         ntype = node.get("type")
         label = f"{where} › {ntype} {nid}" if isinstance(ntype, str) else where
-        extra = set(node) - {"id", "type", "settings", "content", "children"}
+        extra = set(node) - {"id", "type", "settings", "content", "children", "bindings"}
         for k in sorted(extra):
             problems.append(f"{label}: '{k}' isn't a page node field")
         if not isinstance(nid, str) or not PAGE_NODE_ID.match(nid):
@@ -819,6 +858,9 @@ def page_problems(tree: dict, languages: tuple[str, ...] | None = None) -> list[
                     problems.append(f"{label}: '{field}' isn't a {ntype} content field")
                 else:
                     problems.extend(_page_value_problems(f"{label} {lang}.{field}", kind, value))
+
+        if "bindings" in node:
+            problems.extend(f"{label}: {problem}" for problem in page_binding_problems(node["bindings"], ntype, languages))
 
         children = node.get("children", [])
         if block["category"] != "layout" and children not in ([], None):
