@@ -42,6 +42,20 @@ def check_tree(tree) -> None:
         raise HTTPException(422, "شجرة الصفحة غير صالحة: " + problems[0])
 
 
+async def check_bound_tree(db: AsyncSession, tree: dict) -> None:
+    """Shape plus active trusted provider compatibility, before any page write."""
+    check_tree(tree)
+    from app.framework.activation import get_active_modules
+    from app.framework.storefront_runtime import ProviderRegistry, SourceContext, SourceUnavailable
+    from .storefront.provider import site_provider
+    from .storefront.bindings import validate_tree_bindings
+    try:
+        context=SourceContext(current_tenant_id.get(), 'en', frozenset(await get_active_modules(db)))
+        validate_tree_bindings(tree,ProviderRegistry((site_provider(db),)),context,lambda t:page_problems(t,LANGUAGES))
+    except SourceUnavailable:
+        raise HTTPException(422,"Page binding source is unavailable or incompatible.") from None
+
+
 def check_titles(titles) -> dict:
     if not isinstance(titles, dict):
         raise HTTPException(422, "عناوين الصفحة غير صالحة")
@@ -90,7 +104,7 @@ async def list_pages(db: AsyncSession) -> list[SitePage]:
 async def create_page(db: AsyncSession, *, slug: str, titles: dict, tree: dict | None = None) -> SitePage:
     page = SitePage(slug=check_slug(slug), titles=check_titles(titles))
     if tree is not None:
-        check_tree(tree)
+        await check_bound_tree(db, tree)
         page.draft_tree = tree
     db.add(page)
     try:
@@ -109,7 +123,7 @@ async def save_draft(db: AsyncSession, page_id: uuid.UUID, *, tree: dict, titles
         raise HTTPException(409, "The page changed in another session. Your local edits were not saved.")
     if page.status == "archived":
         raise HTTPException(409, "الصفحة مؤرشفة؛ أعد فتحها قبل التعديل")
-    check_tree(tree)
+    await check_bound_tree(db, tree)
     page.draft_tree = tree
     if titles is not None:
         page.titles = check_titles(titles)
@@ -129,7 +143,13 @@ async def publish(db: AsyncSession, page_id: uuid.UUID, user_id: uuid.UUID | Non
     page = await get_page(db, page_id, locked=True)
     if page.draft_tree is None:
         raise HTTPException(409, "لا توجد مسودة للنشر")
-    check_tree(page.draft_tree)
+    await check_bound_tree(db, page.draft_tree)
+    # Authenticated preview is implemented first. Public site-service resolution
+    # is not wired yet, so do not produce published pages that cannot render.
+    def has_bindings(node):
+        return "bindings" in node or any(has_bindings(c) for c in node.get("children", []))
+    if has_bindings(page.draft_tree):
+        raise HTTPException(409,"Dynamic pages are preview-only until public provider resolution is available.")
     number = await db.scalar(
         select(func.coalesce(func.max(SitePageRevision.number), 0) + 1).where(SitePageRevision.page_id == page.id)
     )
@@ -159,6 +179,7 @@ async def rollback(db: AsyncSession, page_id: uuid.UUID, revision_id: uuid.UUID)
     revision = await db.get(SitePageRevision, revision_id)
     if revision is None or revision.page_id != page.id:
         raise HTTPException(404, "المراجعة غير موجودة")
+    await check_bound_tree(db, revision.tree)
     page.draft_tree = revision.tree
     page.titles = dict(revision.titles or page.titles)
     await db.commit()
