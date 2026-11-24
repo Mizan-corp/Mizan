@@ -6,10 +6,10 @@ As of 24 November 2026. This page is the current status; earlier dated implement
 
 Test URL: https://mizan-studio-feature-test.vercel.app/
 
-Source: c2fe4f1a7a32ef1f40bdb23ec2aa79b91608cf69 on feat/studio-render-parity. No production replacement or merge.
+Source: ba722ca8a5bb39e70bd91dc2baca09cdadb51ad8 on feat/studio-render-parity. No production replacement or merge.
 
 - General-owned Help Desk module, standard plus maintenance/property/consulting/salon variations.
-- Independent service_catalog, work_completion and work_intake Boolean settings. All three exist in every variation, default off, and changing workspace activity preserves saved state.
+- Independent service_catalog, work_completion, work_intake and work_actuals Boolean settings. All four exist in every variation, default off, and changing workspace activity preserves saved state.
 - Private service offering list/create/edit/archive/restore, explicit two-decimal starting amount/currency. No invoice, booking or payment. Catalog view/manage permissions are separate.
 - Shared read view of active FSM work orders and property maintenance tickets. Native table/ID/reference/status preserved. Requires common work-read plus operations and source activation. Does not move records or rewrite native status.
 - At most the latest 100 rows per source, with explicit truncation and malformed-source-row coverage diagnostics.
@@ -45,6 +45,12 @@ Hosted intake/history acceptance additionally verified restricted-role create/re
 
 Hosted deployment dpl_3ry5MJgAMdHoa2j9V229142aKD6f passed restricted-role all-four-field edit/save/reload, stable ID, stale concurrent409 and close/reload recovery, archived edit retaining archive state, themed desktop/mobile390 and no page errors. DB confirmed three expected update audits and excluded descriptions. General settings unchanged; original static Studio entry byte-identical. Exact raw feature settings, module activation and original offering-ID set restored; bounded offering/audits/user removed. No schema or sector change. Catalog restored off.
 
-## Next non-destructive slice
+## Shared execution actuals acceptance, 11:34
 
-The user's whole-business clarification replaces the dispatch-only plan. Local execution worksheet records actual tasks, technician time and material/resource use on the same source request, retains corrections and separate cost/selling snapshots with explicit unknowns. No stock, payroll, invoice or accounting posting. See helpdesk-execution-cost-trace.md. This fourth work_actuals feature is LOCAL only; current hosted source above still has three toggles. No dispatch-only schema or route was created. Deployment requires exact source pin, atomic forced-RLS migration verification and hosted acceptance/cleanup. Full Help Desk unification and the original builder outcome remain incomplete.
+Deployment dpl_9qMcrQ2zbi6ESKbZXZKmJUm9Zz2Z is now canonical. The fourth work_actuals feature records dated task/labor/material actuals on the same native source, retains correction chains and resource-name snapshots, and independently gates cost/selling entry and visibility. Positive Decimal quantities, explicit unit/currency/provenance, separate currency subtotals and unknown-rate diagnostics are enforced. Returns are separate recorded buckets, never automatic credits.
+
+Actual JWT hosted API acceptance passes default-off, save/replay/conflict, retained correction and restricted monetary projection. Hosted ERP UI acceptance passes labor1.5h, installed2pieces/allowed warehouse, save/full reload, correction to2h retaining the original, known40EGP cost and90EGP proposed selling with1unknown material line, read-only no form, desktop/mobile390 with no overflow/page errors. Screenshot is a normal settled viewport. Protected candidate assets/API were exercised through authenticated request transport, not a local replacement API.
+
+Only additive atomic migration v111 was applied to the isolated test DB. ForcedRLS and a table-local append guard protect history even if the existing shared grant helper widens grants. App role cannot UPDATE/DELETE/TRUNCATE history. No existing grants, native source rows or module state were changed by the migration. Exact original settings/activation/sector were restored after acceptance; bounded execution/source/resource/users removed, empty history verified, temporary credentials deleted. Fourth feature is restored OFF.
+
+This is non-posting shared foundation only. Stock, payroll, accounting, invoice, payment and final customer charge are not created. Operational completion remains separate from costing completeness. User's latest direction is to return to common core SDK/web builder work now, then review business activities one by one. Specialty gaps above are deferred, not blockers to common builder progress.
