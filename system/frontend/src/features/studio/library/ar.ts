@@ -45,3 +45,11 @@ export function blocksWord(n: number): string {
   if (n >= 3 && n <= 10) return `${n} بلوكات`;
   return `${n} بلوك`;
 }
+
+import {getUILang} from '../uiStrings';
+const arUI=()=>getUILang()==='ar';
+export const blockName=(id:string,en:string)=>arUI()?(blockAr[id]?.n??en):en;
+export const blockDesc=(id:string,en:string)=>arUI()?(blockAr[id]?.d??en):en;
+export const templateName=(id:string,en:string)=>arUI()?(templateAr[id]?.n??en):en;
+export const templateDesc=(id:string,en:string)=>arUI()?(templateAr[id]?.d??en):en;
+export const categoryName=(c:string)=>arUI()?(categoryAr[c]??c):c;

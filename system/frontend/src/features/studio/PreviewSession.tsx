@@ -3,7 +3,7 @@ import NativeStudio from './NativeStudio';
 import NewPage from './NewPage';
 import DraftPageKit from './DraftPageKit';
 import {type PreviewConfig} from './previewConfig';
-import {t,useUILang,uiDir} from './uiStrings';
+import {t,getUILang,useUILang,uiDir} from './uiStrings';
 type Page={id:string;slug:string;titles:Record<string,string>;status:string;updated_at?:string|null;published?:boolean};
 function arNum(n:number){return n.toLocaleString('ar-EG')}
 function pagesWord(n:number){if(n===1)return t('صفحة');if(n===2)return t('صفحتين');if(n>=3&&n<=10)return t('صفحات');return t('صفحة')}
@@ -12,13 +12,13 @@ function ago(iso:string|null|undefined):string{
  const then=new Date(iso).getTime();if(!Number.isFinite(then))return '';
  const mins=Math.max(0,Math.round((Date.now()-then)/60000));
  if(mins<1)return t('اتعدلت دلوقتي حالًا');
- if(mins<60){if(mins===1)return t('اتعدلت من دقيقة');if(mins===2)return t('اتعدلت من دقيقتين');if(mins<=10)return `اتعدلت من ${arNum(mins)} دقايق`;return `اتعدلت من ${arNum(mins)} دقيقة`}
+ if(mins<60){if(mins===1)return t('اتعدلت من دقيقة');if(mins===2)return t('اتعدلت من دقيقتين');if(getUILang()==='en')return `Edited ${mins} minutes ago`;if(mins<=10)return `اتعدلت من ${arNum(mins)} دقايق`;return `اتعدلت من ${arNum(mins)} دقيقة`}
  const hours=Math.round(mins/60);
- if(hours<24){if(hours===1)return t('اتعدلت من ساعة');if(hours===2)return t('اتعدلت من ساعتين');if(hours<=10)return `اتعدلت من ${arNum(hours)} ساعات`;return `اتعدلت من ${arNum(hours)} ساعة`}
+ if(hours<24){if(hours===1)return t('اتعدلت من ساعة');if(hours===2)return t('اتعدلت من ساعتين');if(getUILang()==='en')return `Edited ${hours} hours ago`;if(hours<=10)return `اتعدلت من ${arNum(hours)} ساعات`;return `اتعدلت من ${arNum(hours)} ساعة`}
  const days=Math.round(hours/24);
  if(days===1)return t('اتعدلت إمبارح');
  if(days===2)return t('اتعدلت من يومين');
- if(days<=10)return `اتعدلت من ${arNum(days)} أيام`;
+ if(getUILang()==='en')return `Edited ${days} days ago`;if(days<=10)return `اتعدلت من ${arNum(days)} أيام`;
  return `اتعدلت من ${arNum(days)} يوم`;
 }
 function greeting():string{
@@ -74,14 +74,14 @@ export default function PreviewSession({config}:{config:PreviewConfig}){
  return <div dir={uiDir(uiLang)} className="mz-home">
   <div className="mz-topbar">
    <div className="mz-logo"><div className="mz-logo-mark"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round"><path d="M12 4v13M8 20h8M4 8h16"/><circle cx="7" cy="12.5" r="2.6"/><circle cx="17" cy="12.5" r="2.6"/></svg></div>{t('ميزان ستوديو')}</div>
-   <div className="mz-wkchip" title={workspace}>مساحة عمل {workspace}</div>
+   <div className="mz-wkchip" title={workspace}>{t('مساحة عمل')} {workspace}</div>
    <div className="mz-spacer"/>
    <div className="mz-search-home"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t("دوّر على صفحة…")} aria-label={t("دوّر على صفحة")}/></div>
    <div className="mz-avatar" aria-hidden>{name?name[0]:t('م')}</div>
   </div>
   <div className="mz-scroll">
    <div className="mz-hero">
-    <div className="mz-overline">{greeting()}{name?` يا ${name}`:''}</div>
+    <div className="mz-overline">{greeting()}{name?(getUILang()==='ar'?` يا ${name}`:` ${name}`):''}</div>
     <h1>{t('إيه اللي هتصنع')} <em>{t('النهارده؟')}</em></h1>
     <p>{t('كمّل على صفحاتك، أو ابدأ من قالب جاهز وعدّله بمزاجك، بالسحب والإفلات ومن غير ما تكتب سطر كود واحد.')}</p>
     <div className="mz-hero-cta">
@@ -89,10 +89,10 @@ export default function PreviewSession({config}:{config:PreviewConfig}){
      <button className="mz-btn ghost big" onClick={()=>document.getElementById('mz-templates')?.scrollIntoView({behavior:'smooth'})}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg>{t('اتفرّج على القوالب')}</button>
     </div>
    </div>
-   <div className="mz-sec-head"><h2>{t('صفحاتك')}</h2><span className="mz-count">{arNum(filtered.length)} {pagesWord(filtered.length)}{query.trim()?` (من ${arNum(pages.length)})`:''}</span>{query.trim()&&<button className="mz-more" onClick={()=>setQuery('')}>{t('كل الصفحات ←')}</button>}</div>
+   <div className="mz-sec-head"><h2>{t('صفحاتك')}</h2><span className="mz-count">{arNum(filtered.length)} {pagesWord(filtered.length)}{query.trim()?(getUILang()==='en'?` (of ${pages.length})`:` (من ${arNum(pages.length)})`):''}</span>{query.trim()&&<button className="mz-more" onClick={()=>setQuery('')}>{t('كل الصفحات ←')}</button>}</div>
    {creating?<NewPage apiBase={config.apiBase} onCancel={()=>setCreating(false)} onCreated={page=>{setCreating(false);open(page.id)}}/>
    :kitOpen?<DraftPageKit apiBase={config.apiBase} onCancel={()=>setKitOpen(false)} onDone={()=>{setKitOpen(false);check().catch(()=>{})}}/>
-   :filtered.length===0?<div className="mz-empty">{pages.length===0?'لسه مفيش صفحات. ابدأ بأول صفحة ليك من الزرار اللي فوق.':t('مفيش صفحة بالاسم ده.')}</div>
+   :filtered.length===0?<div className="mz-empty">{pages.length===0?t('لسه مفيش صفحات. ابدأ بأول صفحة ليك من الزرار اللي فوق.'):t('مفيش صفحة بالاسم ده.')}</div>
    :<div className="mz-cards">{filtered.map((p,i)=><button key={p.id} className="mz-pcard" onClick={()=>open(p.id)}>
      <div className="mz-thumb"><Thumb tone={(['store','blog','land'] as const)[i%3]}/></div>
      <div className="mz-meta"><div><div className="mz-name">{pageTitle(p)}</div><div className="mz-sub">{ago(p.updated_at)}</div></div><span className={'mz-status '+(p.published||p.status==='published'?'pub':'draft')}>{p.published||p.status==='published'?t('منشورة'):t('مسودة')}</span><span className="mz-go">←</span></div>
