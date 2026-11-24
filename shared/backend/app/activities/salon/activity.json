@@ -8,11 +8,13 @@
   "modules": [
     "salon",
     "pos",
-    "finance"
+    "finance",
+    "helpdesk"
   ],
   "home": "/salon",
   "variants": {
-    "pos": "salon"
+    "pos": "salon",
+    "helpdesk": "salon"
   },
   "optional": [],
   "terms": {},
@@ -20,6 +22,15 @@
   "roles": {},
   "settings": {},
   "menu": [
+    {
+      "id": "helpdesk",
+      "label": "الخدمات والدعم",
+      "items": [
+        {
+          "screen": "helpdesk.catalog"
+        }
+      ]
+    },
     {
       "id": "beauty",
       "label": "الصالون وحجز المواعيد",
