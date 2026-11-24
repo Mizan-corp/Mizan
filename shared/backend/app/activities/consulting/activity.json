@@ -8,13 +8,27 @@
   "modules": [
     "services",
     "finance",
-    "hr"
+    "hr",
+    "helpdesk"
   ],
   "home": "/services",
-  "variants": {},
+  "variants": {
+    "helpdesk": "consulting"
+  },
   "optional": [],
   "terms": {},
   "positions": [],
   "roles": {},
-  "settings": {}
+  "settings": {},
+  "menu": [
+    {
+      "id": "helpdesk",
+      "label": "الخدمات والدعم",
+      "items": [
+        {
+          "screen": "helpdesk.catalog"
+        }
+      ]
+    }
+  ]
 }
