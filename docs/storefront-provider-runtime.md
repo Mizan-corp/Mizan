@@ -1,0 +1,68 @@
+# First module-provider runtime slice
+
+Status: LOCAL, EXPERIMENTAL, INCOMPLETE. Not mounted in the hosted API, not wired into storage, not selectable in Studio. The current isolated deployment does not contain these additions.
+
+## Scope and ownership
+
+The platform owns a trusted ProviderRegistry and generic projection of native heading text. A declaration does not supply a URL, SQL, import path, callable, grant, or module activation. Only platform-reviewed Python registrations supply callables. The site module owns its optional storefront/contract.json and provider.py in its own folder. Existing module layout is unchanged. The experimental declaration schema remains experimental.
+
+The first real source is site.appearance.brand, the explicitly saved website brand, not a legal company name or inferred tenant name. The provider returns that single nullable field and nothing else from settings. It verifies that the bound database tenant is the explicit requested tenant. Authenticated API consumers must hold site.manage. There is no public unauthenticated route, product publication policy, inventory provider, collection item context, price/URL/media/action runtime, cart, or checkout.
+
+A platform-core provider can be registered independently of the tenant's active business module list. Other providers require active module membership. Both the classification and provider callable are platform code, never declarative metadata. Production discovery must also account for current module registry status, activity/variant compatibility and package version negotiation before supporting external module packages. No auto-import/discovery of arbitrary packages is supplied here.
+
+## Implemented locally
+
+- ProviderRegistry validates reviewed contracts, copies metadata, filters inactive module discovery, rejects incompatible type/meaning/cardinality and unknown fields, and reads through an explicit immutable tenant/language context. Values are not cached across tenants.
+- Provider results fail closed on additional fields, missing required values, nontext values or excessive length. Missing nullable brand resolves to explicit empty or hide. Exceptions are errors, not fallback to another tenant or a private source.
+- Site-owned provider reads existing tenant-scoped site settings with an explicit tenant-context check and no writes.
+- Authenticated discovery and resolve router is drafted but deliberately not mounted. Resolve accepts only the trusted target key heading.text, not an arbitrary target semantic supplied by a client.
+- Binding projection accepts a bounded candidate bindings envelope keyed by language and property, strips it into an ordinary S2 tree, runs the actual static platform page validator, checks every binding before reading any provider, then resolves the selected language into a copied tree. Hide removes the leaf in the rendered copy. Static stored content and other languages stay unchanged. Source values must be escaped as text by the renderer.
+
+## Verification so far
+
+Five asynchronous registry tests, five binding-projection/renderer tests using the actual current platform page validator, and twelve existing offline contract tests pass. Checks cover invalid context, inactive/unknown source denial before provider access, tenant-separated calls, projection leakage denial, metadata copy protection, null/empty/hide, unsupported targets and malformed native trees. These are backend tests, not actual browser acceptance.
+
+Read-only real isolated database provider checks bound each of the two existing test tenants in turn, compared the returned brand with that tenant's saved website settings, and proved that a mismatched requested tenant was refused in both cases. No data was written and no credentials are included in this source package.
+
+## Remaining before hosted feature acceptance
+
+1. Complete the local versioned page-binding schema review, support provider compatibility validation at save and preview, and preserve existing unsupported/static pages without reconstruction. Local platform/SDK validators now accept the explicitly versioned mizan.page-bindings.experimental.v0 envelope on heading.text only, with exact identifiers and missing behavior. Hosted storage still rejects bindings. Local Python renderer refuses unresolved bindings even when static validation is disabled, preventing silent fallback. Do not promote this extension to the hosted contract until save/preview/runtime wiring is tested together.
+2. Mount authenticated discovery only after permission/API tests and server preview resolution are exercised. Apply current active module registry and versions before more providers are admitted.
+3. Expand actual API tenant/permission, inactive source, source error and conflict tests. Python renderer escaping of resolved text now has a passing test. Dynamic renderer values must never become markup or trigger commands.
+4. Add Static/Dynamic controls in Studio with source recommendations, explicit missing behavior, preview error handling, dirty/undo/save/conflict protection. Use actual rendered synthetic examples, no private customer values in thumbnails.
+5. Prove real isolated API plus local UI, checkpoint exact source, deploy to the existing isolated project without changing other application entries, then hosted edit/save/reload/render and ERP regression with screenshots.
+6. Collections, public product publication, prices/currency, related pages and commands are separate further slices. The retired legacy storefront router remains unmounted.
+
+No claim of benchmark recreation or ready storefront follows from these foundations.
+
+## Latest local checkpoint
+
+The native page validator has an explicit versioned bindings extension. SDK/platform manifest copies are byte-identical. Raw unresolved dynamic trees are refused by the renderer even with validate=False; only authorized resolved copies render. No existing backend service or hosted deployment was changed. The next integration must validate every bound source at save and preview, mount the authenticated router, and only then expose UI controls.
+
+## Local integration checkpoint
+
+Local service create/save/rollback/publish paths now validate bound source compatibility before writes. Publishing a dynamic draft is explicitly refused until public service resolution exists. Local authenticated router includes discovery, scalar resolution and Python-rendered preview. This is NOT deployed. Hosted service still has its previous static schema and UI.
+
+A real local FastAPI application with the existing authentication dependency and isolated database passed unauthenticated401, normal owner-test login, discovery200, bound heading preview200, unknown private-field422 on preview and draft save, and exact unchanged stored tree/edit-token after the rejected save. No valid bound tree was persisted and no settings/ERP data were changed. This is not browser/UI acceptance or a non-owner403 test. The next step is403/tenant-route tests plus Static/Dynamic UI and local API save/reload acceptance before a source checkpoint or isolated deployment.
+
+## Local UI checkpoint
+
+The local Studio has Static/Dynamic heading controls, compatible scalar text source search, explicit missing hide/empty, preserved static text, undo history, and authorized server-resolved native preview. Failure/loading hides unresolved content instead of showing stale values. Preview-only dynamic publish limitation is shown. Source card uses a rendered synthetic Aa heading example, not private data. This is not a complete recommendation image library.
+
+Local actual frontend plus local actual authenticated API plus real isolated DB exercised Dynamic source selection, Save/reload exact binding with retained static heading data, actual empty saved-brand hide behavior and publish409. After acceptance, the experimental binding was REMOVED from the existing throwaway draft so the unchanged older hosted editor could still open it. The static tree and title remain intact. No website settings were changed. A settled reload screenshot exists, but positive nonempty provider UI is still unverified. Earlier screenshot capture at loading was discarded and replaced with settled evidence.
+
+Frontend100tests pass/1skip and TS/build pass. Three local API permission-dependency tests use an overridden authenticated principal with no grants and prove403 for discovery/resolve/preview. This is not real non-owner session acceptance. Previous normal-owner real-login and401 checks used actual auth. Full cross-tenant route tests, nonempty provider UI, local mobile/failure tests, conflict/undo interaction, full source checkpoint and isolated deployment/regression remain pending. No hosted dynamic binding feature exists yet.
+
+Actual owner-session cross-tenant API check also passed: fetching an existing page in the other isolated tenant returned404; client-supplied tenant_id on resolve returned422 because extra fields are forbidden. The same normal-login actual preview/private-field rejection suite passed again, with original stored page token/tree unchanged. Positive nonempty brand UI remains unverified.
+
+## Preview hardening and desktop/mobile failure checks
+
+Frontend now accepts only an exact structural projection of the submitted native tree. Unknown node properties, settings changes, changed static content, extra/moved nodes or unresolved binding envelopes fail closed. Only the bound heading value may change; removal requires that heading's hide policy. One new unit test covers replacement refusal. Frontend101tests pass/1skip.
+
+Actual local browser1440/390 mocked-provider interaction passed compatible source search, nonempty dynamic heading, retained Static toggle, source outage with no stale/static fallback, and conflict409 save freeze. Screenshots inspected. This is mocked positive UI, not hosted positive API/UI.
+
+The real database provider also passed a nonempty-brand check in a transaction that was flushed then rolled back for each existing test tenant. No settings change was committed. This verifies actual provider nonempty projection separately from the mocked UI; do not merge those claims into end-to-end positive UI proof. Original per-tenant empty brand state remains the live state. A full positive real API/UI run still needs a controlled throwaway fixture or transaction-scoped harness.
+
+## Positive real API/UI acceptance
+
+Normal owner-test browser login against the local actual API and real isolated database passed selecting Dynamic saved-brand source, saving and reloading the exact persisted binding, and displaying a nonempty actual saved brand. A temporary website brand fixture was set only in the throwaway owner tenant through the token-protected settings API. Exact original settings were restored and verified after acceptance, and the experimental page binding was removed from the throwaway draft for compatibility with the older hosted editor. No other tenant or original page was changed. Dynamic publishing returned409 as designed. This is positive LOCAL actual API/UI evidence, not hosted deployment proof.
