@@ -3,7 +3,7 @@ import type {PageNode} from './pagetree';
 import type {NativeBinding} from './nativeBindings';
 type Source={module:string;source:string;field:string;label:string};
 export default function NativeDataControls({node,language,discover,onChange}:{node:PageNode;language:'en'|'ar';discover:()=>Promise<{modules:unknown[]}>;onChange:(binding:NativeBinding|null)=>void}){
- const ar=language==='ar';
+ const ar=true; // Arabic-first UI chrome, content lang suffix kept
  const binding=node.bindings?.content[language]?.text;
  const [sources,setSources]=useState<Source[]>([]),[error,setError]=useState(''),[loading,setLoading]=useState(false),[open,setOpen]=useState(false);
  const [query,setQuery]=useState('');

@@ -2,7 +2,7 @@ import {useState} from 'react';
 import type {PageNode} from './pagetree';
 import type {CardPlan} from './nativeCards';
 export default function NativeCardControls({node,language,onChange,apiBase}:{node:PageNode;language:'en'|'ar';apiBase:string;onChange:(plan:CardPlan|null)=>void}){
- const ar=language==='ar';
+ const ar=true; // Arabic-first UI chrome, content lang suffix kept
  const plan=node.card?.content[language];
  const [choices,setChoices]=useState<Array<{id:string;name:string}>|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(false);
  async function loadChoices(){setLoading(true);setError('');try{

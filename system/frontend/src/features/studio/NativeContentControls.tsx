@@ -6,7 +6,7 @@ import { sanitizeHtml } from './treerender';
 export default function NativeContentControls({node,lang,onEdit}:{node:PageNode;lang:'en'|'ar';onEdit:(field:string,value:string)=>void}){
   const rich=useRef<HTMLDivElement>(null);
   const [urlError,setUrlError]=useState('');
-  const ar=lang==='ar';
+  const ar=true; // Arabic-first UI chrome, content lang suffix kept
   const content=node.content[lang]??{};
   const html=String(content.html??'');
   useEffect(()=>{if(rich.current && sanitizeHtml(rich.current.innerHTML)!==sanitizeHtml(html))rich.current.innerHTML=sanitizeHtml(html)},[node.id,lang,html]);
