@@ -802,6 +802,25 @@ def page_repeat_problems(value, node_type, languages=None) -> list[str]:
     return errors
 
 
+PAGE_CARD_SCHEMA = "mizan.page-card.experimental.v0"
+
+def page_card_problems(value, node_type, languages=None):
+    if not isinstance(value, dict) or set(value) != {"schema", "content"} or value.get("schema") != PAGE_CARD_SCHEMA or node_type != "column":
+        return ["card: exact native column declaration required"]
+    content=value.get("content")
+    if not isinstance(content, dict) or not 1 <= len(content) <= 2:
+        return ["card: bounded language map required"]
+    errors=[]
+    for language, plan in content.items():
+        if language not in ("en","ar") or (languages is not None and language not in languages):errors.append("card: unsupported language")
+        if not isinstance(plan, dict) or set(plan) != {"module","source","limit","targets"}:
+            errors.append("card: exact source and targets required");continue
+        if plan['module'] != 'inventory' or plan['source'] != 'website_cards' or type(plan['limit']) is not int or not 1 <= plan['limit'] <= 6:errors.append("card: unsupported source or bound")
+        targets=plan['targets']
+        if not isinstance(targets,dict) or set(targets) != {'name','price','image'} or any(not isinstance(v,str) or not PAGE_NODE_ID.fullmatch(v) for v in targets.values()) or len(set(v for v in targets.values() if isinstance(v,str))) != 3:errors.append("card: distinct native targets required")
+    return errors
+
+
 def page_problems(tree: dict, languages: tuple[str, ...] | None = None) -> list[str]:
     """What's wrong with a page tree; [] when it's fine. `languages`: the site's language codes;
     content in any other language is rejected. None accepts any well-formed code."""
@@ -826,7 +845,7 @@ def page_problems(tree: dict, languages: tuple[str, ...] | None = None) -> list[
         nid = node.get("id")
         ntype = node.get("type")
         label = f"{where} › {ntype} {nid}" if isinstance(ntype, str) else where
-        extra = set(node) - {"id", "type", "settings", "content", "children", "bindings", "repeat"}
+        extra = set(node) - {"id", "type", "settings", "content", "children", "bindings", "repeat", "card"}
         for k in sorted(extra):
             problems.append(f"{label}: '{k}' isn't a page node field")
         if not isinstance(nid, str) or not PAGE_NODE_ID.match(nid):
@@ -889,6 +908,9 @@ def page_problems(tree: dict, languages: tuple[str, ...] | None = None) -> list[
         if "bindings" in node:
             problems.extend(f"{label}: {problem}" for problem in page_binding_problems(node["bindings"], ntype, languages))
 
+        if "card" in node:
+            problems.extend(f"{label}: {problem}" for problem in page_card_problems(node["card"], ntype, languages))
+            if "bindings" in node or "repeat" in node:problems.append(f"{label}: card conflicts with scalar/repeat")
         if "repeat" in node:
             problems.extend(f"{label}: {problem}" for problem in page_repeat_problems(node["repeat"], ntype, languages))
             if "bindings" in node:
