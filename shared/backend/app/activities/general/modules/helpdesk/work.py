@@ -42,7 +42,7 @@ async def list_source_work(db: AsyncSession, user, limit: int = 100):
                 continue
             items.append(item)
     values = (await registry.get_settings(db, "helpdesk"))["values"]
-    return {"work_completion_enabled": values.get("work_completion") is True, "items": items, "limit_per_source": limit,
+    return {"work_intake_enabled": values.get("work_intake") is True, "work_completion_enabled": values.get("work_completion") is True, "items": items, "limit_per_source": limit,
             "source_modules": sorted(active & {source for source, _, _ in sources}),
             "read_only": True, "truncated_sources": truncated_sources,
             "invalid_source_rows": invalid_source_rows}
