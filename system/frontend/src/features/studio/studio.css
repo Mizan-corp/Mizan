@@ -390,3 +390,20 @@
 .mz-editor .data-mode button[aria-pressed=true]{background:var(--teal-tint);color:var(--teal-dark);border-color:var(--teal-soft);font-weight:600}
 .mz-editor .data-example{background:var(--sand-2);color:var(--ink-2);font-family:var(--font-text)}
 .mz-editor .native-content-controls .hint,.mz-editor .native-data-controls p{color:var(--ink-2)}
+.mz-publish-overlay{position:fixed;inset:0;background:rgba(31,42,38,.32);display:grid;place-items:center;z-index:60;padding:20px}
+.mz-publish-card{width:min(480px,100%);background:var(--surface,#fff);border-radius:18px;box-shadow:0 2px 6px rgba(31,42,38,.08),0 18px 48px rgba(31,42,38,.14);padding:22px;display:flex;flex-direction:column;gap:14px;max-height:calc(100vh - 60px);overflow:auto}
+.mz-publish-address{background:var(--sand);border:1px solid var(--hairline);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.mz-publish-address span{font-size:11.5px;color:var(--ink-3)}
+.mz-publish-address b{font-size:14px;color:var(--ink);word-break:break-all}
+.mz-publish-address small{font-size:11px;color:var(--ink-2);line-height:1.7}
+.mz-publish-checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.mz-publish-checks li{border-radius:12px;padding:10px 14px;font-size:12.5px;border:1px solid var(--hairline);background:var(--sand);color:var(--ink);line-height:1.7}
+.mz-publish-checks li.ok{background:var(--teal-tint);border-color:var(--teal-soft);color:var(--teal-dark)}
+.mz-publish-checks li.warn{background:var(--amber-tint);border-color:#EBD9B4;color:#8a5c0e}
+.mz-publish-checks li.info{color:var(--ink-2)}
+.mz-publish-actions{display:flex;gap:10px}
+.mz-publish-link{display:block;background:var(--teal-tint);border:1px solid var(--teal-soft);color:var(--teal-dark);border-radius:12px;padding:12px 14px;font-size:13px;text-align:center;word-break:break-all;text-decoration:none;font-weight:600}
+.mz-publish-error{font-size:12.5px;color:var(--danger);background:#FBEAEA;border:1px solid #F0C9C9;border-radius:12px;padding:10px 14px;line-height:1.7}
+.mz-publish-revisions summary{cursor:pointer;color:var(--ink-2);font-size:12.5px}
+.mz-revision{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--hairline);font-size:12.5px;color:var(--ink)}
+.mz-inline{background:none;border:0;color:var(--teal-dark);font-weight:700;cursor:pointer;text-decoration:underline;padding:0;font-size:inherit}
