@@ -29,6 +29,7 @@ function arPreflight(detail:string):string{
  const list=urls.length?urls.join(t('، ')):t('عناوين خارجية');
  if(detail.startsWith('This page cannot be published for the public test host'))return getUILang()==='en'?`This page has external addresses (${list}) and cannot be published on the public test host. Public pages on the trial domain only allow addresses on ${host?host+' ':''}or relative links. Replace or remove them and publish again. The previously published version is unchanged.`:`الصفحة دي فيها عناوين خارجية (${list}) ومينفعش تتنشر على مضيف الاختبار العام. الصفحات العامة في النطاق التجريبي بتسمح بس بعناوين على ${host?host+' ':''}أو روابط نسبية. بدّلها أو شيلها وانشر تاني. النسخة المنشورة السابقة زي ما هي.`;
  if(detail.startsWith('This page cannot be made public'))return getUILang()==='en'?`This page has external addresses (${list}) and cannot be made public right now. Only ${host?host+' ':''}addresses or relative links are allowed. Edit the page, publish it again, then enable public access. The page stays private until then.`:`الصفحة دي فيها عناوين خارجية (${list}) ومينفعش تتاح للعامة دلوقتي. المسموح بس عناوين ${host?host+' ':''}أو روابط نسبية. عدّل الصفحة وانشرها تاني وبعدين فعّل الإتاحة العامة. الصفحة بتفضل خاصة لحد كده.`;
+ if(detail.startsWith('Pages that read business data cannot be made public'))return getUILang()==='en'?'Pages that read business data cannot be made public in synthetic scope. Remove the connected-data elements first; the page stays private.':'الصفحات اللي بتقرا بيانات الشغل مينفعش تتاح للعامة في النطاق التجريبي. شيل العناصر المربوطة بالبيانات الأول؛ الصفحة بتفضل خاصة.';
  if(detail.startsWith('This page is public in synthetic scope'))return getUILang()==='en'?'This page is public in synthetic scope, which cannot serve connected data. Disable public access first, then publish again. The previously published version is unchanged.':'الصفحة دي متاحة للعامة في النطاق التجريبي، وده مبيقدمش بيانات متصلة. وقّف الإتاحة العامة الأول، وبعدين انشر تاني. النسخة المنشورة السابقة زي ما هي.';
  return '';
 }
@@ -169,14 +170,14 @@ export default function NativeStudio({apiBase='/__studio/api',previewLabel:_prev
       if(detail.id!==page.id||!detail.published)throw Error('Publish response could not be verified.');
       setPage(detail);
       const [acc,revs]=await Promise.all([api.getPublicAccess(page.id),api.listRevisions(page.id)]);setPubAccess(acc);setRevisions(revs.items);setPubDone(true);
-    }catch(e){setPubError(e instanceof SiteApiError?(e.isAuth?t('انتهت الجلسة. سجّل دخول من جديد، تغييراتك المحفوظة زي ما هي.'):e.isForbidden?t('الحساب ده مش من حقه ينشر الصفحة دي.'):e.isConflict?(e.detail.includes('Dynamic pages')?t('النشر اترفض: الصفحة دي فيها عناصر مربوطة ببيانات مباشرة، والنشر العام للصفحات المربوطة لسه مش متاح. الصفحة متاحة للمعاينة بس دلوقتي، والنسخة المنشورة زي ما هي.'):t('النشر اترفض: ')+(e.detail||t('تعارض مع الحالة الحالية.'))):e.isInvalid?(arPreflight(e.detail||'')||t('النشر اترفض في مراجعة ما قبل النشر. المسودة محفوظة والنسخة المنشورة زي ما هي.')):e.message):t('تعذّر النشر. حاول تاني.'));}
+    }catch(e){setPubError(e instanceof SiteApiError?(e.isAuth?t('انتهت الجلسة. سجّل دخول من جديد، تغييراتك المحفوظة زي ما هي.'):e.isForbidden?t('الحساب ده مش من حقه ينشر الصفحة دي.'):e.isConflict?(arPreflight(e.detail||'')||t('النشر اترفض: ')+(e.detail||t('تعارض مع الحالة الحالية.'))):e.isInvalid?(arPreflight(e.detail||'')||t('النشر اترفض في مراجعة ما قبل النشر. المسودة محفوظة والنسخة المنشورة زي ما هي.')):e.message):t('تعذّر النشر. حاول تاني.'));}
     finally{setPubBusy(false)}
   };
   const togglePublic=async()=>{
     if(!page||!pubAccess||pubBusy)return;
     setPubBusy(true);setPubError('');
     try{setPubAccess(await api.setPublicAccess(page.id,!pubAccess.enabled))}
-    catch(e){setPubError(e instanceof SiteApiError?(e.isForbidden?t('الحساب ده مش من حقه يغيّر الإتاحة.'):e.isInvalid?(arPreflight(e.detail||'')||t('مراجعة ما قبل النشر رفضت الإتاحة العامة. الصفحة بتفضل خاصة.')):t('تعذّر تغيير الإتاحة. حاول تاني.')):t('تعذّر تغيير الإتاحة. حاول تاني.'))}
+    catch(e){setPubError(e instanceof SiteApiError?(e.isForbidden?t('الحساب ده مش من حقه يغيّر الإتاحة.'):e.isConflict?(arPreflight(e.detail||'')||t('الإتاحة العامة اترفضت. الصفحة بتفضل خاصة.')):e.isInvalid?(arPreflight(e.detail||'')||t('مراجعة ما قبل النشر رفضت الإتاحة العامة. الصفحة بتفضل خاصة.')):t('تعذّر تغيير الإتاحة. حاول تاني.')):t('تعذّر تغيير الإتاحة. حاول تاني.'))}
     finally{setPubBusy(false)}
   };
   const doRollback=async(rid:string)=>{
