@@ -169,12 +169,14 @@ export default function NativeStudio({apiBase='/__studio/api',previewLabel:_prev
     finally{setPubBusy(false)}
   };
   const doRollback=async(rid:string)=>{
-    if(!page||pubBusy||!window.confirm('ترجّع النسخة العامة للنسخة دي؟ مسودتك الحالية مش بتتغير.'))return;
+    if(!page||pubBusy||!window.confirm('رجّع النسخة دي للمسودة؟ مسودتك الحالية هتتستبدل بمحتوى النسخة المختارة. النسخة العامة مش بتتغير غير بعد ما تنشر من تاني.'))return;
     setPubBusy(true);setPubError('');
     try{
       const detail=await api.rollback(page.id,rid);
       if(detail.id!==page.id)throw Error('Rollback response could not be verified.');
-      setPage(detail);setRevisions((await api.listRevisions(page.id)).items);
+      setPublishOpen(false);
+      setNotice('النسخة اترجعت للمسودة. الصفحة بتتحمل من جديد بالمحتوى المسترجع. النسخة العامة زي ما هي لحد ما تنشر.');
+      openPage(detail.id);
     }catch(e){setPubError(e instanceof SiteApiError?(e.isForbidden?'الحساب ده مش من حقه يرجّع النسخ.':e.message):'تعذّر الترجيع. حاول تاني.')}
     finally{setPubBusy(false)}
   };
