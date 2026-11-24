@@ -151,7 +151,7 @@ export function createSitePagesClient(options: { baseUrl: string; fetchImpl?: Fe
   const fetchImpl = options.fetchImpl ?? fetch;
   const call = <T>(method: string, path: string, body?: unknown) => request<T>(fetchImpl, baseUrl, method, path, body);
   return {
-    discoverData: () => call<{modules:unknown[]}>('GET','/site/data'),
+    discoverData: () => call<{modules:unknown[];collections?:unknown[]}>('GET','/site/data'),
     previewData: (tree:PageNode,language:string,device:string) => call<{tree:PageNode;html:string}>('POST','/site/data/preview',{tree,language,device}),
     listPages: () => call<ListResponse<PageSummary>>('GET', '/site/pages'),
     createPage: (project: Project) => call<PageDetail>('POST', '/site/pages', createPayload(project)),
