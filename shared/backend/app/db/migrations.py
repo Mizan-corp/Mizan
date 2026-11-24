@@ -4353,3 +4353,4 @@ async def apply_migrations(session: AsyncSession) -> List[str]:
 
 # Additive atomic Help Desk step, errors propagate through the Python migration path.
 MIGRATIONS.append(("v110_helpdesk_offerings", "python:app.activities.general.modules.helpdesk.migrate:migrate"))
+MIGRATIONS.append(("v111_helpdesk_execution_actuals", "python:app.activities.general.modules.helpdesk.migrate_actuals:migrate"))
