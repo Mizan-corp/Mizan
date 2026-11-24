@@ -75,7 +75,8 @@ async def preview(data: PreviewIn, db: AsyncSession = Depends(get_db), _=Depends
         if has_repeat(data.tree):
             from app.framework.storefront_collections import CollectionRuntime
             from .collections import navigation_labels_provider
-            tree=await resolve_repeat(data.tree,collection_registry(db),ctx)
+            from .composition import resolve_composition
+            tree=await resolve_composition(data.tree,scalar_registry(db),collection_registry(db),ctx)
         else:
             tree=await resolve_tree(data.tree,scalar_registry(db),ctx,lambda t:page_problems(t,('en','ar')))
         return {'html':render_page(tree,lang=data.language,device=data.device),'tree':tree}
