@@ -52,3 +52,9 @@ Real database transaction checks refused missing file metadata, wrong product ow
 Actual FastAPI route dependencies were tested with injected identity and no DB: no grants, site.manage only and inventory only each got403 for card settings GET/PUT. Inventory-only preview got403. This checks the real permission dependencies, not a fresh persisted-user login. Existing hosted test used the ordinary authenticated owner.
 
 This follow-up supersedes the earlier no-deployment statement for the name/price subset only. It does not change any unfinished-public-runtime, media, template or commerce boundary.
+
+## Repeated-copy editing follow-up, local only
+
+Canvas selection originally recognized stored node IDs only. Repeated cards have generated IDs, so the accepted hosted path used Layers to select the template. A selection-only map now derives rendered-copy IDs to original template IDs only after exact projection validation. Clicking a rendered name selects its template heading; layout changes apply to every repeated copy. Stored IDs and backend contract do not change. Dragging generated copies is intentionally disabled, use Layers to move the template.
+
+Two local mapping tests cover all fields on two actual Python-generated card copies, optional/empty results, source unchanged and unverified projection refusal. Ordinary UI test with two products clicked the second rendered heading, changed native heading level, saw both copies update, saved and fully reloaded with both levels retained. Desktop and mobile stacked layout inspected; exact rollback restoration verified. This editing change is LOCAL ONLY pending isolated source checkpoint and hosted proof. Current hosted price-card checkpoint remains valid through Layers.
