@@ -34,3 +34,21 @@ Generic standard request creation/default lifecycle and customer access are not 
 ## Coverage warning
 
 Current strict source summary rejects blank native reference/description/status. Legacy create schemas accept arbitrary strings. The local read adapter now emits invalid_source_rows and the UI warns that the list is incomplete. Actual malformed-row API and visual tests pass. Do not let one malformed legacy row masquerade as no work.
+
+## Internal FSM completion primitive, local only
+
+completion.py is not imported by any router. It adds a source-specific completion primitive with an expected native state, UUID operation ID, native-row and technician locks, deterministic audit-operation identity, request fingerprint, and same-user exact replay. It preserves native completed status and applies the technician effect once. Notes stay on the source row, not in audit/response. Missing or ambiguous technician fails409 instead of silently dropping or guessing its effect.
+
+Actual isolated transaction tests pass rollback after simulated failure, same-operation replay, changed payload409, stale state409, unknown row404, invalid source ID/status422, missing/ambiguous technician409, one audit and one counter increment. Actual independent PostgreSQL transactions tested the row lock: duplicate operation waits then replays; different operation waits then conflicts409. One counter increment and one audit verified. The uniquely named disposable test schema was removed and absence verified; public source tables/rows were untouched.
+
+Not accepted: no mounted writable route, no effective manage grant/feature UI, no completion screen, no source checkpoint/deploy for this internal primitive, no property lifecycle change. This does not repair legacy FSM endpoint replay behavior. Final API exposure must independently require explicit completion-manage and source grants, both module activations, and a module-level feature independent of variation.
+
+## Controlled FSM completion route and ERP UI, local acceptance
+
+The local router now exposes only source-specific POST /helpdesk/work/field_service/{source_id}/complete. It independently requires helpdesk:work:complete, helpdesk:work:view and operations, both Help Desk/FSM activation, and explicitly enabled module-level work_completion Boolean, default false. The feature exists in every variation and its persisted state survives maintenance/property/consulting/salon/standard activity changes. It does not require or enable the service catalog. No standard role is automatically granted the permission.
+
+Actual JWT API acceptance passes anonymous401, each missing grant403, default/disabled feature409, strict schema422, valid completion200, exact replay200, changed command/stale state409, unknown and other-tenant source404, each inactive module403, one technician increment and one audit. Temporary source rows/users/schema/settings/activation roll back.
+
+Actual full ERP UI passes review/notes/explicit confirmation, native completed after reload, no repeat action, unchanged property native status, catalog-only regression and mobile390 no overflow. Work-read-only roles see no write action. Writable view describes native completion effects rather than incorrectly saying read-only. All colors inherit configured ERP tokens.
+
+Remaining: local only, not source-checkpointed/deployed. General/activity/custom menu precedence remains unchanged. No legacy route replacement, property write path, customer intake, billing, notifications, or complete Help Desk migration. The primitive's deterministic audit ID is a scoped deduplication contract, not a claim that unrelated AuditLog records become globally immutable.
