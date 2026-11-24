@@ -16,7 +16,7 @@ spec.loader.exec_module(c)
 
 class FeatureContractTests(unittest.TestCase):
     def test_module_level_default_and_enabled_state(self):
-        self.assertEqual(c.feature_state(None), {"service_catalog": False})
+        self.assertEqual(c.feature_state(None), {"service_catalog": False, "work_completion": False})
         saved = {"service_catalog": True}
         # No activity or variation is an input. Both calls leave source intact.
         self.assertEqual(c.feature_state(saved), c.feature_state(saved))
@@ -24,8 +24,8 @@ class FeatureContractTests(unittest.TestCase):
 
     def test_partial_update_and_disable_preserve_original(self):
         saved = {"service_catalog": True}
-        self.assertEqual(c.update_features(saved, {}), saved)
-        self.assertEqual(c.update_features(saved, {"service_catalog": False}), {"service_catalog": False})
+        self.assertEqual(c.update_features(saved, {}), {**saved, "work_completion": False})
+        self.assertEqual(c.update_features(saved, {"service_catalog": False}), {"service_catalog": False, "work_completion": False})
         self.assertTrue(saved["service_catalog"])
 
     def test_bad_partial_update_fails_without_mutation(self):
