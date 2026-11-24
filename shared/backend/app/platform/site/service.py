@@ -55,7 +55,8 @@ async def check_bound_tree(db: AsyncSession, tree: dict) -> None:
         if has_repeat(tree):
             from app.framework.storefront_collections import CollectionRuntime
             from .storefront.collections import navigation_labels_provider
-            validate_repeat(tree,collection_registry(db),context)
+            from .storefront.composition import validate_composition
+            validate_composition(tree,scalar_registry(db),collection_registry(db),context)
         else:
             validate_tree_bindings(tree,scalar_registry(db),context,lambda t:page_problems(t,LANGUAGES))
     except SourceUnavailable:
