@@ -3,9 +3,9 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.factory import create_app
-from website_api.routers import signup, developers
+from website_api.routers import public_pages, signup, developers
 
-_service = create_app(title="Mizan isolated test website API", routers=[signup.router, developers.router], create_tables=False)
+_service = create_app(title="Mizan isolated test website API", routers=[signup.router, developers.router, public_pages.router], create_tables=False)
 
 async def app(scope, receive, send):
     if scope["type"] in ("http", "websocket"):

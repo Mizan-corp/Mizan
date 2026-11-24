@@ -55,6 +55,11 @@ class Settings(BaseSettings):
     # running production against Paymob's test mode without letting anyone else in.
     PAYMOB_TEST_OWNERS: str = ""
 
+    # Visitor runtime V1: the registered public host this deployment answers
+    # /site/{slug}/{page_path} for. Empty (default) disables the route
+    # server-side, regardless of activation rows.
+    PUBLIC_SITE_HOST: str = ""
+
     # Licences for single-device and LAN installs (ADR-005). The private key is set
     # only on the owner API; installs verify with the public key.
     LICENSE_SIGNING_KEY: str = ""

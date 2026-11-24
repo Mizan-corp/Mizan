@@ -4255,6 +4255,39 @@ MIGRATIONS = [
         CREATE POLICY tenant_isolation ON site_settings
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     """),
+    ("v112_site_activation", """
+        -- Visitor runtime V1: explicit owner-controlled public activation per
+        -- exact (host, slug, page_path). Default disabled; existence alone grants
+        -- no anonymous access. One row per publishable page, so an unrelated
+        -- published page in the same site can never be served without its own row.
+        -- allow_connected_data=false refuses trees that read connected business
+        -- data (product cards / collection repeats): the synthetic-content scope.
+        -- Private-preview consent (inventory_website_cards_v0) is NOT consulted
+        -- here and never authorizes public-audience data.
+        CREATE TABLE IF NOT EXISTS site_activation (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+                DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+            host varchar(255) NOT NULL,
+            slug varchar(80) NOT NULL,
+            page_path varchar(80) NOT NULL,
+            enabled boolean NOT NULL DEFAULT false,
+            allow_connected_data boolean NOT NULL DEFAULT false,
+            -- Synthetic-scope chrome: served INSTEAD of the tenant's shared
+            -- site_settings so no business profile field can leak through the theme.
+            theme jsonb,
+            audience_policy_version varchar(40),
+            activated_by uuid,
+            created_at timestamptz DEFAULT now(),
+            updated_at timestamptz
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_site_activation_host_slug_page ON site_activation (host, slug, page_path);
+        ALTER TABLE site_activation ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE site_activation FORCE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS tenant_isolation ON site_activation;
+        CREATE POLICY tenant_isolation ON site_activation
+            USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    """),
 ]
 
 # mizan_app's rights (#112), granted again after every migrate. Default privileges only cover tables
