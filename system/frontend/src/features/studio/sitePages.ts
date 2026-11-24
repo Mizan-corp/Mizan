@@ -155,7 +155,7 @@ export function createSitePagesClient(options: { baseUrl: string; fetchImpl?: Fe
     createPage: (project: Project) => call<PageDetail>('POST', '/site/pages', createPayload(project)),
     createNativePage: (payload: {slug:string;titles:Record<string,string>;tree:PageNode}) => call<PageDetail>('POST', '/site/pages', payload),
     getPage: (pageId: string) => call<PageDetail>('GET', `/site/pages/${pageId}`),
-    saveTreeDraft: (pageId: string, tree: PageNode, expectedToken?: string) => call<PageDetail>('PUT', `/site/pages/${pageId}/draft`, { tree, ...(expectedToken?{expected_token:expectedToken}:{}) }),
+    saveTreeDraft: (pageId: string, tree: PageNode, expectedToken?: string, titles?:Record<string,string>) => call<PageDetail>('PUT', `/site/pages/${pageId}/draft`, { tree, ...(expectedToken?{expected_token:expectedToken}:{}),...(titles?{titles}:{}) }),
     saveDraft: (pageId: string, project: Project, titles?: Record<string, string>) => call<PageDetail>('PUT', `/site/pages/${pageId}/draft`, { ...draftPayload(project), ...(titles ? { titles } : {}) }),
     publish: (pageId: string) => call<PageDetail>('POST', `/site/pages/${pageId}/publish`),
     listRevisions: (pageId: string) => call<ListResponse<Revision>>('GET', `/site/pages/${pageId}/revisions`),
@@ -166,4 +166,4 @@ export function createSitePagesClient(options: { baseUrl: string; fetchImpl?: Fe
     archive: (pageId: string) => call<PageSummary>('POST', `/site/pages/${pageId}/archive`),
     reopen: (pageId: string) => call<PageSummary>('POST', `/site/pages/${pageId}/reopen`),
   };
-}
+                                                      }
