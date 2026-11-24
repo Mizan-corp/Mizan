@@ -14,3 +14,12 @@ Fresh real local JWT/API/UI acceptance passes: preview and traverse all four, cr
 
 Four pure backend tests and 205 Studio tests/1skip pass. Actual local Studio desktop/mobile pixels inspected after explicit mirrored h2/h3 scale fixes, and visible mobile return-to-editor control exercised. Original sample SVG drawings are illustrative, not product photos. This is a coherent first-party composition, still not a full business-ready website or visual benchmark acceptance.
 Remaining: final source/test checkpoint, isolated hosted acceptance and exact cleanup before canonical promotion. No production, commerce or spending.
+
+
+## Hosted composition checkpoint, 24 November 2026 12:24 Cairo
+
+The composition and private preview traversal are hosted on the isolated test project, source `50dcd6b1b869cc16bfe108cf8c29235d9e541077`, deployment `dpl_7w84QswkLE2jQ73hYu3V7qZbPmi1`. Canonical https://mizan-studio-feature-test.vercel.app/studio-preview.html . Hosted owner UI exercised preview/traverse/create4, explicit separate shared-design save, native edit/save/reload, private3page traversal, mobile390 and return to editor, duplicate409. All4known unpublished fixture pages removed with no revisions; exact original pages retained and shared design restored, credentials deleted. Entire ERP artifact retained byte-identically. No functional storefront or benchmark acceptance claim.
+
+## Native card-surface followup, 12:30 Cairo
+
+LOCAL ONLY pending source checkpoint and hosted proof: column background uses existing `background`, `card`, `primary` roles and an independent boolean `rounded`. Platform registry, native authoring validation and both renderers agree. Existing pages are unchanged. Technical sample uses these native controls for service/catalog/contact cards. Real local UI changed a card to primary and square, saved/reloaded and verified retained settings, with exact rollback afterward. Five backend unit tests,120Studio tests/1skip, typecheck/build pass. Narrow navigation wraps with readable44px targets and reduced mobile gap/font. Final local390px pixels rechecked. Extra hosted preview-only check identified the narrow292px clipping case and images captured before lazy load; those images were not accepted as proof. Current new local visual harness waits for illustration decode. Next release must prove these changes on the isolated host before promotion.
