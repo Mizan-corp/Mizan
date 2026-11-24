@@ -9,16 +9,28 @@
     "field_service",
     "inventory",
     "operations",
-    "finance"
+    "finance",
+    "helpdesk"
   ],
   "home": "/field-service",
-  "variants": {},
+  "variants": {
+    "helpdesk": "maintenance"
+  },
   "optional": [],
   "terms": {},
   "positions": [],
   "roles": {},
   "settings": {},
   "menu": [
+    {
+      "id": "helpdesk",
+      "label": "الخدمات والدعم",
+      "items": [
+        {
+          "screen": "helpdesk.catalog"
+        }
+      ]
+    },
     {
       "id": "fsm",
       "label": "الصيانة والعمل الميداني",
