@@ -1,6 +1,6 @@
 # First module-provider runtime slice
 
-Status: EXPERIMENTAL FIRST SCALAR SLICE, hosted isolated acceptance passed 24 November 2026. Not full builder/storefront readiness. Earlier local-only sections below are development history; this status and the final hosted checkpoint supersede those deployment-state notes.
+Status: EXPERIMENTAL FIRST SCALAR SLICE, hosted isolated acceptance passed 24 November 2026; save+preview+runtime wiring for the versioned bindings envelope completed 25 November 2026 (see the wiring checkpoint at the end). Not full builder/storefront readiness. Earlier local-only sections below are development history; this status and the final hosted checkpoint supersede those deployment-state notes.
 
 ## Scope and ownership
 
@@ -26,7 +26,7 @@ Read-only real isolated database provider checks bound each of the two existing 
 
 ## Remaining before hosted feature acceptance
 
-1. Complete the local versioned page-binding schema review, support provider compatibility validation at save and preview, and preserve existing unsupported/static pages without reconstruction. Local platform/SDK validators now accept the explicitly versioned mizan.page-bindings.experimental.v0 envelope on heading.text only, with exact identifiers and missing behavior. Hosted storage still rejects bindings. Local Python renderer refuses unresolved bindings even when static validation is disabled, preventing silent fallback. Do not promote this extension to the hosted contract until save/preview/runtime wiring is tested together.
+1. ~~Complete the local versioned page-binding schema review, support provider compatibility validation at save and preview, and preserve existing unsupported/static pages without reconstruction.~~ Done 25 November 2026: hosted save validates and persists the versioned envelope, authenticated preview resolves it, the visitor runtime resolves it per request under activation policy, and publish is policy-aware instead of a blanket refusal (see the wiring checkpoint).
 2. Mount authenticated discovery only after permission/API tests and server preview resolution are exercised. Apply current active module registry and versions before more providers are admitted.
 3. Expand actual API tenant/permission, inactive source, source error and conflict tests. Python renderer escaping of resolved text now has a passing test. Dynamic renderer values must never become markup or trigger commands.
 4. Add Static/Dynamic controls in Studio with source recommendations, explicit missing behavior, preview error handling, dirty/undo/save/conflict protection. Use actual rendered synthetic examples, no private customer values in thumbnails.
@@ -34,6 +34,17 @@ Read-only real isolated database provider checks bound each of the two existing 
 6. Collections, public product publication, prices/currency, related pages and commands are separate further slices. The retired legacy storefront router remains unmounted.
 
 No claim of benchmark recreation or ready storefront follows from these foundations.
+
+## Save/preview/runtime wiring checkpoint (25 November 2026)
+
+The versioned bindings envelope (mizan.page-bindings.experimental.v0 and siblings) is now wired end to end:
+
+- Save: save_draft and publish validate bound-source compatibility before any write (check_bound_tree), unchanged.
+- Preview: the authenticated /site/data/preview route resolves bound trees for site.manage users, unchanged.
+- Runtime: the visitor route (website_api/routers/public_pages.py) resolves bound trees per request, re-reading consent and module activation every time, when the page's activation allows connected data. No current flow can create such an activation: set_public_access pins allow_connected_data=False, and enabling connected data stays a separate, explicitly approved operation.
+- Publish: the blanket refusal of dynamic drafts is replaced with a policy-aware check. A bound tree publishes freely for authenticated preview EXCEPT when an enabled activation already covers the page: the synthetic request-time boundary refuses bound trees, so publishing would silently break a live public URL. That one case is refused with a readable 409 before any mutation, keeping the previous published snapshot. Make-public still refuses bound published trees outright, so public connected-data exposure remains impossible through every existing flow.
+
+Offline tests: six new cases in shared/backend/tests/test_public_access.py (publish allowed without activation, refused with an enabled activation, allowed without a configured host, include_bound flag behavior, off-host preflight preserved); the twenty-three visitor-runtime tests (including allow_data=True resolution and synthetic refusal) pass unchanged. No deployment or activation-contract change is part of this wiring.
 
 ## Latest local checkpoint
 

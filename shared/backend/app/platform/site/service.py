@@ -155,19 +155,30 @@ async def publish(db: AsyncSession, page_id: uuid.UUID, user_id: uuid.UUID | Non
     if page.draft_tree is None:
         raise HTTPException(409, "لا توجد مسودة للنشر")
     await check_bound_tree(db, page.draft_tree)
-    # Authenticated preview is implemented first. Public site-service resolution
-    # is not wired yet, so do not produce published pages that cannot render.
-    def has_bindings(node):
-        return "bindings" in node or "repeat" in node or "card" in node or any(has_bindings(c) for c in node.get("children", []))
-    if has_bindings(page.draft_tree):
-        raise HTTPException(409,"Dynamic pages are preview-only until public provider resolution is available.")
+    # Bound (dynamic) trees: the visitor runtime resolves them per request under
+    # an activation with allow_connected_data=True, which no current flow can
+    # create (set_public_access pins False, and enabling it is a separate,
+    # explicitly approved operation). A bound page therefore publishes freely
+    # for authenticated preview, EXCEPT when an enabled activation already
+    # covers it: the synthetic request-time boundary refuses bound trees, so
+    # publishing would silently break a live public URL. Refuse that one case
+    # with a readable error BEFORE any mutation, keeping the previous snapshot.
+    from app.core.config import settings as _settings
+    _host = (_settings.PUBLIC_SITE_HOST or "").strip().lower()
+    if _host and _has_bound_node(page.draft_tree):
+        row = (await db.execute(text(
+            "SELECT 1 FROM site_activation"
+            " WHERE host = :h AND slug = :s AND page_path = :p AND enabled IS TRUE"
+        ), {"h": _host, "s": PUBLIC_SITE_SLUG, "p": page.slug})).first()
+        if row is not None:
+            raise HTTPException(409, "This page is public in synthetic scope, which cannot serve connected data. "
+                                "Disable public access first, then publish again; the previously published page is unchanged.")
     # Synthetic-scope preflight: what publish would make publicly servable must pass
     # the visitor contract on this deployment's host. Refuses with a readable error
     # BEFORE any mutation, so a failed publish keeps the previous published snapshot.
-    from app.core.config import settings as _settings
-    _host = (_settings.PUBLIC_SITE_HOST or "").strip().lower()
+    # Bound nodes are covered by the activation-aware check above, not here.
     if _host:
-        problems = synthetic_scope_violations(page.draft_tree, _host)
+        problems = synthetic_scope_violations(page.draft_tree, _host, include_bound=False)
         if problems:
             raise HTTPException(422, "This page cannot be published for the public test host: it references "
                                 + ", ".join(problems) + f". Public pages in synthetic scope only allow addresses on {_host} "
@@ -379,10 +390,14 @@ def _off_host_urls(node, host: str, out: list[str], limit: int = 3) -> None:
             _off_host_urls(value, host, out, limit)
 
 
-def synthetic_scope_violations(tree, host: str) -> list[str]:
-    """Readable reasons a tree cannot be publicly served in synthetic scope."""
+def synthetic_scope_violations(tree, host: str, *, include_bound: bool = True) -> list[str]:
+    """Readable reasons a tree cannot be publicly served in synthetic scope.
+
+    include_bound=False is for publish(), which checks bound trees against the
+    page's own activation state separately; Make-public keeps the default True.
+    """
     problems: list[str] = []
-    if _has_bound_node(tree):
+    if include_bound and _has_bound_node(tree):
         problems.append("it reads business data (bound/provider nodes)")
     _off_host_urls(tree, host, problems)
     return problems

@@ -386,3 +386,87 @@ class SyntheticScopePreflightTests(unittest.IsolatedAsyncioTestCase):
              patch.object(service, "check_bound_tree", new=AsyncMock()):
             await service.publish(db, PAGE_ID, UID)  # no public host: nothing can be served
         self.assertIs(pg.published_tree, self.OFF_HOST)
+
+
+class PublishBoundTreePolicyTests(unittest.IsolatedAsyncioTestCase):
+    """Save+preview+runtime wiring (versioned bindings envelope): publish of a
+    bound tree is allowed for authenticated preview UNLESS an enabled activation
+    already covers the page, where the synthetic request-time boundary would
+    silently 404 the live URL. Make-public still refuses bound trees, so public
+    connected-data exposure stays impossible through every flow."""
+
+    BOUND = {"type": "section", "children": [
+        {"type": "heading", "settings": {}, "content": {"en": {"text": "x"}},
+         "bindings": {"schema": "mizan.page-bindings.experimental.v0",
+                      "content": {"en": {"text": {"mode": "dynamic", "module": "site",
+                                                  "source": "brand", "field": "name",
+                                                  "on_missing": "hide"}}}}}]}
+
+    def _page(self):
+        pg = page()
+        pg.draft_tree = self.BOUND
+        return pg
+
+    def _publish_patches(self, pg, host=HOST):
+        return (patched_page(pg), patch.object(settings, "PUBLIC_SITE_HOST", host),
+                patch.object(service, "SitePageRevision", _fake_revision_model()),
+                patch.object(service, "get_settings", new=AsyncMock(return_value={})),
+                patch.object(service, "check_bound_tree", new=AsyncMock()))
+
+    async def test_publish_allows_bound_tree_without_activation(self):
+        pg = self._page()
+        db = db_with()  # no activation row
+        token = service.current_tenant_id.set(TID)
+        try:
+            p1, p2, p3, p4, p5 = self._publish_patches(pg)
+            with p1, p2, p3, p4, p5:
+                await service.publish(db, PAGE_ID, UID)
+        finally:
+            service.current_tenant_id.reset(token)
+        self.assertIs(pg.published_tree, self.BOUND)
+        self.assertEqual(pg.status, "published")
+        db.commit.assert_called()
+
+    async def test_publish_refuses_bound_tree_with_enabled_activation(self):
+        pg = self._page()
+        pg.published_tree = SyntheticScopePreflightTests.SAME_HOST  # live snapshot stays
+        db = db_with(activation_enabled=True)
+        token = service.current_tenant_id.set(TID)
+        try:
+            p1, p2, p3, p4, p5 = self._publish_patches(pg)
+            with p1, p2, p3, p4, p5:
+                with self.assertRaises(HTTPException) as ctx:
+                    await service.publish(db, PAGE_ID, UID)
+        finally:
+            service.current_tenant_id.reset(token)
+        self.assertEqual(ctx.exception.status_code, 409)
+        self.assertIn("Disable public access first", str(ctx.exception.detail))
+        self.assertIn("previously published page is unchanged", str(ctx.exception.detail))
+        db.add.assert_not_called()
+        db.commit.assert_not_called()
+        self.assertIs(pg.published_tree, SyntheticScopePreflightTests.SAME_HOST)
+
+    async def test_publish_allows_bound_tree_without_configured_host(self):
+        pg = self._page()
+        db = db_with()
+        p1, p2, p3, p4, p5 = self._publish_patches(pg, host="")
+        with p1, p2, p3, p4, p5:
+            await service.publish(db, PAGE_ID, UID)  # no public host: nothing can be served
+        self.assertIs(pg.published_tree, self.BOUND)
+        self.assertFalse(any("site_activation" in sql for sql, _ in db._calls))
+
+
+class SyntheticScopeViolationsBoundFlagTests(unittest.TestCase):
+    def test_include_bound_default_keeps_make_public_refusal(self):
+        problems = service.synthetic_scope_violations(PublishBoundTreePolicyTests.BOUND, HOST)
+        self.assertIn("it reads business data (bound/provider nodes)", problems)
+
+    def test_include_bound_false_leaves_bound_to_the_activation_check(self):
+        problems = service.synthetic_scope_violations(
+            PublishBoundTreePolicyTests.BOUND, HOST, include_bound=False)
+        self.assertEqual(problems, [])
+
+    def test_off_host_urls_still_flagged_with_include_bound_false(self):
+        problems = service.synthetic_scope_violations(
+            SyntheticScopePreflightTests.OFF_HOST, HOST, include_bound=False)
+        self.assertTrue(any("picsum.photos" in p for p in problems))
