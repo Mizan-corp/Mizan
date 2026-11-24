@@ -2,7 +2,7 @@
 import hashlib,json
 from uuid import UUID
 from fastapi import APIRouter,Depends,HTTPException
-from pydantic import BaseModel,ConfigDict,Field
+from pydantic import BaseModel,ConfigDict,Field,StrictBool
 from sqlalchemy import select
 from app.db.base import get_db
 from app.dependencies import require_perm
@@ -62,3 +62,48 @@ async def choices(db=Depends(get_db),_=Depends(require_perm('site.manage')),__=D
         rows=(await db.execute(query.order_by(model.name,model.id).limit(201))).all()
         out[kind]={'items':[{'id':str(key),'name':name} for key,name in rows[:200]],'truncated':len(rows)>200}
     return out
+
+class CardPublicationIn(BaseModel):
+    model_config=ConfigDict(extra='forbid')
+    expected_token:str
+    products:list[UUID]=Field(max_length=200)
+    show_price:StrictBool
+    show_image:StrictBool
+    currency:str|None
+
+async def card_read(db):
+    from .cards import SETTING_KEY as key
+    await read(db)
+    row=await db.scalar(select(StoreSetting).where(StoreSetting.tenant_id==current_tenant_id.get(),StoreSetting.key==key))
+    return row,row.value if row else None
+
+def card_value(policy):
+    return {**policy,'products':[str(x) for x in policy['products']]}
+
+@router.get('/cards')
+async def get_cards(db=Depends(get_db),_=Depends(require_perm('site.manage')),__=Depends(require_perm('inventory'))):
+    from .cards import card_policy
+    row,raw=await card_read(db)
+    try:value=card_value(card_policy(raw))
+    except SourceUnavailable:raise HTTPException(422,'Stored website cards policy is invalid.') from None
+    return {'value':value,'edit_token':token(raw)}
+
+@router.put('/cards')
+async def put_cards(data:CardPublicationIn,db=Depends(get_db),_=Depends(require_perm('site.manage')),__=Depends(require_perm('inventory'))):
+    from .cards import card_policy,SETTING_KEY as key,SCHEMA as schema
+    tid=current_tenant_id.get()
+    if tid is None:raise HTTPException(422,'Explicit workspace required.')
+    await db.execute(select(Tenant.id).where(Tenant.id==tid).with_for_update())
+    row,raw=await card_read(db)
+    if token(raw)!=data.expected_token:raise HTTPException(409,'Website card policy changed. Reload before saving.')
+    value={'schema':schema,'products':[str(x) for x in data.products],'show_price':data.show_price,'show_image':data.show_image,'currency':data.currency}
+    try:policy=card_policy(json.dumps(value))
+    except SourceUnavailable:raise HTTPException(422,'Invalid explicit website card policy.') from None
+    if policy['products']:
+        found=set((await db.execute(select(Product.id).where(Product.tenant_id==tid,Product.is_active.is_(True),Product.id.in_(policy['products'])))).scalars())
+        if found!=set(policy['products']):raise HTTPException(422,'Selected website products are unavailable.')
+    encoded=json.dumps(value,sort_keys=True)
+    if row is None:db.add(StoreSetting(tenant_id=tid,key=key,value=encoded))
+    else:row.value=encoded
+    await db.commit()
+    return {'value':card_value(policy),'edit_token':token(encoded)}
