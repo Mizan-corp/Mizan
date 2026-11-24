@@ -21,6 +21,11 @@
       "id": "helpdesk:manage",
       "name": "إدارة الخدمات",
       "name_en": "Manage service offerings"
+    },
+    {
+      "id": "helpdesk:work:view",
+      "name": "عرض طلبات العمل الموحدة",
+      "name_en": "View unified service work"
     }
   ],
   "screens": [
@@ -29,7 +34,7 @@
       "path": "/helpdesk",
       "label": "مكتب الخدمات والدعم",
       "icon": "Headset",
-      "permission": "helpdesk:view"
+      "permission": "helpdesk:view|helpdesk:work:view"
     }
   ],
   "widgets": [],
