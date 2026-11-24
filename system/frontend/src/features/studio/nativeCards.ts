@@ -1,24 +1,28 @@
 import type {PageNode} from './pagetree';
 export const cardSchema='mizan.page-card.experimental.v0';
-export type CardPlan={module:'inventory';source:'website_cards';limit:number;targets:{name:string;price:string;image:string}};
+export type CardPlan={module:'inventory';source:'website_cards';limit:number;products?:string[];targets:{name:string;price:string;image:string}};
 export type NativeCard={schema:typeof cardSchema;content:Partial<Record<'en'|'ar',CardPlan>>};
 const id=(v:unknown)=>typeof v==='string'&&/^n_[a-z0-9]{4,16}$/.test(v);
 export function cardProblem(value:unknown,type:string):boolean{
  if(!value||typeof value!=='object'||Array.isArray(value))return true;const v=value as NativeCard;
  if(type!=='column'||Object.keys(v).sort().join()!=='content,schema'||v.schema!==cardSchema||!v.content||Array.isArray(v.content)||!Object.keys(v.content).length||Object.keys(v.content).length>2)return true;
- return Object.entries(v.content).some(([lang,p])=>!['en','ar'].includes(lang)||!p||Object.keys(p).sort().join()!=='limit,module,source,targets'||p.module!=='inventory'||p.source!=='website_cards'||!Number.isInteger(p.limit)||p.limit<1||p.limit>6||!p.targets||Object.keys(p.targets).sort().join()!=='image,name,price'||!Object.values(p.targets).every(id)||new Set(Object.values(p.targets)).size!==3);
+ return Object.entries(v.content).some(([lang,p])=>!['en','ar'].includes(lang)||!p||!['limit,module,source,targets','limit,module,products,source,targets'].includes(Object.keys(p).sort().join())||p.module!=='inventory'||p.source!=='website_cards'||!Number.isInteger(p.limit)||p.limit<1||p.limit>6||('products' in p&&(!Array.isArray(p.products)||p.products.length>6||p.products.some(x=>typeof x!=='string'||!/^([a-f0-9]{8}-)([a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(x))||new Set(p.products).size!==p.products.length))||!p.targets||Object.keys(p.targets).sort().join()!=='image,name,price'||!Object.values(p.targets).every(id)||new Set(Object.values(p.targets)).size!==3);
 }
 const nodes=(n:PageNode):PageNode[]=>[n,...(n.children??[]).flatMap(nodes)];
 export function assertCardScope(tree:PageNode){
  const all=nodes(tree),cards=all.filter(n=>n.card);if(!cards.length)return;
- if(cards.length!==1||all.some(n=>n.repeat))throw Error('Use one product-card template, without heading repeats.');
- const t=cards[0],row=all.find(n=>n.children?.includes(t));if(row?.type!=='columns'||row.children?.length!==1)throw Error('Product card needs its own one-column row.');
- if(nodes(t).some(n=>n.bindings||n.repeat))throw Error('Product-card item scope cannot contain other data bindings.');
- for(const plan of Object.values(t.card!.content)){
-  if(!plan)throw Error('Missing card plan.');
-  for(const [field,type] of [['name','heading'],['price','text'],['image','image']] as const)if(!t.children?.some(n=>n.id===plan.targets[field]&&n.type===type))throw Error('Map direct heading, text and image children.');
-  if(all.length+(plan.limit-1)*nodes(t).length>500)throw Error('Expanded product cards exceed page limit.');
+ if(cards.length>4||all.some(n=>n.repeat))throw Error('Use up to four product-card sections, without heading repeats.');
+ const totals={en:all.length,ar:all.length},counts={en:0,ar:0};
+ for(const t of cards){
+  const row=all.find(n=>n.children?.includes(t));if(row?.type!=='columns'||row.children?.length!==1)throw Error('Product card needs its own one-column row.');
+  if(nodes(t).some(n=>n.bindings||n.repeat||(n!==t&&n.card)))throw Error('Product-card item scope cannot contain other data bindings.');
+  for(const [language,plan] of Object.entries(t.card!.content)){
+   if(!plan||cardProblem(t.card,t.type))throw Error('Invalid card plan.');
+   for(const [field,type] of [['name','heading'],['price','text'],['image','image']] as const)if(!t.children?.some(n=>n.id===plan.targets[field]&&n.type===type))throw Error('Map direct heading, text and image children.');
+   const lang=language as 'en'|'ar';totals[lang]+=(plan.limit-1)*nodes(t).length;counts[lang]+=plan.limit;
+  }
  }
+ if(Math.max(...Object.values(totals))>500||Math.max(...Object.values(counts))>12)throw Error('Expanded sections exceed 12 cards or page node limit.');
 }
 export function changeCard(tree:PageNode,nodeId:string,language:'en'|'ar',plan:CardPlan|null):PageNode{
  const next=structuredClone(tree),n=nodes(next).find(n=>n.id===nodeId);if(!n||n.type!=='column')throw Error('Select a native product column.');
@@ -34,10 +38,11 @@ export function validCardMedia(src:unknown):src is string{
 /** Exact native render-copy verification, with bounded mapped fields only. */
 export function validResolvedCards(source:PageNode,resolved:PageNode,lang:'en'|'ar',scalars:(a:PageNode,b:PageNode,l:'en'|'ar')=>boolean):boolean{
  try{
-  assertCardScope(source);const next=structuredClone(source),all=nodes(next),t=all.find(n=>n.card);if(!t)return scalars(source,resolved,lang);
+  assertCardScope(source);const next=structuredClone(source),all=nodes(next),templates=all.filter(n=>n.card);if(!templates.length)return scalars(source,resolved,lang);
+  for(const t of templates){
   const plan=t.card!.content[lang];if(!plan)return false;
   const parent=all.find(n=>n.children?.some(c=>c.id===t.id))!,out=nodes(resolved).find(n=>n.id===parent.id);
-  if(!out){const root=all.find(n=>n.children?.some(c=>c.id===parent.id));if(!root)return false;root.children=root.children!.filter(n=>n.id!==parent.id);return scalars(next,resolved,lang)}
+  if(!out){const root=all.find(n=>n.children?.some(c=>c.id===parent.id));if(!root)return false;root.children=root.children!.filter(n=>n.id!==parent.id);continue}
   const cards=out.children??[];if(cards.length<1||cards.length>plan.limit)return false;
   for(const generated of cards){
    const clone=structuredClone(t);delete clone.card;
@@ -54,6 +59,7 @@ export function validResolvedCards(source:PageNode,resolved:PageNode,lang:'en'|'
    if(!templateNodes.length||!visit(clone)||index!==generatedNodes.length||!same(clone,generated))return false;
   }
   parent.children=structuredClone(cards);parent.settings={...parent.settings,desktop:{...parent.settings.desktop,columns:cards.length}};
+  }
   return scalars(next,resolved,lang);
  }catch{return false}
 }
