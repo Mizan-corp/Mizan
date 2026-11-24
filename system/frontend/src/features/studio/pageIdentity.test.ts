@@ -15,4 +15,8 @@ describe('stable page selection', () => {
     expect(choosePage([p('one'),p('two')], null).kind).toBe('blocked');
     expect(choosePage([], null)).toEqual({kind:'new'});
   });
+  it('starts a fresh page on an explicit new request, even when pages exist', () => {
+    expect(choosePage([p('one'),p('two')], 'new')).toEqual({kind:'new'});
+    expect(choosePage([], 'new')).toEqual({kind:'new'});
+  });
 });

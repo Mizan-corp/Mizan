@@ -181,3 +181,4 @@
 
 /* A primary button remains visible inside an explicitly primary card surface. */
 .preview-frame .mz-background-primary .mz-button-primary{background:var(--primary-foreground,#fff);color:var(--primary,#007DA6)}
+.studio-protection .new-page{margin-left:10px;padding:3px 10px;border:1px solid #c98f3d;border-radius:6px;background:#fff;color:#764720;font-size:11px;font-weight:600;cursor:pointer}

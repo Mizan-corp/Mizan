@@ -4,6 +4,9 @@ export type PageChoice = { kind: 'existing'; id: string } | { kind: 'new' } | { 
 
 // Page identity is never inferred from a mutable brand name or a list's order.
 export function choosePage(items: PageSummary[], requestedId: string | null): PageChoice {
+  // '?page=new' always starts a fresh page, even when others exist; it can never
+  // collide with a stored page id because those are UUIDs.
+  if (requestedId === 'new') return { kind: 'new' };
   if (requestedId !== null) {
     const found = items.find(page => page.id === requestedId);
     return found ? { kind: 'existing', id: found.id } : { kind: 'blocked', reason: 'The requested page is not available. No other page was selected.' };
