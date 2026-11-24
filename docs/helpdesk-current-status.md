@@ -6,14 +6,16 @@ As of 24 November 2026. This page is the current status; earlier dated implement
 
 Test URL: https://mizan-studio-feature-test.vercel.app/
 
-Source: b6a8c76120517af8f4feb203a18c7795cd1bb302 on feat/studio-render-parity. No production replacement or merge.
+Source: b4141c9840559403e6a1754527a02024e6c13e77 on feat/studio-render-parity. No production replacement or merge.
 
 - General-owned Help Desk module, standard plus maintenance/property/consulting/salon variations.
-- Independent service_catalog and work_completion Boolean settings. Both exist in every variation, default off, and changing workspace activity preserves saved state.
+- Independent service_catalog, work_completion and work_intake Boolean settings. All three exist in every variation, default off, and changing workspace activity preserves saved state.
 - Private service offering list/create/archive/restore, explicit two-decimal starting amount/currency. No invoice, booking or payment. Catalog view/manage permissions are separate.
 - Shared read view of active FSM work orders and property maintenance tickets. Native table/ID/reference/status preserved. Requires common work-read plus operations and source activation. Does not move records or rewrite native status.
 - At most the latest 100 rows per source, with explicit truncation and malformed-source-row coverage diagnostics.
 - Source-specific FSM completion with notes/review/confirmation, expected native status, replay-safe operation ID, row/technician locking, one technician completion effect and one audit. Requires explicit completion plus work-read plus operations permissions, Help Desk and FSM activation, and enabled work_completion. Unknown/ambiguous technician fails closed. This capability is available in every variation; the active FSM source is a dependency, not a variation gate.
+- Native same-tenant property/unit request intake, zero cost/no CAM, no automatic dispatch. Separate create/read/operations grants, source activation and independent work_intake toggle. Scoped operation replay and unit/operation locks prevent duplicate creation.
+- Source-bound controlled history with current native status, local time and timezone, event coverage diagnostics and explicit legacy-history limitation. No fabricated older chronology.
 - Configured ERP theme on Settings and Help Desk, desktop and mobile.
 
 Dedicated contact/cost/completion-note fields are excluded from the common list. Native free-text descriptions still require source access and are not safe for visitor/public projection.
@@ -26,10 +28,12 @@ Hosted normal ERP acceptance covers feature save/reload, both source rows, revie
 
 Only bounded test rows and a temporary restricted role were used. Exact original module activation, sector and raw feature settings were restored; fixture source rows/user/completion audit were removed and checked. Source tables already existed with forced RLS; this deployment applied no schema migration. Existing workspaces/users are not silently activated or granted new permissions. Access depends on the workspace's explicit configuration and grants. Screenshots record temporary acceptance data, not retained demo records.
 
+Hosted intake/history acceptance additionally verified restricted-role create/reload, unit retention, native open status, exactly one create audit without private description/reporter, no FSM dispatch or technician increment, disabled409, and mobile390 no overflow. Exact settings, activation and all bounded fixtures restored. No migration.
+
 ## Incomplete
 
 - Full Help Desk unification and original user-facing builder success criterion are not complete.
-- Native FSM creation remains on its source screen. No common generic/customer request intake or property status update contract is implemented.
+- Native FSM creation remains on its source screen. No common generic/customer request intake or property status update contract is implemented. Native property/unit intake is hosted.
 - Existing source routes/tables/IDs/histories are retained. The legacy FSM completion endpoint remains unchanged; its pre-existing repeated-completion counter behavior is not fixed by the new controlled route.
 - No automatic property-to-FSM conversion, dual-write, legacy history migration or deduplication.
 - Consulting retainers/time/billing, salon schedules/treatment records and hotel room availability are not silently converted into tickets.
@@ -39,4 +43,4 @@ Only bounded test rows and a temporary restricted role were used. Exact original
 
 ## Next non-destructive slice
 
-Define shared request creation with lossless source identity and same-tenant unit/site validation, without changing accounting or dispatch effects. Compare existing source screens against common adapters before any routing change. Keep customer access, external notifications and wallet-bearing effects outside this slice until their contracts and authority are established.
+Complete and verify existing catalog offering editing, then define property lifecycle contracts without changing accounting or dispatch effects. Compare existing source screens against common adapters before any routing change. Keep customer access, external notifications and wallet-bearing effects outside this slice until their contracts and authority are established.
