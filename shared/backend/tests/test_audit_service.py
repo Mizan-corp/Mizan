@@ -43,12 +43,13 @@ class Tests(unittest.IsolatedAsyncioTestCase):
         sql = self.db.execute.call_args.args[0].text
         cols = insert_columns(sql)
         assert cols <= MODEL_COLUMNS, (cols - MODEL_COLUMNS)
-        assert {'tenant_id', 'entity_type', 'entity_id', 'action_type', 'user_id', 'user_name', 'details', 'reason'} == cols
+        assert {'id', 'tenant_id', 'entity_type', 'entity_id', 'action_type', 'user_id', 'user_name', 'details', 'reason'} == cols
 
     async def test_arguments_map_onto_canonical_columns(self):
         await service.log(self.db, 'product', 'deactivate', UID, 'Owner', EID, {'name': 'X'}, 'sp')
         params = self.db.execute.call_args.args[1]
         assert params['tid'] == A and params['etype'] == 'product' and params['eid'] == EID
+        assert uuid.UUID(params['id'])  # raw SQL bypasses the ORM default; id must be supplied
         assert params['atype'] == 'deactivate' and params['uid'] == UID and params['uname'] == 'Owner'
         assert json.loads(params['det']) == {'name': 'X'} and params['why'] == 'sp'
 
@@ -66,8 +67,10 @@ class Tests(unittest.IsolatedAsyncioTestCase):
         sql = self.db.execute.call_args.args[0].text
         cols = insert_columns(sql)
         assert cols <= MODEL_COLUMNS and 'tenant_id' not in cols
+        assert 'id' in cols  # no server default on audit_log.id; omitting it breaks fresh DBs (23502)
         params = self.db.execute.call_args.args[1]
         assert 'tid' not in params and params['atype'] == 'deactivate'
+        assert uuid.UUID(params['id'])
 
     def test_model_columns_match_migration_suite(self):
         from app.db import migrations
