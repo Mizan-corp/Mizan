@@ -5,18 +5,21 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from .models import SitePage
 from . import service
+from .tech_kit import TECH_KIT, make_tech_pages, theme as tech_theme
 
 KIT_ID='catalog-pages-v0'
 SCHEMA='mizan.draft-page-kit.experimental.v0'
 PAGES=(('home','Home'),('products','Products'),('about','About'),('contact','Contact'))
 
 def kit_catalog():
-    return {'schema':SCHEMA,'items':[{'id':KIT_ID,'name':'Catalog page set','description':'Four editable draft pages. No shared design, product connection, public navigation, Help Desk, forms or checkout.','pages':[{'key':key,'title':title} for key,title in PAGES]}]}
+    return {'schema':SCHEMA,'items':[{'id':KIT_ID,'name':'Catalog page set','description':'Four editable draft pages. No shared design, product connection, public navigation, Help Desk, forms or checkout.','pages':[{'key':key,'title':title} for key,title in PAGES]},{'id':TECH_KIT,'name':'Technical business','description':'Four designed native sample pages. Shared design is a separate explicit save; no business actions or publication.','pages':[{'key':key,'title':title} for key,title in (('home','Home'),('products','Products'),('services','Services'),('contact','Contact'))]}]}
 
-def make_pages(prefix):
+def make_pages(prefix,kit_id=KIT_ID):
     # Prefix is compulsory, so a starter never targets existing home/products pages.
     prefix=service.check_slug(prefix)
     if len(prefix)>40:raise HTTPException(422,'Use a draft address prefix up to 40 characters.')
+    if kit_id==TECH_KIT:return make_tech_pages(prefix)
+    if kit_id!=KIT_ID:raise HTTPException(422,'Unknown reviewed draft page kit.')
     result=[]
     for index,(key,title) in enumerate(PAGES):
         counter=0
@@ -37,8 +40,8 @@ def make_pages(prefix):
     return result
 
 async def install_kit(db,kit_id,prefix):
-    if kit_id!=KIT_ID:raise HTTPException(422,'Unknown reviewed draft page kit.')
-    pages=make_pages(prefix)
+    if kit_id not in (KIT_ID,TECH_KIT):raise HTTPException(422,'Unknown reviewed draft page kit.')
+    pages=make_pages(prefix,kit_id)
     # Validate the entire fixed package before any insert. No supplied trees or plugin code.
     for page in pages:await service.check_bound_tree(db,page['tree'])
     slugs=[p['slug'] for p in pages]
