@@ -10,7 +10,7 @@ from app.framework.loader import registry
 import json
 from app.platform.audit.models import AuditLog
 from .models import HelpdeskOffering
-from .schemas import OfferingCreate, OfferingArchive, FsmCompletion, PropertyRequestCreate
+from .schemas import OfferingCreate, OfferingArchive, FsmCompletion, PropertyRequestCreate, OfferingUpdate
 
 router = APIRouter(prefix="/helpdesk", tags=["Help Desk"], dependencies=[Depends(require_module("helpdesk"))])
 
@@ -127,3 +127,19 @@ async def property_intake(payload: PropertyRequestCreate,db: AsyncSession=Depend
     except Exception:
         await db.rollback()
         raise
+
+@router.patch('/offerings/{offering_id}',dependencies=[Depends(catalog_enabled)])
+async def update_offering(offering_id: UUID,payload: OfferingUpdate,
+        db: AsyncSession=Depends(get_db),user=Depends(require_perm('helpdesk:manage'))):
+    row=(await db.execute(select(HelpdeskOffering).where(HelpdeskOffering.id==offering_id,
+        HelpdeskOffering.tenant_id==user.tenant_id).with_for_update())).scalar_one_or_none()
+    if row is None:raise HTTPException(404,'Service not found')
+    before={key:getattr(row,key) for key in ['name','description','starting_amount','currency']}
+    desired=payload.values.model_dump()
+    if before==desired:return project(row)
+    if before!=payload.expected.model_dump():raise HTTPException(409,'Service changed; reload before editing')
+    for key,value in desired.items():setattr(row,key,value)
+    audit(db,user,row,'update',{'changed_fields':[key for key in desired if before[key]!=desired[key]],
+        'price_kind':'starting_at','currency':row.currency})
+    await db.commit()
+    return project(row)
