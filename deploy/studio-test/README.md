@@ -39,6 +39,14 @@ Still incomplete: full ERP business acceptance, hosted owner/admin frontends, ac
 
 The current source preservation step compares pinned remote files with deployed/local files. Minor final-brace whitespace can differ in UI-edited files and must not be described as byte-exact. This recipe is a reproducibility aid, not evidence that a fresh full checkout has passed end-to-end deployment.
 
+## Visitor-runtime packaging correction, 2026-11-25 01:20 Cairo
+
+The synthetic visitor runtime (commit 88aeda3, website/backend/website_api/routers/public_pages.py) was never served by this deployment: the packager copied only shared/backend/app and system_api, api/index.py mounted only the system router, and vercel.json routed only /api/* to Python. Every /site/* request fell through to a Vercel edge NOT_FOUND. That universal edge-404 was never evidence of the activation privacy policy or of functional publishing, and any earlier observation that treated it as such is invalid and retracted.
+
+The recipe now copies website_api into the function, mounts public_pages on the same app, and routes /site/* to it (commit 8217f02). Verified live on the test host, anonymous requests, 2026-11-25 ~01:19 Cairo: enabled synthetic fixture https://mizan-studio-feature-test.vercel.app/site/studio/welcome returns 200 with its static content, the runtime CSP (default-src 'none', frame-ancestors 'none') and cache-control: private, no-store; disabling its activation returns the app-level 404 {"detail":"Not found"}; re-enabling returns 200. Bound pages stay un-publicizable (publish refusal and fail-closed activation refusal from the page-bindings policy commits).
+
+Proven slices, kept distinct: (1) bound save/reload, authenticated preview and private publish of pages carrying the mizan.page-bindings.experimental.v0 envelope; (2) the static synthetic public runtime above. Dynamic connected-data public rendering remains deliberately unproven and blocked: allow_connected_data is pinned false and any change requires separate explicit approval. Single-tenant host limitation stands (the activation key has no tenant dimension).
+
 ## Recovery checkpoint, 2026-11-24 00:28 Cairo
 
 Test deployment dpl_FKwr7EWS5kXc3QEQEu1NgdpdfYws restores explicit same-origin API targeting and fixes settings login-preview links with React Router useHref so /erp/ is retained. Verified actual Studio editor, ERP products empty state, settings preview URL and same-origin API reads. This supersedes the historical deployment ID above. No settings or business transaction was changed. Owner/admin frontends and distinct-account boundary acceptance remain incomplete.
