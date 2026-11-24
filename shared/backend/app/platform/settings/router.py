@@ -171,6 +171,8 @@ async def update_settings(data: dict[str, Any], db: AsyncSession = Depends(get_d
 
     from app.platform.settings.models import StoreSetting
     items = data.get("settings") if isinstance(data.get("settings"), dict) else data
+    if any(str(key).startswith("mod_settings_") for key in items):
+        raise HTTPException(422, "Module settings require the dedicated validated controls.")
     if {"core_website_profile_v0", "inventory_website_publication_v0", "inventory_website_cards_v0"}.intersection(items):
         raise HTTPException(422, "Website publication settings require the dedicated reviewed controls.")
     items = await _check_vat_settings(db, dict(items))
