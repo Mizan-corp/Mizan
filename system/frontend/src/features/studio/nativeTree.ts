@@ -1,3 +1,4 @@
+import {cardProblem,assertCardScope} from './nativeCards';
 import {bindingProblem,repeatProblem} from './nativeBindings';
 import type { PageNode } from './pagetree';
 
@@ -37,8 +38,9 @@ export function assertNativeTree(tree: PageNode): void {
     if (!n || typeof n !== 'object' || !settings[n.type] || !/^n_[a-z0-9]{4,16}$/.test(n.id) || ids.has(n.id) || ++count > 500 || depth > 12) throw Error('Unsupported node, duplicate ID or tree limit.');
     if(n.bindings!==undefined&&bindingProblem(n.bindings,n.type))throw Error('Unsupported dynamic binding. Source is protected.');
     if(n.repeat!==undefined&&(repeatProblem(n.repeat,n.type)||n.bindings))throw Error('Unsupported repeat template.');
+    if(n.card!==undefined&&(cardProblem(n.card,n.type)||n.bindings||n.repeat))throw Error('Unsupported product card.');
     ids.add(n.id);
-    if (Object.keys(n).some(k=>!['id','type','settings','content','children','bindings','repeat'].includes(k))) throw Error('Unsupported node metadata. Source is protected.');
+    if (Object.keys(n).some(k=>!['id','type','settings','content','children','bindings','repeat','card'].includes(k))) throw Error('Unsupported node metadata. Source is protected.');
     if (parent === null ? n.type !== 'section' : parent === 'section' ? n.type !== 'columns' : parent === 'columns' ? n.type !== 'column' : parent === 'column' ? ['section','columns','column'].includes(n.type) : true) throw Error('Unsupported composition.');
     if (!n.settings || !n.content || typeof n.settings !== 'object' || typeof n.content !== 'object' || Array.isArray(n.settings) || Array.isArray(n.content)) throw Error('Malformed node fields.');
     for (const [device,values] of Object.entries(n.settings)) {
@@ -58,6 +60,7 @@ export function assertNativeTree(tree: PageNode): void {
     for(const child of n.children ?? []) visit(child,n.type,depth+1);
   };
   visit(tree,null,0);
+  assertCardScope(tree);
   const repeated=nativeNodes(tree).filter(n=>n.repeat);if(repeated.length>1)throw Error('Only one bounded repeat template is supported.');
 }
 export function editNativeTree(tree: PageNode, edit: NativeEdit): PageNode {
