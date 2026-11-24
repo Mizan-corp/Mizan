@@ -418,5 +418,5 @@
 .chrome-save-foot{position:sticky;bottom:0;margin-top:auto;padding:14px 16px;border-top:1px solid #E7DFD3;background:#FBF9F5}
 .native-shared-chrome .chrome-save{display:block;width:100%;margin:0;background:#0E7C66;color:#fff;border:1px solid #0E7C66;border-radius:8px;padding:12px;font-weight:700;box-shadow:0 4px 14px rgba(14,124,102,.28)}
 .native-shared-chrome .chrome-save:disabled{background:#E9E4DA;color:#5C564C;border-color:#D8D0C2;opacity:1;box-shadow:none;cursor:default}
-.chrome-save-note{font-size:11px;color:#8A8272;margin-top:8px;text-align:center}
+.chrome-save-note{font-size:11px;color:#8A8272;margin-top:8px;text-align:center}.mz-editor .studio-inspector .native-shared-chrome .chrome-save{background:#0E7C66;color:#fff;border:1px solid #0E7C66;border-radius:8px;font-weight:700;box-shadow:0 4px 14px rgba(14,124,102,.28)}.mz-editor .studio-inspector .native-shared-chrome .chrome-save:disabled{background:#E9E4DA;color:#5C564C;border-color:#D8D0C2;opacity:1;box-shadow:none;cursor:default}
 .native-shared-chrome:not([hidden]){display:flex;flex-direction:column}
