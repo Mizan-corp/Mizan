@@ -100,6 +100,10 @@
       "dest": "/static/erp/index.html"
     },
     {
+      "src": "/site(?:/.*)?",
+      "dest": "/api/website.py"
+    },
+    {
       "src": "/(.*)",
       "dest": "/static/$1"
     }

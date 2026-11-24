@@ -11,6 +11,10 @@ async def app(scope, receive, send):
     if scope["type"] in ("http", "websocket"):
         prefix = "/website-api"
         path = scope.get("path", "")
+        if scope["type"] == "http" and (path == "/site" or path.startswith("/site/")):
+            # Anonymous visitor runtime: served at the root /site/* path.
+            await _service(scope, receive, send)
+            return
         if path != prefix and not path.startswith(prefix + "/"):
             if scope["type"] == "http":
                 await send({"type": "http.response.start", "status": 404, "headers": []})
