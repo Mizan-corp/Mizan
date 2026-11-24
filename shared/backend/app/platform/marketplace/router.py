@@ -95,7 +95,13 @@ async def get_module_settings_endpoint(
     """A module's settings schema and this workspace's values. Under `settings`, as saving is: the
     values hold secrets (the WhatsApp access token)."""
     try:
-        return await registry.get_settings(db, module_id)
+        data = await registry.get_settings(db, module_id)
+        from app.framework.hooks import workspace_activity
+        from app.framework.variants import variant_of
+        activity_id = await workspace_activity(db)
+        # Report the effective variation, never imply an editable workspace selector.
+        return {**data, "variation": {"id": variant_of(module_id, activity_id),
+                "source": "activity", "editable": False}}
     except KeyError:
         raise HTTPException(status_code=404, detail="الوحدة المطلوبة غير مسجلة")
 
