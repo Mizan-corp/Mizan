@@ -158,7 +158,7 @@ export default function NativeStudio({apiBase='/__studio/api',previewLabel:_prev
       if(detail.id!==page.id||!detail.published)throw Error('Publish response could not be verified.');
       setPage(detail);
       const [acc,revs]=await Promise.all([api.getPublicAccess(page.id),api.listRevisions(page.id)]);setPubAccess(acc);setRevisions(revs.items);setPubDone(true);
-    }catch(e){setPubError(e instanceof SiteApiError?(e.isAuth?'انتهت الجلسة. سجّل دخول من جديد، تغييراتك المحفوظة زي ما هي.':e.isForbidden?'الحساب ده مش من حقه ينشر الصفحة دي.':e.isInvalid?`النشر اترفض في مراجعة ما قبل النشر: ${e.detail||'سبب غير موضح من الخادم'}`:e.message):'تعذّر النشر. حاول تاني.');}
+    }catch(e){setPubError(e instanceof SiteApiError?(e.isAuth?'انتهت الجلسة. سجّل دخول من جديد، تغييراتك المحفوظة زي ما هي.':e.isForbidden?'الحساب ده مش من حقه ينشر الصفحة دي.':e.isConflict?(e.detail.includes('Dynamic pages')?'النشر اترفض: الصفحة دي فيها عناصر مربوطة ببيانات مباشرة، والنشر العام للصفحات المربوطة لسه مش متاح. الصفحة متاحة للمعاينة بس دلوقتي، والنسخة المنشورة زي ما هي.':'النشر اترفض: '+(e.detail||'تعارض مع الحالة الحالية.')):e.isInvalid?`النشر اترفض في مراجعة ما قبل النشر: ${e.detail||'سبب غير موضح من الخادم'}`:e.message):'تعذّر النشر. حاول تاني.');}
     finally{setPubBusy(false)}
   };
   const togglePublic=async()=>{
