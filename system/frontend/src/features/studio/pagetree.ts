@@ -11,6 +11,22 @@ export function toPageTree(project: Project): PageNode {
   // so the button behaves identically in the local preview and on a public page.
   const next = project.sections[index + 1];
   const cta = next ? `#n_${hash(next.id)}rw` : '#n_root01';
+  if (section.kind === 'features') {
+   // Feature cards: a lead copy column (eyebrow, heading, intro) plus one column per
+   // card (level-3 heading + text). No button/note/image nodes; fromtree relies on
+   // that shape difference to tell this row apart from a split row, fail closed.
+   const lead = node(`n_${id}cp`,'column',{}, {}, [
+    node(`n_${id}eb`,'text',{html:`<p>${escape(section.eyebrow)}</p>`},{desktop:{variant:'eyebrow'}}),
+    node(`n_${id}hd`,'heading',{text:section.title},{desktop:{level:2}}),
+    node(`n_${id}tx`,'text',{html:`<p>${escape(section.description)}</p>`}),
+   ]);
+   const cards = (section.cards ?? []).slice(0, 4).map((card, ci) => node(`n_${id}c${ci}`,'column',{}, {desktop:{background:'card',rounded:true,padding:'m'}}, [
+    node(`n_${id}c${ci}h`,'heading',{text:card.title},{desktop:{level:3}}),
+    node(`n_${id}c${ci}t`,'text',{html:`<p>${escape(card.text)}</p>`}),
+   ]));
+   const count = 1 + cards.length;
+   return node(`n_${id}rw`,'columns',{}, {desktop:{columns:count,visible:section.visible.desktop,gap:'l'},tablet:{visible:section.visible.tablet,columns:Math.min(count,2)},mobile:{visible:section.visible.mobile,stack:true}},[lead,...cards]);
+  }
   const copy = node(`n_${id}cp`,'column',{}, {}, [
    node(`n_${id}eb`,'text',{html:`<p>${escape(section.eyebrow)}</p>`},{desktop:{variant:'eyebrow'}}),
    node(`n_${id}hd`,'heading',{text:section.title},{desktop:{level:1}}),

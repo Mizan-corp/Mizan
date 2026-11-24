@@ -24,8 +24,47 @@ function visible(node: PageNode, device: Device): boolean {
   return v === undefined ? true : v === true;
 }
 
+function cardFromColumn(col: PageNode, lang: string): { title: string; text: string } {
+  if (col.type !== 'column' || !col.children?.length) throw new Error('expected a card column');
+  const blocks = col.children;
+  if (blocks.some(c => !['heading', 'text'].includes(c.type))) throw new Error('unsupported card block');
+  const heading = blocks.find(c => c.type === 'heading');
+  const text = blocks.find(c => c.type === 'text');
+  if (!heading || !text || blocks.length !== 2) throw new Error('card without heading and text');
+  const title = (heading.content[lang] as { text?: string } | undefined)?.text ?? (heading.content.en as { text?: string } | undefined)?.text ?? (heading.content.ar as { text?: string } | undefined)?.text;
+  if (typeof title !== 'string') throw new Error('card heading without content');
+  return { title, text: htmlText(text, lang) };
+}
+
 function sectionFromRow(row: PageNode, index: number, lang: string, nextRowId: string | undefined): Section {
   if (row.type !== 'columns' || !row.children?.length) throw new Error('expected a columns row');
+  const anyImage = row.children.some(c => c.type === 'column' && c.children?.some(b => b.type === 'image'));
+  const leadCol = row.children[0];
+  const leadBlocks = leadCol?.type === 'column' ? leadCol.children ?? [] : [];
+  const leadHasButton = leadBlocks.some(b => b.type === 'button');
+  if (!anyImage && !leadHasButton) {
+    // Feature-cards row: lead copy column (eyebrow, heading, intro; no button/note)
+    // plus 1-4 card columns (heading + text). Emitted by toPageTree for kind 'features'.
+    if (row.children.length < 2 || row.children.length > 5) throw new Error('features row with unsupported column count');
+    if (leadBlocks.some(c => !['text', 'heading'].includes(c.type))) throw new Error('unsupported lead block');
+    const heading = leadBlocks.find(c => c.type === 'heading');
+    if (!heading) throw new Error('features lead without heading');
+    const title = (heading.content[lang] as { text?: string } | undefined)?.text ?? (heading.content.en as { text?: string } | undefined)?.text ?? (heading.content.ar as { text?: string } | undefined)?.text;
+    if (typeof title !== 'string') throw new Error('features heading without content');
+    const texts = leadBlocks.filter(c => c.type === 'text');
+    return {
+      id: `section-${index}`,
+      eyebrow: texts.length > 0 ? htmlText(texts[0], lang) : '',
+      title,
+      description: texts.length > 1 ? htmlText(texts[1], lang) : '',
+      button: '',
+      image: '',
+      visible: { desktop: visible(row, 'desktop'), tablet: visible(row, 'tablet'), mobile: visible(row, 'mobile') },
+      reversed: false,
+      kind: 'features',
+      cards: row.children.slice(1).map(c => cardFromColumn(c, lang)),
+    };
+  }
   if (row.children.length > 2) throw new Error('row with more than two columns');
   const copyCol = row.children.find(c => c.type === 'column' && c.children?.some(b => b.type === 'heading'));
   const mediaCol = row.children.find(c => c !== copyCol);

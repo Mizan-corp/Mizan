@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fromPageTree } from './fromtree';
 import { toPageTree } from './pagetree';
-import { initialProject, moveSection, type Project } from './model';
+import { initialProject, moveSection, validateProject, type Project } from './model';
 
 function roundTrip(project: Project) {
   return fromPageTree(toPageTree(project), project);
@@ -106,4 +106,57 @@ it('rejects all values the narrow editor would drop, without changing input', ()
     expect(() => fromPageTree(tree, initialProject)).toThrow();
     expect(JSON.stringify(tree)).toBe(before);
   }
+});
+
+describe('feature-cards sections', () => {
+  const featuresProject: Project = {
+    ...initialProject,
+    sections: [
+      initialProject.sections[0],
+      { id: 'features-1', eyebrow: 'WHY US', title: 'Made for real life', description: 'Three reasons.', button: '', image: '', visible: { desktop: true, tablet: true, mobile: true }, reversed: false, kind: 'features', cards: [
+        { title: 'Fast delivery', text: 'Two days in Cairo.' },
+        { title: 'Fair prices', text: 'No hidden fees.' },
+        { title: 'Easy returns', text: 'Thirty days.' },
+      ] },
+    ],
+  };
+
+  it('round-trips a feature-cards section (lead copy plus every card)', () => {
+    const restored = roundTrip(featuresProject);
+    const section = restored.sections[1];
+    expect(section.kind).toBe('features');
+    expect(section.eyebrow).toBe('WHY US');
+    expect(section.title).toBe('Made for real life');
+    expect(section.description).toBe('Three reasons.');
+    expect(section.cards).toEqual(featuresProject.sections[1].cards);
+    expect(section.button).toBe('');
+    expect(section.image).toBe('');
+  });
+
+  it('emits one lead column plus one column per card with level-3 headings', () => {
+    const tree = toPageTree(featuresProject);
+    const row = tree.children![1];
+    expect(row.settings.desktop?.columns).toBe(4);
+    expect(row.children).toHaveLength(4);
+    expect(row.children![0].children!.some(c => c.type === 'button')).toBe(false);
+    for (const card of row.children!.slice(1)) {
+      expect(card.children!.map(c => c.type)).toEqual(['heading', 'text']);
+      expect(card.children![0].settings.desktop?.level).toBe(3);
+    }
+  });
+
+  it('refuses a features row without card columns, and validateProject rejects bad card counts', () => {
+    const leadOnly = toPageTree(featuresProject);
+    leadOnly.children![1].children = leadOnly.children![1].children!.slice(0, 1);
+    expect(() => fromPageTree(leadOnly, featuresProject)).toThrow();
+    expect(validateProject({ ...featuresProject, sections: [{ ...featuresProject.sections[1], cards: [] }] })).toBe(false);
+    expect(validateProject({ ...featuresProject, sections: [{ ...featuresProject.sections[1], cards: [...featuresProject.sections[1].cards!, { title: 'A', text: 'b' }, { title: 'C', text: 'd' }] }] })).toBe(false);
+  });
+
+  it('keeps refusing trees the simple editor cannot preserve (extra card block)', () => {
+    const tree = toPageTree(featuresProject);
+    const card = tree.children![1].children![2];
+    card.children!.push({ id: 'x', type: 'image', settings: {}, content: { en: { src: '', alt: '' } } });
+    expect(() => fromPageTree(tree, featuresProject)).toThrow();
+  });
 });
