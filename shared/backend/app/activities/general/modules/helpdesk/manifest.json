@@ -31,6 +31,11 @@
       "id": "helpdesk:work:complete",
       "name": "إنهاء أوامر الصيانة الميدانية",
       "name_en": "Complete field-service work"
+    },
+    {
+      "id": "helpdesk:work:create",
+      "name": "إنشاء طلب صيانة عقار",
+      "name_en": "Create property maintenance request"
     }
   ],
   "screens": [
@@ -60,6 +65,13 @@
       "type": "boolean",
       "default": false,
       "description": "Independent module feature in every variation. Requires completion, work-read and source permissions. Does not enable property status writes."
+    },
+    {
+      "key": "work_intake",
+      "label": "استقبال طلبات صيانة العقارات",
+      "type": "boolean",
+      "default": false,
+      "description": "Independent module feature in every variation. Internal property-unit requests only; no dispatch, CAM allocation, invoice or customer portal."
     }
   ]
 }
