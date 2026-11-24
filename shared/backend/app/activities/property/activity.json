@@ -8,16 +8,28 @@
   "modules": [
     "real_estate",
     "finance",
-    "operations"
+    "operations",
+    "helpdesk"
   ],
   "home": "/rec",
-  "variants": {},
+  "variants": {
+    "helpdesk": "property"
+  },
   "optional": [],
   "terms": {},
   "positions": [],
   "roles": {},
   "settings": {},
   "menu": [
+    {
+      "id": "helpdesk",
+      "label": "الخدمات والدعم",
+      "items": [
+        {
+          "screen": "helpdesk.catalog"
+        }
+      ]
+    },
     {
       "id": "properties",
       "label": "إدارة العقارات والوحدات",
