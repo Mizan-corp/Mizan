@@ -4350,3 +4350,6 @@ async def apply_migrations(session: AsyncSession) -> List[str]:
 
     await grant_app_role(session)
     return applied_now
+
+# Additive atomic Help Desk step, errors propagate through the Python migration path.
+MIGRATIONS.append(("v110_helpdesk_offerings", "python:app.activities.general.modules.helpdesk.migrate:migrate"))
