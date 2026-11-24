@@ -19,3 +19,21 @@ class HelpdeskOffering(TenantScoped, Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     __table_args__ = (CheckConstraint("starting_amount >= 0", name="helpdesk_amount_nonnegative"),)
+
+# Append-only worksheet snapshots. Source tables and native lifecycle stay intact.
+from sqlalchemy import Integer, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
+
+class HelpdeskExecutionRevision(TenantScoped, Base):
+    __tablename__ = 'helpdesk_execution_revisions'
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True),primary_key=True)
+    source_module: Mapped[str] = mapped_column(String(32),nullable=False)
+    source_id: Mapped[str] = mapped_column(String(36),nullable=False)
+    revision: Mapped[int] = mapped_column(Integer,nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True),nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64),nullable=False)
+    payload: Mapped[dict] = mapped_column(JSONB,nullable=False)
+    resource_labels: Mapped[dict] = mapped_column(JSONB,nullable=False,default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),server_default=func.now())
+    __table_args__ = (UniqueConstraint('tenant_id','source_module','source_id','revision',name='uq_helpdesk_execution_source_revision'),
+                     CheckConstraint('revision > 0',name='helpdesk_execution_positive_revision'))
