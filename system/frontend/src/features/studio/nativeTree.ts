@@ -58,7 +58,7 @@ export function assertNativeTree(tree: PageNode): void {
     for(const child of n.children ?? []) visit(child,n.type,depth+1);
   };
   visit(tree,null,0);
-  const repeated=nativeNodes(tree).filter(n=>n.repeat);if(repeated.length>1||(repeated.length&&nativeNodes(tree).some(n=>n.bindings)))throw Error('First repeat slice supports one template and no scalar bindings.');
+  const repeated=nativeNodes(tree).filter(n=>n.repeat);if(repeated.length>1)throw Error('Only one bounded repeat template is supported.');
 }
 export function editNativeTree(tree: PageNode, edit: NativeEdit): PageNode {
   assertNativeTree(tree);
