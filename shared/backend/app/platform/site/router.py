@@ -142,3 +142,7 @@ from app.platform.core.storefront.router import router as core_website_router
 from app.activities.general.modules.inventory.storefront.router import router as inventory_website_router
 router.include_router(core_website_router)
 router.include_router(inventory_website_router)
+
+# Authenticated fixed first-party draft page sets.
+from .page_kits_router import router as page_kits_router
+router.include_router(page_kits_router)
