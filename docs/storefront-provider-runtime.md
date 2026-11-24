@@ -1,6 +1,6 @@
 # First module-provider runtime slice
 
-Status: LOCAL, EXPERIMENTAL, INCOMPLETE. Not mounted in the hosted API, not wired into storage, not selectable in Studio. The current isolated deployment does not contain these additions.
+Status: EXPERIMENTAL FIRST SCALAR SLICE, hosted isolated acceptance passed 24 November 2026. Not full builder/storefront readiness. Earlier local-only sections below are development history; this status and the final hosted checkpoint supersede those deployment-state notes.
 
 ## Scope and ownership
 
@@ -66,3 +66,13 @@ The real database provider also passed a nonempty-brand check in a transaction t
 ## Positive real API/UI acceptance
 
 Normal owner-test browser login against the local actual API and real isolated database passed selecting Dynamic saved-brand source, saving and reloading the exact persisted binding, and displaying a nonempty actual saved brand. A temporary website brand fixture was set only in the throwaway owner tenant through the token-protected settings API. Exact original settings were restored and verified after acceptance, and the experimental page binding was removed from the throwaway draft for compatibility with the older hosted editor. No other tenant or original page was changed. Dynamic publishing returned409 as designed. This is positive LOCAL actual API/UI evidence, not hosted deployment proof.
+
+## Hosted isolated checkpoint, 24 November 2026
+
+Hosted candidate dpl_4SCA6Ur8Jxb6GAcjidABiNGfYzRD passed actual normal owner-test UI Dynamic source selection, Save/reload exact binding, and nonempty real provider preview at https://mizan-studio-feature-test.vercel.app/ . Corrected source26files were verified byte-exact at commit ae5340e537a4ab6607a65ee888afb5635a3c8c0c. Fourteen accidental duplicate-path additions from the checkpoint procedure were verified as our own content, removed, and confirmed absent at that commit. No unrelated files or user material were removed.
+
+Hosted mobile390 controls and preview were inspected; no physical-device acceptance claimed. Existing ERP normal login/products settled empty state passed. Anonymous data discovery401 and health database-connected verified. Temporary brand fixture was set only in the throwaway owner tenant using CSRF and expected-token protection, exact original settings restored and verified after test, and experimental page binding removed from that throwaway page. The original Studio tenant was not changed. Temporary credential files were removed.
+
+Final tests: frontend101passed/1skip, backend22passed, focused TS/build passed. Local browser desktop/mobile source failure and409 save-conflict checks passed. The actual authenticated cross-tenant page request returned404 and client-provided tenant override422. Three no-grant principal dependency checks returned403, labeled as dependency tests rather than real non-owner login.
+
+This slice supports only scalar plain-text heading binding to site-owned saved website brand. It does not support product collections, prices/currency, media, commands, cart/checkout, general package discovery or public dynamic publishing. Dynamic publish stays409 until public site-service resolution exists. It is a first real no-code data binding, not benchmark recreation or full readiness. Rollback deployment is dpl_9jN8ZgUBxKaHjELPjTTBJdt7gxHi. Other application frontend entries, API adapters and routing config were preserved byte-for-byte; the shared site backend changed only for this experimental binding slice.
