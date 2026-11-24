@@ -41,6 +41,7 @@ const LawPracticePage = lazy(() => import("@activities/legal/modules/law/LawPrac
 const TravelTourismPage = lazy(() => import("@activities/travel/modules/travel/TravelTourismPage"));
 const HospitalityPmsPage = lazy(() => import("@activities/hotel/modules/hospitality/HospitalityPmsPage"));
 const GymFitnessPage = lazy(() => import("@activities/gym/modules/gym/GymFitnessPage"));
+const HelpdeskPage = lazy(() => import("./features/helpdesk/HelpdeskPage"));
 const SalonSpaPage = lazy(() => import("@activities/salon/modules/salon/SalonSpaPage"));
 const CreativeAgencyPage = lazy(() => import("@activities/agency/modules/agency/CreativeAgencyPage"));
 const FieldServicePage = lazy(() => import("@activities/maintenance/modules/field_service/FieldServicePage"));
@@ -208,6 +209,7 @@ function renderErpChildRoutes(includeIndex: boolean = true) {
       <Route path="travel" element={<Guard perm="" module="travel"><TravelTourismPage /></Guard>} />
       <Route path="hospitality" element={<Guard perm="" module="hospitality"><HospitalityPmsPage /></Guard>} />
       <Route path="gym" element={<Guard perm="" module="gym"><GymFitnessPage /></Guard>} />
+      <Route path="helpdesk" element={<Guard perm="helpdesk:view" module="helpdesk"><HelpdeskPage /></Guard>} />
       <Route path="salon" element={<Guard perm="" module="salon"><SalonSpaPage /></Guard>} />
       <Route path="agency" element={<Guard perm="" module="agency"><CreativeAgencyPage /></Guard>} />
       <Route path="field-service" element={<Guard perm="" module="field_service"><FieldServicePage /></Guard>} />
