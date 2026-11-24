@@ -8,6 +8,7 @@ from app.framework.activation import get_active_modules
 from app.framework.storefront_runtime import ProviderRegistry, SourceContext, SourceUnavailable, ProjectionInvalid
 from app.platform.tenancy.context import current_tenant_id
 from .provider import site_provider
+from .registry import scalar_registry, collection_registry
 
 router = APIRouter(prefix='/site/data', tags=['Site data'])
 
@@ -30,7 +31,11 @@ async def context(db: AsyncSession, language: str) -> SourceContext:
 @router.get('')
 async def discover(db: AsyncSession = Depends(get_db), _=Depends(require_perm('site.manage'))):
     ctx=await context(db, 'en')
-    return {'schema':'mizan.storefront.experimental.v0','modules':ProviderRegistry((site_provider(db),)).discover(ctx)}
+    from app.framework.storefront_collections import CollectionRuntime
+    from .collections import navigation_labels_provider
+    runtime=collection_registry(db)
+    return {'schema':'mizan.storefront.experimental.v0','modules':scalar_registry(db).discover(ctx),
+            'collections':runtime.discover(ctx)}
 
 
 @router.post('/resolve')
@@ -40,7 +45,7 @@ async def resolve(data: ResolveIn, db: AsyncSession = Depends(get_db), _=Depends
     ctx=await context(db, data.language)
     target={'type':'text','semantic':'plain_text','cardinality':'one','element':'heading'}
     try:
-        value=await ProviderRegistry((site_provider(db),)).resolve(ctx,data.binding,target)
+        value=await scalar_registry(db).resolve(ctx,data.binding,target)
     except SourceUnavailable:
         raise HTTPException(422,'Source unavailable or incompatible.') from None
     except ProjectionInvalid:
@@ -66,7 +71,13 @@ async def preview(data: PreviewIn, db: AsyncSession = Depends(get_db), _=Depends
     await service.check_bound_tree(db,data.tree)
     ctx=await context(db,data.language)
     try:
-        tree=await resolve_tree(data.tree,ProviderRegistry((site_provider(db),)),ctx,lambda t:page_problems(t,('en','ar')))
+        from .repeats import has_repeat, resolve_repeat
+        if has_repeat(data.tree):
+            from app.framework.storefront_collections import CollectionRuntime
+            from .collections import navigation_labels_provider
+            tree=await resolve_repeat(data.tree,collection_registry(db),ctx)
+        else:
+            tree=await resolve_tree(data.tree,scalar_registry(db),ctx,lambda t:page_problems(t,('en','ar')))
         return {'html':render_page(tree,lang=data.language,device=data.device),'tree':tree}
     except SourceUnavailable:
         raise HTTPException(422,'Page data source unavailable.') from None
