@@ -47,6 +47,43 @@ The recipe now copies website_api into the function, mounts public_pages on the 
 
 Proven slices, kept distinct: (1) bound save/reload, authenticated preview and private publish of pages carrying the mizan.page-bindings.experimental.v0 envelope; (2) the static synthetic public runtime above. Dynamic connected-data public rendering remains deliberately unproven and blocked: allow_connected_data is pinned false and any change requires separate explicit approval. Single-tenant host limitation stands (the activation key has no tenant dimension).
 
+## Deploy pipeline: fail-closed script and 2026-11-25 01:35 incident
+
+Use deploy/studio-test/deploy.sh for every deploy of this host. It builds the
+three entries with their required bases (preview /, studio /studio/, erp
+/erp/), REFUSES to package any entry HTML carrying relative asset refs (the
+signature of a missing --base flag), runs the prune and the static-manifest
+guard un-piped under set -euo pipefail so a guard failure aborts before any
+deploy, and only then runs the hosting CLI. The guard verdict must never pass
+through a pipe that masks its exit status.
+
+Incident, 2026-11-25 01:35 Cairo: a manual deploy chain piped the manifest
+guard through tail, masking its non-zero verdict; the studio bundle had been
+built without --base=/studio/, so /studio/studio.html referenced relative
+asset paths and the /studio/ entry served a broken app for ~100 seconds until
+the corrected redeploy at 01:37. The main editor, API and visitor runtime
+were unaffected (the broken refs were confined to /studio/studio.html).
+Remediation: the base check and fail-closed chaining are executable in
+deploy.sh, verified against an intentionally bad entry.
+
+Known-good route matrix (verified live 2026-11-25 01:41 Cairo):
+- /                    200  Studio preview SPA (sign-in, home, editor)
+- /api/*               Python function (401 unauthenticated, CSRF on writes)
+- /site/studio/<slug>  visitor runtime: 200 only while the page's synthetic
+                       activation is enabled; app-level 404 otherwise
+- /studio/studio.html  200  Studio app entry (base /studio/)
+- /erp/                200  ERP SPA (base /erp/)
+- /admin/ /owner/ /website/  200  augmented frontends
+- anything else        hosting edge 404 (never evidence of app behavior)
+
+F3 concurrency evidence (tests/test_public_access_concurrency.py): the real
+publish() and set_public_access() were run against a real local Postgres in
+both lock interleavings with observed blocking and correct refusals; the
+binding provider-chain validator (check_bound_tree) is patched out in those
+two tests only - it is covered by the mocked suites and needs tables outside
+the minimal concurrency schema. Do not describe the F3 proof as exercising
+provider validation.
+
 ## Recovery checkpoint, 2026-11-24 00:28 Cairo
 
 Test deployment dpl_FKwr7EWS5kXc3QEQEu1NgdpdfYws restores explicit same-origin API targeting and fixes settings login-preview links with React Router useHref so /erp/ is retained. Verified actual Studio editor, ERP products empty state, settings preview URL and same-origin API reads. This supersedes the historical deployment ID above. No settings or business transaction was changed. Owner/admin frontends and distinct-account boundary acceptance remain incomplete.
