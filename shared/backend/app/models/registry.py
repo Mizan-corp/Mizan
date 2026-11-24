@@ -6,6 +6,7 @@ configuration across modules). Each service calls it once at startup.
 
 
 def load_all_models() -> None:
+    import app.activities.general.modules.helpdesk.models
     import app.platform.archive.models
     import app.platform.audit.models
     import app.platform.billing.models
