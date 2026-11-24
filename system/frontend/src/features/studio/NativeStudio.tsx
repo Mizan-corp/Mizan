@@ -264,6 +264,7 @@ export default function NativeStudio({apiBase='/__studio/api',previewLabel:_prev
       <li className={Object.values(titles).some(x=>typeof x==='string'&&x.trim())?'ok':'warn'}>{Object.values(titles).some(x=>typeof x==='string'&&x.trim())?t('الصفحة ليها عنوان'):t('الصفحة محتاجة عنوان قبل النشر')}</li>
       <li className="info">{page.published?t('الصفحة منشورة قبل كده. النشر بيحدّث النسخة العامة وبيحفظ نسخة جديدة.'):t('أول نشرة للصفحة دي. كل نشر بيتحفظ كنسخة تقدر ترجع لها.')}</li>
       </ul>
+      {page.published&&pubAccess&&<div className="mz-publish-actions"><button className="mz-btn ghost" disabled={pubBusy} onClick={()=>void togglePublic()}>{pubAccess.enabled?t('وقّف الإتاحة'):t('خلّيها متاحة للناس')}</button></div>}
       {pubError&&<p role="alert" className="mz-publish-error">{pubError}</p>}
       <div className="mz-publish-actions"><button className="mz-btn primary" disabled={pubBusy||dirty||moduleDirty||sharedDirty||!Object.values(titles).some(x=>typeof x==='string'&&x.trim())} onClick={()=>void doPublish()}>{pubBusy?t('بننشر…'):t('انشر الصفحة')}</button><button className="mz-btn ghost" disabled={pubBusy} onClick={()=>setPublishOpen(false)}>{t('كمان مراجعة')}</button></div>
       </>}
