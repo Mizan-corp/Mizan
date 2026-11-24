@@ -132,3 +132,7 @@ async def put_settings(data: SettingsIn, db: AsyncSession = Depends(get_db),
 router = APIRouter()
 router.include_router(pages_router)
 router.include_router(settings_router)
+
+# Experimental authenticated provider discovery and native preview.
+from .storefront.router import router as storefront_data_router
+router.include_router(storefront_data_router)
