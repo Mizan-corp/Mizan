@@ -1,30 +1,104 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
 import NativeStudio from './NativeStudio';
 import NewPage from './NewPage';
 import DraftPageKit from './DraftPageKit';
 import {type PreviewConfig} from './previewConfig';
-type Page={id:string;slug:string;titles:Record<string,string>;status:string};
+type Page={id:string;slug:string;titles:Record<string,string>;status:string;updated_at?:string|null;published?:boolean};
+function arNum(n:number){return n.toLocaleString('ar-EG')}
+function pagesWord(n:number){if(n===1)return 'صفحة';if(n===2)return 'صفحتين';if(n>=3&&n<=10)return 'صفحات';return 'صفحة'}
+function ago(iso:string|null|undefined):string{
+ if(!iso)return '';
+ const then=new Date(iso).getTime();if(!Number.isFinite(then))return '';
+ const mins=Math.max(0,Math.round((Date.now()-then)/60000));
+ if(mins<1)return 'اتعدلت دلوقتي حالًا';
+ if(mins<60){if(mins===1)return 'اتعدلت من دقيقة';if(mins===2)return 'اتعدلت من دقيقتين';if(mins<=10)return `اتعدلت من ${arNum(mins)} دقايق`;return `اتعدلت من ${arNum(mins)} دقيقة`}
+ const hours=Math.round(mins/60);
+ if(hours<24){if(hours===1)return 'اتعدلت من ساعة';if(hours===2)return 'اتعدلت من ساعتين';if(hours<=10)return `اتعدلت من ${arNum(hours)} ساعات`;return `اتعدلت من ${arNum(hours)} ساعة`}
+ const days=Math.round(hours/24);
+ if(days===1)return 'اتعدلت إمبارح';
+ if(days===2)return 'اتعدلت من يومين';
+ if(days<=10)return `اتعدلت من ${arNum(days)} أيام`;
+ return `اتعدلت من ${arNum(days)} يوم`;
+}
+function greeting():string{
+ let hour=new Date().getHours();
+ try{hour=Number(new Intl.DateTimeFormat('en-GB',{hour:'2-digit',hour12:false,timeZone:'Africa/Cairo'}).format(new Date()))}catch{/* local hour */}
+ return hour<12?'صباح الفل':'مساء الفل';
+}
+function pageTitle(p:Page):string{return p.titles?.ar||p.titles?.en||p.slug}
+function Thumb({tone}:{tone:'store'|'blog'|'land'}){
+ const logoBg=tone==='blog'?'var(--amber)':'var(--teal)';
+ const ctaBg=tone==='land'?'var(--amber)':'var(--teal)';
+ return <div className="mz-mini"><div className="mz-mnav"><div className="mz-mlogo" style={{background:logoBg}}/><div className="mz-mlinks"><i/><i/><i/></div></div><div className="mz-mhero"><div className="l1"/><div className="l2"/><div className="cta" style={{background:ctaBg}}/><div className="mz-mgrid"><i/><i/><i/></div></div></div>;
+}
 export default function PreviewSession({config}:{config:PreviewConfig}){
  const [state,setState]=useState<'checking'|'signin'|'ready'>('checking');
  const [username,setUsername]=useState(''),[password,setPassword]=useState(''),[workspace,setWorkspace]=useState('studio-test');
  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[pages,setPages]=useState<Page[]>([]);
- const [creating,setCreating]=useState(false),[kitOpen,setKitOpen]=useState(false);
+ const [creating,setCreating]=useState(false),[kitOpen,setKitOpen]=useState(false),[query,setQuery]=useState('');
  const [pageId,setPageId]=useState(()=>new URLSearchParams(location.search).get('page')??'');
  async function check(){
   const result=await fetch(config.apiBase+'/site/pages',{credentials:'include',cache:'no-store'});
   if(result.status===401){setState('signin');return;}
-  if(!result.ok)throw Error(result.status===403?'This account cannot edit this website. Sign in with your Studio test account.':'We could not open your workspace. Your pages have not changed. Try again.');
-  const data=await result.json();if(!Array.isArray(data.items))throw Error('We could not load your pages. Try again.');
+  if(!result.ok)throw Error(result.status===403?'الحساب ده مش من حقه يعدّل الموقع ده. سجّل دخولك بحساب الاستوديو بتاعك.':'مقدرناش نفتح مساحة العمل. صفحاتك زي ما هي، جرّب تاني.');
+  const data=await result.json();if(!Array.isArray(data.items))throw Error('مقدرناش نحمّل صفحاتك. جرّب تاني.');
   setPages(data.items.filter((p:Page)=>p.status!=='archived'));setState('ready');
  }
  useEffect(()=>{check().catch(e=>{setError(e.message);setState('signin')})},[]);
  async function signIn(e:React.FormEvent){e.preventDefault();if(busy)return;setBusy(true);setError('');
   try{const result=await fetch(config.apiBase+'/auth/login',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,tenant_slug:workspace||null})});setPassword('');
-   if(!result.ok)throw Error(result.status===429?'Too many attempts. Wait a minute, then try again.':'Check your username and password, then try again.');await check();
-  }catch(e){setError(e instanceof Error?e.message:'Sign-in failed.');}finally{setBusy(false)}
+   if(!result.ok)throw Error(result.status===429?'محاولات كتير أوي. استنى دقيقة وبعدين جرّب تاني.':'اتأكد من اسم المستخدم وكلمة السر وبعدين جرّب تاني.');await check();
+  }catch(e){setError(e instanceof Error?e.message:'تسجيل الدخول فشل.');}finally{setBusy(false)}
  }
  function open(id:string){const url=new URL(location.href);url.searchParams.set('page',id);history.replaceState(null,'',url);setPageId(id)}
- function home(){const url=new URL(location.href);url.searchParams.delete('page');history.replaceState(null,'',url);setPageId('');check().catch(e=>setError(e.message))}
- if(state==='ready'&&pageId&&pages.some(page=>page.id===pageId))return <NativeStudio key={pageId} apiBase={config.apiBase} previewLabel="Test workspace" onHome={home}/>;
- return <main className="studio-entry"><header className="entry-header"><a className="entry-logo" href="/" aria-label="Mizan Studio home"><b>m.</b><span>Mizan Studio</span></a><span className="entry-test-badge">Test workspace</span></header>{state==='checking'?<div className="entry-loading" role="status"><span className="entry-spinner"/>Opening your workspace...</div>:state==='signin'?<div className="entry-split"><section className="entry-story"><span className="entry-eyebrow">YOUR WEBSITE, YOUR WAY</span><h1>A place for<br/>your next idea.</h1><p>Start with a page. Make it yours.<br/>See every change as you go.</p><div className="entry-art" aria-hidden="true"><div className="entry-art-nav"><i/><i/><i/></div><div className="entry-art-body"><div><span/><strong>Make room<br/>for something<br/>new.</strong><i/></div><div className="entry-art-shape"/></div><div className="entry-art-footer"><i/><i/><i/></div><span className="entry-art-cursor">You are the designer ↗</span></div></section><section className="entry-signin"><div className="entry-signin-inner"><p className="entry-eyebrow">WELCOME BACK</p><h2>Let's make it yours.</h2><p>Sign in to your Studio test workspace.</p>{error&&<p className="entry-error" role="alert">{error}</p>}<form onSubmit={signIn}><label>Username<input autoComplete="username" required placeholder="Your Studio username" value={username} onChange={e=>setUsername(e.target.value)}/></label><label>Password<input type="password" autoComplete="current-password" required placeholder="Your saved test password" value={password} onChange={e=>setPassword(e.target.value)}/></label><button className="entry-primary" disabled={busy} type="submit">{busy?'Signing in...':'Open my workspace'}<span>→</span></button><details className="entry-workspace"><summary>Workspace: {workspace||'choose workspace'}</summary><label>Workspace name<input autoComplete="organization" value={workspace} onChange={e=>setWorkspace(e.target.value)}/></label></details></form><div className="entry-private"><span>◈</span><p>This is a separate test workspace.<br/>Your live website stays unchanged.</p></div></div></section></div>:<div className="entry-projects"><div className="project-intro"><div><span className="entry-eyebrow">YOUR WORKSPACE</span><h1>What will you make today?</h1><p>Pick a page, then click any text or image to make it yours.</p></div></div>{error&&<p role="alert" className="entry-error">{error}</p>}{pageId&&!pages.some(p=>p.id===pageId)&&<p role="alert" className="entry-error">That page is unavailable. Choose one below. Nothing has changed.</p>}<div className="project-section-heading"><h2>Your pages</h2><button type="button" disabled={creating||kitOpen} onClick={()=>check().catch(e=>setError(e.message))}>Refresh pages</button><span>{pages.length} {pages.length===1?'page':'pages'}</span><button className="entry-primary" onClick={()=>setCreating(true)} disabled={creating||kitOpen}>New page</button><button onClick={()=>setKitOpen(true)} disabled={creating||kitOpen}>Add draft page set</button></div>{kitOpen&&<DraftPageKit apiBase={config.apiBase} onCancel={()=>setKitOpen(false)} onDone={()=>{setKitOpen(false);check().catch(e=>setError(e.message))}}/>}{creating&&<NewPage apiBase={config.apiBase} onCancel={()=>setCreating(false)} onCreated={page=>{setPages(old=>[...old,page]);setCreating(false);open(page.id)}}/>}<div className="project-grid">{pages.map((page,i)=><button className="project-card" disabled={creating||kitOpen} key={page.id} onClick={()=>open(page.id)}><div className={'project-cover project-cover-'+i%3}><div className="project-cover-nav"><b>m.</b><span>About　 Collection　 Contact</span></div><div className="project-cover-hero"><div><small>MADE BY YOU</small><strong>Your next<br/>great idea.</strong><i/></div><div className="project-cover-object"/></div><div className="project-cover-bottom"><i/><i/><i/></div><span className="project-open">Open editor ↗</span></div><div className="project-card-info"><div><h3>{page.titles.en??page.titles.ar??page.slug}</h3><p>/{page.slug} <span>·</span> {page.status==='published'?'Published':'Draft, only visible here'}</p></div><span>↗</span></div></button>)}</div>{pages.length===0&&<div className="entry-empty"><h2>No pages here yet</h2><p>Create your first draft above, then edit its text and layout. Nothing is published.</p></div>}<aside className="project-tip"><span>↖</span><div><strong>Start with the words.</strong><p>Open a page, click a heading, and type. Nothing is saved until you choose Save.</p></div></aside></div>}<footer className="entry-footer"><span>Made with Mizan</span><span>A space to try things. Not your live website.</span></footer></main>;
+ const filtered=useMemo(()=>{const q=query.trim().toLowerCase();if(!q)return pages;return pages.filter(p=>pageTitle(p).toLowerCase().includes(q)||p.slug.toLowerCase().includes(q))},[pages,query]);
+ if(pageId)return <NativeStudio apiBase={config.apiBase} onHome={()=>{setPageId('');history.replaceState(null,'',location.pathname);check().catch(()=>{})}}/>;
+ if(state==='checking')return <div className="mz-home"><div className="mz-checking">بنجهّز مساحة العمل بتاعتك…</div></div>;
+ if(state==='signin')return <div className="mz-home"><div className="mz-signin"><form className="mz-signin-card" onSubmit={signIn} aria-busy={busy}>
+  <div className="mz-logo"><div className="mz-logo-mark"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round"><path d="M12 4v13M8 20h8M4 8h16"/><circle cx="7" cy="12.5" r="2.6"/><circle cx="17" cy="12.5" r="2.6"/></svg></div>ميزان ستوديو</div>
+  <h1>سجّل دخولك</h1>
+  <p className="mz-sub">ادخل على مساحة العمل بتاعتك عشان تكمّل شغل على صفحاتك. مفيش أي حاجة هتتنشر من غير ما تختار بنفسك.</p>
+  {error&&<p className="mz-error" role="alert">{error}</p>}
+  <fieldset disabled={busy} style={{border:'none',padding:0,margin:0}}>
+   <label className="mz-field"><span>اسم المستخدم</span><input value={username} onChange={e=>setUsername(e.target.value)} autoComplete="username" required/></label>
+   <label className="mz-field"><span>كلمة السر</span><input type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" required/></label>
+   <label className="mz-field"><span>مساحة العمل</span><input value={workspace} onChange={e=>setWorkspace(e.target.value)} autoComplete="off" spellCheck={false} style={{direction:'ltr',textAlign:'left'}}/></label>
+   <button className="mz-btn primary big" type="submit" style={{width:'100%',justifyContent:'center',marginTop:6}}>{busy?'بنسجّل دخولك…':'دخول'}</button>
+  </fieldset>
+ </form></div></div>;
+ const name=username.trim();
+ return <div className="mz-home">
+  <div className="mz-topbar">
+   <div className="mz-logo"><div className="mz-logo-mark"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round"><path d="M12 4v13M8 20h8M4 8h16"/><circle cx="7" cy="12.5" r="2.6"/><circle cx="17" cy="12.5" r="2.6"/></svg></div>ميزان ستوديو</div>
+   <div className="mz-wkchip" title={workspace}>مساحة عمل {workspace}</div>
+   <div className="mz-spacer"/>
+   <div className="mz-search-home"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="دوّر على صفحة…" aria-label="دوّر على صفحة"/></div>
+   <div className="mz-avatar" aria-hidden>{name?name[0]:'م'}</div>
+  </div>
+  <div className="mz-scroll">
+   <div className="mz-hero">
+    <div className="mz-overline">{greeting()}{name?` يا ${name}`:''}</div>
+    <h1>إيه اللي هتصنع <em>النهارده؟</em></h1>
+    <p>كمّل على صفحاتك، أو ابدأ من قالب جاهز وعدّله بمزاجك، بالسحب والإفلات ومن غير ما تكتب سطر كود واحد.</p>
+    <div className="mz-hero-cta">
+     <button className="mz-btn primary big" onClick={()=>setCreating(true)}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>صفحة جديدة</button>
+     <button className="mz-btn ghost big" onClick={()=>document.getElementById('mz-templates')?.scrollIntoView({behavior:'smooth'})}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg>اتفرّج على القوالب</button>
+    </div>
+   </div>
+   <div className="mz-sec-head"><h2>صفحاتك</h2><span className="mz-count">{arNum(filtered.length)} {pagesWord(filtered.length)}{query.trim()?` (من ${arNum(pages.length)})`:''}</span></div>
+   {creating?<NewPage apiBase={config.apiBase} onCancel={()=>setCreating(false)} onCreated={page=>{setCreating(false);open(page.id)}}/>
+   :kitOpen?<DraftPageKit apiBase={config.apiBase} onCancel={()=>setKitOpen(false)} onDone={()=>{setKitOpen(false);check().catch(()=>{})}}/>
+   :filtered.length===0?<div className="mz-empty">{pages.length===0?'لسه مفيش صفحات. ابدأ بأول صفحة ليك من الزرار اللي فوق.':'مفيش صفحة بالاسم ده.'}</div>
+   :<div className="mz-cards">{filtered.map((p,i)=><button key={p.id} className="mz-pcard" onClick={()=>open(p.id)}>
+     <div className="mz-thumb"><Thumb tone={(['store','blog','land'] as const)[i%3]}/></div>
+     <div className="mz-meta"><div><div className="mz-name">{pageTitle(p)}</div><div className="mz-sub">{ago(p.updated_at)}</div></div><span className={'mz-status '+(p.published||p.status==='published'?'pub':'draft')}>{p.published||p.status==='published'?'منشورة':'مسودة'}</span><span className="mz-go">←</span></div>
+    </button>)}</div>}
+   <div className="mz-sec-head" id="mz-templates"><h2>قوالب تبدأ منها</h2><span className="mz-count">صفحات جاهزة تتعدل بمزاجك، وبتتساب كمسودات لحد ما تنشر بنفسك</span></div>
+   <div className="mz-cards">
+    <button className="mz-pcard" onClick={()=>setKitOpen(true)}><div className="mz-thumb" style={{background:'#EFF4F1'}}><Thumb tone="store"/></div><div className="mz-meta"><div><div className="mz-name">مجموعة المتجر التقني</div><div className="mz-sub">٤ صفحات مترابطة كمسودات</div></div><span className="mz-go">←</span></div></button>
+    <button className="mz-pcard" onClick={()=>setKitOpen(true)}><div className="mz-thumb" style={{background:'#F7F3EC'}}><Thumb tone="blog"/></div><div className="mz-meta"><div><div className="mz-name">مجموعة صفحات الكتالوج</div><div className="mz-sub">٤ صفحات إرشادية كمسودات</div></div><span className="mz-go">←</span></div></button>
+    <button className="mz-pcard" onClick={()=>setCreating(true)}><div className="mz-thumb" style={{background:'#F3EEE7'}}><Thumb tone="land"/></div><div className="mz-meta"><div><div className="mz-name">قالب صفحة من المكتبة</div><div className="mz-sub">أنشئ صفحة وطبّق عليها قالب من جوه المحرر</div></div><span className="mz-go">←</span></div></button>
+   </div>
+  </div>
+ </div>;
 }
