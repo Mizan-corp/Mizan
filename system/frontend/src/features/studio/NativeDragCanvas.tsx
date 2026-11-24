@@ -18,7 +18,7 @@ export default function NativeDragCanvas({tree,projectionMap,selected,onSelect,o
  const nodes=nativeNodes(tree);
  const sourceId=(id:string)=>projectionMap?.[id]??id;
  const ancestors:PageNode[]=[];const findPath=(n:PageNode):boolean=>{ancestors.push(n);if(n.id===selected)return true;for(const c of n.children??[])if(findPath(c))return true;ancestors.pop();return false};findPath(tree);
- useEffect(()=>{const root=canvas.current;if(!root)return;for(const el of root.querySelectorAll<HTMLElement>('.mz-node')){el.classList.toggle('native-selected-node',sourceId(el.id)===selected&&selected!==tree.id);el.classList.toggle('native-hover-node',sourceId(el.id)===hover);const tagNode=nodes.find(n=>n.id===sourceId(el.id))??({type:'',settings:{}} as PageNode);el.dataset.nativeLabel=uiLang==='ar'?readableTypeAr(tagNode.type)+' — اضغط للتعديل':readableType(tagNode.type)+' — Click to edit';}},[tree,selected,hover,projectionMap,uiLang]);
+ useEffect(()=>{const root=canvas.current;if(!root)return;for(const el of root.querySelectorAll<HTMLElement>('.mz-node')){el.classList.toggle('native-selected-node',sourceId(el.id)===selected&&selected!==tree.id);el.classList.toggle('native-hover-node',sourceId(el.id)===hover);const tagNode=nodes.find(n=>n.id===sourceId(el.id))??({type:'',settings:{}} as PageNode);el.dataset.nativeType=uiLang==='ar'?readableTypeAr(tagNode.type):readableType(tagNode.type);el.dataset.nativeLabel=uiLang==='ar'?readableTypeAr(tagNode.type)+' — اضغط للتعديل':readableType(tagNode.type)+' — Click to edit';}},[tree,selected,hover,projectionMap,uiLang]);
  const allowed=(parent:PageNode,item:Pick)=>{
   if(item.kind==='template')return parent.id===tree.id;
   if(item.kind==='preset')return parent.id===tree.id;
