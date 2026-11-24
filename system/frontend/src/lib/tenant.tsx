@@ -75,6 +75,7 @@ export const RESERVED_ROOT_PATHS = new Set([
   "salon",
   "agency",
   "field-service",
+  "helpdesk",
   "mfg",
   "fod",
   "phm",
