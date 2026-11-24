@@ -775,6 +775,33 @@ def page_binding_problems(value, node_type, languages=None) -> list[str]:
     return errors
 
 
+PAGE_REPEAT_SCHEMA = "mizan.page-repeat.experimental.v0"
+
+
+def page_repeat_problems(value, node_type, languages=None) -> list[str]:
+    """Shape only; provider compatibility and native expansion require runtime checks."""
+    if not isinstance(value, dict) or set(value) != {"schema", "content"}:
+        return ["repeat: exact versioned language declaration required"]
+    if value.get("schema") != PAGE_REPEAT_SCHEMA or node_type != "heading":
+        return ["repeat: only experimental heading templates supported"]
+    content = value.get("content")
+    if not isinstance(content, dict) or not content or len(content) > 2:
+        return ["repeat: bounded nonempty language map required"]
+    errors = []
+    for lang, plan in content.items():
+        if lang not in ("en", "ar") or (languages is not None and lang not in languages):
+            errors.append("repeat: unsupported language")
+        if not isinstance(plan, dict) or set(plan) != {"module", "source", "field", "limit", "on_missing"}:
+            errors.append("repeat: exact collection reference required")
+            continue
+        for name in ("module", "source", "field"):
+            if not isinstance(plan[name], str) or re.fullmatch(r"[a-z][a-z0-9_]{0,47}", plan[name]) is None:
+                errors.append("repeat: invalid identifier")
+        if type(plan["limit"]) is not int or not 1 <= plan["limit"] <= 24 or plan["on_missing"] not in ("hide", "empty"):
+            errors.append("repeat: explicit bounded limit and missing behavior required")
+    return errors
+
+
 def page_problems(tree: dict, languages: tuple[str, ...] | None = None) -> list[str]:
     """What's wrong with a page tree; [] when it's fine. `languages`: the site's language codes;
     content in any other language is rejected. None accepts any well-formed code."""
@@ -799,7 +826,7 @@ def page_problems(tree: dict, languages: tuple[str, ...] | None = None) -> list[
         nid = node.get("id")
         ntype = node.get("type")
         label = f"{where} › {ntype} {nid}" if isinstance(ntype, str) else where
-        extra = set(node) - {"id", "type", "settings", "content", "children", "bindings"}
+        extra = set(node) - {"id", "type", "settings", "content", "children", "bindings", "repeat"}
         for k in sorted(extra):
             problems.append(f"{label}: '{k}' isn't a page node field")
         if not isinstance(nid, str) or not PAGE_NODE_ID.match(nid):
@@ -861,6 +888,11 @@ def page_problems(tree: dict, languages: tuple[str, ...] | None = None) -> list[
 
         if "bindings" in node:
             problems.extend(f"{label}: {problem}" for problem in page_binding_problems(node["bindings"], ntype, languages))
+
+        if "repeat" in node:
+            problems.extend(f"{label}: {problem}" for problem in page_repeat_problems(node["repeat"], ntype, languages))
+            if "bindings" in node:
+                problems.append(f"{label}: mixed repeat and scalar bindings not supported")
 
         children = node.get("children", [])
         if block["category"] != "layout" and children not in ([], None):
