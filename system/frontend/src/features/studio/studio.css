@@ -178,3 +178,6 @@
 .preview-frame .mz-site-header nav{flex-wrap:wrap;min-width:0}.preview-frame .mz-site-header nav a{min-height:44px;display:inline-flex;align-items:center}.preview-frame .mz-site-footer a{min-height:44px;display:inline-flex;align-items:center}
 
 @container(max-width:768px){.preview-frame .mz-site-header nav{gap:8px}.preview-frame .mz-site-header nav a{font-size:15px}}
+
+/* A primary button remains visible inside an explicitly primary card surface. */
+.preview-frame .mz-background-primary .mz-button-primary{background:var(--primary-foreground,#fff);color:var(--primary,#007DA6)}
