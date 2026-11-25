@@ -58,6 +58,20 @@ async def list_palettes(user: User = Depends(get_current_user)):
         "families": sorted(service.family_files().keys())}
 
 
+@router.get("/profiles")
+async def list_owner_profiles(db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("themes.manage"))):
+    """The workspace owner's branding profiles - automatic (saved on every theme edit) and
+    named saves - private to that owner, applied here in Settings > Themes."""
+    return {"items": await service.owner_profiles(db, await _tenant(db, user))}
+
+
+@router.post("/profiles/{profile_id}/apply")
+async def apply_owner_profile(profile_id: uuid.UUID, db: AsyncSession = Depends(get_db),
+                              user: User = Depends(require_perm("themes.manage"))):
+    """Apply one of the workspace owner's profiles to this workspace."""
+    return await service.apply_owner_profile(db, await _tenant(db, user), profile_id)
+
+
 @router.post("/packages/inspect")
 async def inspect_package(file: UploadFile = File(...), db: AsyncSession = Depends(get_db),
                           user: User = Depends(require_perm("themes.manage"))):

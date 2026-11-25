@@ -4425,3 +4425,19 @@ MIGRATIONS.append(("v115_site_media_runner_reconciliation", """
 """))
 MIGRATIONS.append(("v110_helpdesk_offerings", "python:app.activities.general.modules.helpdesk.migrate:migrate"))
 MIGRATIONS.append(("v111_helpdesk_execution_actuals", "python:app.activities.general.modules.helpdesk.migrate_actuals:migrate"))
+MIGRATIONS.append(("v116_owner_branding_profiles", """
+    -- Named branding profiles an owner saves once and reuses across their workspaces,
+    -- plus each workspace's automatic profile synced from theme edits. Owner-scoped
+    -- like owner_accounts (no tenant RLS), reached only under the owner session.
+    CREATE TABLE IF NOT EXISTS owner_branding_profiles (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        owner_account_id uuid NOT NULL REFERENCES owner_accounts(id) ON DELETE CASCADE,
+        name varchar(80) NOT NULL,
+        theme_id varchar(80) NOT NULL,
+        palette_id varchar(80),
+        fonts jsonb,
+        created_at timestamptz DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS ix_owner_branding_profiles_owner_account_id ON owner_branding_profiles (owner_account_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_owner_branding_name ON owner_branding_profiles (owner_account_id, name);
+"""))

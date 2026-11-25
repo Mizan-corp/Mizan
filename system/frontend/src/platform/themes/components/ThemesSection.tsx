@@ -17,6 +17,7 @@ interface ThemeSummary {
 }
 interface Inspected extends ThemeSummary { installed_version: string | null; files: string[] }
 interface RegistryPalette { id: string; source: string; license: string; swatches: string[] }
+interface BrandingProfile { id: string; name: string; theme: string; palette: string | null; fonts: Record<string, string> }
 
 const SOURCE: Record<ThemeSummary["source"], string> = { mizan: "من ميزان", activity: "من نشاطك", package: "من مطور" };
 
@@ -65,6 +66,7 @@ export function ThemesSection() {
   const apply = (theme: ThemePack) => {
     if (tenant) setTenant({ ...tenant, theme, palette: { ...tenant.palette, name: theme.id } });
     qc.invalidateQueries({ queryKey: ["themes"] });
+    qc.invalidateQueries({ queryKey: ["theme-profiles"] });
   };
   const fail = (e: unknown, fallback: string) => toast("error", e instanceof ApiError ? e.message : fallback);
 
@@ -84,6 +86,19 @@ export function ThemesSection() {
       api.put<ThemePack>("/themes/current", { id: currentTheme.data?.id, ...patch }),
     onSuccess: (t) => { apply(t); toast("success", "حُفظ التخصيص"); },
     onError: (e) => fail(e, "تعذر حفظ التخصيص"),
+  });
+
+  // The owner's branding profiles: every theme edit auto-saves one, plus named saves
+  // from the owner panel. Private to this owner; applied here in Settings > Themes.
+  const profiles = useQuery({
+    queryKey: ["theme-profiles"],
+    queryFn: () => api.get<{ items: BrandingProfile[] }>("/themes/profiles"),
+    enabled: manage,
+  });
+  const applyProfile = useMutation({
+    mutationFn: (id: string) => api.post<ThemePack>(`/themes/profiles/${id}/apply`),
+    onSuccess: (t) => { apply(t); toast("success", "طُبّق ملف الهوية"); },
+    onError: (e) => fail(e, "تعذر تطبيق ملف الهوية"),
   });
 
   const inspect = useMutation({
@@ -247,6 +262,28 @@ export function ThemesSection() {
             ))}
           </div>
           {customize.isPending && <Spinner />}
+          {profiles.data && profiles.data.items.length > 0 && (
+            <div>
+              <p className="text-xs font-bold text-foreground">ملفات الهوية</p>
+              <p className="text-[10px] text-muted-foreground">
+                أي تعديل على المظهر يُحفظ هنا تلقائيًا كملف خاص بك وحدك (المظهر الأصلي لا يتغيّر) — اختر ملفًا لتطبيقه
+              </p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {profiles.data.items.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    title={`${p.theme}${p.palette ? ` + ${p.palette}` : ""}`}
+                    disabled={applyProfile.isPending}
+                    onClick={() => applyProfile.mutate(p.id)}
+                    className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted-foreground transition cursor-pointer hover:border-primary/40 hover:text-foreground disabled:opacity-50"
+                  >
+                    {applyProfile.isPending && applyProfile.variables === p.id ? <Spinner /> : p.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </section>

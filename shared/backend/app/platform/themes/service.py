@@ -242,13 +242,16 @@ def check_palette_choice(pid) -> str | None:
 async def choose(db: AsyncSession, tenant, theme_id: str, fonts: dict | None = None,
                  palette_id: str | None = None) -> dict:
     """Make `theme_id` the workspace's theme; optionally its own body/display faces and its
-    own palette (each independent: a theme, then recolor/refont it without another theme)."""
+    own palette (each independent: a theme, then recolor/refont it without another theme).
+    An actual edit also syncs the workspace's automatic branding profile (the owner's rule:
+    modifying the pack keeps a private profile of the modifications; the pack is untouched)."""
     from app.catalog.sectors import PALETTE_HUES
 
     if not any(t["id"] == theme_id for t in await available(db, tenant)):
         raise HTTPException(404, "المظهر غير متاح لهذه المنشأة")
     if palette_id is not None and palette_id != "" and check_palette_choice(palette_id) is None:
         raise HTTPException(404, "لوحة الألوان غير متاحة")
+    before = dict(tenant.palette or {})
     palette = dict(tenant.palette or {})
     palette["name"] = theme_id
     palette["hue"] = PALETTE_HUES.get(theme_id, palette.get("hue") or PALETTE_HUES[DEFAULT])
@@ -264,6 +267,7 @@ async def choose(db: AsyncSession, tenant, theme_id: str, fonts: dict | None = N
         else:
             palette["palette"] = palette_id
     tenant.palette = palette
+    await _sync_auto_profile(db, tenant, before)
     await db.commit()
     try:
         from app.platform.site.service import refresh_activation_themes
@@ -271,6 +275,81 @@ async def choose(db: AsyncSession, tenant, theme_id: str, fonts: dict | None = N
     except Exception:  # activation refresh is best-effort; sites re-snapshot on the next settings save
         logger.warning("could not refresh site activation themes after theme choice", exc_info=True)
     return await resolved(db, tenant)
+
+
+# ── Automatic branding profiles (the workspace owner's rule) ─────────────────────
+# Editing the theme pack automatically keeps a branding profile with the owner's
+# modifications, listed in Settings > Themes and the owner panel. Profiles are
+# private to that owner - never a platform-wide catalog - and the original theme
+# pack stays untouched.
+
+AUTO_PROFILE_SUFFIX = " — هوية مخصصة"
+
+
+def auto_profile_name(tenant) -> str:
+    """One automatic profile per workspace, named after it (the (owner, name) unique
+    constraint then keeps a single row that repeated edits update in place)."""
+    base = (getattr(tenant, "name", None) or "مساحة العمل").strip()
+    return base[: 80 - len(AUTO_PROFILE_SUFFIX)] + AUTO_PROFILE_SUFFIX
+
+
+def profile_out(p) -> dict:
+    return {"id": str(p.id), "name": p.name, "theme": p.theme_id, "palette": p.palette_id,
+            "fonts": p.fonts or {}}
+
+
+async def _sync_auto_profile(db: AsyncSession, tenant, before: dict | None) -> None:
+    """Upsert the workspace's automatic profile after an actual edit. Skipped when the
+    saved config is unchanged or the workspace has no linked owner account."""
+    owner_id = getattr(tenant, "owner_account_id", None)
+    if owner_id is None:
+        return
+    after = dict(tenant.palette or {})
+    if before == after:
+        return
+    from app.platform.auth.models.owner import OwnerBrandingProfile
+
+    name = auto_profile_name(tenant)
+    p = await db.scalar(select(OwnerBrandingProfile).where(
+        OwnerBrandingProfile.owner_account_id == owner_id, OwnerBrandingProfile.name == name))
+    if p is None:
+        p = OwnerBrandingProfile(owner_account_id=owner_id, name=name,
+                                 theme_id=after.get("name") or DEFAULT,
+                                 palette_id=after.get("palette") or None,
+                                 fonts=after.get("fonts") or None)
+        db.add(p)
+    else:
+        p.theme_id = after.get("name") or DEFAULT
+        p.palette_id = after.get("palette") or None
+        p.fonts = after.get("fonts") or None
+
+
+async def owner_profiles(db: AsyncSession, tenant) -> list[dict]:
+    """The workspace owner's branding profiles, for the Settings > Themes picker. A
+    workspace with no linked owner has none."""
+    owner_id = getattr(tenant, "owner_account_id", None)
+    if owner_id is None:
+        return []
+    from app.platform.auth.models.owner import OwnerBrandingProfile
+
+    rows = (await db.execute(
+        select(OwnerBrandingProfile)
+        .where(OwnerBrandingProfile.owner_account_id == owner_id)
+        .order_by(OwnerBrandingProfile.created_at))).scalars().all()
+    return [profile_out(p) for p in rows]
+
+
+async def apply_owner_profile(db: AsyncSession, tenant, profile_id: uuid.UUID) -> dict:
+    """Apply one of the workspace owner's profiles from Settings > Themes. Another
+    owner's profile doesn't exist from here (404, same as a missing one)."""
+    from app.platform.auth.models.owner import OwnerBrandingProfile
+
+    p = await db.scalar(select(OwnerBrandingProfile).where(
+        OwnerBrandingProfile.id == profile_id,
+        OwnerBrandingProfile.owner_account_id == getattr(tenant, "owner_account_id", None)))
+    if p is None:
+        raise HTTPException(404, "ملف الهوية غير موجود")
+    return await choose(db, tenant, p.theme_id, fonts=p.fonts, palette_id=p.palette_id)
 
 
 # ── Theme packages ─────────────────────────────────────────────────────────────
