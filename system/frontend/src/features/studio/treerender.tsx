@@ -101,6 +101,7 @@ function enumClasses(s: Record<string, string | number | boolean>): string[] {
     if (typeof v === 'string' && tokens.includes(v)) out.push(`mz-${key.replace('_', '-')}-${v}`);
   }
   if (s.rounded === true) out.push('mz-rounded');
+  if (s.bleed === true) out.push('mz-bleed');
   return out;
 }
 
@@ -203,6 +204,7 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
 
 export interface ThemeChrome {
   layout?: 'inline'|'centered';
+  surface?: 'default'|'dark';
   brand?: string;
   logo?: string;
   links?: { label: string; href: string }[];
@@ -264,7 +266,7 @@ export function ThemeHeader({ header }: { header?: ThemeChrome }) {
   const logo = header.logo ? safeUrl(header.logo, 'url') : null;
   if (!logo && !brand && !links.length && !actions.length) return null;
   return (
-    <header className={`mz-site-header${header?.layout==='centered'?' mz-header-centered':''}`}>
+    <header className={`mz-site-header${header?.layout==='centered'?' mz-header-centered':''}${header?.surface==='dark'?' mz-site-header-dark':''}`}>
       {logo && <img className="mz-site-logo" src={logo} alt="" />}
       {brand && <span className="mz-site-brand">{brand}</span>}
       {!!links.length && <nav>{links.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</nav>}

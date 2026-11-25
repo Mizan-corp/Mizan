@@ -634,7 +634,7 @@ PAGE_BLOCKS = {
                 "content": {}},
     "columns": {"version": 1, "category": "layout", "children": ("column",),
                 "settings": {"visible": "bool", "columns": _count(1, 6), "gap": _choices(*PAGE_SPACING),
-                             "stack": "bool", "reverse": "bool",
+                             "stack": "bool", "reverse": "bool", "bleed": "bool",
                              "background": _choices("background", "card", "primary", "dark", "dark_raised")},
                 "content": {}},
     "column": {"version": 1, "category": "layout", "children": "blocks",

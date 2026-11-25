@@ -27,7 +27,7 @@ export function chromeProblems(value:SiteSettingsValue):string[]{
  if(Object.keys(value).some(k=>!['header','footer','colors','typography','shape','follow_workspace'].includes(k)))errors.push('Shared settings contain fields this editor cannot preserve.');
  if(value.follow_workspace!==undefined&&typeof value.follow_workspace!=='boolean')errors.push('Shared follow_workspace flag is not a boolean.');
  for(const part of ['header','footer'] as const){const section=value[part];if(!section)continue;
-  if(Object.keys(section).some(k=>!(part==='header'?['brand','logo','links','actions','layout']:['lines','links','groups','layout']).includes(k)))errors.push('Shared '+part+' has unsupported fields.');
+  if(Object.keys(section).some(k=>!(part==='header'?['brand','logo','links','actions','layout','surface']:['lines','links','groups','layout']).includes(k)))errors.push('Shared '+part+' has unsupported fields.');
   for(const field of part==='header'?['links','actions']:['links']){const links=(section as Record<string,unknown>)[field];if(links!==undefined&&(!Array.isArray(links)||links.length>(field==='actions'?4:8)||links.some(l=>!l||Object.keys(l).some(k=>!['label','href'].includes(k))||typeof l.label!=='string'||l.label!==l.label.trim()||!l.label.trim()||l.label.length>40||typeof l.href!=='string'||l.href.length>200||!safeNativeUrl(l.href)||!(/^(\/|#|https:\/\/)/.test(l.href)))))errors.push('Use a label and safe /path, #anchor or https:// link for every '+field+'.');}
  }
  if(value.header?.brand!==undefined&&(value.header.brand.length>80||value.header.brand!==value.header.brand.trim()))errors.push('Brand must have no outer spaces and at most 80 characters.');
@@ -35,6 +35,7 @@ export function chromeProblems(value:SiteSettingsValue):string[]{
  const footerGroups=value.footer?.groups;
  if(footerGroups!==undefined&&(!Array.isArray(footerGroups)||footerGroups.length>4||footerGroups.some(g=>!g||Object.keys(g).some(k=>!['title','links'].includes(k))||typeof g.title!=='string'||g.title!==g.title.trim()||!g.title.trim()||g.title.length>40||!Array.isArray(g.links)||g.links.length>6||g.links.some(l=>!l||Object.keys(l).some(k=>!['label','href'].includes(k))||typeof l.label!=='string'||l.label!==l.label.trim()||!l.label.trim()||l.label.length>40||typeof l.href!=='string'||l.href.length>200||!safeNativeUrl(l.href)||!/^(\/|#|https:\/\/)/.test(l.href)))))errors.push('كل مجموعة لينكات فوتر تحتاج عنوان قصير وحتى ٦ لينكات سليمة.');
  if(value.header?.layout&&!['inline','centered'].includes(value.header.layout))errors.push('Unsupported header layout.');
+ if(value.header?.surface&&!['default','dark'].includes(value.header.surface))errors.push('Unsupported header surface.');
  if(value.footer?.layout&&!['split','stacked'].includes(value.footer.layout))errors.push('Unsupported footer layout.');
  if((value.footer?.lines?.length??0)>4)errors.push('Use at most four footer lines.');
  if(value.footer?.lines?.some(l=>!l.trim()||l.length>120||l!==l.trim()))errors.push('Footer lines must be 1-120 characters without outer spaces.');

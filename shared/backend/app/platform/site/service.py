@@ -332,6 +332,10 @@ def check_settings(value) -> dict:
             if header["layout"] not in ("inline", "centered"):
                 raise HTTPException(422, "Invalid header layout")
             out["header"]["layout"] = header["layout"]
+        if "surface" in header:
+            if header["surface"] not in ("default", "dark"):
+                raise HTTPException(422, "Invalid header surface")
+            out["header"]["surface"] = header["surface"]
     footer = value.get("footer")
     if footer is not None:
         if not isinstance(footer, dict):
