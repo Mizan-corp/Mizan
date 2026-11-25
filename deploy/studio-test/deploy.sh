@@ -46,9 +46,12 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
   rm -rf "$STUDIO_BUILD"
   (cd "$REPO/system/frontend" && npx vite build --config vite.preview.config.ts --outDir "$STUDIO_BUILD")
 
-  echo "== build: studio app (base /studio/)"
+  echo "== build: studio app (base /studio/, hosted api /api)"
   rm -rf /tmp/build-studio
-  (cd "$REPO/system/frontend" && npx vite build --config vite.studio.config.ts --base=/studio/ --outDir /tmp/build-studio)
+  # Hosted build: without VITE_STUDIO_API the editor ships in local-prototype
+  # mode and backend save/load silently disappears on the deployment.
+  (cd "$REPO/system/frontend" && VITE_STUDIO_API=/api VITE_STUDIO_BASE=/studio/ npx vite build --config vite.studio.config.ts --base=/studio/ --outDir /tmp/build-studio)
+  node "$REPO/scripts/check-studio-hosted-build.mjs" /tmp/build-studio
 
   echo "== build: erp (base /erp/, api /api)"
   rm -rf "$ERP_BUILD"
