@@ -1,7 +1,7 @@
 {
   "id": "emerald",
-  "source": "Original Mizan combination designed from Open Color (MIT) shades",
-  "license": "MIT (Open Color), original composition",
+  "source": "Original Mizan palette (hand-crafted)",
+  "license": "Original Mizan composition",
   "colors": {
     "light": {
       "background": "oklch(0.985 0.004 155)",

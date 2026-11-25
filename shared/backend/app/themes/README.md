@@ -17,8 +17,10 @@ themes/
       tajawal-700.ttf
       OFL.txt
     …
-  _palettes/                 named color token sets (original Mizan combinations of
-    amber.json               Open Color (MIT) shades), each with source + license
+  _palettes/                 named color token sets, each with source + license:
+    amber.json               12 derived from Open Color (MIT) shades, 6 legacy
+                             (amber/cobalt/emerald/mizan/monokai/slate) original
+                             Mizan hand-crafted palettes
     …
   amber/
     theme.json               the composition (see below)
