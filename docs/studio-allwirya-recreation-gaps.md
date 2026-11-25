@@ -129,6 +129,12 @@ N8. SHIPPED 2026-11-25 (feat/studio-render-parity, commit b8c869f): header logo 
     and one Arabic footer group (الشركة > من نحن) saved via Style panel and confirmed
     in GET /api/site/settings plus canvas pixels. Draft page titles are now bilingual
     on all four recreation drafts (Home الرئيسية, Contact تواصل معنا).
+N8 follow-ups 2026-11-25 (commits 7f6f8aa, +button rhythm): footer links now inherit
+    color and drop underline in both renderers (were UA default blue); button blocks
+    carry the shared 24px bottom margin like headings/text (stacked CTAs no longer
+    touch - root-caused, no draft mutation needed). Verified live on Arabic content
+    with English chrome: 24px CTA gap, inherited link color, dir=rtl, zero footer
+    overflow at the 390px mobile frame.
 Draft data fixes 2026-11-25: selected-product card recomposed through editor
 controls only (1-col row -> 2 columns via Insert, heading+price moved with the
 Move drag handle, image width full) - balanced text-left/image-right on desktop,
