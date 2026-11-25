@@ -41,7 +41,9 @@ export default function MediaPickerField({ onSelect }: { onSelect: (url: string)
     } finally { setBusy(false); }
   };
 
-  return <>
+  // The dialog is absolutely positioned; this wrapper is its anchor so the panel
+  // opens under the button instead of escaping to the nearest positioned ancestor.
+  return <div className="media-picker-field">
     <button type="button" className="media-library-open" onClick={() => setOpen(true)}>{t('مكتبة الصور')}</button>
     {open && <div className="media-picker" role="dialog" aria-label={t('مكتبة الصور')}>
       <div className="simple-panel-head">
@@ -68,5 +70,5 @@ export default function MediaPickerField({ onSelect }: { onSelect: (url: string)
       </div>
       <p className="hint">{t('الصور بتتخزن لمساحة عملك بس. الصورة المستخدمة في صفحة مش بتتمسح غير بعد ما تشيلها منها.')}</p>
     </div>}
-  </>;
+  </div>;
 }

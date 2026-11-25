@@ -17,14 +17,31 @@ export default defineConfig({ base: process.env.VITE_STUDIO_BASE || '/', plugins
   if(req.headers.host!=='127.0.0.1:5188' || (req.headers.origin && req.headers.origin!=='http://127.0.0.1:5188')) {res.statusCode=403;res.end('Local POST only');return;}
   res.setHeader('Cache-Control','no-store');
   if(!apiOk) {res.statusCode=503;res.setHeader('Content-Type','application/json');res.end(JSON.stringify({detail:'Local backend not configured'}));return;}
-  let body='';req.on('data',chunk=>{body+=chunk;if(Buffer.byteLength(body)>300000){res.statusCode=413;res.end('Request too large');req.destroy();}});
+  // Raw passthrough: bytes and Content-Type go through untouched, so JSON saves and
+  // multipart media uploads both work, and binary media responses keep their type.
+  const chunks:Buffer[]=[];let size=0;req.on('data',chunk=>{chunks.push(chunk);size+=chunk.length;if(size>8*1024*1024){res.statusCode=413;res.end('Request too large');req.destroy();}});
   req.on('end',async()=>{if(res.writableEnded)return;
    try{
     const method=req.method||'GET';
-    const response=await fetch(apiTarget+(req.url||'/'),{method,headers:{'Content-Type':'application/json',Authorization:`Bearer ${apiToken}`},body:['GET','HEAD'].includes(method)?undefined:body||undefined});
-    res.statusCode=response.status;res.setHeader('Content-Type','application/json');res.end(await response.text());
+    const headers:Record<string,string>={Authorization:`Bearer ${apiToken}`};
+    if(req.headers['content-type'])headers['Content-Type']=req.headers['content-type'];
+    const response=await fetch(apiTarget+(req.url||'/'),{method,headers,body:['GET','HEAD'].includes(method)?undefined:Buffer.concat(chunks)});
+    res.statusCode=response.status;
+    const ct=response.headers.get('content-type');if(ct)res.setHeader('Content-Type',ct);
+    res.end(Buffer.from(await response.arrayBuffer()));
    }catch{res.statusCode=502;res.setHeader('Content-Type','application/json');res.end(JSON.stringify({detail:'Local backend unreachable'}));}
   });
+ });
+ // Uploaded images (/uploads/...) live on the backend origin; the local studio canvas
+ // shows them through this loopback-only proxy, mirroring hosted same-origin serving.
+ server.middlewares.use('/uploads', (req,res) => {
+  if(req.headers.host!=='127.0.0.1:5188') {res.statusCode=403;res.end('Local only');return;}
+  if(!apiOk) {res.statusCode=404;res.end('Not found');return;}
+  // connect strips the mount prefix; the backend serves files under /uploads itself.
+  fetch(apiTarget+'/uploads'+(req.url||'/'),{headers:{Authorization:`Bearer ${apiToken}`}}).then(async response=>{
+   res.statusCode=response.status;const ct=response.headers.get('content-type');if(ct)res.setHeader('Content-Type',ct);
+   res.setHeader('Cache-Control','no-store');res.end(Buffer.from(await response.arrayBuffer()));
+  }).catch(()=>{res.statusCode=502;res.end('Local backend unreachable')});
  });
  server.middlewares.use('/__studio/preview', (req,res) => {
   if(req.headers.host!=='127.0.0.1:5188' || req.method!=='POST' || (req.headers.origin && req.headers.origin!=='http://127.0.0.1:5188')) {res.statusCode=403;res.end('Local POST only');return;}

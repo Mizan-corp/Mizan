@@ -141,7 +141,7 @@ const en:Record<string,string>={
   "النشر اترفض: ":"Publishing refused: ",
   "النشر اترفض: الصفحة دي فيها عناصر مربوطة ببيانات مباشرة، والنشر العام للصفحات المربوطة لسه مش متاح. الصفحة متاحة للمعاينة بس دلوقتي، والنسخة المنشورة زي ما هي.":"Publishing refused: this page has elements bound to live data, and public publishing of bound pages is not available yet. The page is preview-only for now, and the published version is unchanged.",
   "النص":"Text",
-  "النص بيستخدم شريط تنسيق صغير. الصور والروابط بتستخدم حقول عناوين؛ رفع الميديا مش متوصل. الأنواع غير المدعومة بتمنع التحميل ومش بتختفي بهدوء. ده مش دعم كامل لتنسيق الصفحات.":"Text uses a small formatting bar. Images and links use address fields; media upload is not connected. Unsupported types block loading and never disappear silently. This is not full page-layout support.",
+  "النص بيستخدم شريط تنسيق صغير. الصور والروابط بتستخدم حقول عناوين، والصور ليها مكتبة رفع. الأنواع غير المدعومة بتمنع التحميل ومش بتختفي بهدوء. ده مش دعم كامل لتنسيق الصفحات.":"Text uses a small formatting bar. Images and links use address fields, and images have an upload library. Unsupported types block loading and never disappear silently. This is not full page-layout support.",
   "النطاق الحالي: سبع أدوار ألوان للموقع، عيلة خط نظام واحدة واستدارة الحواف. مقاسات العناوين والنصوص المنفصلة ورفع الخطوط وإقران الخط العربي/اللاتيني لسه مش متوصلين. ده مبيغيرش ثيم مساحة عمل الـ ERP أبدًا.":"Current scope: seven site color roles, one system font family and corner radius. Separate heading/body scales, font upload and Arabic/Latin font pairing are not connected yet. This never changes the ERP workspace theme.",
   "النمط":"Style",
   "النهارده؟":"today?",
