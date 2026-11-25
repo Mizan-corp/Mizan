@@ -47,6 +47,23 @@ def card_policy(raw, *, schema=SCHEMA):
     return {'products': parsed, 'show_price': value['show_price'], 'show_image': value['show_image'], 'currency': currency}
 
 
+def stored_policy(raw):
+    """Read path for the settings UI: accept either consent version.
+
+    v0 rows stay valid for cards; v1 rows are the list-aware re-consent.
+    """
+    if raw is None:
+        return card_policy(None)
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError):
+        raise SourceUnavailable('Invalid website card policy.') from None
+    schema = value.get('schema') if isinstance(value, dict) else None
+    if schema not in (SCHEMA, SCHEMA_V1):
+        raise SourceUnavailable('Exact website card policy required.')
+    return card_policy(raw, schema=schema)
+
+
 async def display_consent(db, context):
     """Field-level consent for product LISTS/repeats: requires the v1 policy.
 

@@ -82,22 +82,22 @@ def card_value(policy):
 
 @router.get('/cards')
 async def get_cards(db=Depends(get_db),_=Depends(require_perm('site.manage')),__=Depends(require_perm('inventory'))):
-    from .cards import card_policy
+    from .cards import stored_policy
     row,raw=await card_read(db)
-    try:value=card_value(card_policy(raw))
+    try:value=card_value(stored_policy(raw))
     except SourceUnavailable:raise HTTPException(422,'Stored website cards policy is invalid.') from None
     return {'value':value,'edit_token':token(raw)}
 
 @router.put('/cards')
 async def put_cards(data:CardPublicationIn,db=Depends(get_db),_=Depends(require_perm('site.manage')),__=Depends(require_perm('inventory'))):
-    from .cards import card_policy,SETTING_KEY as key,SCHEMA as schema
+    from .cards import card_policy,SETTING_KEY as key,SCHEMA_V1 as schema
     tid=current_tenant_id.get()
     if tid is None:raise HTTPException(422,'Explicit workspace required.')
     await db.execute(select(Tenant.id).where(Tenant.id==tid).with_for_update())
     row,raw=await card_read(db)
     if token(raw)!=data.expected_token:raise HTTPException(409,'Website card policy changed. Reload before saving.')
     value={'schema':schema,'products':[str(x) for x in data.products],'show_price':data.show_price,'show_image':data.show_image,'currency':data.currency}
-    try:policy=card_policy(json.dumps(value))
+    try:policy=card_policy(json.dumps(value),schema=schema)
     except SourceUnavailable:raise HTTPException(422,'Invalid explicit website card policy.') from None
     if policy['products']:
         found=set((await db.execute(select(Product.id).where(Product.tenant_id==tid,Product.is_active.is_(True),Product.id.in_(policy['products'])))).scalars())

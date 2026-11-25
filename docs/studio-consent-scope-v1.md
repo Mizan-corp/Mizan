@@ -1,8 +1,11 @@
-# Consent scope change: website display consent for product lists/repeats (v1) — FOR REVIEW
 
-Status: **prepared, not implemented in any UI. Nothing writes a v1 policy today.**
-This is the concrete consent-scope change requested before any collection/repeat
-provider may expose price/image.
+
+# Consent scope change: website display consent for product lists/repeats (v1)
+
+Status: **implemented as reversible product work** (writer + UI wording + gated
+reads). Main has not granted any actual v1 data consent: no real business
+record has been consented under v1; synthetic fixtures only for proof, restored
+afterward. v0 card behavior is unchanged.
 
 ## Why the existing consent does not cover this
 
@@ -24,35 +27,40 @@ v1 schema). Owners who already consented to cards must re-consent under the new
 wording. No data migration rewrites v0 rows; re-saving under v0 wording (the
 current UI) effectively revokes list display consent.
 
-## Proposed change
+## Implemented change
 
 1. New schema `mizan.inventory-website-cards.experimental.v1`, identical payload
    shape to v0 (`{schema, products, show_price, show_image, currency}`), same
    `inventory_website_cards_v0` setting key, same settings writer route and
    permissions (site.manage + inventory, token-guarded). Only the consent
-   **wording** and the recorded schema version change.
-2. The card settings UI (`WebsiteCardSettings.tsx`) gains updated copy
-   covering both surfaces. Proposed wording:
+   **wording** and the recorded schema version change. The writer stamps v1 on
+   every new save; the reader (`stored_policy`) accepts both versions.
+2. The card settings UI (`WebsiteCardSettings.tsx`) copy covers both surfaces
+   (bilingual confirm). Wording:
 
-   EN confirm dialog:
+   EN confirm (second half of the bilingual dialog):
    > Make these selected product names and checked display fields available in
    > authenticated website previews, including product cards and repeating
-   > product lists you place on pages? … This does not publish or enable
-   > checkout.
+   > product lists you place on pages? Price uses retail price and your chosen
+   > currency label, without conversion. Owned product images only. This does
+   > not publish or enable checkout.
 
-   AR legend (draft, owner to confirm):
-   > المخزون · موافقة عرض المنتجات على الموقع (كروت وقوائم)
+   AR legend:
+   > المخزون · موافقة عرض المنتجات على الموقع (كروت وقوائم متكررة)
 
-   AR confirm (draft, owner to confirm):
-   > الموافقة هتخلي أسماء المنتجات المختارة والحقول المحددة متاحة في معاينات
+   AR confirm (first half of the bilingual dialog):
+   > بالموافقة، أسماء المنتجات المختارة والحقول المحددة هتكون متاحة في معاينات
    > الموقع المقفولة بحسابك، سواء في كروت المنتجات أو القوائم المتكررة اللي
-   > بتحطها على الصفحات. ده مش نشر ومش بيفعل الدفع.
+   > بتحطها على الصفحات. السعر هو سعر البيع بالعملة اللي بتختارها من غير
+   > تحويل، والصور المملوكة ليك بس. ده مش نشر ومش بيفعّل الدفع.
 
 3. Behavior on save: the writer stamps `schema: ...v1`. v0 rows remain valid
    for **cards only** (unchanged behavior); list/repeat reads require v1.
 4. Revocation: unchecking fields/products or re-saving reduces scope exactly as
-   today; replacing a v1 row with a v0 row (only possible via older UI builds)
-   silently narrows consent back to cards, fail-closed for lists.
+   today; a v0 row always narrows list consent back to cards, fail-closed.
+5. Also fixed in the same surface: the currency select was corrupted in
+   1a4206c (`value.currency??'t('` and `')EGP'` option), which made EGP
+   unselectable; restored to `currency??''` / `['EGP', ...]`.
 
 ## What is already in place (prep, no behavior change)
 
