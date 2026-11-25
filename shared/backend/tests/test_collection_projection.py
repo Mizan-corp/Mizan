@@ -49,4 +49,37 @@ class ProjectionTests(unittest.IsolatedAsyncioTestCase):
   runtime=collections.CollectionRuntime((collections.CollectionProvider(C,read,True),));ctx=r.SourceContext(A,'en',frozenset());out=await p.expand_heading_collection(tree(),PLAN,runtime,ctx)
   collision=out['children'][0]['children'][0]['children'][0]['id'];source=tree();source['children'][0]['children'][0]['children'].append({'id':collision,'type':'heading','settings':{},'content':{}})
   with self.assertRaises(r.SourceUnavailable):await p.expand_heading_collection(source,PLAN,runtime,ctx)
+def card_tree():
+ return {'id':'n_root0','type':'section','settings':{},'content':{},'children':[{'id':'n_row00','type':'columns','settings':{},'content':{},'children':[{'id':'n_card0','type':'column','settings':{},'content':{},'children':[
+  {'id':'n_head0','type':'heading','settings':{},'content':{'en':{'text':'H'},'ar':{'text':'ح'}}},
+  {'id':'n_txt01','type':'text','settings':{},'content':{'en':{'html':'<p>a</p>'},'ar':{'html':'<p>ب</p>'}}},
+  {'id':'n_txt02','type':'text','settings':{},'content':{'en':{'html':'<p>b</p>'},'ar':{'html':'<p>ج</p>'}}}]}]}]}
+CARD_C={'schema':'mizan.collection.experimental.v0','module':'helpdesk','source':'services','key':'item_key','fields':{'name':{'type':'text','semantic':'plain_text','nullable':False,'max_length':200},'description':{'type':'text','semantic':'plain_text','nullable':True,'max_length':200},'starting_price':{'type':'text','semantic':'plain_text','nullable':True,'max_length':40}},'max_items':24}
+CARD_PLAN={'template_id':'n_card0','module':'helpdesk','source':'services','limit':8,'on_missing':'hide'}
+CARD_SLOTS={'heading':'name','text':'description','text2':'starting_price'}
+class MultiTextSlotCardTests(unittest.IsolatedAsyncioTestCase):
+ async def test_ordered_text_slots_fill_successive_children_and_missing_keeps_card(self):
+  rows=[{'item_key':'a','name':'AC install','description':'Split unit install','starting_price':'500.00 EGP'},{'item_key':'b','name':'Plumbing visit','description':None,'starting_price':'100.00 EGP'}]
+  async def read(*_):return rows
+  runtime=collections.CollectionRuntime((collections.CollectionProvider(CARD_C,read,True),));ctx=r.SourceContext(A,'en',frozenset())
+  source=card_tree();before=copy.deepcopy(source)
+  out=await p.expand_card_collection(source,CARD_PLAN,CARD_SLOTS,runtime,ctx)
+  self.assertEqual(manifest.page_problems(out),[]);self.assertEqual(source,before)
+  cards=out['children'][0]['children'];self.assertEqual(len(cards),2)
+  first=[c['content']['en'] for c in cards[0]['children']]
+  self.assertEqual(first[0]['text'],'AC install');self.assertIn('Split unit install',first[1]['html']);self.assertIn('500.00 EGP',first[2]['html'])
+  second=cards[1]['children'];self.assertEqual([c['type'] for c in second],['heading','text'])
+  self.assertEqual(second[0]['content']['en']['text'],'Plumbing visit');self.assertIn('100.00 EGP',second[1]['content']['en']['html'])
+  self.assertNotIn('None',second[1]['content']['en']['html']);self.assertNotEqual(cards[0]['id'],cards[1]['id'])
+ async def test_slot_shape_checked_before_any_provider_read(self):
+  async def read(*_):raise AssertionError('must not read')
+  runtime=collections.CollectionRuntime((collections.CollectionProvider(CARD_C,read,True),));ctx=r.SourceContext(A,'en',frozenset())
+  for slots in [{'heading':'name','text':'description','text2':'missing'},{'heading':'name','text':'description','text2':'starting_price','text4':'name'},{'heading':'name'}]:
+   with self.assertRaises(r.SourceUnavailable):await p.expand_card_collection(card_tree(),CARD_PLAN,slots,runtime,ctx)
+ def test_manifest_accepts_ordered_text_slots_and_rejects_unknown_keys(self):
+  t=card_tree();column=t['children'][0]['children'][0]
+  column['repeat']={'schema':'mizan.page-repeat.experimental.v1','slots':CARD_SLOTS,'content':{'en':{'module':'helpdesk','source':'services','limit':8,'on_missing':'hide'}}}
+  self.assertEqual(manifest.page_problems(t),[])
+  column['repeat']['slots']={'heading':'name','text':'description','text4':'starting_price'}
+  self.assertTrue(manifest.page_problems(t))
 if __name__=='__main__':unittest.main()

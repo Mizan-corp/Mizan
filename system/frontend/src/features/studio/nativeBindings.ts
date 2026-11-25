@@ -120,7 +120,7 @@ export type NativeRepeatPlan={module:string;source:string;field:string;limit:num
 export type NativeRepeat={schema:typeof repeatSchema;content:Partial<Record<'en'|'ar',NativeRepeatPlan>>};
 export const repeatCardSchema='mizan.page-repeat.experimental.v1';
 export const repeatCategorySchema='mizan.page-repeat.experimental.v2';
-export type NativeCardSlots={heading:string;text?:string;image?:string};
+export type NativeCardSlots={heading:string;text?:string;text2?:string;text3?:string;image?:string};
 export type NativeCardRepeatPlan={module:string;source:string;limit:number;on_missing:'hide'|'empty'};
 export type NativeCategoryRepeatPlan={module:string;source:string;category:'route';limit:number;on_missing:'hide'|'empty'};
 export type NativeCardRepeat={schema:typeof repeatCardSchema|typeof repeatCategorySchema;slots:NativeCardSlots;content:Partial<Record<'en'|'ar',NativeCardRepeatPlan|NativeCategoryRepeatPlan>>};
@@ -138,9 +138,18 @@ export function cardRepeatProblem(value:unknown,type:string):boolean{
 /** Template column children must match the declared typed slots exactly. */
 export function cardSlotProblem(children:PageNode[]|undefined,slots:NativeCardSlots):boolean{
  const kinds=(children??[]).map(c=>c.type);
- return !kinds.length||kinds.length!==Object.keys(slots).length||!kinds.includes('heading')||kinds.some(k=>!['heading','text','image'].includes(k)||!(k in slots));
+ if(!kinds.length||kinds.length!==Object.keys(slots).length||!kinds.includes('heading'))return true;
+ // Successive text children bind to the ordered text slots: text, text2, text3.
+ const textSlots=(['text','text2','text3'] as const).filter(k=>slots[k]!==undefined);let ti=0;
+ for(const k of kinds){
+  if(k==='heading'){if(!slots.heading)return true;}
+  else if(k==='image'){if(!slots.image)return true;}
+  else if(k==='text'){if(ti>=textSlots.length)return true;ti++;}
+  else return true;
+ }
+ return ti!==textSlots.length;
 }
-export function sameCardSlots(a:NativeCardSlots,b:NativeCardSlots):boolean{return a.heading===b.heading&&a.text===b.text&&a.image===b.image;}
+export function sameCardSlots(a:NativeCardSlots,b:NativeCardSlots):boolean{return a.heading===b.heading&&a.text===b.text&&a.text2===b.text2&&a.text3===b.text3&&a.image===b.image;}
 export function changeCardRepeat(tree:PageNode,id:string,language:'en'|'ar',slots:NativeCardSlots,plan:NativeCardRepeatPlan|NativeCategoryRepeatPlan|null):PageNode{
  const next=structuredClone(tree);let found=false;
  const anyCard=(n:PageNode):boolean=>!!n.card||(n.children??[]).some(anyCard);

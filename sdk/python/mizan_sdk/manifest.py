@@ -919,7 +919,10 @@ def page_binding_problems(value, node_type, languages=None) -> list[str]:
 PAGE_REPEAT_SCHEMA = "mizan.page-repeat.experimental.v0"
 PAGE_REPEAT_CARD_SCHEMA = "mizan.page-repeat.experimental.v1"
 PAGE_REPEAT_CATEGORY_SCHEMA = "mizan.page-repeat.experimental.v2"
-_REPEAT_CARD_SLOT_TYPES = {"heading": ("text",), "text": ("text", "money"), "image": ("media",)}
+# A card offers one heading slot, up to three ordered text slots (text, text2,
+# text3) bound to successive text children, and one image slot.
+_REPEAT_CARD_SLOT_TYPES = {"heading": ("text",), "text": ("text", "money"),
+                           "text2": ("text", "money"), "text3": ("text", "money"), "image": ("media",)}
 
 
 def page_repeat_problems(value, node_type, languages=None) -> list[str]:
@@ -960,7 +963,7 @@ def _page_repeat_card_problems(value, node_type, languages=None) -> list[str]:
         return ["repeat: only experimental column card templates supported"]
     slots = value.get("slots")
     if not isinstance(slots, dict) or not slots or "heading" not in slots or not set(slots) <= set(_REPEAT_CARD_SLOT_TYPES):
-        return ["repeat: card slots need a heading and only heading/text/image keys"]
+        return ["repeat: card slots need a heading and only heading/text/text2/text3/image keys"]
     errors = []
     for kind, field in slots.items():
         if not isinstance(field, str) or re.fullmatch(r"[a-z][a-z0-9_]{0,47}", field) is None:
@@ -989,7 +992,7 @@ def _page_repeat_category_problems(value, node_type, languages=None) -> list[str
         return ["repeat: only experimental column card templates supported"]
     slots = value.get("slots")
     if not isinstance(slots, dict) or not slots or "heading" not in slots or not set(slots) <= set(_REPEAT_CARD_SLOT_TYPES):
-        return ["repeat: card slots need a heading and only heading/text/image keys"]
+        return ["repeat: card slots need a heading and only heading/text/text2/text3/image keys"]
     errors = []
     for kind, field in slots.items():
         if not isinstance(field, str) or re.fullmatch(r"[a-z][a-z0-9_]{0,47}", field) is None:

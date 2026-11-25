@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {bindingProblem,itemBindingProblem,changeBinding,changeItemBinding,hasBindings,validResolvedTree,bindingSchema,itemBindingSchema,type NativeBinding,type NativeItemBinding} from './nativeBindings';
+import {bindingProblem,itemBindingProblem,changeBinding,changeItemBinding,hasBindings,validResolvedTree,bindingSchema,itemBindingSchema,cardSlotProblem,type NativeBinding,type NativeItemBinding} from './nativeBindings';
 import {assertNativeTree,nativeChange,nativeUndo,type NativeHistory} from './nativeTree';
 import {newPagePayload} from './newPage';
 const binding:NativeBinding={mode:'dynamic',module:'site',source:'appearance',field:'brand',on_missing:'hide'};
@@ -39,4 +39,18 @@ describe('individually bound elements (v1 envelope)',()=>{
   expect(validResolvedTree(bound,hidden,'en')).toBe(true);
   const replaced=structuredClone(resolved);replaced.children[0].children[0].children![0].settings={desktop:{align:'center'}};
   expect(validResolvedTree(bound,replaced,'en')).toBe(false);});
+});
+
+describe('card repeat multi-text slots',()=>{
+ const kids=(types:string[])=>types.map((t,i)=>({id:`n_${String(i).padStart(16,'0')}`,type:t,settings:{},content:{}}) as never);
+ it('binds successive text children to text, text2, text3 in order',()=>{
+  expect(cardSlotProblem(kids(['heading','text','text']),{heading:'name',text:'description',text2:'starting_price'})).toBe(false);
+  expect(cardSlotProblem(kids(['heading','text','text','text']),{heading:'name',text:'a',text2:'b',text3:'c'})).toBe(false);
+  expect(cardSlotProblem(kids(['heading','text']),{heading:'name',text:'price'})).toBe(false);
+ });
+ it('rejects missing, extra or unknown slot coverage',()=>{
+  expect(cardSlotProblem(kids(['heading','text','text']),{heading:'name',text:'description'})).toBe(true);
+  expect(cardSlotProblem(kids(['heading','text']),{heading:'name',text:'a',text2:'b'})).toBe(true);
+  expect(cardSlotProblem(kids(['heading','text','image']),{heading:'name',text:'a'})).toBe(true);
+ });
 });

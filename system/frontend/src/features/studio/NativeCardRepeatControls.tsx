@@ -14,7 +14,17 @@ function offerFor(children:PageNode[],c:Collection):Offer|null{
  const media=entries.filter(([,s])=>s.type==='media').map(([f])=>f);
  if(!texts.length)return null;
  const slots:NativeCardSlots={heading:texts[0]};
- if(kinds.includes('text')){const field=money[0]??texts.find(f=>f!==slots.heading);if(!field)return null;slots.text=field;}
+ const textChildren=kinds.filter(k=>k==='text').length;
+ if(textChildren===1){
+  // Single text child keeps the historic preference: price over a second text.
+  const field=money[0]??texts.find(f=>f!==slots.heading);if(!field)return null;slots.text=field;
+ }else if(textChildren>1){
+  // Successive text children bind in contract declaration order (text, text2, text3).
+  const rest=entries.filter(([f,s])=>f!==slots.heading&&(s.type==='money'||(s.type==='text'&&s.semantic==='plain_text'))).map(([f])=>f);
+  if(rest.length<textChildren)return null;
+  const keys=['text','text2','text3'] as const;
+  for(let i=0;i<textChildren;i++)slots[keys[i]]=rest[i];
+ }
  if(kinds.includes('image')){if(!media.length)return null;slots.image=media[0];}
  return {module:c.module,source:c.source,max:c.max_items,slots};
 }

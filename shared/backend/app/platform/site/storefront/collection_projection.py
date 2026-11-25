@@ -103,7 +103,16 @@ async def expand_heading_collection(tree:dict, plan:dict, runtime:CollectionRunt
     return static
 
 
-_CARD_SLOT_TYPES={'heading':('text',),'text':('text','money'),'image':('media',)}
+# One heading slot, up to three ordered text slots (text, text2, text3) bound
+# to successive text children in visual order, and one image slot.
+_CARD_SLOT_TYPES={'heading':('text',),'text':('text','money'),'text2':('text','money'),'text3':('text','money'),'image':('media',)}
+_SLOT_NODE_KIND={'heading':'heading','text':'text','text2':'text','text3':'text','image':'image'}
+
+def _slot_assignment(slots:dict,children:list)->list:
+    """Bind successive same-kind template children to the ordered slots of that
+    kind: first text child -> text, second -> text2, third -> text3."""
+    queues={kind:sorted(k for k in slots if _SLOT_NODE_KIND[k]==kind) for kind in ('heading','text','image')}
+    return [slots[queues[child['type']].pop(0)] for child in children]
 
 
 def checked_card_template(tree:dict, plan:dict, slots:dict, runtime:CollectionRuntime, context:SourceContext):
@@ -118,7 +127,7 @@ def checked_card_template(tree:dict, plan:dict, slots:dict, runtime:CollectionRu
     for name in ('module','source'):
         if not isinstance(plan[name],str) or not KEY.fullmatch(plan[name]):
             raise SourceUnavailable('Invalid collection identifier.')
-    if not isinstance(slots,dict) or 'heading' not in slots or not set(slots)<={'heading','text','image'}:
+    if not isinstance(slots,dict) or 'heading' not in slots or not set(slots)<=set(_CARD_SLOT_TYPES):
         raise SourceUnavailable('Card slots need a heading and only heading/text/image keys.')
     for field in slots.values():
         if not isinstance(field,str) or not KEY.fullmatch(field):
@@ -157,7 +166,7 @@ def checked_card_template(tree:dict, plan:dict, slots:dict, runtime:CollectionRu
     template=found[1]
     children=template.get('children',[])
     kinds=[child['type'] for child in children]
-    if sorted(kinds)!=sorted(slots) or any('children' in child for child in children):
+    if sorted(kinds)!=sorted(_SLOT_NODE_KIND[k] for k in slots) or any('children' in child for child in children):
         raise SourceUnavailable('Card template children must match the declared slots exactly.')
     subtree=1+len(children)
     if count+(plan['limit']-1)*subtree>PAGE_MAX_NODES:
@@ -183,8 +192,9 @@ async def expand_card_collection(tree:dict, plan:dict, slots:dict, runtime:Colle
             continue  # on_missing hide drops the whole card when its heading is absent
         clone=deepcopy(template)
         kept=[]
-        for child in clone['children']:
-            kind=child['type'];field=slots[kind];spec=contract['fields'][field]
+        assignment=_slot_assignment(slots,clone['children'])
+        for child,field in zip(clone['children'],assignment):
+            kind=child['type'];spec=contract['fields'][field]
             if kind=='heading':
                 child.setdefault('content',{}).setdefault(context.language,{})['text']=name
             elif spec['type']=='media':
