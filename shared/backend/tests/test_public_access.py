@@ -350,6 +350,20 @@ class ResponsiveCssTests(unittest.TestCase):
         self.assertIn(".mz-text-check_list li::before", html)
         self.assertIn("<li>Diagnosis first</li>", html)
 
+    def test_heading_accent_mark_only(self):
+        from app.platform.site import render
+        tree = {"type": "section", "id": "s1", "settings": {},
+                "children": [{"type": "heading", "id": "h1",
+                              "content": {"en": {"text": "Good <mark>technology</mark>. <script>x</script> <mark class=bad>no</mark>"}},
+                              "settings": {}}]}
+        with patch("app.platform.site.render.page_problems", return_value=[]):
+            html = render.render_document(tree, {"titles": {"en": "Hi"}, "languages": ["en"]},
+                                          None, lang="en")
+        self.assertIn("<mark>technology</mark>", html)
+        self.assertIn("&lt;script&gt;", html)
+        self.assertIn("&lt;mark class=bad&gt;", html)
+        self.assertIn(".mz-heading mark{", html)
+
     def _chrome_html(self, links, link_base=None):
         from app.platform.site import render
         tree = {"type": "section", "id": "s1", "settings": {},

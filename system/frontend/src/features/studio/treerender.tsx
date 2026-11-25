@@ -102,7 +102,7 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
     case 'heading': {
       const level = typeof s.level === 'number' && s.level >= 1 && s.level <= 6 ? s.level : 2;
       const Tag = `h${level}` as 'h1';
-      inner = <Tag className="mz-heading">{String(c.text ?? '')}</Tag>; break;
+      inner = <Tag className="mz-heading" dangerouslySetInnerHTML={{ __html: accentHtml(String(c.text ?? '')) }} />; break;
     }
     case 'text': {
       const variant = s.variant === 'eyebrow' || s.variant === 'note' || s.variant === 'check_list' ? ` mz-text-${s.variant}` : '';
@@ -182,6 +182,20 @@ const FONT_STACKS: Record<string, string> = {
   serif: "Georgia,'Times New Roman',serif",
   monospace: 'ui-monospace,Menlo,monospace',
 };
+
+const ACCENT = /<mark>([^<]{0,120}?)<\/mark>/g;
+const escText = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// Bounded heading accent: only literal <mark>..</mark> pairs (no attributes,
+// no nesting, no other markup) become accent spans; everything else escapes.
+export function accentHtml(text: string): string {
+  if (!text.includes('<mark>')) return escText(text);
+  let out = '', pos = 0;
+  for (const m of text.matchAll(ACCENT)) {
+    out += escText(text.slice(pos, m.index)) + '<mark>' + escText(m[1]) + '</mark>';
+    pos = m.index + m[0].length;
+  }
+  return out + escText(text.slice(pos));
+}
 
 export function themeStyle(theme?: ThemeSpec): CSSProperties {
   const allowed = new Set(['background', 'foreground', 'card', 'primary', 'primary-foreground', 'dark', 'dark-foreground']);

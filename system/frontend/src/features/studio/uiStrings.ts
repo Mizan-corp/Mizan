@@ -72,6 +72,8 @@ const en:Record<string,string>={
   "اسم المستخدم":"Username",
   "اضغط على أي حاجة عشان تعدّلها":"Click anything to edit it",
   "إخفاء التلميح":"Dismiss hint",
+  "تمييز":"Accent",
+  "حدّد كلمة ودوس تمييز عشان تظهر بلون الموقع الأساسي. التمييز الوحيد المدعوم في العناوين.":"Select a word and press Accent to color it with the site\u2019s primary color. Accent is the only inline markup supported in headings.",
   "اعتماديات مطلوبة":"Required dependencies",
   "افتح أدوات تحريك العنصر":"Open element motion tools",
   "افتح تصميم الموقع المتناسق":"Open coordinated site design",

@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement } from 'react';
-import TreePreview, { sanitizeHtml, themeStyle } from './treerender';
+import TreePreview, { accentHtml, sanitizeHtml, themeStyle } from './treerender';
 import { toPageTree, previewPayload } from './pagetree';
 import { initialProject } from './model';
 
@@ -79,6 +79,16 @@ describe('TreePreview over toPageTree output', () => {
     const html = renderToStaticMarkup(createElement(TreePreview, { tree, lang: 'en', device: 'desktop' }));
     expect(html).toContain('mz-text-check_list');
     expect(html).toContain('<li>Diagnosis first</li>');
+  });
+  it('accents heading text with mark only, escaping all other markup', () => {
+    expect(accentHtml('Good <mark>technology</mark>.')).toBe('Good <mark>technology</mark>.');
+    expect(accentHtml('<script>x</script> plain')).toBe('&lt;script&gt;x&lt;/script&gt; plain');
+    expect(accentHtml('<mark class=bad>no</mark>')).toBe('&lt;mark class=bad&gt;no&lt;/mark&gt;');
+    expect(accentHtml('<mark><b>nested</b></mark>')).toContain('&lt;b&gt;');
+    const tree = { type: 'section', id: 's1', settings: {},
+      children: [{ type: 'heading', id: 'h1', content: { en: { text: 'Good <mark>technology</mark>.' } }, settings: {} }] } as never;
+    const html = renderToStaticMarkup(createElement(TreePreview, { tree, lang: 'en', device: 'desktop' }));
+    expect(html).toContain('<mark>technology</mark>');
   });
   it('honors per-device visibility', () => {
     const p = structuredClone(initialProject);
