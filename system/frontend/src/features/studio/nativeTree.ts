@@ -107,7 +107,10 @@ export function editNativeTree(tree: PageNode, edit: NativeEdit): PageNode {
     if(!['en','ar'].includes(edit.lang) || node.type!=='icon_list' || iconItemsProblem(edit.items)) throw Error('Unsupported icon list edit.');
     node.content={...node.content,[edit.lang]:{...node.content[edit.lang],items:edit.items.map(e=>({icon:e.icon,text:e.text}))}};
   } else {
-    if(!['desktop','tablet','mobile'].includes(edit.device)||!settings[node.type][edit.field]?.includes(edit.value)) throw Error('Unsupported setting edit.');
+    if(!['desktop','tablet','mobile'].includes(edit.device)) throw Error('Unsupported setting edit.');
+    if((urlSettings[node.type]??[]).includes(edit.field)){
+      if(typeof edit.value!=='string'||!safeNativeUrl(edit.value,true)||/[();]/.test(edit.value)) throw Error('Use a safe URL.');
+    } else if(!settings[node.type][edit.field]?.includes(edit.value)) throw Error('Unsupported setting edit.');
     node.settings={...node.settings,[edit.device]:{...node.settings[edit.device],[edit.field]:edit.value}};
   }
   assertNativeTree(next);return next;
