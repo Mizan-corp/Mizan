@@ -1,9 +1,10 @@
-import {t,getUILang} from './uiStrings';
+import {t,getUILang,useUILang} from './uiStrings';
 import WebsiteCardSettings from './WebsiteCardSettings';
 import {useEffect,useState} from 'react';
 import {siteRequestHeaders} from './sitePages';
 type Choice={id:string;name:string};type Choices={products:{items:Choice[];truncated:boolean};categories:{items:Choice[];truncated:boolean}};
 export default function WebsiteModuleSettings({apiBase,onSaved,onDirty}:{apiBase:string;onSaved:()=>void;onDirty:(value:boolean)=>void}){
+ useUILang();
  const [cardDirty,setCardDirty]=useState(false);
  const [savedProfile,setSavedProfile]=useState(''),[savedSelection,setSavedSelection]=useState('');
  const [profile,setProfile]=useState({display_name:'',tagline:''}),[profileToken,setProfileToken]=useState(''),[selection,setSelection]=useState<{products:string[];categories:string[]}>({products:[],categories:[]}),[selectionToken,setSelectionToken]=useState(''),[choices,setChoices]=useState<Choices|null>(null),[notice,setNotice]=useState(t('بنحمّل الاختيارات الصريحة للموقع…')),[busy,setBusy]=useState(false),[error,setError]=useState('');

@@ -201,12 +201,20 @@ per-language copy is not yet authorable (see above).
 18. **Style panel minors** — OPEN (same closeout). Lavender literal
     rgb(145,131,158) bypasses the token scale; three invisible debug nodes
     sit in the Style panel DOM. Cosmetic only, fix in a cleanup pass.
-19. **Legacy /studio/ route disposition** — OPEN product-routing question
-    (same closeout, evidence in their 2026-11-24 22:35 report). Reconcile
-    inside Phase 4: with the user-decided flow (Website tab launches
-    standalone Studio in a NEW full browser tab, decision 17:37), decide
-    whether the legacy /studio/ route redirects to the new launch or stays
-    for existing links. No user-visible change before that is settled.
+19. **Legacy /studio/ route disposition** — RESOLVED 2026-11-25 in
+    feat/studio-render-parity by grounding the production deploy layout
+    (deploy/studio-test): package.py copies studio-preview.html to
+    /static/index.html — the server-backed Studio (PreviewSession) IS the
+    deployment root entry — while deploy.sh:53 builds the older Northline
+    prototype (main.tsx, studio.html) into /studio/. The prototype marks
+    backend pages read-only (no save/publish) unless an explicit ?page=
+    link opens it, and even then keeps browser-copy-only editing. The ERP
+    launcher therefore targets /studio-preview.html (same-origin, session
+    cookie carries the sign-in); /studio/* stays served untouched for
+    prior-route compatibility but nothing launches it. Verified live on
+    the same-origin harness: ERP login -> /website -> launcher click ->
+    /studio-preview.html loads the full Studio home with the workspace's
+    real pages and no second login.
 
 Reconciled from the same closeout (no gap item needed): the reviewer left
 the Home "كل الصفحات ←" / library link click paths inconclusive. Verified
@@ -288,8 +296,10 @@ DONE 2026-11-25 (first slice): ERP route /website (Guard site.manage) with
 the pages list (status, slug, archived filtered) and the same reviewed
 module/consent settings components the Studio Data panel mounts (no
 duplicated catalog; Inventory stays source of truth); every design edit
-opens the standalone Studio in a NEW full tab via window.open('/studio/
-?page=<id>', '_blank', 'noopener,noreferrer') — the session cookie carries
+opens the standalone Studio in a NEW full tab via
+window.open('/studio-preview.html?page=<id>', '_blank', 'noopener,noreferrer')
+(the deployment's root-entry bundle; /studio/ is the older read-only
+prototype, see item 19) — the session cookie carries
 the sign-in, the page id rides in the query string, never a token. App
 launcher entry renamed storefront -> الموقع/Website (id "site", the
 platform module that owns the site API), fixing the previously dead

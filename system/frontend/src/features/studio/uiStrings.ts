@@ -8,6 +8,9 @@ const KEY='mizan-studio-ui-lang';
 let current:UILang=(()=>{try{const v=localStorage.getItem(KEY);return v==='ar'?'ar':'en';}catch{return 'en';}})();
 const listeners=new Set<()=>void>();
 export function setUILang(l:UILang){current=l;try{localStorage.setItem(KEY,l);}catch{}listeners.forEach(f=>f());}
+// Host-driven sync (e.g. the ERP embed follows the ERP locale): updates the live
+// language and notifies subscribers WITHOUT touching the saved Studio preference.
+export function syncUILang(l:UILang){if(current===l)return;current=l;listeners.forEach(f=>f());}
 export function getUILang(){return current;}
 export function useUILang():UILang{return useSyncExternalStore(f=>{listeners.add(f);return()=>{listeners.delete(f);};},getUILang,getUILang);}
 export function uiDir(l:UILang):'rtl'|'ltr'{return l==='ar'?'rtl':'ltr';}

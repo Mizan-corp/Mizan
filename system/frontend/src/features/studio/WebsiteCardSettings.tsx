@@ -1,9 +1,10 @@
-import {t} from './uiStrings';
+import {t,useUILang} from './uiStrings';
 import {useEffect,useState} from 'react';
 import {siteRequestHeaders} from './sitePages';
 type Policy={products:string[];show_price:boolean;show_image:boolean;show_description:boolean;currency:string|null;schema?:string};
 type Choice={id:string;name:string};
 export default function WebsiteCardSettings({apiBase,onDirty,onSaved}:{apiBase:string;onDirty:(value:boolean)=>void;onSaved:()=>void}){
+ useUILang();
  const [value,setValue]=useState<Policy>({products:[],show_price:false,show_image:false,show_description:false,currency:null}),[saved,setSaved]=useState(''),[schema,setSchema]=useState<string|null>(null),[token,setToken]=useState(''),[choices,setChoices]=useState<Choice[]>([]),[notice,setNotice]=useState('Loading separate product-card policy...'),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const dirty=!!saved&&JSON.stringify(value)!==saved;useEffect(()=>onDirty(dirty),[dirty,onDirty]);
  async function request(path:string,method='GET',body?:unknown){const r=await fetch(apiBase+path,{method,credentials:'include',headers:siteRequestHeaders(apiBase,method,body!==undefined,document.cookie),...(body===undefined?{}:{body:JSON.stringify(body)})});if(!r.ok)throw Error(r.status===409?'Card policy changed elsewhere. Close and reopen.':`Card policy unavailable (${r.status}).`);return r.json()}
