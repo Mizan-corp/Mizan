@@ -15,7 +15,12 @@
       "body": "Tajawal",
       "display": "Cairo"
     },
-    "note": "ثقة صحية واضحة ومريحة."
+    "note": "ثقة صحية واضحة ومريحة.",
+    "palettes": [
+      "teal",
+      "emerald",
+      "cyan"
+    ]
   },
   "modules": [
     "pharmacy",

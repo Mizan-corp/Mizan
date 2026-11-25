@@ -203,13 +203,26 @@ def _with_font_choice(theme: dict, tenant) -> dict:
     return {**theme, "fonts": fonts}
 
 
+def _with_palette_choice(theme: dict, tenant) -> dict:
+    """A workspace may recolor its theme with any registry palette (ADR-010 D3 follow-up):
+    tenants.palette['palette'] overrides the theme's own palette reference. Fonts, radius
+    and the rest still come from the theme; the choice survives in resolved output."""
+    pid = (tenant.palette or {}).get("palette")
+    if not isinstance(pid, str) or not pid:
+        return theme
+    pal = palette_registry().get(pid)
+    if pal is None:
+        return theme
+    return {**theme, "colors": pal["colors"], "palette": pid}
+
+
 async def resolved(db: AsyncSession, tenant) -> dict:
     """The workspace's theme, ready for the app (Mizan's default when it's gone)."""
     wanted = current_id(tenant)
     for t in await available(db, tenant):
         if t["id"] == wanted:
-            return _with_font_choice(_for_client(t, tenant.id), tenant)
-    return _with_font_choice(_for_client(file_themes()[DEFAULT], tenant.id), tenant)
+            return _with_palette_choice(_with_font_choice(_for_client(t, tenant.id), tenant), tenant)
+    return _with_palette_choice(_with_font_choice(_for_client(file_themes()[DEFAULT], tenant.id), tenant), tenant)
 
 
 def summary(t: dict, current: str) -> dict:
@@ -221,12 +234,21 @@ def summary(t: dict, current: str) -> dict:
             "fonts": t.get("fonts") or {}, "radius": t.get("radius"), "motion": t.get("motion", "full")}
 
 
-async def choose(db: AsyncSession, tenant, theme_id: str, fonts: dict | None = None) -> dict:
-    """Make `theme_id` the workspace's theme; optionally its own body/display faces."""
+def check_palette_choice(pid) -> str | None:
+    """A workspace's own palette pick (tenants.palette['palette']): a known registry id only."""
+    return pid if isinstance(pid, str) and pid in palette_registry() else None
+
+
+async def choose(db: AsyncSession, tenant, theme_id: str, fonts: dict | None = None,
+                 palette_id: str | None = None) -> dict:
+    """Make `theme_id` the workspace's theme; optionally its own body/display faces and its
+    own palette (each independent: a theme, then recolor/refont it without another theme)."""
     from app.catalog.sectors import PALETTE_HUES
 
     if not any(t["id"] == theme_id for t in await available(db, tenant)):
         raise HTTPException(404, "المظهر غير متاح لهذه المنشأة")
+    if palette_id is not None and palette_id != "" and check_palette_choice(palette_id) is None:
+        raise HTTPException(404, "لوحة الألوان غير متاحة")
     palette = dict(tenant.palette or {})
     palette["name"] = theme_id
     palette["hue"] = PALETTE_HUES.get(theme_id, palette.get("hue") or PALETTE_HUES[DEFAULT])
@@ -236,6 +258,11 @@ async def choose(db: AsyncSession, tenant, theme_id: str, fonts: dict | None = N
             palette["fonts"] = checked
         else:
             palette.pop("fonts", None)
+    if palette_id is not None:
+        if palette_id == "":
+            palette.pop("palette", None)  # back to the theme's own palette
+        else:
+            palette["palette"] = palette_id
     tenant.palette = palette
     await db.commit()
     try:

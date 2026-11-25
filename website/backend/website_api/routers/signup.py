@@ -35,6 +35,9 @@ class SignupRequest(BaseModel):
     sector: str
     scale: str
     palette: str = "mizan"
+    # Independent recolor: a registry palette id that overrides the theme's own palette
+    # (theme-level choice stays in `palette`; this is palette-level customization).
+    colors: str | None = None
     # Optional independent typography picks (body/display); validated against the
     # families Mizan's themes actually ship, stored on the workspace palette.
     fonts: dict | None = None
@@ -74,10 +77,14 @@ async def branding_options():
         a = _json.loads(f.read_text(encoding="utf-8"))
         if isinstance(a.get("branding"), dict):
             recommendations[a["id"]] = a["branding"]
-    from app.platform.themes.service import family_files
+    from app.platform.themes.service import family_files, palette_registry
 
     fam_files = family_files()
-    return {"themes": themes, "full": full, "activities": recommendations,
+    palettes = [{"id": pid, "colors": pl["colors"],
+                 "swatches": [pl["colors"]["light"].get(k) for k in ("primary", "accent", "background") if pl["colors"]["light"].get(k)],
+                 "source": pl["source"], "license": pl["license"]}
+                for pid, pl in palette_registry().items()]
+    return {"themes": themes, "full": full, "activities": recommendations, "palettes": palettes,
             "families": sorted(fam_files.keys()), "family_files": fam_files}
 
 
@@ -140,6 +147,7 @@ async def signup(data: SignupRequest, request: Request, db: AsyncSession = Depen
             sector=data.sector,
             scale=data.scale,
             palette=data.palette,
+            colors=data.colors,
             fonts=data.fonts,
             features=data.features,
             admin_username=data.owner_username,

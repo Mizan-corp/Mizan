@@ -81,8 +81,17 @@ interface ThemeSummary {
 
 interface ActivityBranding {
   themes: string[];
+  palettes?: string[];
   fonts: { body: string; display: string };
   note: string;
+}
+
+interface RegistryPalette {
+  id: string;
+  colors: { light?: Record<string, string>; dark?: Record<string, string> };
+  swatches: string[];
+  source: string;
+  license: string;
 }
 
 interface ThemeFontFileEntry {
@@ -96,6 +105,7 @@ interface BrandingOptions {
   themes: ThemeSummary[];
   full: Record<string, ThemePack>;
   activities: Record<string, ActivityBranding>;
+  palettes?: RegistryPalette[];
   families: string[];
   family_files: Record<string, ThemeFontFileEntry[]>;
 }
@@ -189,6 +199,7 @@ export default function OnboardingWizard() {
   const [company, setCompany] = useState("");
   const [scale, setScale] = useState("medium");
   const [palette, setPalette] = useState<string>("mizan");
+  const [colorsOverride, setColorsOverride] = useState<string | null>(null); // independent palette pick (theme's own when null)
   const [branding, setBranding] = useState<BrandingOptions | null>(null);
   const [bodyFont, setBodyFont] = useState<string>("");
   const [displayFont, setDisplayFont] = useState<string>("");
@@ -317,7 +328,7 @@ export default function OnboardingWizard() {
     setFeatures((f) => (f.includes(v) ? f.filter((x) => x !== v) : [...f, v]));
   }
 
-  function applyWithFonts(themeId: string, body: string, display: string) {
+  function applyWithFonts(themeId: string, body: string, display: string, colorsId: string | null = colorsOverride) {
     const pack = branding?.full?.[themeId];
     if (!pack) return;
     const files = [...(pack.fonts?.files ?? [])];
@@ -325,7 +336,16 @@ export default function OnboardingWizard() {
       if (!fam || files.some((f) => f.family === fam)) continue;
       files.push(...(branding?.family_files?.[fam] ?? []));
     }
-    applyTheme({ ...pack, fonts: { ...pack.fonts, body: body || pack.fonts?.body, display: display || pack.fonts?.display, files } });
+    // Independent palette: recolor the theme with a registry palette, keeping its fonts/radius.
+    const overrideColors = colorsId ? branding?.palettes?.find((pl) => pl.id === colorsId)?.colors : undefined;
+    const colors = overrideColors?.light && overrideColors?.dark
+      ? { light: overrideColors.light, dark: overrideColors.dark } : pack.colors;
+    applyTheme({ ...pack, colors, fonts: { ...pack.fonts, body: body || pack.fonts?.body, display: display || pack.fonts?.display, files } });
+  }
+
+  function handlePickPalette(pid: string | null) {
+    setColorsOverride(pid);
+    applyWithFonts(palette, bodyFont, displayFont, pid);
   }
 
   function handleSelectPalette(themeId: string) {
@@ -412,6 +432,7 @@ export default function OnboardingWizard() {
         sector,
         scale,
         palette,
+        colors: colorsOverride ?? undefined,
         fonts: bodyFont ? { body: bodyFont, display: displayFont || bodyFont } : undefined,
         features,
         owner_username: draft!.username,
@@ -964,7 +985,8 @@ export default function OnboardingWizard() {
                       chosen logo, heading/body faces and a primary button. */}
                   {selectedTheme && (() => {
                     const pack = branding.full?.[palette];
-                    const light = pack?.colors?.light ?? {};
+                    const palColors = colorsOverride ? branding.palettes?.find((pl) => pl.id === colorsOverride)?.colors : undefined;
+                    const light = (palColors ?? pack?.colors)?.light ?? {};
                     const bg = light.background ?? "#ffffff";
                     const fg = light.foreground ?? "#1a1a1a";
                     const cardBg = light.card ?? bg;
@@ -1070,6 +1092,70 @@ export default function OnboardingWizard() {
                       ))}
                     </div>
                   )}
+
+                  {/* Independent palette: keep the theme, recolor it with any registry palette. */}
+                  {branding.palettes && branding.palettes.length > 0 && (() => {
+                    const recIds = activityBranding?.palettes ?? [];
+                    const rec = recIds.map((id) => branding.palettes!.find((pl) => pl.id === id)).filter(Boolean) as RegistryPalette[];
+                    const rest = branding.palettes.filter((pl) => !recIds.includes(pl.id));
+                    const chip = (pl: RegistryPalette) => {
+                      const isSelected = colorsOverride === pl.id;
+                      return (
+                        <button
+                          key={pl.id}
+                          type="button"
+                          onClick={() => handlePickPalette(isSelected ? null : pl.id)}
+                          aria-pressed={isSelected}
+                          title={`${pl.source} — ${pl.license}`}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition cursor-pointer",
+                            isSelected
+                              ? "border-primary bg-primary/[0.08] text-foreground font-bold ring-1 ring-primary"
+                              : "border-line bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                          )}
+                        >
+                          <span className="flex gap-0.5">
+                            {pl.swatches.map((c) => (
+                              <span key={c} className="size-3 rounded-full border border-black/10" style={{ background: c }} />
+                            ))}
+                          </span>
+                          {pl.id}
+                        </button>
+                      );
+                    };
+                    return (
+                      <div>
+                        <label className="text-xs font-semibold text-foreground block">
+                          لوحة الألوان
+                          <span className="block text-[10px] font-normal text-muted-foreground">
+                            ألوان المظهر المختار، أو لوحة مستقلة تُغيّر الألوان فقط وتُبقي الخطوط والشكل
+                          </span>
+                        </label>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handlePickPalette(null)}
+                            aria-pressed={colorsOverride === null}
+                            className={cn(
+                              "rounded-lg border px-2.5 py-1.5 text-xs transition cursor-pointer",
+                              colorsOverride === null
+                                ? "border-primary bg-primary/[0.08] text-foreground font-bold ring-1 ring-primary"
+                                : "border-line bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                            )}
+                          >
+                            ألوان المظهر
+                          </button>
+                          {rec.map(chip)}
+                          {rest.length > 0 && (
+                            <details className="w-full">
+                              <summary className="text-[11px] text-muted-foreground cursor-pointer">كل اللوحات ({branding.palettes.length})</summary>
+                              <div className="mt-1.5 flex flex-wrap gap-1.5">{rest.map(chip)}</div>
+                            </details>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </>
               ) : (
                 <div>

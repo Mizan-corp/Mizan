@@ -27,6 +27,7 @@ async def _tenant(db: AsyncSession, user: User):
 class Choice(BaseModel):
     id: str = Field(min_length=2, max_length=80)
     fonts: dict | None = None
+    palette: str | None = None
 
 
 @router.get("/current")
@@ -44,7 +45,17 @@ async def list_themes(db: AsyncSession = Depends(get_db), user: User = Depends(r
 
 @router.put("/current")
 async def choose(data: Choice, db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("themes.manage"))):
-    return await service.choose(db, await _tenant(db, user), data.id, fonts=data.fonts)
+    return await service.choose(db, await _tenant(db, user), data.id, fonts=data.fonts, palette_id=data.palette)
+
+
+@router.get("/palettes")
+async def list_palettes(user: User = Depends(get_current_user)):
+    """Every registry palette: id + swatches + provenance, for independent recolor pickers."""
+    return {"items": [
+        {"id": pid, "source": p["source"], "license": p["license"],
+         "swatches": [p["colors"]["light"].get(k) for k in ("primary", "accent", "background") if p["colors"]["light"].get(k)]}
+        for pid, p in service.palette_registry().items()],
+        "families": sorted(service.family_files().keys())}
 
 
 @router.post("/packages/inspect")

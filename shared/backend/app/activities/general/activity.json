@@ -15,7 +15,12 @@
       "body": "Cairo",
       "display": "Cairo"
     },
-    "note": "اختيارات متوازنة تناسب أغلب الأنشطة."
+    "note": "اختيارات متوازنة تناسب أغلب الأنشطة.",
+    "palettes": [
+      "ocean",
+      "teal",
+      "violet"
+    ]
   },
   "modules": [
     "core",

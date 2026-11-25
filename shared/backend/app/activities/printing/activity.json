@@ -15,7 +15,12 @@
       "body": "Tajawal",
       "display": "Cairo"
     },
-    "note": "ألوان طباعة صريحة CMYK الروح."
+    "note": "ألوان طباعة صريحة CMYK الروح.",
+    "palettes": [
+      "indigo",
+      "cobalt",
+      "slate"
+    ]
   },
   "modules": [
     "printing",

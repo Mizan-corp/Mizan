@@ -77,10 +77,24 @@ class PaletteRegistryTests(unittest.TestCase):
             self.assertIn("colors", t, tid)
             self.assertEqual(set(t["colors"]), {"light", "dark"}, tid)
 
+    LEGACY_ORIGINALS = {"amber", "cobalt", "emerald", "mizan", "monokai", "slate"}
+
     def test_palettes_carry_source_and_license(self):
         for pid, pal in service.palette_registry().items():
             self.assertTrue(pal.get("source"), pid)
-            self.assertIn("MIT", pal.get("license", ""), pid)
+            self.assertTrue(pal.get("license"), pid)
+            if pid in self.LEGACY_ORIGINALS:
+                # The six legacy palettes predate the Open Color registry: original Mizan
+                # compositions, honestly labelled, not implied Open Color derivations.
+                self.assertIn("Original", pal["license"], pid)
+            else:
+                self.assertIn("MIT", pal["license"], pid)
+
+    def test_palette_override_choice(self):
+        self.assertEqual(service.check_palette_choice("grape"), "grape")
+        self.assertIsNone(service.check_palette_choice("nope"))
+        self.assertIsNone(service.check_palette_choice("../mizan"))
+        self.assertIsNone(service.check_palette_choice(5))
 
     def test_packages_embed_colors_no_palette_ref(self):
         pkg = {"id": "acme.x", "name": "x", "name_en": "x", "version": "1.0.0", "kind": "theme",

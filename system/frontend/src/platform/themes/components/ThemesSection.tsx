@@ -16,6 +16,7 @@ interface ThemeSummary {
   current: boolean; swatches: string[]; fonts: { body?: string; display?: string }; radius?: string; motion?: string;
 }
 interface Inspected extends ThemeSummary { installed_version: string | null; files: string[] }
+interface RegistryPalette { id: string; source: string; license: string; swatches: string[] }
 
 const SOURCE: Record<ThemeSummary["source"], string> = { mizan: "من ميزان", activity: "من نشاطك", package: "من مطور" };
 
@@ -72,6 +73,19 @@ export function ThemesSection() {
     onSuccess: (t) => { apply(t); toast("success", `أصبح «${t.name}» مظهر المنشأة`); },
     onError: (e) => fail(e, "تعذر تغيير المظهر"),
   });
+  const palettes = useQuery({
+    queryKey: ["theme-palettes"],
+    queryFn: () => api.get<{ items: RegistryPalette[]; families: string[] }>("/themes/palettes"),
+    enabled: manage,
+  });
+  const currentTheme = useQuery({ queryKey: ["themes", "current"], queryFn: () => api.get<ThemePack>("/themes/current"), enabled: manage });
+  const customize = useMutation({
+    mutationFn: (patch: { palette?: string; fonts?: { body?: string; display?: string } }) =>
+      api.put<ThemePack>("/themes/current", { id: currentTheme.data?.id, ...patch }),
+    onSuccess: (t) => { apply(t); toast("success", "حُفظ التخصيص"); },
+    onError: (e) => fail(e, "تعذر حفظ التخصيص"),
+  });
+
   const inspect = useMutation({
     mutationFn: (f: File) => {
       const form = new FormData();
@@ -182,6 +196,59 @@ export function ThemesSection() {
         message={`سيُزال «${removing?.name ?? ""}» من هذه المنشأة. يمكنك تثبيته من ملفه مرة أخرى.`}
         confirmLabel="إزالة"
       />
+      {/* Independent customization: recolor the current theme with any registry palette,
+          and pick body/display faces — each without switching themes (ADR-010 D3). */}
+      {currentTheme.data && palettes.data && (
+        <div className="rounded-xl border border-line bg-card p-3 space-y-3">
+          <div>
+            <p className="text-xs font-bold text-foreground">لوحة الألوان</p>
+            <p className="text-[10px] text-muted-foreground">ألوان المظهر نفسه، أو لوحة مستقلة تُغيّر الألوان فقط</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => customize.mutate({ palette: "" })}
+                aria-pressed={!currentTheme.data.palette}
+                className={`rounded-lg border px-2.5 py-1.5 text-xs transition cursor-pointer ${!currentTheme.data.palette ? "border-primary bg-primary/[0.08] font-bold text-foreground ring-1 ring-primary" : "border-line text-muted-foreground hover:border-primary/40"}`}
+              >
+                ألوان المظهر
+              </button>
+              {palettes.data.items.map((pl) => {
+                const sel = currentTheme.data.palette === pl.id;
+                return (
+                  <button
+                    key={pl.id}
+                    type="button"
+                    title={`${pl.source} — ${pl.license}`}
+                    onClick={() => customize.mutate({ palette: sel ? "" : pl.id })}
+                    aria-pressed={sel}
+                    className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition cursor-pointer ${sel ? "border-primary bg-primary/[0.08] font-bold text-foreground ring-1 ring-primary" : "border-line text-muted-foreground hover:border-primary/40"}`}
+                  >
+                    <span className="flex gap-0.5">
+                      {pl.swatches.map((c) => <span key={c} className="size-3 rounded-full border border-black/10" style={{ background: c }} />)}
+                    </span>
+                    {pl.id}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(["body", "display"] as const).map((which) => (
+              <div key={which}>
+                <label className="text-xs font-bold text-foreground block">{which === "body" ? "خط النصوص" : "خط العناوين"}</label>
+                <select
+                  className="mt-1 w-full rounded-lg border border-line bg-card px-2 py-1.5 text-xs"
+                  value={currentTheme.data.fonts?.[which] ?? ""}
+                  onChange={(e) => customize.mutate({ fonts: { ...currentTheme.data.fonts, [which]: e.target.value } })}
+                >
+                  {palettes.data.families.map((fam) => <option key={fam} value={fam}>{fam}</option>)}
+                </select>
+              </div>
+            ))}
+          </div>
+          {customize.isPending && <Spinner />}
+        </div>
+      )}
     </section>
   );
 }

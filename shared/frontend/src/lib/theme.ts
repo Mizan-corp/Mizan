@@ -17,6 +17,8 @@ export interface ThemePack {
   motion?: "full" | "reduced" | "none";
   density?: "comfortable" | "compact";
   assets_base?: string;
+  /** The workspace's independent palette pick (registry id) when it recolored this theme. */
+  palette?: string;
 }
 
 const STYLE_ID = "mizan-theme";

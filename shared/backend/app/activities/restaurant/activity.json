@@ -15,7 +15,12 @@
       "body": "Tajawal",
       "display": "Cairo"
     },
-    "note": "ألوان دافئة تفتح الشهية وتليق بالضيافة."
+    "note": "ألوان دافئة تفتح الشهية وتليق بالضيافة.",
+    "palettes": [
+      "amber",
+      "olive",
+      "tangerine"
+    ]
   },
   "modules": [
     "restaurant",
