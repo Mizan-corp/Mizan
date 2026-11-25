@@ -70,12 +70,21 @@ Historical discrepancy (unresolved, recorded 2026-11-25 02:31): /studio/?page=..
 rendered the legacy shell successfully at 00:34 (reviewer screenshot), but every
 committed vercel.json has routed only the catch-all to /static/$1 and package.py
 has never produced static/studio/index.html, so committed config alone would
-always edge-404 /studio/. The likely serving file came from an earlier manual
-rsync deploy's static tree and was removed by the first fail-closed prune
-(01:42); no file listing of the 00:34 deployment survives to prove which file
-served it. /studio/ was therefore never an intentional canonical entry: the
-studio app entry is /studio/studio.html. Do not cite /studio/ 404 behavior,
-in either direction, as evidence of routing intent.
+always edge-404 /studio/. An earlier version of this note guessed that a
+manually-rsynced static/studio/index.html had been pruned at 01:42. That
+hypothesis is REFUTED (2026-11-25 03:50 Cairo): the Vercel deployments files
+API is readable with the saved deploy token, and every deployment checked
+between 23:45 and 00:38 EET (including dpl_3HBTVMvABf5Ya5mqLrf9iJ9snCso,
+created 00:25 EET and presumed live at the reviewer's 00:34 success) contains
+/static/studio/studio.html and /static/studio-preview.html but NO
+/static/studio/index.html. The mechanism that served legacy Northline at
+/studio/?page=... at 00:34 therefore remains unexplained: either the live
+deployment at 00:34 differed from creation order (promotion timing), or the
+deployed routing differed from committed vercel.json that night, or Vercel
+directory-index behavior served something not yet identified. /studio/ was
+never an intentional canonical entry: the studio app entry is
+/studio/studio.html. Do not cite /studio/ 404 behavior, in either direction,
+as evidence of routing intent.
 
 Known-good route matrix (verified live 2026-11-25 01:41 Cairo):
 - /                    200  Studio preview SPA (sign-in, home, editor)
