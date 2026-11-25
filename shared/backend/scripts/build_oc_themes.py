@@ -59,7 +59,7 @@ SPECS = [
      "desc": "ليموني حيوي بروح شابة. تركيبة أصلية من ألوان Open Color (MIT)."},
     {"id": "honey",   "oc": "yellow", "name": "عسلي",    "name_en": "Honey",   "fonts": ("Tajawal", "Tajawal"),"hue": 50,
      "desc": "عسلي دافئ للمطاعم والحلويات. تركيبة أصلية من ألوان Open Color (MIT)."},
-    {"id": "tangerine","oc": "orange", "name": "كهرماني", "name_en": "Amber",   "fonts": ("Cairo", "Almarai"),  "hue": 25,
+    {"id": "tangerine","oc": "orange", "name": "ماندرين", "name_en": "Mandarin",   "fonts": ("Cairo", "Almarai"),  "hue": 25,
      "desc": "برتقالي كهرماني جريء. تركيبة أصلية من ألوان Open Color (MIT)."},
 ]
 

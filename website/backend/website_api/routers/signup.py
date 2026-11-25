@@ -8,6 +8,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -60,13 +61,31 @@ async def branding_options():
     from app.framework.variants import ACTIVITIES
     from app.platform.themes.service import file_themes, summary
 
-    themes = [summary(t, "") for t in file_themes().values() if t["activity"] is None]
+    from app.platform.themes.service import _for_client
+
+    file_packs = [t for t in file_themes().values() if t["activity"] is None]
+    themes = [summary(t, "") for t in file_packs]
+    full = {t["id"]: _for_client(t, None) for t in file_packs}
     recommendations: dict[str, dict] = {}
     for f in sorted(ACTIVITIES.glob("*/activity.json")):
         a = _json.loads(f.read_text(encoding="utf-8"))
         if isinstance(a.get("branding"), dict):
             recommendations[a["id"]] = a["branding"]
-    return {"themes": themes, "activities": recommendations}
+    return {"themes": themes, "full": full, "activities": recommendations}
+
+
+# The wizard previews a theme with its real fonts before signup: Mizan's file
+# themes are public (the login page shows them too), served like the system's
+# /themes/assets/files/... so theme.ts accepts the URL.
+assets_router = APIRouter(tags=["platform"])
+
+
+@assets_router.get("/themes/assets/files/{theme_id}/{path:path}")
+async def file_theme_asset(theme_id: str, path: str):
+    from app.platform.themes import service as themes_service
+
+    data, kind = themes_service.file_asset(theme_id, path)
+    return Response(data, media_type=kind, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @router.post("/signup")

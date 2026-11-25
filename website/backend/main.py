@@ -4,5 +4,5 @@ from website_api.routers import developers, public_pages, signup
 
 app = create_app(
     title="Mizan Website API",
-    routers=[signup.router, developers.router, public_pages.router],
+    routers=[signup.router, signup.assets_router, developers.router, public_pages.router],
 )

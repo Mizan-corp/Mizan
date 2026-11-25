@@ -49,7 +49,7 @@ import { api, ApiError } from "@/lib/api";
 import { openWithSession } from "@/lib/handoff";
 import { saveOwnerSession } from "@app/lib/ownerSession";
 import { type TenantInfo } from "@/stores/auth";
-import { useUiStore, type ThemePalette } from "@/stores/ui";
+import { applyTheme, type ThemePack } from "@/lib/theme";
 import { Button, ErrorBox, Input } from "@/components/ui";
 import {
   PALETTE_OPTIONS,
@@ -68,7 +68,29 @@ interface OwnerDraft {
   phone?: string;
 }
 
-const STEPS = ["النشاط التجاري", "بيانات المنشأة", "المظهر والوحدات"];
+interface ThemeSummary {
+  id: string;
+  name: string;
+  name_en?: string;
+  description: string;
+  swatches: string[];
+  fonts?: { body?: string; display?: string };
+  radius?: string;
+}
+
+interface ActivityBranding {
+  themes: string[];
+  fonts: { body: string; display: string };
+  note: string;
+}
+
+interface BrandingOptions {
+  themes: ThemeSummary[];
+  full: Record<string, ThemePack>;
+  activities: Record<string, ActivityBranding>;
+}
+
+const STEPS = ["النشاط التجاري", "بيانات المنشأة", "الهوية البصرية", "الوحدات"];
 
 interface SectorMeta {
   value: string;
@@ -157,6 +179,7 @@ export default function OnboardingWizard() {
   const [company, setCompany] = useState("");
   const [scale, setScale] = useState("medium");
   const [palette, setPalette] = useState<string>("mizan");
+  const [branding, setBranding] = useState<BrandingOptions | null>(null);
   const [features, setFeatures] = useState<string[]>(() => getSectorDefaultFeatures(initialSector));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -164,6 +187,11 @@ export default function OnboardingWizard() {
   function handleSelectSector(newSector: string) {
     setSector(newSector);
     setFeatures(getSectorDefaultFeatures(newSector));
+    const rec = branding?.activities?.[newSector]?.themes?.[0];
+    if (rec && branding?.full?.[rec]) {
+      setPalette(rec);
+      applyTheme(branding.full[rec]);
+    }
   }
 
   // Ensure features are updated if sector changes externally or initializes
@@ -204,6 +232,35 @@ export default function OnboardingWizard() {
     });
   }, [enrichedSectors, sectorCategory, sectorSearch]);
 
+  // Real theme packs + this sector's recommendations; the static grid is the fallback.
+  useEffect(() => {
+    let live = true;
+    api.get<BrandingOptions>("/platform/branding")
+      .then((b) => {
+        if (!live) return;
+        setBranding(b);
+        const rec = b.activities?.[sector]?.themes?.[0];
+        if (rec && b.full?.[rec]) {
+          setPalette(rec);
+          applyTheme(b.full[rec]);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Leaving the wizard restores the site's own look.
+  useEffect(
+    () => () => {
+      applyTheme(null);
+      document.documentElement.removeAttribute("data-theme");
+    },
+    []
+  );
+
   if (!draft || !draft.email || !draft.phone) {
     // No account step yet, or one saved before signup asked for the email and phone (#72).
     return (
@@ -217,9 +274,10 @@ export default function OnboardingWizard() {
     setFeatures((f) => (f.includes(v) ? f.filter((x) => x !== v) : [...f, v]));
   }
 
-  function handleSelectPalette(palId: string) {
-    setPalette(palId);
-    useUiStore.getState().setPalette(palId as ThemePalette);
+  function handleSelectPalette(themeId: string) {
+    setPalette(themeId);
+    const pack = branding?.full?.[themeId];
+    if (pack) applyTheme(pack);
   }
 
   async function create() {
@@ -239,7 +297,6 @@ export default function OnboardingWizard() {
         owner_phone: draft!.phone ?? "",
       });
 
-      useUiStore.getState().setPalette(palette as ThemePalette);
       sessionStorage.removeItem("mizan.owner");
       sessionStorage.removeItem("vendora.owner");
 
@@ -260,6 +317,66 @@ export default function OnboardingWizard() {
   }
 
   const selectedSectorObj = enrichedSectors.find((s) => s.value === sector);
+  const activityBranding = branding?.activities?.[sector];
+  const recIds = activityBranding?.themes ?? [];
+  const recThemes = recIds
+    .map((id) => branding?.themes.find((t) => t.id === id))
+    .filter((t): t is ThemeSummary => Boolean(t));
+  const otherThemes = (branding?.themes ?? []).filter((t) => !recIds.includes(t.id));
+
+  function ThemeCard({ t }: { t: ThemeSummary }) {
+    const isSelected = palette === t.id;
+    return (
+      <button
+        type="button"
+        onClick={() => handleSelectPalette(t.id)}
+        aria-pressed={isSelected}
+        className={cn(
+          "group relative flex flex-col gap-2.5 rounded-xl border p-3.5 text-start transition-all cursor-pointer",
+          isSelected
+            ? "border-primary bg-primary/[0.06] ring-1 ring-primary shadow-sm"
+            : "border-line bg-card hover:border-primary/40 hover:bg-secondary/50"
+        )}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className="text-xs font-bold text-foreground truncate"
+            style={t.fonts?.body ? { fontFamily: `"${t.fonts.body}", sans-serif` } : undefined}
+          >
+            {t.name}
+          </span>
+          <span
+            className={cn(
+              "grid size-4 shrink-0 place-items-center rounded-full border transition-all",
+              isSelected
+                ? "border-primary bg-primary text-primary-foreground scale-110"
+                : "border-muted-foreground/30 opacity-40 group-hover:opacity-100"
+            )}
+          >
+            {isSelected && <Check className="size-2.5 stroke-[3]" />}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5" aria-hidden>
+          {(t.swatches ?? []).slice(0, 5).map((sw, i) => (
+            <span
+              key={i}
+              className="size-5 rounded-md border border-black/10 shadow-xs"
+              style={{ background: sw }}
+            />
+          ))}
+        </div>
+        <span className="block text-[10px] text-muted-foreground leading-relaxed line-clamp-2">
+          {t.description}
+        </span>
+        {t.fonts?.body && (
+          <span className="text-[9px] font-mono text-muted-foreground/70" dir="ltr">
+            {t.fonts.body}
+            {t.fonts.display && t.fonts.display !== t.fonts.body ? ` + ${t.fonts.display}` : ""}
+          </span>
+        )}
+      </button>
+    );
+  }
 
   return (
     <div className="grid min-h-svh place-items-center bg-background p-4 text-foreground selection:bg-primary selection:text-primary-foreground">
@@ -270,13 +387,13 @@ export default function OnboardingWizard() {
 
         <div className="rounded-2xl border border-line bg-card p-5 sm:p-8 shadow-xl backdrop-blur-sm">
           {/* Step Progress Indicator */}
-          <div className="mb-6 flex items-center gap-3" aria-label={`خطوة ${step + 1} من 3`}>
+          <div className="mb-6 flex items-center gap-3" aria-label={`خطوة ${step + 1} من 4`}>
             {STEPS.map((label, i) => (
               <div key={label} className="flex flex-1 flex-col gap-1.5">
                 <div
                   className={cn(
                     "h-1.5 rounded-full transition-all duration-300",
-                    i <= step ? "bg-primary shadow-xs" : "bg-muted"
+                    i <= step ? "bg-primary shadow-xs" : "bg-secondary"
                   )}
                 />
                 <span
@@ -386,7 +503,7 @@ export default function OnboardingWizard() {
                             "group relative flex flex-col justify-between rounded-xl border p-3.5 text-start transition-all duration-200 cursor-pointer",
                             isSelected
                               ? "border-primary bg-primary/[0.06] shadow-sm ring-1 ring-primary"
-                              : "border-line bg-card hover:border-primary/40 hover:bg-muted/30"
+                              : "border-line bg-card hover:border-primary/40 hover:bg-secondary/50"
                           )}
                         >
                           <div>
@@ -528,14 +645,14 @@ export default function OnboardingWizard() {
                           "flex flex-col items-start p-4 rounded-xl border text-start transition-all cursor-pointer",
                           isSelected
                             ? "border-primary bg-primary/5 ring-1 ring-primary shadow-xs"
-                            : "border-line bg-card hover:border-primary/40 hover:bg-muted/30"
+                            : "border-line bg-card hover:border-primary/40 hover:bg-secondary/50"
                         )}
                       >
                         <div className="flex items-center justify-between w-full mb-2">
                           <span
                             className={cn(
                               "grid size-8 place-items-center rounded-lg",
-                              isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                              isSelected ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
                             )}
                           >
                             <ScaleIconComp className="size-4" />
@@ -564,60 +681,114 @@ export default function OnboardingWizard() {
           {/* ══════════════════════════════════════════════════════════════════
               Step 2: Theme Palette & Modular Features
               ══════════════════════════════════════════════════════════════════ */}
+          {/* ══════════════════════════════════════════════════════════════════
+              Step 2: Brand identity - real theme packs, live preview
+              ══════════════════════════════════════════════════════════════════ */}
           {step === 2 && (
             <fieldset className="space-y-5">
               <div>
                 <legend className="flex items-center gap-2 text-lg sm:text-xl font-bold text-foreground">
                   <Palette className="size-5 text-primary shrink-0" />
-                  اختر الهوية البصرية والوحدات المبدئية
+                  هوية منشأتك البصرية
                 </legend>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  يتم تطبيق لوحة الألوان فورياً أثناء الاختيار، ويمكنك تبديلها لاحقاً في أي لحظة من الإعدادات.
+                  اختر مظهر مساحة عملك — تُطبق المعاينة فوراً على هذه الصفحة بألوانها وخطوطها
+                  الحقيقية، ويمكنك تغييرها لاحقاً في أي لحظة من الإعدادات.
+                </p>
+              </div>
+
+              {branding ? (
+                <>
+                  {recThemes.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Sparkles className="size-3.5 text-primary" />
+                        <span className="text-xs font-bold text-foreground">موصى به لنشاطك</span>
+                      </div>
+                      {activityBranding?.note && (
+                        <p className="text-[11px] text-muted-foreground mb-2.5 leading-relaxed">
+                          {activityBranding.note}
+                        </p>
+                      )}
+                      <div className="grid gap-2.5 sm:grid-cols-3">
+                        {recThemes.map((t) => (
+                          <ThemeCard key={t.id} t={t} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-xs font-semibold text-foreground mb-2 block">
+                      كل المظاهر ({branding.themes.length})
+                    </label>
+                    <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 max-h-[44vh] overflow-y-auto pe-1">
+                      {otherThemes.map((t) => (
+                        <ThemeCard key={t.id} t={t} />
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <label className="text-xs font-semibold text-foreground mb-2 block">
+                    لوحة الألوان الرسمية
+                  </label>
+                  <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                    {PALETTE_OPTIONS.map((o) => {
+                      const isSelected = palette === o.value;
+                      return (
+                        <button
+                          key={o.value}
+                          type="button"
+                          onClick={() => handleSelectPalette(o.value)}
+                          className={cn(
+                            "flex items-start gap-3 rounded-xl border p-3 text-start transition cursor-pointer",
+                            isSelected
+                              ? "border-primary bg-primary/5 ring-1 ring-primary shadow-xs"
+                              : "border-line bg-card hover:border-primary/40 hover:bg-secondary/50"
+                          )}
+                        >
+                          <span
+                            className="mt-0.5 size-5 shrink-0 rounded-full border border-black/10 shadow-xs"
+                            style={{ background: o.swatch }}
+                            aria-hidden
+                          />
+                          <div className="min-w-0">
+                            <span className="block text-xs font-bold text-foreground truncate">{o.label}</span>
+                            <span className="mt-0.5 block text-[10px] text-muted-foreground leading-relaxed line-clamp-2">
+                              {o.desc}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </fieldset>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════════════
+              Step 3: Modular features
+              ══════════════════════════════════════════════════════════════════ */}
+          {step === 3 && (
+            <fieldset className="space-y-5">
+              <div>
+                <legend className="flex items-center gap-2 text-lg sm:text-xl font-bold text-foreground">
+                  <Layers className="size-5 text-primary shrink-0" />
+                  الوحدات والمنظومات المبدئية
+                </legend>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  حددنا هذه المنظومات آلياً لتناسب نشاطك — فعّل أو عطّل أي وحدة بضغطة واحدة.
                 </p>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground mb-2 block">
-                  لوحة الألوان الرسمية
-                </label>
-                <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                  {PALETTE_OPTIONS.map((o) => {
-                    const isSelected = palette === o.value;
-                    return (
-                      <button
-                        key={o.value}
-                        type="button"
-                        onClick={() => handleSelectPalette(o.value)}
-                        className={cn(
-                          "flex items-start gap-3 rounded-xl border p-3 text-start transition cursor-pointer",
-                          isSelected
-                            ? "border-primary bg-primary/5 ring-1 ring-primary shadow-xs"
-                            : "border-line bg-card hover:border-primary/40 hover:bg-muted/30"
-                        )}
-                      >
-                        <span
-                          className="mt-0.5 size-5 shrink-0 rounded-full border border-black/10 shadow-xs"
-                          style={{ background: o.swatch }}
-                          aria-hidden
-                        />
-                        <div className="min-w-0">
-                          <span className="block text-xs font-bold text-foreground truncate">{o.label}</span>
-                          <span className="mt-0.5 block text-[10px] text-muted-foreground leading-relaxed line-clamp-2">
-                            {o.desc}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="border-t border-border/60 pt-4">
                 <div className="flex items-center justify-between gap-2 mb-2.5">
                   <div className="flex items-center gap-2">
                     <Layers className="size-4 text-primary" />
                     <span className="text-xs font-bold text-foreground">
-                      الوحدات والمنظومات التخصصية لقطاع (
+                      وحدات قطاع (
                       <span className="text-primary font-bold">{selectedSectorObj?.label.split("(")[0].trim() || "المنشأة"}</span>)
                     </span>
                   </div>
@@ -625,10 +796,7 @@ export default function OnboardingWizard() {
                     {features.length} مفعلة
                   </span>
                 </div>
-                <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
-                  تم تحديد هذه المنظومات آلياً لتناسب طبيعة نشاطك التجاري والتشغيلي بالكامل. يمكنك تفعيل أو تعطيل أي وحدة بضغطة واحدة:
-                </p>
-                <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 max-h-[48vh] overflow-y-auto pe-1">
                   {getSectorModules(sector).map((o) => {
                     const isSelected = features.includes(o.id);
                     return (
@@ -640,7 +808,7 @@ export default function OnboardingWizard() {
                           "flex flex-col justify-between rounded-xl border p-3.5 text-start transition cursor-pointer group",
                           isSelected
                             ? "border-primary bg-primary/5 ring-1 ring-primary shadow-xs"
-                            : "border-line bg-card hover:border-primary/40 hover:bg-muted/30"
+                            : "border-line bg-card hover:border-primary/40 hover:bg-secondary/50"
                         )}
                       >
                         <div>
@@ -653,7 +821,7 @@ export default function OnboardingWizard() {
                                 "mt-0.5 grid size-4 shrink-0 place-items-center rounded-md border transition-all",
                                 isSelected
                                   ? "border-primary bg-primary text-primary-foreground"
-                                  : "border-muted-foreground/30 bg-muted/20"
+                                  : "border-muted-foreground/30 bg-secondary/40"
                               )}
                             >
                               {isSelected && <Check className="size-2.5 stroke-[3]" />}
@@ -668,7 +836,7 @@ export default function OnboardingWizard() {
                             <span
                               className={cn(
                                 "text-[9px] font-mono px-1.5 py-0.5 rounded font-bold",
-                                isSelected ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                                isSelected ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"
                               )}
                             >
                               {o.badge}
@@ -702,7 +870,7 @@ export default function OnboardingWizard() {
               ← رجوع
             </Button>
 
-            {step < 2 ? (
+            {step < 3 ? (
               <Button
                 onClick={() => setStep((s) => s + 1)}
                 disabled={step === 1 && !company.trim()}
