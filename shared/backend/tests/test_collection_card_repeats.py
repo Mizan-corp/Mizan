@@ -105,10 +105,25 @@ class ExpansionTests(unittest.IsolatedAsyncioTestCase):
             out = await p.resolve_repeat(card_tree(), runtime, ctx, query=q)
             self.assertEqual(len(columns_of(out)), 2)
 
-    async def test_query_without_matches_prunes_row(self):
+    async def test_query_without_matches_shows_empty_state(self):
         runtime = rows(item('p1', 'Widget'))
         ctx = r.SourceContext(A, 'en', frozenset({'inventory'}))
         out = await p.resolve_repeat(card_tree(), runtime, ctx, query='zzz')
+        cards = columns_of(out)
+        self.assertEqual(len(cards), 1)
+        node = cards[0]['children'][0]
+        self.assertEqual(node['type'], 'text')
+        self.assertIn('zzz', node['content']['en']['html'])
+        self.assertIn('zzz', node['content']['ar']['html'])
+        self.assertEqual(manifest.page_problems(out, ('en', 'ar')), [])
+
+    async def test_queryless_all_hidden_still_prunes_row(self):
+        async def read(context, limit):
+            return [dict(item('p1', None, img=None))]
+        runtime = collections.CollectionRuntime(
+            (collections.CollectionProvider(contract(name_nullable=True), read),))
+        ctx = r.SourceContext(A, 'en', frozenset({'inventory'}))
+        out = await p.resolve_repeat(card_tree(), runtime, ctx)
         self.assertEqual(out['children'], [])
 
     async def test_expands_typed_slots_with_stable_identities(self):

@@ -26,6 +26,14 @@ class RepeatTests(unittest.IsolatedAsyncioTestCase):
   t=repeated();content=t['children'][0]['children'][0]['children'][0]['repeat']['content'];content['ar']={**content['en'],'field':'supplier_cost'}
   self.assertEqual(manifest.page_problems(t),[])
   with self.assertRaises(r.SourceUnavailable):await p.resolve_repeat(t,runtime,ctx)
+ async def test_query_without_matches_shows_empty_state(self):
+  async def read(*_):return [{'item_key':'a','label':'Widget'}]
+  runtime=collections.CollectionRuntime((collections.CollectionProvider(C,read,True),));ctx=r.SourceContext(A,'en',frozenset())
+  out=await p.resolve_repeat(repeated(),runtime,ctx,query='zzz')
+  kids=out['children'][0]['children'][0]['children']
+  self.assertEqual(len(kids),1);node=kids[0]
+  self.assertEqual(node['type'],'text');self.assertIn('zzz',node['content']['en']['html']);self.assertIn('zzz',node['content']['ar']['html'])
+  self.assertEqual(manifest.page_problems(out,('en','ar')),[])
  async def test_renderer_refuses_unresolved_even_without_validation(self):
   spec=importlib.util.spec_from_file_location('repeat_renderer',ROOT/'app/platform/site/render.py');renderer=importlib.util.module_from_spec(spec);spec.loader.exec_module(renderer)
   for validate in [True,False]:

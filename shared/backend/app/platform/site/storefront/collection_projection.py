@@ -66,6 +66,19 @@ def _filter_items(items, field, plan, runtime, context, query):
                                        field=field, on_missing='hide') or '').casefold()]
 
 
+
+
+def _empty_results_node(plan: dict, query: str) -> dict:
+    # Search UX: a zero-match query must say so on the page, not silently
+    # vanish the section. Only used when a query was applied; query-less
+    # pages keep the existing empty/prune behavior.
+    identity = json.dumps([plan['module'], plan['source'], 'empty-results', query], separators=(',', ':'))
+    nid = 'n_' + hashlib.sha256(identity.encode()).hexdigest()[:16]
+    shown = html.escape(query)
+    return {'id': nid, 'type': 'text', 'content': {
+        'en': {'html': f'<p>No results for "{shown}".</p>'},
+        'ar': {'html': f'<p>لا توجد نتائج عن "{shown}".</p>'}}}
+
 async def expand_heading_collection(tree:dict, plan:dict, runtime:CollectionRuntime, context:SourceContext, query:str|None=None)->dict:
     # All plan/native/source metadata checks precede the first provider read.
     static,(parent,template)=checked_template(tree,plan,runtime,context)
@@ -80,6 +93,8 @@ async def expand_heading_collection(tree:dict, plan:dict, runtime:CollectionRunt
         node['id']='n_'+hashlib.sha256(identity.encode()).hexdigest()[:16]
         node.setdefault('content',{}).setdefault(context.language,{})['text']=text
         result.append(node)
+    if query and not result:
+        result=[_empty_results_node(plan,query)]
     index=parent['children'].index(template)
     parent['children'][index:index+1]=result
     # Includes duplicate generated IDs, global node/layout limits and per-device styles.
@@ -191,6 +206,10 @@ async def expand_card_collection(tree:dict, plan:dict, slots:dict, runtime:Colle
         for node in [clone,*kept]:
             node['id']=_derived_id(plan['module'],plan['source'],node['id'],item.key)
         result.append(clone)
+    if query and not result:
+        wrapper={'id':_derived_id(plan['module'],plan['source'],template['id'],'empty-results'),
+                 'type':'column','children':[_empty_results_node(plan,query)]}
+        result=[wrapper]
     index=parent['children'].index(template)
     parent['children'][index:index+1]=result
     if not parent['children']:
