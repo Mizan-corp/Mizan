@@ -96,7 +96,31 @@ gates FSM creation):
    catalog (write) or only projected (read) — authoring from two surfaces has
    UX and ownership implications beyond the technical contract in section 3.
 
-## 5. Proposed next slices (ordered, each independently shippable)
+## 5. Prepared salon adapter (DESIGN ONLY — held pending the user's unification-depth answer)
+
+Held per product decision 1 in section 4. When answered affirmatively, the
+implementation is exactly this, no further design needed:
+
+1. `helpdesk/sources.py`: append
+   `SourceAdapter("salon", "app.activities.salon.modules.salon.models:SalonAppointment",
+   ("id", "tenant_id", "appointment_ref", "service_name", "status"))`.
+2. `app/framework/helpdesk_contract.py` `_SOURCES`: append
+   `"salon": ("salon_appointments", "appointment_ref", "service_name")`.
+   This is the contract's intended extension path (field maps, not new row models).
+3. `tests/test_helpdesk_sources.py`: declared set becomes
+   `{field_service, real_estate, salon}` with the keys above pinned.
+4. `tests/helpdesk_registry_live_pg_check.py`: seed one `salon_appointments`
+   row per tenant (plus its no-FK chain — the table has no unit/property FK),
+   expect `MT/WO/SAL-APT` refs for T1 only, and one new contract test in
+   `tests/test_helpdesk_contract.py` asserting native status retention
+   (`in_service` passes through as `source_status`) and tenant-mismatch
+   rejection for the salon source.
+
+Estimated diff: ~30 lines plus tests. No status/price conversion, no grant
+changes, read-only. Activation (`salon` module) and the caller's salon read
+grant gate visibility exactly as for the existing two sources.
+
+## 6. Proposed next slices (ordered, each independently shippable)
 
 1. Salon work-view read adapter + tests + live-PG check extension (this is the
    only immediately implementable absorption; ~same size as f9348e5).
