@@ -145,10 +145,13 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
       const declared = s.columns;
       const count = typeof declared === 'number' ? declared : (node.children?.length || 1);
       // Free divider-drag ratio (mirrors render.py): numeric fr weights only.
-      const tracks = Array.isArray(s.tracks) ? s.tracks : null;
+      const tracksD = ((node.settings?.desktop ?? {}) as Record<string, unknown>).tracks;
+      const tracks = Array.isArray(tracksD) ? tracksD : null;
       const okTracks = tracks && tracks.length === (node.children?.length ?? 0) && tracks.length >= 2
         && tracks.every(v => typeof v === 'number' && Number.isFinite(v) && v >= 0.2 && v <= 8);
-      const trackStyle = okTracks ? { ['--mz-tracks' as string]: tracks.map(v => `${v}fr`).join(' ') } as React.CSSProperties : undefined;
+      const rawTracksM = ((node.settings?.mobile ?? {}) as Record<string, unknown>).tracks;
+      const okTracksM = Array.isArray(rawTracksM) && rawTracksM.length === kids.length && rawTracksM.every(v => typeof v === 'number' && Number.isFinite(v) && v >= 0.2 && v <= 8);
+      const trackStyle = okTracks ? { ['--mz-tracks' as string]: tracks.map(v => `${v}fr`).join(' '), ...(okTracksM ? { ['--mz-tracks-m' as string]: (rawTracksM as number[]).map(v => `${v}fr`).join(' ') } : {}) } as React.CSSProperties : undefined;
       inner = <div className={`mz-columns mz-columns-${count}${s.stack ? ' mz-stack' : ''}${okTracks ? ' mz-cols-custom' : ''}`} style={trackStyle}>{kids}</div>; break;
     }
     case 'column': inner = <div className="mz-column">{kids}</div>; break;
@@ -215,10 +218,18 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
     default: return null; // unknown block: render nothing, like render.py
   }
   const bgStyle = backgroundImageStyle(node, s, lang);
-  const minH = typeof s.min_height_px === 'number' && Number.isInteger(s.min_height_px) && s.min_height_px >= 40 && s.min_height_px <= 1200 ? s.min_height_px : null;
-  const widthPct = typeof s.width_pct === 'number' && Number.isInteger(s.width_pct) && s.width_pct >= 10 && s.width_pct <= 100 ? s.width_pct : null;
+  const rawDesktop = (node.settings?.desktop ?? {}) as Record<string, unknown>;
+  const rawMobile = (node.settings?.mobile ?? {}) as Record<string, unknown>;
+  const pickMinH = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v >= 40 && v <= 1200 ? v : null;
+  const pickWidth = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v >= 10 && v <= 100 ? v : null;
+  // Free sizing vars come from the raw segments, not the merged active-device
+  // settings, so the .mobile rules fall back exactly like the visitor media rules.
+  const minH = pickMinH(rawDesktop.min_height_px);
+  const minHM = pickMinH(rawMobile.min_height_px);
+  const widthPct = pickWidth(rawDesktop.width_pct);
+  const widthPctM = pickWidth(rawMobile.width_pct);
   const cls = `mz-node ${enumClasses(s).join(' ')}${bgStyle ? ' mz-bg-image' : ''}${minH ? ' mz-minh-custom' : ''}${widthPct ? ' mz-width-custom' : ''}`;
-  const nodeStyle = { ...(bgStyle ?? {}), ...(minH ? { ['--mz-minh' as string]: `${minH}px` } : {}), ...(widthPct ? { ['--mz-width' as string]: `${widthPct}%` } : {}) } as React.CSSProperties;
+  const nodeStyle = { ...(bgStyle ?? {}), ...(minH ? { ['--mz-minh' as string]: `${minH}px` } : {}), ...(minHM ? { ['--mz-minh-m' as string]: `${minHM}px` } : {}), ...(widthPct ? { ['--mz-width' as string]: `${widthPct}%` } : {}), ...(widthPctM ? { ['--mz-width-m' as string]: `${widthPctM}%` } : {}) } as React.CSSProperties;
   return <div id={node.id} className={cls} style={Object.keys(nodeStyle).length ? nodeStyle : undefined}>{inner}</div>;
 }
 

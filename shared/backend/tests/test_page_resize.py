@@ -45,7 +45,7 @@ class TrackRatios(unittest.TestCase):
 
     def test_e_mobile_collapses_custom_tracks(self):
         from app.platform.site.render import _BASE_CSS
-        self.assertIn(".mz-columns.mz-cols-custom{grid-template-columns:1fr}", _BASE_CSS)
+        self.assertIn(".mz-columns.mz-cols-custom{grid-template-columns:var(--mz-tracks-m,1fr)}", _BASE_CSS)
 
 
 class MinHeightPx(unittest.TestCase):
@@ -97,4 +97,26 @@ class WidthPct(unittest.TestCase):
 
     def test_j_mobile_collapses_custom_width(self):
         from app.platform.site.render import _BASE_CSS
-        self.assertIn(".mz-node.mz-width-custom{width:100%}", _BASE_CSS)
+        self.assertIn(".mz-node.mz-width-custom{width:var(--mz-width-m,100%)}", _BASE_CSS)
+
+
+    def test_k_mobile_segment_width_renders_as_its_own_var(self):
+        tree = tree_with_heading({"width_pct": 70})
+        tree["children"][0]["children"][0]["children"][0]["settings"]["mobile"] = {"width_pct": 90}
+        html = render_page(tree, lang="en")
+        self.assertIn("--mz-width:70%", html)
+        self.assertIn("--mz-width-m:90%", html)
+
+    def test_l_mobile_segment_tracks_render_as_their_own_var(self):
+        tree = tree_with_row({"tracks": [2, 1]})
+        tree["children"][0]["settings"]["mobile"] = {"tracks": [1, 2]}
+        html = render_page(tree, lang="en")
+        self.assertIn("--mz-tracks:2fr 1fr", html)
+        self.assertIn("--mz-tracks-m:1fr 2fr", html)
+
+    def test_m_fit_width_choice_renders_bounded_class(self):
+        self.assertEqual(page_problems(tree_with_heading({"width": "fit"}), languages=("en",)), [])
+        html = render_page(tree_with_heading({"width": "fit"}), lang="en")
+        self.assertIn("mz-width-fit", html)
+        from app.platform.site.render import _BASE_CSS
+        self.assertIn(".mz-node.mz-width-fit{width:fit-content", _BASE_CSS)

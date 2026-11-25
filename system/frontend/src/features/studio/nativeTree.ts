@@ -20,7 +20,7 @@ export function iconItemsProblem(value: unknown): string | null {
 }
 const spacing = ['none','xs','s','m','l','xl'];
 const align = ['start','center','end'];
-const width = ['auto','full','half','third','two_thirds','three_fifths'];
+const width = ['auto','full','half','third','two_thirds','fit','three_fifths','fit'];
 // Deliberately bounded authoring subset, not the complete platform validator.
 const settings: Record<string, Record<string, readonly (string|number|boolean)[]>> = {
   section:{visible:[true,false],padding:spacing,gap:spacing,background:['background','card','primary','dark','dark_raised'],max_width:['narrow','normal','wide','full'],background_dim:['none','soft','strong']},

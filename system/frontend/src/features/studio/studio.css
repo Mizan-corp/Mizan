@@ -492,3 +492,12 @@
 /* side-edge width drag handles */
 .native-side-handle{position:fixed;z-index:60;width:10px;height:34px;padding:0;border:1px solid rgba(255,255,255,.55);border-radius:6px;background:#00a8e8;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:ew-resize;touch-action:none;opacity:.9}
 .native-side-handle:hover{opacity:1}
+
+/* free sizing: custom width/min-height/tracks with mobile-segment vars, fit-content */
+.preview-frame .mz-node.mz-width-custom{width:var(--mz-width);display:inline-block;vertical-align:top}
+.preview-frame.mobile .mz-node.mz-width-custom{width:var(--mz-width-m,100%)}
+.preview-frame .mz-node.mz-width-fit{width:fit-content;display:inline-block;vertical-align:top}
+.preview-frame .mz-node.mz-minh-custom>:first-child{min-height:var(--mz-minh)}
+.preview-frame.mobile .mz-node.mz-minh-custom>:first-child{min-height:var(--mz-minh-m,var(--mz-minh))}
+.preview-frame .mz-columns.mz-cols-custom{grid-template-columns:var(--mz-tracks)}
+.preview-frame.mobile .mz-columns.mz-cols-custom{grid-template-columns:var(--mz-tracks-m,1fr)}
