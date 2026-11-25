@@ -65,7 +65,7 @@ def _decodes_as(data: bytes, content_type: str) -> bool:
 
 def _row(f: WorkspaceFile) -> dict:
     return {"id": str(f.id), "url": f.url, "size": f.size, "content_type": f.content_type,
-            "created_at": f.created_at.isoformat() if f.created_at else None}
+            "name": f.name, "created_at": f.created_at.isoformat() if f.created_at else None}
 
 
 @media_router.get("")

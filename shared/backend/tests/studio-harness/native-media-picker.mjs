@@ -3,7 +3,9 @@
 // upload a real PNG through the bridge -> select it -> save -> reload -> verify
 // the persisted src and that the image actually loads through the /uploads proxy.
 import { writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
+const FIXTURE = (name) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
 const CHROME = 'http://127.0.0.1:9222';
 const PAGE_ID = process.env.PAGE_ID;
 const OUT = process.env.STUDIO_OUT || '/downloads';
@@ -87,16 +89,42 @@ const dlgShot = await send('Page.captureScreenshot', { format: 'png', fromSurfac
 writeFileSync(`${OUT}/03b-dialog-closeup.png`, Buffer.from(dlgShot.result.data, 'base64'));
 console.log('shot 03b-dialog-closeup.png');
 
-// 4. upload a real PNG via the hidden file input (bridge forwards multipart to the API)
+// 3a. the modal owns interaction: background inert, scroll locked, focus inside
+const a11y = JSON.parse(await evaluate(`JSON.stringify({
+  overflow: document.body.style.overflow,
+  inert: document.getElementById('root')?.hasAttribute('inert') ?? null,
+  focusInside: !!document.querySelector('.media-modal')?.contains(document.activeElement)
+})`));
+console.log('modal a11y:', JSON.stringify(a11y));
+if (a11y.overflow !== 'hidden' || a11y.inert !== true || !a11y.focusInside) throw new Error('modal does not own interaction: ' + JSON.stringify(a11y));
+// Escape closes and restores the background
+await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+await waitFor(`!document.querySelector('.media-modal[role="dialog"]')`);
+const restored = await evaluate(`document.body.style.overflow === '' && !document.getElementById('root')?.hasAttribute('inert')`);
+if (!restored) throw new Error('background not restored after Escape');
+console.log('escape close + background restore ok');
+await evaluate(`document.querySelector('.media-library-open').click()`);
+await waitFor(`!!document.querySelector('.media-modal[role="dialog"]')`);
+await waitFor(`!!document.querySelector('.media-modal input[type="file"]')`);
+
+// 4. clear prior identical fixtures (in-use ones stay, delete returns 409), then
+//    multi-upload five distinct realistic synthetic assets in one pick
+await evaluate(`(async()=>{const r=await fetch('/__studio/api/site/media',{cache:'no-store'});const d=await r.json();for(const it of d.items||[]){await fetch('/__studio/api/site/media/'+it.id,{method:'DELETE'}).catch(()=>{})}return true})()`);
+await evaluate(`[...document.querySelectorAll('.media-modal-head button')].find(b => b.textContent.trim() === '\u00d7')?.click()`);
+await waitFor(`!document.querySelector('.media-modal[role="dialog"]')`);
+await evaluate(`document.querySelector('.media-library-open').click()`);
+await waitFor(`!!document.querySelector('.media-modal[role="dialog"]')`);
+await waitFor(`!!document.querySelector('.media-modal input[type="file"]')`);
 const doc = await send('DOM.getDocument', { depth: -1 });
 const input = await send('DOM.querySelector', { nodeId: doc.result.root.nodeId, selector: '.media-modal input[type="file"]' });
 const beforeCount = await evaluate(`document.querySelectorAll('.media-grid .media-tile').length`);
-await send('DOM.setFileInputFiles', { nodeId: input.result.nodeId, files: ['/tmp/studio-picker.png', '/tmp/studio-picker-2.png'] });
-await waitFor(`document.querySelectorAll('.media-grid .media-tile').length >= ${beforeCount + 2}`, 60);
+await send('DOM.setFileInputFiles', { nodeId: input.result.nodeId, files: ['fix-hero-sunset.png', 'fix-pattern-tiles.png', 'fix-portrait-abstract.png', 'fix-product-candle.png', 'fix-menu-dish.png'].map(FIXTURE) });
+await waitFor(`document.querySelectorAll('.media-grid .media-tile').length >= ${beforeCount + 5}`, 90);
 console.log('multi-upload: grid', beforeCount, '->', await evaluate(`document.querySelectorAll('.media-grid .media-tile').length`));
-// the API's freshest item is this run's upload; pick exactly that grid entry
-const newest = await evaluate(`fetch('/__studio/api/site/media',{cache:'no-store'}).then(r=>r.json()).then(d=>{const items=d.items||[];items.sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));return items[0]?.url ?? null})`);
-if (!newest) throw new Error('media list empty after upload');
+// pick exactly the hero-sunset upload, matched by its original filename
+const newest = await evaluate(`fetch('/__studio/api/site/media',{cache:'no-store'}).then(r=>r.json()).then(d=>(d.items||[]).find(i=>i.name==='fix-hero-sunset.png')?.url ?? null)`);
+if (!newest) throw new Error('hero-sunset upload not listed');
 await waitFor(`!![...document.querySelectorAll('.media-grid .media-tile img')].find(i => i.getAttribute('src') === ${JSON.stringify('__NEWEST__')})`.replace('__NEWEST__', newest), 60);
 await shot('04-picker-uploaded.png');
 

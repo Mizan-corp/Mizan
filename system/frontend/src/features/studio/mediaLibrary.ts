@@ -1,6 +1,6 @@
 import { SiteApiError, siteRequestHeaders } from './sitePages';
 
-export type MediaItem = { id: string; url: string; size: number; content_type: string | null; created_at: string | null };
+export type MediaItem = { id: string; url: string; size: number; content_type: string | null; name: string | null; created_at: string | null };
 export type MediaList = { items: MediaItem[]; total_bytes: number };
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 

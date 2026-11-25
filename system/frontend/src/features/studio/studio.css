@@ -432,7 +432,7 @@
 .chrome-save-note{font-size:11px;color:#8A8272;margin-top:8px;text-align:center}.mz-editor .native-shared-chrome .chrome-save{background:#0E7C66;color:#fff;border:1px solid #0E7C66;border-radius:8px;font-weight:700;box-shadow:0 4px 14px rgba(14,124,102,.28)}.mz-editor .native-shared-chrome .chrome-save:disabled{background:#E9E4DA;color:#5C564C;border-color:#D8D0C2;opacity:1;box-shadow:none;cursor:default}
 .native-shared-chrome:not([hidden]){display:flex;flex-direction:column}
 .media-library-open{margin-top:8px}
-.media-overlay{position:fixed;inset:0;background:rgba(31,42,38,.4);display:grid;place-items:center;z-index:70;padding:20px}
+.media-overlay{position:fixed;inset:0;background:rgba(31,42,38,.4);display:grid;place-items:center;z-index:200;padding:20px;--sand:#F4F0E9;--surface:#FFFFFF;--ink:#1F2A26;--ink-2:#5C6862;--ink-3:#8A948E;--hairline:#E7E1D6;--teal:#0E7C66;--teal-dark:#0A5C4C;--teal-tint:#E2F0EB;--teal-soft:#C9E4DB;--danger:#C74B4B;font:13px/1.5 'IBM Plex Sans Arabic','Noto Sans Arabic',system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;text-align:start}
 .media-modal{width:min(720px,100%);background:var(--surface,#fff);border-radius:18px;box-shadow:0 2px 6px rgba(31,42,38,.08),0 18px 48px rgba(31,42,38,.16);display:flex;flex-direction:column;max-height:calc(100dvh - 48px);overflow:hidden;color:var(--ink)}
 .media-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px 10px}
 .media-modal-head strong{font-size:15px}
@@ -465,5 +465,5 @@
  .media-modal{width:100%;height:100dvh;max-height:100dvh;border-radius:0}
  .media-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
  .media-delete{opacity:1}
- .media-foot{flex-wrap:wrap}
+ .media-foot{flex-wrap:wrap;padding-bottom:calc(12px + env(safe-area-inset-bottom))}
 }

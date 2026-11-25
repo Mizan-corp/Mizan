@@ -4391,5 +4391,9 @@ MIGRATIONS.append(("v113_site_activation_app_grants", """
     -- match) still governs every row; this only lets the role attempt them.
     GRANT SELECT, INSERT, UPDATE, DELETE ON site_activation TO mizan_app;
 """))
+MIGRATIONS.append(("v114_workspace_files_name", """
+    -- Original upload filename for display (media library); additive, nullable.
+    ALTER TABLE workspace_files ADD COLUMN IF NOT EXISTS name varchar(256);
+"""))
 MIGRATIONS.append(("v110_helpdesk_offerings", "python:app.activities.general.modules.helpdesk.migrate:migrate"))
 MIGRATIONS.append(("v111_helpdesk_execution_actuals", "python:app.activities.general.modules.helpdesk.migrate_actuals:migrate"))

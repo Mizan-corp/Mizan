@@ -53,6 +53,7 @@ class WorkspaceFile(TenantScoped, Base):
     url: Mapped[str] = mapped_column(String(1024), nullable=False)
     size: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     content_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    name: Mapped[str | None] = mapped_column(String(256), nullable=True)  # original upload filename, display only
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -209,7 +210,10 @@ async def store(db: AsyncSession, data: bytes, *, kind: str, filename: str | Non
     url = await backend().put(pathname, data, content_type)
     if replace:
         await remove(db, kind=kind, owner_id=owner_id)
-    db.add(WorkspaceFile(kind=kind, owner_id=owner_id, url=url, size=len(data), content_type=content_type))
+    display = None
+    if filename:
+        display = filename.replace("\\", "/").split("/")[-1][:256] or None
+    db.add(WorkspaceFile(kind=kind, owner_id=owner_id, url=url, size=len(data), content_type=content_type, name=display))
     return url
 
 
