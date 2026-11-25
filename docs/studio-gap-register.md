@@ -339,9 +339,26 @@ renders the product's real name as the page heading;
 /p/00000000-0000-0000-0000-000000000000 and the plain /product-e2e URL
 render the page with the element hidden (fail-closed). Screenshots:
 visitor-route-product.png (name rendered), visitor-route-unknown.png
-(hidden). Category-template (/c/<id>) visitor-pair E2E is still owed;
-the category card-repeat has unit/integration coverage and the same
-probe path, but no live page yet.
+(hidden).
+
+Category template, same harness 2026-11-25: page `category-e2e` authored
+through the Studio UI (column card-repeat bound via "Category products
+from the page link"), saved, published as version 2 (publishing first
+refused while the page was public in synthetic scope; disabled, then
+published), connected-data approval with approved_sources
+[inventory.category_products] (approval ran the category probe live
+against the allowlisted categories). Visitor, anonymous origin:
+/site/studio/category-e2e/c/<allowlisted category uuid> renders 8
+product-name cards from the URL-selected category (limit 8, exercising
+the >6-row split from item 15 on a 9-product category);
+/c/<zero uuid> and the plain URL render the page with no cards
+(fail-closed). Screenshots: visitor-route-category.png,
+visitor-route-category-unknown.png. Evidence boundary: the template
+column holds a heading only, so cards render names only; price/image
+slots are a template design choice, not exercised by this page. Both
+route kinds (p/c) now have live visitor-pair evidence on the sandbox
+harness; hosted-deployment evidence remains owed with the clean
+production bundle.
 
 **Phase 4 — Website module (ERP side, user decisions 3-7).** IN PROGRESS.
 Rename frontstore -> Website; its tab manages orders, published products,
