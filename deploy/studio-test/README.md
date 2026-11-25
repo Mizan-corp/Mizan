@@ -66,6 +66,17 @@ were unaffected (the broken refs were confined to /studio/studio.html).
 Remediation: the base check and fail-closed chaining are executable in
 deploy.sh, verified against an intentionally bad entry.
 
+Historical discrepancy (unresolved, recorded 2026-11-25 02:31): /studio/?page=...
+rendered the legacy shell successfully at 00:34 (reviewer screenshot), but every
+committed vercel.json has routed only the catch-all to /static/$1 and package.py
+has never produced static/studio/index.html, so committed config alone would
+always edge-404 /studio/. The likely serving file came from an earlier manual
+rsync deploy's static tree and was removed by the first fail-closed prune
+(01:42); no file listing of the 00:34 deployment survives to prove which file
+served it. /studio/ was therefore never an intentional canonical entry: the
+studio app entry is /studio/studio.html. Do not cite /studio/ 404 behavior,
+in either direction, as evidence of routing intent.
+
 Known-good route matrix (verified live 2026-11-25 01:41 Cairo):
 - /                    200  Studio preview SPA (sign-in, home, editor)
 - /api/*               Python function (401 unauthenticated, CSRF on writes)
