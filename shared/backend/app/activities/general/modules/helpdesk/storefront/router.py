@@ -11,7 +11,7 @@ from app.platform.tenancy.context import current_tenant_id
 from app.platform.tenancy.models import Tenant
 from app.platform.settings.models import StoreSetting
 from app.activities.general.modules.helpdesk.models import HelpdeskOffering
-from .provider import SETTING_KEY, SCHEMA, SCHEMA_V1, publication_ids, service_policy, SourceUnavailable
+from .provider import SETTING_KEY, SCHEMA_V1, publication_ids, service_policy, SourceUnavailable
 
 router = APIRouter(prefix='/site/module-settings/helpdesk', tags=['Website module settings'])
 

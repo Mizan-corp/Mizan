@@ -1,5 +1,5 @@
 """Typed display values never imply a sale, public grant or network request."""
-import importlib.util,sys,unittest
+import importlib.util,unittest
 from decimal import Decimal
 from test_storefront_runtime import r,A,ROOT
 spec=importlib.util.spec_from_file_location('values',ROOT/'app/framework/storefront_values.py');v=importlib.util.module_from_spec(spec);spec.loader.exec_module(v)

@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from .models import SitePage
 from . import service
-from .tech_kit import TECH_KIT, make_tech_pages, theme as tech_theme
+from .tech_kit import TECH_KIT, make_tech_pages
 
 KIT_ID='catalog-pages-v0'
 SCHEMA='mizan.draft-page-kit.experimental.v0'

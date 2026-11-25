@@ -47,18 +47,16 @@ async def check_bound_tree(db: AsyncSession, tree: dict) -> None:
     """Shape plus active trusted provider compatibility, before any page write."""
     check_tree(tree)
     from app.framework.activation import get_active_modules
-    from app.framework.storefront_runtime import ProviderRegistry, SourceContext, SourceUnavailable
+    from app.framework.storefront_runtime import SourceContext, SourceUnavailable
     from .storefront.registry import scalar_registry, collection_registry, item_resolver
     from .storefront.bindings import validate_tree_bindings
     try:
         context=SourceContext(current_tenant_id.get(), 'en', frozenset(await get_active_modules(db)))
-        from .storefront.repeats import has_repeat, validate_repeat
+        from .storefront.repeats import has_repeat
         from .storefront.card_runtime import has_card, card_plan
         if has_card(tree):
             card_plan(tree, scalar_registry(db), context, item_resolver(db))
         elif has_repeat(tree):
-            from app.framework.storefront_collections import CollectionRuntime
-            from .storefront.collections import navigation_labels_provider
             from .storefront.composition import validate_composition
             validate_composition(tree,scalar_registry(db),collection_registry(db),context,item_resolver(db))
         else:

@@ -1,5 +1,5 @@
 """Offline tests using actual inventory/file models, no field opt-in inferred."""
-import os,sys,json,asyncio,unittest
+import os,sys,json,unittest
 from pathlib import Path
 from uuid import UUID
 from decimal import Decimal
@@ -9,7 +9,6 @@ from app.models.registry import load_all_models
 load_all_models()
 from app.activities.general.modules.inventory.storefront import cards as c
 from app.framework.storefront_runtime import SourceContext,SourceUnavailable
-from app.framework.storefront_values import ProjectionInvalid
 from app.platform.tenancy.context import current_tenant_id
 A=UUID('00000000-0000-4000-8000-000000000001');B=UUID('00000000-0000-4000-8000-000000000002');P=UUID('00000000-0000-4000-8000-000000000003')
 def policy(**patch):return json.dumps({'schema':c.SCHEMA,'products':[str(P)],'show_price':False,'show_image':False,'currency':None,**patch})

@@ -19,7 +19,9 @@ logger = logging.getLogger("mizan.migrations")
 
 def split_statements(sql: str):
     """Split on top-level semicolons, respecting dollar-quoted blocks
-    ($$...$$ and $tag$...$tag$)."""
+    ($$...$$ and $tag$...$tag$) and -- line comments: a semicolon inside a
+    comment never ends a statement, so prose in comments cannot be executed
+    as SQL (v116 carried one and a fresh migrate died on it)."""
     import re as _re
     stmts, buf = [], []
     dollar_tag = None
@@ -34,6 +36,14 @@ def split_statements(sql: str):
                 dollar_tag = None
             buf.append(tag)
             i += len(tag)
+            continue
+        if dollar_tag is None and sql[i:i + 2] == "--":
+            end = sql.find("\n", i)
+            if end == -1:
+                buf.append(sql[i:])
+                break
+            buf.append(sql[i:end + 1])
+            i = end + 1
             continue
         ch = sql[i]
         if ch == ";" and dollar_tag is None:

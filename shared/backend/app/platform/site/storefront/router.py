@@ -5,9 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.base import get_db
 from app.dependencies import require_perm
 from app.framework.activation import get_active_modules
-from app.framework.storefront_runtime import ProviderRegistry, SourceContext, SourceUnavailable, ProjectionInvalid
+from app.framework.storefront_runtime import SourceContext, SourceUnavailable, ProjectionInvalid
 from app.platform.tenancy.context import current_tenant_id
-from .provider import site_provider
 from .registry import scalar_registry, collection_registry, item_resolver
 
 router = APIRouter(prefix='/site/data', tags=['Site data'])
@@ -31,8 +30,6 @@ async def context(db: AsyncSession, language: str) -> SourceContext:
 @router.get('')
 async def discover(db: AsyncSession = Depends(get_db), _=Depends(require_perm('site.manage'))):
     ctx=await context(db, 'en')
-    from app.framework.storefront_collections import CollectionRuntime
-    from .collections import navigation_labels_provider
     runtime=collection_registry(db)
     return {'schema':'mizan.storefront.experimental.v0','modules':scalar_registry(db).discover(ctx),
             'collections':runtime.discover(ctx)}
@@ -71,13 +68,11 @@ async def preview(data: PreviewIn, db: AsyncSession = Depends(get_db), _=Depends
     await service.check_bound_tree(db,data.tree)
     ctx=await context(db,data.language)
     try:
-        from .repeats import has_repeat, resolve_repeat
+        from .repeats import has_repeat
         from .card_runtime import has_card, resolve_cards
         if has_card(data.tree):
             tree=await resolve_cards(db,data.tree,ctx)
         elif has_repeat(data.tree):
-            from app.framework.storefront_collections import CollectionRuntime
-            from .collections import navigation_labels_provider
             from .composition import resolve_composition
             tree=await resolve_composition(data.tree,scalar_registry(db),collection_registry(db),ctx,item_resolver(db))
         else:

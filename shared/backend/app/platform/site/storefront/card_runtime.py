@@ -2,7 +2,7 @@
 from copy import deepcopy
 import json
 from app.framework.manifest import page_problems, page_card_problems
-from app.framework.storefront_runtime import SourceContext, SourceUnavailable
+from app.framework.storefront_runtime import SourceUnavailable
 from .card_projection import checked_card_template, project_cards
 from .bindings import validate_tree_bindings, resolve_tree
 from .registry import scalar_registry, item_resolver

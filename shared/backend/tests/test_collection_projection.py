@@ -1,5 +1,5 @@
 """Local-only expansion exercised against native validator and Python renderer."""
-import copy, importlib.util, sys, unittest
+import copy, importlib.util, unittest
 from test_storefront_collections import m as collections, C
 from test_storefront_runtime import r,A
 from test_storefront_bindings import tree as bound_tree,manifest

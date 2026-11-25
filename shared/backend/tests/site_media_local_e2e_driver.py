@@ -1,6 +1,5 @@
 """Drive the local media E2E against the running app on :8877."""
 import asyncio
-import json
 import os
 import sys
 import uuid

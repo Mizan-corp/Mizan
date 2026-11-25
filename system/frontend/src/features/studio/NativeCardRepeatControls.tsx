@@ -24,7 +24,6 @@ export default function NativeCardRepeatControls({node,language,discover,onChang
  const isCategory=node.repeat?.schema===repeatCategorySchema;
  const plan=repeat?.content[language];
  const otherLang=language==='ar'?'en':'ar';const otherPlan=repeat?.content[otherLang];
- const otherName=otherLang==='ar'?t('العربية'):'English';
  const [offers,setOffers]=useState<Offer[]>([]),[open,setOpen]=useState(!!plan),[error,setError]=useState(''),[categoryOffer,setCategoryOffer]=useState<Offer|null>(null);
  async function load(){setOpen(true);setError('');try{const data=await discover();if(!Array.isArray(data.collections))throw Error();const out:Offer[]=[];let category:Offer|null=null;for(const raw of data.collections){const c=raw as Collection;if(!c||typeof c.module!=='string'||typeof c.source!=='string'||!Number.isInteger(c.max_items)||!c.fields)throw Error();const offer=offerFor(node.children??[],c);if(offer){if(c.source==='category_products')category=offer;else out.push(offer);}}setOffers(out);setCategoryOffer(category)}catch{setError(ar?t('تعذّر التأكد من مصادر المجموعات.'):'Collection sources could not be verified.')}}
  const kinds=(node.children??[]).map(n=>n.type);

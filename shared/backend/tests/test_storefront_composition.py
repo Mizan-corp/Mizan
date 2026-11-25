@@ -1,6 +1,6 @@
 """Mixed module scalar and one collection, validated before any provider read."""
 import copy,importlib.util,sys,unittest
-from test_collection_repeats import repeated,p,collections,r,A,ROOT
+from test_collection_repeats import repeated,collections,r,A,ROOT
 from test_storefront_runtime import CONTRACT,B
 from test_storefront_collections import C
 from test_storefront_bindings import m as bindings

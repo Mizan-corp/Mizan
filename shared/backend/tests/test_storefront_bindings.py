@@ -4,7 +4,7 @@ import importlib.util
 import pathlib
 import sys
 import unittest
-from test_storefront_runtime import r,CONTRACT,B,A,T
+from test_storefront_runtime import r,CONTRACT,B,A
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 
 def tree():return {'id':'n_root0','type':'section','settings':{},'content':{},'children':[{'id':'n_row00','type':'columns','settings':{},'content':{},'children':[{'id':'n_col00','type':'column','settings':{},'content':{},'children':[{'id':'n_heading','type':'heading','settings':{},'content':{'en':{'text':'static fallback'},'ar':{'text':'ثابت'}},'bindings':{'schema':'mizan.page-bindings.experimental.v0','content':{'en':{'text':copy.deepcopy(B)}}}}]}]}]}
@@ -37,7 +37,6 @@ class BindingTests(unittest.IsolatedAsyncioTestCase):
     async def test_versioned_envelope_and_renderer_never_silently_use_static(self):
         source=tree();self.assertEqual(validate(source),[])
         self.assertEqual((ROOT/'app/framework/manifest.py').read_bytes(),next(p/'sdk/python/mizan_sdk/manifest.py' for p in ROOT.parents if (p/'sdk/python/mizan_sdk/manifest.py').exists()).read_bytes())
-        leaf=source['children'][0]['children'][0]['children'][0]
         for envelope in [{'en':{'text':B}},{'schema':'unknown','content':{'en':{'text':B}}},{'schema':manifest.PAGE_BINDINGS_SCHEMA,'content':{'en':{'text':{**B,'sql':'bad'}}}}]:
             changed=copy.deepcopy(source);changed['children'][0]['children'][0]['children'][0]['bindings']=envelope
             self.assertTrue(validate(changed))
