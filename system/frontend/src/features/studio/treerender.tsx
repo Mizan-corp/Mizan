@@ -107,7 +107,7 @@ function enumClasses(s: Record<string, string | number | boolean>): string[] {
 
 // Mirrors render.py's _background_image_style: validated URL layer plus an optional
 // theme-dark scrim, never arbitrary CSS from the tree.
-function backgroundImageStyle(node: PageNode, s: Record<string, string | number | boolean>): CSSProperties | undefined {
+function backgroundImageStyle(node: PageNode, s: Record<string, string | number | boolean>, lang = 'ar'): CSSProperties | undefined {
   if (node.type !== 'section' && node.type !== 'column') return undefined;
   const url = safeUrl(s.background_image, 'url');
   if (!url || /[();]/.test(url)) return undefined;
@@ -118,7 +118,14 @@ function backgroundImageStyle(node: PageNode, s: Record<string, string | number 
     layers.push(`linear-gradient(${scrim}, ${scrim})`);
   }
   layers.push(`url("${url}")`);
-  return { backgroundImage: layers.join(', ') };
+  const style: CSSProperties = { backgroundImage: layers.join(', ') };
+  if (s.background_fit === 'end_band') {
+    const edge = ['ar', 'he', 'fa', 'ur'].includes(lang.split('-')[0]) ? 'left' : 'right';
+    style.backgroundSize = 'auto 100%';
+    style.backgroundPosition = edge;
+    style.backgroundRepeat = 'no-repeat';
+  }
+  return style;
 }
 
 function NodeView({ node, lang, device }: { node: PageNode; lang: string; device: Device }) {
@@ -197,7 +204,7 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
     case 'html': inner = <div className="mz-html" dangerouslySetInnerHTML={{ __html: sanitizeHtml(c.html) }} />; break;
     default: return null; // unknown block: render nothing, like render.py
   }
-  const bgStyle = backgroundImageStyle(node, s);
+  const bgStyle = backgroundImageStyle(node, s, lang);
   const cls = `mz-node ${enumClasses(s).join(' ')}${bgStyle ? ' mz-bg-image' : ''}`;
   return <div id={node.id} className={cls} style={bgStyle}>{inner}</div>;
 }

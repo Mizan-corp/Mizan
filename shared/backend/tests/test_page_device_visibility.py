@@ -85,3 +85,37 @@ def test_dark_raised_surface_class_has_a_css_rule():
     }, lang="en")
     assert "mz-background-dark_raised" in html
     assert ".mz-background-dark_raised{" in _BASE_CSS or ".mz-background-dark_raised," in _BASE_CSS or ",.mz-background-dark_raised" in _BASE_CSS
+
+
+def _band_tree(fit, lang="ar"):
+    return {
+        "id": "n_root0001", "type": "section", "settings": {"desktop": {}}, "content": {},
+        "children": [{
+            "id": "n_col00001", "type": "columns", "settings": {"desktop": {"columns": 1}}, "content": {},
+            "children": [{
+                "id": "n_column01", "type": "column",
+                "settings": {"desktop": {"background_image": "/uploads/t/x/site_image/f.webp", "background_fit": fit}},
+                "content": {},
+                "children": [{
+                    "id": "n_head0001", "type": "heading", "settings": {"desktop": {}},
+                    "content": {"en": {"text": "Card"}, "ar": {"text": "بطاقة"}},
+                }],
+            }],
+        }],
+    }
+
+
+def test_end_band_rtl_pins_image_left():
+    html = render_page(_band_tree("end_band"), lang="ar")
+    assert "background-position:left" in html
+    assert "background-repeat:no-repeat" in html
+
+
+def test_end_band_ltr_pins_image_right():
+    html = render_page(_band_tree("end_band"), lang="en")
+    assert "background-position:right" in html
+
+
+def test_cover_fit_keeps_default_sheet_rules():
+    html = render_page(_band_tree("cover"), lang="ar")
+    assert "background-position" not in html

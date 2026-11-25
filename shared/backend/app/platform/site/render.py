@@ -290,17 +290,20 @@ def _render_node(node: dict, lang: str, device: str, link_base: str | None = Non
     if settings.get("bleed") is True and node["type"] == "columns":
         classes.append("mz-bleed")
     class_value = _esc(" ".join(classes))
-    style = _background_image_style(node["type"], settings)
+    style = _background_image_style(node["type"], settings, lang)
     style_attr = f' style="{style}"' if style else ""
     if style:
         class_value = _esc(" ".join(classes) + " mz-bg-image")
     return f'<div id="{_esc(node["id"])}" class="mz-node {class_value}"{style_attr}>{rendered}</div>'
 
 
-def _background_image_style(node_type: str, settings: dict) -> str:
+def _background_image_style(node_type: str, settings: dict, lang: str = "ar") -> str:
     """Validated background-image layer for section/column bands. The URL is a registry
     "url" setting (page_url rules, no CSS-significant characters), dim is a fixed choice
-    layering a theme-dark scrim; the value never carries arbitrary CSS."""
+    layering a theme-dark scrim; the value never carries arbitrary CSS.
+    background_fit "end_band" pins the image to the inline-end edge at 40% width,
+    full height, no repeat - the source-composition card pattern of a content card
+    with a photo occupying its end side; the edge follows the page direction."""
     if node_type not in ("section", "column"):
         return ""
     url = settings.get("background_image")
@@ -315,7 +318,11 @@ def _background_image_style(node_type: str, settings: dict) -> str:
         scrim = f"color-mix(in srgb, var(--dark, #20303C) {pct}, transparent)"
         layers.append(f"linear-gradient({scrim}, {scrim})")
     layers.append(f'url(&quot;{_esc(url)}&quot;)')
-    return "background-image:" + ", ".join(layers)
+    style = "background-image:" + ", ".join(layers)
+    if settings.get("background_fit") == "end_band":
+        edge = "left" if lang.split("-")[0] in RTL else "right"
+        style += f";background-size:auto 100%;background-position:{edge};background-repeat:no-repeat"
+    return style
 
 
 _BASE_CSS = """
