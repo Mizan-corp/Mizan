@@ -157,7 +157,12 @@ def create_app(
     if serve_files:
         upload_dir = _resolve_writable_dir(settings.UPLOAD_DIR)
         settings.UPLOAD_DIR = upload_dir
-        app.mount("/uploads", StaticFiles(directory=upload_dir), name="uploads")
+        # No blanket /uploads mount: every recorded file - including business
+        # documents - was anonymously fetchable. Authenticated tenant readback
+        # instead (framework.uploads_readback); the website origin serves its
+        # own anonymous reference-policy router.
+        from app.framework.uploads_readback import router as uploads_readback_router
+        app.include_router(uploads_readback_router)
         updates_dir = _resolve_writable_dir(os.environ.get("UPDATES_DIR", "./updates"))
         app.mount("/updates", StaticFiles(directory=updates_dir), name="updates")
 
