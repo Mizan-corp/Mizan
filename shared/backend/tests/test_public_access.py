@@ -80,7 +80,8 @@ class GetPublicAccessTests(unittest.IsolatedAsyncioTestCase):
         db = db_with(activation_enabled=True)
         with patched_page(page()), patch.object(settings, "PUBLIC_SITE_HOST", ""):
             out = await service.get_public_access(db, PAGE_ID)
-        self.assertEqual(out, {"enabled": False, "host": None, "url": None})
+        self.assertEqual(out, {"enabled": False, "host": None, "url": None,
+                               "connected_data": False, "sources": []})
         self.assertEqual(db._calls, [])  # no activation read without a host
 
 

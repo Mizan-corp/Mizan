@@ -25,7 +25,7 @@ export type PageDetail = PageSummary & {
   published_tree: PageNode | null;
 };
 
-export type PublicAccess = { enabled: boolean; host: string | null; url: string | null };
+export type PublicAccess = { enabled: boolean; host: string | null; url: string | null; connected_data?: boolean; sources?: string[] };
 export type Revision = {
   id: string;
   number: number;
@@ -187,6 +187,10 @@ export function createSitePagesClient(options: { baseUrl: string; fetchImpl?: Fe
     publish: (pageId: string) => call<PageDetail>('POST', `/site/pages/${pageId}/publish`),
     getPublicAccess: (pageId: string) => call<PublicAccess>('GET', `/site/pages/${pageId}/public-access`),
     setPublicAccess: (pageId: string, enabled: boolean) => call<PublicAccess>('PUT', `/site/pages/${pageId}/public-access`, { enabled }),
+    setConnectedDataAccess: (pageId: string, enabled: boolean, audienceVersion: string) => call<PublicAccess>('PUT', `/site/pages/${pageId}/connected-data-access`, { enabled, audience_version: audienceVersion }),
+    // Must mirror AUDIENCE_POLICY_CONNECTED in shared/backend app/platform/site/service.py;
+    // the writer refuses any other version so stale cached wording can never approve silently.
+    connectedDataAudienceVersion: 'mizan.site-audience.connected-data.v1' as const,
     listRevisions: (pageId: string) => call<ListResponse<Revision>>('GET', `/site/pages/${pageId}/revisions`),
     rollback: (pageId: string, revisionId: string) => call<PageDetail>('POST', `/site/pages/${pageId}/rollback/${revisionId}`),
     getSettings: () => call<SiteSettingsResponse>('GET', '/site/settings'),

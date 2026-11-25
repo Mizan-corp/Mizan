@@ -4469,3 +4469,10 @@ MIGRATIONS.append(("v117_workspace_branding_profiles", """
         USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
     GRANT SELECT, INSERT, UPDATE, DELETE ON workspace_branding_profiles TO mizan_app;
 """))
+MIGRATIONS.append(("v118_site_activation_approved_sources", """
+    -- Connected-data activation pins the exact set of module.source pairs the
+    -- owner approved for anonymous visitors at approval time. Publishing a new
+    -- bound tree under an enabled connected activation must stay within this
+    -- approved set. Widening needs a fresh explicit approval. Empty on synthetic rows.
+    ALTER TABLE site_activation ADD COLUMN IF NOT EXISTS approved_sources jsonb NOT NULL DEFAULT '[]';
+"""))

@@ -406,6 +406,11 @@
 .mz-publish-overlay{position:fixed;inset:0;background:rgba(31,42,38,.32);display:grid;place-items:center;z-index:60;padding:20px}
 .mz-publish-card{width:min(480px,100%);background:var(--surface,#fff);border-radius:18px;box-shadow:0 2px 6px rgba(31,42,38,.08),0 18px 48px rgba(31,42,38,.14);padding:22px;display:flex;flex-direction:column;gap:14px;max-height:calc(100vh - 60px);overflow:auto}
 .mz-publish-address{background:var(--sand);border:1px solid var(--hairline);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.mz-connected-access{border:1px solid var(--hairline);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:var(--sand)}
+.mz-connected-access strong{font-size:13px;color:var(--ink)}
+.mz-connected-access p{margin:0;font-size:12px;color:var(--ink-2);line-height:1.8}
+.mz-connected-access ul{margin:0;padding-inline-start:18px;font-size:12px;color:var(--ink-2)}
+.mz-connected-access code{background:var(--bg, #fff);border:1px solid var(--hairline);border-radius:6px;padding:1px 6px;font-size:11.5px}
 .mz-publish-address span{font-size:11.5px;color:var(--ink-3)}
 .mz-publish-address b{font-size:13px;color:var(--ink);line-height:1.8;display:block}.mz-url{direction:ltr;unicode-bidi:isolate;text-align:start;display:inline-block;max-width:100%}
 .mz-publish-address small{font-size:11px;color:var(--ink-2);line-height:1.7}

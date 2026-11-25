@@ -17,7 +17,7 @@ import re
 import uuid
 
 from fastapi import HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -167,12 +167,23 @@ async def publish(db: AsyncSession, page_id: uuid.UUID, user_id: uuid.UUID | Non
     _host = (_settings.PUBLIC_SITE_HOST or "").strip().lower()
     if _host and _has_bound_node(page.draft_tree):
         row = (await db.execute(text(
-            "SELECT 1 FROM site_activation"
+            "SELECT allow_connected_data, approved_sources FROM site_activation"
             " WHERE host = :h AND slug = :s AND page_path = :p AND enabled IS TRUE"
         ), {"h": _host, "s": PUBLIC_SITE_SLUG, "p": page.slug})).first()
-        if row is not None:
+        if row is not None and not row.allow_connected_data:
             raise HTTPException(409, "This page is public in synthetic scope, which cannot serve connected data. "
                                 "Disable public access first, then publish again; the previously published page is unchanged.")
+        if row is not None and row.allow_connected_data:
+            # Managed connected activation: republishing is fine while the new
+            # tree stays inside the owner-approved source set. Widening what
+            # anonymous visitors can read needs a fresh explicit approval, so
+            # the publish is refused BEFORE any mutation.
+            approved = set(row.approved_sources or [])
+            widened = sorted(set(bound_sources(page.draft_tree)) - approved)
+            if widened:
+                raise HTTPException(409, "The edited page reads data sources beyond the approved public set ("
+                                + ", ".join(widened) + "). Re-approve connected-data access to widen it; "
+                                "the previously published page is unchanged.")
     # Synthetic-scope preflight: what publish would make publicly servable must pass
     # the visitor contract on this deployment's host. Refuses with a readable error
     # BEFORE any mutation, so a failed publish keeps the previous published snapshot.
@@ -444,14 +455,20 @@ async def get_public_access(db: AsyncSession, page_id: uuid.UUID) -> dict:
     from app.core.config import settings
     host = (settings.PUBLIC_SITE_HOST or "").strip().lower() or None
     enabled = False
+    connected = False
+    sources: list = []
     if host:
         row = (await db.execute(text(
-            "SELECT enabled FROM site_activation"
+            "SELECT enabled, allow_connected_data, approved_sources FROM site_activation"
             " WHERE host = :h AND slug = :s AND page_path = :p"
         ), {"h": host, "s": PUBLIC_SITE_SLUG, "p": page.slug})).first()
         enabled = bool(row and row.enabled)
+        connected = bool(row and row.allow_connected_data)
+        if connected and isinstance(row.approved_sources, list):
+            sources = [s for s in row.approved_sources if isinstance(s, str)]
     return {"enabled": enabled, "host": host,
-            "url": f"https://{host}/site/{PUBLIC_SITE_SLUG}/{page.slug}" if host and enabled else None}
+            "url": f"https://{host}/site/{PUBLIC_SITE_SLUG}/{page.slug}" if host and enabled else None,
+            "connected_data": connected, "sources": sources}
 
 
 class PublicAccessIn(BaseModel):
@@ -459,6 +476,134 @@ class PublicAccessIn(BaseModel):
     # config, the slug is the fixed synthetic site slug, and connected data
     # stays pinned off; extra body fields are ignored by pydantic.
     enabled: bool
+
+
+class ConnectedAccessIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool
+    # Explicit acknowledgement of the audience wording the client showed. The
+    # writer only accepts the CURRENT wording version: a stale cached client
+    # (older or missing acknowledgement) is refused, never silently upgraded.
+    audience_version: str
+
+
+# Current public-audience wording version for connected-data activation. Bump
+# when the wording changes; clients acknowledging older text are refused.
+AUDIENCE_POLICY_CONNECTED = "mizan.site-audience.connected-data.v1"
+
+
+def bound_sources(tree) -> list[str]:
+    """The sorted module.source pairs a tree reads, from scalar bindings, item
+    bindings, repeat plans and card plans, in every language. Defensive shape
+    handling: anything unrecognized simply yields no pair; validation of the
+    binding itself happens in check_bound_tree / the resolve dry-run."""
+    found: set[str] = set()
+
+    def collect(payload) -> None:
+        if isinstance(payload, dict):
+            module, source = payload.get("module"), payload.get("source")
+            if isinstance(module, str) and isinstance(source, str):
+                found.add(f"{module}.{source}")
+
+    def visit(node) -> None:
+        if isinstance(node, dict):
+            bindings = node.get("bindings")
+            if isinstance(bindings, dict):
+                content = bindings.get("content")
+                if isinstance(content, dict):
+                    for fields in content.values():
+                        if isinstance(fields, dict):
+                            for binding in fields.values():
+                                collect(binding)
+            for key in ("repeat", "card"):
+                payload = node.get(key)
+                if isinstance(payload, dict):
+                    collect(payload)
+                    content = payload.get("content")
+                    if isinstance(content, dict):
+                        for plan in content.values():
+                            collect(plan)
+            for value in node.values():
+                visit(value)
+        elif isinstance(node, list):
+            for value in node:
+                visit(value)
+
+    visit(tree)
+    return sorted(found)
+
+
+async def set_connected_data_access(db: AsyncSession, page_id: uuid.UUID, *, enabled: bool,
+                                    user_id: uuid.UUID | None = None,
+                                    audience_version: str) -> dict:
+    """The separately approved operation: anonymous access WITH connected data.
+
+    Enabling requires a published page that actually reads business data and
+    pins the exact module.source set being approved. The whole published tree
+    is dry-run through the same trusted registries and module consent
+    machinery the visitor runtime uses: any source that is not currently
+    exposable (missing/revoked consent, inactive module, unpublished record)
+    refuses the activation with the source's own reason. No bypass is
+    introduced: allowlisting is the trusted registry plus each module's
+    enforced consent. Disabling always works on a managed row and keeps the
+    approved set for audit; re-enabling is a fresh approval here, never the
+    ordinary toggle.
+    """
+    if audience_version != AUDIENCE_POLICY_CONNECTED:
+        raise HTTPException(409, "Connected-data audience wording changed. Reload before continuing.")
+    page = await get_page(db, page_id, locked=True)
+    if page.status != "published" or page.published_tree is None:
+        raise HTTPException(409, "Publish the page before changing connected-data access")
+    host = _public_host()
+    if enabled:
+        if not _has_bound_node(page.published_tree):
+            raise HTTPException(409, "This page reads no business data; use ordinary public access")
+        sources = bound_sources(page.published_tree)
+        problems = synthetic_scope_violations(page.published_tree, host, include_bound=False)
+        if problems:
+            raise HTTPException(422, "This page cannot be made public: it references " + ", ".join(problems))
+        from app.framework.activation import get_active_modules
+        from app.framework.storefront_runtime import SourceContext, SourceUnavailable
+        from .storefront.registry import scalar_registry, collection_registry
+        from .storefront.bindings import resolve_tree
+        from .storefront.repeats import has_repeat
+        from .storefront.card_runtime import has_card, resolve_cards
+        await check_bound_tree(db, page.published_tree)
+        ctx = SourceContext(current_tenant_id.get(), "en", frozenset(await get_active_modules(db)))
+        try:
+            if has_card(page.published_tree):
+                await resolve_cards(db, page.published_tree, ctx)
+            elif has_repeat(page.published_tree):
+                from .storefront.composition import resolve_composition
+                await resolve_composition(page.published_tree, scalar_registry(db), collection_registry(db), ctx)
+            else:
+                await resolve_tree(page.published_tree, scalar_registry(db), ctx,
+                                   lambda t: page_problems(t, LANGUAGES))
+        except SourceUnavailable as exc:
+            raise HTTPException(422, "A data source on this page is not currently exposable to the public: "
+                                f"{exc}. Fix the module's website consent and selection, then approve again.") from None
+        theme = await resolved_settings(db)
+        await db.execute(text("""
+            INSERT INTO site_activation (tenant_id, host, slug, page_path, enabled,
+                                         allow_connected_data, theme, audience_policy_version,
+                                         approved_sources, activated_by, created_at, updated_at)
+            VALUES (:tid, :h, :s, :p, true, true, CAST(:theme AS jsonb), :apv,
+                    CAST(:src AS jsonb), :uid, now(), now())
+            ON CONFLICT (host, slug, page_path) DO UPDATE
+            SET enabled = true, allow_connected_data = true, theme = CAST(:theme AS jsonb),
+                audience_policy_version = :apv, approved_sources = CAST(:src AS jsonb),
+                activated_by = :uid, updated_at = now()
+        """), {"tid": current_tenant_id.get(), "h": host, "s": PUBLIC_SITE_SLUG,
+               "p": page.slug, "theme": json.dumps(theme, ensure_ascii=False),
+               "apv": AUDIENCE_POLICY_CONNECTED, "src": json.dumps(sources), "uid": user_id})
+        await db.commit()
+    else:
+        await db.execute(text(
+            "UPDATE site_activation SET enabled = false, updated_at = now()"
+            " WHERE host = :h AND slug = :s AND page_path = :p AND allow_connected_data IS TRUE"
+        ), {"h": host, "s": PUBLIC_SITE_SLUG, "p": page.slug})
+        await db.commit()
+    return await get_public_access(db, page_id)
 
 
 async def set_public_access(db: AsyncSession, page_id: uuid.UUID, *, enabled: bool,

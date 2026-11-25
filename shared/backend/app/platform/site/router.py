@@ -125,6 +125,19 @@ async def put_public_access(page_id: uuid.UUID, data: service.PublicAccessIn,
     return await service.set_public_access(db, page_id, enabled=data.enabled, user_id=user.id)
 
 
+@pages_router.put("/{page_id}/connected-data-access")
+async def put_connected_data_access(page_id: uuid.UUID, data: service.ConnectedAccessIn,
+                                    db: AsyncSession = Depends(get_db),
+                                    user: User = Depends(require_perm("site.manage"))):
+    """The separately approved connected-data scope: dry-runs the published
+    tree through the trusted registries and module consent machinery, then
+    pins allow_connected_data=True with the exact approved source set. The
+    ordinary availability toggle never manages these rows."""
+    return await service.set_connected_data_access(db, page_id, enabled=data.enabled,
+                                                   user_id=user.id,
+                                                   audience_version=data.audience_version)
+
+
 class SettingsIn(BaseModel):
     value: dict
     expected_token: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
