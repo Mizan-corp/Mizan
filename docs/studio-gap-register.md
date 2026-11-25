@@ -216,6 +216,22 @@ per-language copy is not yet authorable (see above).
     /studio-preview.html loads the full Studio home with the workspace's
     real pages and no second login.
 
+20. **Per-language repeat binding silent-empty** — RESOLVED 2026-11-25.
+    Repeat plans are per content language (repeat.content[lang]); a page
+    whose title keys derive only 'en' renders for visitors in 'en', so a
+    repeat bound under 'ar' alone rendered NOTHING with no signal
+    anywhere (live finding on services-hd-e2e). Both repeat inspectors
+    (NativeRepeatControls, NativeCardRepeatControls) now show an explicit
+    status hint in both directions: bound side says the collection is
+    bound for this language only and the other language's render shows no
+    repeated items; unbound side says the collection is bound for the
+    other language only and to choose the same collection here. Chrome
+    strings registered in uiStrings (en map, Arabic keys). Regression:
+    nativeRepeatLangHint.render.test.tsx (5 tests, both components, both
+    directions, quiet when both bound). Live-verified in the editor on
+    the services-hd-e2e draft: removing the en plan raised the hint,
+    rebinding cleared it; published tree untouched (no republish).
+
 Reconciled from the same closeout (no gap item needed): the reviewer left
 the Home "كل الصفحات ←" / library link click paths inconclusive. Verified
 in source 2026-11-25: "كل الصفحات ←" is a search-reset button rendered only

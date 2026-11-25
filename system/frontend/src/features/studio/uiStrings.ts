@@ -16,6 +16,12 @@ export function useUILang():UILang{return useSyncExternalStore(f=>{listeners.add
 export function uiDir(l:UILang):'rtl'|'ltr'{return l==='ar'?'rtl':'ltr';}
 
 const en:Record<string,string>={
+  "المجموعة مربوطة للغة العربية بس. الصفحة لما بتتعرض باللغة دي مش بتعرض العناصر المكررة: اختار نفس المجموعة هنا عشان تظهر.":"The collection is bound for Arabic only. This page rendered in this language shows no repeated items: choose the same collection here to show them.",
+  "المجموعة مربوطة للغة الإنجليزية بس. الصفحة لما بتتعرض باللغة دي مش بتعرض العناصر المكررة: اختار نفس المجموعة هنا عشان تظهر.":"The collection is bound for English only. This page rendered in this language shows no repeated items: choose the same collection here to show them.",
+  "المجموعة دي مربوطة للغة دي بس. الصفحات اللي بتتعرض بلغة تانية مش بتعرض العناصر المكررة: افتح اللغة التانية واختار نفس المجموعة هناك.":"This collection is bound for this content language only. Pages rendered in the other language show no repeated items: open the other language and choose the same collection there.",
+  "المجموعة مربوطة للغة العربية بس. الصفحة لما بتتعرض باللغة دي مش بتعرض البطاقات المكررة: اختار نفس المجموعة هنا عشان تظهر.":"The collection is bound for Arabic only. This page rendered in this language shows no repeated cards: choose the same collection here to show them.",
+  "المجموعة مربوطة للغة الإنجليزية بس. الصفحة لما بتتعرض باللغة دي مش بتعرض البطاقات المكررة: اختار نفس المجموعة هنا عشان تظهر.":"The collection is bound for English only. This page rendered in this language shows no repeated cards: choose the same collection here to show them.",
+  "المجموعة دي مربوطة للغة دي بس. الصفحات اللي بتتعرض بلغة تانية مش بتعرض البطاقات المكررة: افتح اللغة التانية واختار نفس المجموعة هناك.":"This collection is bound for this content language only. Pages rendered in the other language show no repeated cards: open the other language and choose the same collection there.",
   "مكتبة الصور":"Media library",
   "طريقة العرض":"View",
   "عرض شبكي":"Grid view",
