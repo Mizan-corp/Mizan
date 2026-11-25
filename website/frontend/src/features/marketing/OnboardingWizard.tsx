@@ -402,6 +402,7 @@ export default function OnboardingWizard() {
   }
 
   async function create() {
+    if (pendingSession) return; // workspace already exists; only logo retry is allowed
     setBusy(true);
     setError(null);
     setLogoError(null);
@@ -1242,6 +1243,12 @@ export default function OnboardingWizard() {
                 className="font-bold text-xs px-6"
               >
                 التالي ←
+              </Button>
+            ) : pendingSession ? (
+              // Workspace already created: replace the create action so neither
+              // the UI nor the handler can ever sign up a second workspace.
+              <Button disabled className="font-bold text-xs px-6 opacity-60">
+                مساحة عملك اتجهزت ✓
               </Button>
             ) : (
               <Button onClick={create} disabled={busy} className="font-bold text-xs px-6 shadow-md">
