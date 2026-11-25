@@ -776,11 +776,17 @@ def page_binding_problems(value, node_type, languages=None) -> list[str]:
 
 
 PAGE_REPEAT_SCHEMA = "mizan.page-repeat.experimental.v0"
+PAGE_REPEAT_CARD_SCHEMA = "mizan.page-repeat.experimental.v1"
+_REPEAT_CARD_SLOT_TYPES = {"heading": ("text",), "text": ("text", "money"), "image": ("media",)}
 
 
 def page_repeat_problems(value, node_type, languages=None) -> list[str]:
     """Shape only; provider compatibility and native expansion require runtime checks."""
-    if not isinstance(value, dict) or set(value) != {"schema", "content"}:
+    if not isinstance(value, dict):
+        return ["repeat: exact versioned language declaration required"]
+    if value.get("schema") == PAGE_REPEAT_CARD_SCHEMA:
+        return _page_repeat_card_problems(value, node_type, languages)
+    if set(value) != {"schema", "content"}:
         return ["repeat: exact versioned language declaration required"]
     if value.get("schema") != PAGE_REPEAT_SCHEMA or node_type != "heading":
         return ["repeat: only experimental heading templates supported"]
@@ -795,6 +801,36 @@ def page_repeat_problems(value, node_type, languages=None) -> list[str]:
             errors.append("repeat: exact collection reference required")
             continue
         for name in ("module", "source", "field"):
+            if not isinstance(plan[name], str) or re.fullmatch(r"[a-z][a-z0-9_]{0,47}", plan[name]) is None:
+                errors.append("repeat: invalid identifier")
+        if type(plan["limit"]) is not int or not 1 <= plan["limit"] <= 24 or plan["on_missing"] not in ("hide", "empty"):
+            errors.append("repeat: explicit bounded limit and missing behavior required")
+    return errors
+
+
+def _page_repeat_card_problems(value, node_type, languages=None) -> list[str]:
+    """v1 bounded card template: a column of heading/text/image slots filled
+    from one collection item each. Slots are structural (shared across
+    languages); only the source reference varies per language."""
+    if set(value) != {"schema", "slots", "content"} or node_type != "column":
+        return ["repeat: only experimental column card templates supported"]
+    slots = value.get("slots")
+    if not isinstance(slots, dict) or not slots or "heading" not in slots or not set(slots) <= set(_REPEAT_CARD_SLOT_TYPES):
+        return ["repeat: card slots need a heading and only heading/text/image keys"]
+    errors = []
+    for kind, field in slots.items():
+        if not isinstance(field, str) or re.fullmatch(r"[a-z][a-z0-9_]{0,47}", field) is None:
+            errors.append("repeat: invalid card slot field identifier")
+    content = value.get("content")
+    if not isinstance(content, dict) or not content or len(content) > 2:
+        return errors + ["repeat: bounded nonempty language map required"]
+    for lang, plan in content.items():
+        if lang not in ("en", "ar") or (languages is not None and lang not in languages):
+            errors.append("repeat: unsupported language")
+        if not isinstance(plan, dict) or set(plan) != {"module", "source", "limit", "on_missing"}:
+            errors.append("repeat: exact collection reference required")
+            continue
+        for name in ("module", "source"):
             if not isinstance(plan[name], str) or re.fullmatch(r"[a-z][a-z0-9_]{0,47}", plan[name]) is None:
                 errors.append("repeat: invalid identifier")
         if type(plan["limit"]) is not int or not 1 <= plan["limit"] <= 24 or plan["on_missing"] not in ("hide", "empty"):

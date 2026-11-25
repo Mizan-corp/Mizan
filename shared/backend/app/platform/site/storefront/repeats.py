@@ -1,10 +1,10 @@
 """Experimental persisted heading repeat adapter. Internal authenticated preview only."""
 from copy import deepcopy
 import json
-from app.framework.manifest import page_problems, page_repeat_problems
+from app.framework.manifest import page_problems, page_repeat_problems, PAGE_REPEAT_CARD_SCHEMA
 from app.framework.storefront_runtime import SourceContext, SourceUnavailable
 from app.framework.storefront_collections import CollectionRuntime
-from .collection_projection import checked_template, expand_heading_collection
+from .collection_projection import checked_template, expand_heading_collection, checked_card_template, expand_card_collection
 
 
 def separate_repeat(tree: dict):
@@ -24,7 +24,7 @@ def separate_repeat(tree: dict):
         if repeat is not None:
             if page_repeat_problems(repeat,node['type'],('en','ar')):
                 raise SourceUnavailable('Invalid repeat declaration.')
-            declarations.append((node['id'],repeat['content']))
+            declarations.append((node['id'],repeat))
         for child in node.get('children',[]):visit(child)
     visit(static)
     if len(declarations)!=1 or has_scalar:
@@ -33,18 +33,22 @@ def separate_repeat(tree: dict):
 
 
 def validate_repeat(tree:dict,runtime:CollectionRuntime,context:SourceContext):
-    static,(node_id,content)=separate_repeat(tree)
+    static,(node_id,repeat)=separate_repeat(tree)
+    card=repeat['schema']==PAGE_REPEAT_CARD_SCHEMA
     # Validate every language before any collection read, including inactive languages.
-    for language,plan in content.items():
-        checked_template(static,{'template_id':node_id,**plan},runtime,
-                         SourceContext(context.tenant_id,language,context.active_modules))
-    return static,node_id,content
+    for language,plan in repeat['content'].items():
+        ctx=SourceContext(context.tenant_id,language,context.active_modules)
+        if card:checked_card_template(static,{'template_id':node_id,**plan},repeat['slots'],runtime,ctx)
+        else:checked_template(static,{'template_id':node_id,**plan},runtime,ctx)
+    return static,node_id,repeat
 
 
 async def resolve_repeat(tree:dict,runtime:CollectionRuntime,context:SourceContext)->dict:
-    static,node_id,content=validate_repeat(tree,runtime,context)
-    plan=content.get(context.language)
+    static,node_id,repeat=validate_repeat(tree,runtime,context)
+    plan=repeat['content'].get(context.language)
     if plan is None:return static
+    if repeat['schema']==PAGE_REPEAT_CARD_SCHEMA:
+        return await expand_card_collection(static,{'template_id':node_id,**plan},repeat['slots'],runtime,context)
     return await expand_heading_collection(static,{'template_id':node_id,**plan},runtime,context)
 
 

@@ -137,3 +137,24 @@ class CollectionRuntime:
             raise ProjectionInvalid('Item value no longer matches projection.')
         if value is None or value=='':return None if on_missing=='hide' else ''
         return value
+
+    def typed_value(self,context:SourceContext,item:ItemContext,*,module:str,source:str,field:str):
+        # Same scope discipline as text(); returns the revalidated typed value
+        # (money/media dict) or None for a nullable empty slot.
+        if not isinstance(context,SourceContext) or not isinstance(item,ItemContext) or item._issuer is not self._issuer or item.tenant_id!=context.tenant_id or item.language!=context.language or (item.module,item.source)!=(module,source):
+            raise SourceUnavailable('Item scope mismatch.')
+        p=self._providers.get((module,source))
+        if p is None or not(p.platform_core or module in context.active_modules) or field not in p.contract['fields']:
+            raise SourceUnavailable('Incompatible item field.')
+        spec=p.contract['fields'][field]
+        if spec['type']=='text':
+            raise SourceUnavailable('Text fields use text projection.')
+        value=item.values.get(field)
+        if value is None:
+            if not spec['nullable']:raise ProjectionInvalid('Required item field missing.')
+            return None
+        if spec['type']=='money':
+            from .storefront_values import check_money
+            return check_money(value)
+        from .storefront_values import check_media
+        return check_media(value,context.tenant_id)
