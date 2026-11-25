@@ -43,6 +43,27 @@ class UploadValidationTests(unittest.IsolatedAsyncioTestCase):
             await media.upload_media(make_upload(b"x", "image/svg+xml"), self.db, self.user)
         self.assertEqual(ctx.exception.status_code, 400)
 
+    async def test_rejects_declared_type_without_matching_signature(self):
+        # HTML polyglot claiming to be a PNG: declared type alone must not pass
+        with self.assertRaises(HTTPException) as ctx:
+            await media.upload_media(make_upload(b"<html><script>alert(1)</script>", "image/png"),
+                                     self.db, self.user)
+        self.assertEqual(ctx.exception.status_code, 400)
+        # wrong signature for the declared type
+        with self.assertRaises(HTTPException) as ctx:
+            await media.upload_media(make_upload(b"\x89PNG\r\n\x1a\nrest", "image/jpeg"),
+                                     self.db, self.user)
+        self.assertEqual(ctx.exception.status_code, 400)
+
+    async def test_signature_checks_per_type(self):
+        ok = media._signature_matches
+        self.assertTrue(ok(b"\x89PNG\r\n\x1a\n...", "image/png"))
+        self.assertTrue(ok(b"\xff\xd8\xff\xe0....", "image/jpeg"))
+        self.assertTrue(ok(b"GIF89a....", "image/gif"))
+        self.assertTrue(ok(b"RIFF\x00\x00\x00\x00WEBPvp8", "image/webp"))
+        self.assertFalse(ok(b"RIFF\x00\x00\x00\x00WAVE", "image/webp"))  # RIFF but not WebP
+        self.assertFalse(ok(b"", "image/png"))
+
     async def test_rejects_oversize(self):
         with self.assertRaises(HTTPException) as ctx:
             await media.upload_media(make_upload(b"x" * (media.MAX_UPLOAD_SIZE + 1), "image/png"),
@@ -62,7 +83,7 @@ class UploadValidationTests(unittest.IsolatedAsyncioTestCase):
         result.scalar_one.return_value = stored
         self.db.execute.return_value = result
         with patch.object(media.files, "store", new=AsyncMock(return_value=stored.url)) as store:
-            out = await media.upload_media(make_upload(b"png", "image/png"), self.db, self.user)
+            out = await media.upload_media(make_upload(b"\x89PNG\r\n\x1a\n...", "image/png"), self.db, self.user)
         kwargs = store.await_args.kwargs
         self.assertEqual(kwargs["kind"], "site_image")
         self.assertIsNone(kwargs["owner_id"])
@@ -85,13 +106,30 @@ class DeleteTests(unittest.IsolatedAsyncioTestCase):
             await media.delete_media(uuid.uuid4(), self.db, self.user)
         self.assertEqual(ctx.exception.status_code, 404)
 
+    async def test_in_use_file_is_refused_with_409(self):
+        stored = media.WorkspaceFile(id=uuid.uuid4(), kind=media.KIND, owner_id=None,
+                               url=f"/uploads/t/{TID}/site_image/file-abc.png",
+                               size=3, content_type="image/png")
+        found = MagicMock()
+        found.scalar_one_or_none.return_value = stored
+        in_use = MagicMock()
+        in_use.first.return_value = (uuid.uuid4(),)  # a page tree references the URL
+        self.db.execute.side_effect = [found, in_use]
+        with patch.object(media.files, "remove", new=AsyncMock()) as remove:
+            with self.assertRaises(HTTPException) as ctx:
+                await media.delete_media(stored.id, self.db, self.user)
+        self.assertEqual(ctx.exception.status_code, 409)
+        remove.assert_not_awaited()  # an in-use image is never deleted
+
     async def test_delete_goes_through_shared_remove_by_url(self):
         stored = media.WorkspaceFile(id=uuid.uuid4(), kind=media.KIND, owner_id=None,
                                url=f"/uploads/t/{TID}/site_image/file-abc.png",
                                size=3, content_type="image/png")
-        result = MagicMock()
-        result.scalar_one_or_none.return_value = stored
-        self.db.execute.return_value = result
+        found = MagicMock()
+        found.scalar_one_or_none.return_value = stored
+        not_in_use = MagicMock()
+        not_in_use.first.return_value = None
+        self.db.execute.side_effect = [found, not_in_use]
         with patch.object(media.files, "remove", new=AsyncMock()) as remove:
             await media.delete_media(stored.id, self.db, self.user)
         remove.assert_awaited_once()

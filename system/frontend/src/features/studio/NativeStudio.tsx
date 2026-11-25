@@ -20,6 +20,7 @@ import NativeLibrary from './NativeLibrary';
 import NativeChrome from './NativeChrome';
 import LibraryOverview from './LibraryOverview';
 import { createSitePagesClient, type PageDetail, type PageSummary, type PublicAccess, type Revision, SiteApiError } from './sitePages';
+import { createMediaClient, registerMediaClient } from './mediaLibrary';
 import { assertNativeTree, nativeTreeKey, nativeChange, nativeNodes, nativeUndo, nativeRedo, nativeSettingChoices, type NativeHistory, type NativeEdit, type NativeDevice } from './nativeTree';
 import TreePreview, { type ThemeSpec } from './treerender';
 import type {PageNode} from './pagetree';
@@ -41,6 +42,7 @@ function arPreflight(detail:string):string{
 export default function NativeStudio({apiBase='/__studio/api',previewLabel:_previewLabel,onHome}:{apiBase?:string;previewLabel?:string;onHome?:()=>void}={}){
   const uiLang=useUILang();
   const api=useRef(createSitePagesClient({baseUrl:apiBase})).current;
+  useEffect(()=>{registerMediaClient(createMediaClient({baseUrl:apiBase}));return()=>registerMediaClient(null);},[apiBase]);
   const [history,setHistory]=useState<NativeHistory|null>(null);
   const [page,setPage]=useState<PageDetail|null>(null);
   const [selected,setSelected]=useState('');

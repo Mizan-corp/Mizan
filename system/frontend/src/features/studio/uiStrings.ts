@@ -13,6 +13,21 @@ export function useUILang():UILang{return useSyncExternalStore(f=>{listeners.add
 export function uiDir(l:UILang):'rtl'|'ltr'{return l==='ar'?'rtl':'ltr';}
 
 const en:Record<string,string>={
+  "مكتبة الصور":"Media library",
+  "قفل المكتبة":"Close library",
+  "ارفع صورة":"Upload image",
+  "احذف الصورة":"Delete image",
+  "حذف":"Delete",
+  "بنحمل الصور…":"Loading images…",
+  "مفيش صور لسه. ارفع أول صورة.":"No images yet. Upload the first one.",
+  "تعذّر تحميل مكتبة الصور. حاول تاني.":"Could not load the media library. Try again.",
+  "المكتبة غير متاحة في الجلسة دي.":"The library is not available in this session.",
+  "الرفع اترفض. راجع نوع الصورة وحجمها.":"Upload refused. Check the image type and size.",
+  "الصورة مستخدمة في صفحة. احذفها من الصفحة الأول.":"This image is used in a page. Remove it from the page first.",
+  "تعذّر حذف الصورة. حاول تاني.":"Could not delete the image. Try again.",
+  "الصور بتتخزن لمساحة عملك بس. الصورة المستخدمة في صفحة مش بتتمسح غير بعد ما تشيلها منها.":"Images are stored for your workspace only. An image used in a page cannot be deleted until you remove it there.",
+  "بيتحفظ لما تسيب الحقل.":"Applied when you leave the field.",
+
   " · مفتوحة":" · open",
   " أقسام مدمجة":" built-in sections",
   ": بتحافظ على الألوان المشتركة والخط والهيدر والفوتر الحاليين. مفيش إعدادات مشتركة بتتطبق.":": it keeps the shared site colors, type, header and footer as they are. No shared settings are applied.",
