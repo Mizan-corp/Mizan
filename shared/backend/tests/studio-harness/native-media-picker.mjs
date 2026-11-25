@@ -28,6 +28,7 @@ const pending = new Map();
 ws.onmessage = (m) => {
   const msg = JSON.parse(m.data);
   if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); }
+  if (msg.method === 'Page.javascriptDialogOpening') send('Page.handleJavaScriptDialog', { accept: true });
 };
 function send(method, params = {}) {
   const id = ++seq;
@@ -75,11 +76,11 @@ await shot('02-image-selected.png');
 
 // 3. open the picker dialog
 await evaluate(`document.querySelector('.media-library-open').click()`);
-await waitFor(`!!document.querySelector('.media-picker[role="dialog"]')`);
-await waitFor(`!!document.querySelector('.media-picker input[type="file"]')`);
+await waitFor(`!!document.querySelector('.media-modal[role="dialog"]')`);
+await waitFor(`!!document.querySelector('.media-modal input[type="file"]')`);
 await shot('03-picker-dialog.png');
-const dlgRect = JSON.parse(await evaluate(`JSON.stringify(document.querySelector('.media-picker[role="dialog"]').getBoundingClientRect())`));
-const vis = await evaluate(`(()=>{const r=document.querySelector('.media-picker[role="dialog"]').getBoundingClientRect();return r.top>=0&&r.top<window.innerHeight&&r.height>0})()`);
+const dlgRect = JSON.parse(await evaluate(`JSON.stringify(document.querySelector('.media-modal[role="dialog"]').getBoundingClientRect())`));
+const vis = await evaluate(`(()=>{const r=document.querySelector('.media-modal[role="dialog"]').getBoundingClientRect();return r.top>=0&&r.top<window.innerHeight&&r.height>0})()`);
 console.log('dialog visible in viewport:', vis, JSON.stringify(dlgRect));
 const clip = { x: Math.max(0, dlgRect.x - 8), y: Math.max(0, dlgRect.y - 8), width: dlgRect.width + 16, height: Math.min(dlgRect.height + 16, 847), scale: 1 };
 const dlgShot = await send('Page.captureScreenshot', { format: 'png', fromSurface: true, clip });
@@ -88,18 +89,26 @@ console.log('shot 03b-dialog-closeup.png');
 
 // 4. upload a real PNG via the hidden file input (bridge forwards multipart to the API)
 const doc = await send('DOM.getDocument', { depth: -1 });
-const input = await send('DOM.querySelector', { nodeId: doc.result.root.nodeId, selector: '.media-picker input[type="file"]' });
-await send('DOM.setFileInputFiles', { nodeId: input.result.nodeId, files: ['/tmp/studio-picker.png'] });
-await waitFor(`!!document.querySelector('.media-picker-grid .media-pick')`, 60);
+const input = await send('DOM.querySelector', { nodeId: doc.result.root.nodeId, selector: '.media-modal input[type="file"]' });
+const beforeCount = await evaluate(`document.querySelectorAll('.media-grid .media-tile').length`);
+await send('DOM.setFileInputFiles', { nodeId: input.result.nodeId, files: ['/tmp/studio-picker.png', '/tmp/studio-picker-2.png'] });
+await waitFor(`document.querySelectorAll('.media-grid .media-tile').length >= ${beforeCount + 2}`, 60);
+console.log('multi-upload: grid', beforeCount, '->', await evaluate(`document.querySelectorAll('.media-grid .media-tile').length`));
 // the API's freshest item is this run's upload; pick exactly that grid entry
 const newest = await evaluate(`fetch('/__studio/api/site/media',{cache:'no-store'}).then(r=>r.json()).then(d=>{const items=d.items||[];items.sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));return items[0]?.url ?? null})`);
 if (!newest) throw new Error('media list empty after upload');
-await waitFor(`!![...document.querySelectorAll('.media-picker-grid .media-pick img')].find(i => i.getAttribute('src') === ${JSON.stringify('__NEWEST__')})`.replace('__NEWEST__', newest), 60);
+await waitFor(`!![...document.querySelectorAll('.media-grid .media-tile img')].find(i => i.getAttribute('src') === ${JSON.stringify('__NEWEST__')})`.replace('__NEWEST__', newest), 60);
 await shot('04-picker-uploaded.png');
 
-// 5. select the uploaded image
-await evaluate(`[...document.querySelectorAll('.media-picker-grid .media-pick')].find(b => b.querySelector('img')?.getAttribute('src') === ${JSON.stringify('__NEWEST__')})?.click()`.replace('__NEWEST__', newest));
-await waitFor(`!document.querySelector('.media-picker[role="dialog"]')`);
+// 5. select the uploaded image, then confirm with Use image
+await evaluate(`[...document.querySelectorAll('.media-grid .media-tile')].find(b => b.querySelector('img')?.getAttribute('src') === ${JSON.stringify('__NEWEST__')})?.click()`.replace('__NEWEST__', newest));
+await waitFor(`!!document.querySelector('.media-grid figure.selected')`);
+const useDisabled = await evaluate(`(()=>{const b=[...document.querySelectorAll('.media-foot-actions button')].find(b => /Use image|استخدم الصورة/.test(b.textContent));return b ? b.disabled : 'missing'})()`);
+console.log('use button disabled after select:', useDisabled);
+if (useDisabled !== false) throw new Error('Use image not enabled after selection');
+await shot('04b-selected.png');
+await evaluate(`[...document.querySelectorAll('.media-foot-actions button')].find(b => /Use image|استخدم الصورة/.test(b.textContent))?.click()`);
+await waitFor(`!document.querySelector('.media-modal[role="dialog"]')`);
 await waitFor(`(document.querySelector('input[aria-label="Native src"]')||{}).value?.includes('/uploads/')`);
 const pickedSrc = await evaluate(`document.querySelector('input[aria-label="Native src"]').value`);
 console.log('picked src:', pickedSrc);

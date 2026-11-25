@@ -18,6 +18,7 @@ const pending = new Map();
 ws.onmessage = (m) => {
   const msg = JSON.parse(m.data);
   if (msg.id && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); }
+  if (msg.method === 'Page.javascriptDialogOpening') send('Page.handleJavaScriptDialog', { accept: true });
 };
 function send(method, params = {}) {
   const id = ++seq;
@@ -66,41 +67,51 @@ if (!publishedSrc) throw new Error('published tree does not contain the uploads 
 await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
 await send('Page.navigate', { url: `http://127.0.0.1:5188/studio.html?editor=tree&page=${PAGE_ID}` });
 await waitFor(`!!document.querySelector('.preview-frame') && !!document.getElementById('n_img1')`);
+// settled phone toolbar: every control must be inside the 390px viewport
+const toolbar = JSON.parse(await evaluate(`(()=>{const els=[...document.querySelectorAll('.top-actions > *')].filter(e=>getComputedStyle(e).display!=='none');return JSON.stringify({scrollWidth:document.documentElement.scrollWidth,controls:els.map(e=>{const r=e.getBoundingClientRect();return {cls:e.className||e.tagName,left:Math.round(r.left),right:Math.round(r.right),visible:r.width>0&&r.height>0&&r.left>=0&&r.right<=window.innerWidth+1}})})})()`));
+console.log('mobile toolbar:', JSON.stringify(toolbar));
+if (toolbar.scrollWidth > 391) throw new Error('page overflows phone viewport horizontally');
+for (const c of toolbar.controls) if (!c.visible) throw new Error('toolbar control not reachable on phone: ' + c.cls);
+await shot('09b-mobile-toolbar.png');
 await evaluate(`[...document.querySelectorAll('.studio-rail button')].find(b => b.querySelector('span')?.textContent === 'Layers' || b.querySelector('span')?.textContent === 'الطبقات')?.click()`);
 await waitFor(`!!document.querySelector('button.native-node[data-node-id="n_img1"]')`);
 await evaluate(`document.querySelector('button.native-node[data-node-id="n_img1"]').click()`);
 await waitFor(`!!document.querySelector('.media-library-open')`);
 await evaluate(`document.querySelector('.media-library-open').click()`);
-await waitFor(`!!document.querySelector('.media-picker[role="dialog"] input[type="file"]')`);
-const fit = JSON.parse(await evaluate(`(()=>{const r=document.querySelector('.media-picker[role="dialog"]').getBoundingClientRect();return JSON.stringify({top:r.top,right:r.right,width:r.width,inViewport:r.top>=0&&r.top<window.innerHeight&&r.right<=window.innerWidth+1})})()`));
+await waitFor(`!!document.querySelector('.media-modal[role="dialog"] input[type="file"]')`);
+const fit = JSON.parse(await evaluate(`(()=>{const r=document.querySelector('.media-modal[role="dialog"]').getBoundingClientRect();return JSON.stringify({top:r.top,right:r.right,width:r.width,inViewport:r.top>=0&&r.top<window.innerHeight&&r.right<=window.innerWidth+1})})()`));
 console.log('mobile dialog fit:', JSON.stringify(fit));
 await shot('10-mobile-picker.png');
 // upload reachable on mobile
 const doc = await send('DOM.getDocument', { depth: -1 });
-const input = await send('DOM.querySelector', { nodeId: doc.result.root.nodeId, selector: '.media-picker input[type="file"]' });
-const beforeCount = await evaluate(`document.querySelectorAll('.media-picker-grid .media-pick').length`);
+const input = await send('DOM.querySelector', { nodeId: doc.result.root.nodeId, selector: '.media-modal input[type="file"]' });
+const beforeCount = await evaluate(`document.querySelectorAll('.media-grid .media-tile').length`);
 await send('DOM.setFileInputFiles', { nodeId: input.result.nodeId, files: ['/tmp/studio-picker.png'] });
-await waitFor(`document.querySelectorAll('.media-picker-grid .media-pick').length > ${beforeCount}`, 60);
+await waitFor(`document.querySelectorAll('.media-grid .media-tile').length > ${beforeCount}`, 60);
 await shot('11-mobile-uploaded.png');
 // select the fresh upload
 const newest = await evaluate(`fetch('/__studio/api/site/media',{cache:'no-store'}).then(r=>r.json()).then(d=>{const items=d.items||[];items.sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));return items[0]?.url ?? null})`);
-await evaluate(`[...document.querySelectorAll('.media-picker-grid .media-pick')].find(b => b.querySelector('img')?.getAttribute('src') === ${JSON.stringify('__NEWEST__')})?.click()`.replace('__NEWEST__', newest));
+await evaluate(`[...document.querySelectorAll('.media-grid .media-tile')].find(b => b.querySelector('img')?.getAttribute('src') === ${JSON.stringify('__NEWEST__')})?.click()`.replace('__NEWEST__', newest));
+await waitFor(`!!document.querySelector('.media-grid figure.selected')`);
+await shot('11b-mobile-selected.png');
+await evaluate(`[...document.querySelectorAll('.media-foot-actions button')].find(b => /Use image|استخدم الصورة/.test(b.textContent))?.click()`);
+await waitFor(`!document.querySelector('.media-modal[role="dialog"]')`);
 await waitFor(`(document.querySelector('input[aria-label="Native src"]')||{}).value === ${JSON.stringify('__NEWEST__')}`.replace('__NEWEST__', newest));
 const mobileSrc = await evaluate(`document.querySelector('input[aria-label="Native src"]').value`);
 console.log('mobile picked src:', mobileSrc);
 if (mobileSrc !== newest) throw new Error('mobile pick did not land the fresh upload');
 // close control reachable
 await evaluate(`document.querySelector('.media-library-open').click()`);
-await waitFor(`!!document.querySelector('.media-picker[role="dialog"]')`);
-await evaluate(`document.querySelector('.media-picker [aria-label]') && [...document.querySelectorAll('.media-picker button')].find(b => b.textContent.trim() === '×')?.click()`);
-await waitFor(`!document.querySelector('.media-picker[role="dialog"]')`);
+await waitFor(`!!document.querySelector('.media-modal[role="dialog"]')`);
+await evaluate(`[...document.querySelectorAll('.media-modal-head button')].find(b => b.textContent.trim() === '×')?.click()`);
+await waitFor(`!document.querySelector('.media-modal[role="dialog"]')`);
 console.log('mobile close ok');
 // delete control reachable: the fresh upload is unreferenced in the DB (no save on
 // mobile), so its delete must succeed and the item must leave the grid.
 await evaluate(`document.querySelector('.media-library-open').click()`);
-await waitFor(`!!document.querySelector('.media-picker[role="dialog"]')`);
-await evaluate(`[...document.querySelectorAll('.media-picker-grid figure')].find(f => f.querySelector('img')?.getAttribute('src') === ${JSON.stringify('__NEWEST__')})?.querySelector('.media-delete')?.click()`.replace('__NEWEST__', newest));
-await waitFor(`![...document.querySelectorAll('.media-picker-grid figure')].some(f => f.querySelector('img')?.getAttribute('src') === ${JSON.stringify('__NEWEST__')})`.replace('__NEWEST__', newest), 60);
+await waitFor(`!!document.querySelector('.media-modal[role="dialog"]')`);
+await evaluate(`[...document.querySelectorAll('.media-grid figure')].find(f => f.querySelector('img')?.getAttribute('src') === ${JSON.stringify('__NEWEST__')})?.querySelector('.media-delete')?.click()`.replace('__NEWEST__', newest));
+await waitFor(`![...document.querySelectorAll('.media-grid figure')].some(f => f.querySelector('img')?.getAttribute('src') === ${JSON.stringify('__NEWEST__')})`.replace('__NEWEST__', newest), 60);
 console.log('mobile delete ok (unreferenced fresh upload removed)');
 await shot('12-mobile-after.png');
 console.log('MOBILE-PUBLISH-PASS');
