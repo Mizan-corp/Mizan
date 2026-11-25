@@ -22,8 +22,16 @@ class FamilyFilesTests(unittest.TestCase):
         for expected in ("Cairo", "Tajawal", "Almarai"):
             self.assertIn(expected, fams)
             for f in fams[expected]:
-                self.assertTrue(f["src"].startswith("/themes/assets/files/"), f)
+                self.assertTrue(f["src"].startswith(("/themes/assets/files/", "/themes/assets/fonts/")), f)
                 self.assertIn(f["weight"], ("400", "700", "200 900"), f)
+
+    def test_shipped_families_come_from_the_registry(self):
+        """One canonical copy per family: the shared _fonts registry, not per-pack duplicates."""
+        for fid, fam in service.font_registry().items():
+            for fe in fam["files"]:
+                self.assertTrue((__import__("pathlib").Path(fam["_dir"]) / fe["src"]).is_file(), fe)
+            self.assertTrue((__import__("pathlib").Path(fam["_dir"]) / fam["license_file"]).is_file(), fam)
+            self.assertTrue(fam.get("source_urls"), fam)
 
     def test_check_font_choice_keeps_only_shipped_families(self):
         self.assertEqual(service.check_font_choice({"body": "Tajawal", "display": "Cairo"}),
@@ -54,7 +62,7 @@ class WithFontChoiceTests(unittest.TestCase):
         almarai = [f for f in out["fonts"]["files"] if f["family"] == "Almarai"]
         self.assertTrue(almarai, "borrowed Almarai files expected")
         for f in almarai:
-            self.assertTrue(f["src"].startswith("/themes/assets/files/"), f)
+            self.assertTrue(f["src"].startswith(("/themes/assets/files/", "/themes/assets/fonts/")), f)
 
     def test_unknown_family_is_ignored(self):
         out = service._with_font_choice(self.base_theme(), self.tenant({"body": "Wingdings"}))

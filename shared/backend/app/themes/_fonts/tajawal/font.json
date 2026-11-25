@@ -1,0 +1,26 @@
+{
+  "id": "tajawal",
+  "family": "Tajawal",
+  "scripts": [
+    "arabic"
+  ],
+  "license": "OFL-1.1",
+  "license_file": "OFL.txt",
+  "source_urls": [
+    "https://raw.githubusercontent.com/google/fonts/main/ofl/tajawal/Tajawal-Regular.ttf",
+    "https://raw.githubusercontent.com/google/fonts/main/ofl/tajawal/Tajawal-Bold.ttf",
+    "https://raw.githubusercontent.com/google/fonts/main/ofl/tajawal/OFL.txt"
+  ],
+  "files": [
+    {
+      "src": "tajawal-400.ttf",
+      "weight": "400",
+      "style": "normal"
+    },
+    {
+      "src": "tajawal-700.ttf",
+      "weight": "700",
+      "style": "normal"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "cairo",
+  "family": "Cairo",
+  "scripts": [
+    "arabic",
+    "latin"
+  ],
+  "license": "OFL-1.1",
+  "license_file": "OFL.txt",
+  "source_urls": [
+    "https://raw.githubusercontent.com/google/fonts/main/ofl/cairo/Cairo%5Bslnt%2Cwght%5D.ttf",
+    "https://raw.githubusercontent.com/google/fonts/main/ofl/cairo/OFL.txt"
+  ],
+  "files": [
+    {
+      "src": "cairo.ttf",
+      "weight": "200 900",
+      "style": "normal"
+    }
+  ]
+}

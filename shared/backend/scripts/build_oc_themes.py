@@ -159,37 +159,51 @@ def dark(oc: list[str]) -> dict:
     }
 
 
+FAMILY_REF = {"Cairo": "cairo", "Tajawal": "tajawal", "Almarai": "almarai",
+              "Manrope": "manrope", "Cormorant Garamond": "cormorant-garamond"}
+PALETTES = THEMES / "_palettes"
+
+
 def build(spec: dict) -> None:
     oc = OC[spec["oc"]]
     body, display = spec["fonts"]
-    files = []
-    for fname, (fam, weight, src, _lic) in FONT_FILES.items():
-        if fam in (body, display):
-            files.append({"family": fam, "src": f"assets/{fname}", "weight": weight, "style": "normal"})
+    refs, seen = [], set()
+    for fam in (body, display):
+        if fam not in seen:
+            seen.add(fam)
+            refs.append({"ref": FAMILY_REF[fam]})
+    colors = {"light": light(oc), "dark": dark(oc)}
     theme = {
         "id": spec["id"], "name": spec["name"], "name_en": spec["name_en"], "version": "1.0.0",
         "kind": "theme", "description": spec["desc"],
-        "colors": {"light": light(oc), "dark": dark(oc)},
-        "fonts": {"body": body, "display": display, "files": files},
+        "palette": spec["id"],
+        "fonts": {"body": body, "display": display, "files": refs},
         "radius": "0.625rem", "shadows": "soft", "motion": "full",
         "preview": {"source": "open-color-mit", "designed_for": "mizan"},
     }
-    problems = theme_problems(theme)
+    palette = {
+        "id": spec["id"],
+        "source": "Original Mizan combination designed from Open Color (MIT) shades",
+        "license": "MIT (Open Color), original composition",
+        "colors": colors,
+    }
+    # validate the expanded form consumers see (registry refs resolved)
+    from app.platform.themes.service import _expand_font_refs
+
+    expanded = {**_expand_font_refs(theme), "colors": colors}
+    expanded.pop("palette", None)
+    problems = theme_problems(expanded)
     if problems:
         raise SystemExit(f"{spec['id']}: theme_problems: {problems}")
     tdir = THEMES / spec["id"]
     if tdir.exists():
         shutil.rmtree(tdir)
-    (tdir / "assets").mkdir(parents=True)
+    tdir.mkdir(parents=True)
     (tdir / "theme.json").write_text(json.dumps(theme, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    shipped = set()
-    for f in files:
-        src_name = next(s for fn, (fam, _w, s, _l) in FONT_FILES.items() if fn == f["src"].split("/", 1)[1])
-        shutil.copy2(FONTS_STAGE / src_name, tdir / f["src"])
-        if f["family"] not in shipped:
-            shipped.add(f["family"])
-            shutil.copy2(FONTS_STAGE / FAMILY_LICENSE[f["family"]], tdir / "assets" / FAMILY_LICENSE[f["family"]])
-    print(f"built {spec['id']}: {len(files)} font files, contrast-clean")
+    PALETTES.mkdir(exist_ok=True)
+    (PALETTES / f"{spec['id']}.json").write_text(json.dumps(palette, ensure_ascii=False, indent=2) + "\n",
+                                                 encoding="utf-8")
+    print(f"built {spec['id']}: palette + {len(refs)} font refs, contrast-clean")
 
 
 def main() -> None:

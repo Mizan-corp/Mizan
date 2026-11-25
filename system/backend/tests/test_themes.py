@@ -14,9 +14,19 @@ from tests.test_community_packages import developer, files
 FONT = b"wOF2\x00\x01fake-font"
 
 
+def platform_theme(theme_id: str) -> dict:
+    """A platform theme as consumers see it: palette + font refs expanded."""
+    base = os.path.join(os.path.dirname(__file__), "../../../shared/backend/app/themes")
+    t = json.loads(open(os.path.join(base, theme_id, "theme.json"), encoding="utf-8").read())
+    if "colors" not in t and isinstance(t.get("palette"), str):
+        pal = json.loads(open(os.path.join(base, "_palettes", t["palette"] + ".json"), encoding="utf-8").read())
+        t = {**t, "colors": pal["colors"]}
+    t.pop("palette", None)  # a package embeds its colors; the ref is platform-side only
+    return t
+
+
 def sunrise(**over) -> dict:
-    mizan = json.loads(open(os.path.join(os.path.dirname(__file__), "../../../shared/backend/app/themes/mizan/theme.json"),
-                            encoding="utf-8").read())
+    mizan = platform_theme("mizan")
     theme = {**mizan, "id": "acme.sunrise", "name": "شروق", "name_en": "Sunrise", "version": "1.0.0",
              "fonts": {"body": "Sunrise Sans", "files": [{"family": "Sunrise Sans", "src": "assets/sunrise.woff2", "weight": "100 900"}]}, "motion": "reduced"}
     theme["colors"]["light"]["primary"] = "oklch(0.55 0.17 40)"
@@ -166,6 +176,10 @@ def test_the_sdk_starts_themes_from_mizans_own_and_checks_them_the_same_way(tmp_
     finally:
         sys.path.pop(0)
     assert MIZAN == platform, "sdk/python/mizan_sdk/themes.py is out of date with app/themes/mizan/theme.json"
+    from mizan_sdk.themes import MIZAN_COLORS
+
+    palette = json.loads((repo / "shared/backend/app/themes/_palettes/mizan.json").read_text(encoding="utf-8"))
+    assert MIZAN_COLORS == palette["colors"], "MIZAN_COLORS is out of date with _palettes/mizan.json"
     key, cert = developer()
     pkg = mzm.verify(sdk_build({"manifest.json": json.dumps(theme_starter("acme.dawn")).encode()}, key, cert))
     assert pkg.kind == "theme" and pkg.manifest["id"] == "acme.dawn"

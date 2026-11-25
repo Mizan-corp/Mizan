@@ -87,6 +87,15 @@ async def branding_options():
 assets_router = APIRouter(tags=["platform"])
 
 
+@assets_router.get("/themes/assets/fonts/{family_id}/{path:path}")
+async def font_asset(family_id: str, path: str):
+    from fastapi import Response
+    from app.platform.themes import service as themes_service
+
+    data, kind = themes_service.font_asset(family_id, path)
+    return Response(data, media_type=kind)
+
+
 @assets_router.get("/themes/assets/files/{theme_id}/{path:path}")
 async def file_theme_asset(theme_id: str, path: str):
     from app.platform.themes import service as themes_service

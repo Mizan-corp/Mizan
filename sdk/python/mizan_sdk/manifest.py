@@ -234,6 +234,7 @@ FONT_FILE = re.compile(r"^assets/[A-Za-z0-9_.-]+\.(woff2|woff|ttf|otf)$")
 # A theme may also borrow a font another theme ships, by its public absolute path
 # (mirrors the client's SAFE_ABS_SRC in shared/frontend/src/lib/theme.ts).
 FONT_FILE_ABS = re.compile(r"^/themes/assets/files/[a-z][a-z0-9_]{0,47}/assets/[A-Za-z0-9_.-]+\.(woff2|woff|ttf|otf)$")
+FONT_FILE_REGISTRY = re.compile(r"^/themes/assets/fonts/[a-z][a-z0-9_-]{0,47}/[A-Za-z0-9_.-]+\.(woff2|woff|ttf|otf)$")
 FONT_WEIGHT = re.compile(r"^[1-9]00( [1-9]00)?$")
 FONT_FAMILY = re.compile(r"^[A-Za-z0-9 \u0600-\u06FF-]{1,64}$")
 RADIUS = re.compile(r"^(0|\d(\.\d{1,3})?rem|\d{1,2}px)$")
@@ -313,15 +314,23 @@ def theme_problems(t: dict, package: bool = False) -> list[str]:
         p.append("version must be MAJOR.MINOR.PATCH, e.g. 1.0.0")
     if t.get("kind") != "theme":
         p.append("kind must be 'theme'")
-    known = {"id", "name", "name_en", "version", "kind", "description", "colors", "fonts", "radius", "shadows",
-             "motion", "density", "preview"}
+    known = {"id", "name", "name_en", "version", "kind", "description", "colors", "palette", "fonts", "radius",
+             "shadows", "motion", "density", "preview"}
     for k in sorted(set(t) - known):
         p.append(f"'{k}' isn't a theme field")
+    palette = t.get("palette")
+    if palette is not None:
+        if package:
+            p.append("a theme package embeds its colors; palette references are platform-side only")
+        elif not (isinstance(palette, str) and THEME_ID.match(palette)):
+            p.append("palette must be a palette id (lower-case letters, digits and _)")
     colors = t.get("colors")
-    if not isinstance(colors, dict) or set(colors) != {"light", "dark"}:
+    if colors is None and not package and isinstance(palette, str) and THEME_ID.match(palette):
+        colors = None  # composed by reference; the palette registry supplies the tokens
+    elif not isinstance(colors, dict) or set(colors) != {"light", "dark"}:
         p.append("colors must have 'light' and 'dark'")
         colors = {}
-    for mode, tokens in colors.items():
+    for mode, tokens in (colors or {}).items():
         if not isinstance(tokens, dict):
             p.append(f"colors.{mode} must be an object")
             continue
@@ -352,9 +361,17 @@ def theme_problems(t: dict, package: bool = False) -> list[str]:
                 p.append("fonts.files: a list of up to 12 font files")
                 continue
             for f in v:
+                is_ref = (isinstance(f, dict) and set(f) == {"ref"}
+                          and isinstance(f.get("ref"), str) and THEME_ID.match(f["ref"]))
+                if is_ref and not package:
+                    continue  # platform theme composing a registry family by reference
+                if is_ref and package:
+                    p.append("fonts.files: a theme package embeds its files; registry refs are platform-side only")
+                    continue
                 if not (isinstance(f, dict) and set(f) <= {"family", "src", "weight", "style"}
                         and isinstance(f.get("family"), str) and FONT_FAMILY.match(f["family"])
-                        and isinstance(f.get("src"), str) and (FONT_FILE.match(f["src"]) or FONT_FILE_ABS.match(f["src"]))
+                        and isinstance(f.get("src"), str) and (FONT_FILE.match(f["src"]) or FONT_FILE_ABS.match(f["src"])
+                                                               or FONT_FILE_REGISTRY.match(f["src"]))
                         and FONT_WEIGHT.match(str(f.get("weight", "400"))) and f.get("style", "normal") in ("normal", "italic")):
                     p.append("fonts.files: each is {family, src: assets/….woff2, weight: 400 or 100 900, style}")
         else:

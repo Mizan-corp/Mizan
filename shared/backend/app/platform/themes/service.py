@@ -33,15 +33,86 @@ FONT_TYPES = {".woff2": "font/woff2", ".woff": "font/woff", ".ttf": "font/ttf", 
               ".png": "image/png", ".svg": "image/svg+xml", ".webp": "image/webp", ".jpg": "image/jpeg"}
 
 
+FONTS_DIR = APP_DIR / "themes" / "_fonts"
+PALETTES_DIR = APP_DIR / "themes" / "_palettes"
+
+
+@lru_cache(maxsize=1)
+def palette_registry() -> dict[str, dict]:
+    """Mizan's shared palette registry: palette id -> {id, source, license, colors}.
+
+    Theme packs reference a palette by id ("palette": "amber") instead of embedding
+    the color tokens; expansion happens at load so consumers see plain "colors".
+    """
+    out: dict[str, dict] = {}
+    if PALETTES_DIR.is_dir():
+        for f in sorted(PALETTES_DIR.glob("*.json")):
+            d = json.loads(f.read_text(encoding="utf-8"))
+            out[d["id"]] = d
+    return out
+
+
+@lru_cache(maxsize=1)
+def font_registry() -> dict[str, dict]:
+    """Mizan's shared font registry: family id -> font.json (one canonical copy per family).
+
+    Theme packs reference families by id (fonts.files: [{"ref": "tajawal"}]) instead of
+    duplicating the files; expansion happens at load so consumers see plain entries.
+    """
+    out: dict[str, dict] = {}
+    if FONTS_DIR.is_dir():
+        for f in sorted(FONTS_DIR.glob("*/font.json")):
+            d = json.loads(f.read_text(encoding="utf-8"))
+            d["_dir"] = str(f.parent)
+            out[d["id"]] = d
+    return out
+
+
+def _expand_palette_ref(t: dict) -> dict:
+    """A theme's "palette": "<registry id>" becomes its "colors" at load."""
+    pid = t.get("palette")
+    if not isinstance(pid, str) or "colors" in t:
+        return t
+    pal = palette_registry().get(pid)
+    if pal is None:
+        return t  # unresolved: theme_problems flags the missing colors
+    return {**t, "colors": pal["colors"]}
+
+
+def _expand_font_refs(t: dict) -> dict:
+    """fonts.files entries may be {"ref": "<registry family id>"}; expand each to that
+    family's plain file entries with canonical /themes/assets/fonts/ srcs."""
+    fonts = t.get("fonts")
+    if not isinstance(fonts, dict):
+        return t
+    entries = fonts.get("files")
+    if not isinstance(entries, list) or not any(isinstance(e, dict) and "ref" in e for e in entries):
+        return t
+    registry = font_registry()
+    out: list[dict] = []
+    for e in entries:
+        if isinstance(e, dict) and "ref" in e:
+            fam = registry.get(str(e["ref"]))
+            if fam:
+                for fe in fam.get("files") or []:
+                    out.append({"family": fam["family"], "src": f"/themes/assets/fonts/{fam['id']}/{fe['src']}",
+                                "weight": fe.get("weight", "400"), "style": fe.get("style", "normal")})
+            else:
+                out.append(e)  # unknown ref: keep so validation can flag it
+        else:
+            out.append(e)
+    return {**t, "fonts": {**fonts, "files": out}}
+
+
 @lru_cache(maxsize=1)
 def file_themes() -> dict[str, dict]:
     """Mizan's and activities' themes: id -> theme (with "source", "activity" and "_dir")."""
     out: dict[str, dict] = {}
     for f in sorted((APP_DIR / "themes").glob("*/theme.json")):
-        t = json.loads(f.read_text(encoding="utf-8"))
+        t = _expand_palette_ref(_expand_font_refs(json.loads(f.read_text(encoding="utf-8"))))
         out[t["id"]] = {**t, "source": "mizan", "activity": None, "_dir": str(f.parent)}
     for f in sorted((APP_DIR / "activities").glob("*/themes/*/theme.json")):
-        t = json.loads(f.read_text(encoding="utf-8"))
+        t = _expand_palette_ref(_expand_font_refs(json.loads(f.read_text(encoding="utf-8"))))
         out[t["id"]] = {**t, "source": "activity", "activity": f.parents[2].name, "_dir": str(f.parent)}
     return out
 
@@ -216,14 +287,34 @@ async def uninstall(db: AsyncSession, tenant, theme_id: str) -> None:
 
 # ── Font files ─────────────────────────────────────────────────────────────────
 
-def file_asset(theme_id: str, path: str) -> tuple[bytes, str]:
-    t = file_themes().get(theme_id)
-    if t is None or path not in [f.get("src") for f in (t.get("fonts") or {}).get("files") or []]:
+def font_asset(family_id: str, path: str) -> tuple[bytes, str]:
+    """A registry family's file, served at /themes/assets/fonts/<family>/<file>."""
+    fam = font_registry().get(family_id)
+    if fam is None or path not in [f.get("src") for f in fam.get("files") or []]:
         raise HTTPException(404, "Not found")
-    f = Path(t["_dir"]) / path
+    f = Path(fam["_dir"]) / path
     if not f.is_file():
         raise HTTPException(404, "Not found")
     return f.read_bytes(), FONT_TYPES.get(f.suffix.lower(), "application/octet-stream")
+
+
+def file_asset(theme_id: str, path: str) -> tuple[bytes, str]:
+    t = file_themes().get(theme_id)
+    if t is None:
+        raise HTTPException(404, "Not found")
+    f = Path(t["_dir"]) / path
+    declared = path in [e.get("src") for e in (t.get("fonts") or {}).get("files") or []]
+    if f.is_file() and declared:
+        return f.read_bytes(), FONT_TYPES.get(f.suffix.lower(), "application/octet-stream")
+    # Legacy URL compatibility: packs no longer duplicate shared family files;
+    # serve the registry's canonical copy when the basename is a known family file.
+    base = Path(path).name
+    for fam in font_registry().values():
+        if base in [fe.get("src") for fe in fam.get("files") or []]:
+            rf = Path(fam["_dir"]) / base
+            if rf.is_file():
+                return rf.read_bytes(), FONT_TYPES.get(rf.suffix.lower(), "application/octet-stream")
+    raise HTTPException(404, "Not found")
 
 
 async def package_asset(db: AsyncSession, tenant_id: uuid.UUID, theme_id: str, path: str) -> tuple[bytes, str]:
@@ -243,13 +334,34 @@ async def package_asset(db: AsyncSession, tenant_id: uuid.UUID, theme_id: str, p
 def check_file_themes() -> list[str]:
     """Problems in Mizan's and activities' theme files (for tests and `module check`)."""
     out = []
+    for fid, fam in font_registry().items():
+        if not (Path(fam["_dir"]) / str(fam.get("license_file") or "")).is_file():
+            out.append(f"_fonts/{fid}: missing license file {fam.get('license_file')}")
+        for fe in fam.get("files") or []:
+            if not (Path(fam["_dir"]) / str(fe.get("src"))).is_file():
+                out.append(f"_fonts/{fid}: missing {fe.get('src')}")
+    for f in sorted(FONTS_DIR.glob("*/theme.json")) if FONTS_DIR.is_dir() else []:
+        out.append(f"_fonts: {f.parent.name} is a family directory, not a theme")
     for tid, t in file_themes().items():
-        out += [f"{tid}: {p}" for p in theme_problems({k: v for k, v in t.items() if k not in ("source", "activity", "_dir")})]
+        out += [f"{tid}: {p}" for p in theme_problems({k: v for k, v in t.items() if k not in ("source", "activity", "_dir", "palette")})]
+        if "palette" in t and "colors" not in t:
+            out.append(f"{tid}: unknown palette ref '{t.get('palette')}'")
         if t["activity"] and not tid.startswith(t["activity"] + "."):
             out.append(f"{tid}: an activity's theme id starts with the activity ('{t['activity']}.…')")
         for f in (t.get("fonts") or {}).get("files") or []:
-            if not (Path(t["_dir"]) / str(f.get("src"))).is_file():
-                out.append(f"{tid}: missing {f.get('src')}")
+            src = str(f.get("src"))
+            if "ref" in f:
+                out.append(f"{tid}: unknown font family ref '{f.get('ref')}'")
+            elif src.startswith("/themes/assets/fonts/"):
+                parts = src.split("/")
+                try:
+                    font_asset(parts[4], parts[5])
+                except HTTPException:
+                    out.append(f"{tid}: missing registry file {src}")
+            elif src.startswith("/"):
+                continue  # absolute borrow into another pack; that pack's own check covers it
+            elif not (Path(t["_dir"]) / src).is_file():
+                out.append(f"{tid}: missing {src}")
     return out
 
 

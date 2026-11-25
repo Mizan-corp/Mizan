@@ -72,6 +72,12 @@ async def uninstall(theme_id: str, db: AsyncSession = Depends(get_db), user: Use
     await service.uninstall(db, await _tenant(db, user), theme_id)
 
 
+@router.get("/assets/fonts/{family_id}/{path:path}")
+async def font_asset(family_id: str, path: str):
+    data, kind = service.font_asset(family_id, path)
+    return Response(data, media_type=kind)
+
+
 @router.get("/assets/files/{theme_id}/{path:path}")
 async def file_asset(theme_id: str, path: str):
     data, kind = service.file_asset(theme_id, path)

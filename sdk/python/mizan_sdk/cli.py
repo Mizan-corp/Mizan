@@ -81,11 +81,12 @@ def cmd_new(a) -> int:
 
 def theme_starter(theme_id: str) -> dict:
     """Mizan's own theme as a starting point: change the colours, fonts, radius and motion."""
-    from mizan_sdk.themes import MIZAN
+    from mizan_sdk.themes import MIZAN, MIZAN_COLORS
 
     name = theme_id.split(".", 1)[1].replace("_", " ").title()
-    return {**MIZAN, "id": theme_id, "name": name, "name_en": name, "version": "0.1.0",
-            "description": "وصف قصير للمظهر.", "fonts": {"body": "Manrope"}}
+    base = {k: v for k, v in MIZAN.items() if k != "palette"}
+    return {**base, "id": theme_id, "name": name, "name_en": name, "version": "0.1.0",
+            "description": "وصف قصير للمظهر.", "colors": MIZAN_COLORS, "fonts": {"body": "Manrope"}}
 
 
 def cmd_theme_new(a) -> int:
@@ -107,12 +108,12 @@ def cmd_theme_new(a) -> int:
 def activity_starter(activity_id: str) -> dict[str, dict]:
     """A small, complete activity (ADR-010 D2): Mizan's modules it builds on, one module of its own,
     how it adapts the POS, its theme, menus, a position and demo records."""
-    from mizan_sdk.themes import MIZAN
+    from mizan_sdk.themes import MIZAN, MIZAN_COLORS
 
     dev, name = activity_id.split(".", 1)
     orders = f"{dev}.{name}_orders"[:80]
     theme_id = f"{dev}.{name}_fresh"
-    light = {**MIZAN["colors"]["light"], "primary": "oklch(0.48 0.09 200)", "ring": "oklch(0.48 0.09 200)",
+    light = {**MIZAN_COLORS["light"], "primary": "oklch(0.48 0.09 200)", "ring": "oklch(0.48 0.09 200)",
              "sidebar": "oklch(0.24 0.05 200)", "sidebar-primary": "oklch(0.7 0.1 195)", "sidebar-accent": "oklch(0.3 0.05 200)",
              "accent": "oklch(0.94 0.03 195)", "accent-foreground": "oklch(0.3 0.06 200)"}
     menu = [{"id": "orders", "label": "الطلبات", "items": [{"screen": f"{orders}/order", "label": "طلبات العملاء"},
@@ -151,8 +152,9 @@ def activity_starter(activity_id: str) -> dict[str, dict]:
             "fields": {"sale": [{"key": "pickup_date", "label": "موعد الاستلام", "label_en": "Pickup date", "type": "date"}]},
             "terms": {"item": "قطعة"},
         },
-        "themes/fresh/theme.json": {**MIZAN, "id": theme_id, "name": "منعش", "name_en": "Fresh", "version": "0.1.0",
-                                    "description": "أزرق مخضر هادئ.", "colors": {"light": light, "dark": MIZAN["colors"]["dark"]},
+        "themes/fresh/theme.json": {**{k: v for k, v in MIZAN.items() if k != "palette"},
+                                    "id": theme_id, "name": "منعش", "name_en": "Fresh", "version": "0.1.0",
+                                    "description": "أزرق مخضر هادئ.", "colors": {"light": light, "dark": MIZAN_COLORS["dark"]},
                                     "fonts": {"body": "Manrope"}},
         "seed/orders.json": {"module": orders, "entity": "order",
                              "records": [{"received": "2026-11-01", "ready_on": "2026-11-03", "pieces": 5, "price": "120.00",

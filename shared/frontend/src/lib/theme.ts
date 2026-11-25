@@ -29,6 +29,7 @@ const SAFE_SRC = /^assets\/[A-Za-z0-9_.-]+\.(woff2|woff|ttf|otf)$/;
 // A workspace's own font picks borrow files another pack ships (themes/service.family_files);
 // those arrive as absolute paths under the public assets route.
 const SAFE_ABS_SRC = /^\/themes\/assets\/files\/[a-z][a-z0-9_]{0,47}\/assets\/[A-Za-z0-9_.-]+\.(woff2|woff|ttf|otf)$/;
+const REGISTRY_SRC = /^\/themes\/assets\/fonts\/[a-z][a-z0-9_-]{0,47}\/[A-Za-z0-9_.-]+\.(woff2|woff|ttf|otf)$/;
 const SHADOWS: Record<string, [string, string, string]> = {
   flat: ["none", "none", "none"],
   soft: ["0 1px 2px rgb(0 0 0 / 0.05)", "0 4px 12px -2px rgb(0 0 0 / 0.08)", "0 12px 32px -4px rgb(0 0 0 / 0.12)"],
@@ -64,7 +65,7 @@ export function themeCss(theme: ThemePack, apiBase: string): string {
   const base = theme.assets_base && /^\/themes\/assets\/[A-Za-z0-9._/-]+\/$/.test(theme.assets_base) ? apiBase + theme.assets_base : null;
   for (const f of theme.fonts?.files ?? []) {
     const fam = family(f.family);
-    const absolute = SAFE_ABS_SRC.test(f.src);
+    const absolute = SAFE_ABS_SRC.test(f.src) || REGISTRY_SRC.test(f.src);
     if (!fam || (!absolute && (!base || !SAFE_SRC.test(f.src)))) continue;
     const weight = /^[1-9]00( [1-9]00)?$/.test(f.weight ?? "400") ? f.weight ?? "400" : "400";
     const style = f.style === "italic" ? "italic" : "normal";

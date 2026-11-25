@@ -5,122 +5,22 @@
   "version": "1.0.0",
   "kind": "theme",
   "description": "عنابي دافئ على ورق كريمي: هوية ميزان.",
-  "colors": {
-    "light": {
-      "background": "#FAF6F0",
-      "foreground": "#262321",
-      "card": "#FFFFFF",
-      "card-foreground": "#262321",
-      "popover": "#FFFFFF",
-      "popover-foreground": "#262321",
-      "primary": "#651E2C",
-      "primary-foreground": "#FAF6F0",
-      "secondary": "#E7D6C1",
-      "secondary-foreground": "#262321",
-      "muted": "#EFE4D6",
-      "muted-foreground": "#77716E",
-      "accent": "#EFE4D6",
-      "accent-foreground": "#651E2C",
-      "destructive": "#C14E50",
-      "success": "#27835C",
-      "success-foreground": "#FAF6F0",
-      "warning": "#C58A35",
-      "warning-foreground": "#FAF6F0",
-      "border": "#E6DCD2",
-      "input": "#E6DCD2",
-      "ring": "#651E2C",
-      "chart-1": "#651E2C",
-      "chart-2": "#B86B76",
-      "chart-3": "#D4626E",
-      "chart-4": "#27835C",
-      "chart-5": "#557DA1",
-      "sidebar": "#35151D",
-      "sidebar-foreground": "#FAF6F0",
-      "sidebar-primary": "#651E2C",
-      "sidebar-primary-foreground": "#FAF6F0",
-      "sidebar-accent": "#48151F",
-      "sidebar-accent-foreground": "#FAF6F0",
-      "sidebar-border": "rgba(255, 255, 255, 0.12)",
-      "sidebar-ring": "#651E2C"
-    },
-    "dark": {
-      "background": "#270F16",
-      "foreground": "#FAF6F0",
-      "card": "#35151D",
-      "card-foreground": "#FAF6F0",
-      "popover": "#35151D",
-      "popover-foreground": "#FAF6F0",
-      "primary": "#D4626E",
-      "primary-foreground": "#270F16",
-      "secondary": "#481D26",
-      "secondary-foreground": "#FAF6F0",
-      "muted": "#3D161F",
-      "muted-foreground": "#BCA39B",
-      "accent": "#4D1B26",
-      "accent-foreground": "#FAF6F0",
-      "destructive": "#E05A68",
-      "destructive-foreground": "#FAF6F0",
-      "success": "#34A876",
-      "success-foreground": "#FAF6F0",
-      "warning": "#E0A346",
-      "warning-foreground": "#270F16",
-      "border": "rgba(231, 214, 193, 0.15)",
-      "input": "rgba(231, 214, 193, 0.18)",
-      "ring": "#D4626E",
-      "chart-1": "#D4626E",
-      "chart-2": "#B86B76",
-      "chart-3": "#E7D6C1",
-      "chart-4": "#34A876",
-      "chart-5": "#658CB2",
-      "sidebar": "#1F0A11",
-      "sidebar-foreground": "#FAF6F0",
-      "sidebar-primary": "#D4626E",
-      "sidebar-primary-foreground": "#1F0A11",
-      "sidebar-accent": "#2E1018",
-      "sidebar-accent-foreground": "#FAF6F0",
-      "sidebar-border": "rgba(255, 255, 255, 0.08)",
-      "sidebar-ring": "#D4626E"
-    }
-  },
+  "palette": "mizan",
   "fonts": {
     "body": "Manrope",
     "display": "Cormorant Garamond",
     "files": [
       {
-        "family": "Manrope",
-        "src": "assets/manrope.ttf",
-        "weight": "200 800",
-        "style": "normal"
+        "ref": "manrope"
       },
       {
-        "family": "Cormorant Garamond",
-        "src": "assets/cormorant-garamond.ttf",
-        "weight": "300 700",
-        "style": "normal"
+        "ref": "cormorant-garamond"
       },
       {
-        "family": "Tajawal",
-        "src": "/themes/assets/files/grape/assets/tajawal-400.ttf",
-        "weight": "400",
-        "style": "normal"
+        "ref": "tajawal"
       },
       {
-        "family": "Tajawal",
-        "src": "/themes/assets/files/grape/assets/tajawal-700.ttf",
-        "weight": "700",
-        "style": "normal"
-      },
-      {
-        "family": "Almarai",
-        "src": "/themes/assets/files/cyan/assets/almarai-400.ttf",
-        "weight": "400",
-        "style": "normal"
-      },
-      {
-        "family": "Almarai",
-        "src": "/themes/assets/files/cyan/assets/almarai-700.ttf",
-        "weight": "700",
-        "style": "normal"
+        "ref": "almarai"
       }
     ],
     "body_arabic": "Tajawal",
