@@ -18,35 +18,86 @@ except ImportError:
 logger = logging.getLogger("mizan.migrations")
 
 def split_statements(sql: str):
-    """Split on top-level semicolons, respecting dollar-quoted blocks
-    ($$...$$ and $tag$...$tag$) and -- line comments: a semicolon inside a
-    comment never ends a statement, so prose in comments cannot be executed
-    as SQL (v116 carried one and a fresh migrate died on it)."""
+    """Split on top-level semicolons with PostgreSQL lexing rules: single-quoted
+    strings ('' escape), double-quoted identifiers, dollar-quoted blocks
+    ($$...$$ and $tag$...$tag$), -- line comments and nested /* */ block
+    comments all protect their contents; first-opened wins, so a quote inside
+    a comment or a -- inside a string never changes the split. A semicolon in
+    a comment never ends a statement: v116 carried one inside a -- comment and
+    a fresh migrate died executing the comment prose as SQL."""
     import re as _re
     stmts, buf = [], []
-    dollar_tag = None
-    i = 0
-    while i < len(sql):
-        m = _re.match(r"\$[A-Za-z_]*\$", sql[i:])
-        if m:
-            tag = m.group(0)
-            if dollar_tag is None:
-                dollar_tag = tag
-            elif tag == dollar_tag:
-                dollar_tag = None
-            buf.append(tag)
-            i += len(tag)
-            continue
-        if dollar_tag is None and sql[i:i + 2] == "--":
+    i, n = 0, len(sql)
+    while i < n:
+        ch = sql[i]
+        # Line comment: copy through the newline; semicolons inside never split.
+        if ch == "-" and sql[i:i + 2] == "--":
             end = sql.find("\n", i)
             if end == -1:
                 buf.append(sql[i:])
-                break
-            buf.append(sql[i:end + 1])
-            i = end + 1
+                i = n
+            else:
+                buf.append(sql[i:end + 1])
+                i = end + 1
             continue
-        ch = sql[i]
-        if ch == ";" and dollar_tag is None:
+        # Block comment, nested per PostgreSQL rules.
+        if ch == "/" and sql[i:i + 2] == "/*":
+            depth = 1
+            j = i + 2
+            while j < n and depth:
+                if sql[j:j + 2] == "/*":
+                    depth += 1
+                    j += 2
+                elif sql[j:j + 2] == "*/":
+                    depth -= 1
+                    j += 2
+                else:
+                    j += 1
+            buf.append(sql[i:j])
+            i = j
+            continue
+        # Single-quoted string, '' is an escaped quote.
+        if ch == "'":
+            j = i + 1
+            while j < n:
+                if sql[j] == "'":
+                    if sql[j + 1:j + 2] == "'":
+                        j += 2
+                        continue
+                    j += 1
+                    break
+                j += 1
+            buf.append(sql[i:j])
+            i = j
+            continue
+        # Double-quoted identifier, "" is an escaped quote.
+        if ch == '"':
+            j = i + 1
+            while j < n:
+                if sql[j] == '"':
+                    if sql[j + 1:j + 2] == '"':
+                        j += 2
+                        continue
+                    j += 1
+                    break
+                j += 1
+            buf.append(sql[i:j])
+            i = j
+            continue
+        # Dollar-quoted block: consume through the matching close tag.
+        if ch == "$":
+            m = _re.match(r"\$[A-Za-z_]*\$", sql[i:])
+            if m:
+                tag = m.group(0)
+                end = sql.find(tag, i + len(tag))
+                if end == -1:
+                    buf.append(sql[i:])
+                    i = n
+                else:
+                    buf.append(sql[i:end + len(tag)])
+                    i = end + len(tag)
+                continue
+        if ch == ";":
             stmt = "".join(buf).strip()
             if stmt:
                 stmts.append(stmt)
