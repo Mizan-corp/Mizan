@@ -73,10 +73,22 @@ async def branding_options():
     themes = [summary(t, "") for t in file_packs]
     full = {t["id"]: _for_client(t, None) for t in file_packs}
     recommendations: dict[str, dict] = {}
+    raw: dict[str, dict] = {}
     for f in sorted(ACTIVITIES.glob("*/activity.json")):
         a = _json.loads(f.read_text(encoding="utf-8"))
         if isinstance(a.get("branding"), dict):
-            recommendations[a["id"]] = a["branding"]
+            raw[a["id"]] = a["branding"]
+    # Every activity ends up with theme + palette + font recommendations: its own
+    # branding when it declares one, general's balanced picks otherwise. Palette-level
+    # recommendations therefore exist for every sector, not only the few with branding.
+    general = raw.get("general", {})
+    for f in sorted(ACTIVITIES.glob("*/activity.json")):
+        a = _json.loads(f.read_text(encoding="utf-8"))
+        own = raw.get(a["id"], {})
+        merged = dict(general)
+        merged.update(own)
+        if merged:
+            recommendations[a["id"]] = merged
     from app.platform.themes.service import family_files, palette_registry
 
     fam_files = family_files()

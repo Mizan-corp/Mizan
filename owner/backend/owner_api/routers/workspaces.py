@@ -72,6 +72,9 @@ def summary(
         "slug": t.slug,
         "sector": t.sector,
         "sector_name": _activity_name(t.sector),
+        # The workspace's branding (theme + independent palette/font picks), so the owner
+        # can save it as a reusable profile.
+        "palette": t.palette or {},
         "status": t.status,
         "plan": t.plan,
         "monthly_price_egp": get_plan(t.plan)["price_monthly_egp"],
