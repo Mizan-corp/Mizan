@@ -82,3 +82,4 @@ installer/setup/dist/
 # Built by deploy.yml from sdk/python (served at dev.allmizan.live/sdk/).
 website/frontend/public/sdk/
 **/tests/uploads/
+.dev-uploads/
