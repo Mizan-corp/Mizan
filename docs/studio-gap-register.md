@@ -482,3 +482,10 @@ re-verified as fixed:
 - Provider rows always carry the exact contract keys; unconsented fields read as None, richer columns are never SELECTed under older/unchecked consent.
 - Proof: 24 helpdesk tests + v4/repeats/bindings/public-access regressions green; UI render test pins the bilingual v1 wording and payload; live sandbox save stamped v1 (both fields) and was restored to the exact prior v0 value afterward.
 - Note: ERP backend for the sandbox preview lives on port 8000 (system/backend); the website API on 8001 does not serve module-settings routes.
+
+## 2026-11-25 (late) — HELP DESK v1 REAL-CLICK SAVE PROOF + copy fix
+
+- Real user flow verified: fresh Studio session, Data panel, check both field boxes, real save-button click, v1 confirm dialog (text captured), success notice, PUT 200 in the API log, stored row stamped v1 with both flags; restored to the exact prior v0 value afterward.
+- Earlier "component 422" root-caused: the sandbox ERP backend (port 8000) was running pre-v1 code whose PublicationIn forbids the new keys (422); after that failure the component cleared its edit token, disabling the save button, so later clicks were no-ops reading a stale alert. No product bug.
+- Copy fix: the load notice under a stored richer-fields consent no longer claims names-only; it names the checked fields.
+- UX: connect (module data) panel widened for settings forms.
