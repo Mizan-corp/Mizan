@@ -505,5 +505,8 @@ const en:Record<string,string>={
   "إخفاء العنصر":"Hide this element",
   "إظهار عنصر فاضي":"Show an empty element",
   "منتج موافق على عرضه · معاينة مقفولة بحسابك":"Consented display product · authenticated preview",
+  "بتكتب بالعربية":"Editing: Arabic",
+  "بتكتب بالإنجليزية":"Editing: English",
+  "لغة المحتوى اللي بتكتب فيها دلوقتي":"The content language you are typing in right now. It stays selected when you switch pages.",
 };
 export function t(ar:string):string{if(current==='ar')return ar;const v=en[ar];return v&&v.length>0?v:ar;}
