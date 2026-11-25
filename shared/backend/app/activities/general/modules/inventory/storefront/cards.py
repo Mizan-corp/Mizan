@@ -369,3 +369,65 @@ async def _read_item_row(db, context, product_id, fields, consent):
                 raise SourceUnavailable('Product image provenance unavailable.')
             item['image'] = media_value(url, name, context.tenant_id)
     return item
+
+
+async def probe_route_items(db, context, limit=24):
+    """Currently exposable product identities for an approval dry-run probe read.
+
+    The no-route approval dry-run resolves route-mode ("current item") reads
+    empty, so record-driven failures used to surface only at visitor request
+    time (gap register item 16). The approval re-resolves the tree against
+    these real records instead. Empty when nothing is currently exposable
+    under the recorded v4 policy: the visitor render then hides the element
+    by design and there is nothing to probe. Bounded like every website
+    selection; identities only, no field values.
+    """
+    if current_tenant_id.get() != context.tenant_id or 'inventory' not in context.active_modules:
+        raise SourceUnavailable('Website element source unavailable.')
+    raw = await db.scalar(select(StoreSetting.value).where(
+        StoreSetting.tenant_id == context.tenant_id, StoreSetting.key == SETTING_KEY))
+    try:
+        recorded = json.loads(raw).get('schema') if raw is not None else None
+    except (TypeError, ValueError):
+        raise SourceUnavailable('Invalid website card policy.') from None
+    if recorded != SCHEMA_V4:
+        return []
+    consent = card_policy(raw, schema=SCHEMA_V4)
+    if not consent['products']:
+        return []
+    rows = (await db.execute(
+        select(Product.id)
+        .where(Product.tenant_id == context.tenant_id, Product.is_active.is_(True),
+               Product.id.in_(consent['products']))
+        .order_by(Product.id).limit(limit))).all()
+    return [str(row[0]) for row in rows]
+
+
+async def probe_route_categories(db, context, limit=24):
+    """Currently published category identities for an approval dry-run probe read.
+
+    Same contract as probe_route_items for the v2 category card-repeat: the
+    no-route dry-run never expands the template because the category read
+    returns nothing without a route item, so record-driven expansion failures
+    first appeared at the visitor. Empty when no category is currently
+    published or linkage is not v4-recorded: the visitor list is then empty
+    by design and there is nothing to probe.
+    """
+    if current_tenant_id.get() != context.tenant_id or 'inventory' not in context.active_modules:
+        raise SourceUnavailable('Website category source unavailable.')
+    raw = await db.scalar(select(StoreSetting.value).where(
+        StoreSetting.tenant_id == context.tenant_id, StoreSetting.key == SETTING_KEY))
+    try:
+        recorded = json.loads(raw).get('schema') if raw is not None else None
+    except (TypeError, ValueError):
+        raise SourceUnavailable('Invalid website card policy.') from None
+    if recorded != SCHEMA_V4:
+        return []
+    # Lazy import: provider imports this module's display_consent lazily too,
+    # so neither file holds a module-level cycle.
+    from app.activities.general.modules.inventory.storefront import provider as _provider
+    publication_raw = await db.scalar(select(StoreSetting.value).where(
+        StoreSetting.tenant_id == context.tenant_id,
+        StoreSetting.key == _provider.SETTING_KEY))
+    categories = _provider.publication_ids(publication_raw)['categories']
+    return [str(c) for c in sorted(categories, key=str)[:limit]]

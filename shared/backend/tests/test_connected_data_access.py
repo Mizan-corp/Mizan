@@ -302,3 +302,152 @@ class PublicAccessReadoutTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+ROUTE_ITEM_TREE = {
+    "type": "section",
+    "children": [{
+        "type": "heading",
+        "bindings": {"schema": "mizan.page-bindings.experimental.v2",
+                     "content": {"en": {"text": {"mode": "route", "module": "inventory",
+                                                 "source": "products", "field": "name",
+                                                 "on_missing": "hide"}}}},
+    }],
+}
+
+ROUTE_CATEGORY_TREE = {
+    "type": "section",
+    "children": [{
+        "type": "columns",
+        "children": [{
+            "type": "column",
+            "repeat": {"schema": "mizan.page-repeat.experimental.v2",
+                       "content": {"en": {"template_id": "n_0123456789abcdef", "module": "inventory",
+                                          "source": "category_products", "category": "route",
+                                          "limit": 8, "on_missing": "hide"}}},
+            "children": [],
+        }],
+    }],
+}
+
+PROBE_PRODUCT = str(uuid.UUID("e5f975ac-32ac-4813-9b35-e43069616c5f"))
+PROBE_CATEGORY = str(uuid.UUID("f6a975ac-32ac-4813-9b35-e43069616c5f"))
+
+
+def fake_route_probe(keys_by_ref):
+    """registry.route_probe replacement: (kind, module, source) -> record keys."""
+    def factory(db):
+        async def sample(context, kind, module, source):
+            return list(keys_by_ref.get((kind, module, source), ()))
+        return sample
+    return factory
+
+
+class RouteProbeDryRunTests(unittest.IsolatedAsyncioTestCase):
+    """Gap register item 16: the approval dry-run re-resolves route-parameterized
+    reads against real currently-exposable records, so record-driven failures
+    refuse the approval instead of first surfacing at visitor request time."""
+
+    async def test_route_item_probe_reruns_resolution_with_record(self):
+        db = db_scripted()
+        pg = page(tree=ROUTE_ITEM_TREE)
+        resolve = AsyncMock(return_value={"type": "section", "children": []})
+        patches = enable_patches(pg) + [
+            patch("app.platform.site.storefront.bindings.resolve_tree", new=resolve),
+            patch("app.platform.site.storefront.registry.route_probe",
+                  new=fake_route_probe({("p", "inventory", "products"): [PROBE_PRODUCT]})),
+        ]
+        for p in patches:
+            p.start()
+        try:
+            token = service.current_tenant_id.set(TID)
+            try:
+                await service.set_connected_data_access(db, PAGE_ID, enabled=True, user_id=UID,
+                                                        audience_version=service.AUDIENCE_POLICY_CONNECTED)
+            finally:
+                service.current_tenant_id.reset(token)
+        finally:
+            for p in patches:
+                p.stop()
+        self.assertEqual(resolve.await_count, 2)
+        dry_ctx = resolve.await_args_list[0].args[2]
+        probe_ctx = resolve.await_args_list[1].args[2]
+        self.assertIsNone(dry_ctx.route_item)
+        self.assertEqual(probe_ctx.route_item, PROBE_PRODUCT)
+        self.assertEqual(probe_ctx.audience, "public")
+
+    async def test_route_probe_failure_refuses_with_reason(self):
+        db = db_scripted()
+        pg = page(tree=ROUTE_ITEM_TREE)
+        resolve = AsyncMock(side_effect=[{"type": "section", "children": []},
+                                         SourceUnavailable("Expanded page is not a valid bounded native tree.")])
+        patches = enable_patches(pg) + [
+            patch("app.platform.site.storefront.bindings.resolve_tree", new=resolve),
+            patch("app.platform.site.storefront.registry.route_probe",
+                  new=fake_route_probe({("p", "inventory", "products"): [PROBE_PRODUCT]})),
+        ]
+        for p in patches:
+            p.start()
+        try:
+            token = service.current_tenant_id.set(TID)
+            try:
+                with self.assertRaises(HTTPException) as ctx:
+                    await service.set_connected_data_access(db, PAGE_ID, enabled=True, user_id=UID,
+                                                            audience_version=service.AUDIENCE_POLICY_CONNECTED)
+            finally:
+                service.current_tenant_id.reset(token)
+        finally:
+            for p in patches:
+                p.stop()
+        self.assertEqual(ctx.exception.status_code, 422)
+        self.assertIn("dynamic template fails when a real published record", ctx.exception.detail)
+
+    async def test_route_probe_skipped_when_nothing_exposable(self):
+        db = db_scripted()
+        pg = page(tree=ROUTE_ITEM_TREE)
+        resolve = AsyncMock(return_value={"type": "section", "children": []})
+        patches = enable_patches(pg) + [
+            patch("app.platform.site.storefront.bindings.resolve_tree", new=resolve),
+            patch("app.platform.site.storefront.registry.route_probe", new=fake_route_probe({})),
+        ]
+        for p in patches:
+            p.start()
+        try:
+            token = service.current_tenant_id.set(TID)
+            try:
+                await service.set_connected_data_access(db, PAGE_ID, enabled=True, user_id=UID,
+                                                        audience_version=service.AUDIENCE_POLICY_CONNECTED)
+            finally:
+                service.current_tenant_id.reset(token)
+        finally:
+            for p in patches:
+                p.stop()
+        self.assertEqual(resolve.await_count, 1)
+        self.assertIsNone(resolve.await_args_list[0].args[2].route_item)
+
+    async def test_route_category_probe_reruns_card_resolution(self):
+        db = db_scripted()
+        pg = page(tree=ROUTE_CATEGORY_TREE)
+        resolve_cards = AsyncMock(return_value={"type": "section", "children": []})
+        patches = [p for p in enable_patches(pg)
+                   if not str(getattr(p, "attribute", "")) == "has_card"] + [
+            patch("app.platform.site.storefront.card_runtime.has_card", return_value=True),
+            patch("app.platform.site.storefront.card_runtime.resolve_cards", new=resolve_cards),
+            patch("app.platform.site.storefront.registry.route_probe",
+                  new=fake_route_probe({("c", "inventory", "category_products"): [PROBE_CATEGORY]})),
+        ]
+        for p in patches:
+            p.start()
+        try:
+            token = service.current_tenant_id.set(TID)
+            try:
+                await service.set_connected_data_access(db, PAGE_ID, enabled=True, user_id=UID,
+                                                        audience_version=service.AUDIENCE_POLICY_CONNECTED)
+            finally:
+                service.current_tenant_id.reset(token)
+        finally:
+            for p in patches:
+                p.stop()
+        self.assertEqual(resolve_cards.await_count, 2)
+        self.assertIsNone(resolve_cards.await_args_list[0].args[2].route_item)
+        self.assertEqual(resolve_cards.await_args_list[1].args[2].route_item, PROBE_CATEGORY)

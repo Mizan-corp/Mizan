@@ -582,6 +582,46 @@ class ConnectedAccessIn(BaseModel):
 AUDIENCE_POLICY_CONNECTED = "mizan.site-audience.connected-data.v1"
 
 
+def _route_references(tree) -> dict[str, set[tuple[str, str]]]:
+    """Route-parameterized reads a published tree performs, by URL segment kind.
+
+    'p': v2 route item bindings (mode "route"), the URL item segment selects
+    the record. 'c': v2 category card-repeat plans (category "route"), the URL
+    category segment filters the list. Defensive shape handling matches
+    bound_sources: anything unrecognized yields no reference; validation of
+    the binding or plan itself happens in check_bound_tree / the dry-run."""
+    found: dict[str, set[tuple[str, str]]] = {"p": set(), "c": set()}
+
+    def visit(node) -> None:
+        if isinstance(node, dict):
+            bindings = node.get("bindings")
+            if isinstance(bindings, dict):
+                content = bindings.get("content")
+                if isinstance(content, dict):
+                    for fields in content.values():
+                        if isinstance(fields, dict):
+                            for binding in fields.values():
+                                if isinstance(binding, dict) and binding.get("mode") == "route":
+                                    module, source = binding.get("module"), binding.get("source")
+                                    if isinstance(module, str) and isinstance(source, str):
+                                        found["p"].add((module, source))
+            for key in ("repeat", "card"):
+                payload = node.get(key)
+                if isinstance(payload, dict):
+                    content = payload.get("content")
+                    if isinstance(content, dict):
+                        for plan in content.values():
+                            if isinstance(plan, dict) and plan.get("category") == "route":
+                                module, source = plan.get("module"), plan.get("source")
+                                if isinstance(module, str) and isinstance(source, str):
+                                    found["c"].add((module, source))
+            for child in node.get("children") or []:
+                visit(child)
+
+    visit(tree)
+    return found
+
+
 def bound_sources(tree) -> list[str]:
     """The sorted module.source pairs a tree reads, from scalar bindings, item
     bindings, repeat plans and card plans, in every language. Defensive shape
@@ -673,6 +713,40 @@ async def set_connected_data_access(db: AsyncSession, page_id: uuid.UUID, *, ena
         except SourceUnavailable as exc:
             raise HTTPException(422, "A data source on this page is not currently exposable to the public: "
                                 f"{exc}. Fix the module's website consent and selection, then approve again.") from None
+        # Route-parameterized probe (gap register item 16): v2 route reads
+        # resolve empty without a route item, so the dry-run above never
+        # exercises them and their first real read used to happen at visitor
+        # request time (this is how the over-full-row expansion failure
+        # reached the visitor). Re-resolve the published tree once per real
+        # currently-exposable record the route segment could name, so
+        # record-driven failures refuse the approval here. A source with
+        # nothing exposable is skipped: the visitor render is empty/hidden
+        # by design then and there is nothing to probe.
+        refs = _route_references(page.published_tree)
+        if refs["p"] or refs["c"]:
+            from .storefront.registry import route_probe
+            sample = route_probe(db)
+        for kind in ("p", "c"):
+            keys: list[str] = []
+            for module, source in sorted(refs[kind]):
+                keys.extend(await sample(ctx, kind, module, source))
+            for key in sorted(set(keys)):
+                probe_ctx = SourceContext(current_tenant_id.get(), "en", ctx.active_modules,
+                                          audience="public", route_item=key)
+                try:
+                    if has_card(page.published_tree):
+                        await resolve_cards(db, page.published_tree, probe_ctx)
+                    elif has_repeat(page.published_tree):
+                        from .storefront.composition import resolve_composition
+                        await resolve_composition(page.published_tree, scalar_registry(db), collection_registry(db),
+                                                  probe_ctx, item_resolver(db))
+                    else:
+                        await resolve_tree(page.published_tree, scalar_registry(db), probe_ctx,
+                                           lambda t: page_problems(t, LANGUAGES), item_resolver(db))
+                except SourceUnavailable as exc:
+                    raise HTTPException(422, "This page's dynamic template fails when a real published record "
+                                        f"loads through its URL: {exc}. Fix the template or the module's website "
+                                        "consent and selection, then approve again.") from None
         theme = await resolved_settings(db)
         await db.execute(text("""
             INSERT INTO site_activation (tenant_id, host, slug, page_path, enabled,

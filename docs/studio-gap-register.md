@@ -184,14 +184,25 @@ per-language copy is not yet authorable (see above).
     now splits clones into sibling rows of at most 6, cloned from the
     template's row with fresh derived identities. Regression:
     test_collection_card_repeats.py::test_more_than_six_cards_split_into_valid_rows.
-16. **Approval dry-run does not exercise route-parameterized reads** — OPEN.
-    set_connected_data_access resolves the published tree with no route item,
-    so v2 route-mode sources (route item, route category) are validated for
-    plan shape and consent gates only; the real per-record read first runs at
-    visitor request time (this is how #15 reached the visitor). Visitor-pair
-    E2E is the required evidence for route-mode pages until the dry-run gains
-    a probe read; any loosening of the consent gates to shortcut this is
-    refused by design.
+16. **Approval dry-run does not exercise route-parameterized reads** —
+    RESOLVED 2026-11-25. set_connected_data_access now re-resolves the
+    published tree once per real currently-exposable record the URL route
+    segment could name (probe read), after the ordinary no-route dry-run:
+    _route_references finds v2 route item bindings and v2 category
+    card-repeat plans, registry.route_probe samples real record identities
+    through inventory's probe_route_items (active, consented under the
+    recorded v4 policy) and probe_route_categories (publication allowlist),
+    and the same branch selection the visitor runtime uses runs against a
+    route_item-carrying public SourceContext. A probe SourceUnavailable
+    refuses the approval 422 with the record-load reason. A source with
+    nothing currently exposable is skipped by design: the visitor render is
+    empty/hidden there and there is nothing to probe. No consent gate was
+    loosened; the probe only makes approval stricter. Regression:
+    test_connected_data_access.py RouteProbeDryRunTests (4: probe reruns
+    with record identity, probe failure refuses with reason, skip when
+    nothing exposable, category probe reruns card resolution) and
+    test_scoped_item_consent.py RouteProbeSamplerTests (5: sampler consent
+    gates, deterministic identities, empty cases).
 
 17. **Publish/enable concurrency test against a real database** — RESOLVED
     2026-11-25. tests/test_public_access_concurrency.py (the real-DB

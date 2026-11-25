@@ -153,3 +153,62 @@ class ScopedItemConsentTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class RouteProbeSamplerTests(unittest.IsolatedAsyncioTestCase):
+    """Approval dry-run probe samplers (gap register item 16): identities of
+    real currently-exposable records the approval re-resolves route templates
+    against. Empty means nothing is exposable and the probe is skipped."""
+
+    async def asyncSetUp(self):
+        self.t = current_tenant_id.set(A)
+        self.ctx = SourceContext(A, 'en', frozenset({'inventory'}), audience='public')
+        self.db = AsyncMock()
+
+    async def asyncTearDown(self):
+        current_tenant_id.reset(self.t)
+
+    async def test_probe_items_empty_without_v4_policy(self):
+        for schema in (None, c.SCHEMA_V2, c.SCHEMA_V3):
+            self.db.scalar.return_value = None if schema is None else policy(schema, [P1])
+            self.assertEqual(await c.probe_route_items(self.db, self.ctx), [], schema)
+            self.assertEqual(await c.probe_route_categories(self.db, self.ctx), [], schema)
+
+    async def test_probe_items_returns_active_consented_identities(self):
+        self.db.scalar.return_value = json.dumps({
+            'schema': c.SCHEMA_V4, 'products': [str(P1), str(P2)],
+            'show_price': False, 'show_image': False, 'show_description': False, 'currency': None})
+        r = MagicMock()
+        r.all.return_value = [(P1,), (P2,)]
+        self.db.execute.return_value = r
+        out = await c.probe_route_items(self.db, self.ctx)
+        self.assertEqual(out, [str(P1), str(P2)])
+        # Only identities: no product row read beyond the id selection.
+        self.assertEqual(self.db.execute.await_count, 1)
+
+    async def test_probe_items_empty_when_consent_has_no_products(self):
+        self.db.scalar.return_value = json.dumps({
+            'schema': c.SCHEMA_V4, 'products': [],
+            'show_price': False, 'show_image': False, 'show_description': False, 'currency': None})
+        self.assertEqual(await c.probe_route_items(self.db, self.ctx), [])
+        self.db.execute.assert_not_awaited()
+
+    async def test_probe_categories_returns_allowlisted_identities(self):
+        cat1 = uuid.UUID('d4e297df-65df-7b46-c867-f75291938e82')
+        cat2 = uuid.UUID('e5f3a8e0-76e0-8c57-d978-05302a049f93')
+        self.db.scalar.side_effect = [
+            json.dumps({'schema': c.SCHEMA_V4, 'products': [str(P1)],
+                        'show_price': False, 'show_image': False, 'show_description': False, 'currency': None}),
+            json.dumps({'schema': 'mizan.inventory-website.experimental.v0',
+                        'products': [str(P1)], 'categories': [str(cat2), str(cat1)]}),
+        ]
+        out = await c.probe_route_categories(self.db, self.ctx)
+        self.assertEqual(out, [str(cat1), str(cat2)])  # deterministic order
+
+    async def test_probe_categories_empty_without_allowlist_row(self):
+        self.db.scalar.side_effect = [
+            json.dumps({'schema': c.SCHEMA_V4, 'products': [str(P1)],
+                        'show_price': False, 'show_image': False, 'show_description': False, 'currency': None}),
+            None,
+        ]
+        self.assertEqual(await c.probe_route_categories(self.db, self.ctx), [])
