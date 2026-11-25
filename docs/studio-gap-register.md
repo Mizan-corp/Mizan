@@ -197,7 +197,14 @@ per-language copy is not yet authorable (see above).
     refuses the approval 422 with the record-load reason. A source with
     nothing currently exposable is skipped by design: the visitor render is
     empty/hidden there and there is nothing to probe. No consent gate was
-    loosened; the probe only makes approval stricter. Regression:
+    loosened; the probe only makes approval stricter.
+    COVERAGE BOUNDS (standing): the probe samples at most 24 records per
+    route source in deterministic identity order. It is NOT an exhaustive
+    validation of every exposable record; a record past the sample bound,
+    or one that becomes exposable after approval, is first read at visitor
+    request time. The visitor runtime stays fail-closed
+    (SourceUnavailable/ProjectionInvalid/ValueError -> unavailable page) as
+    the final gate for anything the probe did not cover. Regression:
     test_connected_data_access.py RouteProbeDryRunTests (4: probe reruns
     with record identity, probe failure refuses with reason, skip when
     nothing exposable, category probe reruns card resolution) and
@@ -362,6 +369,27 @@ register.
 Blocking user decisions: none. The coordinator's 17:37 proposal list
 (SEO, domains, cookie policy settings, notification rules) is NOT
 approved scope and waits for the user's explicit yes.
+
+## Standing debt (unnumbered, survives the numbered closeout)
+
+All 20 numbered items above are RESOLVED. That closeout says nothing about
+the following unnumbered debts, which stay open until each is individually
+re-verified as fixed:
+
+- Whole-directory pytest cross-file isolation failures and the
+  treerender.test.ts failure (Phase 2 ACCEPTANCE DEBT above; "pre-existing"
+  is a temporary label, not an exemption).
+- Full `tsc --noEmit` and the full ERP production vite build OOM on the dev
+  box. A clean ERP production bundle is owed before any hosted publish; the
+  studio-only preview bundle builds fine and proves nothing about the ERP
+  bundle.
+- English-literal and invalid-UX residue in editor chrome (e.g. the motion
+  panel's purple literals off the token scale, item 18 note): cosmetic,
+  tracked here so it is not lost under the numbered closeout.
+- SDK surface and the Wirya rebuild acceptance (Phases 5-6 below): the
+  success criterion is a normal user cloning the full functional
+  allwirya.live in Studio without code; nothing in the numbered closeout
+  claims any part of that.
 
 ## Out of scope by user ruling
 - Salon adapter: stays an honestly labeled placeholder. No salon adapter.
