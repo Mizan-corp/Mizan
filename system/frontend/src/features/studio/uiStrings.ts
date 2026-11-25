@@ -455,6 +455,7 @@ const en:Record<string,string>={
   "الصفحة دي بتعرض بيانات من شغلك. الموافقة بتخلي أي حد يفتح العنوان يشوف البيانات دي من غير تسجيل دخول. المصادر اللي هتتاح بالظبط:":"This page shows data from your business. Approving lets anyone who opens the address see this data without signing in. Exactly these sources will be public:",
   "لو عدّلت الصفحة وضفت مصادر جديدة بعد الموافقة، النشر هيرفض لحد ما توافق على المجموعة الجديدة من هنا.":"If you edit the page and add new sources after approving, publishing is refused until you approve the new set here.",
   "أوافق، خلّي البيانات دي عامة":"I approve, make this data public",
+  "الإتاحة العامة متوقفة دلوقتي. تشغيلها تاني محتاج موافقة جديدة على نفس المصادر المعتمدة.":"Public availability is off right now. Turning it back on takes a fresh approval of the same approved sources.",
   "انتهت الجلسة. سجّل دخول من جديد.":"Your session ended. Sign in again.",
   "الحساب ده مش من حقه يغيّر إتاحة البيانات.":"This account may not change data availability.",
   "اتاحة البيانات اترفضت: ":"Data availability refused: ",
