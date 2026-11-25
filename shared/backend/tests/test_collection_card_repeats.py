@@ -145,6 +145,37 @@ class ExpansionTests(unittest.IsolatedAsyncioTestCase):
         again = columns_of(await p.resolve_repeat(card_tree(), runtime, ctx))
         self.assertEqual([c['id'] for c in again], [c['id'] for c in cards])  # stable across renders
 
+    async def test_more_than_six_cards_split_into_valid_rows(self):
+        """A columns row holds 1..6 columns; 8 items must render as two valid
+        sibling rows (6+2), never one over-full invalid row (live Phase 3 503)."""
+        runtime = rows(*[item('p%d' % i, 'Item %d' % i) for i in range(8)])
+        ctx = r.SourceContext(A, 'en', frozenset({'inventory'}))
+        tree = card_tree()
+        tree['children'][0]['children'][0]['repeat']['content']['en']['limit'] = 8
+        out = await p.resolve_repeat(tree, runtime, ctx)
+        self.assertEqual(manifest.page_problems(out), [])
+        rows_out = out['children']
+        self.assertEqual([len(row['children']) for row in rows_out], [6, 2])
+        names = [c['children'][0]['content']['en']['text'] for row in rows_out for c in row['children']]
+        self.assertEqual(names, ['Item %d' % i for i in range(8)])
+        ids = [row['id'] for row in rows_out] + [n['id'] for row in rows_out for c in row['children'] for n in [c, *c['children']]]
+        self.assertEqual(len(ids), len(set(ids)))
+
+    async def test_route_category_plan_expands_through_route_context(self):
+        """Phase 3 route-parameterized read: a v2 category plan with
+        category='route' resolves through the request's route_item context."""
+        runtime = rows(item('p1', 'Dessert'), item('p2', 'Gateau'))
+        ctx = r.SourceContext(A, 'ar', frozenset({'inventory'}), route_item='3d184be9-0c9e-4c1f-8a7f-e7f5cbfb7a64')
+        tree = card_tree()
+        repeat = tree['children'][0]['children'][0]['repeat']
+        repeat['schema'] = manifest.PAGE_REPEAT_CATEGORY_SCHEMA
+        repeat['content'] = {'ar': {'module': 'inventory', 'source': 'products', 'category': 'route',
+                                    'limit': 3, 'on_missing': 'hide'}}
+        out = await p.resolve_repeat(tree, runtime, ctx)
+        self.assertEqual(manifest.page_problems(out), [])
+        cards = columns_of(out)
+        self.assertEqual([c['children'][0]['content']['ar']['text'] for c in cards], ['Dessert', 'Gateau'])
+
     async def test_hide_and_empty_missing_semantics(self):
         runtime = rows(item('p1', 'NoPrice', price=None, img=None))
         ctx = r.SourceContext(A, 'en', frozenset({'inventory'}))

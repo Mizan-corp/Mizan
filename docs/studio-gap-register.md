@@ -177,6 +177,22 @@ per-language copy is not yet authorable (see above).
     item_resolver(db), pinned by a regression test in
     test_connected_data_access.py.
 
+15. **Card repeat row limit** — RESOLVED 2026-11-25. A columns block holds
+    1..6 columns, but the card repeat wrote limit 8 and expansion produced a
+    single over-full row, so any category/collection with >6 items 503'd at
+    render ("Expanded page is not a valid bounded native tree"). Expansion
+    now splits clones into sibling rows of at most 6, cloned from the
+    template's row with fresh derived identities. Regression:
+    test_collection_card_repeats.py::test_more_than_six_cards_split_into_valid_rows.
+16. **Approval dry-run does not exercise route-parameterized reads** — OPEN.
+    set_connected_data_access resolves the published tree with no route item,
+    so v2 route-mode sources (route item, route category) are validated for
+    plan shape and consent gates only; the real per-record read first runs at
+    visitor request time (this is how #15 reached the visitor). Visitor-pair
+    E2E is the required evidence for route-mode pages until the dry-run gains
+    a probe read; any loosening of the consent gates to shortcut this is
+    refused by design.
+
 ## Execution order for the remaining scope (2026-11-25)
 
 Dependency-ordered. Each phase lists what is verified vs pending; nothing

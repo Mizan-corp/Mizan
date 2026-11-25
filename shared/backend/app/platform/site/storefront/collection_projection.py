@@ -213,8 +213,7 @@ async def expand_card_collection(tree:dict, plan:dict, slots:dict, runtime:Colle
                  'type':'column','children':[_empty_results_node(plan,query)]}
         result=[wrapper]
     index=parent['children'].index(template)
-    parent['children'][index:index+1]=result
-    if not parent['children']:
+    if not result:
         # Every item was hidden: an empty columns row is not a valid native
         # node, so the row itself is dropped (empty sections stay valid).
         def _prune(node):
@@ -223,6 +222,27 @@ async def expand_card_collection(tree:dict, plan:dict, slots:dict, runtime:Colle
                 return True
             return any(_prune(child) for child in node.get('children',[]))
         _prune(static)
+    elif len(result)<=6:
+        parent['children'][index:index+1]=result
+    else:
+        # A columns block holds 1..6 columns. More items than that are split
+        # into sibling rows cloned from the template's row (settings carried,
+        # fresh derived identities), never into an invalid over-full row.
+        rows=[result[i:i+6] for i in range(0,len(result),6)]
+        blocks=[]
+        for row_index,chunk in enumerate(rows):
+            block={key:deepcopy(value) for key,value in parent.items() if key!='children'}
+            block['children']=chunk
+            block['id']=_derived_id(plan['module'],plan['source'],parent['id'],'row%d'%row_index)
+            blocks.append(block)
+        def _replace(node):
+            if parent in node.get('children',[]):
+                at=node['children'].index(parent)
+                node['children'][at:at+1]=blocks
+                return True
+            return any(_replace(child) for child in node.get('children',[]))
+        if not _replace(static):
+            raise SourceUnavailable('Card repeat template row is unreachable.')
     # Includes duplicate generated IDs, global node/layout limits and per-device styles.
     if page_problems(static,('en','ar')) or len(json.dumps(static,allow_nan=False).encode())>200000:
         raise SourceUnavailable('Expanded page is not a valid bounded native tree.')
