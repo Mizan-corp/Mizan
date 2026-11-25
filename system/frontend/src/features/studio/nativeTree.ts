@@ -20,17 +20,20 @@ export function iconItemsProblem(value: unknown): string | null {
 }
 const spacing = ['none','xs','s','m','l','xl'];
 const align = ['start','center','end'];
+const shadow = ['s','m','l'];
+const gradient = ['soft','brand','dark'];
+const hover = ['lift','glow'];
 const widthBasic = ['auto','full','half','third','two_thirds','fit'];
 const widthFull = ['auto','full','half','third','two_thirds','three_fifths','fit'];
 // Deliberately bounded authoring subset, not the complete platform validator.
 const settings: Record<string, Record<string, readonly (string|number|boolean)[]>> = {
-  section:{visible:[true,false],padding:spacing,gap:spacing,background:['background','card','primary','dark','dark_raised'],max_width:['narrow','normal','wide','full'],background_dim:['none','soft','strong']},
+  section:{visible:[true,false],padding:spacing,shadow,gradient,gap:spacing,background:['background','card','primary','dark','dark_raised'],max_width:['narrow','normal','wide','full'],background_dim:['none','soft','strong']},
   columns:{visible:[true,false],columns:[1,2,3,4,5,6],gap:spacing,stack:[true,false],reverse:[true,false],bleed:[true,false],background:['background','card','primary','dark','dark_raised']},
-  column:{visible:[true,false],width:widthBasic,padding:spacing,align,background:['background','card','primary','dark','dark_raised'],rounded:[true,false],min_height:['s','m','l'],background_dim:['none','soft','strong'],background_fit:['cover','end_band'],content_width:['full','three_fifths']},
+  column:{visible:[true,false],width:widthBasic,shadow,gradient,hover,padding:spacing,align,background:['background','card','primary','dark','dark_raised'],rounded:[true,false],min_height:['s','m','l'],background_dim:['none','soft','strong'],background_fit:['cover','end_band'],content_width:['full','three_fifths']},
   heading:{visible:[true,false],level:[1,2,3,4,5,6],align,width:widthFull,size:['auto','s','m','l'],wrap:['normal','balance'],icon:iconNames()},
   text:{visible:[true,false],align,width:widthFull,variant:['body','eyebrow','note','check_list']},
-  image:{visible:[true,false],width:widthBasic,rounded:[true,false],art:['none','sculpture','sculpture_alt']},
-  button:{visible:[true,false],style:['primary','secondary','ghost','soft'],align},
+  image:{visible:[true,false],width:widthBasic,shadow,hover,rounded:[true,false],art:['none','sculpture','sculpture_alt']},
+  button:{visible:[true,false],style:['primary','secondary','ghost','soft'],align,hover},
   icon_list:{visible:[true,false],gap:spacing},
   icon:{visible:[true,false],icon:iconNames(),size:['s','m','l'],tone:['none','primary','dark','card'],align},
 };
