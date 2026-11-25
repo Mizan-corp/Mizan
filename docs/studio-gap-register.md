@@ -155,6 +155,20 @@ per-language copy is not yet authorable (see above).
 12. **Combined pytest runs** of the whole backend test directory show
     cross-file isolation failures (9) unrelated to individual files; run
     affected files individually for signal.
+13. **Import-path correctness (resolved 2026-11-25).** The venv
+    (/tmp/mizan-venv) carries an editable install whose meta-path finder
+    always resolved `app` to /tmp/mizan, a stale non-git snapshot, silently
+    shadowing the working branch in every plain import. Fixed durably: the
+    finder MAPPING now points at /tmp/mizan-push/shared/backend/app.
+    Verified loaded paths: app.framework.manifest and the inventory
+    storefront modules resolve to /tmp/mizan-push/... files. All backend
+    suites were re-run after the fix and pass against the intended code;
+    any passing evidence from before the fix is superseded by that
+    revalidation. Live uvicorn servers (system 8000, website 8001) run
+    with cwd inside /tmp/mizan-push and pick up current code on restart.
+14. **Website-backend public_pages tests** (5) fail at clean HEAD: their
+    request mock predates the ?q/?lang feature (no query_params). Same
+    acceptance-debt rule as #12: resolve before final acceptance.
 
 ## Execution order for the remaining scope (2026-11-25)
 
