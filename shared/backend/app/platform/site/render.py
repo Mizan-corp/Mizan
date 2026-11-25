@@ -421,6 +421,7 @@ _BASE_CSS += """
 .mz-node{--mz-duration:.6s;--mz-delay:0s}.mz-animation-fade{animation:mz-fade var(--mz-duration,.6s) ease-out var(--mz-delay,0s) both}.mz-animation-rise{animation:mz-rise var(--mz-duration,.6s) ease-out var(--mz-delay,0s) both}.mz-animation-slide{animation:mz-slide var(--mz-duration,.6s) ease-out var(--mz-delay,0s) both}.mz-animation-zoom{animation:mz-zoom var(--mz-duration,.6s) ease-out var(--mz-delay,0s) both}.mz-animation-speed-quick{--mz-duration:.3s}.mz-animation-speed-normal{--mz-duration:.6s}.mz-animation-speed-slow{--mz-duration:1s}.mz-animation-delay-none{--mz-delay:0s}.mz-animation-delay-short{--mz-delay:.15s}.mz-animation-delay-long{--mz-delay:.35s}@keyframes mz-fade{from{opacity:0}to{opacity:1}}@keyframes mz-rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}@keyframes mz-slide{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:none}}@keyframes mz-zoom{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}@media(prefers-reduced-motion:reduce){.mz-animation-fade,.mz-animation-rise,.mz-animation-slide,.mz-animation-zoom{animation:none!important;opacity:1;transform:none}}
 """
 _BASE_CSS += ".mz-header-centered{flex-direction:column;text-align:center}.mz-footer-stacked{flex-direction:column;align-items:center;text-align:center}"
+_BASE_CSS += ".mz-header-rich{display:block;padding:0}.mz-header-rich .mz-header-main{display:flex;align-items:center;gap:20px;padding:14px 32px;flex-wrap:wrap}.mz-header-search{flex:1;min-width:200px;max-width:560px;display:flex;align-items:center;gap:8px;padding:5px 6px;padding-inline-start:16px;border-radius:999px;border:1px solid color-mix(in srgb,currentColor 18%,transparent);background:color-mix(in srgb,currentColor 5%,transparent)}.mz-header-search input{flex:1;min-width:0;border:0;background:none;font:inherit;color:inherit;outline:none}.mz-header-search input::placeholder{color:color-mix(in srgb,currentColor 55%,transparent)}.mz-header-search button{flex:none;width:36px;height:36px;border:0;border-radius:999px;display:grid;place-items:center;cursor:pointer;background:var(--primary,#651E2C);color:var(--primary-foreground,#FAF6F0)}.mz-header-search button svg{width:18px;height:18px}.mz-header-icons{display:flex;align-items:center;gap:4px}.mz-header-icon{width:40px;height:40px;display:grid;place-items:center;border-radius:50%;color:inherit}.mz-header-icon:hover{background:color-mix(in srgb,currentColor 10%,transparent)}.mz-header-icon svg{width:20px;height:20px}.mz-header-bar{display:flex;align-items:center;gap:18px;padding:10px 32px;border-top:1px solid color-mix(in srgb,currentColor 10%,transparent);overflow-x:auto}.mz-header-bar nav{display:flex;gap:16px;flex:1;min-width:0}.mz-header-bar nav a{white-space:nowrap;font-size:14px;min-height:44px;display:inline-flex;align-items:center}.mz-header-cta{white-space:nowrap;background:var(--primary,#651E2C);color:var(--primary-foreground,#FAF6F0);padding:8px 16px;border-radius:var(--radius,8px);font-size:14px;text-decoration:none}@media(max-width:768px){.mz-header-rich .mz-header-main{padding:12px 16px;gap:12px}.mz-header-search{order:9;flex-basis:100%;max-width:none}.mz-header-bar{padding:8px 16px;gap:12px}}"
 _BASE_CSS += ".mz-site-logo{height:32px;width:auto}.mz-site-footer a{color:inherit;text-decoration:none}.mz-footer-groups{display:flex;gap:32px;flex-wrap:wrap}.mz-footer-group{display:flex;flex-direction:column;gap:10px}.mz-footer-group-title{font-weight:650}"
 for _token, _size in _SPACER_PX.items():
     _BASE_CSS += f".mz-padding-{_token}{{padding:{_size}px}}.mz-gap-{_token}{{gap:{_size}px}}.mz-height-{_token} .mz-spacer{{height:{_size}px}}"
@@ -460,6 +461,23 @@ def _theme_links(entries, limit: int = 8, link_base: str | None = None) -> list:
     return links
 
 
+
+_HEADER_ICONS = {
+    "whatsapp": '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+    "cart": '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+    "heart": '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
+    "user": '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    "phone": '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+    "globe": '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+    "search": '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+}
+
+
+def _header_icon(name: str) -> str:
+    path = _HEADER_ICONS.get(name, _HEADER_ICONS["globe"])
+    return ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+            f'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{path}</svg>')
+
 def _theme_chrome(theme: dict | None, link_base: str | None = None) -> tuple[str, str]:
     """Constrained v0 site chrome: escaped brand, allow-listed links; no markup from the theme."""
     if not isinstance(theme, dict):
@@ -475,11 +493,48 @@ def _theme_chrome(theme: dict | None, link_base: str | None = None) -> tuple[str
         actions = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(header.get("actions"), 4, link_base=link_base))
         nav = f"<nav>{links}</nav>" if links else ""
         act = f'<div class="mz-site-actions">{actions}</div>' if actions else ""
-        if logo_html or brand_html or nav or act:
+        search_html = ""
+        if header.get("search_enabled") is True:
+            target = header.get("search_target")
+            if isinstance(target, str) and target.startswith("/") and page_url(target, "href"):
+                placeholder = str(header.get("search_placeholder") or "")[:80]
+                search_html = (f'<form class="mz-header-search" role="search" action="{_esc(_site_link(target, link_base))}" method="get">'
+                               f'<input type="search" name="q" placeholder="{_esc(placeholder)}" aria-label="{_esc(placeholder)}">'
+                               f'<button type="submit" aria-label="{_esc(placeholder or "Search")}">{_header_icon("search")}</button></form>')
+        icons_html = ""
+        icons = header.get("icons")
+        if isinstance(icons, list):
+            parts = []
+            for entry in icons[:6]:
+                if not isinstance(entry, dict):
+                    continue
+                href = _safe_href(entry.get("href"))
+                label = entry.get("label")
+                name = entry.get("icon")
+                if href is None or not isinstance(label, str) or not label.strip() or name not in _HEADER_ICONS:
+                    continue
+                parts.append(f'<a class="mz-header-icon" href="{_esc(_site_link(href, link_base))}" aria-label="{_esc(label.strip()[:40])}" title="{_esc(label.strip()[:40])}">{_header_icon(str(name))}</a>')
+            if parts:
+                icons_html = f'<div class="mz-header-icons">{"".join(parts)}</div>'
+        bar_html = ""
+        bar_links = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(header.get("bar_links"), 12, link_base=link_base))
+        cta_label = header.get("bar_cta_label")
+        cta_href = _safe_href(header.get("bar_cta_href"))
+        cta_html = ""
+        if isinstance(cta_label, str) and cta_label.strip() and cta_href is not None:
+            cta_html = f'<a class="mz-header-cta" href="{_esc(_site_link(cta_href, link_base))}">{_esc(cta_label.strip()[:40])}</a>'
+        if bar_links or cta_html:
+            bar_nav = f"<nav>{bar_links}</nav>" if bar_links else ""
+            bar_html = f'<div class="mz-header-bar">{bar_nav}{cta_html}</div>'
+        if logo_html or brand_html or nav or act or search_html or icons_html or bar_html:
             header_class = "mz-site-header mz-header-centered" if header.get("layout") == "centered" else "mz-site-header"
             if header.get("surface") == "dark":
                 header_class += " mz-site-header-dark"
-            head_html = f'<header class="{header_class}">{logo_html}{brand_html}{nav}{act}</header>'
+            if search_html or icons_html or bar_html:
+                header_class += " mz-header-rich"
+                head_html = f'<header class="{header_class}"><div class="mz-header-main">{logo_html}{brand_html}{search_html}{nav}{act}{icons_html}</div>{bar_html}</header>'
+            else:
+                head_html = f'<header class="{header_class}">{logo_html}{brand_html}{nav}{act}</header>'
     footer = theme.get("footer")
     foot_html = ""
     if isinstance(footer, dict):

@@ -237,6 +237,8 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
   return <div id={node.id} className={cls} style={Object.keys(nodeStyle).length ? nodeStyle : undefined}>{inner}</div>;
 }
 
+export type HeaderIconName = 'whatsapp'|'cart'|'heart'|'user'|'phone'|'globe'|'search';
+
 export interface ThemeChrome {
   layout?: 'inline'|'centered';
   surface?: 'default'|'dark';
@@ -244,6 +246,28 @@ export interface ThemeChrome {
   logo?: string;
   links?: { label: string; href: string }[];
   actions?: { label: string; href: string }[];
+  search_enabled?: boolean;
+  search_target?: string;
+  search_placeholder?: string;
+  icons?: { icon: HeaderIconName; label: string; href: string }[];
+  bar_links?: { label: string; href: string }[];
+  bar_cta_label?: string;
+  bar_cta_href?: string;
+}
+
+export const HEADER_ICON_PATHS: Record<HeaderIconName, string> = {
+  whatsapp: 'M7.9 20A9 9 0 1 0 4 16.1L2 22Z',
+  cart: 'M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12M8 21a1 1 0 1 0 0-.01M19 21a1 1 0 1 0 0-.01',
+  heart: 'M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z',
+  user: 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0 .01',
+  phone: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z',
+  globe: 'M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20M12 2a10 10 0 1 0 0 .01',
+  search: 'M11 3a8 8 0 1 0 0 .01M21 21l-4.3-4.3',
+};
+
+export function HeaderIcon({ name }: { name: string }) {
+  const path = HEADER_ICON_PATHS[(name as HeaderIconName)] ?? HEADER_ICON_PATHS.globe;
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path}/></svg>;
 }
 
 export interface ThemeSpec {
@@ -299,13 +323,43 @@ export function ThemeHeader({ header }: { header?: ThemeChrome }) {
   const actions = cleanLinks(header.actions, 4);
   const brand = header.brand ? String(header.brand).slice(0, 80) : '';
   const logo = header.logo ? safeUrl(header.logo, 'url') : null;
-  if (!logo && !brand && !links.length && !actions.length) return null;
+  const searchTarget = header.search_enabled && header.search_target ? safeUrl(header.search_target, 'href') : null;
+  const searchPlaceholder = String(header.search_placeholder ?? '').slice(0, 80);
+  const icons = (header.icons ?? []).slice(0, 6)
+    .map(e => ({ icon: String(e?.icon ?? ''), href: safeUrl(e?.href, 'href'), label: String(e?.label ?? '').trim().slice(0, 40) }))
+    .filter((e): e is { icon: string; href: string; label: string } => !!e.href && !!e.label && e.icon in HEADER_ICON_PATHS);
+  const barLinks = cleanLinks(header.bar_links, 12);
+  const ctaLabel = String(header.bar_cta_label ?? '').trim().slice(0, 40);
+  const ctaHref = header.bar_cta_href ? safeUrl(header.bar_cta_href, 'href') : null;
+  const rich = !!(searchTarget || icons.length || barLinks.length || (ctaLabel && ctaHref));
+  if (!logo && !brand && !links.length && !actions.length && !rich) return null;
+  if (!rich) {
+    return (
+      <header className={`mz-site-header${header?.layout==='centered'?' mz-header-centered':''}${header?.surface==='dark'?' mz-site-header-dark':''}`}>
+        {logo && <img className="mz-site-logo" src={logo} alt="" />}
+        {brand && <span className="mz-site-brand">{brand}</span>}
+        {!!links.length && <nav>{links.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</nav>}
+        {!!actions.length && <div className="mz-site-actions">{actions.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</div>}
+      </header>
+    );
+  }
   return (
-    <header className={`mz-site-header${header?.layout==='centered'?' mz-header-centered':''}${header?.surface==='dark'?' mz-site-header-dark':''}`}>
-      {logo && <img className="mz-site-logo" src={logo} alt="" />}
-      {brand && <span className="mz-site-brand">{brand}</span>}
-      {!!links.length && <nav>{links.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</nav>}
-      {!!actions.length && <div className="mz-site-actions">{actions.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</div>}
+    <header className={`mz-site-header mz-header-rich${header?.surface==='dark'?' mz-site-header-dark':''}`}>
+      <div className="mz-header-main">
+        {logo && <img className="mz-site-logo" src={logo} alt="" />}
+        {brand && <span className="mz-site-brand">{brand}</span>}
+        {searchTarget && <form className="mz-header-search" role="search" action={searchTarget ?? undefined} method="get" onSubmit={e => e.preventDefault()}>
+          <input type="search" name="q" placeholder={searchPlaceholder} aria-label={searchPlaceholder} />
+          <button type="submit" aria-label={searchPlaceholder || 'Search'}><HeaderIcon name="search" /></button>
+        </form>}
+        {!!links.length && <nav>{links.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</nav>}
+        {!!actions.length && <div className="mz-site-actions">{actions.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</div>}
+        {!!icons.length && <div className="mz-header-icons">{icons.map((ic, i) => <a key={i} className="mz-header-icon" href={ic.href} aria-label={ic.label} title={ic.label} onClick={e => e.preventDefault()}><HeaderIcon name={ic.icon} /></a>)}</div>}
+      </div>
+      {(!!barLinks.length || (ctaLabel && ctaHref)) && <div className="mz-header-bar">
+        {!!barLinks.length && <nav>{barLinks.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</nav>}
+        {ctaLabel && ctaHref && <a className="mz-header-cta" href={ctaHref} onClick={e => e.preventDefault()}>{ctaLabel}</a>}
+      </div>}
     </header>
   );
 }

@@ -264,6 +264,7 @@ async def reopen(db: AsyncSession, page_id: uuid.UUID) -> SitePage:
 
 HEX = re.compile(r"#[0-9a-fA-F]{6}")
 COLOR_TOKENS = {"background", "foreground", "card", "primary", "primary-foreground", "dark", "dark-foreground", "dark-raised"}
+HEADER_ICON_NAMES = ("whatsapp", "cart", "heart", "user", "phone", "globe", "search")
 FONT_FAMILIES = ("sans-serif", "serif", "monospace")
 MAX_SETTINGS_BYTES = 20_000
 
@@ -336,6 +337,47 @@ def check_settings(value) -> dict:
             if header["surface"] not in ("default", "dark"):
                 raise HTTPException(422, "Invalid header surface")
             out["header"]["surface"] = header["surface"]
+        if "search_enabled" in header:
+            if not isinstance(header["search_enabled"], bool):
+                raise HTTPException(422, "بحث الترويسة غير صالح")
+            out["header"]["search_enabled"] = header["search_enabled"]
+        search_target = header.get("search_target")
+        if search_target is not None and search_target != "":
+            if (not isinstance(search_target, str) or len(search_target) > 200
+                    or not search_target.startswith("/") or not page_url(search_target, "href")):
+                raise HTTPException(422, "وجهة بحث الترويسة غير صالحة")
+            out["header"]["search_target"] = search_target
+        search_placeholder = header.get("search_placeholder")
+        if search_placeholder is not None:
+            if not isinstance(search_placeholder, str) or len(search_placeholder.strip()) > 80:
+                raise HTTPException(422, "نص بحث الترويسة غير صالح")
+            out["header"]["search_placeholder"] = search_placeholder.strip()
+        icons = header.get("icons")
+        if icons is not None:
+            if not isinstance(icons, list) or len(icons) > 6:
+                raise HTTPException(422, "أيقونات الترويسة غير صالحة")
+            checked_icons = []
+            for entry in icons:
+                if not isinstance(entry, dict) or entry.get("icon") not in HEADER_ICON_NAMES:
+                    raise HTTPException(422, "أيقونات الترويسة غير صالحة")
+                pair = _check_links([{"label": entry.get("label"), "href": entry.get("href")}], 1)
+                if not pair:
+                    raise HTTPException(422, "أيقونات الترويسة غير صالحة")
+                checked_icons.append({"icon": entry["icon"], "label": pair[0]["label"], "href": pair[0]["href"]})
+            out["header"]["icons"] = checked_icons
+        if "bar_links" in header:
+            out["header"]["bar_links"] = _check_links(header.get("bar_links"), 12)
+        cta_label = header.get("bar_cta_label")
+        if cta_label is not None:
+            if not isinstance(cta_label, str) or len(cta_label.strip()) > 40:
+                raise HTTPException(422, "زر شريط الترويسة غير صالح")
+            if cta_label.strip():
+                out["header"]["bar_cta_label"] = cta_label.strip()
+        cta_href = header.get("bar_cta_href")
+        if cta_href is not None and cta_href != "":
+            if not isinstance(cta_href, str) or not page_url(cta_href, "href"):
+                raise HTTPException(422, "رابط زر شريط الترويسة غير صالح")
+            out["header"]["bar_cta_href"] = cta_href
     footer = value.get("footer")
     if footer is not None:
         if not isinstance(footer, dict):
