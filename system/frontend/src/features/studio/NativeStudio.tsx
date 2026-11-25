@@ -8,6 +8,7 @@ import NativeRepeatControls from './NativeRepeatControls';
 import NativeDataControls from './NativeDataControls';
 import NativeItemControls from './NativeItemControls';
 import {hasBindings,changeBinding,changeItemBinding,changeRepeat,changeCardRepeat,validResolvedTree,itemBindingSchema,type NativeBinding,type NativeItemBinding,type NativeRepeatPlan,type NativeCardSlots,type NativeCardRepeatPlan} from './nativeBindings';
+import {needsWiderApproval} from './connectedApproval';
 import {updatedPageTitles,pageTitlesKey} from './pageTitles';
 import { useEffect, useRef, useState } from 'react';
 import { changeStructure, childTypes, newNativeId, type StructureEdit } from './nativeStructure';
@@ -224,9 +225,10 @@ export default function NativeStudio({apiBase='/__studio/api',previewLabel:_prev
     catch(e){setPubError(e instanceof SiteApiError?(e.isAuth?t('انتهت الجلسة. سجّل دخول من جديد.'):e.isForbidden?t('الحساب ده مش من حقه يغيّر إتاحة البيانات.'):(arPreflight(e.detail||'')||(e.isConflict?t('اتاحة البيانات اترفضت: ')+(e.detail||''):e.isInvalid?t('مراجعة العرض العام رفضت: ')+(e.detail||''):e.message))):t('تعذّر تغيير إتاحة البيانات. حاول تاني.'))}
     finally{setPubBusy(false)}
   };
+  const widerApprovalNeeded=needsWiderApproval(publishedSources,pubAccess);
   const connectedSection=publishedBound&&pubAccess?<div className="mz-connected-access">
     <strong>{t('بيانات من شغلك على الصفحة')}</strong>
-    {pubAccess.connected_data?<>
+    {pubAccess.connected_data&&!widerApprovalNeeded?<>
       <p>{t('الصفحة دي متاحة للعامة ببياناتها المتصلة. أي حد يفتح العنوان يشوف البيانات دي من غير تسجيل دخول. المصادر المعتمدة:')}</p>
       <ul>{(pubAccess.sources??[]).map(s=><li key={s}><code dir="ltr">{s}</code></li>)}</ul>
       <button className="mz-btn ghost" disabled={pubBusy} onClick={()=>void toggleConnected(false)}>{t('وقّف عرض البيانات للعامة')}</button>
