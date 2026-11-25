@@ -7,7 +7,7 @@ import WebsiteModuleSettings from './WebsiteModuleSettings';
 import NativeRepeatControls from './NativeRepeatControls';
 import NativeDataControls from './NativeDataControls';
 import NativeItemControls from './NativeItemControls';
-import {hasBindings,changeBinding,changeItemBinding,changeRepeat,changeCardRepeat,validResolvedTree,itemBindingSchema,type NativeBinding,type NativeItemBinding,type NativeRepeatPlan,type NativeCardSlots,type NativeCardRepeatPlan} from './nativeBindings';
+import {hasBindings,changeBinding,changeItemBinding,changeRepeat,changeCardRepeat,validResolvedTree,itemBindingSchema,type NativeBinding,type NativeItemBinding,type NativeRouteItemBinding,type NativeRepeatPlan,type NativeCardSlots,type NativeCardRepeatPlan} from './nativeBindings';
 import {needsWiderApproval} from './connectedApproval';
 import {updatedPageTitles,pageTitlesKey} from './pageTitles';
 import { useEffect, useRef, useState } from 'react';
@@ -126,7 +126,7 @@ export default function NativeStudio({apiBase='/__studio/api',previewLabel:_prev
     if(!history||!node)return;
     try{const tree=changeBinding(history.tree,node.id,lang,binding);assertNativeTree(tree);setHistory({tree,past:[...history.past.slice(-29),history.tree],future:[]});}catch(e){setNotice(e instanceof Error?e.message:'Binding refused.')}
   };
-  const itemBindingChange=(binding:NativeItemBinding|null)=>{
+  const itemBindingChange=(binding:NativeItemBinding|NativeRouteItemBinding|null)=>{
     if(!history||!node)return;
     try{const tree=changeItemBinding(history.tree,node.id,lang,binding);assertNativeTree(tree);setHistory({tree,past:[...history.past.slice(-29),history.tree],future:[]});}catch(e){setNotice(e instanceof Error?e.message:'Binding refused.')}
   };

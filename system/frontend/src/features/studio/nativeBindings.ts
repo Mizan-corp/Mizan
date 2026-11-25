@@ -10,11 +10,24 @@ export function bindingProblem(value:unknown,type:string):boolean{
  return Object.entries(x.content).some(([lang,f])=>!['en','ar'].includes(lang)||!f||Object.keys(f).join()!=='text'||!f.text||Object.keys(f.text).sort().join()!=='field,mode,module,on_missing,source'||f.text.mode!=='dynamic'||!['hide','empty'].includes(f.text.on_missing)||!Object.entries({module:f.text.module,source:f.text.source,field:f.text.field}).every(([k,v])=>typeof v==='string'&&(k==='module'?/^[a-z][a-z0-9_]{0,47}(\.[a-z][a-z0-9_]{0,47})?$/:/^[a-z][a-z0-9_]{0,47}$/).test(v)));
 }
 export const itemBindingSchema='mizan.page-bindings.experimental.v1';
-export type NativeItemBinding={mode:'dynamic';module:string;source:string;item_key:string;field:'name'|'price'|'image';on_missing:'hide'|'empty'};
+export type NativeItemBinding={mode:'dynamic';module:string;source:string;item_key:string;field:'name'|'price'|'image'|'description';on_missing:'hide'|'empty'};
 export type NativeItemBindings={schema:typeof itemBindingSchema;content:Partial<Record<'en'|'ar',Record<string,NativeItemBinding>>>};
 // Which content field each node type may bind to a consented record, and which
 // provider fields may fill it. Mirrors the platform manifest allowlist.
-export const itemBindingTargets:Record<string,Record<string,ReadonlyArray<NativeItemBinding['field']>>>={heading:{text:['name']},text:{html:['name','price']},image:{src:['image']}};
+export const itemBindingTargets:Record<string,Record<string,ReadonlyArray<NativeItemBinding['field']>>>={heading:{text:['name']},text:{html:['name','price','description']},image:{src:['image']}};
+// v2 route mode ("current item"): the visitor URL's item segment selects the
+// record, so the declaration carries no pinned item_key. Mirrors the manifest.
+export const itemRouteBindingSchema='mizan.page-bindings.experimental.v2';
+export type NativeRouteItemBinding={mode:'route';module:string;source:string;field:'name'|'price'|'image'|'description';on_missing:'hide'|'empty'};
+export type NativeRouteItemBindings={schema:typeof itemRouteBindingSchema;content:Partial<Record<'en'|'ar',Record<string,NativeRouteItemBinding>>>};
+export const itemRouteBindingTargets=itemBindingTargets;
+export function itemRouteBindingProblem(value:unknown,type:string):boolean{
+ if(!value||typeof value!=='object'||Array.isArray(value))return true;
+ const x=value as NativeRouteItemBindings;
+ if(Object.keys(x).sort().join()!=='content,schema'||x.schema!==itemRouteBindingSchema||!x.content||typeof x.content!=='object'||Array.isArray(x.content)||!Object.keys(x.content).length)return true;
+ const target=itemRouteBindingTargets[type];if(!target)return true;
+ return Object.entries(x.content).some(([lang,f])=>!['en','ar'].includes(lang)||!f||typeof f!=='object'||Array.isArray(f)||Object.keys(f).join()!==Object.keys(target).join()||Object.entries(f).some(([field,b])=>!b||Object.keys(b).sort().join()!=='field,mode,module,on_missing,source'||b.mode!=='route'||!['hide','empty'].includes(b.on_missing)||!target[field].includes(b.field)||!Object.entries({module:b.module,source:b.source}).every(([k,v])=>typeof v==='string'&&(k==='module'?/^[a-z][a-z0-9_]{0,47}(\.[a-z][a-z0-9_]{0,47})?$/:/^[a-z][a-z0-9_]{0,47}$/).test(v))));
+}
 export function itemBindingProblem(value:unknown,type:string):boolean{
  if(!value||typeof value!=='object'||Array.isArray(value))return true;
  const x=value as NativeItemBindings;
@@ -22,15 +35,18 @@ export function itemBindingProblem(value:unknown,type:string):boolean{
  const target=itemBindingTargets[type];if(!target)return true;
  return Object.entries(x.content).some(([lang,f])=>!['en','ar'].includes(lang)||!f||typeof f!=='object'||Array.isArray(f)||Object.keys(f).join()!==Object.keys(target).join()||Object.entries(f).some(([field,b])=>!b||Object.keys(b).sort().join()!=='field,item_key,mode,module,on_missing,source'||b.mode!=='dynamic'||!['hide','empty'].includes(b.on_missing)||!target[field].includes(b.field)||!/^[A-Za-z0-9_-]{1,64}$/.test(b.item_key)||!Object.entries({module:b.module,source:b.source}).every(([k,v])=>typeof v==='string'&&(k==='module'?/^[a-z][a-z0-9_]{0,47}(\.[a-z][a-z0-9_]{0,47})?$/:/^[a-z][a-z0-9_]{0,47}$/).test(v))));
 }
-export function changeItemBinding(tree:PageNode,id:string,language:'en'|'ar',binding:NativeItemBinding|null):PageNode{
+export function changeItemBinding(tree:PageNode,id:string,language:'en'|'ar',binding:NativeItemBinding|NativeRouteItemBinding|null):PageNode{
  const next=structuredClone(tree);const visit=(n:PageNode):boolean=>{if(n.id===id){
   const target=itemBindingTargets[n.type];if(!target||n.repeat||n.card)throw Error('Remove collection or cards before item binding.');
   const field=Object.keys(target)[0];
-  if(n.bindings&&n.bindings.schema!==itemBindingSchema)throw Error('Remove the existing binding first.');
+  const schema=binding?.mode==='route'?itemRouteBindingSchema:itemBindingSchema;
+  if(n.bindings&&n.bindings.schema!==itemBindingSchema&&n.bindings.schema!==itemRouteBindingSchema)throw Error('Remove the existing binding first.');
+  if(n.bindings&&binding&&n.bindings.schema!==schema)throw Error('Remove the existing binding first.');
+  if(n.bindings&&!binding&&n.bindings.schema!==itemBindingSchema&&n.bindings.schema!==itemRouteBindingSchema)throw Error('Remove the existing binding first.');
   if(binding&&!target[field].includes(binding.field))throw Error('Field not bindable to this element.');
-  const content:Partial<Record<'en'|'ar',Record<string,NativeItemBinding>>>={...(n.bindings?.schema===itemBindingSchema?(n.bindings as NativeItemBindings).content:{})};
+  const content:Partial<Record<'en'|'ar',Record<string,NativeItemBinding|NativeRouteItemBinding>>>={...((n.bindings?.schema===itemBindingSchema||n.bindings?.schema===itemRouteBindingSchema)?(n.bindings as NativeItemBindings|NativeRouteItemBindings).content:{})} as Partial<Record<'en'|'ar',Record<string,NativeItemBinding|NativeRouteItemBinding>>>;
   if(binding)content[language]={[field]:structuredClone(binding)};else delete content[language];
-  if(Object.keys(content).length)n.bindings={schema:itemBindingSchema,content};else delete n.bindings;return true;}return(n.children??[]).some(visit);};
+  if(Object.keys(content).length)n.bindings={schema,content} as NativeItemBindings|NativeRouteItemBindings;else delete n.bindings;return true;}return(n.children??[]).some(visit);};
  if(!visit(next))throw Error('Element not found.');return next;
 }
 export function hasBindings(tree:PageNode):boolean{return !!tree.bindings||!!tree.repeat||!!tree.card||(tree.children??[]).some(hasBindings);}
@@ -46,7 +62,7 @@ function safeRepeatMedia(value:string):boolean{
 }
 /** Row carrying an active v1 card template; the backend prunes it when every item is hidden. */
 function containsCardRepeat(node:PageNode,language:'en'|'ar'):boolean{
- return (node.repeat?.schema===repeatCardSchema&&!!node.repeat.content[language])||(node.children??[]).some(c=>containsCardRepeat(c,language));
+ return ((node.repeat?.schema===repeatCardSchema||node.repeat?.schema===repeatCategorySchema)&&!!node.repeat.content[language])||(node.children??[]).some(c=>containsCardRepeat(c,language));
 }
 /** One expanded v1 card: the template column with derived ids and bounded typed fills only. */
 function validCardClone(template:PageNode,clone:PageNode,language:'en'|'ar'):boolean{
@@ -89,7 +105,7 @@ function validResolvedScalars(source:PageNode,resolved:PageNode,language:'en'|'a
   if(!same(expected,b.content))return false;
   const kids=b.children??[],original=a.children??[];let index=0;
   for(const [originalIndex,child] of original.entries()){
-   const cardRepeat=child.repeat?.schema===repeatCardSchema?child.repeat:undefined;
+   const cardRepeat=(child.repeat?.schema===repeatCardSchema||child.repeat?.schema===repeatCategorySchema)?child.repeat:undefined;
    if(cardRepeat?.content[language]){let count=0;while(index<kids.length&&kids[index].id!==original[originalIndex+1]?.id&&/^n_[a-f0-9]{16}$/.test(kids[index].id)&&kids[index].id!==child.id){if(++count>cardRepeat.content[language]!.limit||!validCardClone(child,kids[index],language))return false;index++;}if(!count&&original.length===1)return false;continue;}
    const repeat=child.repeat?.schema===repeatSchema?child.repeat?.content[language]:undefined;
    if(repeat){let count=0;while(index<kids.length&&kids[index].id!==original[originalIndex+1]?.id&&/^n_[a-f0-9]{16}$/.test(kids[index].id)&&kids[index].id!==child.id){const generated=kids[index];const value=generated.content?.[language]?.text;if(typeof value!=='string'||value.length>200||++count>repeat.limit)return false;const expected=structuredClone(child);delete expected.repeat;expected.id=generated.id;expected.content[language]={...expected.content[language],text:value};if(!same(expected,generated))return false;index++;}continue;}
@@ -103,18 +119,21 @@ export const repeatSchema='mizan.page-repeat.experimental.v0';
 export type NativeRepeatPlan={module:string;source:string;field:string;limit:number;on_missing:'hide'|'empty'};
 export type NativeRepeat={schema:typeof repeatSchema;content:Partial<Record<'en'|'ar',NativeRepeatPlan>>};
 export const repeatCardSchema='mizan.page-repeat.experimental.v1';
+export const repeatCategorySchema='mizan.page-repeat.experimental.v2';
 export type NativeCardSlots={heading:string;text?:string;image?:string};
 export type NativeCardRepeatPlan={module:string;source:string;limit:number;on_missing:'hide'|'empty'};
-export type NativeCardRepeat={schema:typeof repeatCardSchema;slots:NativeCardSlots;content:Partial<Record<'en'|'ar',NativeCardRepeatPlan>>};
+export type NativeCategoryRepeatPlan={module:string;source:string;category:'route';limit:number;on_missing:'hide'|'empty'};
+export type NativeCardRepeat={schema:typeof repeatCardSchema|typeof repeatCategorySchema;slots:NativeCardSlots;content:Partial<Record<'en'|'ar',NativeCardRepeatPlan|NativeCategoryRepeatPlan>>};
 export function cardRepeatProblem(value:unknown,type:string):boolean{
  if(!value||typeof value!=='object'||Array.isArray(value))return true;const v=value as NativeCardRepeat;
- if(type!=='column'||Object.keys(v).sort().join()!=='content,schema,slots'||v.schema!==repeatCardSchema)return true;
+ if(type!=='column'||Object.keys(v).sort().join()!=='content,schema,slots'||(v.schema!==repeatCardSchema&&v.schema!==repeatCategorySchema))return true;
  const slots=v.slots;if(!slots||typeof slots!=='object'||Array.isArray(slots))return true;
  const keys=Object.keys(slots);
  if(!keys.includes('heading')||keys.some(k=>!['heading','text','image'].includes(k)))return true;
  if(!Object.values(slots).every(s=>typeof s==='string'&&/^[a-z][a-z0-9_]{0,47}$/.test(s)))return true;
  if(!v.content||typeof v.content!=='object'||Array.isArray(v.content)||!Object.keys(v.content).length)return true;
- return Object.entries(v.content).some(([lang,p])=>!['en','ar'].includes(lang)||!p||Object.keys(p).sort().join()!=='limit,module,on_missing,source'||!Number.isInteger(p.limit)||p.limit<1||p.limit>24||!['hide','empty'].includes(p.on_missing)||![p.module,p.source].every(s=>typeof s==='string'&&/^[a-z][a-z0-9_]{0,47}$/.test(s)));
+ const planKeys=v.schema===repeatCategorySchema?'category,limit,module,on_missing,source':'limit,module,on_missing,source';
+ return Object.entries(v.content).some(([lang,p])=>!['en','ar'].includes(lang)||!p||Object.keys(p).sort().join()!==planKeys||(v.schema===repeatCategorySchema&&(p as NativeCategoryRepeatPlan).category!=='route')||!Number.isInteger(p.limit)||p.limit<1||p.limit>24||!['hide','empty'].includes(p.on_missing)||![p.module,p.source].every(s=>typeof s==='string'&&/^[a-z][a-z0-9_]{0,47}$/.test(s)));
 }
 /** Template column children must match the declared typed slots exactly. */
 export function cardSlotProblem(children:PageNode[]|undefined,slots:NativeCardSlots):boolean{
@@ -122,7 +141,7 @@ export function cardSlotProblem(children:PageNode[]|undefined,slots:NativeCardSl
  return !kinds.length||kinds.length!==Object.keys(slots).length||!kinds.includes('heading')||kinds.some(k=>!['heading','text','image'].includes(k)||!(k in slots));
 }
 export function sameCardSlots(a:NativeCardSlots,b:NativeCardSlots):boolean{return a.heading===b.heading&&a.text===b.text&&a.image===b.image;}
-export function changeCardRepeat(tree:PageNode,id:string,language:'en'|'ar',slots:NativeCardSlots,plan:NativeCardRepeatPlan|null):PageNode{
+export function changeCardRepeat(tree:PageNode,id:string,language:'en'|'ar',slots:NativeCardSlots,plan:NativeCardRepeatPlan|NativeCategoryRepeatPlan|null):PageNode{
  const next=structuredClone(tree);let found=false;
  const anyCard=(n:PageNode):boolean=>!!n.card||(n.children??[]).some(anyCard);
  if(plan&&anyCard(next))throw Error('Remove product cards before collection repeats.');
@@ -132,12 +151,14 @@ export function changeCardRepeat(tree:PageNode,id:string,language:'en'|'ar',slot
    if(n.bindings||n.card)throw Error('Remove other data connections first.');
    if(cardSlotProblem(n.children,slots))throw Error('Column children must match the card slots.');
    if((n.children??[]).some(c=>c.bindings||c.repeat||c.card))throw Error('Remove data connections inside the column first.');
+   const schema=plan&&'category' in plan?repeatCategorySchema:repeatCardSchema;
    if(n.repeat){
-    if(n.repeat.schema!==repeatCardSchema)throw Error('Remove the existing repeat first.');
+    if(n.repeat.schema!==repeatCardSchema&&n.repeat.schema!==repeatCategorySchema)throw Error('Remove the existing repeat first.');
+    if(plan&&n.repeat.schema!==schema)throw Error('Remove the existing repeat first.');
     if(!sameCardSlots(n.repeat.slots,slots))throw Error('Card slots stay fixed while a repeat is attached.');
    }
-   const content:Partial<Record<'en'|'ar',NativeCardRepeatPlan>>={...n.repeat?.content};if(plan)content[language]=structuredClone(plan);else delete content[language];
-   if(Object.keys(content).length)n.repeat={schema:repeatCardSchema,slots:structuredClone(slots),content};else delete n.repeat;return;
+   const content:Partial<Record<'en'|'ar',NativeCardRepeatPlan|NativeCategoryRepeatPlan>>={...n.repeat?.content};if(plan)content[language]=structuredClone(plan);else delete content[language];
+   if(Object.keys(content).length)n.repeat={schema,slots:structuredClone(slots),content};else delete n.repeat;return;
   }
   for(const c of n.children??[])visit(c);
  };
