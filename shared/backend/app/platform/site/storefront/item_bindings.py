@@ -16,7 +16,7 @@ from app.framework.storefront_runtime import SourceContext, SourceUnavailable
 _MODULE = 'inventory'
 _SOURCE = 'products'
 # Which content field each provider field may fill.
-_FIELD_TARGETS = {'name': frozenset({'text', 'html'}), 'price': frozenset({'html'}), 'image': frozenset({'src'})}
+_FIELD_TARGETS = {'name': frozenset({'text', 'html'}), 'price': frozenset({'html'}), 'image': frozenset({'src'}), 'description': frozenset({'text', 'html'})}
 
 
 class ScopedItems:
@@ -47,7 +47,11 @@ class ScopedItems:
             return None
         if binding['field'] == 'image':
             return value['src']
-        if binding['field'] == 'price':
+        if binding['field'] == 'description':
+            if not isinstance(value, str):
+                raise SourceUnavailable('Item binding value is unavailable.')
+            text = value
+        elif binding['field'] == 'price':
             text = f"{value['amount']} {value['currency']}"
         elif isinstance(value, str):
             text = value

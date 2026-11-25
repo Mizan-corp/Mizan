@@ -73,6 +73,7 @@ class CardPublicationIn(BaseModel):
     products:list[UUID]=Field(max_length=200)
     show_price:StrictBool
     show_image:StrictBool
+    show_description:StrictBool
     currency:str|None
 
 async def card_read(db):
@@ -99,21 +100,23 @@ async def get_cards(db=Depends(get_db),_=Depends(require_perm('site.manage')),__
 
 @router.put('/cards')
 async def put_cards(data:CardPublicationIn,db=Depends(get_db),_=Depends(require_perm('site.manage')),__=Depends(require_perm('inventory'))):
-    # New saves stamp v3: the first wording that names public pages (via the
-    # per-page publish approval) as well as previews, cards, repeating lists
-    # and individually bound elements. Older rows keep their recorded scope.
-    # The save is accepted only when the client explicitly acknowledges the v3
-    # wording; a cached older client is refused (409, reload) so its save can
-    # never record consent the owner was never shown. The same implicit-upgrade
-    # hole existed in the v0->v1 writer and is closed by this guard.
-    from .cards import card_policy,SETTING_KEY as key,SCHEMA_V3 as schema
+    # New saves stamp v4: the first wording that names category membership
+    # linkage and URL-selected product detail retrieval, adding the explicit
+    # show_description field, on top of v3's public pages, previews, cards,
+    # repeating lists and individually bound elements. Older rows keep their
+    # recorded scope. The save is accepted only when the client explicitly
+    # acknowledges the v4 wording; a cached older client is refused (409,
+    # reload) so its save can never record consent the owner was never shown.
+    # The same implicit-upgrade hole existed in the v0->v1 writer and is
+    # closed by this guard.
+    from .cards import card_policy,SETTING_KEY as key,SCHEMA_V4 as schema
     tid=current_tenant_id.get()
     if tid is None:raise HTTPException(422,'Explicit workspace required.')
     if data.consent_version!=schema:raise HTTPException(409,'Website consent wording changed. Reload before saving.')
     await db.execute(select(Tenant.id).where(Tenant.id==tid).with_for_update())
     row,raw=await card_read(db)
     if token(raw)!=data.expected_token:raise HTTPException(409,'Website card policy changed. Reload before saving.')
-    value={'schema':schema,'products':[str(x) for x in data.products],'show_price':data.show_price,'show_image':data.show_image,'currency':data.currency}
+    value={'schema':schema,'products':[str(x) for x in data.products],'show_price':data.show_price,'show_image':data.show_image,'show_description':data.show_description,'currency':data.currency}
     try:policy=card_policy(json.dumps(value),schema=schema)
     except SourceUnavailable:raise HTTPException(422,'Invalid explicit website card policy.') from None
     if policy['products']:

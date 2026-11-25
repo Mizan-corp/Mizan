@@ -55,8 +55,11 @@ class Tests(unittest.IsolatedAsyncioTestCase):
         # The v2-stamping writer is what the current settings UI saves; the
         # render path must accept every consent version whose wording covered
         # cards (v0, v1, v2), not only the original v0 shape.
-        for schema in (c.SCHEMA, c.SCHEMA_V1, c.SCHEMA_V2, c.SCHEMA_V3):
-            self.db.scalar.return_value = json.dumps({'schema': schema, 'products': [str(P1)], 'show_price': False, 'show_image': False, 'currency': None})
+        for schema in (c.SCHEMA, c.SCHEMA_V1, c.SCHEMA_V2, c.SCHEMA_V3, c.SCHEMA_V4):
+            value = {'schema': schema, 'products': [str(P1)], 'show_price': False, 'show_image': False, 'currency': None}
+            if schema == c.SCHEMA_V4:
+                value['show_description'] = False  # v4 rows carry the exact six-key shape
+            self.db.scalar.return_value = json.dumps(value)
             r = MagicMock(); r.all.return_value = [(P1, 'Versioned name')]; self.db.execute.return_value = r
             rows = await c.read_cards(self.db, self.ctx, 6)
             self.assertEqual(rows, [{'item_key': str(P1), 'name': 'Versioned name', 'price': None, 'image': None}], schema)

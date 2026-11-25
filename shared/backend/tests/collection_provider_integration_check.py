@@ -128,12 +128,15 @@ class Tests(unittest.IsolatedAsyncioTestCase):
     def test_stored_policy_accepts_all_versions_rejects_unknown(self):
         for schema in (cards.SCHEMA, cards.SCHEMA_V1, cards.SCHEMA_V2, cards.SCHEMA_V3):
             self.assertEqual(cards.stored_policy(policy(schema))['products'], (P,))
+        v4 = json.loads(policy(cards.SCHEMA_V4))
+        v4['show_description'] = False  # v4 rows carry the exact six-key shape
+        self.assertEqual(cards.stored_policy(json.dumps(v4))['products'], (P,))
         with self.assertRaises(SourceUnavailable):
-            cards.stored_policy(policy('mizan.inventory-website-cards.experimental.v4'))
+            cards.stored_policy(policy('mizan.inventory-website-cards.experimental.v5'))
         with self.assertRaises(SourceUnavailable):
             cards.stored_policy('not json')
         self.assertEqual(cards.stored_policy(None),
-                         {'products': (), 'show_price': False, 'show_image': False, 'currency': None})
+                         {'products': (), 'show_price': False, 'show_image': False, 'show_description': False, 'currency': None})
 
 
 if __name__ == '__main__':

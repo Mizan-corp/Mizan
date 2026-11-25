@@ -1,9 +1,9 @@
-"""Real-model checks that the card consent writer stamps schema v2 only on
+"""Real-model checks that the card consent writer stamps schema v4 only on
 explicit acknowledgement of the current disclosure wording.
 
 Covers what the read-side checks cannot: PUT /cards must write
-mizan.inventory-website-cards.experimental.v3 on both first save and re-save
-over an existing v0 row, and only when the payload acknowledges the v2
+mizan.inventory-website-cards.experimental.v4 on both first save and re-save
+over an existing v0 row, and only when the payload acknowledges the v4
 wording. A stale cached client (missing, older or unknown acknowledgement) is
 refused before any write; consent is never recorded for wording the owner was
 not shown. DB is mocked; the stored StoreSetting payload is parsed and
@@ -26,8 +26,9 @@ A = UUID('00000000-0000-4000-8000-000000000001')
 
 
 def data(**patch):
-    payload = {'expected_token': '', 'consent_version': cards.SCHEMA_V3,
-               'products': [], 'show_price': False, 'show_image': False, 'currency': None}
+    payload = {'expected_token': '', 'consent_version': cards.SCHEMA_V4,
+               'products': [], 'show_price': False, 'show_image': False,
+               'show_description': False, 'currency': None}
     payload.update(patch)
     return router.CardPublicationIn(**payload)
 
@@ -46,16 +47,17 @@ class WriterTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(router, 'card_read', new=AsyncMock(return_value=(row, raw))):
             return await router.put_cards(data(expected_token=router.token(raw)), db=self.db)
 
-    async def test_first_save_stamps_v2(self):
+    async def test_first_save_stamps_v4(self):
         await self._put(None)
         added = self.db.add.call_args.args[0]
         stored = json.loads(added.value)
-        self.assertEqual(stored['schema'], cards.SCHEMA_V3)
+        self.assertEqual(stored['schema'], cards.SCHEMA_V4)
         self.assertEqual(stored['products'], [])
         self.assertEqual(stored['show_price'], False)
+        self.assertEqual(stored['show_description'], False)
         self.db.commit.assert_awaited()
 
-    async def test_resave_over_v0_upgrades_to_v2(self):
+    async def test_resave_over_v0_upgrades_to_v4(self):
         v0 = json.dumps({'schema': cards.SCHEMA, 'products': [], 'show_price': False,
                          'show_image': False, 'currency': None}, sort_keys=True)
         await self._put(v0)
@@ -65,11 +67,11 @@ class WriterTests(unittest.IsolatedAsyncioTestCase):
         row = type('Row', (), {'value': v0})()
         with patch.object(router, 'card_read', new=AsyncMock(return_value=(row, v0))):
             await router.put_cards(data(expected_token=router.token(v0)), db=AsyncMock())
-        self.assertEqual(json.loads(row.value)['schema'], cards.SCHEMA_V3)
+        self.assertEqual(json.loads(row.value)['schema'], cards.SCHEMA_V4)
 
     async def test_stale_client_acknowledgement_refused_before_any_write(self):
-        # A cached v1-worded client must not record v2 consent.
-        for ack in (cards.SCHEMA_V1, cards.SCHEMA, 'mizan.unknown.v9'):
+        # A cached older-worded client must not record v4 consent.
+        for ack in (cards.SCHEMA_V3, cards.SCHEMA_V1, cards.SCHEMA, 'mizan.unknown.v9'):
             db = AsyncMock()
             with self.assertRaises(Exception) as cm:
                 await router.put_cards(data(consent_version=ack), db=db)
@@ -79,7 +81,7 @@ class WriterTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_missing_acknowledgement_fails_validation(self):
         payload = {'expected_token': '', 'products': [], 'show_price': False,
-                   'show_image': False, 'currency': None}
+                   'show_image': False, 'show_description': False, 'currency': None}
         with self.assertRaises(Exception):
             router.CardPublicationIn(**payload)
 

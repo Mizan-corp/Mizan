@@ -67,7 +67,7 @@ class ScopedItemConsentTests(unittest.IsolatedAsyncioTestCase):
         self.db.scalar.return_value = policy(c.SCHEMA_V2, [P1])
         self.db.execute.return_value = rows(P1, 'Fixture Card Widget')
         item = await c.read_scoped_item(self.db, self.ctx, str(P1), ('name',))
-        self.assertEqual(item, {'name': 'Fixture Card Widget', 'price': None, 'image': None})
+        self.assertEqual(item, {'name': 'Fixture Card Widget', 'price': None, 'image': None, 'description': None})
         stmt = self.db.execute.call_args.args[0]
         columns = {col.name for col in stmt.selected_columns}
         self.assertEqual(columns, {'id', 'name'})

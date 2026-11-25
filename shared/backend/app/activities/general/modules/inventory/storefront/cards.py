@@ -23,18 +23,30 @@ SCHEMA_V2 = 'mizan.inventory-website-cards.experimental.v2'
 # not only signed-in previews. Older recorded versions keep their recorded
 # preview scope: valid for previews, never authority for public reads.
 SCHEMA_V3 = 'mizan.inventory-website-cards.experimental.v3'
+# v4 wording is the first that names category membership linkage (a category
+# page reveals which consented products belong to a published category) and
+# URL-selected current-record retrieval (one template renders the product
+# whose id is in the URL), and the first that may carry the description
+# display field (consent-scope change docs/studio-consent-scope-v4.md). v4
+# rows add one payload key: show_description. Older rows keep their exact
+# five-key shape and never unlock linkage or description.
+SCHEMA_V4 = 'mizan.inventory-website-cards.experimental.v4'
+_DESCRIPTION_MAX = 2000
 
 
 def card_policy(raw, *, schema=SCHEMA):
     if raw is None:
-        return {'products': (), 'show_price': False, 'show_image': False, 'currency': None}
+        return {'products': (), 'show_price': False, 'show_image': False, 'show_description': False, 'currency': None}
     try:
         value = json.loads(raw)
     except (TypeError, ValueError):
         raise SourceUnavailable('Invalid website card policy.') from None
-    if not isinstance(value, dict) or set(value) != {'schema', 'products', 'show_price', 'show_image', 'currency'} or value['schema'] != schema:
+    expected = {'schema', 'products', 'show_price', 'show_image', 'currency'} | ({'show_description'} if schema == SCHEMA_V4 else set())
+    if not isinstance(value, dict) or set(value) != expected or value['schema'] != schema:
         raise SourceUnavailable('Exact website card policy required.')
     if type(value['show_price']) is not bool or type(value['show_image']) is not bool:
+        raise SourceUnavailable('Explicit field choices required.')
+    if schema == SCHEMA_V4 and type(value['show_description']) is not bool:
         raise SourceUnavailable('Explicit field choices required.')
     ids = value['products']
     if not isinstance(ids, list) or len(ids) > 200 or any(not isinstance(x, str) for x in ids):
@@ -52,7 +64,9 @@ def card_policy(raw, *, schema=SCHEMA):
             raise SourceUnavailable('Explicit supported website display currency required.')
     elif currency is not None:
         raise SourceUnavailable('No implicit unused currency.')
-    return {'products': parsed, 'show_price': value['show_price'], 'show_image': value['show_image'], 'currency': currency}
+    # Older wordings never named description: it reads as refused there.
+    show_description = bool(value.get('show_description')) if schema == SCHEMA_V4 else False
+    return {'products': parsed, 'show_price': value['show_price'], 'show_image': value['show_image'], 'show_description': show_description, 'currency': currency}
 
 
 def stored_policy(raw):
@@ -67,7 +81,7 @@ def stored_policy(raw):
     except (TypeError, ValueError):
         raise SourceUnavailable('Invalid website card policy.') from None
     schema = value.get('schema') if isinstance(value, dict) else None
-    if schema not in (SCHEMA, SCHEMA_V1, SCHEMA_V2, SCHEMA_V3):
+    if schema not in (SCHEMA, SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4):
         raise SourceUnavailable('Exact website card policy required.')
     return card_policy(raw, schema=schema)
 
@@ -88,7 +102,7 @@ async def display_consent(db, context):
         raise SourceUnavailable('Invalid website card policy.') from None
     # v1/v2 were recorded under previews-only wording; public reads of
     # list fields require the v3 wording that names public pages.
-    accepted = (SCHEMA_V1, SCHEMA_V2, SCHEMA_V3) if context.audience != 'public' else (SCHEMA_V3,)
+    accepted = (SCHEMA_V1, SCHEMA_V2, SCHEMA_V3, SCHEMA_V4) if context.audience != 'public' else (SCHEMA_V3, SCHEMA_V4)
     if not isinstance(value, dict) or value.get('schema') not in accepted:
         return None
     return card_policy(raw, schema=value['schema'])
@@ -112,7 +126,7 @@ async def element_consent(db, context):
         raise SourceUnavailable('Invalid website card policy.') from None
     # v2 was recorded under previews-only wording; public reads of bound
     # element fields require the v3 wording that names public pages.
-    accepted = (SCHEMA_V2, SCHEMA_V3) if context.audience != 'public' else (SCHEMA_V3,)
+    accepted = (SCHEMA_V2, SCHEMA_V3, SCHEMA_V4) if context.audience != 'public' else (SCHEMA_V3, SCHEMA_V4)
     if not isinstance(value, dict) or value.get('schema') not in accepted:
         return None
     return card_policy(raw, schema=value['schema'])
@@ -177,6 +191,83 @@ async def read_cards(db, context, limit, products=None):
     return out
 
 
+async def read_category_products(db, context, category_id, limit):
+    """Consented products belonging to one published category (v4 linkage consent).
+
+    Category membership was first named by the v4 wording, so a recorded v4
+    policy is required for previews AND public reads alike. The category must
+    be in the workspace's publication allowlist; only consented, active
+    products in it are returned (revoked products drop out, user-approved
+    2026-11-24 semantics). Returns the same row shape as read_cards.
+    """
+    if current_tenant_id.get() != context.tenant_id or 'inventory' not in context.active_modules or type(limit) is not int or not 1 <= limit <= 24:
+        raise SourceUnavailable('Website category source unavailable.')
+    if not isinstance(category_id, str) or len(category_id) > 64:
+        raise SourceUnavailable('Invalid website category identity.')
+    try:
+        category_uuid = UUID(category_id)
+    except (ValueError, TypeError):
+        raise SourceUnavailable('Invalid website category identity.') from None
+    if str(category_uuid) != category_id:
+        raise SourceUnavailable('Invalid website category identity.')
+    raw = await db.scalar(select(StoreSetting.value).where(
+        StoreSetting.tenant_id == context.tenant_id, StoreSetting.key == SETTING_KEY))
+    if raw is None:
+        return []
+    try:
+        recorded = json.loads(raw).get('schema')
+    except (TypeError, ValueError, AttributeError):
+        raise SourceUnavailable('Invalid website card policy.') from None
+    if recorded != SCHEMA_V4:
+        # Linkage is named only by the v4 wording; older consents never
+        # authorized revealing category membership, for any audience.
+        return []
+    policy = card_policy(raw, schema=SCHEMA_V4)
+    # Lazy import: provider imports this module's display_consent lazily too,
+    # so neither file holds a module-level cycle.
+    from app.activities.general.modules.inventory.storefront import provider as _provider
+    publication_raw = await db.scalar(select(StoreSetting.value).where(
+        StoreSetting.tenant_id == context.tenant_id,
+        StoreSetting.key == _provider.SETTING_KEY))
+    if category_uuid not in _provider.publication_ids(publication_raw)['categories']:
+        return []
+    if not policy['products']:
+        return []
+    from app.activities.general.modules.inventory.models.product import Subcategory
+    columns = [Product.id, Product.name]
+    if policy['show_price']:
+        columns.append(Product.retail_price)
+    if policy['show_image']:
+        columns.append(Product.image_url)
+    rows = (await db.execute(
+        select(*columns)
+        .join(Subcategory, Product.subcategory_id == Subcategory.id)
+        .where(Product.tenant_id == context.tenant_id, Product.is_active.is_(True),
+               Product.id.in_(policy['products']), Subcategory.category_id == category_uuid)
+        .order_by(Product.id).limit(limit))).all()
+    out = []
+    for row in rows:
+        product_id, name, *optional = row
+        if not isinstance(name, str) or not name.strip() or len(name) > 200:
+            raise SourceUnavailable('Invalid bounded website product name.')
+        price = money_value(optional.pop(0), policy['currency']) if policy['show_price'] else None
+        image = None
+        if policy['show_image']:
+            url = optional.pop(0)
+            if url:
+                record = await db.scalar(select(WorkspaceFile.id).where(
+                    WorkspaceFile.tenant_id == context.tenant_id,
+                    WorkspaceFile.kind == 'product_image',
+                    WorkspaceFile.owner_id == str(product_id),
+                    WorkspaceFile.url == url,
+                    WorkspaceFile.content_type.in_(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])))
+                if record is None:
+                    raise SourceUnavailable('Product image provenance unavailable.')
+                image = media_value(url, name, context.tenant_id)
+        out.append({'item_key': str(product_id), 'name': name, 'price': price, 'image': image})
+    return out
+
+
 async def read_scoped_item(db, context, item_key, fields):
     """One consented product for an individually bound element (v2 consent only).
 
@@ -197,7 +288,7 @@ async def read_scoped_item(db, context, item_key, fields):
         raise SourceUnavailable('Invalid bound record identity.') from None
     if str(product_id) != item_key:
         raise SourceUnavailable('Invalid bound record identity.')
-    if not isinstance(fields, (list, tuple)) or not fields or len(fields) > 3 or set(fields) - {'name', 'price', 'image'}:
+    if not isinstance(fields, (list, tuple)) or not fields or len(fields) > 4 or set(fields) - {'name', 'price', 'image', 'description'}:
         raise SourceUnavailable('Invalid bound field selection.')
     consent = await element_consent(db, context)
     if consent is None or product_id not in consent['products']:
@@ -207,6 +298,8 @@ async def read_scoped_item(db, context, item_key, fields):
         columns.append(Product.retail_price)
     if 'image' in fields and consent['show_image']:
         columns.append(Product.image_url)
+    if 'description' in fields and consent['show_description']:
+        columns.append(Product.description)
     row = (await db.execute(select(*columns).where(
         Product.tenant_id == context.tenant_id, Product.is_active.is_(True),
         Product.id == product_id))).first()
@@ -215,7 +308,12 @@ async def read_scoped_item(db, context, item_key, fields):
     product_id, name, *optional = row
     if not isinstance(name, str) or not name.strip() or len(name) > 200:
         raise SourceUnavailable('Invalid bounded website product name.')
-    item = {'name': name, 'price': None, 'image': None}
+    item = {'name': name, 'price': None, 'image': None, 'description': None}
+    if 'description' in fields and consent['show_description']:
+        text = optional.pop()
+        if text is not None and (not isinstance(text, str) or len(text) > _DESCRIPTION_MAX):
+            raise SourceUnavailable('Invalid bounded website product description.')
+        item['description'] = text
     if 'price' in fields and consent['show_price']:
         item['price'] = money_value(optional.pop(0), consent['currency'])
     if 'image' in fields and consent['show_image']:

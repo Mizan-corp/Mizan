@@ -10,9 +10,11 @@ import {setUILang} from './uiStrings';
 // making EGP unselectable on the deployed test host. Also pins the v3 consent
 // wording: cards, repeating lists AND individually bound elements,
 // authenticated previews only, no publication/checkout, and the save payload
-// shape including the explicit consent_version acknowledgement.
+// shape including the explicit consent_version acknowledgement. Pins the v4
+// wording: v3 surfaces plus URL-selected detail pages, category linkage and
+// the explicit description field.
 
-const policy={products:['p1'],show_price:false,show_image:false,currency:null};
+const policy={products:['p1'],show_price:false,show_image:false,show_description:false,currency:null};
 const choices={products:{items:[{id:'p1',name:'Widget'}]}};
 let confirmText='';
 let puts:Array<{path:string;body:unknown}>=[];
@@ -55,9 +57,14 @@ it('currency select offers real EGP with an empty fallback and saves the consent
  expect(confirmText).toContain('individually bound elements');
  expect(confirmText).toContain('القوائم المتكررة');
  expect(confirmText).toContain('العناصر المربوطة منفردة');
- expect(confirmText).toContain('authenticated website previews');
- expect(confirmText).toContain('does not publish or enable checkout');
- expect(confirmText).toContain('مش نشر ومش بيفعّل الدفع');
- expect(puts[0].body).toEqual({expected_token:'tok1',consent_version:'mizan.inventory-website-cards.experimental.v3',products:['p1'],show_price:true,show_image:false,currency:'EGP'});
- expect(container.textContent).toContain('authenticated previews only');
+ expect(confirmText).toContain('signed-in website previews');
+ expect(confirmText).toContain('product detail page reads the product whose ID is in the URL');
+ expect(confirmText).toContain('category pages show the selected products belonging to each published category');
+ expect(confirmText).toContain('Description shows only if you check its box');
+ expect(confirmText).toContain('صفحة تفاصيل المنتج');
+ expect(confirmText).toContain('صفحات التصنيفات');
+ expect(confirmText).toContain('does not enable checkout');
+ expect(confirmText).toContain('مش بيفعّل الدفع');
+ expect(puts[0].body).toEqual({expected_token:'tok1',consent_version:'mizan.inventory-website-cards.experimental.v4',products:['p1'],show_price:true,show_image:false,show_description:false,currency:'EGP'});
+ expect(container.textContent).toContain('الدفع يفضل غير متاح');
 });
