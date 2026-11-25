@@ -20,7 +20,7 @@ describe('TreePreview over toPageTree output', () => {
     // Registry shape: the root section may only contain columns/canvas rows, so each
     // project section maps to one mz-columns row under the single mz-section page wrapper.
     const html = render('desktop');
-    expect(html.match(/class="mz-section"/g)!.length).toBe(1);
+    expect(html.match(/class="mz-section[ "]/g)!.length).toBe(1);
     expect(html.match(/mz-columns mz-columns-\d/g)!.length).toBe(project.sections.length);
   });
   it('keeps the two-column hero with the media column', () => {
