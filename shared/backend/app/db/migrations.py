@@ -4541,3 +4541,24 @@ MIGRATIONS.append(("v118_site_activation_approved_sources", """
     -- approved set. Widening needs a fresh explicit approval. Empty on synthetic rows.
     ALTER TABLE site_activation ADD COLUMN IF NOT EXISTS approved_sources jsonb NOT NULL DEFAULT '[]';
 """))
+MIGRATIONS.append(("v119_audit_log_canonical_shape", """
+    -- v26 added the canonical action_type/details/reason columns and the audit
+    -- service writes only those, but baseline-created databases still carry the
+    -- legacy audit_log.action NOT NULL (+ changes/note), so every audit write
+    -- failed with 23502 there. Backfill the canonical columns from the legacy
+    -- ones and relax the legacy NOT NULL; legacy columns and data are kept.
+    -- Guarded per column: model-provisioned databases have no legacy columns.
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='audit_log' AND column_name='action') THEN
+        UPDATE audit_log SET action_type = action WHERE action_type IS NULL AND action IS NOT NULL;
+        ALTER TABLE audit_log ALTER COLUMN action DROP NOT NULL;
+      END IF;
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='audit_log' AND column_name='changes') THEN
+        UPDATE audit_log SET details = changes::text WHERE details IS NULL AND changes IS NOT NULL;
+      END IF;
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='audit_log' AND column_name='note') THEN
+        UPDATE audit_log SET reason = note WHERE reason IS NULL AND note IS NOT NULL;
+      END IF;
+    END $$;
+"""))

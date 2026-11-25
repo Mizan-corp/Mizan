@@ -148,11 +148,11 @@ CREATE TABLE public.audit_log (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     entity_type text NOT NULL,
     entity_id uuid,
-    action text NOT NULL,
+    action_type text NOT NULL,
     user_id uuid,
     user_name text,
-    changes jsonb,
-    note text,
+    details text,
+    reason text,
     created_at timestamp with time zone DEFAULT now()
 );
 
