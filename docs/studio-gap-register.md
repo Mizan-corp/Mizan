@@ -327,6 +327,22 @@ Binding/envelope design:
   field, 2000-char bound, fail-closed).
 Depends on Phase 2 (done).
 
+LIVE VISITOR-PAIR EVIDENCE 2026-11-25 (sandbox, same-origin harness):
+product detail template page `product-e2e` authored entirely through the
+Studio UI (New page -> heading bound via "Product from the page link"
+route mode -> saved -> published as version 2 -> connected-data approval
+"I approve, make this data public" with approved_sources
+[inventory.products]). The approval ran the new route probe (item 16)
+against the real consented product set without false refusal. Visitor,
+anonymous origin: /site/studio/product-e2e/p/<consented product uuid>
+renders the product's real name as the page heading;
+/p/00000000-0000-0000-0000-000000000000 and the plain /product-e2e URL
+render the page with the element hidden (fail-closed). Screenshots:
+visitor-route-product.png (name rendered), visitor-route-unknown.png
+(hidden). Category-template (/c/<id>) visitor-pair E2E is still owed;
+the category card-repeat has unit/integration coverage and the same
+probe path, but no live page yet.
+
 **Phase 4 — Website module (ERP side, user decisions 3-7).** IN PROGRESS.
 Rename frontstore -> Website; its tab manages orders, published products,
 website attributes, and pages (non-UI records/behavior config only);
