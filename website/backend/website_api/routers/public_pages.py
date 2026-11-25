@@ -155,7 +155,8 @@ async def _activation(db: AsyncSession, host: str, slug: str, page_path: str):
 
 
 async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id: uuid.UUID, canonical: str,
-                         link_base: str | None = None, query: str | None = None) -> str:
+                         link_base: str | None = None, query: str | None = None,
+                         lang_override: str | None = None) -> str:
     from app.framework.manifest import page_problems
     from app.platform.site import service
     from app.platform.site.render import render_document
@@ -167,7 +168,10 @@ async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id
     tree = page.published_tree
     titles = page.titles or {}
     languages = [k for k in titles.keys() if isinstance(k, str) and k] or ["en"]
-    lang = "ar" if "ar" in languages else languages[0]
+    default_lang = "ar" if "ar" in languages else languages[0]
+    lang = default_lang
+    if isinstance(lang_override, str) and lang_override in languages:
+        lang = lang_override
 
     await service.check_bound_tree(db, tree)
     ctx = SourceContext(tenant_id, lang, frozenset(await get_active_modules(db)), audience="public")
@@ -178,7 +182,8 @@ async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id
         resolved = await resolve_composition(tree, scalar_registry(db), collection_registry(db), ctx, query=query)
     else:
         resolved = await resolve_tree(tree, scalar_registry(db), ctx, lambda t: page_problems(t, ("en", "ar")))
-    meta = {"canonical": canonical, "titles": titles, "descriptions": {}, "languages": languages}
+    meta = {"canonical": canonical, "titles": titles, "descriptions": {}, "languages": languages,
+            "default_language": default_lang}
     return render_document(resolved, meta, settings_value if isinstance(settings_value, dict) else None,
                            lang=lang, link_base=link_base)
 
@@ -227,6 +232,7 @@ async def public_page(slug: str, page_path: str, request: Request, db: AsyncSess
                 f"https://{host}/site/{slug}/{page_path}",
                 link_base=f"/site/{slug}",
                 query=request.query_params.get("q"),
+                lang_override=request.query_params.get("lang"),
             )
         except (SourceUnavailable, ProjectionInvalid, ValueError):
             raise _unavailable() from None

@@ -298,6 +298,42 @@ class PublicAccessRequestTests(unittest.TestCase):
         self.assertEqual(body.model_dump(), {"enabled": True})
 
 
+class LocaleSwitchTests(unittest.TestCase):
+    def _doc(self, lang="ar", theme={"header": {"brand": "وريا"}}, languages=("ar", "en")):
+        from app.platform.site import render
+        tree = {"type": "section", "id": "s1", "settings": {},
+                "children": [{"type": "text", "id": "t1", "settings": {},
+                              "content": {"ar": {"html": "<p>مرحبا</p>"}, "en": {"html": "<p>hi</p>"}}}]}
+        meta = {"titles": {"ar": "أهلا", "en": "Hi"}, "languages": list(languages),
+                "default_language": "ar", "canonical": "https://sites.example/site/acme/home"}
+        with patch("app.platform.site.render.page_problems", return_value=[]):
+            return render.render_document(tree, meta, theme, lang=lang)
+
+    def test_two_languages_render_switch_link_and_hreflang(self):
+        html = self._doc(lang="ar")
+        self.assertIn('hreflang="en"', html)
+        self.assertIn('https://sites.example/site/acme/home?lang=en', html)
+        self.assertIn('class="mz-locale-switch"', html)
+        self.assertIn('>English</a>', html)
+        # The default language's alternate is the bare canonical.
+        self.assertIn('<link rel="alternate" hreflang="ar" href="https://sites.example/site/acme/home">', html)
+
+    def test_single_language_renders_no_switcher(self):
+        html = self._doc(lang="ar", languages=("ar",))
+        self.assertNotIn('class="mz-locale-switch"', html)
+        self.assertNotIn('hreflang', html)
+
+    def test_nondefault_language_search_form_carries_hidden_lang(self):
+        theme = {"header": {"search_enabled": True, "search_target": "/results"}}
+        html = self._doc(lang="en", theme=theme)
+        self.assertIn('<input type="hidden" name="lang" value="en">', html)
+
+    def test_default_language_search_form_has_no_hidden_lang(self):
+        theme = {"header": {"search_enabled": True, "search_target": "/results"}}
+        html = self._doc(lang="ar", theme=theme)
+        self.assertNotIn('name="lang"', html)
+
+
 class ResponsiveCssTests(unittest.TestCase):
     def test_base_css_stacks_columns_and_tightens_gutters_on_narrow_viewports(self):
         from app.platform.site import render

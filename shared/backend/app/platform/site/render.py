@@ -20,7 +20,7 @@ import nh3
 from jinja2 import StrictUndefined
 from jinja2.sandbox import SandboxedEnvironment
 
-from app.framework.manifest import PAGE_BLOCKS, page_url, page_problems
+from app.framework.manifest import PAGE_BLOCKS, PAGE_LANGUAGE, page_url, page_problems
 
 # Rich text (the text block) may use these; the html block adds EXTRA_TAGS. No inline styles,
 # no event handlers, no scripts: the runtime CSP forbids them, so the sanitizer drops them.
@@ -426,6 +426,7 @@ _BASE_CSS += ".mz-search-outline .mz-header-search{background:transparent;border
 _BASE_CSS += ".mz-row-start .mz-header-main{justify-content:flex-start}.mz-row-center .mz-header-main{justify-content:center}.mz-row-end .mz-header-main{justify-content:flex-end}.mz-row-between .mz-header-main{justify-content:space-between}.mz-row-around .mz-header-main{justify-content:space-around}.mz-row-evenly .mz-header-main{justify-content:space-evenly}.mz-row-start .mz-header-search,.mz-row-center .mz-header-search,.mz-row-end .mz-header-search,.mz-row-between .mz-header-search,.mz-row-around .mz-header-search,.mz-row-evenly .mz-header-search{flex:none;min-width:0;width:min(640px,100%);margin-inline:0}.mz-gap-tight .mz-header-main{gap:8px}.mz-gap-wide .mz-header-main{gap:24px}.mz-gap-custom .mz-header-main{gap:var(--row-gap,14px)}"
 _BASE_CSS += ".mz-reorder .mz-site-logo,.mz-reorder .mz-site-brand{order:var(--ord-brand,1)}.mz-reorder .mz-header-search{order:var(--ord-search,2)}.mz-reorder .mz-header-icons{order:var(--ord-icons,3)}.mz-reorder .mz-header-main>nav,.mz-reorder .mz-header-main>.mz-site-actions{order:2}.mz-reorder .mz-header-menu{order:9}"
 _BASE_CSS += ".mz-header-menu nav .mz-menu-bar{display:contents}@media(min-width:769px) and (max-width:1024px){.mz-t-density-compact .mz-header-main{padding:6px 32px;gap:10px}.mz-t-density-compact .mz-header-search{max-width:560px}.mz-t-density-compact .mz-header-search button{width:30px;height:30px}.mz-t-density-compact .mz-header-icon{width:34px;height:34px}.mz-t-density-compact .mz-header-bar{padding:4px 32px;min-height:40px}.mz-t-density-compact .mz-header-bar nav a{min-height:30px;font-size:14px}.mz-t-hide-search .mz-header-search{display:none}.mz-t-hide-bar .mz-header-bar{display:none}}"
+_BASE_CSS += ".mz-header-locale{display:flex;align-items:center;gap:4px}.mz-locale-switch{display:inline-flex;align-items:center;min-height:32px;padding:0 10px;border-radius:999px;font-size:13px;font-weight:650;color:inherit;text-decoration:none;border:1px solid rgba(127,127,127,.45)}"
 _BASE_CSS += "@media(max-width:768px){.mz-columns-2,.mz-columns-3,.mz-columns-4,.mz-columns-5,.mz-columns-6{grid-template-columns:1fr}.mz-columns.mz-cols-custom{grid-template-columns:var(--mz-tracks-m,1fr)}.mz-columns.mz-cols-custom-m{grid-template-columns:var(--mz-tracks-m)}.mz-node.mz-minh-custom>:first-child{min-height:var(--mz-minh-m,var(--mz-minh))}.mz-columns{gap:16px}.mz-section{padding:24px 16px}.mz-width-half,.mz-width-third,.mz-width-two_thirds,.mz-width-three_fifths{width:100%}.mz-node.mz-width-custom{width:var(--mz-width-m,100%)}.mz-reorder .mz-header-search{order:9;flex-basis:100%}.mz-m-density-compact .mz-header-main{padding:4px 14px;gap:8px}.mz-m-hide-search .mz-header-search{display:none}.mz-m-hide-bar .mz-header-menu nav .mz-menu-bar{display:none}}"
 _BASE_CSS += ".mz-site-logo{height:32px;width:auto}.mz-site-footer a{color:inherit;text-decoration:none}.mz-footer-groups{display:flex;gap:32px;flex-wrap:wrap}.mz-footer-group{display:flex;flex-direction:column;gap:10px}.mz-footer-group-title{font-weight:650}"
 for _token, _size in _SPACER_PX.items():
@@ -467,6 +468,9 @@ def _theme_links(entries, limit: int = 8, link_base: str | None = None) -> list:
 
 
 
+_LOCALE_LABELS = {"ar": "العربية", "en": "English"}
+
+
 _HEADER_ICONS = {
     "whatsapp": '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
     "cart": '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
@@ -483,7 +487,7 @@ def _header_icon(name: str) -> str:
     return ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
             f'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{path}</svg>')
 
-def _theme_chrome(theme: dict | None, link_base: str | None = None) -> tuple[str, str]:
+def _theme_chrome(theme: dict | None, link_base: str | None = None, locale: dict | None = None) -> tuple[str, str]:
     """Constrained v0 site chrome: escaped brand, allow-listed links; no markup from the theme."""
     if not isinstance(theme, dict):
         return "", ""
@@ -514,8 +518,11 @@ def _theme_chrome(theme: dict | None, link_base: str | None = None) -> tuple[str
             target = header.get("search_target")
             if isinstance(target, str) and target.startswith("/") and page_url(target, "href"):
                 placeholder = str(header.get("search_placeholder") or "")[:80]
+                hidden_lang = ""
+                if locale and locale.get("current") != locale.get("default"):
+                    hidden_lang = f'<input type="hidden" name="lang" value="{_esc(str(locale["current"]))}">'
                 search_html = (f'<form class="mz-header-search"{search_style_attr} role="search" action="{_esc(_site_link(target, link_base))}" method="get">'
-                               f'<input type="search" name="q" placeholder="{_esc(placeholder)}" aria-label="{_esc(placeholder)}">'
+                               f'<input type="search" name="q" placeholder="{_esc(placeholder)}" aria-label="{_esc(placeholder)}">{hidden_lang}'
                                f'<button type="submit" aria-label="{_esc(placeholder or "Search")}">{_header_icon("search")}</button></form>')
         icons_html = ""
         icons = header.get("icons")
@@ -532,6 +539,12 @@ def _theme_chrome(theme: dict | None, link_base: str | None = None) -> tuple[str
                 parts.append(f'<a class="mz-header-icon" href="{_esc(_site_link(href, link_base))}" aria-label="{_esc(label.strip()[:40])}" title="{_esc(label.strip()[:40])}">{_header_icon(str(name))}</a>')
             if parts:
                 icons_html = f'<div class="mz-header-icons"{icons_style}>{"".join(parts)}</div>'
+        locale_html = ""
+        if locale and locale.get("switches"):
+            switch_links = "".join(
+                f'<a class="mz-locale-switch" href="{_esc(href)}" hreflang="{_esc(code)}">{_esc(label)}</a>'
+                for code, label, href in locale["switches"])
+            locale_html = f'<div class="mz-header-locale">{switch_links}</div>'
         bar_html = ""
         bar_links = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(header.get("bar_links"), 12, link_base=link_base))
         cta_label = header.get("bar_cta_label")
@@ -551,7 +564,7 @@ def _theme_chrome(theme: dict | None, link_base: str | None = None) -> tuple[str
                          '<svg class="mz-menu-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>'
                          '<svg class="mz-menu-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
                          f'</summary><nav>{links}{menu_bar_links}{cta_html}</nav></details>')
-        if logo_html or brand_html or nav or act or search_html or icons_html or bar_html:
+        if logo_html or brand_html or nav or act or search_html or icons_html or locale_html or bar_html:
             header_class = "mz-site-header mz-header-centered" if header.get("layout") == "centered" else "mz-site-header"
             if header.get("surface") == "dark":
                 header_class += " mz-site-header-dark"
@@ -581,9 +594,9 @@ def _theme_chrome(theme: dict | None, link_base: str | None = None) -> tuple[str
                     header_class += " " + prefix + "hide-bar"
             if search_html or icons_html or bar_html:
                 header_class += " mz-header-rich"
-                head_html = f'<header class="{header_class}"{header_style}><div class="mz-header-main">{logo_html}{brand_html}{search_html}{nav}{act}{icons_html}{menu_html}</div>{bar_html}</header>'
+                head_html = f'<header class="{header_class}"{header_style}><div class="mz-header-main">{logo_html}{brand_html}{search_html}{nav}{act}{icons_html}{locale_html}{menu_html}</div>{bar_html}</header>'
             else:
-                head_html = f'<header class="{header_class}"{header_style}>{logo_html}{brand_html}{nav}{act}</header>'
+                head_html = f'<header class="{header_class}"{header_style}>{logo_html}{brand_html}{nav}{act}{locale_html}</header>'
     footer = theme.get("footer")
     foot_html = ""
     if isinstance(footer, dict):
@@ -685,7 +698,26 @@ def render_document(tree: dict, meta: dict, theme: dict | None = None, lang: str
     if description:
         head.append(f'<meta property="og:description" content="{_esc(description)}">')
 
-    header_html, footer_html = _theme_chrome(theme, link_base=link_base)
+    languages = [c for c in (meta.get("languages") or []) if isinstance(c, str) and PAGE_LANGUAGE.fullmatch(c)][:4]
+    default_language = meta.get("default_language")
+    if default_language not in languages:
+        default_language = languages[0] if languages else lang
+    locale = None
+    if canonical and len(languages) > 1 and lang in languages:
+        def _lang_url(code: str) -> str:
+            if code == default_language:
+                return canonical
+            return canonical + ("&" if "?" in canonical else "?") + "lang=" + code
+        if not isinstance(meta.get("alternates"), dict):
+            alternates = {code: _lang_url(code) for code in languages}
+            for code, url in alternates.items():
+                if page_url(url, "url"):
+                    head.append(f'<link rel="alternate" hreflang="{_esc(code)}" href="{_esc(url)}">')
+        locale = {"current": lang, "default": default_language,
+                  "switches": [(code, _LOCALE_LABELS.get(code, code), _lang_url(code))
+                               for code in languages if code != lang]}
+
+    header_html, footer_html = _theme_chrome(theme, link_base=link_base, locale=locale)
     body = header_html + render_page(tree, lang=lang, device=device, link_base=link_base) + footer_html
     return _DOCUMENT.render(language=lang, direction=direction,
                             head="\n".join(head) + "<style>" + _BASE_CSS + "</style>" + _theme_style(theme), body=body)
