@@ -255,6 +255,8 @@ export interface ThemeChrome {
   row_align?: 'start'|'center'|'end'|'between'|'around'|'evenly';
   row_gap?: 'tight'|'wide';
   gap_px?: number;
+  tablet?: { density?: 'comfortable'|'compact'; hide_search?: boolean; hide_bar?: boolean };
+  mobile?: { density?: 'comfortable'|'compact'; hide_search?: boolean; hide_bar?: boolean };
   element_order?: ('brand'|'search'|'icons')[];
   icons?: { icon: HeaderIconName; label: string; href: string }[];
   bar_links?: { label: string; href: string }[];
@@ -330,18 +332,19 @@ export function themeStyle(theme?: ThemeSpec): CSSProperties {
   return style as CSSProperties;
 }
 
-export function ThemeHeader({ header }: { header?: ThemeChrome }) {
+export function ThemeHeader({ header, device }: { header?: ThemeChrome; device?: Device }) {
   if (!header) return null;
+  const devOver = device && device !== 'desktop' ? header[device] : undefined;
   const links = cleanLinks(header.links);
   const actions = cleanLinks(header.actions, 4);
   const brand = header.brand ? String(header.brand).slice(0, 80) : '';
   const logo = header.logo ? safeUrl(header.logo, 'url') : null;
-  const searchTarget = header.search_enabled && header.search_target ? safeUrl(header.search_target, 'href') : null;
+  const searchTarget = !devOver?.hide_search && header.search_enabled && header.search_target ? safeUrl(header.search_target, 'href') : null;
   const searchPlaceholder = String(header.search_placeholder ?? '').slice(0, 80);
   const icons = (header.icons ?? []).slice(0, 6)
     .map(e => ({ icon: String(e?.icon ?? ''), href: safeUrl(e?.href, 'href'), label: String(e?.label ?? '').trim().slice(0, 40) }))
     .filter((e): e is { icon: string; href: string; label: string } => !!e.href && !!e.label && e.icon in HEADER_ICON_PATHS);
-  const barLinks = cleanLinks(header.bar_links, 12);
+  const barLinks = devOver?.hide_bar ? [] : cleanLinks(header.bar_links, 12);
   const ctaLabel = String(header.bar_cta_label ?? '').trim().slice(0, 40);
   const ctaHref = header.bar_cta_href ? safeUrl(header.bar_cta_href, 'href') : null;
   const rich = !!(searchTarget || icons.length || barLinks.length || (ctaLabel && ctaHref));
@@ -365,7 +368,7 @@ export function ThemeHeader({ header }: { header?: ThemeChrome }) {
     );
   }
   return (
-    <header className={`mz-site-header mz-header-rich${header?.surface==='dark'?' mz-site-header-dark':''}${header?.search_style==='outline'?' mz-search-outline':''}${header?.bar_style==='plain'?' mz-bar-plain':''}${header?.density==='compact'?' mz-density-compact':''}${header?.row_align?` mz-row-${header.row_align}`:''}${header?.row_gap?` mz-gap-${header.row_gap}`:''}${typeof header?.gap_px==='number'?' mz-gap-custom':''}${header?.element_order?.length?' mz-reorder':''}`} style={typeof header?.gap_px==='number'?({'--row-gap':header.gap_px+'px'} as CSSProperties):undefined}>
+    <header className={`mz-site-header mz-header-rich${header?.surface==='dark'?' mz-site-header-dark':''}${header?.search_style==='outline'?' mz-search-outline':''}${header?.bar_style==='plain'?' mz-bar-plain':''}${(devOver?.density ?? header?.density)==='compact'?' mz-density-compact':''}${header?.row_align?` mz-row-${header.row_align}`:''}${header?.row_gap?` mz-gap-${header.row_gap}`:''}${typeof header?.gap_px==='number'?' mz-gap-custom':''}${header?.element_order?.length?' mz-reorder':''}`} style={typeof header?.gap_px==='number'?({'--row-gap':header.gap_px+'px'} as CSSProperties):undefined}>
       <div className="mz-header-main">
         {logo && <img className="mz-site-logo" style={brandStyle} src={logo} alt="" />}
         {brand && <span className="mz-site-brand" style={brandStyle}>{brand}</span>}
@@ -421,7 +424,7 @@ export function ThemeFooter({ footer }: { footer?: ThemeSpec['footer'] }) {
 export default function TreePreview({ tree, lang, device, theme }: { tree: PageNode; lang: string; device: Device; theme?: ThemeSpec }) {
   return (
     <div className="mz-site" dir={lang.split('-')[0] === 'ar' ? 'rtl' : 'ltr'} style={themeStyle(theme)}>
-      <ThemeHeader header={theme?.header} />
+      <ThemeHeader header={theme?.header} device={device} />
       <NodeView node={tree} lang={lang} device={device} />
       <ThemeFooter footer={theme?.footer} />
     </div>

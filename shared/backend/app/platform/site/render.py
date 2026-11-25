@@ -425,6 +425,7 @@ _BASE_CSS += ".mz-header-rich{display:block;padding:0;position:relative}.mz-head
 _BASE_CSS += ".mz-search-outline .mz-header-search{background:transparent;border:1px solid color-mix(in srgb,currentColor 35%,transparent);color:inherit}.mz-search-outline .mz-header-search input{color:inherit}.mz-search-outline .mz-header-search input::placeholder{color:color-mix(in srgb,currentColor 55%,transparent)}.mz-bar-plain .mz-header-bar{border-top:0}.mz-bar-plain .mz-header-bar nav a{border-radius:6px;min-height:32px}.mz-bar-plain .mz-header-bar nav a:first-child{background:none;font-weight:500;color:color-mix(in srgb,currentColor 82%,transparent)}.mz-bar-plain .mz-header-bar nav a:first-child:hover{color:inherit}.mz-density-compact .mz-header-main{padding:6px 32px;gap:10px}.mz-density-compact .mz-header-search{max-width:560px}.mz-density-compact .mz-header-search button{width:30px;height:30px}.mz-density-compact .mz-header-icon{width:34px;height:34px}.mz-density-compact .mz-header-bar{padding:4px 32px;min-height:40px}.mz-density-compact .mz-header-bar nav a{min-height:30px;font-size:14px}@media(max-width:768px){.mz-density-compact .mz-header-main{padding:4px 14px}}"
 _BASE_CSS += ".mz-row-start .mz-header-main{justify-content:flex-start}.mz-row-center .mz-header-main{justify-content:center}.mz-row-end .mz-header-main{justify-content:flex-end}.mz-row-between .mz-header-main{justify-content:space-between}.mz-row-around .mz-header-main{justify-content:space-around}.mz-row-evenly .mz-header-main{justify-content:space-evenly}.mz-row-start .mz-header-search,.mz-row-center .mz-header-search,.mz-row-end .mz-header-search,.mz-row-between .mz-header-search,.mz-row-around .mz-header-search,.mz-row-evenly .mz-header-search{flex:none;min-width:0;width:min(640px,100%);margin-inline:0}.mz-gap-tight .mz-header-main{gap:8px}.mz-gap-wide .mz-header-main{gap:24px}.mz-gap-custom .mz-header-main{gap:var(--row-gap,14px)}"
 _BASE_CSS += ".mz-reorder .mz-site-logo,.mz-reorder .mz-site-brand{order:var(--ord-brand,1)}.mz-reorder .mz-header-search{order:var(--ord-search,2)}.mz-reorder .mz-header-icons{order:var(--ord-icons,3)}.mz-reorder .mz-header-main>nav,.mz-reorder .mz-header-main>.mz-site-actions{order:2}.mz-reorder .mz-header-menu{order:9}@media(max-width:768px){.mz-reorder .mz-header-search{order:9;flex-basis:100%}}"
+_BASE_CSS += ".mz-header-menu nav .mz-menu-bar{display:contents}@media(min-width:769px) and (max-width:1024px){.mz-t-density-compact .mz-header-main{padding:6px 32px;gap:10px}.mz-t-density-compact .mz-header-search{max-width:560px}.mz-t-density-compact .mz-header-search button{width:30px;height:30px}.mz-t-density-compact .mz-header-icon{width:34px;height:34px}.mz-t-density-compact .mz-header-bar{padding:4px 32px;min-height:40px}.mz-t-density-compact .mz-header-bar nav a{min-height:30px;font-size:14px}.mz-t-hide-search .mz-header-search{display:none}.mz-t-hide-bar .mz-header-bar{display:none}}@media(max-width:768px){.mz-m-density-compact .mz-header-main{padding:4px 14px;gap:8px}.mz-m-hide-search .mz-header-search{display:none}.mz-m-hide-bar .mz-menu-bar{display:none}}"
 _BASE_CSS += ".mz-site-logo{height:32px;width:auto}.mz-site-footer a{color:inherit;text-decoration:none}.mz-footer-groups{display:flex;gap:32px;flex-wrap:wrap}.mz-footer-group{display:flex;flex-direction:column;gap:10px}.mz-footer-group-title{font-weight:650}"
 for _token, _size in _SPACER_PX.items():
     _BASE_CSS += f".mz-padding-{_token}{{padding:{_size}px}}.mz-gap-{_token}{{gap:{_size}px}}.mz-height-{_token} .mz-spacer{{height:{_size}px}}"
@@ -540,12 +541,15 @@ def _theme_chrome(theme: dict | None, link_base: str | None = None) -> tuple[str
         if bar_links or cta_html:
             bar_nav = f"<nav>{bar_links}</nav>" if bar_links else ""
             bar_html = f'<div class="mz-header-bar">{bar_nav}{cta_html}</div>'
+        dev_t = header.get("tablet") if isinstance(header.get("tablet"), dict) else {}
+        dev_m = header.get("mobile") if isinstance(header.get("mobile"), dict) else {}
+        menu_bar_links = f'<span class="mz-menu-bar">{bar_links}</span>' if (bar_links and dev_m.get("hide_bar") is True) else bar_links
         menu_html = ""
         if links or bar_links or cta_html:
             menu_html = ('<details class="mz-header-menu"><summary aria-label="Menu">'
                          '<svg class="mz-menu-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>'
                          '<svg class="mz-menu-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
-                         f'</summary><nav>{links}{bar_links}{cta_html}</nav></details>')
+                         f'</summary><nav>{links}{menu_bar_links}{cta_html}</nav></details>')
         if logo_html or brand_html or nav or act or search_html or icons_html or bar_html:
             header_class = "mz-site-header mz-header-centered" if header.get("layout") == "centered" else "mz-site-header"
             if header.get("surface") == "dark":
@@ -567,6 +571,13 @@ def _theme_chrome(theme: dict | None, link_base: str | None = None) -> tuple[str
                 header_style = f' style="--row-gap:{gap_px}px"'
             if order_map:
                 header_class += " mz-reorder"
+            for dev, prefix in ((dev_t, "mz-t-"), (dev_m, "mz-m-")):
+                if dev.get("density") == "compact":
+                    header_class += " " + prefix + "density-compact"
+                if dev.get("hide_search") is True:
+                    header_class += " " + prefix + "hide-search"
+                if dev.get("hide_bar") is True:
+                    header_class += " " + prefix + "hide-bar"
             if search_html or icons_html or bar_html:
                 header_class += " mz-header-rich"
                 head_html = f'<header class="{header_class}"{header_style}><div class="mz-header-main">{logo_html}{brand_html}{search_html}{nav}{act}{icons_html}{menu_html}</div>{bar_html}</header>'

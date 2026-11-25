@@ -367,6 +367,27 @@ def check_settings(value) -> dict:
             if type(gap_px) is not int or not 0 <= gap_px <= 64:
                 raise HTTPException(422, "شكل الترويسة غير صالح")
             out["header"]["gap_px"] = gap_px
+        for dev in ("tablet", "mobile"):
+            sub = header.get(dev)
+            if sub is None:
+                continue
+            if not isinstance(sub, dict) or any(k not in ("density", "hide_search", "hide_bar") for k in sub):
+                raise HTTPException(422, "شكل الترويسة غير صالح")
+            cleaned = {}
+            d = sub.get("density")
+            if d is not None:
+                if d not in ("comfortable", "compact"):
+                    raise HTTPException(422, "شكل الترويسة غير صالح")
+                cleaned["density"] = d
+            for key in ("hide_search", "hide_bar"):
+                v = sub.get(key)
+                if v is not None:
+                    if type(v) is not bool:
+                        raise HTTPException(422, "شكل الترويسة غير صالح")
+                    if v:
+                        cleaned[key] = True
+            if cleaned:
+                out["header"][dev] = cleaned
         order = header.get("element_order")
         if order is not None:
             if (not isinstance(order, list) or len(order) > 3

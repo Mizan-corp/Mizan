@@ -101,7 +101,7 @@ class ChromeLogoGroupTests(unittest.TestCase):
   self.assertNotIn('logo',check_settings(value)['header'])
  def test_header_appearance_round_trip(self):
   from app.platform.site.service import check_settings
-  value=self._settings();value['header'].update({'search_style':'outline','bar_style':'plain','density':'compact','row_align':'evenly','row_gap':'wide','gap_px':20,'element_order':['search','brand','icons']})
+  value=self._settings();value['header'].update({'search_style':'outline','bar_style':'plain','density':'compact','row_align':'evenly','row_gap':'wide','gap_px':20,'element_order':['search','brand','icons'],'tablet':{'density':'compact','hide_search':True},'mobile':{'hide_bar':True}})
   self.assertEqual(check_settings(value),value)
  def test_header_appearance_rejects_bad_values(self):
   from app.platform.site.service import check_settings
@@ -111,19 +111,22 @@ class ChromeLogoGroupTests(unittest.TestCase):
   for bad in (-1,65,1.5,'12'):
    value=self._settings();value['header']['gap_px']=bad
    with self.assertRaises(HTTPException):check_settings(value)
+  for bad in ('x',['density'],{'density':'tall'},{'hide_search':'yes'},{'unknown':1},{'density':'compact','oops':2}):
+   value=self._settings();value['header']['tablet']=bad
+   with self.assertRaises(HTTPException):check_settings(value)
   for bad in (['brand','brand'],['brand','nav'],'brand',[1,2],['brand','search','icons','extra']):
    value=self._settings();value['header']['element_order']=bad
    with self.assertRaises(HTTPException):check_settings(value)
  def test_render_header_appearance_classes(self):
   from app.platform.site.render import _theme_chrome
-  theme_value={'header':{'brand':'ويريا','search_enabled':True,'search_target':'/search','search_style':'outline','bar_style':'plain','density':'compact','row_align':'between','row_gap':'tight','gap_px':4,'element_order':['icons','brand']}}
+  theme_value={'header':{'brand':'ويريا','search_enabled':True,'search_target':'/search','search_style':'outline','bar_style':'plain','density':'compact','row_align':'between','row_gap':'tight','gap_px':4,'element_order':['icons','brand'],'bar_links':[{'label':'قطع','href':'/shop/parts'}],'tablet':{'density':'compact','hide_search':True},'mobile':{'hide_bar':True}}}
   head,_=_theme_chrome(theme_value,link_base='/site/studio')
-  self.assertIn('mz-search-outline',head);self.assertIn('mz-bar-plain',head);self.assertIn('mz-density-compact',head);self.assertIn('mz-gap-tight',head);self.assertIn('mz-reorder',head);self.assertIn('--ord-brand:2',head);self.assertIn('--ord-search:3',head);self.assertIn('mz-row-between',head);self.assertIn('mz-gap-custom',head);self.assertIn('--row-gap:4px',head)
+  self.assertIn('mz-search-outline',head);self.assertIn('mz-bar-plain',head);self.assertIn('mz-density-compact',head);self.assertIn('mz-gap-tight',head);self.assertIn('mz-reorder',head);self.assertIn('--ord-brand:2',head);self.assertIn('--ord-search:3',head);self.assertIn('mz-row-between',head);self.assertIn('mz-gap-custom',head);self.assertIn('--row-gap:4px',head);self.assertIn('mz-t-density-compact',head);self.assertIn('mz-t-hide-search',head);self.assertIn('mz-m-hide-bar',head);self.assertIn('<span class="mz-menu-bar">',head)
  def test_render_header_appearance_defaults_add_no_classes(self):
   from app.platform.site.render import _theme_chrome
   theme_value={'header':{'brand':'ويريا','search_enabled':True,'search_target':'/search'}}
   head,_=_theme_chrome(theme_value,link_base='/site/studio')
-  self.assertNotIn('mz-search-outline',head);self.assertNotIn('mz-bar-plain',head);self.assertNotIn('mz-density-compact',head);self.assertNotIn('mz-row-',head);self.assertNotIn('mz-gap-',head);self.assertNotIn('mz-reorder',head);self.assertNotIn('--ord-',head);self.assertNotIn('mz-gap-custom',head);self.assertNotIn('--row-gap',head)
+  self.assertNotIn('mz-search-outline',head);self.assertNotIn('mz-bar-plain',head);self.assertNotIn('mz-density-compact',head);self.assertNotIn('mz-row-',head);self.assertNotIn('mz-gap-',head);self.assertNotIn('mz-reorder',head);self.assertNotIn('--ord-',head);self.assertNotIn('mz-gap-custom',head);self.assertNotIn('--row-gap',head);self.assertNotIn('mz-t-density-compact',head);self.assertNotIn('mz-m-hide-bar',head);self.assertNotIn('mz-menu-bar',head)
  def test_footer_groups_round_trip(self):
   from app.platform.site.service import check_settings
   value=self._settings();value['footer']['groups']=[{'title':'Company','links':[{'label':'About','href':'/about'}]}]
