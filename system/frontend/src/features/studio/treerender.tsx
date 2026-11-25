@@ -102,6 +102,7 @@ function enumClasses(s: Record<string, string | number | boolean>): string[] {
   }
   if (s.rounded === true) out.push('mz-rounded');
   if (s.bleed === true) out.push('mz-bleed');
+  if (s.background_fit === 'end_band' && typeof s.background_image === 'string' && s.background_image) out.push('mz-bg-band');
   return out;
 }
 
@@ -118,14 +119,12 @@ function backgroundImageStyle(node: PageNode, s: Record<string, string | number 
     layers.push(`linear-gradient(${scrim}, ${scrim})`);
   }
   layers.push(`url("${url}")`);
-  const style: CSSProperties = { backgroundImage: layers.join(', ') };
   if (s.background_fit === 'end_band') {
-    const edge = ['ar', 'he', 'fa', 'ur'].includes(lang.split('-')[0]) ? 'left' : 'right';
-    style.backgroundSize = 'auto 100%';
-    style.backgroundPosition = edge;
-    style.backgroundRepeat = 'no-repeat';
+    // The band renders as a ::before side panel (studio.css .mz-bg-band):
+    // exact 40% width, cover-cropped, direction-aware edge, hidden on mobile.
+    return { ['--mz-bg' as never]: `url("${url}")` };
   }
-  return style;
+  return { backgroundImage: layers.join(', ') };
 }
 
 function NodeView({ node, lang, device }: { node: PageNode; lang: string; device: Device }) {

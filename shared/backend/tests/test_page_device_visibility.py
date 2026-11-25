@@ -105,17 +105,25 @@ def _band_tree(fit, lang="ar"):
     }
 
 
-def test_end_band_rtl_pins_image_left():
+def test_end_band_renders_as_side_band_panel():
     html = render_page(_band_tree("end_band"), lang="ar")
-    assert "background-position:left" in html
-    assert "background-repeat:no-repeat" in html
+    assert "mz-bg-band" in html
+    assert "--mz-bg:url(" in html
+    assert ".mz-bg-band::before" in _BASE_CSS
+    assert "width:40%" in _BASE_CSS
+    assert "@media(max-width:768px){.mz-bg-band::before{display:none}}" in _BASE_CSS
 
 
-def test_end_band_ltr_pins_image_right():
-    html = render_page(_band_tree("end_band"), lang="en")
-    assert "background-position:right" in html
-
-
-def test_cover_fit_keeps_default_sheet_rules():
+def test_cover_fit_keeps_plain_background_image():
     html = render_page(_band_tree("cover"), lang="ar")
-    assert "background-position" not in html
+    assert "--mz-bg" not in html
+    assert "background-image:url(" in html
+
+
+def test_content_width_three_fifths_class_and_mobile_reset():
+    tree = _band_tree("cover")
+    tree["children"][0]["children"][0]["settings"]["desktop"]["content_width"] = "three_fifths"
+    html = render_page(tree, lang="ar")
+    assert "mz-content-width-three_fifths" in html
+    assert ".mz-content-width-three_fifths>.mz-column{width:60%}" in _BASE_CSS
+    assert ".mz-content-width-three_fifths>.mz-column{width:100%}" in _BASE_CSS
