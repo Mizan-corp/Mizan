@@ -90,7 +90,7 @@ class ProviderTests(unittest.IsolatedAsyncioTestCase):
         token = current_tenant_id.set(A)
         try:
             items = await runtime.items(SourceContext(A, 'en', frozenset({'helpdesk'})), 'helpdesk', 'services', 8)
-            self.assertEqual(dict(items[0].values), {'name': 'صيانة تكييف'})
+            self.assertEqual(dict(items[0].values), {'name': 'صيانة تكييف', 'description': None, 'starting_price': None})
             sql = str(db.execute.call_args.args[0])
             self.assertIn('helpdesk_offerings.tenant_id', sql)
             self.assertIn('helpdesk_offerings.is_active IS true', sql)
@@ -132,7 +132,7 @@ class RouterTests(unittest.IsolatedAsyncioTestCase):
         tid = uuid4()
         token = current_tenant_id.set(tid)
         try:
-            data = rtr.PublicationIn(expected_token=expected, offerings=offerings)
+            data = rtr.PublicationIn(expected_token=expected, consent_version=prov.SCHEMA_V1, offerings=offerings, show_description=False, show_starting_price=False)
             # read() inside the endpoint checks activation; patch it out — the
             # activation guard itself is covered by the provider tests above.
             import app.activities.general.modules.helpdesk.storefront.router as _r
@@ -156,7 +156,7 @@ class RouterTests(unittest.IsolatedAsyncioTestCase):
             _r.get_active_modules = AsyncMock(return_value={'helpdesk'})
             try:
                 with self.assertRaises(HTTPException) as ctx:
-                    await rtr.put_publication(rtr.PublicationIn(expected_token='stale', offerings=[]), db)
+                    await rtr.put_publication(rtr.PublicationIn(expected_token='stale', consent_version=prov.SCHEMA_V1, offerings=[], show_description=False, show_starting_price=False), db)
             finally:
                 _r.get_active_modules = orig
             self.assertEqual(ctx.exception.status_code, 409)
@@ -176,7 +176,7 @@ class RouterTests(unittest.IsolatedAsyncioTestCase):
             try:
                 expected = rtr.token(None)
                 with self.assertRaises(HTTPException) as ctx:
-                    await rtr.put_publication(rtr.PublicationIn(expected_token=expected, offerings=[A]), db)
+                    await rtr.put_publication(rtr.PublicationIn(expected_token=expected, consent_version=prov.SCHEMA_V1, offerings=[A], show_description=False, show_starting_price=False), db)
             finally:
                 _r.get_active_modules = orig
             self.assertEqual(ctx.exception.status_code, 422)
@@ -194,13 +194,13 @@ class RouterTests(unittest.IsolatedAsyncioTestCase):
             _r.get_active_modules = AsyncMock(return_value={'helpdesk'})
             try:
                 expected = rtr.token(None)
-                out = await rtr.put_publication(rtr.PublicationIn(expected_token=expected, offerings=[A]), db)
+                out = await rtr.put_publication(rtr.PublicationIn(expected_token=expected, consent_version=prov.SCHEMA_V1, offerings=[A], show_description=False, show_starting_price=False), db)
             finally:
                 _r.get_active_modules = orig
-            self.assertEqual(out['value'], {'offerings': [str(A)]})
+            self.assertEqual(out['value'], {'offerings': [str(A)], 'show_description': False, 'show_starting_price': False, 'schema': prov.SCHEMA_V1})
             added = db.add.call_args.args[0]
             saved = json.loads(added.value)
-            self.assertEqual(saved, {'schema': prov.SCHEMA, 'offerings': [str(A)]})
+            self.assertEqual(saved, {'schema': prov.SCHEMA_V1, 'offerings': [str(A)], 'show_description': False, 'show_starting_price': False})
             db.commit.assert_awaited_once()
         finally:
             current_tenant_id.reset(token)
@@ -222,3 +222,110 @@ class RouterTests(unittest.IsolatedAsyncioTestCase):
         finally:
             current_tenant_id.reset(token)
 
+
+
+class V1ConsentTests(unittest.TestCase):
+    def test_v0_rows_read_names_only(self):
+        policy = prov.service_policy(json.dumps({'schema': prov.SCHEMA, 'offerings': [str(A)]}))
+        self.assertEqual(policy['schema'], prov.SCHEMA)
+        self.assertFalse(policy['show_description'])
+        self.assertFalse(policy['show_starting_price'])
+
+    def test_v1_exact_keys_and_strict_bools_fail_closed(self):
+        base = {'schema': prov.SCHEMA_V1, 'offerings': [],
+                'show_description': True, 'show_starting_price': False}
+        bad = [json.dumps({**base, 'extra': 1}),
+               json.dumps({k: v for k, v in base.items() if k != 'show_description'}),
+               json.dumps({**base, 'show_description': 'yes'}),
+               json.dumps({**base, 'show_starting_price': 1}),
+               json.dumps({**base, 'schema': prov.SCHEMA})]  # flags under v0 shape
+        for raw in bad:
+            with self.assertRaises(SourceUnavailable):
+                prov.service_policy(raw)
+
+    def test_v1_flags_roundtrip(self):
+        policy = prov.service_policy(json.dumps({'schema': prov.SCHEMA_V1, 'offerings': [str(A)],
+                                                 'show_description': True, 'show_starting_price': True}))
+        self.assertEqual(policy['offerings'], (A,))
+        self.assertTrue(policy['show_description'])
+        self.assertTrue(policy['show_starting_price'])
+
+
+class V1ProviderTests(unittest.IsolatedAsyncioTestCase):
+    async def _run(self, stored, rows):
+        db = AsyncMock()
+        db.scalar.return_value = stored
+        result = MagicMock()
+        result.all.return_value = rows
+        db.execute.return_value = result
+        runtime = CollectionRuntime(prov.helpdesk_providers(db))
+        token = current_tenant_id.set(A)
+        try:
+            return await runtime.items(SourceContext(A, 'en', frozenset({'helpdesk'})), 'helpdesk', 'services', 8), db
+        finally:
+            current_tenant_id.reset(token)
+
+    async def test_v0_rows_never_select_richer_columns(self):
+        stored = json.dumps({'schema': prov.SCHEMA, 'offerings': [str(A)]})
+        items, db = await self._run(stored, [(A, 'صيانة تكييف')])
+        sql = str(db.execute.call_args.args[0])
+        for forbidden in ['description', 'starting_amount', 'currency']:
+            self.assertNotIn(forbidden, sql)
+        self.assertIsNone(items[0].values['description'])
+        self.assertIsNone(items[0].values['starting_price'])
+
+    async def test_v1_unchecked_fields_never_selected(self):
+        stored = json.dumps({'schema': prov.SCHEMA_V1, 'offerings': [str(A)],
+                             'show_description': False, 'show_starting_price': False})
+        items, db = await self._run(stored, [(A, 'تنظيف')])
+        sql = str(db.execute.call_args.args[0])
+        for forbidden in ['description', 'starting_amount', 'currency']:
+            self.assertNotIn(forbidden, sql)
+
+    async def test_v1_checked_fields_selected_and_projected(self):
+        from decimal import Decimal
+        stored = json.dumps({'schema': prov.SCHEMA_V1, 'offerings': [str(A)],
+                             'show_description': True, 'show_starting_price': True})
+        items, db = await self._run(stored, [(A, 'دعم فني', 'دعم عن بعد', Decimal('1500.00'), 'EGP')])
+        sql = str(db.execute.call_args.args[0])
+        for col in ['description', 'starting_amount', 'currency']:
+            self.assertIn(col, sql)
+        self.assertEqual(dict(items[0].values), {'name': 'دعم فني', 'description': 'دعم عن بعد',
+                                                 'starting_price': '1500.00 EGP'})
+
+    async def test_over_bound_description_fails_closed(self):
+        from decimal import Decimal
+        stored = json.dumps({'schema': prov.SCHEMA_V1, 'offerings': [str(A)],
+                             'show_description': True, 'show_starting_price': True})
+        from app.framework.storefront_collections import ProjectionInvalid
+        with self.assertRaises((SourceUnavailable, ProjectionInvalid)):
+            await self._run(stored, [(A, 'دعم فني', 'x' * 201, Decimal('1.00'), 'EGP')])
+
+
+class V1RouterTests(unittest.IsolatedAsyncioTestCase):
+    async def test_stale_consent_version_409_no_write(self):
+        stored = json.dumps({'schema': prov.SCHEMA, 'offerings': []})
+        db, row = _db_for_router(stored)
+        tid = uuid4()
+        token = current_tenant_id.set(tid)
+        try:
+            import app.activities.general.modules.helpdesk.storefront.router as _r
+            orig = _r.get_active_modules
+            _r.get_active_modules = AsyncMock(return_value={'helpdesk'})
+            try:
+                with self.assertRaises(HTTPException) as ctx:
+                    await rtr.put_publication(rtr.PublicationIn(
+                        expected_token=rtr.token(stored), consent_version=prov.SCHEMA,
+                        offerings=[], show_description=False, show_starting_price=False), db)
+            finally:
+                _r.get_active_modules = orig
+            self.assertEqual(ctx.exception.status_code, 409)
+            self.assertEqual(row.value, stored)
+            db.commit.assert_not_awaited()
+        finally:
+            current_tenant_id.reset(token)
+
+    def test_non_bool_flags_refused_by_model(self):
+        with self.assertRaises(Exception):
+            rtr.PublicationIn(expected_token='x', consent_version=prov.SCHEMA_V1,
+                              offerings=[], show_description='yes', show_starting_price=False)

@@ -474,3 +474,11 @@ re-verified as fixed:
 - Capability fixed (projection): expansion chunk size honors the row's declared desktop columns (1..6, fallback 6) — 4-up authored rows split 4+4, not 6+2.
 - Proof: category-e2e restyled live (gap=m via Studio UI, republished with fresh approval), desktop/tablet/mobile screenshots show consistent gaps; served HTML carries `mz-section mz-gap-m` and two `mz-columns-4`.
 - Debt preserved: bidi unit separation in mixed-script product titles (TB 1 / 16GB visual reorder) is a content/typography issue, not layout.
+
+## 2026-11-25 (late) — HELP DESK v1 RICHER-FIELDS CONSENT (implemented)
+
+- Capability added: Help Desk website services consent v1 (design docs/helpdesk-consent-scope-v1.md): explicit show_description and show_starting_price booleans, exact-key validation, StrictBool writer guard, consent_version anti-stale-client guard (409), v0 rows read names-only forever, revocation narrows fail-closed.
+- Framework constraint found: collection contracts cap plain_text at 200 chars, so the description bound is 200 (not 2000 as first drafted); longer descriptions belong to a future detail surface with its own wording.
+- Provider rows always carry the exact contract keys; unconsented fields read as None, richer columns are never SELECTed under older/unchecked consent.
+- Proof: 24 helpdesk tests + v4/repeats/bindings/public-access regressions green; UI render test pins the bilingual v1 wording and payload; live sandbox save stamped v1 (both fields) and was restored to the exact prior v0 value afterward.
+- Note: ERP backend for the sandbox preview lives on port 8000 (system/backend); the website API on 8001 does not serve module-settings routes.

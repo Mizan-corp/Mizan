@@ -2,7 +2,7 @@
 import hashlib, json
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from sqlalchemy import select
 from app.db.base import get_db
 from app.dependencies import require_perm
@@ -11,7 +11,7 @@ from app.platform.tenancy.context import current_tenant_id
 from app.platform.tenancy.models import Tenant
 from app.platform.settings.models import StoreSetting
 from app.activities.general.modules.helpdesk.models import HelpdeskOffering
-from .provider import SETTING_KEY, SCHEMA, publication_ids, SourceUnavailable
+from .provider import SETTING_KEY, SCHEMA, SCHEMA_V1, publication_ids, service_policy, SourceUnavailable
 
 router = APIRouter(prefix='/site/module-settings/helpdesk', tags=['Website module settings'])
 
@@ -19,7 +19,13 @@ router = APIRouter(prefix='/site/module-settings/helpdesk', tags=['Website modul
 class PublicationIn(BaseModel):
     model_config = ConfigDict(extra='forbid')
     expected_token: str
+    # Explicit acknowledgement of the disclosure wording the client showed. The
+    # writer only accepts the CURRENT wording version: a stale cached client is
+    # refused, never silently upgraded (same guard as inventory cards).
+    consent_version: str
     offerings: list[UUID] = Field(max_length=200)
+    show_description: StrictBool
+    show_starting_price: StrictBool
 
 
 def token(raw):
@@ -39,10 +45,13 @@ async def get_publication(db=Depends(get_db), _=Depends(require_perm('site.manag
                           __=Depends(require_perm('helpdesk:view', 'helpdesk:manage'))):
     row, raw = await read(db)
     try:
-        value = publication_ids(raw)
+        policy = service_policy(raw)
     except SourceUnavailable:
         raise HTTPException(422, 'Stored services selection is invalid.') from None
-    return {'value': {'offerings': [str(x) for x in value]}, 'edit_token': token(raw)}
+    return {'value': {'offerings': [str(x) for x in policy['offerings']],
+                      'show_description': policy['show_description'],
+                      'show_starting_price': policy['show_starting_price'],
+                      'schema': policy['schema']}, 'edit_token': token(raw)}
 
 
 @router.put('')
@@ -51,11 +60,16 @@ async def put_publication(data: PublicationIn, db=Depends(get_db), _=Depends(req
     tid = current_tenant_id.get()
     if tid is None:
         raise HTTPException(422, 'Explicit workspace required.')
+    # New saves stamp v1: the first wording that names the description and
+    # starting-price display fields. Older rows keep their recorded scope.
+    if data.consent_version != SCHEMA_V1:
+        raise HTTPException(409, 'Website consent wording changed. Reload before saving.')
     await db.execute(select(Tenant.id).where(Tenant.id == tid).with_for_update())
     row, raw = await read(db)
     if token(raw) != data.expected_token:
         raise HTTPException(409, 'Website services selection changed. Reload before saving.')
-    value = {'schema': SCHEMA, 'offerings': [str(x) for x in data.offerings]}
+    value = {'schema': SCHEMA_V1, 'offerings': [str(x) for x in data.offerings],
+             'show_description': data.show_description, 'show_starting_price': data.show_starting_price}
     try:
         ids = publication_ids(json.dumps(value))
     except SourceUnavailable:
@@ -73,7 +87,10 @@ async def put_publication(data: PublicationIn, db=Depends(get_db), _=Depends(req
     else:
         row.value = encoded
     await db.commit()
-    return {'value': {'offerings': value['offerings']}, 'edit_token': token(encoded)}
+    return {'value': {'offerings': value['offerings'],
+                      'show_description': data.show_description,
+                      'show_starting_price': data.show_starting_price,
+                      'schema': SCHEMA_V1}, 'edit_token': token(encoded)}
 
 
 @router.get('/choices')

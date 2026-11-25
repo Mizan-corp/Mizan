@@ -50,10 +50,13 @@ covering them.
    - `show_starting_price` reads as True only on a v1 row; under any older
      schema amount and currency are never selected.
    - Bounds, fail-closed like inventory: name ≤ 200 chars (unchanged),
-     description ≤ 2000 chars, currency exactly 3 letters, amount rendered
-     from the stored Numeric(14,2) with the non-negative constraint already
-     enforced by the model. An over-bound value on a consented record fails
-     the whole read closed (`SourceUnavailable`), never a partial render.
+     description ≤ 200 chars (the collection framework caps plain_text
+     fields at 200; a longer service description belongs to a future
+     detail-page surface with its own named wording, as inventory v4 did),
+     currency exactly 3 letters, amount rendered from the stored
+     Numeric(14,2) with the non-negative constraint already enforced by the
+     model. An over-bound value on a consented record fails the whole read
+     closed (`SourceUnavailable`), never a partial render.
    - Collection CONTRACT for v1 adds `description` (plain_text, nullable,
      max 2000) and `starting_price` (formatted text, nullable) as optional
      fields present only when consented; `max_items` unchanged (24).

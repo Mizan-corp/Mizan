@@ -5,9 +5,11 @@ import {render,fireEvent,waitFor,cleanup} from '@testing-library/react';
 import WebsiteHelpdeskSettings from './WebsiteHelpdeskSettings';
 import {setUILang} from './uiStrings';
 
-// Pins the Help Desk website selection consent: names only, signed-in previews
-// plus per-page publish approval, no description/amount/currency/internal data,
-// no booking/payment, and the save payload shape (expected_token + offerings).
+// Pins the Help Desk website selection consent (v1 wording): selected names plus
+// the checked display fields only (description; starting price with currency),
+// signed-in previews plus per-page publish approval, internal notes/work data
+// never, no booking/payment, and the save payload shape (expected_token +
+// consent_version + offerings + both field flags).
 
 const publication={value:{offerings:['o1']},edit_token:'tok1'};
 const choices={offerings:{items:[{id:'o1',name:'صيانة تكييف'},{id:'o2',name:'دعم أجهزة'}],truncated:false}};
@@ -40,15 +42,16 @@ it('selects service names and saves with the pinned consent wording',async()=>{
  fireEvent.click(getByLabelText('Service دعم أجهزة'));
  fireEvent.click(getByRole('button',{name:'احفظ اختيار خدمات الموقع'}));
  await waitFor(()=>expect(puts).toHaveLength(1));
- expect(confirmText).toContain('أسماء الخدمات المختارة بس');
+ expect(confirmText).toContain('أسماء الخدمات المختارة هتكون متاحة');
  expect(confirmText).toContain('معاينات الموقع المقفولة بحسابك');
  expect(confirmText).toContain('حوار النشر');
- expect(confirmText).toContain('الوصف وسعر البداية والعملة والملاحظات الداخلية وطلبات العمل مش بتظهر أبدًا');
+ expect(confirmText).toContain('الحقول المختارة بس هي اللي بتظهر: وصف الخدمة؛ سعر البداية بالعملة');
+ expect(confirmText).toContain('الملاحظات الداخلية وطلبات العمل مش بتظهر أبدًا');
  expect(confirmText).toContain('مش بيفعّل حجز أو دفع');
- expect(confirmText).toContain('only the selected service names');
+ expect(confirmText).toContain('Only the checked display fields appear: service description; starting price with currency');
  expect(confirmText).toContain('signed-in website previews');
  expect(confirmText).toContain('does not enable booking or payment');
- expect(puts[0].body).toEqual({expected_token:'tok1',offerings:['o1','o2']});
+ expect(puts[0].body).toEqual({expected_token:'tok1',consent_version:'mizan.helpdesk-website-services.experimental.v1',offerings:['o1','o2'],show_description:false,show_starting_price:false});
 });
 
 it('shows an unavailable note instead of breaking when Help Desk is inactive (422)',async()=>{
