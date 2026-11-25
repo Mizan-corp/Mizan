@@ -13,7 +13,7 @@ const settings: Record<string, Record<string, readonly (string|number|boolean)[]
   columns:{visible:[true,false],columns:[1,2,3,4,5,6],gap:spacing,stack:[true,false],reverse:[true,false]},
   column:{visible:[true,false],width,padding:spacing,align,background:['background','card','primary','dark'],rounded:[true,false]},
   heading:{visible:[true,false],level:[1,2,3,4,5,6],align},
-  text:{visible:[true,false],align,variant:['body','eyebrow','note']},
+  text:{visible:[true,false],align,variant:['body','eyebrow','note','check_list']},
   image:{visible:[true,false],width,rounded:[true,false],art:['none','sculpture','sculpture_alt']},
   button:{visible:[true,false],style:['primary','secondary','ghost'],align},
 };

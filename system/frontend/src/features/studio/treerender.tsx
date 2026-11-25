@@ -105,7 +105,7 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
       inner = <Tag className="mz-heading">{String(c.text ?? '')}</Tag>; break;
     }
     case 'text': {
-      const variant = s.variant === 'eyebrow' || s.variant === 'note' ? ` mz-text-${s.variant}` : '';
+      const variant = s.variant === 'eyebrow' || s.variant === 'note' || s.variant === 'check_list' ? ` mz-text-${s.variant}` : '';
       inner = <div className={`mz-text${variant}`} dangerouslySetInnerHTML={{ __html: sanitizeHtml(c.html) }} />; break;
     }
     case 'image': {

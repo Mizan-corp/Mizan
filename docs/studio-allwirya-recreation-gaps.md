@@ -84,8 +84,12 @@ N1. SHIPPED 2026-11-25 (feat/studio-render-parity): section/column background ro
     "dark" plus dark / dark-foreground theme tokens (renderer, SDK manifest,
     settings validation, editor style tab and format panel, both preview CSS
     copies). Per-section explicit color override remains open.
-N2. Checkmark/feature list: a text variant or column preset rendering a bulleted
-    check list (pure renderer + preset; no new data). Unblocks the repair card.
+N2. SHIPPED 2026-11-25 (feat/studio-render-parity): text block variant
+    check_list (both renderers + registry + Format panel) plus a "Check list"
+    Insert preset. Bullets render with a primary-colored check mark, no icon
+    system and no new data. Unblocks the repair card. Note: the older
+    icon_list registry block still renders dead <i data-lucide> markup (no
+    icon font is loaded); it stays unexposed in the native editor.
 N3. Heading accent span: bounded inline mark support in heading text (one <mark>
     mapped to primary color), sanitized like text.html. Unblocks the hero accent.
 N4. Category card preset (image + label + href grid) — degraded to art placeholders

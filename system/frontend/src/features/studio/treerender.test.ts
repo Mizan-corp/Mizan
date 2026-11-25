@@ -72,6 +72,14 @@ describe('TreePreview over toPageTree output', () => {
     const html = renderToStaticMarkup(createElement(TreePreview, { tree, lang: 'en', device: 'desktop' }));
     expect(html).toContain('mz-background-dark');
   });
+  it('renders the check_list text variant with its class', () => {
+    const tree = { type: 'section', id: 's1', settings: {},
+      children: [{ type: 'text', id: 't1', content: { en: { html: '<ul><li>Diagnosis first</li></ul>' } },
+        settings: { desktop: { variant: 'check_list' } } }] } as never;
+    const html = renderToStaticMarkup(createElement(TreePreview, { tree, lang: 'en', device: 'desktop' }));
+    expect(html).toContain('mz-text-check_list');
+    expect(html).toContain('<li>Diagnosis first</li>');
+  });
   it('honors per-device visibility', () => {
     const p = structuredClone(initialProject);
     p.sections[1].visible.mobile = false;

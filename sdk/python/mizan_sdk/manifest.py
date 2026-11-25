@@ -617,7 +617,7 @@ PAGE_BLOCKS = {
                 "content": {"text": ("text", 200)}},
     "text": {"version": 1, "category": "basic",
              "settings": {"visible": "bool", "align": _choices("start", "center", "end"),
-                          "variant": _choices("body", "eyebrow", "note")},
+                          "variant": _choices("body", "eyebrow", "note", "check_list")},
              "content": {"html": ("text", 20000)}},
     "image": {"version": 1, "category": "basic",
               "settings": {"visible": "bool", "width": _choices("auto", "full", "half", "third", "two_thirds"), "rounded": "bool",

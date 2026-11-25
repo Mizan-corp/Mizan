@@ -337,6 +337,19 @@ class ResponsiveCssTests(unittest.TestCase):
         self.assertNotIn("--bogus", html)
         self.assertNotIn("--dark-bad", html)
 
+    def test_check_list_variant_renders_class_and_css(self):
+        from app.platform.site import render
+        tree = {"type": "section", "id": "s1", "settings": {},
+                "children": [{"type": "text", "id": "t1",
+                              "content": {"en": {"html": "<ul><li>Diagnosis first</li><li>Clear pricing</li></ul>"}},
+                              "settings": {"desktop": {"variant": "check_list"}}}]}
+        with patch("app.platform.site.render.page_problems", return_value=[]):
+            html = render.render_document(tree, {"titles": {"en": "Hi"}, "languages": ["en"]},
+                                          None, lang="en")
+        self.assertIn("mz-text-check_list", html)
+        self.assertIn(".mz-text-check_list li::before", html)
+        self.assertIn("<li>Diagnosis first</li>", html)
+
     def _chrome_html(self, links, link_base=None):
         from app.platform.site import render
         tree = {"type": "section", "id": "s1", "settings": {},
