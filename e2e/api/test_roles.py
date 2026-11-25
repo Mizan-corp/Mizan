@@ -41,7 +41,7 @@ def test_admin_acting_as_cashier_cannot_reach_finance_or_clinical(admin_api, reg
     api.ok(api.post("/auth/me/acting-role", json={"role_id": roles["admin"]["id"]}))
     created = api.ok(api.post("/safes", json=safe), 200, 201)
     reg.add("safe", created["id"])
-    logged = db.one("SELECT count(*) FROM audit_log WHERE entity_id = %s AND action = 'switch_role'", (u["id"],))
+    logged = db.one("SELECT count(*) FROM audit_log WHERE entity_id = %s AND action_type = 'switch_role'", (u["id"],))
     assert logged[0] == 2
 
 
