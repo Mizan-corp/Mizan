@@ -352,6 +352,14 @@ def check_settings(value) -> dict:
             if not isinstance(search_placeholder, str) or len(search_placeholder.strip()) > 80:
                 raise HTTPException(422, "نص بحث الترويسة غير صالح")
             out["header"]["search_placeholder"] = search_placeholder.strip()
+        for field, allowed in (("search_style", ("filled", "outline")),
+                               ("bar_style", ("pills", "plain")),
+                               ("density", ("comfortable", "compact"))):
+            chosen = header.get(field)
+            if chosen is not None:
+                if chosen not in allowed:
+                    raise HTTPException(422, "شكل الترويسة غير صالح")
+                out["header"][field] = chosen
         icons = header.get("icons")
         if icons is not None:
             if not isinstance(icons, list) or len(icons) > 6:

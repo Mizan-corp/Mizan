@@ -344,7 +344,7 @@ export function ThemeHeader({ header }: { header?: ThemeChrome }) {
     );
   }
   return (
-    <header className={`mz-site-header mz-header-rich${header?.surface==='dark'?' mz-site-header-dark':''}`}>
+    <header className={`mz-site-header mz-header-rich${header?.surface==='dark'?' mz-site-header-dark':''}${header?.search_style==='outline'?' mz-search-outline':''}${header?.bar_style==='plain'?' mz-bar-plain':''}${header?.density==='compact'?' mz-density-compact':''}`}>
       <div className="mz-header-main">
         {logo && <img className="mz-site-logo" src={logo} alt="" />}
         {brand && <span className="mz-site-brand">{brand}</span>}
