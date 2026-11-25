@@ -202,9 +202,14 @@ per-language copy is not yet authorable (see above).
     site_activation DDL in the test setup (missing approved_sources, added
     with the consent work); the mirror now carries the column. Offline
     suite still skips the file cleanly without the env var.
-18. **Style panel minors** — OPEN (same closeout). Lavender literal
-    rgb(145,131,158) bypasses the token scale; three invisible debug nodes
-    sit in the Style panel DOM. Cosmetic only, fix in a cleanup pass.
+18. **Style panel minors** — RESOLVED 2026-11-25 (already fixed before the
+    register entry). The lavender literal rgb(145,131,158) is #91839e, the
+    old .motion-note color; 8959d6e (2026-11-24) retokenized it and removed
+    the "Workspace details" debug block (the three persistence-bar spans)
+    from the editor chrome. Re-verified 2026-11-25: no #91839e /
+    rgb(145,131,158) / lavender anywhere in system/frontend/src, and no
+    Workspace-details block in the DOM. Cosmetic note, not a gate: the
+    motion panel keeps other purple literal colors off the token scale.
 19. **Legacy /studio/ route disposition** — RESOLVED 2026-11-25 in
     feat/studio-render-parity by grounding the production deploy layout
     (deploy/studio-test): package.py copies studio-preview.html to
