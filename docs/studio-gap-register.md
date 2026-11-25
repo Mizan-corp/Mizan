@@ -341,6 +341,23 @@ Binding/envelope design:
   keep the existing generic JSON 404.
 Depends on Phase 2 (done).
 
+CARD LAYOUT/TYPOGRAPHY PROOF 2026-11-25 (sandbox, UI-authored only): the
+category template column was re-authored through the Studio inspector
+(card background, padding m, rounded; heading size s + balance wrap +
+level 3; row gap m, 4 tracks) — no code or SQL authoring. Visitor
+screenshots at 1440/834/390 px show a readable card grid (4-up desktop,
+2-up tablet, 1-up mobile via the renderer's narrow-viewport collapse).
+Two Studio UX gaps this surfaced were fixed as capabilities, not worked
+around: disabled managed connected-data activations had no re-enable
+path in the publish dialog (fresh-approval button now renders), and a
+chosen device setting could never be unset (inherit option now clears
+the override). Renderer semantics note: the column shadow setting
+targets the node's first child (mz-shadow-* > :first-child), which
+double-frames a column that also sets background/padding — unsetting
+the shadow is the current authoring answer; whether shadow should apply
+to the column itself is an open renderer-semantics question, not
+silently changed here.
+
 LIVE VISITOR-PAIR EVIDENCE 2026-11-25 (sandbox, same-origin harness):
 product detail template page `product-e2e` authored entirely through the
 Studio UI (New page -> heading bound via "Product from the page link"
