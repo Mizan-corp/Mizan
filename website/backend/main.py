@@ -1,12 +1,11 @@
 """Mizan Website API: plans, self-serve signup, and the developer portal (ADR-007)."""
 from app.factory import create_app
-from website_api.routers import branding, developers, public_pages, signup
+from website_api.routers import branding, developers, public_pages, signup, uploads
 
 app = create_app(
     title="Mizan Website API",
-    routers=[signup.router, signup.assets_router, developers.router, public_pages.router, branding.router],
-    # Public pages reference /uploads (logos, covers) by relative URL on the
-    # public host itself, so the visitor-facing service must serve them like
-    # every other on-site install (factory serve_files).
-    serve_files=True,
+    routers=[signup.router, signup.assets_router, developers.router, public_pages.router, branding.router, uploads.router],
+    # No blanket /uploads mount here: uploads.router serves only recorded
+    # public site-asset kinds, so business documents (po_invoice) and
+    # unrecorded paths stay unreachable for anonymous visitors.
 )

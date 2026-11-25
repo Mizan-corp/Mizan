@@ -40,6 +40,13 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           rewrite: (p) => p.replace(/^\/api/, ""),
         },
+        // Dev only: the backend serves uploaded site assets (logos, covers)
+        // at /uploads on the app origin; preview pages reference them by
+        // relative URL exactly like production.
+        "/uploads": {
+          target: "http://localhost:8000",
+          changeOrigin: true,
+        },
       },
     },
   };
