@@ -3,7 +3,7 @@ import { createPreset, createTemplate, type TemplateKind, type PresetKind } from
 import { assertNativeTree, nativeNodes, type NativeHistory } from './nativeTree';
 
 export type StructureEdit = {kind:'template';template:TemplateKind} | {kind:'preset';preset:PresetKind;index?:number} | { kind:'insert'; parentId:string; type:string; id:string; index?:number } | {kind:'remove'; id:string} | {kind:'move'; id:string; direction:-1|1} | {kind:'relocate'; id:string; parentId:string; index:number};
-export function childTypes(type:string):string[]{return type==='section'?['columns']:type==='columns'?['column']:type==='column'?['heading','text','image','button']:[];}
+export function childTypes(type:string):string[]{return type==='section'?['columns']:type==='columns'?['column']:type==='column'?['heading','text','image','button','icon']:[];}
 function createNode(type:string,id:string):PageNode {
   const content: Record<string,Record<string,unknown>> = type==='heading'?{en:{text:'New heading'}}:type==='text'?{en:{html:'<p>New text</p>'}}:type==='image'?{en:{alt:''}}:type==='button'?{en:{label:'New button',href:'#'}}:{};
   return {id,type,settings:type==='columns'?{desktop:{columns:1}}:{},content,...(['section','columns','column'].includes(type)?{children:[]}: {})};

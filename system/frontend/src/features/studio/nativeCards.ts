@@ -58,7 +58,7 @@ export function validResolvedCards(source:PageNode,resolved:PageNode,lang:'en'|'
    };
    if(!templateNodes.length||!visit(clone)||index!==generatedNodes.length||!same(clone,generated))return false;
   }
-  parent.children=structuredClone(cards);parent.settings={...parent.settings,desktop:{...parent.settings.desktop,columns:cards.length}};
+  parent.children=structuredClone(cards);const designed=parent.settings?.desktop?.columns;const count=typeof designed==='number'&&Number.isInteger(designed)&&designed>=1&&designed<=6?Math.min(cards.length,designed):cards.length;parent.settings={...parent.settings,desktop:{...parent.settings.desktop,columns:count}};
   }
   return scalars(next,resolved,lang);
  }catch{return false}

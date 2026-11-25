@@ -554,7 +554,7 @@ const en:Record<string,string>={
   "لو المنتج مش متاح":"If the product is unavailable",
   "إخفاء العنصر":"Hide this element",
   "إظهار عنصر فاضي":"Show an empty element",
-  "منتج موافق على عرضه · معاينة مقفولة بحسابك":"Consented display product · authenticated preview",
+  "منتج موافق على عرضه · يظهر بعد النشر والاعتماد":"Consented display product · shown after publish approval",
   "بتكتب بالعربية":"Editing: Arabic",
   "بتكتب بالإنجليزية":"Editing: English",
   "لغة المحتوى اللي بتكتب فيها دلوقتي":"The content language you are typing in right now. It stays selected when you switch pages.",

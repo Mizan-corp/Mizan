@@ -4,7 +4,7 @@
 // block cannot be represented, both renderers must grow together - never diverge.
 import type { CSSProperties } from 'react';
 import type { PageNode } from './pagetree';
-import { IconGlyph } from './nativeIcons';
+import { IconGlyph, ICON_MARKUP } from './nativeIcons';
 
 export type Device = 'desktop' | 'tablet' | 'mobile';
 
@@ -15,7 +15,10 @@ const ENUM_SETTINGS: Record<string, string[]> = {
   padding: ['none', 'xs', 's', 'm', 'l', 'xl'],
   gap: ['none', 'xs', 's', 'm', 'l', 'xl'],
   height: ['none', 'xs', 's', 'm', 'l', 'xl'],
-  background: ['background', 'card', 'primary', 'dark'],
+  background: ['background', 'card', 'primary', 'dark', 'dark_raised'],
+  size: ['auto', 's', 'm', 'l'],
+  wrap: ['normal', 'balance'],
+  tone: ['none', 'primary', 'dark', 'card'],
   max_width: ['narrow', 'normal', 'wide', 'full'],
   width: ['auto', 'full', 'half', 'third', 'two_thirds'],
   align: ['start', 'center', 'end'],
@@ -152,7 +155,7 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
       if (!c.label) return null; // labels never fall back; an untranslated button stays hidden, matching render.py
       const href = safeUrl(contentRef(node, lang, 'href'), 'href');
       if (!href) return null;
-      const style = ['primary', 'secondary', 'ghost'].includes(String(s.style)) ? String(s.style) : 'primary';
+      const style = ['primary', 'secondary', 'ghost', 'soft'].includes(String(s.style)) ? String(s.style) : 'primary';
       inner = <a className={`mz-button mz-button-${style}`} href={href} onClick={e => e.preventDefault()}>{String(c.label ?? '')}</a>; break;
     }
     case 'icon_list': {
@@ -160,6 +163,11 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
         .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object' && typeof e.icon === 'string')
         .map((e, i) => <li key={i}><IconGlyph name={String(e.icon)} /><span>{String(e.text ?? '')}</span></li>);
       inner = <ul className="mz-icon-list">{items}</ul>; break;
+    }
+    case 'icon': {
+      const name = typeof s.icon === 'string' ? s.icon : '';
+      if (!ICON_MARKUP[name]) return null;
+      inner = <span className="mz-icon-badge" aria-hidden="true"><IconGlyph name={name} /></span>; break;
     }
     case 'spacer': {
       const px = SPACER_PX[String(s.height)] ?? 0;

@@ -604,6 +604,15 @@ PAGE_MAX_DEPTH = 12
 # The only hosts a video_embed may frame (ADR-015 D2); the html block may not frame anything.
 PAGE_EMBED_HOSTS = ("www.youtube.com", "www.youtube-nocookie.com", "maps.google.com", "www.google.com")
 
+# Bounded inline icon set names for icon blocks and icon_list items: the renderers carry the
+# matching inline SVG markup (no icon font, no network fetch); mirrored in
+# shared/backend/app/platform/site/render.py (_ICON_MARKUP) and nativeIcons.tsx (ICON_MARKUP).
+PAGE_ICONS = ("Wrench", "Laptop", "Smartphone", "ShieldCheck", "Truck", "Check", "Star", "Headphones",
+              "Cpu", "BatteryCharging", "Camera", "Home", "Mail", "MapPin", "ArrowRight", "Sparkles",
+              "Clock", "CreditCard", "Package", "Heart", "ShoppingBag", "BookOpen", "Stethoscope",
+              "HardDriveDownload", "MemoryStick", "MonitorCog", "Network", "Globe", "Building2",
+              "MessageCircle", "Banknote")
+
 
 def _choices(*values):
     return ("choice", values)
@@ -619,7 +628,7 @@ def _count(lo: int, hi: int):
 PAGE_BLOCKS = {
     "section": {"version": 1, "category": "layout", "children": ("columns", "canvas"),
                 "settings": {"visible": "bool", "padding": _choices(*PAGE_SPACING), "gap": _choices(*PAGE_SPACING),
-                             "background": _choices("background", "card", "primary", "dark"), "max_width": _choices("narrow", "normal", "wide", "full")},
+                             "background": _choices("background", "card", "primary", "dark", "dark_raised"), "max_width": _choices("narrow", "normal", "wide", "full")},
                 "content": {}},
     "columns": {"version": 1, "category": "layout", "children": ("column",),
                 "settings": {"visible": "bool", "columns": _count(1, 6), "gap": _choices(*PAGE_SPACING),
@@ -627,13 +636,14 @@ PAGE_BLOCKS = {
                 "content": {}},
     "column": {"version": 1, "category": "layout", "children": "blocks",
                "settings": {"visible": "bool", "width": _choices("auto", "full", "half", "third", "two_thirds"), "padding": _choices(*PAGE_SPACING),
-                            "align": _choices("start", "center", "end"), "background": _choices("background", "card", "primary", "dark"), "rounded": "bool"},
+                            "align": _choices("start", "center", "end"), "background": _choices("background", "card", "primary", "dark", "dark_raised"), "rounded": "bool"},
                "content": {}},
     "canvas": {"version": 1, "category": "layout", "children": "blocks", "per_page": 1,
                "settings": {"visible": "bool", "min_height": _choices("s", "m", "l")},
                "content": {}},
     "heading": {"version": 1, "category": "basic",
-                "settings": {"visible": "bool", "level": _count(1, 6), "align": _choices("start", "center", "end")},
+                "settings": {"visible": "bool", "level": _count(1, 6), "align": _choices("start", "center", "end"),
+                             "size": _choices("auto", "s", "m", "l"), "wrap": _choices("normal", "balance")},
                 "content": {"text": ("text", 200)}},
     "text": {"version": 1, "category": "basic",
              "settings": {"visible": "bool", "align": _choices("start", "center", "end"),
@@ -650,12 +660,17 @@ PAGE_BLOCKS = {
                     "settings": {"visible": "bool", "aspect": _choices("16:9", "4:3", "1:1")},
                     "content": {"url": "embed"}},
     "button": {"version": 1, "category": "basic",
-               "settings": {"visible": "bool", "style": _choices("primary", "secondary", "ghost"),
+               "settings": {"visible": "bool", "style": _choices("primary", "secondary", "ghost", "soft"),
                             "align": _choices("start", "center", "end")},
                "content": {"label": ("text", 80), "href": "href"}},
     "icon_list": {"version": 1, "category": "basic",
                   "settings": {"visible": "bool", "gap": _choices(*PAGE_SPACING)},
                   "content": {"items": "icons"}},
+    "icon": {"version": 1, "category": "basic",
+             "settings": {"visible": "bool", "icon": _choices(*PAGE_ICONS), "size": _choices("s", "m", "l"),
+                          "tone": _choices("none", "primary", "dark", "card"),
+                          "align": _choices("start", "center", "end")},
+             "content": {}},
     "spacer": {"version": 1, "category": "basic",
                "settings": {"visible": "bool", "height": _choices(*PAGE_SPACING)},
                "content": {}},

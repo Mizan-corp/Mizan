@@ -12,7 +12,7 @@ import {updatedPageTitles,pageTitlesKey} from './pageTitles';
 import { useEffect, useRef, useState } from 'react';
 import { changeStructure, childTypes, newNativeId, type StructureEdit } from './nativeStructure';
 import { readableName, readableType } from './nativePresets';
-const AR_TYPES:Record<string,string>={page:'صفحة',section:'قسم',columns:'صف أعمدة',column:'عمود',heading:'عنوان',text:'نص',image:'صورة',button:'زر',divider:'فاصل',spacer:'مسافة',gallery:'معرض',cards:'بطاقات',form:'نموذج',video:'فيديو',map:'خريطة',list:'قائمة',quote:'اقتباس'};
+const AR_TYPES:Record<string,string>={page:'صفحة',section:'قسم',columns:'صف أعمدة',column:'عمود',heading:'عنوان',text:'نص',image:'صورة',button:'زر',divider:'فاصل',spacer:'مسافة',gallery:'معرض',cards:'بطاقات',form:'نموذج',video:'فيديو',map:'خريطة',list:'قائمة',quote:'اقتباس',icon:'أيقونة'};
 const arType=(tp:string)=>AR_TYPES[tp]?t(AR_TYPES[tp]):readableType(tp);
 import NativeDragCanvas from './NativeDragCanvas';
 import NativeContentControls from './NativeContentControls';

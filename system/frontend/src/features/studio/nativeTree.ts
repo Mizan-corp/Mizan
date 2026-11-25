@@ -1,4 +1,5 @@
 import {cardProblem,assertCardScope} from './nativeCards';
+import {iconNames} from './nativeIcons';
 import {bindingProblem,itemBindingProblem,itemBindingSchema,repeatProblem,cardRepeatProblem,cardSlotProblem,repeatCardSchema,type NativeCardRepeat} from './nativeBindings';
 import type { PageNode } from './pagetree';
 
@@ -22,16 +23,17 @@ const align = ['start','center','end'];
 const width = ['auto','full','half','third','two_thirds'];
 // Deliberately bounded authoring subset, not the complete platform validator.
 const settings: Record<string, Record<string, readonly (string|number|boolean)[]>> = {
-  section:{visible:[true,false],padding:spacing,gap:spacing,background:['background','card','primary','dark'],max_width:['narrow','normal','wide','full']},
+  section:{visible:[true,false],padding:spacing,gap:spacing,background:['background','card','primary','dark','dark_raised'],max_width:['narrow','normal','wide','full']},
   columns:{visible:[true,false],columns:[1,2,3,4,5,6],gap:spacing,stack:[true,false],reverse:[true,false]},
-  column:{visible:[true,false],width,padding:spacing,align,background:['background','card','primary','dark'],rounded:[true,false]},
-  heading:{visible:[true,false],level:[1,2,3,4,5,6],align},
+  column:{visible:[true,false],width,padding:spacing,align,background:['background','card','primary','dark','dark_raised'],rounded:[true,false]},
+  heading:{visible:[true,false],level:[1,2,3,4,5,6],align,size:['auto','s','m','l'],wrap:['normal','balance']},
   text:{visible:[true,false],align,variant:['body','eyebrow','note','check_list']},
   image:{visible:[true,false],width,rounded:[true,false],art:['none','sculpture','sculpture_alt']},
-  button:{visible:[true,false],style:['primary','secondary','ghost'],align},
+  button:{visible:[true,false],style:['primary','secondary','ghost','soft'],align},
   icon_list:{visible:[true,false],gap:spacing},
+  icon:{visible:[true,false],icon:iconNames(),size:['s','m','l'],tone:['none','primary','dark','card'],align},
 };
-const fields: Record<string, Record<string, number>> = {section:{},columns:{},column:{},heading:{text:200},text:{html:20000},image:{src:2000,alt:300},button:{label:80,href:2000},icon_list:{}};
+const fields: Record<string, Record<string, number>> = {section:{},columns:{},column:{},heading:{text:200},text:{html:20000},image:{src:2000,alt:300},button:{label:80,href:2000},icon_list:{},icon:{}};
 const motion={animation:['none','fade','rise','slide','zoom'],animation_speed:['quick','normal','slow'],animation_delay:['none','short','long']};
 for(const schema of Object.values(settings))Object.assign(schema,motion);
 export function safeNativeUrl(value: string, image = false): boolean {

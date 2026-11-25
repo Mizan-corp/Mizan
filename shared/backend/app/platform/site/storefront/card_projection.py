@@ -119,7 +119,13 @@ def project_cards(tree, plan, rows, context):
         remove(static)
     else:
         parent['children'] = result
-        parent.setdefault('settings', {}).setdefault('desktop', {})['columns'] = len(result)
+        # The row keeps the author's designed column count as a cap: more cards wrap to
+        # further rows instead of squeezing onto one, fewer cards take only their own tracks.
+        designed = (parent.get('settings') or {}).get('desktop', {}).get('columns')
+        count = len(result)
+        if isinstance(designed, int) and not isinstance(designed, bool) and 1 <= designed <= 6:
+            count = min(count, designed)
+        parent.setdefault('settings', {}).setdefault('desktop', {})['columns'] = count
     if page_problems(static, ('en', 'ar')) or len(json.dumps(static, allow_nan=False).encode()) > 200000:
         raise ProjectionInvalid('Projected cards violate bounded native page contract.')
     return static

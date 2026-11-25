@@ -14,6 +14,13 @@ class CardProjectionTests(unittest.TestCase):
  def test_missing_optional_fields_hidden_not_static_fallback(self):
   out=m.project_cards(source(),PLAN,[row(price=False,image=False)],r.SourceContext(A,'en',frozenset({'inventory'})));self.assertEqual(len(out['children'][0]['children'][0]['children']),1)
   empty=m.project_cards(source(),PLAN,[],r.SourceContext(A,'en',frozenset({'inventory'})));self.assertEqual(empty['children'],[])
+ def test_designed_columns_cap_card_tracks(self):
+  ctx=r.SourceContext(A,'en',frozenset({'inventory'}))
+  t=source();t['children'][0]['settings']={'desktop':{'columns':3}}
+  out=m.project_cards(t,PLAN,[row(),row('two'),row('three')],ctx);self.assertEqual(out['children'][0]['settings']['desktop']['columns'],3)
+  out=m.project_cards(source(),PLAN,[row(),row('two')],ctx);self.assertEqual(out['children'][0]['settings']['desktop']['columns'],2)
+  t=source();t['children'][0]['settings']={'desktop':{'columns':4}}
+  out=m.project_cards(t,PLAN,[row(),row('two')],ctx);self.assertEqual(out['children'][0]['settings']['desktop']['columns'],2)
  def test_stable_item_identity_under_reorder_and_name_change(self):
   ctx=r.SourceContext(A,'en',frozenset({'inventory'}));one=m.project_cards(source(),PLAN,[row(),row('two')],ctx);two=m.project_cards(source(),PLAN,[row('two'),{**row(),'name':'Changed'}],ctx);self.assertEqual(one['children'][0]['children'][0]['id'],two['children'][0]['children'][1]['id'])
  def test_invalid_fields_urls_money_duplicates_and_overflow_fail_closed(self):
