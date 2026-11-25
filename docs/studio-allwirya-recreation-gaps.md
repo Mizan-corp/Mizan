@@ -54,10 +54,15 @@ G2. No header logo image (brand is text-only), no cart/account icons, no sticky
 G3. Image upload/storage not connected on the test host (no BLOB_READ_WRITE_TOKEN;
     provisioning not approved). Blocks hero photo, category cards, product photos.
     Image elements accept URLs; art placeholders exist (sculpture/sculpture_alt).
-G4. No inline highlight inside headings (hero's blue span). Headings are plain
-    escaped text; no rich spans.
-G5. No icon system (service-card icons, checkmarks in the repair card, social icons
-    in the footer).
+G4. Partially addressed 2026-11-25 (N3 shipped): headings support one bounded
+    accent span via literal <mark>..</mark> pairs mapped to the primary color
+    (all other markup still escapes; editor offers an Accent toggle on the
+    heading selection). Arbitrary rich spans remain unsupported.
+G5. No icon system (service-card icons, social icons in the footer). This is an
+    implementation gap, not an authorization gate (2026-11-25, main): a bounded
+    inline icon set may be built without new approval. Repair-card checkmarks
+    are covered by N2. The icon_list registry block still emits dead
+    <i data-lucide> markup and stays unexposed in the native editor.
 G6. No form/input element (CTA band's device-request input).
 G7. Typography: one system font family site-wide; no heading size control, no font
     upload, no Arabic/Latin pairing (chrome UI states this itself). allwirya's Arabic
@@ -87,13 +92,13 @@ N1. SHIPPED 2026-11-25 (feat/studio-render-parity): section/column background ro
 N2. SHIPPED 2026-11-25 (feat/studio-render-parity): text block variant
     check_list (both renderers + registry + Format panel) plus a "Check list"
     Insert preset. Bullets render with a primary-colored check mark, no icon
-    system and no new data. Unblocks the repair card. Note: the older
-    icon_list registry block still renders dead <i data-lucide> markup (no
-    icon font is loaded); it stays unexposed in the native editor.
-N3. Heading accent span: bounded inline mark support in heading text (one <mark>
-    mapped to primary color), sanitized like text.html. Unblocks the hero accent.
+    system and no new data. Unblocks the repair card.
+N3. SHIPPED 2026-11-25 (feat/studio-render-parity): literal <mark>..</mark>
+    pairs in heading text render as primary-colored accent spans in both
+    renderers (attributes, nesting and all other markup escape); the heading
+    editor has an Accent toggle on the current selection.
 N4. Category card preset (image + label + href grid) — degraded to art placeholders
     until G3 storage is approved.
 Blocked and NOT proposed until approved: image storage provisioning (G3), search and
 form elements (G1/G6 - interactive surface needs its own consent/design pass),
-icon set (G5), font upload (G7).
+font upload (G7). G5 icon set is an implementation gap, not approval-gated.
