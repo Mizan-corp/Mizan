@@ -18,16 +18,16 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.activities.general.modules.storefront.models import StorefrontOrder
+from app.activities.general.modules.storefront.service import (
+    ORDER_STATUSES,
+    apply_order_status_transition,
+)
 from app.db.base import get_db
 from app.dependencies import require_perm
 from app.platform.auth.models.user import User
 from app.platform.tenancy.context import current_tenant_id
 
 orders_router = APIRouter(prefix="/site/orders", tags=["Site orders"])
-
-# The lifecycle the suspended storefront checkout wrote; kept verbatim so existing
-# rows stay valid.
-ORDER_STATUSES = ("pending", "confirmed", "preparing", "out_for_delivery", "completed", "cancelled")
 
 
 class OrderStatusIn(BaseModel):
@@ -109,7 +109,9 @@ async def update_order_status(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_perm("site.manage")),
 ):
-    """Move a website order along its lifecycle; completing a COD order marks it paid."""
+    """Move a website order along its lifecycle. The transition rule (including
+    COD completion settling the payment) lives in the storefront module's domain
+    service; this controller owns only routing, permission and tenant scoping."""
     stmt = select(StorefrontOrder).where(
         StorefrontOrder.id == order_id,
         StorefrontOrder.tenant_id == _tenant_id(user),
@@ -117,8 +119,6 @@ async def update_order_status(
     order = (await db.execute(stmt)).scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="الطلب غير موجود")
-    order.status = payload.status
-    if payload.status == "completed" and order.payment_method == "cod":
-        order.payment_status = "paid"
+    apply_order_status_transition(order, payload.status)
     await db.commit()
     return {"ok": True, "status": order.status, "payment_status": order.payment_status}

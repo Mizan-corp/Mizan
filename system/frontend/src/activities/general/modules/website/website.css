@@ -15,3 +15,5 @@
 .website-module-page .website-module-settings button:disabled{opacity:.55;cursor:wait}
 .website-module-page .website-order-status{border:1px solid var(--border,#d9cbea);border-radius:8px;background:var(--background,#fff);padding:6px 10px;font:inherit;color:inherit}
 .website-module-page .website-order-status:disabled{opacity:.55;cursor:wait}
+.website-module-page .website-published-products{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.website-module-page .website-published-products li{border:1px solid var(--border,#d9cbea);border-radius:999px;padding:4px 12px;font-size:13px}

@@ -22,6 +22,8 @@ vi.mock("./siteOrders", () => ({
     updateStatus: vi.fn(),
   }),
 }));
+// The published-products summary has its own suite (WebsitePublishedProducts.test.tsx).
+vi.mock("./WebsitePublishedProducts", () => ({ default: () => null }));
 
 import WebsitePage, { studioLaunchUrl } from "./WebsitePage";
 

@@ -20,6 +20,7 @@ from app.models.registry import load_all_models
 
 load_all_models()  # mapper configuration cascades across the full registry
 
+from app.activities.general.modules.storefront.service import apply_order_status_transition
 from app.platform.site import orders
 from app.platform.site.orders import OrderStatusIn
 
@@ -115,6 +116,37 @@ class UpdateStatusTests(unittest.IsolatedAsyncioTestCase):
     async def test_status_values_are_whitelisted(self):
         with self.assertRaises(Exception):
             OrderStatusIn(status="hacked")
+
+
+class DomainTransitionTests(unittest.TestCase):
+    """The lifecycle rule lives in the storefront module's domain service; the site
+    controller delegates to it (parent 19:00: no new site-controller business logic)."""
+
+    def test_documented_statuses_accepted(self):
+        for s in orders.ORDER_STATUSES:
+            order = make_order(payment_method="fawry")
+            apply_order_status_transition(order, s)
+            self.assertEqual(order.status, s)
+
+    def test_unknown_status_is_422(self):
+        with self.assertRaises(HTTPException) as ctx:
+            apply_order_status_transition(make_order(), "hacked")
+        self.assertEqual(ctx.exception.status_code, 422)
+
+    def test_completed_cod_settles_payment(self):
+        order = make_order(payment_method="cod")
+        apply_order_status_transition(order, "completed")
+        self.assertEqual(order.payment_status, "paid")
+
+    def test_completed_non_cod_keeps_payment(self):
+        order = make_order(payment_method="fawry")
+        apply_order_status_transition(order, "completed")
+        self.assertEqual(order.payment_status, "unpaid")
+
+    def test_non_completed_cod_keeps_payment(self):
+        order = make_order(payment_method="cod")
+        apply_order_status_transition(order, "preparing")
+        self.assertEqual(order.payment_status, "unpaid")
 
 
 if __name__ == "__main__":
