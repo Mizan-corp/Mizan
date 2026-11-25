@@ -1,6 +1,9 @@
 -- Additive draft only. Wire into the tracked atomic migration runner after review.
 -- No existing source tables or grants are changed. Do not mark applied on error.
-CREATE TABLE helpdesk_offerings (
+-- Idempotent: services create_all their models at boot before manage.py migrate
+-- runs, so an identical ORM-created table is adopted (exact column match is
+-- verified by the caller), never blindly trusted.
+CREATE TABLE IF NOT EXISTS helpdesk_offerings (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
         DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
@@ -12,9 +15,10 @@ CREATE TABLE helpdesk_offerings (
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX ix_helpdesk_offerings_tenant_id ON helpdesk_offerings(tenant_id);
+CREATE INDEX IF NOT EXISTS ix_helpdesk_offerings_tenant_id ON helpdesk_offerings(tenant_id);
 ALTER TABLE helpdesk_offerings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE helpdesk_offerings FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON helpdesk_offerings;
 CREATE POLICY tenant_isolation ON helpdesk_offerings
     USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid
            OR current_setting('app.bypass', true) = 'on')
