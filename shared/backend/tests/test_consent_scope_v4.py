@@ -163,5 +163,89 @@ class CategoryLinkageTests(unittest.IsolatedAsyncioTestCase):
                 await c.read_category_products(self.db, self.ctx, str(CAT), bad)
 
 
+B = uuid.UUID('e5f3a80e-76e0-8c57-d968-a053a04a91a3')
+FOREIGN_CAT = uuid.UUID('f604b91f-87f1-9d68-ea79-b164b15b02b4')
+FOREIGN_PROD = uuid.UUID('0715ca20-9802-ae79-fb8a-c275c26c13c5')
+
+
+def where_sql(stmt):
+    # literal_binds renders UUID values in hex form without dashes.
+    return str(stmt.compile(compile_kwargs={'literal_binds': True}))
+
+
+class CrossTenantIsolationTests(unittest.IsolatedAsyncioTestCase):
+    """Negative regression (2026-11-25): the fixtures database holds
+    duplicate-named categories across tenants, and a tenant-blind ad-hoc
+    lookup once picked another tenant's category during E2E authoring. These
+    tests pin that visitor-facing reads can never cross tenants: consent,
+    publication and record queries are all scoped by context.tenant_id, a
+    mismatched tenant context fails closed, and foreign-tenant identities
+    resolve to nothing. No leak was observed; this guards the boundary."""
+
+    async def asyncSetUp(self):
+        self.t = current_tenant_id.set(A)
+        self.ctx = SourceContext(A, 'en', frozenset({'inventory'}), audience='public')
+        self.db = AsyncMock()
+
+    async def asyncTearDown(self):
+        current_tenant_id.reset(self.t)
+
+    async def test_tenant_context_mismatch_fails_closed(self):
+        current_tenant_id.reset(self.t)
+        self.t = current_tenant_id.set(B)  # request tenant != source context tenant
+        with self.assertRaises(SourceUnavailable):
+            await c.read_category_products(self.db, self.ctx, str(CAT), 24)
+        with self.assertRaises(SourceUnavailable):
+            await c.read_route_item(self.db, self.ctx, str(P1), ('name',))
+        self.db.scalar.assert_not_called()
+        self.db.execute.assert_not_called()
+
+    async def test_category_read_queries_are_tenant_scoped(self):
+        self.db.scalar = AsyncMock(side_effect=[
+            policy(c.SCHEMA_V4, [P1], show_description=False),
+            publication([CAT]),
+        ])
+        self.db.execute.return_value = all_rows((P1, 'In category'))
+        rows = await c.read_category_products(self.db, self.ctx, str(CAT), 24)
+        self.assertEqual(len(rows), 1)
+        # Consent policy and publication allowlist come only from this tenant's rows.
+        for call in self.db.scalar.call_args_list:
+            sql = where_sql(call.args[0])
+            self.assertIn('store_settings.tenant_id', sql)
+            self.assertIn(A.hex, sql)
+            self.assertNotIn(B.hex, sql)
+        product_sql = where_sql(self.db.execute.call_args.args[0])
+        self.assertIn('products.tenant_id', product_sql)
+        self.assertIn(A.hex, product_sql)
+
+    async def test_foreign_tenant_category_returns_nothing(self):
+        # A category id that exists only under another tenant can never enter
+        # this tenant's publication allowlist (the choices router lists only
+        # own-tenant records), so the visitor read returns empty.
+        self.db.scalar = AsyncMock(side_effect=[
+            policy(c.SCHEMA_V4, [P1], show_description=False),
+            publication([CAT]),  # own allowlist; FOREIGN_CAT is not in it
+        ])
+        self.assertEqual(await c.read_category_products(self.db, self.ctx, str(FOREIGN_CAT), 24), [])
+        self.db.execute.assert_not_called()
+
+    async def test_foreign_tenant_product_returns_none(self):
+        # URL-selected detail read with another tenant's product id: never in
+        # this tenant's consent list, so no record row is even queried.
+        self.db.scalar = AsyncMock(return_value=policy(c.SCHEMA_V4, [P1], show_description=False))
+        self.assertIsNone(await c.read_route_item(self.db, self.ctx, str(FOREIGN_PROD), ('name',)))
+        self.db.execute.assert_not_called()
+
+    async def test_item_row_query_is_tenant_scoped(self):
+        self.db.scalar = AsyncMock(return_value=policy(c.SCHEMA_V4, [P1], show_description=False))
+        self.db.execute.return_value = first_row(P1, 'Widget')
+        item = await c.read_route_item(self.db, self.ctx, str(P1), ('name',))
+        self.assertEqual(item['name'], 'Widget')
+        sql = where_sql(self.db.execute.call_args.args[0])
+        self.assertIn('products.tenant_id', sql)
+        self.assertIn(A.hex, sql)
+
+
+
 if __name__ == '__main__':
     unittest.main()
