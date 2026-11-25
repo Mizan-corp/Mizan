@@ -29,6 +29,14 @@ class DraftKitTests(unittest.TestCase):
   card=tree['children'][1]['children'][0]
   card['settings']['desktop']['background']='url(https://bad.test)'
   with self.assertRaises(HTTPException):check_tree(tree)
+ def test_all_columns_keep_mobile_padding(self):
+  from app.platform.site.tech_kit import make_tech_pages
+  for page in make_tech_pages('tech'):
+   stack=[page['tree']]
+   while stack:
+    node=stack.pop()
+    if node.get('type')=='column':self.assertEqual(node.get('settings',{}).get('mobile',{}).get('padding'),'s',node.get('id'))
+    stack.extend(node.get('children') or [])
  def test_products_page_has_card_ready_selected_section(self):
   from app.platform.site.tech_kit import make_tech_pages
   tree=make_tech_pages('tech')[1]['tree']

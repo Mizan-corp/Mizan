@@ -15,7 +15,7 @@ def make_tech_pages(prefix):
   def h(text,level=2):return n('heading',{'text':text},settings={'desktop':{'level':level}})
   def t(text,variant='body'):return n('text',{'html':'<p>'+text+'</p>'},settings={'desktop':{'variant':variant}})
   def b(label,dest):return n('button',{'label':label,'href':'/'+prefix+'-'+dest},settings={'desktop':{'style':'primary'}})
-  def col(kids,card=False):return n('column',kids=kids,settings={'desktop':{'padding':'m' if card else 's',**({'background':'card','rounded':True} if card else {})},'mobile':{'padding':'s' if card else 'none'}})
+  def col(kids,card=False):return n('column',kids=kids,settings={'desktop':{'padding':'m' if card else 's',**({'background':'card','rounded':True} if card else {})},'mobile':{'padding':'s'}})  # mobile padding stays inset so a background added later never clips text at band edges
   def row(cols,card=False):return n('columns',kids=[col(c,card) for c in cols],settings={'desktop':{'columns':len(cols),'gap':'m'},'mobile':{'stack':True,'gap':'s'}})
   def gap():return row([[t(' ', 'note')]])
   def art(name):return n('image',{'src':'/studio-assets/tech-'+name+'.svg','alt':'Illustrative '+name+', not an actual product'},settings={'desktop':{'rounded':True}})
