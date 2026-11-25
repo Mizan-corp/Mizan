@@ -35,13 +35,38 @@ inherit from desktop).
    other typed fields) is not yet searchable; widening needs a consent and
    exposure review before more provider data is matchable.
 
-### Catalog / navigation
+### Catalog / navigation (user architecture constraint, 2026-11-25)
+The Inventory module owns categories and all product data (names, images,
+descriptions). Studio binds to that data and controls presentation only;
+no static category pages with copied data, no duplicated catalog.
+
 4. **Category destinations.** Menu/bar items need link destinations that
-   resolve to filtered collection pages (category landing), not only static
-   URLs.
-5. **Locale switch.** Site content is Arabic while the Studio UI is English;
-   a visitor-facing locale switch and per-locale content editing are not
-   available.
+   resolve to category-filtered collection pages. Blocked on a consent-scope
+   decision: the publication allowlist already exposes selected category
+   names, but product->category linkage (Product.subcategory_id) is a new
+   public projection not named by any consent wording (v0-v3 cover name,
+   plus price/image under display consent). Needs a v4-style scope change
+   (same reversible pattern as v1/v2) before the provider can expose
+   category membership and `?category=` filtering can exist.
+5. **Dynamic product-detail pages.** One Studio-authored template applies
+   to every product; the product id selects the record from the URL. Item
+   bindings today pin a fixed `item_key` per element; the extension is a
+   "current item" binding mode resolved from the route. The consent gate
+   (`read_scoped_item`) already refuses unconsented records, so URL-selected
+   reads stay inside the projection; whether v3 wording covers URL-selected
+   (vs page-pinned) records is a model decision for main. Route shape also
+   undecided (e.g. /site/{slug}/product/{id}). Category pages should follow
+   the same template model once (4) is unblocked.
+
+### Locale
+Locale switch is DONE (8094ec2): `?lang=` on public pages (validated
+against the page's languages), hreflang alternates, header switch link
+only when a real second language exists, hidden lang input keeps language
+across searches. Editor-side per-language authoring already existed
+(content اللغة select + per-language titles). Open: live two-language
+verification page must be authored through the Studio UI (none exists
+yet); the editor chrome preview does not render the new switcher; the
+search E2E still uses requestSubmit rather than a native Enter/click.
 
 ### Assets
 6. **Original source-asset workflow.** Site authoring must use the original
