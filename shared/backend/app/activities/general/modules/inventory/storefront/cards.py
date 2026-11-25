@@ -296,6 +296,44 @@ async def read_scoped_item(db, context, item_key, fields):
     return await _read_item_row(db, context, product_id, fields, consent)
 
 
+async def route_category_available(db, context, category_id):
+    """Whether the URL-selected category may drive a category template render.
+
+    Companion to read_category_products for the visitor notice gate: True only
+    when a v4 policy is recorded AND the category sits in the workspace's
+    publication allowlist. An allowlisted category with zero consented
+    products is available - an empty list is a legitimate render, not a
+    missing record. False is deliberately one answer for a nonexistent id, an
+    unpublished category and a pre-v4 consent, so the visitor notice never
+    says which case it was. Same fail-closed input validation as the readers.
+    """
+    if current_tenant_id.get() != context.tenant_id or 'inventory' not in context.active_modules:
+        raise SourceUnavailable('Website category source unavailable.')
+    if not isinstance(category_id, str) or len(category_id) > 64:
+        raise SourceUnavailable('Invalid website category identity.')
+    try:
+        category_uuid = UUID(category_id)
+    except (ValueError, TypeError):
+        raise SourceUnavailable('Invalid website category identity.') from None
+    if str(category_uuid) != category_id:
+        raise SourceUnavailable('Invalid website category identity.')
+    raw = await db.scalar(select(StoreSetting.value).where(
+        StoreSetting.tenant_id == context.tenant_id, StoreSetting.key == SETTING_KEY))
+    if raw is None:
+        return False
+    try:
+        recorded = json.loads(raw).get('schema')
+    except (TypeError, ValueError, AttributeError):
+        raise SourceUnavailable('Invalid website card policy.') from None
+    if recorded != SCHEMA_V4:
+        return False
+    from app.activities.general.modules.inventory.storefront import provider as _provider
+    publication_raw = await db.scalar(select(StoreSetting.value).where(
+        StoreSetting.tenant_id == context.tenant_id,
+        StoreSetting.key == _provider.SETTING_KEY))
+    return category_uuid in _provider.publication_ids(publication_raw)['categories']
+
+
 async def read_route_item(db, context, item_key, fields):
     """URL-selected current record ("current item", v2 route bindings).
 

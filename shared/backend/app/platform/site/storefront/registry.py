@@ -30,3 +30,21 @@ def route_probe(db):
             return await inventory_cards.probe_route_categories(db, context)
         return []
     return sample
+
+def route_availability(db):
+    """Visitor-notice gate for dynamic template routes (/site/.../{p|c}/<id>).
+
+    (context, kind, route_item) -> bool: may the URL-selected record drive the
+    template render? Goes through the same consent-checked readers as the
+    render itself, so the answer can never diverge from what the page would
+    show. False is one answer for nonexistent, unconsented, revoked and
+    unpublished records alike; the router turns it into a single generic
+    visitor notice. Explicit trusted registrations, never client metadata."""
+    from app.activities.general.modules.inventory.storefront import cards as inventory_cards
+    async def check(context, kind, route_item):
+        if kind == 'p':
+            return await inventory_cards.read_route_item(db, context, route_item, ('name',)) is not None
+        if kind == 'c':
+            return await inventory_cards.route_category_available(db, context, route_item)
+        return False
+    return check

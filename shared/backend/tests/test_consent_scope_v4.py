@@ -247,5 +247,83 @@ class CrossTenantIsolationTests(unittest.IsolatedAsyncioTestCase):
 
 
 
+class RouteCategoryAvailabilityTests(unittest.IsolatedAsyncioTestCase):
+    """The visitor-notice gate (route_category_available): one False for every
+    unavailable cause, True only for a v4-consented, allowlisted category -
+    including an allowlisted category with zero products, whose empty list is
+    a legitimate render rather than a missing record."""
+    async def asyncSetUp(self):
+        self.t = current_tenant_id.set(A)
+        self.ctx = SourceContext(A, 'en', frozenset({'inventory'}))
+        self.db = AsyncMock()
+
+    async def asyncTearDown(self):
+        current_tenant_id.reset(self.t)
+
+    async def test_allowlisted_category_is_available(self):
+        self.db.scalar = AsyncMock(side_effect=[
+            policy(c.SCHEMA_V4, [P1], show_description=False),
+            publication([CAT]),
+        ])
+        self.assertTrue(await c.route_category_available(self.db, self.ctx, str(CAT)))
+
+    async def test_unpublished_category_is_unavailable(self):
+        self.db.scalar = AsyncMock(side_effect=[
+            policy(c.SCHEMA_V4, [P1], show_description=False),
+            publication([]),
+        ])
+        self.assertFalse(await c.route_category_available(self.db, self.ctx, str(CAT)))
+
+    async def test_older_consent_is_unavailable(self):
+        for schema in (c.SCHEMA, c.SCHEMA_V1, c.SCHEMA_V2, c.SCHEMA_V3):
+            self.db.scalar = AsyncMock(side_effect=[policy(schema, [P1])])
+            self.assertFalse(await c.route_category_available(self.db, self.ctx, str(CAT)))
+
+    async def test_no_policy_row_is_unavailable(self):
+        self.db.scalar = AsyncMock(side_effect=[None])
+        self.assertFalse(await c.route_category_available(self.db, self.ctx, str(CAT)))
+
+    async def test_malformed_identity_fails_closed(self):
+        for bad in ('not-a-uuid', str(CAT).upper(), '', 42):
+            with self.assertRaises(SourceUnavailable):
+                await c.route_category_available(self.db, self.ctx, bad)
+
+    async def test_tenant_context_mismatch_fails_closed(self):
+        ctx = SourceContext(B, 'en', frozenset({'inventory'}))
+        with self.assertRaises(SourceUnavailable):
+            await c.route_category_available(self.db, ctx, str(CAT))
+
+
+class RouteAvailabilityDispatchTests(unittest.IsolatedAsyncioTestCase):
+    """registry.route_availability dispatches to the same consent-checked
+    readers the render uses; unknown kinds are never available."""
+    async def asyncSetUp(self):
+        self.t = current_tenant_id.set(A)
+        self.ctx = SourceContext(A, 'en', frozenset({'inventory'}), audience='public',
+                                 route_item=str(P1))
+
+    async def asyncTearDown(self):
+        current_tenant_id.reset(self.t)
+
+    async def test_dispatch_and_unknown_kind(self):
+        from app.platform.site.storefront import registry
+        from unittest.mock import patch
+        check = registry.route_availability(AsyncMock())
+        with patch.object(c, 'read_route_item', new=AsyncMock(return_value={'name': 'X'})) as rd, \
+             patch.object(c, 'route_category_available', new=AsyncMock(return_value=True)) as rc:
+            self.assertTrue(await check(self.ctx, 'p', str(P1)))
+            self.assertTrue(await check(self.ctx, 'c', str(CAT)))
+            rd.assert_awaited_once()
+            rc.assert_awaited_once()
+        self.assertFalse(await check(self.ctx, 'x', str(P1)))
+
+    async def test_missing_product_is_unavailable(self):
+        from app.platform.site.storefront import registry
+        from unittest.mock import patch
+        check = registry.route_availability(AsyncMock())
+        with patch.object(c, 'read_route_item', new=AsyncMock(return_value=None)):
+            self.assertFalse(await check(self.ctx, 'p', str(P1)))
+
+
 if __name__ == '__main__':
     unittest.main()

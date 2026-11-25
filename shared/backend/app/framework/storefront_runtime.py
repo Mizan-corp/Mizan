@@ -21,6 +21,17 @@ class ProjectionInvalid(ValueError):
     """Trusted provider returned values beyond its reviewed projection."""
 
 
+class RouteRecordUnavailable(Exception):
+    """The URL-selected record of a dynamic template route does not resolve.
+
+    Raised only on visitor template routes (/p/<id>, /c/<id>) whose published
+    tree actually reads the route segment, when the record is nonexistent,
+    unconsented, revoked or unpublished. The readers themselves fail closed to
+    None/empty in all those cases, so this signal never carries which case it
+    was: the router turns it into one generic visitor-facing notice.
+    """
+
+
 @dataclass(frozen=True)
 class SourceContext:
     tenant_id: UUID

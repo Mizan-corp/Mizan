@@ -325,6 +325,20 @@ Binding/envelope design:
   category must be in the publication allowlist).
 - text elements gain the description item-binding field (v4 consent
   field, 2000-char bound, fail-closed).
+- Missing/invalid route record UX (2026-11-25, RESOLVED): a route URL
+  whose selected record does not resolve (nonexistent, unconsented,
+  revoked, unpublished — one generic answer, never which) on a page
+  that actually reads that route segment returns a styled 404 visitor
+  notice ("This item is not available" / "هذا العنصر غير متاح", page
+  language, same security headers) instead of a page with silent holes.
+  Gate: new RouteRecordUnavailable raised by _render_public after a
+  route_availability check that goes through the same consent-checked
+  readers as the render (cards.read_route_item /
+  cards.route_category_available); an allowlisted-but-empty category is
+  available (empty list is a legitimate render, not a missing record).
+  Pages without matching route references are unaffected; signed-in
+  previews keep the hide semantics while designing. Unknown pages/hosts
+  keep the existing generic JSON 404.
 Depends on Phase 2 (done).
 
 LIVE VISITOR-PAIR EVIDENCE 2026-11-25 (sandbox, same-origin harness):

@@ -19,6 +19,7 @@ consent and is never consulted on this route.
 import re
 import time
 import uuid
+from html import escape as html_escape
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
@@ -28,7 +29,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db.base import get_db
 from app.framework.activation import get_active_modules
-from app.framework.storefront_runtime import SourceContext, SourceUnavailable, ProjectionInvalid
+from app.framework.storefront_runtime import (SourceContext, SourceUnavailable, ProjectionInvalid,
+                                              RouteRecordUnavailable)
 from app.platform.tenancy.context import current_tenant_id, bind_tenant
 
 router = APIRouter(tags=["Public site pages"])
@@ -97,6 +99,46 @@ def _unavailable() -> HTTPException:
     return HTTPException(503, "Unavailable")
 
 
+# Visitor notice for a dynamic template route whose URL-selected record does
+# not resolve. One generic wording for every cause (nonexistent, unconsented,
+# revoked, unpublished): the gate itself cannot tell them apart, so the notice
+# never becomes an existence oracle. Neutral styling; the only tenant data is
+# the page's own published title, already public through the template URL.
+_ROUTE_NOTICE = {
+    "en": ("This item is not available", "It may have been removed or is no longer shared."),
+    "ar": ("هذا العنصر غير متاح", "ربما أُزيل أو لم يعد مشاركاً."),
+}
+
+
+def _route_notice_html(titles, lang_override: str | None) -> str:
+    titles = titles if isinstance(titles, dict) else {}
+    languages = [k for k in titles.keys() if isinstance(k, str) and k] or ["en"]
+    default_lang = "ar" if "ar" in languages else languages[0]
+    # Same override semantics as the page render itself: only a language the
+    # page actually offers is honored, anything else falls back to its default.
+    lang = default_lang
+    if isinstance(lang_override, str) and lang_override in languages and lang_override in _ROUTE_NOTICE:
+        lang = lang_override
+    if lang not in _ROUTE_NOTICE:
+        lang = "en"
+    heading, subtext = _ROUTE_NOTICE[lang]
+    title = titles.get(lang) or titles.get(default_lang) or heading
+    if not isinstance(title, str):
+        title = heading
+    direction = "rtl" if lang == "ar" else "ltr"
+    return (
+        "<!DOCTYPE html><html lang=\"%s\" dir=\"%s\"><head><meta charset=\"utf-8\">"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        "<title>%s</title></head>"
+        "<body style=\"margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;"
+        "font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:#f8fafc;color:#1e293b;\">"
+        "<main style=\"text-align:center;padding:2rem;max-width:28rem;\">"
+        "<h1 style=\"font-size:1.5rem;margin:0 0 .75rem;\">%s</h1>"
+        "<p style=\"margin:0;color:#64748b;\">%s</p>"
+        "</main></body></html>"
+    ) % (html_escape(lang), direction, html_escape(title), html_escape(heading), html_escape(subtext))
+
+
 def _has_bound_node(node) -> bool:
     """Any data binding/provider node anywhere in the tree."""
     if isinstance(node, dict):
@@ -156,12 +198,14 @@ async def _activation(db: AsyncSession, host: str, slug: str, page_path: str):
 
 async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id: uuid.UUID, canonical: str,
                          link_base: str | None = None, query: str | None = None,
-                         lang_override: str | None = None, route_item: str | None = None) -> str:
+                         lang_override: str | None = None, route_item: str | None = None,
+                         route_kind: str | None = None) -> str:
     from app.framework.manifest import page_problems
     from app.platform.site import service
     from app.platform.site.render import render_document
     from app.platform.site.storefront.bindings import resolve_tree
-    from app.platform.site.storefront.registry import scalar_registry, collection_registry, item_resolver
+    from app.platform.site.storefront.registry import (scalar_registry, collection_registry,
+                                                       item_resolver, route_availability)
     from app.platform.site.storefront.repeats import has_repeat
     from app.platform.site.storefront.card_runtime import has_card, resolve_cards
 
@@ -176,6 +220,15 @@ async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id
     await service.check_bound_tree(db, tree)
     ctx = SourceContext(tenant_id, lang, frozenset(await get_active_modules(db)), audience="public",
                         route_item=route_item)
+    if route_item is not None and route_kind in ("p", "c"):
+        # Visitor-facing missing-record notice: only a page that actually reads
+        # this route segment can have a missing record. The availability gate
+        # uses the same consent-checked readers as the render, so it cannot
+        # diverge from what the page would show, and one generic notice covers
+        # nonexistent, unconsented, revoked and unpublished records alike.
+        if service.route_references(tree).get(route_kind) and not await route_availability(db)(
+                ctx, route_kind, route_item):
+            raise RouteRecordUnavailable()
     if has_card(tree):
         resolved = await resolve_cards(db, tree, ctx)
     elif has_repeat(tree):
@@ -261,7 +314,11 @@ async def _serve_public(slug: str, page_path: str, kind: str | None, route_item:
                 query=request.query_params.get("q"),
                 lang_override=request.query_params.get("lang"),
                 route_item=route_item,
+                route_kind=kind,
             )
+        except RouteRecordUnavailable:
+            return HTMLResponse(_route_notice_html(page.titles, request.query_params.get("lang")),
+                                status_code=404, headers=_HEADERS)
         except (SourceUnavailable, ProjectionInvalid, ValueError):
             raise _unavailable() from None
         return HTMLResponse(html, headers=_HEADERS)

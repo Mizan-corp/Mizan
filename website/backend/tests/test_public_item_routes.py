@@ -79,7 +79,7 @@ class PublicItemRouteTests(unittest.IsolatedAsyncioTestCase):
         seen = {}
 
         async def render(db_, page, theme, tid, canonical, link_base=None, query=None,
-                         lang_override=None, route_item=None):
+                         lang_override=None, route_item=None, route_kind=None):
             seen.update(canonical=canonical, route_item=route_item, tid=tid)
             return "<html>ok</html>"
 
@@ -96,13 +96,58 @@ class PublicItemRouteTests(unittest.IsolatedAsyncioTestCase):
         seen = {}
 
         async def render(db_, page, theme, tid, canonical, link_base=None, query=None,
-                         lang_override=None, route_item=None):
+                         lang_override=None, route_item=None, route_kind=None):
             seen["canonical"] = canonical
+            seen["route_kind"] = route_kind
             return "<html>ok</html>"
 
         with patch.object(pp, "_render_public", new=render):
             await pp.public_page_item("site", "shop", "c", str(PID), make_request(), db)
         self.assertEqual(seen["canonical"], f"https://{HOST}/site/site/shop/c/{PID}")
+        self.assertEqual(seen["route_kind"], "c")
+
+    async def test_missing_route_record_gets_generic_notice(self):
+        # A route URL whose record does not resolve renders one generic
+        # visitor notice with 404 - never a holed page, never which cause.
+        db = db_scripted(ok_script())
+
+        async def render(db_, page, theme, tid, canonical, link_base=None, query=None,
+                         lang_override=None, route_item=None, route_kind=None):
+            raise pp.RouteRecordUnavailable()
+
+        with patch.object(pp, "_render_public", new=render):
+            resp = await pp.public_page_item("site", "product", "p", str(PID), make_request(), db)
+        self.assertEqual(resp.status_code, 404)
+        body = resp.body.decode()
+        self.assertIn("This item is not available", body)
+        self.assertIn('lang="en"', body)
+        self.assertNotIn(str(PID), body)
+        self.assertIsNone(current_tenant_id.get())
+
+    async def test_notice_language_follows_page_and_override(self):
+        arabic = pp._route_notice_html({"ar": "منتج", "en": "Product"}, None)
+        self.assertIn('lang="ar"', arabic)
+        self.assertIn("هذا العنصر غير متاح", arabic)
+        self.assertIn("<title>منتج</title>", arabic)
+        english = pp._route_notice_html({"ar": "منتج", "en": "Product"}, "en")
+        self.assertIn('lang="en"', english)
+        # An override the page does not offer falls back to the page default.
+        fallback = pp._route_notice_html({"en": "Product"}, "ar")
+        self.assertIn('lang="en"', fallback)
+        # The page title is escaped before it reaches the notice.
+        escaped = pp._route_notice_html({"en": '<script>x</script>'}, None)
+        self.assertNotIn("<script>x</script>", escaped)
+
+    async def test_missing_route_record_notice_keeps_security_headers(self):
+        db = db_scripted(ok_script())
+
+        async def render(db_, page, theme, tid, canonical, link_base=None, query=None,
+                         lang_override=None, route_item=None, route_kind=None):
+            raise pp.RouteRecordUnavailable()
+
+        with patch.object(pp, "_render_public", new=render):
+            resp = await pp.public_page_item("site", "product", "p", str(PID), make_request(), db)
+        self.assertEqual(resp.headers.get("x-content-type-options"), "nosniff")
 
 
 if __name__ == '__main__':

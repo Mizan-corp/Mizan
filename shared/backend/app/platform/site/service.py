@@ -622,6 +622,11 @@ def _route_references(tree) -> dict[str, set[tuple[str, str]]]:
     return found
 
 
+# Public alias: the visitor router needs the same route-reference detection to
+# decide whether a missing URL record warrants the generic unavailable notice.
+route_references = _route_references
+
+
 def bound_sources(tree) -> list[str]:
     """The sorted module.source pairs a tree reads, from scalar bindings, item
     bindings, repeat plans and card plans, in every language. Defensive shape
