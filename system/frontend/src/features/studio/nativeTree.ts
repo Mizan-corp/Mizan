@@ -25,7 +25,7 @@ const width = ['auto','full','half','third','two_thirds'];
 const settings: Record<string, Record<string, readonly (string|number|boolean)[]>> = {
   section:{visible:[true,false],padding:spacing,gap:spacing,background:['background','card','primary','dark','dark_raised'],max_width:['narrow','normal','wide','full'],background_dim:['none','soft','strong']},
   columns:{visible:[true,false],columns:[1,2,3,4,5,6],gap:spacing,stack:[true,false],reverse:[true,false],bleed:[true,false],background:['background','card','primary','dark','dark_raised']},
-  column:{visible:[true,false],width,padding:spacing,align,background:['background','card','primary','dark','dark_raised'],rounded:[true,false],background_dim:['none','soft','strong']},
+  column:{visible:[true,false],width,padding:spacing,align,background:['background','card','primary','dark','dark_raised'],rounded:[true,false],min_height:['s','m','l'],background_dim:['none','soft','strong']},
   heading:{visible:[true,false],level:[1,2,3,4,5,6],align,size:['auto','s','m','l'],wrap:['normal','balance']},
   text:{visible:[true,false],align,variant:['body','eyebrow','note','check_list']},
   image:{visible:[true,false],width,rounded:[true,false],art:['none','sculpture','sculpture_alt']},

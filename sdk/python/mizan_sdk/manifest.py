@@ -640,6 +640,7 @@ PAGE_BLOCKS = {
     "column": {"version": 1, "category": "layout", "children": "blocks",
                "settings": {"visible": "bool", "width": _choices("auto", "full", "half", "third", "two_thirds"), "padding": _choices(*PAGE_SPACING),
                             "align": _choices("start", "center", "end"), "background": _choices("background", "card", "primary", "dark", "dark_raised"), "rounded": "bool",
+                            "min_height": _choices("s", "m", "l"),
                             "background_image": "url", "background_dim": _choices("none", "soft", "strong")},
                "content": {}},
     "canvas": {"version": 1, "category": "layout", "children": "blocks", "per_page": 1,
