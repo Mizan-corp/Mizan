@@ -355,13 +355,18 @@ def check_settings(value) -> dict:
         for field, allowed in (("search_style", ("filled", "outline")),
                                ("bar_style", ("pills", "plain")),
                                ("density", ("comfortable", "compact")),
-                               ("row_align", ("start", "center", "end")),
+                               ("row_align", ("start", "center", "end", "between", "around", "evenly")),
                                ("row_gap", ("tight", "wide"))):
             chosen = header.get(field)
             if chosen is not None:
                 if chosen not in allowed:
                     raise HTTPException(422, "شكل الترويسة غير صالح")
                 out["header"][field] = chosen
+        gap_px = header.get("gap_px")
+        if gap_px is not None:
+            if type(gap_px) is not int or not 0 <= gap_px <= 64:
+                raise HTTPException(422, "شكل الترويسة غير صالح")
+            out["header"]["gap_px"] = gap_px
         order = header.get("element_order")
         if order is not None:
             if (not isinstance(order, list) or len(order) > 3

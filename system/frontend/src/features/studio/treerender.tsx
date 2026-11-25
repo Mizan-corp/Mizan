@@ -252,8 +252,9 @@ export interface ThemeChrome {
   search_style?: 'filled'|'outline';
   bar_style?: 'pills'|'plain';
   density?: 'comfortable'|'compact';
-  row_align?: 'start'|'center'|'end';
+  row_align?: 'start'|'center'|'end'|'between'|'around'|'evenly';
   row_gap?: 'tight'|'wide';
+  gap_px?: number;
   element_order?: ('brand'|'search'|'icons')[];
   icons?: { icon: HeaderIconName; label: string; href: string }[];
   bar_links?: { label: string; href: string }[];
@@ -364,7 +365,7 @@ export function ThemeHeader({ header }: { header?: ThemeChrome }) {
     );
   }
   return (
-    <header className={`mz-site-header mz-header-rich${header?.surface==='dark'?' mz-site-header-dark':''}${header?.search_style==='outline'?' mz-search-outline':''}${header?.bar_style==='plain'?' mz-bar-plain':''}${header?.density==='compact'?' mz-density-compact':''}${header?.row_align?` mz-row-${header.row_align}`:''}${header?.row_gap?` mz-gap-${header.row_gap}`:''}${header?.element_order?.length?' mz-reorder':''}`}>
+    <header className={`mz-site-header mz-header-rich${header?.surface==='dark'?' mz-site-header-dark':''}${header?.search_style==='outline'?' mz-search-outline':''}${header?.bar_style==='plain'?' mz-bar-plain':''}${header?.density==='compact'?' mz-density-compact':''}${header?.row_align?` mz-row-${header.row_align}`:''}${header?.row_gap?` mz-gap-${header.row_gap}`:''}${typeof header?.gap_px==='number'?' mz-gap-custom':''}${header?.element_order?.length?' mz-reorder':''}`} style={typeof header?.gap_px==='number'?({'--row-gap':header.gap_px+'px'} as CSSProperties):undefined}>
       <div className="mz-header-main">
         {logo && <img className="mz-site-logo" style={brandStyle} src={logo} alt="" />}
         {brand && <span className="mz-site-brand" style={brandStyle}>{brand}</span>}
