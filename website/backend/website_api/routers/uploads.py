@@ -82,7 +82,21 @@ async def _site_image_referenced(db: AsyncSession, tid: str, host: str, url: str
             {"t": tid, "h": host, "u": url},
         )
     ).first()
-    return row is not None
+    if row is not None:
+        return True
+    # Theme chrome (header logo, footer art) publishes into the activation snapshot,
+    # not into a page tree; the same public-exposure rule applies there.
+    theme_row = (
+        await db.execute(
+            text(
+                "SELECT 1 FROM site_activation"
+                " WHERE tenant_id = :t AND host = :h AND enabled IS TRUE"
+                " AND strpos(theme::text, :u) > 0 LIMIT 1"
+            ),
+            {"t": tid, "h": host, "u": url},
+        )
+    ).first()
+    return theme_row is not None
 
 
 async def _product_image_public(db: AsyncSession, tid: str, owner_id: str | None, url: str) -> bool:
