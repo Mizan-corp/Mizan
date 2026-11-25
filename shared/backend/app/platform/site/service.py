@@ -354,7 +354,9 @@ def check_settings(value) -> dict:
             out["header"]["search_placeholder"] = search_placeholder.strip()
         for field, allowed in (("search_style", ("filled", "outline")),
                                ("bar_style", ("pills", "plain")),
-                               ("density", ("comfortable", "compact"))):
+                               ("density", ("comfortable", "compact")),
+                               ("row_align", ("start", "center", "end")),
+                               ("row_gap", ("tight", "wide"))):
             chosen = header.get(field)
             if chosen is not None:
                 if chosen not in allowed:

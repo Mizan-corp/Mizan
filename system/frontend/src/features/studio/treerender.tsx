@@ -252,6 +252,8 @@ export interface ThemeChrome {
   search_style?: 'filled'|'outline';
   bar_style?: 'pills'|'plain';
   density?: 'comfortable'|'compact';
+  row_align?: 'start'|'center'|'end';
+  row_gap?: 'tight'|'wide';
   icons?: { icon: HeaderIconName; label: string; href: string }[];
   bar_links?: { label: string; href: string }[];
   bar_cta_label?: string;
@@ -353,7 +355,7 @@ export function ThemeHeader({ header }: { header?: ThemeChrome }) {
     );
   }
   return (
-    <header className={`mz-site-header mz-header-rich${header?.surface==='dark'?' mz-site-header-dark':''}${header?.search_style==='outline'?' mz-search-outline':''}${header?.bar_style==='plain'?' mz-bar-plain':''}${header?.density==='compact'?' mz-density-compact':''}`}>
+    <header className={`mz-site-header mz-header-rich${header?.surface==='dark'?' mz-site-header-dark':''}${header?.search_style==='outline'?' mz-search-outline':''}${header?.bar_style==='plain'?' mz-bar-plain':''}${header?.density==='compact'?' mz-density-compact':''}${header?.row_align?` mz-row-${header.row_align}`:''}${header?.row_gap?` mz-gap-${header.row_gap}`:''}`}>
       <div className="mz-header-main">
         {logo && <img className="mz-site-logo" src={logo} alt="" />}
         {brand && <span className="mz-site-brand">{brand}</span>}

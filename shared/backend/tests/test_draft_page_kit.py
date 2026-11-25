@@ -101,23 +101,23 @@ class ChromeLogoGroupTests(unittest.TestCase):
   self.assertNotIn('logo',check_settings(value)['header'])
  def test_header_appearance_round_trip(self):
   from app.platform.site.service import check_settings
-  value=self._settings();value['header'].update({'search_style':'outline','bar_style':'plain','density':'compact'})
+  value=self._settings();value['header'].update({'search_style':'outline','bar_style':'plain','density':'compact','row_align':'center','row_gap':'wide'})
   self.assertEqual(check_settings(value),value)
  def test_header_appearance_rejects_bad_values(self):
   from app.platform.site.service import check_settings
-  for field in ('search_style','bar_style','density'):
+  for field in ('search_style','bar_style','density','row_align','row_gap'):
    value=self._settings();value['header'][field]='fancy'
    with self.assertRaises(HTTPException):check_settings(value)
  def test_render_header_appearance_classes(self):
   from app.platform.site.render import _theme_chrome
-  theme_value={'header':{'brand':'ويريا','search_enabled':True,'search_target':'/search','search_style':'outline','bar_style':'plain','density':'compact'}}
+  theme_value={'header':{'brand':'ويريا','search_enabled':True,'search_target':'/search','search_style':'outline','bar_style':'plain','density':'compact','row_align':'end','row_gap':'tight'}}
   head,_=_theme_chrome(theme_value,link_base='/site/studio')
-  self.assertIn('mz-search-outline',head);self.assertIn('mz-bar-plain',head);self.assertIn('mz-density-compact',head)
+  self.assertIn('mz-search-outline',head);self.assertIn('mz-bar-plain',head);self.assertIn('mz-density-compact',head);self.assertIn('mz-row-end',head);self.assertIn('mz-gap-tight',head)
  def test_render_header_appearance_defaults_add_no_classes(self):
   from app.platform.site.render import _theme_chrome
   theme_value={'header':{'brand':'ويريا','search_enabled':True,'search_target':'/search'}}
   head,_=_theme_chrome(theme_value,link_base='/site/studio')
-  self.assertNotIn('mz-search-outline',head);self.assertNotIn('mz-bar-plain',head);self.assertNotIn('mz-density-compact',head)
+  self.assertNotIn('mz-search-outline',head);self.assertNotIn('mz-bar-plain',head);self.assertNotIn('mz-density-compact',head);self.assertNotIn('mz-row-',head);self.assertNotIn('mz-gap-',head)
  def test_footer_groups_round_trip(self):
   from app.platform.site.service import check_settings
   value=self._settings();value['footer']['groups']=[{'title':'Company','links':[{'label':'About','href':'/about'}]}]

@@ -111,7 +111,7 @@ export type SiteSettingsValue = {
   colors?: { light?: Record<string, string> };
   typography?: { family?: string };
   shape?: { radius?: number };
-  header?: { layout?: 'inline'|'centered'; surface?: 'default'|'dark'; brand?: string; logo?: string; links?: { label: string; href: string }[]; actions?: { label: string; href: string }[]; search_enabled?: boolean; search_target?: string; search_placeholder?: string; search_style?: 'filled'|'outline'; bar_style?: 'pills'|'plain'; density?: 'comfortable'|'compact'; icons?: { icon: 'whatsapp'|'cart'|'heart'|'user'|'phone'|'globe'|'search'; label: string; href: string }[]; bar_links?: { label: string; href: string }[]; bar_cta_label?: string; bar_cta_href?: string };
+  header?: { layout?: 'inline'|'centered'; surface?: 'default'|'dark'; brand?: string; logo?: string; links?: { label: string; href: string }[]; actions?: { label: string; href: string }[]; search_enabled?: boolean; search_target?: string; search_placeholder?: string; search_style?: 'filled'|'outline'; bar_style?: 'pills'|'plain'; density?: 'comfortable'|'compact'; row_align?: 'start'|'center'|'end'; row_gap?: 'tight'|'wide'; icons?: { icon: 'whatsapp'|'cart'|'heart'|'user'|'phone'|'globe'|'search'; label: string; href: string }[]; bar_links?: { label: string; href: string }[]; bar_cta_label?: string; bar_cta_href?: string };
   footer?: { layout?: 'split'|'stacked'; lines?: string[]; links?: { label: string; href: string }[]; groups?: { title: string; links: { label: string; href: string }[] }[] };
   /** Server-owned flag the editor does not edit but must round-trip untouched. */
   follow_workspace?: boolean;
