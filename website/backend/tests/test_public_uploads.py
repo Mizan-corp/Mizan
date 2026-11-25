@@ -25,17 +25,19 @@ TID2 = uuid.UUID("b2b975ac-32ac-4813-9b35-e43069616c5f")
 HOST = "mizan-studio-feature-test.vercel.app"
 
 
-def db_for(row, ref=(1,)):
+def db_for(row, ref=(1,), refs=None):
     """Execute calls in order: bypass on, workspace_files lookup, reference
-    check (when the row exists), bypass off."""
+    check(s) (when the row exists), bypass off. A site_image runs two reference
+    checks (published tree, then published theme); pass refs=[tree, theme] to
+    control both. Calls past the preset return None."""
     db = AsyncMock()
-    results = iter([None, row, ref, None])
+    seq = [None, row] + (list(refs) if refs is not None else [ref]) + [None]
     statements = []
 
     async def _exec(stmt, params=None):
         statements.append(str(stmt))
         r = MagicMock()
-        r.first.return_value = next(results)
+        r.first.return_value = seq.pop(0) if seq else None
         return r
 
     db.execute.side_effect = _exec
@@ -107,6 +109,22 @@ class PublicUploadTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_unused_site_image_is_404(self):
         db = db_for(row=(None,), ref=None)
+        with self.assertRaises(HTTPException) as ctx:
+            await up.public_upload(f"t/{TID}/site_image/file-abc123.png", db)
+        self.assertEqual(ctx.exception.status_code, 404)
+
+    async def test_theme_referenced_site_image_is_served(self):
+        # Header logo / footer art live in the activation's published theme
+        # snapshot, not in a page tree: tree miss, theme hit -> public.
+        db = db_for(row=(None,), refs=[None, (1,)])
+        res = await up.public_upload(f"t/{TID}/site_image/file-abc123.png", db)
+        self.assertIsInstance(res, FileResponse)
+        self.assertTrue(any("theme" in s and "enabled" in s for s in db._statements))
+
+    async def test_site_image_only_in_disabled_or_private_theme_is_404(self):
+        # Both reference queries scope to enabled activations on the public
+        # host; a draft/disabled/private theme reference must not expose it.
+        db = db_for(row=(None,), refs=[None, None])
         with self.assertRaises(HTTPException) as ctx:
             await up.public_upload(f"t/{TID}/site_image/file-abc123.png", db)
         self.assertEqual(ctx.exception.status_code, 404)
