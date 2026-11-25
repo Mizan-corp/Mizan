@@ -20,7 +20,7 @@ const ENUM_SETTINGS: Record<string, string[]> = {
   wrap: ['normal', 'balance'],
   tone: ['none', 'primary', 'dark', 'card'],
   max_width: ['narrow', 'normal', 'wide', 'full'],
-  width: ['auto', 'full', 'half', 'third', 'two_thirds'],
+  width: ['auto', 'full', 'half', 'third', 'two_thirds', 'three_fifths', 'fit'],
   align: ['start', 'center', 'end'],
   min_height: ['s', 'm', 'l'],
   animation: ['none','fade','rise','slide','zoom'],
@@ -151,8 +151,9 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
         && tracks.every(v => typeof v === 'number' && Number.isFinite(v) && v >= 0.2 && v <= 8);
       const rawTracksM = ((node.settings?.mobile ?? {}) as Record<string, unknown>).tracks;
       const okTracksM = Array.isArray(rawTracksM) && rawTracksM.length === kids.length && rawTracksM.every(v => typeof v === 'number' && Number.isFinite(v) && v >= 0.2 && v <= 8);
-      const trackStyle = okTracks ? { ['--mz-tracks' as string]: tracks.map(v => `${v}fr`).join(' '), ...(okTracksM ? { ['--mz-tracks-m' as string]: (rawTracksM as number[]).map(v => `${v}fr`).join(' ') } : {}) } as React.CSSProperties : undefined;
-      inner = <div className={`mz-columns mz-columns-${count}${s.stack ? ' mz-stack' : ''}${okTracks ? ' mz-cols-custom' : ''}`} style={trackStyle}>{kids}</div>; break;
+      const trackStyle = okTracks ? { ['--mz-tracks' as string]: (tracks as number[]).map(v => `${v}fr`).join(' '), ...(okTracksM ? { ['--mz-tracks-m' as string]: (rawTracksM as number[]).map(v => `${v}fr`).join(' ') } : {}) } as React.CSSProperties
+        : okTracksM ? { ['--mz-tracks-m' as string]: (rawTracksM as number[]).map(v => `${v}fr`).join(' ') } as React.CSSProperties : undefined;
+      inner = <div className={`mz-columns mz-columns-${count}${s.stack ? ' mz-stack' : ''}${okTracks ? ' mz-cols-custom' : ''}${!okTracks && okTracksM ? ' mz-cols-custom-m' : ''}`} style={trackStyle}>{kids}</div>; break;
     }
     case 'column': inner = <div className="mz-column">{kids}</div>; break;
     case 'canvas': inner = <div className="mz-canvas">{kids}</div>; break;
@@ -228,7 +229,7 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
   const minHM = pickMinH(rawMobile.min_height_px);
   const widthPct = pickWidth(rawDesktop.width_pct);
   const widthPctM = pickWidth(rawMobile.width_pct);
-  const cls = `mz-node ${enumClasses(s).join(' ')}${bgStyle ? ' mz-bg-image' : ''}${minH ? ' mz-minh-custom' : ''}${widthPct ? ' mz-width-custom' : ''}`;
+  const cls = `mz-node ${enumClasses(s).join(' ')}${bgStyle ? ' mz-bg-image' : ''}${(minH || minHM) ? ' mz-minh-custom' : ''}${(widthPct || widthPctM) ? ' mz-width-custom' : ''}`;
   const nodeStyle = { ...(bgStyle ?? {}), ...(minH ? { ['--mz-minh' as string]: `${minH}px` } : {}), ...(minHM ? { ['--mz-minh-m' as string]: `${minHM}px` } : {}), ...(widthPct ? { ['--mz-width' as string]: `${widthPct}%` } : {}), ...(widthPctM ? { ['--mz-width-m' as string]: `${widthPctM}%` } : {}) } as React.CSSProperties;
   return <div id={node.id} className={cls} style={Object.keys(nodeStyle).length ? nodeStyle : undefined}>{inner}</div>;
 }

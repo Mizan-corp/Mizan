@@ -61,7 +61,7 @@ class MinHeightPx(unittest.TestCase):
 
     def test_h_min_height_rule_applies_to_the_inner_element(self):
         from app.platform.site.render import _BASE_CSS
-        self.assertIn(".mz-node.mz-minh-custom>:first-child{min-height:var(--mz-minh)}", _BASE_CSS)
+        self.assertIn(".mz-node.mz-minh-custom>:first-child{min-height:var(--mz-minh,0)}", _BASE_CSS)
 
 
 if __name__ == "__main__":
@@ -120,3 +120,20 @@ class WidthPct(unittest.TestCase):
         self.assertIn("mz-width-fit", html)
         from app.platform.site.render import _BASE_CSS
         self.assertIn(".mz-node.mz-width-fit{width:fit-content", _BASE_CSS)
+
+    def test_n_mobile_only_width_still_emits_the_bounded_class(self):
+        tree = tree_with_heading({})
+        tree["children"][0]["children"][0]["children"][0]["settings"] = {"mobile": {"width_pct": 55}}
+        html = render_page(tree, lang="en")
+        self.assertIn("mz-width-custom", html)
+        self.assertIn("--mz-width-m:55%", html)
+        self.assertNotIn("--mz-width:", html)
+
+    def test_o_mobile_only_tracks_emit_the_mobile_class(self):
+        tree = tree_with_row({})
+        tree["children"][0]["settings"]["mobile"] = {"tracks": [1, 2]}
+        html = render_page(tree, lang="en")
+        self.assertIn("mz-cols-custom-m", html)
+        self.assertIn("--mz-tracks-m:1fr 2fr", html)
+        from app.platform.site.render import _BASE_CSS
+        self.assertIn(".mz-columns.mz-cols-custom-m{grid-template-columns:var(--mz-tracks-m)}", _BASE_CSS)

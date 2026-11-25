@@ -494,10 +494,11 @@
 .native-side-handle:hover{opacity:1}
 
 /* free sizing: custom width/min-height/tracks with mobile-segment vars, fit-content */
-.preview-frame .mz-node.mz-width-custom{width:var(--mz-width);display:inline-block;vertical-align:top}
+.preview-frame .mz-node.mz-width-custom{width:var(--mz-width,100%);display:inline-block;vertical-align:top}
 .preview-frame.mobile .mz-node.mz-width-custom{width:var(--mz-width-m,100%)}
 .preview-frame .mz-node.mz-width-fit{width:fit-content;display:inline-block;vertical-align:top}
-.preview-frame .mz-node.mz-minh-custom>:first-child{min-height:var(--mz-minh)}
+.preview-frame .mz-node.mz-minh-custom>:first-child{min-height:var(--mz-minh,0)}
 .preview-frame.mobile .mz-node.mz-minh-custom>:first-child{min-height:var(--mz-minh-m,var(--mz-minh))}
 .preview-frame .mz-columns.mz-cols-custom{grid-template-columns:var(--mz-tracks)}
 .preview-frame.mobile .mz-columns.mz-cols-custom{grid-template-columns:var(--mz-tracks-m,1fr)}
+.preview-frame.mobile .mz-columns.mz-cols-custom-m{grid-template-columns:var(--mz-tracks-m)}
