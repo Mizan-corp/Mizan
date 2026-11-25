@@ -64,3 +64,24 @@ def test_base_css_carries_the_media_rules():
 def test_non_desktop_render_keeps_direct_semantics():
     html = render_page(_tree(mobile_visible=False), lang="en", device="mobile")
     assert "Hello" not in html
+
+
+def test_dark_raised_surface_class_has_a_css_rule():
+    # The class generator keeps value underscores (mz-background-dark_raised);
+    # the visitor stylesheet must carry that exact selector, not only the dashed form.
+    html = render_page({
+        "id": "n_root0001", "type": "section", "settings": {"desktop": {}}, "content": {},
+        "children": [{
+            "id": "n_col00001", "type": "columns", "settings": {"desktop": {"columns": 1}}, "content": {},
+            "children": [{
+                "id": "n_column01", "type": "column",
+                "settings": {"desktop": {"background": "dark_raised"}}, "content": {},
+                "children": [{
+                    "id": "n_head0001", "type": "heading", "settings": {"desktop": {}},
+                    "content": {"en": {"text": "Card"}, "ar": {"text": "بطاقة"}},
+                }],
+            }],
+        }],
+    }, lang="en")
+    assert "mz-background-dark_raised" in html
+    assert ".mz-background-dark_raised{" in _BASE_CSS or ".mz-background-dark_raised," in _BASE_CSS or ",.mz-background-dark_raised" in _BASE_CSS
