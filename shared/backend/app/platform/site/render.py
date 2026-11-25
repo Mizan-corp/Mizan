@@ -97,6 +97,25 @@ def _content(node: dict, lang: str) -> dict:
     return (node.get("content") or {}).get(lang) or {}
 
 
+# Language-neutral references that may fall back across languages: an image's
+# src and a button's href. Fallback applies only when the active language never
+# set the key; an explicit empty value is respected, so a deliberately blank
+# link or image stays blank. Text fields (label, alt, html, text) never fall
+# back - mixing languages into copy silently would be worse than an honest gap.
+def _content_ref(node: dict, lang: str, key: str):
+    langs = node.get("content") or {}
+    active = langs.get(lang) or {}
+    if key in active:
+        return active.get(key)
+    for other in ("en", "ar"):
+        if other == lang:
+            continue
+        other_content = langs.get(other) or {}
+        if key in other_content:
+            return other_content.get(key)
+    return None
+
+
 _SPACER_PX = {"none": 0, "xs": 8, "s": 16, "m": 32, "l": 64, "xl": 128}
 
 # Bounded inline icon set for icon_list blocks: no icon font, no network fetch.
@@ -168,7 +187,7 @@ def _render_node_inner(node: dict, lang: str, device: str, link_base: str | None
         cls = f"mz-text mz-text-{variant}" if variant else "mz-text"
         return f'<div class="{cls}">{sanitize_html(c.get("html", ""))}</div>'
     if ntype == "image":
-        src = _safe_src(c.get("src"))
+        src = _safe_src(_content_ref(node, lang, "src"))
         if src is None:
             # Registered decorative art, a durable settings token in the tree - never
             # silently dropped media. "none" renders nothing, as before.
@@ -197,7 +216,11 @@ def _render_node_inner(node: dict, lang: str, device: str, link_base: str | None
                 f'<iframe src="{_esc(url)}" loading="lazy" allowfullscreen '
                 f'referrerpolicy="strict-origin-when-cross-origin"></iframe></div>')
     if ntype == "button":
-        href = _safe_href(c.get("href"))
+        if not c.get("label"):
+            # A link with no visible label in the active language is unusable;
+            # labels never fall back, so an untranslated button stays hidden.
+            return ""
+        href = _safe_href(_content_ref(node, lang, "href"))
         if href is None:
             return ""
         href = _site_link(href, link_base)

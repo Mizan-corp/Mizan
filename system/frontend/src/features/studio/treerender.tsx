@@ -34,6 +34,23 @@ function contentOf(node: PageNode, lang: string): Record<string, unknown> {
   return (node.content?.[lang] || {}) as Record<string, unknown>;
 }
 
+// Language-neutral references that may fall back across languages: an image's
+// src and a button's href. Fallback applies only when the active language never
+// set the key; an explicit empty value is respected, so a deliberately blank
+// link or image stays blank. Text fields never fall back. Mirrors render.py's
+// _content_ref; keep the semantics identical.
+function contentRef(node: PageNode, lang: string, key: 'src' | 'href'): unknown {
+  const langs = (node.content || {}) as Record<string, Record<string, unknown>>;
+  const active = langs[lang] || {};
+  if (key in active) return active[key];
+  for (const other of ['en', 'ar']) {
+    if (other === lang) continue;
+    const otherContent = langs[other] || {};
+    if (key in otherContent) return otherContent[key];
+  }
+  return undefined;
+}
+
 const SAFE_TAGS = new Set(['p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'a', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'span']);
 const DROP_WITH_CONTENT = new Set(['script', 'style', 'iframe', 'object', 'embed', 'template', 'svg', 'math']);
 
@@ -110,7 +127,7 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
       inner = <div className={`mz-text${variant}`} dangerouslySetInnerHTML={{ __html: sanitizeHtml(c.html) }} />; break;
     }
     case 'image': {
-      const src = safeUrl(c.src, 'url');
+      const src = safeUrl(contentRef(node, lang, 'src'), 'url');
       if (!src) {
         // Registered decorative art, kept in sync with render.py's image branch.
         const art = s.art === 'sculpture' || s.art === 'sculpture_alt' ? String(s.art).replace('_', '-') : '';
@@ -132,7 +149,8 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
       inner = <div className="mz-embed" data-aspect={String(s.aspect ?? '16:9')}><iframe src={url} loading="lazy" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" /></div>; break;
     }
     case 'button': {
-      const href = safeUrl(c.href, 'href');
+      if (!c.label) return null; // labels never fall back; an untranslated button stays hidden, matching render.py
+      const href = safeUrl(contentRef(node, lang, 'href'), 'href');
       if (!href) return null;
       const style = ['primary', 'secondary', 'ghost'].includes(String(s.style)) ? String(s.style) : 'primary';
       inner = <a className={`mz-button mz-button-${style}`} href={href} onClick={e => e.preventDefault()}>{String(c.label ?? '')}</a>; break;

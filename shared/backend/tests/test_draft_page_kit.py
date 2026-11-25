@@ -57,3 +57,28 @@ class DraftKitTests(unittest.TestCase):
   for prefix in ['','../x','Upper','x y','x--y','a'*41]:
    with self.assertRaises(HTTPException):make_pages(prefix)
 if __name__=='__main__':unittest.main()
+class ContentRefFallbackTests(unittest.TestCase):
+ def _node(self,ntype,content,settings=None):
+  return {'id':'n_x','type':ntype,'settings':settings or {},'content':content}
+ def test_image_src_falls_back_only_when_absent(self):
+  from app.platform.site.render import _render_node
+  img=self._node('image',{'en':{'src':'/studio-assets/tech-laptop.svg','alt':'Laptop'},'ar':{'alt':'لابتوب'}})
+  out=_render_node(img,'ar','desktop')
+  self.assertIn('tech-laptop.svg',out);self.assertIn('لابتوب',out)
+ def test_image_src_explicit_blank_stays_blank(self):
+  from app.platform.site.render import _render_node
+  img=self._node('image',{'en':{'src':'/studio-assets/tech-laptop.svg'},'ar':{'src':''}})
+  self.assertEqual(_render_node(img,'ar','desktop'),'')
+ def test_button_href_falls_back_with_translated_label(self):
+  from app.platform.site.render import _render_node
+  btn=self._node('button',{'en':{'href':'/x','label':'Go'},'ar':{'label':'روح'}})
+  out=_render_node(btn,'ar','desktop')
+  self.assertIn('href="/x"',out);self.assertIn('روح',out)
+ def test_button_without_active_label_stays_hidden(self):
+  from app.platform.site.render import _render_node
+  btn=self._node('button',{'en':{'href':'/x','label':'Go'}})
+  self.assertEqual(_render_node(btn,'ar','desktop'),'')
+ def test_button_explicit_blank_href_stays_hidden(self):
+  from app.platform.site.render import _render_node
+  btn=self._node('button',{'en':{'href':'/x','label':'Go'},'ar':{'label':'روح','href':''}})
+  self.assertEqual(_render_node(btn,'ar','desktop'),'')

@@ -143,3 +143,43 @@ describe('icon_list inline SVG rendering', () => {
     expect(html).toContain('<circle cx="12" cy="12" r="5"/>'); // fallback dot for the unknown name
   });
 });
+
+describe('content fallback for language-neutral refs', () => {
+  // Mirrors render.py _content_ref: src/href fall back across languages only when
+  // absent; explicit '' stays blank; labels never fall back, so an untranslated
+  // button stays hidden.
+  const theme = previewPayload(project, 'page-1').theme as never;
+  function node(id: string, type: string, content: Record<string, Record<string, unknown>>) {
+    return { id, type, content, settings: {}, children: [] } as never;
+  }
+  function renderNodes(nodes: unknown[], lang: string) {
+    const tree = {
+      id: 's1', type: 'section', content: {}, settings: {},
+      children: [{ id: 'r1', type: 'columns', content: {}, settings: {},
+        children: [{ id: 'c1', type: 'column', content: {}, settings: {}, children: nodes }] }],
+    } as never;
+    return renderToStaticMarkup(createElement(TreePreview, { tree, lang, device: 'desktop', theme }));
+  }
+  it('renders an image in Arabic from the English src when Arabic never set one', () => {
+    const html = renderNodes([node('i1', 'image', { en: { src: '/studio-assets/tech-laptop.svg', alt: 'Laptop' }, ar: { alt: 'لابتوب' } })], 'ar');
+    expect(html).toContain('tech-laptop.svg');
+    expect(html).toContain('لابتوب');
+  });
+  it('keeps an explicitly blank Arabic src blank', () => {
+    const html = renderNodes([node('i2', 'image', { en: { src: '/studio-assets/tech-laptop.svg' }, ar: { src: '' } })], 'ar');
+    expect(html).not.toContain('mz-image');
+  });
+  it('renders a button in Arabic with a translated label and the fallback href', () => {
+    const html = renderNodes([node('b1', 'button', { en: { href: '/x', label: 'Go' }, ar: { label: 'روح' } })], 'ar');
+    expect(html).toContain('href="/x"');
+    expect(html).toContain('روح');
+  });
+  it('hides a button with no active-language label', () => {
+    const html = renderNodes([node('b2', 'button', { en: { href: '/x', label: 'Go' } })], 'ar');
+    expect(html).not.toContain('mz-button');
+  });
+  it('hides a button whose active-language href is explicitly blank', () => {
+    const html = renderNodes([node('b3', 'button', { en: { href: '/x', label: 'Go' }, ar: { label: 'روح', href: '' } })], 'ar');
+    expect(html).not.toContain('mz-button');
+  });
+});
