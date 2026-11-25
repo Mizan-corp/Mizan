@@ -6,7 +6,7 @@ Only heading.text has a trusted target in this first slice. All static content i
 from __future__ import annotations
 from copy import deepcopy
 import json
-from app.framework.manifest import PAGE_BINDINGS_ITEM_SCHEMA, page_binding_problems
+from app.framework.manifest import PAGE_BINDINGS_ITEM_SCHEMA, PAGE_BINDINGS_ROUTE_SCHEMA, page_binding_problems
 from app.framework.storefront_runtime import ProviderRegistry, SourceContext, SourceUnavailable
 
 TARGETS={'heading': {'text':{'type':'text','semantic':'plain_text','cardinality':'one','element':'heading'}}}
@@ -37,7 +37,7 @@ def separate_bindings(tree: dict, validate_static, items=None):
         local={} if envelope is None else envelope['content']
         if not isinstance(local,dict) or set(local)-{'en','ar'}:
             raise SourceUnavailable('Unsupported binding language.')
-        item_envelope=envelope is not None and envelope.get('schema')==PAGE_BINDINGS_ITEM_SCHEMA
+        item_envelope=envelope is not None and envelope.get('schema') in (PAGE_BINDINGS_ITEM_SCHEMA, PAGE_BINDINGS_ROUTE_SCHEMA)
         for language,fields in local.items():
             if not isinstance(fields,dict) or not fields:
                 raise SourceUnavailable('Malformed binding fields.')

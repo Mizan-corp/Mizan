@@ -161,23 +161,59 @@ per-language copy is not yet authorable (see above).
 Dependency-ordered. Each phase lists what is verified vs pending; nothing
 moves to Done without the evidence named in this file.
 
-**Phase 1 — verification hardening (no user-visible scope).**
-Native Enter/click search-submit E2E to replace requestSubmit; commit the
-preview-bundle build config used for live editor verification.
+**Phase 1 — verification hardening (no user-visible scope).** DONE
+2026-11-25 (45a119b, 6490db9). Native Enter AND genuine mouse-click
+search-submit E2E both proven live on the visitor site (fresh screenshots
+reported); vite.preview.config.ts committed.
 
-**Phase 2 — consent/publication foundation (blocks the catalog work).**
-Extend the explicit UI publication consent accurately (v4-style, same
-reversible pattern as v1/v2) to cover product->category linkage and
-URL-selected current-record retrieval, scoped to published records only.
-Grounded in the user's 17:30/17:32 requests; consent wording, gate tests,
-revocation tests, and a consent-scope doc are part of the slice.
+**Phase 2 — consent/publication foundation (blocks the catalog work).** DONE
+2026-11-25 (a5ad2a0 + 46c0f9a). Consent schema v4 extends the explicit UI
+publication consent (same reversible pattern as v1-v3) to cover
+product->category linkage, URL-selected current-record retrieval and an
+optional description display field, scoped to published records only.
+Grounded in the user's 17:30/17:32 requests. Wording, gate tests,
+revocation tests and docs/studio-consent-scope-v4.md shipped.
+Verification boundaries (exact commands):
+- Backend: pytest per test FILE (shared/backend/tests): writer 5,
+  scoped-item 14, revocation 5, consent-v4 12 green; runtime/bindings/
+  repeats/card_repeats/typed_fields/projection/scalar_gate/core_site/
+  card_provider/card_runtime/multi_card all green individually.
+- Frontend: single `npx vitest run` in system/frontend = 51 files,
+  293 tests: 291 passed, 1 skipped, 1 failed. The one failure is
+  treerender.test.ts "wraps the page in one mz-section", verified
+  pre-existing at clean HEAD via git stash (not from v4 work). tsc
+  --noEmit clean (separate command).
+ACCEPTANCE DEBT (open, NOT exempted): the 9 whole-directory pytest
+cross-file isolation failures and the treerender failure must be actually
+diagnosed and resolved (or individually re-verified as fixed) before any
+final overall acceptance claim; "pre-existing" is a temporary label, not
+an exemption.
 
-**Phase 3 — dynamic product template + category destinations.**
-"Current item" binding mode resolved from the route (product id from the
-URL; route shape follows existing conventions and is documented here);
-one Studio-authored product template applies to all products; category
-link destinations resolve to category-filtered collection pages following
-the same template model. Depends on Phase 2.
+**Phase 3 — dynamic product template + category destinations.** IN
+PROGRESS 2026-11-25. Route shapes (documented per plan):
+- Product detail: `/site/{slug}/{page_path}/p/{product_uuid}` — the page
+  at page_path is the single Studio-authored product template; the third
+  segment pair selects the record. The existing (host, slug, page_path)
+  activation row governs, so the template's per-page publish approval
+  covers its detail URLs (the v4 consent wording names this behavior).
+- Category: `/site/{slug}/{page_path}/c/{category_uuid}` — same model;
+  the page is the category template with a route-filtered product list.
+Binding/envelope design:
+- `mizan.page-bindings.experimental.v2`: route mode ("current item").
+  Same language-map envelope as v1 but the per-field reference is
+  {mode:"route", module, source, field, on_missing} — no pinned item_key.
+  Resolves against SourceContext.route_item; absent (previews, plain page
+  URL) resolves None and the element follows on_missing. Route-selected
+  reads require a recorded v4 consent for EVERY audience (v0-v3 wording
+  never named URL-selected retrieval).
+- `mizan.page-repeat.experimental.v2`: category card-repeat. Same column
+  card template as v1 plus plan key category:"route"; expands through the
+  new inventory collection source category_products backed by
+  read_category_products (v4-recorded consent for every audience,
+  category must be in the publication allowlist).
+- text elements gain the description item-binding field (v4 consent
+  field, 2000-char bound, fail-closed).
+Depends on Phase 2 (done).
 
 **Phase 4 — Website module (ERP side, user decisions 3-7).**
 Rename frontstore -> Website; its tab manages orders, published products,

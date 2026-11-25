@@ -293,6 +293,46 @@ async def read_scoped_item(db, context, item_key, fields):
     consent = await element_consent(db, context)
     if consent is None or product_id not in consent['products']:
         return None
+    return await _read_item_row(db, context, product_id, fields, consent)
+
+
+async def read_route_item(db, context, item_key, fields):
+    """URL-selected current record ("current item", v2 route bindings).
+
+    The record identity comes from the visitor URL, not from an owner-pinned
+    binding, so the consent wording must name URL-selected retrieval: only a
+    recorded v4 policy authorizes these reads, for previews AND public alike
+    (v0-v3 wordings never named it). Everything else matches read_scoped_item:
+    the product must be consented and active, optional columns are selected
+    only after their field-level opt-in, malformed input fails closed.
+    """
+    if current_tenant_id.get() != context.tenant_id or 'inventory' not in context.active_modules:
+        raise SourceUnavailable('Website element source unavailable.')
+    if not isinstance(item_key, str) or len(item_key) > 64:
+        raise SourceUnavailable('Invalid bound record identity.')
+    try:
+        product_id = UUID(item_key)
+    except (ValueError, TypeError):
+        raise SourceUnavailable('Invalid bound record identity.') from None
+    if str(product_id) != item_key:
+        raise SourceUnavailable('Invalid bound record identity.')
+    if not isinstance(fields, (list, tuple)) or not fields or len(fields) > 4 or set(fields) - {'name', 'price', 'image', 'description'}:
+        raise SourceUnavailable('Invalid bound field selection.')
+    raw = await db.scalar(select(StoreSetting.value).where(
+        StoreSetting.tenant_id == context.tenant_id, StoreSetting.key == SETTING_KEY))
+    try:
+        recorded = json.loads(raw).get('schema') if raw is not None else None
+    except (TypeError, ValueError):
+        raise SourceUnavailable('Invalid website card policy.') from None
+    if recorded != SCHEMA_V4:
+        return None
+    consent = card_policy(raw, schema=SCHEMA_V4)
+    if product_id not in consent['products']:
+        return None
+    return await _read_item_row(db, context, product_id, fields, consent)
+
+
+async def _read_item_row(db, context, product_id, fields, consent):
     columns = [Product.id, Product.name]
     if 'price' in fields and consent['show_price']:
         columns.append(Product.retail_price)

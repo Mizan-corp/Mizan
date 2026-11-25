@@ -32,6 +32,12 @@ class SourceContext:
     # reads: public consumers require the wording version that names public
     # pages (see inventory storefront cards.py).
     audience: str = 'preview'
+    # Route-selected record identity (Phase 3 dynamic templates): the UUID
+    # string from the visitor URL's item segment (/p/<id> product detail,
+    # /c/<id> category). None on signed-in previews and plain page URLs, so
+    # route-mode bindings/lists resolve empty there. Server-set from the
+    # validated path segment only; never read from query params or headers.
+    route_item: str | None = None
 
     def __post_init__(self):
         if not isinstance(self.tenant_id, UUID) or self.language not in ('en', 'ar'):
@@ -40,6 +46,14 @@ class SourceContext:
             raise SourceUnavailable('Verified module state is required.')
         if self.audience not in ('preview', 'public'):
             raise SourceUnavailable('An explicit audience is required.')
+        if self.route_item is not None:
+            if not isinstance(self.route_item, str):
+                raise SourceUnavailable('An explicit route record identity is required.')
+            try:
+                if str(UUID(self.route_item)) != self.route_item:
+                    raise ValueError
+            except (ValueError, TypeError, AttributeError):
+                raise SourceUnavailable('An explicit route record identity is required.') from None
 
 
 @dataclass(frozen=True)

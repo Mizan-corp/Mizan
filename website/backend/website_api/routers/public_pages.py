@@ -156,7 +156,7 @@ async def _activation(db: AsyncSession, host: str, slug: str, page_path: str):
 
 async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id: uuid.UUID, canonical: str,
                          link_base: str | None = None, query: str | None = None,
-                         lang_override: str | None = None) -> str:
+                         lang_override: str | None = None, route_item: str | None = None) -> str:
     from app.framework.manifest import page_problems
     from app.platform.site import service
     from app.platform.site.render import render_document
@@ -174,7 +174,8 @@ async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id
         lang = lang_override
 
     await service.check_bound_tree(db, tree)
-    ctx = SourceContext(tenant_id, lang, frozenset(await get_active_modules(db)), audience="public")
+    ctx = SourceContext(tenant_id, lang, frozenset(await get_active_modules(db)), audience="public",
+                        route_item=route_item)
     if has_card(tree):
         resolved = await resolve_cards(db, tree, ctx)
     elif has_repeat(tree):
@@ -190,6 +191,29 @@ async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id
 
 @router.api_route("/site/{slug}/{page_path}", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def public_page(slug: str, page_path: str, request: Request, db: AsyncSession = Depends(get_db)):
+    return await _serve_public(slug, page_path, None, None, request, db)
+
+
+# Dynamic template routes (Phase 3): /p/<product_uuid> renders the page at
+# page_path as the product detail template with the URL-selected record;
+# /c/<category_uuid> renders it as the category template. The activation row
+# stays keyed by (host, slug, page_path): the template's per-page publish
+# approval covers these URLs because the v4 consent wording names both
+# behaviors. The record id never widens consent: gates re-check it per read.
+@router.api_route("/site/{slug}/{page_path}/{kind}/{item_id}", methods=["GET", "HEAD"], response_class=HTMLResponse)
+async def public_page_item(slug: str, page_path: str, kind: str, item_id: str, request: Request,
+                           db: AsyncSession = Depends(get_db)):
+    if kind not in ("p", "c"):
+        raise _not_found()
+    try:
+        normalized = str(uuid.UUID(item_id))
+    except (ValueError, TypeError, AttributeError):
+        raise _not_found() from None
+    return await _serve_public(slug, page_path, kind, normalized, request, db)
+
+
+async def _serve_public(slug: str, page_path: str, kind: str | None, route_item: str | None,
+                        request: Request, db: AsyncSession):
     host = _public_host(request)
     configured = _configured_host()
     # The request must have arrived through the registered domain this
@@ -227,12 +251,14 @@ async def public_page(slug: str, page_path: str, request: Request, db: AsyncSess
                 raise _not_found()
             theme = row.activation_theme if isinstance(row.activation_theme, dict) else {}
         try:
+            suffix = "" if route_item is None else f"/{kind}/{route_item}"
             html = await _render_public(
                 db, page, theme, row.tid,
-                f"https://{host}/site/{slug}/{page_path}",
+                f"https://{host}/site/{slug}/{page_path}{suffix}",
                 link_base=f"/site/{slug}",
                 query=request.query_params.get("q"),
                 lang_override=request.query_params.get("lang"),
+                route_item=route_item,
             )
         except (SourceUnavailable, ProjectionInvalid, ValueError):
             raise _unavailable() from None

@@ -801,12 +801,13 @@ def _page_setting_problems(where: str, kind, value) -> list[str]:
 
 PAGE_BINDINGS_SCHEMA = "mizan.page-bindings.experimental.v0"
 PAGE_BINDINGS_ITEM_SCHEMA = "mizan.page-bindings.experimental.v1"
+PAGE_BINDINGS_ROUTE_SCHEMA = "mizan.page-bindings.experimental.v2"
 # Individually bound elements (v1 envelope): which content field each node type
 # may bind, and which provider fields may fill it. Shape only; consent and
 # record scope are runtime checks (docs/studio-consent-scope-v2.md).
 _BINDING_ITEM_TARGETS = {
     "heading": ("text", frozenset({"name"})),
-    "text": ("html", frozenset({"name", "price"})),
+    "text": ("html", frozenset({"name", "price", "description"})),
     "image": ("src", frozenset({"image"})),
 }
 
@@ -843,6 +844,37 @@ def _page_binding_item_problems(value, node_type, languages) -> list[str]:
     return errors
 
 
+def _page_binding_route_problems(value, node_type, languages) -> list[str]:
+    """v2 route mode ("current item"): same envelope as v1 but the record comes
+    from the page URL's item segment, so there is no pinned item_key."""
+    content = value.get("content")
+    if not isinstance(content, dict) or not content or len(content) > 2:
+        return ["bindings: bounded nonempty language map required"]
+    errors = []
+    target = _BINDING_ITEM_TARGETS.get(node_type) if isinstance(node_type, str) else None
+    for language, fields in content.items():
+        if not isinstance(language, str) or language not in ("en", "ar") or (languages is not None and language not in languages):
+            errors.append("bindings: unsupported language")
+        if target is None or not isinstance(fields, dict) or set(fields) != {target[0]}:
+            errors.append("bindings: unsupported element binding target")
+            continue
+        b = fields[target[0]]
+        required = {"mode", "module", "source", "field", "on_missing"}
+        if not isinstance(b, dict) or set(b) != required:
+            errors.append("bindings: exact declarative route reference required")
+            continue
+        if b.get("mode") != "route" or b.get("on_missing") not in ("hide", "empty"):
+            errors.append("bindings: explicit route mode and missing behavior required")
+        for key in ("module", "source", "field"):
+            v = b.get(key)
+            pattern = r"[a-z][a-z0-9_]{0,47}(?:\.[a-z][a-z0-9_]{0,47})?" if key == "module" else r"[a-z][a-z0-9_]{0,47}"
+            if not isinstance(v, str) or re.fullmatch(pattern, v) is None:
+                errors.append("bindings: invalid source identifier")
+        if b.get("field") not in target[1]:
+            errors.append("bindings: field not bindable to this element")
+    return errors
+
+
 
 def page_binding_problems(value, node_type, languages=None) -> list[str]:
     """Shape only. Provider existence, activation and access require runtime checks.
@@ -855,6 +887,8 @@ def page_binding_problems(value, node_type, languages=None) -> list[str]:
         return ["bindings: schema and content are required, no extra fields"]
     if value.get("schema") == PAGE_BINDINGS_ITEM_SCHEMA:
         return _page_binding_item_problems(value, node_type, languages)
+    if value.get("schema") == PAGE_BINDINGS_ROUTE_SCHEMA:
+        return _page_binding_route_problems(value, node_type, languages)
     if value.get("schema") != PAGE_BINDINGS_SCHEMA:
         return ["bindings: unsupported experimental schema"]
     content=value.get("content")
@@ -884,6 +918,7 @@ def page_binding_problems(value, node_type, languages=None) -> list[str]:
 
 PAGE_REPEAT_SCHEMA = "mizan.page-repeat.experimental.v0"
 PAGE_REPEAT_CARD_SCHEMA = "mizan.page-repeat.experimental.v1"
+PAGE_REPEAT_CATEGORY_SCHEMA = "mizan.page-repeat.experimental.v2"
 _REPEAT_CARD_SLOT_TYPES = {"heading": ("text",), "text": ("text", "money"), "image": ("media",)}
 
 
@@ -891,6 +926,8 @@ def page_repeat_problems(value, node_type, languages=None) -> list[str]:
     """Shape only; provider compatibility and native expansion require runtime checks."""
     if not isinstance(value, dict):
         return ["repeat: exact versioned language declaration required"]
+    if value.get("schema") == PAGE_REPEAT_CATEGORY_SCHEMA:
+        return _page_repeat_category_problems(value, node_type, languages)
     if value.get("schema") == PAGE_REPEAT_CARD_SCHEMA:
         return _page_repeat_card_problems(value, node_type, languages)
     if set(value) != {"schema", "content"}:
@@ -941,6 +978,37 @@ def _page_repeat_card_problems(value, node_type, languages=None) -> list[str]:
             if not isinstance(plan[name], str) or re.fullmatch(r"[a-z][a-z0-9_]{0,47}", plan[name]) is None:
                 errors.append("repeat: invalid identifier")
         if type(plan["limit"]) is not int or not 1 <= plan["limit"] <= 24 or plan["on_missing"] not in ("hide", "empty"):
+            errors.append("repeat: explicit bounded limit and missing behavior required")
+    return errors
+
+
+def _page_repeat_category_problems(value, node_type, languages=None) -> list[str]:
+    """v2 route-category card template: identical visual template to v1, but the
+    item set is the route-selected category's consented products."""
+    if set(value) != {"schema", "slots", "content"} or node_type != "column":
+        return ["repeat: only experimental column card templates supported"]
+    slots = value.get("slots")
+    if not isinstance(slots, dict) or not slots or "heading" not in slots or not set(slots) <= set(_REPEAT_CARD_SLOT_TYPES):
+        return ["repeat: card slots need a heading and only heading/text/image keys"]
+    errors = []
+    for kind, field in slots.items():
+        if not isinstance(field, str) or re.fullmatch(r"[a-z][a-z0-9_]{0,47}", field) is None:
+            errors.append("repeat: invalid card slot field identifier")
+    content = value.get("content")
+    if not isinstance(content, dict) or not content or len(content) > 2:
+        return errors + ["repeat: bounded nonempty language map required"]
+    for lang, plan in content.items():
+        if lang not in ("en", "ar") or (languages is not None and lang not in languages):
+            errors.append("repeat: unsupported language")
+        if not isinstance(plan, dict) or set(plan) != {"module", "source", "category", "limit", "on_missing"}:
+            errors.append("repeat: exact route-category reference required")
+            continue
+        for name in ("module", "source"):
+            if not isinstance(plan[name], str) or re.fullmatch(r"[a-z][a-z0-9_]{0,47}", plan[name]) is None:
+                errors.append("repeat: invalid identifier")
+        if plan.get("category") != "route":
+            errors.append("repeat: explicit route category selection required")
+        if type(plan.get("limit")) is not int or not 1 <= plan["limit"] <= 24 or plan["on_missing"] not in ("hide", "empty"):
             errors.append("repeat: explicit bounded limit and missing behavior required")
     return errors
 

@@ -109,7 +109,9 @@ _CARD_SLOT_TYPES={'heading':('text',),'text':('text','money'),'image':('media',)
 def checked_card_template(tree:dict, plan:dict, slots:dict, runtime:CollectionRuntime, context:SourceContext):
     """v1 bounded card template: a column whose heading/text/image children are
     filled from one collection item each. All checks precede any provider read."""
-    if not isinstance(plan,dict) or set(plan)!={'template_id','module','source','limit','on_missing'}:
+    if not isinstance(plan,dict) or set(plan) not in ({'template_id','module','source','limit','on_missing'},{'template_id','module','source','category','limit','on_missing'}):
+        raise SourceUnavailable('Exact card collection plan required.')
+    if 'category' in plan and plan['category']!='route':
         raise SourceUnavailable('Exact card collection plan required.')
     if not isinstance(plan['template_id'],str) or not PAGE_NODE_ID.fullmatch(plan['template_id']):
         raise SourceUnavailable('Invalid card template identity.')

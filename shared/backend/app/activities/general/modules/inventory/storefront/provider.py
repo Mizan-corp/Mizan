@@ -97,4 +97,28 @@ def inventory_providers(db):
                 result.append(item)
             return result
         return CollectionProvider(text_contract(kind),read)
-    return (make('products',Product),make('categories',Category))
+    return (make('products',Product),make('categories',Category),category_products_provider(db))
+
+
+# Route-selected category contents (Phase 3 category templates). The category
+# identity is SourceContext.route_item, server-set from the validated visitor
+# URL segment only. read_category_products owns the consent gate: a recorded
+# v4 policy is required for EVERY audience and the category must be in the
+# workspace's publication allowlist; otherwise the list is empty.
+_CATEGORY_PRODUCTS_CONTRACT = {'schema': 'mizan.collection.experimental.v0', 'module': 'inventory',
+                               'source': 'category_products', 'key': 'item_key',
+                               'fields': {'name': {'type': 'text', 'semantic': 'plain_text', 'nullable': False, 'max_length': 200},
+                                          'price': {'type': 'money', 'semantic': 'display_money', 'nullable': True},
+                                          'image': {'type': 'media', 'semantic': 'display_media', 'nullable': True}},
+                               'max_items': 24}
+
+
+def category_products_provider(db):
+    async def read(context: SourceContext, limit: int):
+        if current_tenant_id.get() != context.tenant_id or 'inventory' not in context.active_modules:
+            raise SourceUnavailable('Inventory website source unavailable.')
+        if context.route_item is None:
+            return []
+        from app.activities.general.modules.inventory.storefront.cards import read_category_products
+        return await read_category_products(db, context, context.route_item, limit)
+    return CollectionProvider(_CATEGORY_PRODUCTS_CONTRACT, read)

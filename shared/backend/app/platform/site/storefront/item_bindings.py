@@ -29,6 +29,12 @@ class ScopedItems:
         """Pre-read compatibility check: no database access, no provider call."""
         if not isinstance(binding, dict) or binding.get('module') != _MODULE or binding.get('source') != _SOURCE:
             raise SourceUnavailable('Unsupported item binding source.')
+        if binding.get('mode') == 'route':
+            # Route mode ("current item", v2 envelope): the URL item segment
+            # selects the record; no pinned item_key exists to check here.
+            pass
+        elif not isinstance(binding.get('item_key'), str):
+            raise SourceUnavailable('Unsupported item binding source.')
         if binding.get('field') not in _FIELD_TARGETS or field not in _FIELD_TARGETS[binding['field']]:
             raise SourceUnavailable('Incompatible item binding target.')
         if _MODULE not in context.active_modules:
@@ -39,7 +45,15 @@ class ScopedItems:
         import importlib
 
         cards = importlib.import_module('app.activities.general.modules.inventory.storefront.cards')
-        item = await cards.read_scoped_item(self._db, context, binding['item_key'], (binding['field'],))
+        if binding.get('mode') == 'route':
+            # Route-selected record: v4-recorded consent is required for every
+            # audience (read_route_item enforces it); without a route item
+            # (signed-in previews, the plain page URL) the element hides.
+            if context.route_item is None:
+                return None
+            item = await cards.read_route_item(self._db, context, context.route_item, (binding['field'],))
+        else:
+            item = await cards.read_scoped_item(self._db, context, binding['item_key'], (binding['field'],))
         if item is None:
             return None
         value = item.get(binding['field'])

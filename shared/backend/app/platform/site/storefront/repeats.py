@@ -1,7 +1,7 @@
 """Experimental persisted heading repeat adapter. Internal authenticated preview only."""
 from copy import deepcopy
 import json
-from app.framework.manifest import page_problems, page_repeat_problems, PAGE_REPEAT_CARD_SCHEMA
+from app.framework.manifest import page_problems, page_repeat_problems, PAGE_REPEAT_CARD_SCHEMA, PAGE_REPEAT_CATEGORY_SCHEMA
 from app.framework.storefront_runtime import SourceContext, SourceUnavailable
 from app.framework.storefront_collections import CollectionRuntime
 from .collection_projection import checked_template, expand_heading_collection, checked_card_template, expand_card_collection
@@ -34,7 +34,7 @@ def separate_repeat(tree: dict):
 
 def validate_repeat(tree:dict,runtime:CollectionRuntime,context:SourceContext):
     static,(node_id,repeat)=separate_repeat(tree)
-    card=repeat['schema']==PAGE_REPEAT_CARD_SCHEMA
+    card=repeat['schema'] in (PAGE_REPEAT_CARD_SCHEMA, PAGE_REPEAT_CATEGORY_SCHEMA)
     # Validate every language before any collection read, including inactive languages.
     for language,plan in repeat['content'].items():
         ctx=SourceContext(context.tenant_id,language,context.active_modules,audience=context.audience)
@@ -48,7 +48,7 @@ async def resolve_repeat(tree:dict,runtime:CollectionRuntime,context:SourceConte
     plan=repeat['content'].get(context.language)
     if plan is None:return static
     query=(query or '').strip()[:100] or None
-    if repeat['schema']==PAGE_REPEAT_CARD_SCHEMA:
+    if repeat['schema'] in (PAGE_REPEAT_CARD_SCHEMA, PAGE_REPEAT_CATEGORY_SCHEMA):
         return await expand_card_collection(static,{'template_id':node_id,**plan},repeat['slots'],runtime,context,query=query)
     return await expand_heading_collection(static,{'template_id':node_id,**plan},runtime,context,query=query)
 
