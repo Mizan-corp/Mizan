@@ -90,7 +90,8 @@ describe('TreePreview over toPageTree output', () => {
     expect(html).toContain('mz-bg-image');
     expect(html).toContain('bench.webp');
     expect(html).toContain('linear-gradient(');
-    const bad = { ...tree, children: [{ ...tree.children[0], children: [{ ...tree.children[0].children[0],
+    const t = tree as unknown as { children: { children: object[] }[] };
+    const bad = { ...t, children: [{ ...t.children[0], children: [{ ...(t.children[0].children[0] as object),
       settings: { desktop: { background_image: 'https://x.test/a).png' } } }] }] } as never;
     const badHtml = renderToStaticMarkup(createElement(TreePreview, { tree: bad, lang: 'en', device: 'desktop' }));
     expect(badHtml).not.toContain('mz-bg-image');

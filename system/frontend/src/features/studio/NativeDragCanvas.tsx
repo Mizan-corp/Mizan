@@ -78,8 +78,8 @@ export default function NativeDragCanvas({tree,projectionMap,selected,onSelect,o
   return()=>{cancelAnimationFrame(frame);removeEventListener('native-library-drag',library);removeEventListener('pointermove',move);removeEventListener('pointerup',end);removeEventListener('pointercancel',cancel);removeEventListener('keydown',key)};
  },[tree,selected]);
  // --- Border & divider resize: free sizing by dragging, committed per device. ---
- const [handles,setHandles]=useState<{height?:{x:number;y:number};dividers:{x:number;y:number;h:number;index:number}[]}>({});
- const resizeRef=useRef<null|{kind:'height';id:string;inner:HTMLElement;startY:number;startH:number;value:number}|{kind:'divider';id:string;index:number;inner:HTMLElement;tracks:number[];pairStart:number;pairWidth:number;leftFirst:boolean;value:number[]}>(null);
+ const [handles,setHandles]=useState<{height?:{x:number;y:number};dividers?:{x:number;y:number;h:number;index:number}[];sides?:{left:{x:number;y:number};right:{x:number;y:number}}}>({});
+ const resizeRef=useRef<null|{kind:'height';id:string;inner:HTMLElement;startY:number;startH:number;value:number}|{kind:'divider';id:string;index:number;inner:HTMLElement;tracks:number[];pairStart:number;pairWidth:number;leftFirst:boolean;value:number[]}|{kind:'width';id:string;edge:'left'|'right';inner:HTMLElement;anchorX:number;parentWidth:number;value:number}>(null);
  useEffect(()=>{
   const nodeEl=(id:string)=>[...canvas.current?.querySelectorAll<HTMLElement>('.mz-node')??[]].find(e=>sourceId(e.id)===id);
   const update=()=>{
@@ -95,7 +95,9 @@ export default function NativeDragCanvas({tree,projectionMap,selected,onSelect,o
      dividers.push({x:(a.right+b.left)/2,y:(a.top+b.bottom)/2,h:Math.max(a.height,b.height),index:i});
     }
    }
-   setHandles({height:{x:r.left+r.width/2,y:r.bottom},dividers});
+   const widthResizable=['heading','text','image','button','gallery','video_embed','icon_list'].includes(node.type);
+   const sides=widthResizable?{left:{x:r.left,y:r.top+r.height/2},right:{x:r.right,y:r.top+r.height/2}}:undefined;
+   setHandles({height:{x:r.left+r.width/2,y:r.bottom},dividers,sides});
   };
   update();
   const sc=canvas.current?.closest('.studio-canvas');
@@ -109,6 +111,7 @@ export default function NativeDragCanvas({tree,projectionMap,selected,onSelect,o
  const selDesktop=(selectedNode?.settings?.desktop??{}) as Record<string,unknown>;
  const hasMinH=selSettings.min_height_px!==undefined||selDesktop.min_height_px!==undefined;
  const hasTracks=selSettings.tracks!==undefined||selDesktop.tracks!==undefined;
+ const hasWidthPct=selSettings.width_pct!==undefined||selDesktop.width_pct!==undefined;
  const beginHeight=(e:React.PointerEvent)=>{
   if(e.button!==0)return;
   const el=[...canvas.current?.querySelectorAll<HTMLElement>('.mz-node')??[]].find(x=>sourceId(x.id)===selected);
@@ -135,6 +138,17 @@ export default function NativeDragCanvas({tree,projectionMap,selected,onSelect,o
   resizeRef.current={kind:'divider',id:selected,index,inner,tracks:base,pairStart:Math.min(ra.left,rb.left),pairWidth:Math.max(ra.right,rb.right)-Math.min(ra.left,rb.left),leftFirst:ra.left<rb.left,value:base};
   (e.target as HTMLElement).setPointerCapture(e.pointerId);
  };
+ const beginWidth=(e:React.PointerEvent,edge:'left'|'right')=>{
+  if(e.button!==0)return;
+  const el=[...canvas.current?.querySelectorAll<HTMLElement>('.mz-node')??[]].find(x=>sourceId(x.id)===selected);
+  const parent=el?.parentElement as HTMLElement|null;
+  if(!el||!parent)return;
+  const r=el.getBoundingClientRect();const pr=parent.getBoundingClientRect();
+  if(pr.width<8)return;
+  e.preventDefault();e.stopPropagation();
+  resizeRef.current={kind:'width',id:selected,edge,inner:el,anchorX:edge==='right'?r.left:r.right,parentWidth:pr.width,value:Math.round(r.width/pr.width*100)};
+  (e.target as HTMLElement).setPointerCapture(e.pointerId);
+ };
  const moveResize=(e:React.PointerEvent)=>{
   const r=resizeRef.current;if(!r)return;
   e.preventDefault();
@@ -142,7 +156,7 @@ export default function NativeDragCanvas({tree,projectionMap,selected,onSelect,o
    const v=Math.round(Math.min(1200,Math.max(40,r.startH+(e.clientY-r.startY))));
    r.value=v;r.inner.style.minHeight=v+'px';
    setStatus(`Height ${v}px. Release to keep, double-click the handle for content-based height.`);
-  }else{
+  }else if(r.kind==='divider'){
    const widthI=r.leftFirst?e.clientX-r.pairStart:r.pairStart+r.pairWidth-e.clientX;
    const frac=Math.min(0.88,Math.max(0.12,widthI/r.pairWidth));
    const i=r.index,sum=r.tracks[i]+r.tracks[i+1];
@@ -150,18 +164,24 @@ export default function NativeDragCanvas({tree,projectionMap,selected,onSelect,o
    r.value=next;
    r.inner.style.gridTemplateColumns=next.map(v=>v+'fr').join(' ');
    setStatus(`Column ratio ${next.map(v=>v+' fr').join(' /')} fr. Release to keep, double-click the divider for equal widths.`);
+  }else if(r.kind==='width'){
+   const w=r.edge==='right'?e.clientX-r.anchorX:r.anchorX-e.clientX;
+   const pct=Math.round(Math.min(100,Math.max(10,w/r.parentWidth*100)));
+   r.value=pct;r.inner.style.width=pct+'%';
+   setStatus(`Width ${pct}%. Release to keep, double-click the side handle for content-based width.`);
   }
  };
  const endResize=()=>{
   const r=resizeRef.current;if(!r)return;
   resizeRef.current=null;
   if(r.kind==='height')onSetting(r.id,'min_height_px',r.value);
+  else if(r.kind==='width')onSetting(r.id,'width_pct',r.value);
   else onSetting(r.id,'tracks',(r.value as number[]).map(v=>+v.toFixed(2)));
   setStatus('Size saved to this device. Unsaved page changes remain until you save.');
  };
- const resetResize=(field:'min_height_px'|'tracks')=>{
+ const resetResize=(field:'min_height_px'|'tracks'|'width_pct')=>{
   onSetting(selected,field,null);
-  setStatus(field==='tracks'?'Columns back to equal widths.':'Back to content-based height.');
+  setStatus(field==='tracks'?'Columns back to equal widths.':field==='width_pct'?'Back to content-based width.':'Back to content-based height.');
  };
- return <div className="native-dnd"><div className="native-palette" aria-label="Selection actions">{paletteHost?createPortal(<div className="native-element-grid">{['columns','card','column','heading','text','image','button'].map(type=><button key={type} style={{touchAction:'none'}} onPointerDown={e=>begin({kind:'new',type},e)} onClick={()=>{if(suppressClick.current)return;setPick({kind:'new',type});setStatus('Choose a compatible Insert here position below.')}}>+ {uiLang==='ar'?readableTypeAr(type):readableType(type)}</button>)}</div>,paletteHost):null}</div><nav className="native-breadcrumb" aria-label="Selected node ancestors">{ancestors.map((n,i)=><span key={n.id}>{i>0&&' ← '}<button aria-current={n.id===selected?'true':undefined} onClick={()=>onSelect(n.id)}>{readableName(n,lang??'en')}</button></span>)}</nav>{status&&<p className="native-dnd-status mz-sr" role="status">{status}</p>}{pick&&!feedback&&<details className="native-drop-options" open><summary>Choose insertion position for {pick.type}</summary>{nodes.filter(n=>allowed(n,pick)).map(n=><div key={n.id}><b>{readableType(n.type)} · {readableName(n)}</b>{Array.from({length:(n.children?.length??0)+1},(_,index)=><button key={index} onClick={()=>apply(pick,{parentId:n.id,index})}>Insert here, position {index+1} in {readableName(n)}</button>)}</div>)}<button onClick={()=>{setPick(null);setStatus('Move cancelled.')}}>Cancel move</button></details>}<div ref={canvas} className="native-drag-preview" onPointerMove={e=>{if(tap.current)tap.current=trackTapMove(tap.current,e.pointerId,e.clientX,e.clientY);if(active.current)return;const el=(e.target as HTMLElement).closest<HTMLElement>('.mz-node');setHover(el?sourceId(el.id):'')}} onPointerLeave={()=>setHover('')} onPointerDown={e=>{const el=(e.target as HTMLElement).closest<HTMLElement>('.mz-node');const n=nodes.find(n=>n.id===(el?sourceId(el.id):''));if(!n)return;const repeated=!!(el&&sourceId(el.id)!==el.id);if(e.pointerType==='touch'){tap.current=beginTapGesture(e.pointerId,e.clientX,e.clientY,n.id,repeated);return;}if(repeated){onSelect(n.id);setStatus('Editing the repeated template. Layout changes apply to all copies. Move it through Layers.');return;}if(n.id===tree.id)onSelect(n.id);else begin({kind:'node',id:n.id,type:n.type},e)}} onPointerUp={e=>{const t=tap.current;if(!t||e.pointerId!==t.pointerId)return;tap.current=null;if(!isTapRelease(t,e.pointerId))return;onSelect(t.nodeId);if(t.repeated)setStatus('Editing the repeated template. Layout changes apply to all copies. Move it through Layers.')}} onPointerCancel={e=>{if(tap.current&&e.pointerId===tap.current.pointerId)tap.current=null}}>{children}</div>{!feedback&&handles.height&&createPortal(<><button type="button" className="native-resize-handle" style={{left:handles.height.x,top:handles.height.y}} aria-label="Drag to set height in pixels. Double-click for content-based height." onPointerDown={beginHeight} onPointerMove={moveResize} onPointerUp={endResize} onDoubleClick={()=>resetResize('min_height_px')}/>{hasMinH&&<button type="button" className="native-resize-reset" style={{left:handles.height.x+16,top:handles.height.y}} onClick={()=>resetResize('min_height_px')}>↺ Auto height</button>}{handles.dividers.map(d=><button type="button" key={d.index} className="native-divider-handle" style={{left:d.x,top:d.y,height:d.h}} aria-label="Drag to change the column ratio. Double-click for equal widths." onPointerDown={e=>beginDivider(e,d.index)} onPointerMove={moveResize} onPointerUp={endResize} onDoubleClick={()=>resetResize('tracks')}/>)}{hasTracks&&handles.dividers[0]&&<button type="button" className="native-resize-reset" style={{left:handles.dividers[0].x+12,top:handles.dividers[0].y}} onClick={()=>resetResize('tracks')}>↺ Equal widths</button>}</>,document.body)}{feedback&&createPortal(<div className="native-drag-feedback" aria-live="polite"><div className={`native-drag-ghost ${feedback.valid?'valid':'invalid'}`} style={{left:feedback.x,top:feedback.y}}><b>⠿ {feedback.label}</b><span>{feedback.sample}</span><small>{feedback.valid?'✓ '+feedback.destination:'⊘ '+feedback.destination}</small></div>{drop&&<><div className="native-drop-region" style={{left:drop.box.x,top:drop.box.y,width:drop.box.width,height:drop.box.height}}/><div className="native-drop-marker" data-parent-id={drop.parentId} data-insert-index={drop.index} style={{left:drop.x,top:drop.y,width:drop.width,height:drop.height}}><span>{drop.label}</span></div></>}</div>,document.body)}</div>;
+ return <div className="native-dnd"><div className="native-palette" aria-label="Selection actions">{paletteHost?createPortal(<div className="native-element-grid">{['columns','card','column','heading','text','image','button'].map(type=><button key={type} style={{touchAction:'none'}} onPointerDown={e=>begin({kind:'new',type},e)} onClick={()=>{if(suppressClick.current)return;setPick({kind:'new',type});setStatus('Choose a compatible Insert here position below.')}}>+ {uiLang==='ar'?readableTypeAr(type):readableType(type)}</button>)}</div>,paletteHost):null}</div><nav className="native-breadcrumb" aria-label="Selected node ancestors">{ancestors.map((n,i)=><span key={n.id}>{i>0&&' ← '}<button aria-current={n.id===selected?'true':undefined} onClick={()=>onSelect(n.id)}>{readableName(n,lang??'en')}</button></span>)}</nav>{status&&<p className="native-dnd-status mz-sr" role="status">{status}</p>}{pick&&!feedback&&<details className="native-drop-options" open><summary>Choose insertion position for {pick.type}</summary>{nodes.filter(n=>allowed(n,pick)).map(n=><div key={n.id}><b>{readableType(n.type)} · {readableName(n)}</b>{Array.from({length:(n.children?.length??0)+1},(_,index)=><button key={index} onClick={()=>apply(pick,{parentId:n.id,index})}>Insert here, position {index+1} in {readableName(n)}</button>)}</div>)}<button onClick={()=>{setPick(null);setStatus('Move cancelled.')}}>Cancel move</button></details>}<div ref={canvas} className="native-drag-preview" onPointerMove={e=>{if(tap.current)tap.current=trackTapMove(tap.current,e.pointerId,e.clientX,e.clientY);if(active.current)return;const el=(e.target as HTMLElement).closest<HTMLElement>('.mz-node');setHover(el?sourceId(el.id):'')}} onPointerLeave={()=>setHover('')} onPointerDown={e=>{const el=(e.target as HTMLElement).closest<HTMLElement>('.mz-node');const n=nodes.find(n=>n.id===(el?sourceId(el.id):''));if(!n)return;const repeated=!!(el&&sourceId(el.id)!==el.id);if(e.pointerType==='touch'){tap.current=beginTapGesture(e.pointerId,e.clientX,e.clientY,n.id,repeated);return;}if(repeated){onSelect(n.id);setStatus('Editing the repeated template. Layout changes apply to all copies. Move it through Layers.');return;}if(n.id===tree.id)onSelect(n.id);else begin({kind:'node',id:n.id,type:n.type},e)}} onPointerUp={e=>{const t=tap.current;if(!t||e.pointerId!==t.pointerId)return;tap.current=null;if(!isTapRelease(t,e.pointerId))return;onSelect(t.nodeId);if(t.repeated)setStatus('Editing the repeated template. Layout changes apply to all copies. Move it through Layers.')}} onPointerCancel={e=>{if(tap.current&&e.pointerId===tap.current.pointerId)tap.current=null}}>{children}</div>{!feedback&&handles.height&&createPortal(<><button type="button" className="native-resize-handle" style={{left:handles.height.x,top:handles.height.y}} aria-label="Drag to set height in pixels. Double-click for content-based height." onPointerDown={beginHeight} onPointerMove={moveResize} onPointerUp={endResize} onDoubleClick={()=>resetResize('min_height_px')}/>{hasMinH&&<button type="button" className="native-resize-reset" style={{left:handles.height.x+16,top:handles.height.y}} onClick={()=>resetResize('min_height_px')}>↺ Auto height</button>}{handles.sides&&<><button type="button" className="native-side-handle" style={{left:handles.sides.left.x-5,top:handles.sides.left.y-17}} aria-label="Drag the left edge to resize width. Double-click for content-based width." onPointerDown={e=>beginWidth(e,'left')} onPointerMove={moveResize} onPointerUp={endResize} onDoubleClick={()=>resetResize('width_pct')}/><button type="button" className="native-side-handle" style={{left:handles.sides.right.x-5,top:handles.sides.right.y-17}} aria-label="Drag the right edge to resize width. Double-click for content-based width." onPointerDown={e=>beginWidth(e,'right')} onPointerMove={moveResize} onPointerUp={endResize} onDoubleClick={()=>resetResize('width_pct')}/></>}{hasWidthPct&&handles.sides&&<button type="button" className="native-resize-reset" style={{left:handles.sides.right.x+10,top:handles.sides.right.y-10}} onClick={()=>resetResize('width_pct')}>↺ Auto width</button>}{handles.dividers?.map(d=><button type="button" key={d.index} className="native-divider-handle" style={{left:d.x,top:d.y,height:d.h}} aria-label="Drag to change the column ratio. Double-click for equal widths." onPointerDown={e=>beginDivider(e,d.index)} onPointerMove={moveResize} onPointerUp={endResize} onDoubleClick={()=>resetResize('tracks')}/>)}{hasTracks&&handles.dividers?.[0]&&<button type="button" className="native-resize-reset" style={{left:handles.dividers[0].x+12,top:handles.dividers[0].y}} onClick={()=>resetResize('tracks')}>↺ Equal widths</button>}</>,document.body)}{feedback&&createPortal(<div className="native-drag-feedback" aria-live="polite"><div className={`native-drag-ghost ${feedback.valid?'valid':'invalid'}`} style={{left:feedback.x,top:feedback.y}}><b>⠿ {feedback.label}</b><span>{feedback.sample}</span><small>{feedback.valid?'✓ '+feedback.destination:'⊘ '+feedback.destination}</small></div>{drop&&<><div className="native-drop-region" style={{left:drop.box.x,top:drop.box.y,width:drop.box.width,height:drop.box.height}}/><div className="native-drop-marker" data-parent-id={drop.parentId} data-insert-index={drop.index} style={{left:drop.x,top:drop.y,width:drop.width,height:drop.height}}><span>{drop.label}</span></div></>}</div>,document.body)}</div>;
 }

@@ -7,7 +7,7 @@
  * from the UI even though the backend requires exactly that before publishing.
  */
 export interface ConnectedAccessView {
-  connected_data: boolean;
+  connected_data?: boolean;
   sources?: string[];
 }
 

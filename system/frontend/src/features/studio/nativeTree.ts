@@ -41,8 +41,10 @@ const urlSettings: Record<string, readonly string[]> = {section:['background_ima
 // removes the key, resetting the block to content-based sizing. Mirrored from the manifest.
 const tracksRule=(v:unknown)=>Array.isArray(v)&&v.length>=2&&v.length<=6&&v.every(x=>typeof x==='number'&&Number.isFinite(x)&&x>=0.2&&x<=8);
 const minHeightPxRule=(v:unknown)=>typeof v==='number'&&Number.isInteger(v)&&v>=40&&v<=1200;
+const widthPctRule=(v:unknown)=>typeof v==='number'&&Number.isInteger(v)&&v>=10&&v<=100;
 const freeSettings: Record<string, Record<string,(v:unknown)=>boolean>> = {};
 for(const type of Object.keys(settings))freeSettings[type]={min_height_px:minHeightPxRule};
+for(const type of ['heading','text','image','button','gallery','video_embed','icon_list'])freeSettings[type]={...freeSettings[type],width_pct:widthPctRule};
 freeSettings.columns={...freeSettings.columns,tracks:tracksRule};
 const motion={animation:['none','fade','rise','slide','zoom'],animation_speed:['quick','normal','slow'],animation_delay:['none','short','long']};
 for(const schema of Object.values(settings))Object.assign(schema,motion);
@@ -119,10 +121,10 @@ export function editNativeTree(tree: PageNode, edit: NativeEdit): PageNode {
     if(!['desktop','tablet','mobile'].includes(edit.device)) throw Error('Unsupported setting edit.');
     if((urlSettings[node.type]??[]).includes(edit.field)){
       if(typeof edit.value!=='string'||!safeNativeUrl(edit.value,true)||/[();]/.test(edit.value)) throw Error('Use a safe URL.');
-    } else if(freeSettings[node.type]?.[edit.field]){
-      if(edit.value!==null&&!freeSettings[node.type][edit.field](edit.value)) throw Error('Unsupported setting edit.');
-    } else if(!settings[node.type][edit.field]?.includes(edit.value)) throw Error('Unsupported setting edit.');
-    const deviceSettings={...node.settings[edit.device]};
+    } else if(edit.value!==null&&freeSettings[node.type]?.[edit.field]){
+      if(!freeSettings[node.type][edit.field](edit.value)) throw Error('Unsupported setting edit.');
+    } else if(edit.value!==null&&!settings[node.type][edit.field]?.includes(edit.value as string)) throw Error('Unsupported setting edit.');
+    const deviceSettings: PageNode['settings'][string]={...node.settings[edit.device]};
     if(edit.value===null)delete deviceSettings[edit.field];else deviceSettings[edit.field]=edit.value;
     node.settings={...node.settings,[edit.device]:deviceSettings};
   }

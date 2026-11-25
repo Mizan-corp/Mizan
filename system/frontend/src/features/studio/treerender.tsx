@@ -28,7 +28,7 @@ const ENUM_SETTINGS: Record<string, string[]> = {
   animation_delay:['none','short','long'],
 };
 
-function settingsOf(node: PageNode, device: Device): Record<string, string | number | boolean> {
+function settingsOf(node: PageNode, device: Device): Record<string, string | number | boolean | number[]> {
   const per = node.settings || {};
   return { ...(per.desktop || {}), ...(device === 'desktop' ? {} : (per[device] || {})) };
 }
@@ -94,7 +94,7 @@ export function sanitizeHtml(markup: unknown): string {
   return [...doc.body.childNodes].map(walk).join('');
 }
 
-function enumClasses(s: Record<string, string | number | boolean>): string[] {
+function enumClasses(s: Record<string, string | number | boolean | number[]>): string[] {
   const out: string[] = [];
   for (const [key, tokens] of Object.entries(ENUM_SETTINGS)) {
     const v = s[key];
@@ -108,7 +108,7 @@ function enumClasses(s: Record<string, string | number | boolean>): string[] {
 
 // Mirrors render.py's _background_image_style: validated URL layer plus an optional
 // theme-dark scrim, never arbitrary CSS from the tree.
-function backgroundImageStyle(node: PageNode, s: Record<string, string | number | boolean>, lang = 'ar'): CSSProperties | undefined {
+function backgroundImageStyle(node: PageNode, s: Record<string, string | number | boolean | number[]>, _lang = 'ar'): CSSProperties | undefined {
   if (node.type !== 'section' && node.type !== 'column') return undefined;
   const url = safeUrl(s.background_image, 'url');
   if (!url || /[();]/.test(url)) return undefined;
@@ -216,8 +216,9 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
   }
   const bgStyle = backgroundImageStyle(node, s, lang);
   const minH = typeof s.min_height_px === 'number' && Number.isInteger(s.min_height_px) && s.min_height_px >= 40 && s.min_height_px <= 1200 ? s.min_height_px : null;
-  const cls = `mz-node ${enumClasses(s).join(' ')}${bgStyle ? ' mz-bg-image' : ''}${minH ? ' mz-minh-custom' : ''}`;
-  const nodeStyle = { ...(bgStyle ?? {}), ...(minH ? { ['--mz-minh' as string]: `${minH}px` } : {}) } as React.CSSProperties;
+  const widthPct = typeof s.width_pct === 'number' && Number.isInteger(s.width_pct) && s.width_pct >= 10 && s.width_pct <= 100 ? s.width_pct : null;
+  const cls = `mz-node ${enumClasses(s).join(' ')}${bgStyle ? ' mz-bg-image' : ''}${minH ? ' mz-minh-custom' : ''}${widthPct ? ' mz-width-custom' : ''}`;
+  const nodeStyle = { ...(bgStyle ?? {}), ...(minH ? { ['--mz-minh' as string]: `${minH}px` } : {}), ...(widthPct ? { ['--mz-width' as string]: `${widthPct}%` } : {}) } as React.CSSProperties;
   return <div id={node.id} className={cls} style={Object.keys(nodeStyle).length ? nodeStyle : undefined}>{inner}</div>;
 }
 

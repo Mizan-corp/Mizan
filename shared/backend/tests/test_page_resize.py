@@ -66,3 +66,35 @@ class MinHeightPx(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def tree_with_heading(heading_settings):
+    return {
+        "id": "n_root1", "type": "section",
+        "settings": {"desktop": {}}, "content": {},
+        "children": [{
+            "id": "n_cols1", "type": "columns",
+            "settings": {"desktop": {}}, "content": {},
+            "children": [
+                {"id": "n_col01", "type": "column", "settings": {}, "content": {},
+                 "children": [{"id": "n_hd001", "type": "heading", "settings": {"desktop": heading_settings},
+                               "content": {"en": {"text": "Hi"}}}]},
+            ],
+        }],
+    }
+
+
+class WidthPct(unittest.TestCase):
+    def test_h_width_pct_is_valid_and_renders(self):
+        self.assertEqual(page_problems(tree_with_heading({"width_pct": 63}), languages=("en",)), [])
+        html = render_page(tree_with_heading({"width_pct": 63}), lang="en")
+        self.assertIn("mz-width-custom", html)
+        self.assertIn("--mz-width:63%", html)
+
+    def test_i_width_pct_bounds(self):
+        for bad in (9, 101, 63.5, "63", True):
+            self.assertNotEqual(page_problems(tree_with_heading({"width_pct": bad}), languages=("en",)), [], bad)
+
+    def test_j_mobile_collapses_custom_width(self):
+        from app.platform.site.render import _BASE_CSS
+        self.assertIn(".mz-node.mz-width-custom{width:100%}", _BASE_CSS)
