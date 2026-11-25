@@ -489,3 +489,11 @@ re-verified as fixed:
 - Earlier "component 422" root-caused: the sandbox ERP backend (port 8000) was running pre-v1 code whose PublicationIn forbids the new keys (422); after that failure the component cleared its edit token, disabling the save button, so later clicks were no-ops reading a stale alert. No product bug.
 - Copy fix: the load notice under a stored richer-fields consent no longer claims names-only; it names the checked fields.
 - UX: connect (module data) panel widened for settings forms.
+
+## 2026-11-25 (late) — HELP DESK v1 VISITOR POSITIVE + REVOKE PROOF
+
+- Positive: drag-proof-scratch authored entirely via Studio UI (inspector structure control added a heading to the scratch column; card-repeat bound to helpdesk/services; published through the guarded flow with fresh per-source approval for helpdesk.services). Under v1 consent with show_description, the visitor page rendered name + description; the inactive second offering stayed hidden.
+- Revoke: show_description unchecked via the settings UI save (v1 wording re-acknowledged); the visitor page dropped the description and kept the name — fail-closed field narrowing without touching the page.
+- Consent restored to the exact prior v0 value after proof.
+- Capability debt registered: repeated cards map only heading + ONE text slot, so starting_price has no card surface yet; individual element binding (NativeItemControls) is inventory-products-only. Both needed before richer service fields have full surfaces; page publication consent unchanged and guarded throughout.
+- Chrome note: a JS confirm dialog blocks the renderer; CDP sessions without Page.enable never see dialog events and hang the tab — recovery is tab close + fresh target.
