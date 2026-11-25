@@ -119,6 +119,23 @@ export function settingsPayload(project: Project): SiteSettingsValue {
   return previewPayload(project, 'desktop').theme as SiteSettingsValue;
 }
 
+/** The settings GET/PUT payload: the stored doc plus read-only preview views - what
+    visitors get (workspace base merged under stored settings) and the base alone. */
+export type SiteSettingsResponse = { value: SiteSettingsValue; resolved?: SiteSettingsValue; base?: SiteSettingsValue; edit_token?: string };
+
+/** Mirror of the server's _merge_site_settings: explicit site settings win over the
+    workspace base, per token for colors and per key for the header. */
+export function mergeSiteSettings(base: SiteSettingsValue | undefined, explicit: SiteSettingsValue | undefined): SiteSettingsValue {
+  const b = base ?? {}, e = explicit ?? {};
+  const out: SiteSettingsValue = { ...b };
+  if (e.colors) out.colors = { light: { ...(b.colors?.light ?? {}), ...(e.colors.light ?? {}) } };
+  if (e.typography) out.typography = e.typography;
+  if (e.shape) out.shape = e.shape;
+  if (e.header) out.header = { ...(b.header ?? {}), ...e.header };
+  if (e.footer) out.footer = e.footer;
+  return out;
+}
+
 const HEX = /^#[0-9a-fA-F]{6}$/;
 const FONTS = new Set(['sans-serif', 'serif', 'monospace']);
 
@@ -172,8 +189,8 @@ export function createSitePagesClient(options: { baseUrl: string; fetchImpl?: Fe
     setPublicAccess: (pageId: string, enabled: boolean) => call<PublicAccess>('PUT', `/site/pages/${pageId}/public-access`, { enabled }),
     listRevisions: (pageId: string) => call<ListResponse<Revision>>('GET', `/site/pages/${pageId}/revisions`),
     rollback: (pageId: string, revisionId: string) => call<PageDetail>('POST', `/site/pages/${pageId}/rollback/${revisionId}`),
-    getSettings: () => call<{ value: SiteSettingsValue; edit_token?:string }>('GET', '/site/settings'),
-    saveSharedSettings: (value:SiteSettingsValue, expectedToken:string) => call<{value:SiteSettingsValue;edit_token:string}>('PUT','/site/settings',{value,expected_token:expectedToken}),
+    getSettings: () => call<SiteSettingsResponse>('GET', '/site/settings'),
+    saveSharedSettings: (value:SiteSettingsValue, expectedToken:string) => call<SiteSettingsResponse>('PUT','/site/settings',{value,expected_token:expectedToken}),
     putSettings: (project: Project) => call<{ value: SiteSettingsValue }>('PUT', '/site/settings', { value: settingsPayload(project) }),
     archive: (pageId: string) => call<PageSummary>('POST', `/site/pages/${pageId}/archive`),
     reopen: (pageId: string) => call<PageSummary>('POST', `/site/pages/${pageId}/reopen`),

@@ -132,16 +132,23 @@ class SettingsIn(BaseModel):
 
 @settings_router.get("")
 async def get_settings(db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("site.manage"))):
-    """The workspace's durable theme and chrome; {} when never saved."""
+    """The workspace's durable theme and chrome; {} when never saved. `resolved` and
+    `base` are read-only views for previews: what visitors get (the workspace theme
+    base merged under the stored settings for follow-workspace sites) and the base
+    alone, so the studio canvas matches the served page without editing the stored doc."""
     value = await service.get_settings(db)
-    return {"value": value, "edit_token": service.settings_token(value)}
+    return {"value": value, "resolved": await service.resolved_settings(db),
+            "base": await service.workspace_theme_base(db),
+            "edit_token": service.settings_token(value)}
 
 
 @settings_router.put("")
 async def put_settings(data: SettingsIn, db: AsyncSession = Depends(get_db),
                        user: User = Depends(require_perm("site.manage"))):
     value = await service.put_settings(db, value=data.value, expected_token=data.expected_token)
-    return {"value": value, "edit_token": service.settings_token(value)}
+    return {"value": value, "resolved": await service.resolved_settings(db),
+            "base": await service.workspace_theme_base(db),
+            "edit_token": service.settings_token(value)}
 
 
 # Combined router: mounts pages and settings routes under the same site API.
