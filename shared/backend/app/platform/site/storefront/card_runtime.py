@@ -5,7 +5,7 @@ from app.framework.manifest import page_problems, page_card_problems
 from app.framework.storefront_runtime import SourceContext, SourceUnavailable
 from .card_projection import checked_card_template, project_cards
 from .bindings import validate_tree_bindings, resolve_tree
-from .registry import scalar_registry
+from .registry import scalar_registry, item_resolver
 from app.activities.general.modules.inventory.storefront.cards import read_cards
 
 
@@ -16,7 +16,7 @@ def has_card(tree):
     return 'card' in tree or any(has_card(child) for child in tree.get('children', []))
 
 
-def card_plan(tree, registry, context):
+def card_plan(tree, registry, context, items=None):
     try:
         if len(json.dumps(tree, allow_nan=False).encode()) > 200000 or page_problems(tree, ('en', 'ar')):
             raise SourceUnavailable('Invalid bounded native card page.')
@@ -63,13 +63,13 @@ def card_plan(tree, registry, context):
             restore(child)
 
     restore(scalar_tree)
-    validate_tree_bindings(scalar_tree, registry, context, lambda value: page_problems(value, ('en', 'ar')))
+    validate_tree_bindings(scalar_tree, registry, context, lambda value: page_problems(value, ('en', 'ar')), items)
     return static, declarations, scalars
 
 
 async def resolve_cards(db, tree, context):
     registry = scalar_registry(db)
-    static, declarations, scalars = card_plan(tree, registry, context)
+    static, declarations, scalars = card_plan(tree, registry, context, item_resolver(db))
     plans=[(node_id,content.get(context.language)) for node_id,content in declarations]
     if any(plan is None for _,plan in plans):
         raise SourceUnavailable('Every card section language must be explicitly configured.')
@@ -84,4 +84,4 @@ async def resolve_cards(db, tree, context):
             restore(child)
 
     restore(static)
-    return await resolve_tree(static, registry, context, lambda value: page_problems(value, ('en', 'ar')))
+    return await resolve_tree(static, registry, context, lambda value: page_problems(value, ('en', 'ar')), item_resolver(db))

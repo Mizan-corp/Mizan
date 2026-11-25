@@ -55,7 +55,7 @@ async def check_bound_tree(db: AsyncSession, tree: dict) -> None:
         from .storefront.repeats import has_repeat, validate_repeat
         from .storefront.card_runtime import has_card, card_plan
         if has_card(tree):
-            card_plan(tree, scalar_registry(db), context)
+            card_plan(tree, scalar_registry(db), context, item_resolver(db))
         elif has_repeat(tree):
             from app.framework.storefront_collections import CollectionRuntime
             from .storefront.collections import navigation_labels_provider
