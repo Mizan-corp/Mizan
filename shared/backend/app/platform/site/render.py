@@ -175,7 +175,12 @@ def _render_node_inner(node: dict, lang: str, device: str, link_base: str | None
     kids = "".join(_render_node(k, lang, device, link_base) for k in node.get("children") or [] if isinstance(k, dict))
 
     if ntype == "section":
-        return f'<section class="mz-section">{kids}</section>'
+        # The wrapper div also carries the padding class, but the inner section's
+        # own default padding would still apply inside it, so the token is echoed
+        # here where the generated .mz-padding-* rules override the default.
+        pad = s.get("padding")
+        pad_cls = f" mz-padding-{pad}" if isinstance(pad, str) and pad in _SPACER_PX else ""
+        return f'<section class="mz-section{pad_cls}">{kids}</section>'
     if ntype == "columns":
         declared = s.get("columns")
         count = declared if isinstance(declared, int) and not isinstance(declared, bool) else 0

@@ -148,3 +148,16 @@ def test_dark_raised_theme_token_overrides_derived_surface():
     assert "var(--dark-raised," in _BASE_CSS
     # Unknown tokens are still dropped.
     assert "bogus" not in _theme_style({"colors": {"light": {"bogus": "#FFFFFF"}}})
+
+
+def test_section_padding_token_reaches_section_element():
+    from app.platform.site.render import _render_node
+    node = {"id": "n_sec1", "type": "section",
+            "settings": {"desktop": {"padding": "none"}},
+            "content": {}, "children": []}
+    html = _render_node(node, "ar", "desktop")
+    assert '<section class="mz-section mz-padding-none">' in html
+    # Default (unset) keeps the plain section class.
+    node2 = {"id": "n_sec2", "type": "section", "settings": {"desktop": {}},
+             "content": {}, "children": []}
+    assert '<section class="mz-section">' in _render_node(node2, "ar", "desktop")

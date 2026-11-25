@@ -135,7 +135,12 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
   const kids = ordered.map(k => <NodeView key={k.id} node={k} lang={lang} device={device} />);
   let inner: React.ReactNode = null;
   switch (node.type) {
-    case 'section': inner = <section className="mz-section">{kids}</section>; break;
+    case 'section': {
+      // Echo the padding token on the section itself (mirrors render.py): the
+      // wrapper's class cannot override the section's own default padding.
+      const pad = typeof s.padding === 'string' && ['none','xs','s','m','l','xl'].includes(s.padding) ? ` mz-padding-${s.padding}` : '';
+      inner = <section className={`mz-section${pad}`}>{kids}</section>; break;
+    }
     case 'columns': {
       const declared = s.columns;
       const count = typeof declared === 'number' ? declared : (node.children?.length || 1);
