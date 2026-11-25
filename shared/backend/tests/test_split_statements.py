@@ -73,6 +73,15 @@ class SplitStatementsTest(unittest.TestCase):
             split("-- it's fine; really\nSELECT 1;"),
             ["-- it's fine; really\nSELECT 1"])
 
+    def test_shipped_migrations_avoid_unsupported_lexing(self):
+        # The splitter assumes standard_conforming_strings=on and no E'' escape
+        # syntax; pin that shipped migrations stay inside that boundary.
+        import re as _re
+        for mid, sql in migrations.MIGRATIONS:
+            if sql.startswith('python:'):
+                continue
+            self.assertIsNone(_re.search(r"\bE'", sql), mid)
+
     def test_every_shipped_sql_migration_splits_without_prose_leak(self):
         # Replay guard: no statement may begin with lowercase English prose, the
         # exact v116 failure shape, and every migration must split into statements.

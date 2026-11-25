@@ -18,13 +18,17 @@ except ImportError:
 logger = logging.getLogger("mizan.migrations")
 
 def split_statements(sql: str):
-    """Split on top-level semicolons with PostgreSQL lexing rules: single-quoted
-    strings ('' escape), double-quoted identifiers, dollar-quoted blocks
+    """Split on top-level semicolons with PostgreSQL lexing rules:
+    single-quoted strings ('' escape, standard_conforming_strings=on
+    semantics), double-quoted identifiers, dollar-quoted blocks
     ($$...$$ and $tag$...$tag$), -- line comments and nested /* */ block
     comments all protect their contents; first-opened wins, so a quote inside
     a comment or a -- inside a string never changes the split. A semicolon in
     a comment never ends a statement: v116 carried one inside a -- comment and
-    a fresh migrate died executing the comment prose as SQL."""
+    a fresh migrate died executing the comment prose as SQL.
+    Boundary: E'' escape strings and standard_conforming_strings=off are not
+    special-cased; the shipped-migration guard in test_split_statements.py
+    pins that migrations use neither."""
     import re as _re
     stmts, buf = [], []
     i, n = 0, len(sql)
