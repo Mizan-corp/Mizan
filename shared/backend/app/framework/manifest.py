@@ -623,12 +623,14 @@ def _count(lo: int, hi: int):
 
 
 # Each block declares: version, category, which children it holds, a settings schema (validated
-# per device) and a translatable content schema. Settings kinds: "bool", "string", ("choice", …),
-# ("count", lo, hi). Content kinds: ("text", limit), "url", "href", "embed", "images", "icons".
+# per device) and a translatable content schema. Settings kinds: "bool", "string", "url",
+# ("choice", …), ("count", lo, hi). Content kinds: ("text", limit), "url", "href", "embed",
+# "images", "icons".
 PAGE_BLOCKS = {
     "section": {"version": 1, "category": "layout", "children": ("columns", "canvas"),
                 "settings": {"visible": "bool", "padding": _choices(*PAGE_SPACING), "gap": _choices(*PAGE_SPACING),
-                             "background": _choices("background", "card", "primary", "dark", "dark_raised"), "max_width": _choices("narrow", "normal", "wide", "full")},
+                             "background": _choices("background", "card", "primary", "dark", "dark_raised"), "max_width": _choices("narrow", "normal", "wide", "full"),
+                             "background_image": "url", "background_dim": _choices("none", "soft", "strong")},
                 "content": {}},
     "columns": {"version": 1, "category": "layout", "children": ("column",),
                 "settings": {"visible": "bool", "columns": _count(1, 6), "gap": _choices(*PAGE_SPACING),
@@ -637,7 +639,8 @@ PAGE_BLOCKS = {
                 "content": {}},
     "column": {"version": 1, "category": "layout", "children": "blocks",
                "settings": {"visible": "bool", "width": _choices("auto", "full", "half", "third", "two_thirds"), "padding": _choices(*PAGE_SPACING),
-                            "align": _choices("start", "center", "end"), "background": _choices("background", "card", "primary", "dark", "dark_raised"), "rounded": "bool"},
+                            "align": _choices("start", "center", "end"), "background": _choices("background", "card", "primary", "dark", "dark_raised"), "rounded": "bool",
+                            "background_image": "url", "background_dim": _choices("none", "soft", "strong")},
                "content": {}},
     "canvas": {"version": 1, "category": "layout", "children": "blocks", "per_page": 1,
                "settings": {"visible": "bool", "min_height": _choices("s", "m", "l")},
@@ -764,6 +767,14 @@ def _page_setting_problems(where: str, kind, value) -> list[str]:
         return [] if isinstance(value, bool) else [f"{where} must be true or false"]
     if kind == "string":
         return [] if isinstance(value, str) and len(value) <= 200 else [f"{where} must be text of at most 200 characters"]
+    if kind == "url":
+        # An empty string clears the setting (the UI cannot unset keys otherwise).
+        if value == "":
+            return []
+        # Setting URLs may land inside a style attribute (background_image), so on top of
+        # page_url's rules they never carry CSS-significant characters.
+        ok = page_url(value, "url") and not any(ch in value for ch in "();")
+        return [] if ok else [f"{where} must be a permitted link"]
     if isinstance(kind, tuple) and kind[0] == "choice":
         return [] if value in kind[1] else [f"{where} must be one of: {', '.join(map(str, kind[1]))}"]
     if isinstance(kind, tuple) and kind[0] == "count":

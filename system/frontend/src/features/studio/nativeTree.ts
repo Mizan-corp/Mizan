@@ -23,9 +23,9 @@ const align = ['start','center','end'];
 const width = ['auto','full','half','third','two_thirds'];
 // Deliberately bounded authoring subset, not the complete platform validator.
 const settings: Record<string, Record<string, readonly (string|number|boolean)[]>> = {
-  section:{visible:[true,false],padding:spacing,gap:spacing,background:['background','card','primary','dark','dark_raised'],max_width:['narrow','normal','wide','full']},
+  section:{visible:[true,false],padding:spacing,gap:spacing,background:['background','card','primary','dark','dark_raised'],max_width:['narrow','normal','wide','full'],background_dim:['none','soft','strong']},
   columns:{visible:[true,false],columns:[1,2,3,4,5,6],gap:spacing,stack:[true,false],reverse:[true,false],background:['background','card','primary','dark','dark_raised']},
-  column:{visible:[true,false],width,padding:spacing,align,background:['background','card','primary','dark','dark_raised'],rounded:[true,false]},
+  column:{visible:[true,false],width,padding:spacing,align,background:['background','card','primary','dark','dark_raised'],rounded:[true,false],background_dim:['none','soft','strong']},
   heading:{visible:[true,false],level:[1,2,3,4,5,6],align,size:['auto','s','m','l'],wrap:['normal','balance']},
   text:{visible:[true,false],align,variant:['body','eyebrow','note','check_list']},
   image:{visible:[true,false],width,rounded:[true,false],art:['none','sculpture','sculpture_alt']},
@@ -34,6 +34,9 @@ const settings: Record<string, Record<string, readonly (string|number|boolean)[]
   icon:{visible:[true,false],icon:iconNames(),size:['s','m','l'],tone:['none','primary','dark','card'],align},
 };
 const fields: Record<string, Record<string, number>> = {section:{},columns:{},column:{},heading:{text:200},text:{html:20000},image:{src:2000,alt:300},button:{label:80,href:2000},icon_list:{},icon:{}};
+// Free-text URL settings (validated with safeNativeUrl, image rules), rendered as text
+// inputs in the inspector instead of choice selects. Mirrored from the manifest's "url" kind.
+const urlSettings: Record<string, readonly string[]> = {section:['background_image'],column:['background_image']};
 const motion={animation:['none','fade','rise','slide','zoom'],animation_speed:['quick','normal','slow'],animation_delay:['none','short','long']};
 for(const schema of Object.values(settings))Object.assign(schema,motion);
 export function safeNativeUrl(value: string, image = false): boolean {
@@ -44,6 +47,7 @@ export function safeNativeUrl(value: string, image = false): boolean {
   try { const u=new URL(value); return ['http:','https:'].includes(u.protocol) && !u.username && !u.password && (!u.port || ['80','443'].includes(u.port)); } catch { return false; }
 }
 export function nativeSettingChoices(type: string) { return settings[type] ?? {}; }
+export function nativeSettingUrls(type: string) { return urlSettings[type] ?? []; }
 export function nativeContentFields(type: string) { return fields[type] ?? {}; }
 export function nativeNodes(tree: PageNode): PageNode[] { return [tree,...(tree.children ?? []).flatMap(nativeNodes)]; }
 
@@ -65,7 +69,11 @@ export function assertNativeTree(tree: PageNode): void {
     if (!n.settings || !n.content || typeof n.settings !== 'object' || typeof n.content !== 'object' || Array.isArray(n.settings) || Array.isArray(n.content)) throw Error('Malformed node fields.');
     for (const [device,values] of Object.entries(n.settings)) {
       if (!['desktop','tablet','mobile'].includes(device) || !values || typeof values!=='object' || Array.isArray(values)) throw Error('Unsupported device settings.');
-      for (const [key,value] of Object.entries(values)) if (!settings[n.type][key]?.includes(value)) throw Error('Unsupported setting. Source is protected.');
+      for (const [key,value] of Object.entries(values)) {
+        if ((urlSettings[n.type] ?? []).includes(key)) {
+          if (typeof value !== 'string' || !safeNativeUrl(value, true) || /[();]/.test(value)) throw Error('Unsupported image address. Source is protected.');
+        } else if (!settings[n.type][key]?.includes(value)) throw Error('Unsupported setting. Source is protected.');
+      }
     }
     for (const [lang,values] of Object.entries(n.content)) {
       if (!['en','ar'].includes(lang) || !values || typeof values!=='object' || Array.isArray(values)) throw Error('Unsupported language content.');

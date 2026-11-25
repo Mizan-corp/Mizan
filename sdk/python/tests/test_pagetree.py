@@ -14,3 +14,15 @@ def test_a_minimal_page_round_trips():
                           "children": [{"id": "n_hd01", "type": "heading", "settings": {},
                                         "content": {"en": {"text": "Hi"}}}]}]}
     assert page_problems(tree, languages=("ar", "en")) == []
+
+
+def test_background_image_url_setting():
+    column = {"id": "n_col01", "type": "column",
+              "settings": {"desktop": {"background_image": "/site_image/bench.webp", "background_dim": "soft"}},
+              "content": {}}
+    tree = {"id": "n_root1", "type": "section", "settings": {}, "content": {},
+            "children": [{"id": "n_cols1", "type": "columns", "settings": {}, "content": {},
+                          "children": [column]}]}
+    assert page_problems(tree, languages=("en",)) == []
+    column["settings"]["desktop"]["background_image"] = "https://x.test/a).png"
+    assert page_problems(tree, languages=("en",))

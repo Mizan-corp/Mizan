@@ -80,6 +80,21 @@ describe('TreePreview over toPageTree output', () => {
     expect(html).toContain('mz-text-check_list');
     expect(html).toContain('<li>Diagnosis first</li>');
   });
+  it('renders a column background image with an optional scrim, mirroring render.py', () => {
+    const tree = { type: 'section', id: 's1', settings: {},
+      children: [{ type: 'columns', id: 'r1', content: {}, settings: {},
+        children: [{ type: 'column', id: 'c1', content: {},
+          settings: { desktop: { background_image: '/site_image/bench.webp', background_dim: 'soft' } },
+          children: [{ type: 'heading', id: 'h1', content: { en: { text: 'Hi' } }, settings: {} }] }] }] } as never;
+    const html = renderToStaticMarkup(createElement(TreePreview, { tree, lang: 'en', device: 'desktop' }));
+    expect(html).toContain('mz-bg-image');
+    expect(html).toContain('bench.webp');
+    expect(html).toContain('linear-gradient(');
+    const bad = { ...tree, children: [{ ...tree.children[0], children: [{ ...tree.children[0].children[0],
+      settings: { desktop: { background_image: 'https://x.test/a).png' } } }] }] } as never;
+    const badHtml = renderToStaticMarkup(createElement(TreePreview, { tree: bad, lang: 'en', device: 'desktop' }));
+    expect(badHtml).not.toContain('mz-bg-image');
+  });
   it('accents heading text with mark only, escaping all other markup', () => {
     expect(accentHtml('Good <mark>technology</mark>.')).toBe('Good <mark>technology</mark>.');
     expect(accentHtml('<script>x</script> plain')).toBe('&lt;script&gt;x&lt;/script&gt; plain');

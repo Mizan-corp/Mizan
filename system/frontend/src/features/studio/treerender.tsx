@@ -104,6 +104,22 @@ function enumClasses(s: Record<string, string | number | boolean>): string[] {
   return out;
 }
 
+// Mirrors render.py's _background_image_style: validated URL layer plus an optional
+// theme-dark scrim, never arbitrary CSS from the tree.
+function backgroundImageStyle(node: PageNode, s: Record<string, string | number | boolean>): CSSProperties | undefined {
+  if (node.type !== 'section' && node.type !== 'column') return undefined;
+  const url = safeUrl(s.background_image, 'url');
+  if (!url || /[();]/.test(url)) return undefined;
+  const layers: string[] = [];
+  if (s.background_dim === 'soft' || s.background_dim === 'strong') {
+    const pct = s.background_dim === 'soft' ? '45%' : '72%';
+    const scrim = `color-mix(in srgb, var(--dark, #20303C) ${pct}, transparent)`;
+    layers.push(`linear-gradient(${scrim}, ${scrim})`);
+  }
+  layers.push(`url("${url}")`);
+  return { backgroundImage: layers.join(', ') };
+}
+
 function NodeView({ node, lang, device }: { node: PageNode; lang: string; device: Device }) {
   const s = settingsOf(node, device);
   if (s.visible === false) return null;
@@ -180,7 +196,9 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
     case 'html': inner = <div className="mz-html" dangerouslySetInnerHTML={{ __html: sanitizeHtml(c.html) }} />; break;
     default: return null; // unknown block: render nothing, like render.py
   }
-  return <div id={node.id} className={`mz-node ${enumClasses(s).join(' ')}`}>{inner}</div>;
+  const bgStyle = backgroundImageStyle(node, s);
+  const cls = `mz-node ${enumClasses(s).join(' ')}${bgStyle ? ' mz-bg-image' : ''}`;
+  return <div id={node.id} className={cls} style={bgStyle}>{inner}</div>;
 }
 
 export interface ThemeChrome {
