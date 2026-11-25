@@ -178,6 +178,7 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
 export interface ThemeChrome {
   layout?: 'inline'|'centered';
   brand?: string;
+  logo?: string;
   links?: { label: string; href: string }[];
   actions?: { label: string; href: string }[];
 }
@@ -187,7 +188,7 @@ export interface ThemeSpec {
   typography?: { family?: string };
   shape?: { radius?: number };
   header?: ThemeChrome;
-  footer?: { layout?:'split'|'stacked'; lines?: string[]; links?: { label: string; href: string }[] };
+  footer?: { layout?:'split'|'stacked'; lines?: string[]; links?: { label: string; href: string }[]; groups?: { title: string; links: { label: string; href: string }[] }[] };
 }
 
 function cleanLinks(entries: ThemeChrome['links'], limit = 8) {
@@ -234,9 +235,11 @@ export function ThemeHeader({ header }: { header?: ThemeChrome }) {
   const links = cleanLinks(header.links);
   const actions = cleanLinks(header.actions, 4);
   const brand = header.brand ? String(header.brand).slice(0, 80) : '';
-  if (!brand && !links.length && !actions.length) return null;
+  const logo = header.logo ? safeUrl(header.logo, 'url') : null;
+  if (!logo && !brand && !links.length && !actions.length) return null;
   return (
     <header className={`mz-site-header${header?.layout==='centered'?' mz-header-centered':''}`}>
+      {logo && <img className="mz-site-logo" src={logo} alt="" />}
       {brand && <span className="mz-site-brand">{brand}</span>}
       {!!links.length && <nav>{links.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</nav>}
       {!!actions.length && <div className="mz-site-actions">{actions.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</div>}
@@ -248,11 +251,20 @@ export function ThemeFooter({ footer }: { footer?: ThemeSpec['footer'] }) {
   if (!footer) return null;
   const lines = (footer.lines || []).slice(0, 4).filter(x => typeof x === 'string' && x.trim()).map(x => String(x).slice(0, 120));
   const links = cleanLinks(footer.links);
-  if (!lines.length && !links.length) return null;
+  const groups = (footer.groups ?? []).slice(0, 4)
+    .map(g => ({ title: String(g?.title ?? '').trim().slice(0, 40), links: cleanLinks(g?.links, 6) }))
+    .filter(g => g.title && g.links.length);
+  if (!lines.length && !links.length && !groups.length) return null;
   return (
     <footer className={`mz-site-footer${footer?.layout==='stacked'?' mz-footer-stacked':''}`}>
       {lines.map((x, i) => <span key={i}>{x}</span>)}
       {links.map((l, i) => <a key={`l${i}`} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}
+      {!!groups.length && <div className="mz-footer-groups">{groups.map((g, i) => (
+        <div className="mz-footer-group" key={`g${i}`}>
+          <span className="mz-footer-group-title">{g.title}</span>
+          {g.links.map((l, j) => <a key={`gl${j}`} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}
+        </div>
+      ))}</div>}
     </footer>
   );
 }

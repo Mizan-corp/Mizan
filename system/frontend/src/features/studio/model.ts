@@ -4,14 +4,18 @@ export type SectionCard = { title: string; text: string };
 export type GalleryImage = { src: string; alt: string };
 export type Section = { id: string; eyebrow: string; title: string; description: string; button: string; image: string; visible: Record<Device, boolean>; reversed: boolean; kind?: 'split' | 'features' | 'gallery'; cards?: SectionCard[]; images?: GalleryImage[] };
 export type ChromeLink = { label: string; href: string };
-export type Chrome = { links: ChromeLink[]; actions: ChromeLink[]; footer: string[]; footerLinks?: ChromeLink[] };
+export type FooterGroup = { title: string; links: ChromeLink[] };
+export type Chrome = { links: ChromeLink[]; actions: ChromeLink[]; footer: string[]; footerLinks?: ChromeLink[]; logo?: string; footerGroups?: FooterGroup[] };
 export const defaultChrome = (name: string): Chrome => ({ links: [{label:'Collections',href:'#collections'},{label:'Our story',href:'#story'}], actions: [{label:'Search',href:'#search'},{label:'Bag (0)',href:'#bag'}], footer: [name,'Made to make it yours.','Prototype preview only'] });
 export function validChromeLinks(v: unknown, max: number): v is ChromeLink[] {
   return Array.isArray(v) && v.length <= max && v.every(x => !!x && typeof x.label === 'string' && x.label.trim().length > 0 && x.label.length <= 40 && typeof x.href === 'string' && /^(#|\/|https:\/\/)/.test(x.href) && x.href.length <= 200);
 }
+export function validFooterGroups(v: unknown, max = 4): v is FooterGroup[] {
+  return Array.isArray(v) && v.length <= max && v.every(g => !!g && typeof g.title === 'string' && g.title.trim().length > 0 && g.title.length <= 40 && validChromeLinks(g.links, 6));
+}
 export function validChrome(v: unknown): v is Chrome {
   const c = v as Chrome;
-  return !!c && (c.footerLinks === undefined || validChromeLinks(c.footerLinks, 8)) && validChromeLinks(c.links, 8) && validChromeLinks(c.actions, 4) && Array.isArray(c.footer) && c.footer.length <= 4 && c.footer.every(x => typeof x === 'string' && x.trim().length > 0 && x.length <= 120);
+  return !!c && (c.footerLinks === undefined || validChromeLinks(c.footerLinks, 8)) && (c.logo === undefined || (typeof c.logo === 'string' && c.logo.length <= 300)) && (c.footerGroups === undefined || validFooterGroups(c.footerGroups)) && validChromeLinks(c.links, 8) && validChromeLinks(c.actions, 4) && Array.isArray(c.footer) && c.footer.length <= 4 && c.footer.every(x => typeof x === 'string' && x.trim().length > 0 && x.length <= 120);
 }
 export type Project = { version: 1; name: string; language: Language; colors: { background: string; foreground: string; accent: string }; font: string; radius: number; motion: boolean; chrome?: Chrome; sections: Section[] };
 export const initialProject: Project = { version: 1, name: 'Northline studio', language: 'en', colors: { background: '#f3f5f2', foreground: '#122c2b', accent: '#c3ed8d' }, font: 'sans-serif', radius: 24, motion: false, sections: [{ id: 'hero-1', eyebrow: 'DESIGNED FOR EVERYDAY', title: 'Better things.\nMade for your space.', description: 'Thoughtfully selected essentials for the way you live. Make room for something worth keeping.', button: 'Explore the collection', image: '', visible: { desktop: true, tablet: true, mobile: true }, reversed: false }, { id: 'story-1', eyebrow: 'A DIFFERENT PERSPECTIVE', title: 'Less noise.\nMore intention.', description: 'Good design starts with a simple idea. Keep what matters, and make it your own.', button: 'Our approach', image: '', visible: { desktop: true, tablet: true, mobile: true }, reversed: true }] };

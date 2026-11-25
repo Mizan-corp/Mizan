@@ -286,6 +286,7 @@ _BASE_CSS += """
 .mz-node{--mz-duration:.6s;--mz-delay:0s}.mz-animation-fade{animation:mz-fade var(--mz-duration,.6s) ease-out var(--mz-delay,0s) both}.mz-animation-rise{animation:mz-rise var(--mz-duration,.6s) ease-out var(--mz-delay,0s) both}.mz-animation-slide{animation:mz-slide var(--mz-duration,.6s) ease-out var(--mz-delay,0s) both}.mz-animation-zoom{animation:mz-zoom var(--mz-duration,.6s) ease-out var(--mz-delay,0s) both}.mz-animation-speed-quick{--mz-duration:.3s}.mz-animation-speed-normal{--mz-duration:.6s}.mz-animation-speed-slow{--mz-duration:1s}.mz-animation-delay-none{--mz-delay:0s}.mz-animation-delay-short{--mz-delay:.15s}.mz-animation-delay-long{--mz-delay:.35s}@keyframes mz-fade{from{opacity:0}to{opacity:1}}@keyframes mz-rise{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none}}@keyframes mz-slide{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:none}}@keyframes mz-zoom{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}@media(prefers-reduced-motion:reduce){.mz-animation-fade,.mz-animation-rise,.mz-animation-slide,.mz-animation-zoom{animation:none!important;opacity:1;transform:none}}
 """
 _BASE_CSS += ".mz-header-centered{flex-direction:column;text-align:center}.mz-footer-stacked{flex-direction:column;align-items:center;text-align:center}"
+_BASE_CSS += ".mz-site-logo{height:32px;width:auto}.mz-footer-groups{display:flex;gap:32px;flex-wrap:wrap}.mz-footer-group{display:flex;flex-direction:column;gap:10px}.mz-footer-group-title{font-weight:650}"
 for _token, _size in _SPACER_PX.items():
     _BASE_CSS += f".mz-padding-{_token}{{padding:{_size}px}}.mz-gap-{_token}{{gap:{_size}px}}.mz-height-{_token} .mz-spacer{{height:{_size}px}}"
 
@@ -333,19 +334,34 @@ def _theme_chrome(theme: dict | None, link_base: str | None = None) -> tuple[str
     if isinstance(header, dict):
         brand = header.get("brand")
         brand_html = f'<span class="mz-site-brand">{_esc(str(brand)[:80])}</span>' if brand else ""
+        logo = _safe_src(header.get("logo"))
+        logo_html = f'<img class="mz-site-logo" src="{_esc(logo)}" alt="">' if logo else ""
         links = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(header.get("links"), link_base=link_base))
         actions = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(header.get("actions"), 4, link_base=link_base))
         nav = f"<nav>{links}</nav>" if links else ""
         act = f'<div class="mz-site-actions">{actions}</div>' if actions else ""
-        if brand_html or nav or act:
+        if logo_html or brand_html or nav or act:
             header_class = "mz-site-header mz-header-centered" if header.get("layout") == "centered" else "mz-site-header"
-            head_html = f'<header class="{header_class}">{brand_html}{nav}{act}</header>'
+            head_html = f'<header class="{header_class}">{logo_html}{brand_html}{nav}{act}</header>'
     footer = theme.get("footer")
     foot_html = ""
     if isinstance(footer, dict):
         lines = [str(x)[:120] for x in (footer.get("lines") or [])[:4] if isinstance(x, str) and x.strip()]
         links = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(footer.get("links"), link_base=link_base))
-        parts = "".join(f"<span>{_esc(x)}</span>" for x in lines) + links
+        groups_html = ""
+        groups = footer.get("groups")
+        if isinstance(groups, list):
+            for group in groups[:4]:
+                if not isinstance(group, dict):
+                    continue
+                title = group.get("title")
+                glinks = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(group.get("links"), 6, link_base=link_base))
+                if isinstance(title, str) and title.strip() and glinks:
+                    groups_html += (f'<div class="mz-footer-group"><span class="mz-footer-group-title">'
+                                    f'{_esc(title.strip()[:40])}</span>{glinks}</div>')
+        if groups_html:
+            groups_html = f'<div class="mz-footer-groups">{groups_html}</div>'
+        parts = "".join(f"<span>{_esc(x)}</span>" for x in lines) + links + groups_html
         if parts:
             footer_class = "mz-site-footer mz-footer-stacked" if footer.get("layout") == "stacked" else "mz-site-footer"
             foot_html = f'<footer class="{footer_class}">{parts}</footer>'

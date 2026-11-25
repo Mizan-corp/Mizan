@@ -3,7 +3,8 @@
 // the rest of the ERP frontend. This is the studio's only path to persisted pages;
 // the local Project model stays the editing model and is converted with toPageTree.
 import { previewPayload, toPageTree, type PageNode } from './pagetree';
-import { validChromeLinks, type Project } from './model';
+import { validChromeLinks, validFooterGroups, type Project } from './model';
+import { safeNativeUrl } from './nativeTree';
 
 export type PageStatus = 'draft' | 'published' | 'archived';
 
@@ -110,8 +111,8 @@ export type SiteSettingsValue = {
   colors?: { light?: Record<string, string> };
   typography?: { family?: string };
   shape?: { radius?: number };
-  header?: { layout?: 'inline'|'centered'; brand?: string; links?: { label: string; href: string }[]; actions?: { label: string; href: string }[] };
-  footer?: { layout?: 'split'|'stacked'; lines?: string[]; links?: { label: string; href: string }[] };
+  header?: { layout?: 'inline'|'centered'; brand?: string; logo?: string; links?: { label: string; href: string }[]; actions?: { label: string; href: string }[] };
+  footer?: { layout?: 'split'|'stacked'; lines?: string[]; links?: { label: string; href: string }[]; groups?: { title: string; links: { label: string; href: string }[] }[] };
 };
 
 export function settingsPayload(project: Project): SiteSettingsValue {
@@ -136,14 +137,16 @@ export function applySettings(project: Project, value: SiteSettingsValue): Proje
   if (typeof family === 'string' && FONTS.has(family)) next.font = family as Project['font'];
   const radius = value.shape?.radius;
   if (typeof radius === 'number' && Number.isInteger(radius) && radius >= 0 && radius <= 40) next.radius = radius;
-  const links = value.header?.links, actions = value.header?.actions, lines = value.footer?.lines, footerLinks = value.footer?.links;
-  if (links !== undefined || actions !== undefined || lines !== undefined || footerLinks !== undefined) {
+  const links = value.header?.links, actions = value.header?.actions, lines = value.footer?.lines, footerLinks = value.footer?.links, logo = value.header?.logo, footerGroups = value.footer?.groups;
+  if (links !== undefined || actions !== undefined || lines !== undefined || footerLinks !== undefined || logo !== undefined || footerGroups !== undefined) {
     const base = next.chrome ?? { links: [], actions: [], footer: [] };
     const chrome = { ...base };
     if (validChromeLinks(footerLinks, 8)) chrome.footerLinks = footerLinks.map(l => ({ label: l.label.trim(), href: l.href }));
     if (validChromeLinks(links, 8)) chrome.links = links.map(l => ({ label: l.label.trim(), href: l.href }));
     if (validChromeLinks(actions, 4)) chrome.actions = actions.map(l => ({ label: l.label.trim(), href: l.href }));
     if (Array.isArray(lines) && lines.length <= 4 && lines.every(x => typeof x === 'string' && x.trim() && x.length <= 120)) chrome.footer = lines.map(x => x.trim());
+    if (typeof logo === 'string' && logo.trim() && logo.length <= 300 && safeNativeUrl(logo, true) && /^(\/|https:\/\/)/.test(logo)) chrome.logo = logo;
+    if (validFooterGroups(footerGroups)) chrome.footerGroups = footerGroups.map(g => ({ title: g.title, links: g.links.map(l => ({ label: l.label, href: l.href })) }));
     next.chrome = chrome;
   }
   const brand = value.header?.brand;

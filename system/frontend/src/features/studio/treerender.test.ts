@@ -183,3 +183,23 @@ describe('content fallback for language-neutral refs', () => {
     expect(html).not.toContain('mz-button');
   });
 });
+
+describe('Theme chrome logo and footer groups', () => {
+  it('renders a safe header logo before the brand and drops unsafe values', () => {
+    const safe = renderToStaticMarkup(createElement(TreePreview, { tree, lang: 'en', device: 'desktop', theme: { header: { brand: 'B', logo: 'https://cdn.example.com/logo.svg', links: [{ label: 'A', href: '/a' }] } } } as never));
+    expect(safe).toContain('<img class="mz-site-logo" src="https://cdn.example.com/logo.svg"');
+    const unsafe = renderToStaticMarkup(createElement(TreePreview, { tree, lang: 'en', device: 'desktop', theme: { header: { brand: 'B', logo: 'javascript:alert(1)' } } } as never));
+    expect(unsafe).not.toContain('javascript:');
+    expect(unsafe).not.toContain('mz-site-logo');
+  });
+  it('renders footer groups with titles and caps groups and links', () => {
+    const groups = Array.from({ length: 5 }, (_, i) => ({ title: `G${i + 1}`, links: Array.from({ length: 7 }, (_, j) => ({ label: `L${j + 1}`, href: `/x${j}` })) }));
+    const html = renderToStaticMarkup(createElement(TreePreview, { tree, lang: 'en', device: 'desktop', theme: { footer: { lines: ['Line'], groups } } } as never));
+    expect(html).toContain('mz-footer-groups');
+    expect(html).toContain('>G4<');
+    expect(html).not.toContain('>G5<');
+    expect((html.match(/mz-footer-group-title/g) || []).length).toBe(4);
+    expect(html).toContain('>L6<');
+    expect(html).not.toContain('>L7<');
+  });
+});

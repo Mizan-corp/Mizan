@@ -22,7 +22,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.framework.manifest import page_problems
+from app.framework.manifest import page_problems, page_url
 from app.platform.site.models import SitePage, SitePageRevision, SiteSettings
 from app.platform.tenancy.context import current_tenant_id
 from app.platform.tenancy.models import Tenant
@@ -307,9 +307,16 @@ def check_settings(value) -> dict:
         brand = header.get("brand")
         if brand is not None and (not isinstance(brand, str) or len(brand.strip()) > 80):
             raise HTTPException(422, "اسم المتجر غير صالح")
+        logo = header.get("logo")
+        if logo is not None and logo != "":
+            if (not isinstance(logo, str) or logo != logo.strip() or len(logo) > 300
+                    or not logo.startswith(("/", "https://")) or not page_url(logo, "url")):
+                raise HTTPException(422, "شعار الموقع غير صالح")
         out["header"] = {"brand": (brand or "").strip(),
                          "links": _check_links(header.get("links"), 8),
                          "actions": _check_links(header.get("actions"), 4)}
+        if logo:
+            out["header"]["logo"] = logo
         if "layout" in header:
             if header["layout"] not in ("inline", "centered"):
                 raise HTTPException(422, "Invalid header layout")
@@ -323,6 +330,21 @@ def check_settings(value) -> dict:
                 not isinstance(x, str) or not x.strip() or len(x) > 120 for x in lines):
             raise HTTPException(422, "تذييل الموقع غير صالح")
         out["footer"] = {"lines": [x.strip() for x in lines], "links": _check_links(footer.get("links"), 8)}
+        groups = footer.get("groups")
+        if groups is not None:
+            if not isinstance(groups, list) or len(groups) > 4:
+                raise HTTPException(422, "تذييل الموقع غير صالح")
+            checked_groups = []
+            for group in groups:
+                if not isinstance(group, dict):
+                    raise HTTPException(422, "تذييل الموقع غير صالح")
+                title = group.get("title")
+                if (not isinstance(title, str) or not title.strip()
+                        or len(title) > 40 or title != title.strip()):
+                    raise HTTPException(422, "تذييل الموقع غير صالح")
+                checked_groups.append({"title": title, "links": _check_links(group.get("links"), 6)})
+            if checked_groups:
+                out["footer"]["groups"] = checked_groups
         if "layout" in footer:
             if footer["layout"] not in ("split", "stacked"):
                 raise HTTPException(422, "Invalid footer layout")

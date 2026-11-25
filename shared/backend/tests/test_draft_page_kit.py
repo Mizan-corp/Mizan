@@ -82,3 +82,51 @@ class ContentRefFallbackTests(unittest.TestCase):
   from app.platform.site.render import _render_node
   btn=self._node('button',{'en':{'href':'/x','label':'Go'},'ar':{'label':'روح','href':''}})
   self.assertEqual(_render_node(btn,'ar','desktop'),'')
+class ChromeLogoGroupTests(unittest.TestCase):
+ def _settings(self):
+  from app.platform.site.tech_kit import theme
+  return theme('tech')
+ def test_header_logo_round_trips(self):
+  from app.platform.site.service import check_settings
+  value=self._settings();value['header']['logo']='https://cdn.example.com/logo.svg'
+  self.assertEqual(check_settings(value),value)
+ def test_header_logo_rejects_unsafe_values(self):
+  from app.platform.site.service import check_settings
+  for bad in ['javascript:alert(1)','//evil.test/x.png',' http://x.test/a.png ','http://user:pw@x.test/a.png','x'*301,'http://x.test:8080/a.png']:
+   value=self._settings();value['header']['logo']=bad
+   with self.assertRaises(HTTPException):check_settings(value)
+ def test_header_logo_empty_is_dropped(self):
+  from app.platform.site.service import check_settings
+  value=self._settings();value['header']['logo']=''
+  self.assertNotIn('logo',check_settings(value)['header'])
+ def test_footer_groups_round_trip(self):
+  from app.platform.site.service import check_settings
+  value=self._settings();value['footer']['groups']=[{'title':'Company','links':[{'label':'About','href':'/about'}]}]
+  self.assertEqual(check_settings(value),value)
+ def test_footer_groups_limits(self):
+  from app.platform.site.service import check_settings
+  group={'title':'G','links':[{'label':'L','href':'/x'}]}
+  value=self._settings();value['footer']['groups']=[group]*5
+  with self.assertRaises(HTTPException):check_settings(value)
+  value=self._settings();value['footer']['groups']=[{'title':'G','links':[{'label':'L','href':'/x'}]*7}]
+  with self.assertRaises(HTTPException):check_settings(value)
+  for bad_title in ['','  ',' padded','x'*41]:
+   value=self._settings();value['footer']['groups']=[{'title':bad_title,'links':[{'label':'L','href':'/x'}]}]
+   with self.assertRaises(HTTPException):check_settings(value)
+ def test_footer_groups_empty_is_dropped(self):
+  from app.platform.site.service import check_settings
+  value=self._settings();value['footer']['groups']=[]
+  self.assertNotIn('groups',check_settings(value)['footer'])
+ def test_render_header_logo_and_footer_groups(self):
+  from app.platform.site.render import _theme_chrome
+  theme_value={'header':{'brand':'ويريا','logo':'https://cdn.example.com/logo.svg','links':[{'label':'Shop','href':'/shop'}]},
+               'footer':{'lines':['حقوق النشر'],'groups':[{'title':'الشركة','links':[{'label':'من نحن','href':'/about'}]},{'title':'Escaped <b>','links':[{'label':'x','href':'/x'}]}]}}
+  head,foot=_theme_chrome(theme_value,link_base='/site/studio')
+  self.assertIn('<img class="mz-site-logo" src="https://cdn.example.com/logo.svg" alt="">',head)
+  self.assertIn('mz-site-brand',head)
+  self.assertIn('mz-footer-groups',foot);self.assertIn('الشركة',foot);self.assertIn('href="/site/studio/about"',foot)
+  self.assertIn('Escaped &lt;b&gt;',foot)
+ def test_render_drops_unsafe_logo(self):
+  from app.platform.site.render import _theme_chrome
+  head,_=_theme_chrome({'header':{'logo':'javascript:alert(1)','brand':'B'}},link_base=None)
+  self.assertNotIn('javascript:',head);self.assertIn('mz-site-brand',head)
