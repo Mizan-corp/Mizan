@@ -91,4 +91,11 @@ async def store_workspace_logo(db: AsyncSession, file: UploadFile) -> dict:
     for size, url in icons.items():
         await upsert_setting(db, f"logo_icon_{size}", url)
     await db.commit()
+    # Sites that follow the workspace pick the new logo up; other sites' activation
+    # snapshots stay untouched (refresh_activation_themes checks the flag itself).
+    try:
+        from app.platform.site.service import refresh_activation_themes
+        await refresh_activation_themes(db)
+    except Exception:
+        logger.warning("could not refresh site activation themes after logo change", exc_info=True)
     return {"logo_url": logo_url}

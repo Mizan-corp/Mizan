@@ -11,7 +11,7 @@ export interface ThemePack {
   id: string;
   name?: string;
   colors: { light: Record<string, string>; dark: Record<string, string> };
-  fonts?: { body?: string; display?: string; mono?: string; files?: ThemeFontFile[] };
+  fonts?: { body?: string; display?: string; mono?: string; body_arabic?: string; display_arabic?: string; files?: ThemeFontFile[] };
   radius?: string;
   shadows?: "flat" | "soft" | "raised";
   motion?: "full" | "reduced" | "none";
@@ -51,14 +51,14 @@ export function themeCss(theme: ThemePack, apiBase: string): string {
   const extra = [
     theme.radius && /^(0|\d(\.\d{1,3})?rem|\d{1,2}px)$/.test(theme.radius) ? `--radius: ${theme.radius};` : "",
     `--shadow-sm: ${shadows[0]}; --shadow-md: ${shadows[1]}; --shadow-lg: ${shadows[2]};`,
-    family(theme.fonts?.body) ? `--font-sans: ${family(theme.fonts?.body)}, ${FALLBACK_SANS};` : "",
+    family(theme.fonts?.body) ? `--font-sans: ${[family(theme.fonts?.body), family(theme.fonts?.body_arabic)].filter(Boolean).join(", ")}, ${FALLBACK_SANS};` : "",
   ].join(" ");
   const parts = [
     `html[data-theme="workspace"] { ${tokens(theme.colors?.light)} ${extra} }`,
     `html.dark[data-theme="workspace"] { color-scheme: dark; ${tokens(theme.colors?.dark)} }`,
   ];
   const display = family(theme.fonts?.display);
-  if (display) parts.push(`html[data-theme="workspace"] .font-display { font-family: ${display}, Georgia, serif; }`);
+  if (display) parts.push(`html[data-theme="workspace"] .font-display { font-family: ${[display, family(theme.fonts?.display_arabic)].filter(Boolean).join(", ")}, Georgia, serif; }`);
   const mono = family(theme.fonts?.mono);
   if (mono) parts.push(`html[data-theme="workspace"] .font-mono, html[data-theme="workspace"] code { font-family: ${mono}, ui-monospace, monospace; }`);
   const base = theme.assets_base && /^\/themes\/assets\/[A-Za-z0-9._/-]+\/$/.test(theme.assets_base) ? apiBase + theme.assets_base : null;

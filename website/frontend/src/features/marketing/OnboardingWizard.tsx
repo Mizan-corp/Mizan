@@ -75,7 +75,7 @@ interface ThemeSummary {
   name_en?: string;
   description: string;
   swatches: string[];
-  fonts?: { body?: string; display?: string };
+  fonts?: { body?: string; display?: string; body_arabic?: string; display_arabic?: string };
   radius?: string;
 }
 
@@ -483,7 +483,9 @@ export default function OnboardingWizard() {
         <div className="flex items-center justify-between gap-2">
           <span
             className="text-xs font-bold text-foreground truncate"
-            style={t.fonts?.display || t.fonts?.body ? { fontFamily: `"${t.fonts.display || t.fonts.body}", sans-serif` } : undefined}
+            style={t.fonts?.display || t.fonts?.body
+              ? { fontFamily: [`"${t.fonts.display || t.fonts.body}"`, t.fonts.display_arabic ? `"${t.fonts.display_arabic}"` : null, "sans-serif"].filter(Boolean).join(", ") }
+              : undefined}
           >
             {t.name}
           </span>
@@ -509,7 +511,9 @@ export default function OnboardingWizard() {
         </div>
         <span
           className="block text-[10px] text-muted-foreground leading-relaxed line-clamp-2"
-          style={t.fonts?.body ? { fontFamily: `"${t.fonts.body}", sans-serif` } : undefined}
+          style={t.fonts?.body
+            ? { fontFamily: [`"${t.fonts.body}"`, t.fonts.body_arabic ? `"${t.fonts.body_arabic}"` : null, "sans-serif"].filter(Boolean).join(", ") }
+            : undefined}
         >
           {t.description}
         </span>
@@ -558,7 +562,7 @@ export default function OnboardingWizard() {
               Step 0: Business Sector (Curated, Categorized, Searchable)
               ══════════════════════════════════════════════════════════════════ */}
           {step === 0 && (
-            <fieldset className="space-y-4">
+            <fieldset className="space-y-4 pb-20">
               <div>
                 <legend className="flex items-center gap-2 text-lg sm:text-xl font-bold text-foreground">
                   <Building2 className="size-5 text-primary shrink-0" />
@@ -730,7 +734,7 @@ export default function OnboardingWizard() {
               Step 1: Company Profile & Scale
               ══════════════════════════════════════════════════════════════════ */}
           {step === 1 && (
-            <fieldset className="space-y-5">
+            <fieldset className="space-y-5 pb-20">
               <div>
                 <legend className="flex items-center gap-2 text-lg sm:text-xl font-bold text-foreground">
                   <Sparkles className="size-5 text-primary shrink-0" />
@@ -888,7 +892,7 @@ export default function OnboardingWizard() {
               Step 2: Brand identity - real theme packs, live preview
               ══════════════════════════════════════════════════════════════════ */}
           {step === 2 && (
-            <fieldset className="space-y-5">
+            <fieldset className="space-y-5 pb-20">
               <div>
                 <legend className="flex items-center gap-2 text-lg sm:text-xl font-bold text-foreground">
                   <Palette className="size-5 text-primary shrink-0" />
@@ -1110,7 +1114,7 @@ export default function OnboardingWizard() {
               Step 3: Modular features
               ══════════════════════════════════════════════════════════════════ */}
           {step === 3 && (
-            <fieldset className="space-y-5">
+            <fieldset className="space-y-5 pb-20">
               <div>
                 <legend className="flex items-center gap-2 text-lg sm:text-xl font-bold text-foreground">
                   <Layers className="size-5 text-primary shrink-0" />

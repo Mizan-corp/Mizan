@@ -65,7 +65,28 @@
     }
   },
   "fonts": {
-    "body": "Manrope"
+    "body": "Manrope",
+    "files": [
+      {
+        "family": "Manrope",
+        "src": "assets/manrope.ttf",
+        "weight": "200 800",
+        "style": "normal"
+      },
+      {
+        "family": "Tajawal",
+        "src": "/themes/assets/files/grape/assets/tajawal-400.ttf",
+        "weight": "400",
+        "style": "normal"
+      },
+      {
+        "family": "Tajawal",
+        "src": "/themes/assets/files/grape/assets/tajawal-700.ttf",
+        "weight": "700",
+        "style": "normal"
+      }
+    ],
+    "body_arabic": "Tajawal"
   },
   "radius": "0.875rem",
   "shadows": "soft",

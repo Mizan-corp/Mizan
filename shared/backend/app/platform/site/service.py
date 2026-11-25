@@ -537,13 +537,15 @@ async def _refresh_activation_theme(db: AsyncSession, page) -> None:
 
 
 async def refresh_activation_themes(db: AsyncSession) -> None:
-    """Re-snapshot this workspace's settings into every activation row on this
-    deployment's host. Called when the workspace theme changes: sites that follow
-    the workspace pick the new pack up; other sites rewrite the same stored doc.
-    No-op without a configured host."""
+    """Re-snapshot this workspace's settings into its activation rows on this
+    deployment's host after the workspace theme or logo changes. Only sites that
+    follow the workspace are touched: any other site's activation snapshot stays
+    byte-identical until its own settings are saved. No-op without a configured host."""
     from app.core.config import settings
     host = (settings.PUBLIC_SITE_HOST or "").strip().lower()
     if not host:
+        return
+    if (await get_settings(db)).get("follow_workspace") is not True:
         return
     theme = await resolved_settings(db)
     await db.execute(text(

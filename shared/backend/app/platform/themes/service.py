@@ -86,7 +86,8 @@ def family_files() -> dict[str, list[dict]]:
         for f in (t.get("fonts") or {}).get("files") or []:
             fam = f.get("family")
             if isinstance(fam, str) and fam not in out:
-                out[fam] = [{**f, "src": f"/themes/assets/files/{t['id']}/{f['src']}"}
+                out[fam] = [{**f, "src": f["src"] if str(f.get("src") or "").startswith("/")
+                                         else f"/themes/assets/files/{t['id']}/{f['src']}"}
                             for f in (t.get("fonts") or {}).get("files") or [] if f.get("family") == fam]
     return out
 

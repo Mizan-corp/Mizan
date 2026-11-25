@@ -231,6 +231,9 @@ THEME_SHADOWS = ("flat", "soft", "raised")
 THEME_MOTION = ("full", "reduced", "none")
 THEME_DENSITY = ("comfortable", "compact")
 FONT_FILE = re.compile(r"^assets/[A-Za-z0-9_.-]+\.(woff2|woff|ttf|otf)$")
+# A theme may also borrow a font another theme ships, by its public absolute path
+# (mirrors the client's SAFE_ABS_SRC in shared/frontend/src/lib/theme.ts).
+FONT_FILE_ABS = re.compile(r"^/themes/assets/files/[a-z][a-z0-9_]{0,47}/assets/[A-Za-z0-9_.-]+\.(woff2|woff|ttf|otf)$")
 FONT_WEIGHT = re.compile(r"^[1-9]00( [1-9]00)?$")
 FONT_FAMILY = re.compile(r"^[A-Za-z0-9 \u0600-\u06FF-]{1,64}$")
 RADIUS = re.compile(r"^(0|\d(\.\d{1,3})?rem|\d{1,2}px)$")
@@ -340,7 +343,7 @@ def theme_problems(t: dict, package: bool = False) -> list[str]:
         p.append("fonts must be an object")
         fonts = {}
     for k, v in fonts.items():
-        if k in ("body", "display", "mono"):
+        if k in ("body", "display", "mono", "body_arabic", "display_arabic"):
             if not isinstance(v, str) or not FONT_FAMILY.match(v):
                 p.append(f"fonts.{k}: a font family name (letters, digits, spaces)")
         elif k == "files":
@@ -351,11 +354,11 @@ def theme_problems(t: dict, package: bool = False) -> list[str]:
             for f in v:
                 if not (isinstance(f, dict) and set(f) <= {"family", "src", "weight", "style"}
                         and isinstance(f.get("family"), str) and FONT_FAMILY.match(f["family"])
-                        and isinstance(f.get("src"), str) and FONT_FILE.match(f["src"])
+                        and isinstance(f.get("src"), str) and (FONT_FILE.match(f["src"]) or FONT_FILE_ABS.match(f["src"]))
                         and FONT_WEIGHT.match(str(f.get("weight", "400"))) and f.get("style", "normal") in ("normal", "italic")):
                     p.append("fonts.files: each is {family, src: assets/….woff2, weight: 400 or 100 900, style}")
         else:
-            p.append(f"fonts.{k} isn't known (body, display, mono, files)")
+            p.append(f"fonts.{k} isn't known (body, display, mono, body_arabic, display_arabic, files)")
     if "radius" in t and not (isinstance(t["radius"], str) and RADIUS.match(t["radius"])):
         p.append("radius: e.g. 0.75rem or 8px")
     for key, allowed in (("shadows", THEME_SHADOWS), ("motion", THEME_MOTION), ("density", THEME_DENSITY)):
