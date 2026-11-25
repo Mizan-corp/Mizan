@@ -49,6 +49,9 @@ Reference screenshots: cloud-browser-20261125-024139 (hero), -024124 (services),
 
 G1. No search element. allwirya's header search is central; the builder has no
     search/store-search block. (Header editing also cannot inject one.)
+    DESIGN RESEARCHED 2026-11-25: docs/studio-search-form-design.md - page filter
+    needs the first visitor-side JS (platform decision), GET-form site search
+    needs an endpoint decision, catalog search needs the connected-data boundary.
 G2. PARTIALLY RESOLVED 2026-11-25: header logo image by URL shipped (theme.header.logo,
     safe /path or https URL, rendered as an escaped img in both renderers, editable in
     Style > Header as "Logo URL (optional)"). Remaining: no cart/account icons, no
@@ -69,6 +72,10 @@ G5. Partially addressed 2026-11-25 (icon_list shipped): the icon_list block now
     This was an implementation gap, not an authorization gate (2026-11-25, main).
     Repair-card checkmarks are covered by N2.
 G6. No form/input element (CTA band's device-request input).
+    DESIGN RESEARCHED 2026-11-25: docs/studio-search-form-design.md - mailto compose
+    form is pure markup and is the recommended honest v0 once the owner's
+    destination address is verified; stored submissions need storage/privacy/
+    anti-spam approvals.
 G7. Typography: one system font family site-wide; no heading size control, no font
     upload, no Arabic/Latin pairing (chrome UI states this itself). allwirya's Arabic
     display font cannot be reproduced.
@@ -140,5 +147,6 @@ controls only (1-col row -> 2 columns via Insert, heading+price moved with the
 Move drag handle, image width full) - balanced text-left/image-right on desktop,
 stacked on mobile, saved and API-verified.
 Blocked and NOT proposed until approved: image storage provisioning (G3), search and
-form elements (G1/G6 - interactive surface needs its own consent/design pass),
-font upload (G7). G5 icon set is an implementation gap, not approval-gated.
+form elements (G1/G6 - design researched in docs/studio-search-form-design.md; the
+numbered consent points there gate any live enabling), font upload (G7). G5 icon
+set is an implementation gap, not approval-gated.
