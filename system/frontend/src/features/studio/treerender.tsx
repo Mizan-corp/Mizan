@@ -254,6 +254,7 @@ export interface ThemeChrome {
   density?: 'comfortable'|'compact';
   row_align?: 'start'|'center'|'end';
   row_gap?: 'tight'|'wide';
+  element_order?: ('brand'|'search'|'icons')[];
   icons?: { icon: HeaderIconName; label: string; href: string }[];
   bar_links?: { label: string; href: string }[];
   bar_cta_label?: string;
@@ -343,6 +344,14 @@ export function ThemeHeader({ header }: { header?: ThemeChrome }) {
   const ctaLabel = String(header.bar_cta_label ?? '').trim().slice(0, 40);
   const ctaHref = header.bar_cta_href ? safeUrl(header.bar_cta_href, 'href') : null;
   const rich = !!(searchTarget || icons.length || barLinks.length || (ctaLabel && ctaHref));
+  const orderMap: Record<string, number> = {};
+  if (header.element_order?.length) {
+    header.element_order.forEach((tok, i) => { orderMap[tok] = i + 1; });
+    for (const tok of ['brand', 'search', 'icons']) if (!(tok in orderMap)) orderMap[tok] = Object.keys(orderMap).length + 1;
+  }
+  const brandStyle = header.element_order?.length ? ({ '--ord-brand': orderMap.brand } as CSSProperties) : undefined;
+  const searchStyle = header.element_order?.length ? ({ '--ord-search': orderMap.search } as CSSProperties) : undefined;
+  const iconsStyle = header.element_order?.length ? ({ '--ord-icons': orderMap.icons } as CSSProperties) : undefined;
   if (!logo && !brand && !links.length && !actions.length && !rich) return null;
   if (!rich) {
     return (
@@ -355,17 +364,17 @@ export function ThemeHeader({ header }: { header?: ThemeChrome }) {
     );
   }
   return (
-    <header className={`mz-site-header mz-header-rich${header?.surface==='dark'?' mz-site-header-dark':''}${header?.search_style==='outline'?' mz-search-outline':''}${header?.bar_style==='plain'?' mz-bar-plain':''}${header?.density==='compact'?' mz-density-compact':''}${header?.row_align?` mz-row-${header.row_align}`:''}${header?.row_gap?` mz-gap-${header.row_gap}`:''}`}>
+    <header className={`mz-site-header mz-header-rich${header?.surface==='dark'?' mz-site-header-dark':''}${header?.search_style==='outline'?' mz-search-outline':''}${header?.bar_style==='plain'?' mz-bar-plain':''}${header?.density==='compact'?' mz-density-compact':''}${header?.row_align?` mz-row-${header.row_align}`:''}${header?.row_gap?` mz-gap-${header.row_gap}`:''}${header?.element_order?.length?' mz-reorder':''}`}>
       <div className="mz-header-main">
-        {logo && <img className="mz-site-logo" src={logo} alt="" />}
-        {brand && <span className="mz-site-brand">{brand}</span>}
-        {searchTarget && <form className="mz-header-search" role="search" action={searchTarget ?? undefined} method="get" onSubmit={e => e.preventDefault()}>
+        {logo && <img className="mz-site-logo" style={brandStyle} src={logo} alt="" />}
+        {brand && <span className="mz-site-brand" style={brandStyle}>{brand}</span>}
+        {searchTarget && <form className="mz-header-search" style={searchStyle} role="search" action={searchTarget ?? undefined} method="get" onSubmit={e => e.preventDefault()}>
           <input type="search" name="q" placeholder={searchPlaceholder} aria-label={searchPlaceholder} />
           <button type="submit" aria-label={searchPlaceholder || 'Search'}><HeaderIcon name="search" /></button>
         </form>}
         {!!links.length && <nav>{links.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</nav>}
         {!!actions.length && <div className="mz-site-actions">{actions.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</div>}
-        {!!icons.length && <div className="mz-header-icons">{icons.map((ic, i) => <a key={i} className="mz-header-icon" href={ic.href} aria-label={ic.label} title={ic.label} onClick={e => e.preventDefault()}><HeaderIcon name={ic.icon} /></a>)}</div>}
+        {!!icons.length && <div className="mz-header-icons" style={iconsStyle}>{icons.map((ic, i) => <a key={i} className="mz-header-icon" href={ic.href} aria-label={ic.label} title={ic.label} onClick={e => e.preventDefault()}><HeaderIcon name={ic.icon} /></a>)}</div>}
         {(!!links.length || !!barLinks.length || (ctaLabel && ctaHref)) && <details className="mz-header-menu">
           <summary aria-label="Menu">
             <svg className="mz-menu-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>

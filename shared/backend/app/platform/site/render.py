@@ -424,6 +424,7 @@ _BASE_CSS += ".mz-header-centered{flex-direction:column;text-align:center}.mz-fo
 _BASE_CSS += ".mz-header-rich{display:block;padding:0;position:relative}.mz-header-rich .mz-header-main{display:flex;align-items:center;gap:14px;padding:10px 32px;flex-wrap:wrap}.mz-header-search{flex:1;min-width:200px;max-width:640px;margin-inline:auto;display:flex;align-items:center;gap:8px;padding:4px;padding-inline-start:16px;border-radius:999px;background:#fff;color:#00171f}.mz-header-search input{flex:1;min-width:0;border:0;background:none;font:inherit;font-size:15px;color:#00171f;outline:none}.mz-header-search input::placeholder{color:#475a64}.mz-header-search button{flex:none;width:36px;height:36px;border:0;border-radius:999px;display:grid;place-items:center;cursor:pointer;background:var(--primary,#651E2C);color:var(--primary-foreground,#FAF6F0)}.mz-header-search button svg{width:18px;height:18px}.mz-header-icons{display:flex;align-items:center;gap:2px}.mz-header-icon{width:40px;height:40px;display:grid;place-items:center;border-radius:50%;color:inherit}.mz-header-icon:hover{background:color-mix(in srgb,currentColor 10%,transparent)}.mz-header-icon svg{width:20px;height:20px}.mz-header-menu{display:none}.mz-header-bar{display:flex;align-items:center;gap:10px;padding:6px 32px;min-height:48px;border-top:1px solid color-mix(in srgb,currentColor 10%,transparent)}.mz-header-bar nav{display:flex;align-items:center;gap:2px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}.mz-header-bar nav a{white-space:nowrap;font-size:15px;min-height:36px;display:inline-flex;align-items:center;padding:0 12px;border-radius:999px;color:color-mix(in srgb,currentColor 82%,transparent)}.mz-header-bar nav a:hover{background:color-mix(in srgb,currentColor 10%,transparent);color:inherit}.mz-header-bar nav a:first-child{background:color-mix(in srgb,currentColor 10%,transparent);color:inherit;font-weight:600}.mz-header-cta{white-space:nowrap;background:var(--primary,#651E2C);color:var(--primary-foreground,#FAF6F0);padding:8px 16px;border-radius:var(--radius,8px);font-size:14px;text-decoration:none}@media(max-width:768px){.mz-header-rich .mz-header-main{padding:8px 14px;gap:8px}.mz-header-rich .mz-site-brand{font-size:18px}.mz-header-search{order:9;flex-basis:100%;max-width:none}.mz-header-bar{display:none}.mz-header-menu{display:block;margin-inline-start:auto}.mz-header-menu summary{list-style:none;width:40px;height:40px;display:grid;place-items:center;border-radius:50%;cursor:pointer}.mz-header-menu summary::-webkit-details-marker{display:none}.mz-header-menu summary svg{width:22px;height:22px}.mz-header-menu summary .mz-menu-close{display:none}.mz-header-menu[open] summary .mz-menu-close{display:block}.mz-header-menu[open] summary .mz-menu-open{display:none}.mz-header-menu nav{position:absolute;inset-inline:0;top:100%;z-index:20;display:flex;flex-direction:column;gap:2px;padding:8px 14px 14px;background:var(--background,#FAF6F0);color:var(--foreground,#262321);border-top:1px solid color-mix(in srgb,currentColor 12%,transparent)}.mz-site-header-dark .mz-header-menu nav{background:var(--dark,#20303C);color:var(--dark-foreground,#F3EEE4)}.mz-header-menu nav a{padding:10px 12px;border-radius:8px;text-decoration:none;color:inherit}.mz-header-menu nav a:hover{background:color-mix(in srgb,currentColor 8%,transparent)}.mz-header-menu nav .mz-header-cta{margin-top:8px;text-align:center}}"
 _BASE_CSS += ".mz-search-outline .mz-header-search{background:transparent;border:1px solid color-mix(in srgb,currentColor 35%,transparent);color:inherit}.mz-search-outline .mz-header-search input{color:inherit}.mz-search-outline .mz-header-search input::placeholder{color:color-mix(in srgb,currentColor 55%,transparent)}.mz-bar-plain .mz-header-bar{border-top:0}.mz-bar-plain .mz-header-bar nav a{border-radius:6px;min-height:32px}.mz-bar-plain .mz-header-bar nav a:first-child{background:none;font-weight:500;color:color-mix(in srgb,currentColor 82%,transparent)}.mz-bar-plain .mz-header-bar nav a:first-child:hover{color:inherit}.mz-density-compact .mz-header-main{padding:6px 32px;gap:10px}.mz-density-compact .mz-header-search{max-width:560px}.mz-density-compact .mz-header-search button{width:30px;height:30px}.mz-density-compact .mz-header-icon{width:34px;height:34px}.mz-density-compact .mz-header-bar{padding:4px 32px;min-height:40px}.mz-density-compact .mz-header-bar nav a{min-height:30px;font-size:14px}@media(max-width:768px){.mz-density-compact .mz-header-main{padding:4px 14px}}"
 _BASE_CSS += ".mz-row-start .mz-header-main{justify-content:flex-start}.mz-row-center .mz-header-main{justify-content:center}.mz-row-end .mz-header-main{justify-content:flex-end}.mz-row-start .mz-header-search,.mz-row-center .mz-header-search,.mz-row-end .mz-header-search{flex:none;min-width:0;width:min(640px,100%);margin-inline:0}.mz-gap-tight .mz-header-main{gap:8px}.mz-gap-wide .mz-header-main{gap:24px}"
+_BASE_CSS += ".mz-reorder .mz-site-logo,.mz-reorder .mz-site-brand{order:var(--ord-brand,1)}.mz-reorder .mz-header-search{order:var(--ord-search,2)}.mz-reorder .mz-header-icons{order:var(--ord-icons,3)}.mz-reorder .mz-header-main>nav,.mz-reorder .mz-header-main>.mz-site-actions{order:2}.mz-reorder .mz-header-menu{order:9}@media(max-width:768px){.mz-reorder .mz-header-search{order:9;flex-basis:100%}}"
 _BASE_CSS += ".mz-site-logo{height:32px;width:auto}.mz-site-footer a{color:inherit;text-decoration:none}.mz-footer-groups{display:flex;gap:32px;flex-wrap:wrap}.mz-footer-group{display:flex;flex-direction:column;gap:10px}.mz-footer-group-title{font-weight:650}"
 for _token, _size in _SPACER_PX.items():
     _BASE_CSS += f".mz-padding-{_token}{{padding:{_size}px}}.mz-gap-{_token}{{gap:{_size}px}}.mz-height-{_token} .mz-spacer{{height:{_size}px}}"
@@ -488,9 +489,20 @@ def _theme_chrome(theme: dict | None, link_base: str | None = None) -> tuple[str
     head_html = ""
     if isinstance(header, dict):
         brand = header.get("brand")
-        brand_html = f'<span class="mz-site-brand">{_esc(str(brand)[:80])}</span>' if brand else ""
+        order_list = header.get("element_order")
+        order_map = {}
+        if isinstance(order_list, list) and order_list:
+            for i, token in enumerate(order_list):
+                order_map[token] = i + 1
+            for token in ("brand", "search", "icons"):
+                if token not in order_map:
+                    order_map[token] = len(order_map) + 1
+        brand_style = f' style="--ord-brand:{order_map["brand"]}"' if order_map else ""
+        search_style_attr = f' style="--ord-search:{order_map["search"]}"' if order_map else ""
+        icons_style = f' style="--ord-icons:{order_map["icons"]}"' if order_map else ""
+        brand_html = f'<span class="mz-site-brand"{brand_style}>{_esc(str(brand)[:80])}</span>' if brand else ""
         logo = _safe_src(header.get("logo"))
-        logo_html = f'<img class="mz-site-logo" src="{_esc(logo)}" alt="">' if logo else ""
+        logo_html = f'<img class="mz-site-logo"{brand_style} src="{_esc(logo)}" alt="">' if logo else ""
         links = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(header.get("links"), link_base=link_base))
         actions = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(header.get("actions"), 4, link_base=link_base))
         nav = f"<nav>{links}</nav>" if links else ""
@@ -500,7 +512,7 @@ def _theme_chrome(theme: dict | None, link_base: str | None = None) -> tuple[str
             target = header.get("search_target")
             if isinstance(target, str) and target.startswith("/") and page_url(target, "href"):
                 placeholder = str(header.get("search_placeholder") or "")[:80]
-                search_html = (f'<form class="mz-header-search" role="search" action="{_esc(_site_link(target, link_base))}" method="get">'
+                search_html = (f'<form class="mz-header-search"{search_style_attr} role="search" action="{_esc(_site_link(target, link_base))}" method="get">'
                                f'<input type="search" name="q" placeholder="{_esc(placeholder)}" aria-label="{_esc(placeholder)}">'
                                f'<button type="submit" aria-label="{_esc(placeholder or "Search")}">{_header_icon("search")}</button></form>')
         icons_html = ""
@@ -517,7 +529,7 @@ def _theme_chrome(theme: dict | None, link_base: str | None = None) -> tuple[str
                     continue
                 parts.append(f'<a class="mz-header-icon" href="{_esc(_site_link(href, link_base))}" aria-label="{_esc(label.strip()[:40])}" title="{_esc(label.strip()[:40])}">{_header_icon(str(name))}</a>')
             if parts:
-                icons_html = f'<div class="mz-header-icons">{"".join(parts)}</div>'
+                icons_html = f'<div class="mz-header-icons"{icons_style}>{"".join(parts)}</div>'
         bar_html = ""
         bar_links = "".join(f'<a href="{_esc(h)}">{_esc(l)}</a>' for h, l in _theme_links(header.get("bar_links"), 12, link_base=link_base))
         cta_label = header.get("bar_cta_label")
@@ -548,6 +560,8 @@ def _theme_chrome(theme: dict | None, link_base: str | None = None) -> tuple[str
                 header_class += " mz-row-" + header["row_align"]
             if header.get("row_gap") in ("tight", "wide"):
                 header_class += " mz-gap-" + header["row_gap"]
+            if order_map:
+                header_class += " mz-reorder"
             if search_html or icons_html or bar_html:
                 header_class += " mz-header-rich"
                 head_html = f'<header class="{header_class}"><div class="mz-header-main">{logo_html}{brand_html}{search_html}{nav}{act}{icons_html}{menu_html}</div>{bar_html}</header>'

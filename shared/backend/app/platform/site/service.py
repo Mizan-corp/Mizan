@@ -362,6 +362,14 @@ def check_settings(value) -> dict:
                 if chosen not in allowed:
                     raise HTTPException(422, "شكل الترويسة غير صالح")
                 out["header"][field] = chosen
+        order = header.get("element_order")
+        if order is not None:
+            if (not isinstance(order, list) or len(order) > 3
+                    or any(t not in ("brand", "search", "icons") for t in order)
+                    or len(set(order)) != len(order)):
+                raise HTTPException(422, "ترتيب الترويسة غير صالح")
+            if order:
+                out["header"]["element_order"] = list(order)
         icons = header.get("icons")
         if icons is not None:
             if not isinstance(icons, list) or len(icons) > 6:
