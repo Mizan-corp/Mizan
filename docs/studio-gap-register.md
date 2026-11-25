@@ -43,7 +43,12 @@ the ERP module.
    appearance (layout, header/footer, menus, notification surfaces, any
    visual editing) is Studio-only. No website visual-editing panels in the
    ERP.
-7. **Standing constraints carried forward.** Discovering missing Studio
+7. **Cross-module website integration (17:41).** The Website module manages
+   the data going TO and FROM the website for ANY other module, not only
+   the catalog: e.g. Help Desk services can be hosted on the website, and
+   Website manages that bidirectional flow. Each module stays the source of
+   truth for its own data; Website owns its exposure and flow on the site.
+8. **Standing constraints carried forward.** Discovering missing Studio
    features while rebuilding Wirya IS the objective; every gap becomes a
    reusable UI-editable feature, never Wirya-specific code. Site authoring
    goes through the Studio UI only (original Wirya source assets; no
