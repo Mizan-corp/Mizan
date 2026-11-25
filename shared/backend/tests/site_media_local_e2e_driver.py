@@ -123,6 +123,44 @@ async def main():
         left = r.json()["items"]
         check("deleted item gone from library", all(i["id"] != item["id"] for i in left), left)
 
+        # 8. in-use guard sees a URL referenced ONLY inside a gallery node's
+        # Arabic-only content (not the image node tree, not English).
+        from app.platform.site.models import SiteSettings
+        r = await c.post("/api/site/media", files={"file": ("gal.png", PNG, "image/png")})
+        gal = r.json()
+        async with Session() as db:
+            p = await db.get(SitePage, page_id)
+            p.draft_tree = {"id": "n_root", "type": "section",
+                            "settings": {"desktop": {"visible": True, "padding": "m", "gap": "m", "background": "background", "max_width": "normal"}},
+                            "content": {"en": {}},
+                            "children": [{"id": "n_gal", "type": "gallery",
+                                          "settings": {"desktop": {"visible": True}},
+                                          "content": {"ar": {"items": [{"src": gal["url"], "alt": "gallery-ar"}]}}}]}
+            await db.commit()  # ASCII alt: the scratch cluster is SQL_ASCII; the ar KEY is the point
+        r = await c.delete(f"/api/site/media/{gal['id']}")
+        check("gallery ar-only reference -> 409", r.status_code == 409, r.status_code)
+
+        # 9. gallery reference removed, but the SAME file is now the site logo in
+        # site settings (theme/chrome record) -> still protected.
+        async with Session() as db:
+            p = await db.get(SitePage, page_id)
+            p.draft_tree = {"id": "n_root", "type": "section",
+                            "settings": {"desktop": {"visible": True, "padding": "m", "gap": "m", "background": "background", "max_width": "normal"}},
+                            "content": {"en": {}}, "children": []}
+            db.add(SiteSettings(id=uuid.uuid4(), tenant_id=tid,
+                                value={"logo": gal["url"], "theme": {"background": gal["url"]}}))
+            await db.commit()
+        r = await c.delete(f"/api/site/media/{gal['id']}")
+        check("settings logo/theme reference -> 409", r.status_code == 409, r.status_code)
+
+        # 10. settings reference removed -> the delete finally goes through.
+        async with Session() as db:
+            from sqlalchemy import delete as sqldelete
+            await db.execute(sqldelete(SiteSettings).where(SiteSettings.tenant_id == tid))
+            await db.commit()
+        r = await c.delete(f"/api/site/media/{gal['id']}")
+        check("unreferenced gallery/logo file -> 204", r.status_code == 204, r.status_code)
+
     await engine.dispose()
     failed = [n for n, ok in results if not ok]
     print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")

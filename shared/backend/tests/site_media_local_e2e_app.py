@@ -57,7 +57,8 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 async def create_tables():
     from app.db.base import Base
     tables = [Base.metadata.tables[t] for t in
-              ("owner_accounts", "tenants", "workspace_files", "site_pages", "site_page_revisions")]
+              ("owner_accounts", "tenants", "workspace_files", "site_pages", "site_page_revisions",
+              "site_settings")]
     async with engine.begin() as conn:
         await conn.run_sync(lambda c: Base.metadata.create_all(c, tables=tables, checkfirst=True))
     from sqlalchemy.ext.asyncio import async_sessionmaker
