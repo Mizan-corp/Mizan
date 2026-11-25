@@ -381,12 +381,17 @@ launcher entry renamed storefront -> الموقع/Website (id "site", the
 platform module that owns the site API), fixing the previously dead
 /storefront link. vitest: WebsitePage 6/6; full frontend suite unchanged
 (303 passed, 1 skipped, 1 pre-existing treerender fail).
-PENDING: orders surface (which orders belong here vs the legacy commerce
-storefront module is unresolved — the old StorefrontAdminPage/backend stay
-untouched); cross-module (Help Desk) provider/consent surfaces; live ERP
-E2E of the new tab (the sandbox runs no system-app server; the endpoints
-are the already live-proven /site/pages and module-settings routes);
-legacy /studio/ route disposition (item 19).
+PENDING: orders surface ownership disambiguation (which orders belong
+here vs the legacy commerce storefront module is unresolved — the old
+StorefrontAdminPage/backend stay untouched; the Website tab's orders
+surface shipped with real status transitions on fixture data);
+cross-module richer surfaces beyond Help Desk names-only (each needs its
+own new consent wording).
+DONE SINCE: cross-module Help Desk provider/consent surface (8465858,
+names-only v0 schema, live visitor + revocation + archived-while-selected
+proofs); live ERP E2E of the new tab on the same-origin harness (login ->
+/website -> Studio launcher -> pages, orders, published products,
+helpdesk card); legacy /studio/ route disposition (item 19).
 
 **Phase 5 — remaining Studio surface gaps.**
 Per-device alignment/reorder/gap; arbitrary header sizing/colors; module
