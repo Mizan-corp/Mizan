@@ -263,7 +263,7 @@ async def reopen(db: AsyncSession, page_id: uuid.UUID) -> SitePage:
 
 
 HEX = re.compile(r"#[0-9a-fA-F]{6}")
-COLOR_TOKENS = {"background", "foreground", "card", "primary", "primary-foreground", "dark", "dark-foreground"}
+COLOR_TOKENS = {"background", "foreground", "card", "primary", "primary-foreground", "dark", "dark-foreground", "dark-raised"}
 FONT_FAMILIES = ("sans-serif", "serif", "monospace")
 MAX_SETTINGS_BYTES = 20_000
 

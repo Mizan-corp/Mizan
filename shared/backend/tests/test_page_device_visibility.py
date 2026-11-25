@@ -139,3 +139,12 @@ def test_heading_inline_icon_renders_registry_svg():
     tree["children"][0]["children"][0]["children"][0]["settings"]["desktop"]["icon"] = "NotAnIcon"
     html = render_page(tree, lang="ar", validate=False)
     assert "mz-heading-icon" not in html
+
+
+def test_dark_raised_theme_token_overrides_derived_surface():
+    from app.platform.site.render import _theme_style
+    style = _theme_style({"colors": {"light": {"dark-raised": "#003459"}}})
+    assert "--dark-raised:#003459" in style
+    assert "var(--dark-raised," in _BASE_CSS
+    # Unknown tokens are still dropped.
+    assert "bogus" not in _theme_style({"colors": {"light": {"bogus": "#FFFFFF"}}})
