@@ -96,3 +96,33 @@ it('surfaces the in-use conflict message on delete', async () => {
   fireEvent.click(r.getByRole('button', { name: 'Delete image hero-sunset.png' }));
   await r.findByText('This image is used in a page. Remove it from the page first.');
 });
+
+it('switches between grid and list views, list rows select and pick', async () => {
+  registerMediaClient(client());
+  let picked = '';
+  const r = render(h(MediaPickerField, { onSelect: (u: string) => { picked = u; } }));
+  fireEvent.click(r.getByRole('button', { name: 'Media library' }));
+  const dialog = await r.findByRole('dialog', { name: 'Media library' });
+  await waitFor(() => expect(dialog.textContent).toContain('2 images'));
+  // grid is the default presentation
+  expect(dialog.querySelector('.media-grid')).not.toBeNull();
+  expect(dialog.querySelector('.media-list')).toBeNull();
+  const listBtn = r.getByRole('button', { name: 'List view' });
+  const gridBtn = r.getByRole('button', { name: 'Grid view' });
+  expect(gridBtn.getAttribute('aria-pressed')).toBe('true');
+  expect(listBtn.getAttribute('aria-pressed')).toBe('false');
+  fireEvent.click(listBtn);
+  expect(dialog.querySelector('.media-list')).not.toBeNull();
+  expect(dialog.querySelector('.media-grid')).toBeNull();
+  expect(listBtn.getAttribute('aria-pressed')).toBe('true');
+  // rows carry the original filename, size, selection and delete controls
+  const row = r.getByRole('button', { name: 'hero-sunset.png' });
+  expect(row.textContent).toContain('2 KB');
+  fireEvent.click(row);
+  expect(row.getAttribute('aria-pressed')).toBe('true');
+  expect(dialog.querySelector('.media-row-item.selected')).not.toBeNull();
+  expect(r.getByRole('button', { name: 'Delete image hero-sunset.png' })).toBeTruthy();
+  fireEvent.click(r.getByRole('button', { name: 'Use image' }));
+  expect(picked).toBe('/uploads/t/w/site_image/file-aaa111.png');
+  await waitFor(() => expect(r.queryByRole('dialog')).toBeNull());
+});

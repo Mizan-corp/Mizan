@@ -14,6 +14,9 @@ export function uiDir(l:UILang):'rtl'|'ltr'{return l==='ar'?'rtl':'ltr';}
 
 const en:Record<string,string>={
   "مكتبة الصور":"Media library",
+  "طريقة العرض":"View",
+  "عرض شبكي":"Grid view",
+  "عرض قائمة":"List view",
   "قفل المكتبة":"Close library",
   "ارفع صورة":"Upload image",
   "احذف الصورة":"Delete image",

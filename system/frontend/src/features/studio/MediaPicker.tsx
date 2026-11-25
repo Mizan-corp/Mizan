@@ -29,6 +29,7 @@ export default function MediaPickerField({ onSelect }: { onSelect: (url: string)
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  const [view, setView] = useState<'grid' | 'list'>('grid');
   const openBtn = useRef<HTMLButtonElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -120,7 +121,17 @@ export default function MediaPickerField({ onSelect }: { onSelect: (url: string)
           <strong>{t('مكتبة الصور')}</strong>
           {items !== null && <span className="media-count">{items.length} {t('صور')} · {formatSize(totalBytes)}</span>}
         </div>
-        <button ref={closeRef} aria-label={t('قفل المكتبة')} onClick={close}>×</button>
+        <div className="media-head-side">
+          {items !== null && items.length > 0 && <div className="media-view-toggle" role="group" aria-label={t('طريقة العرض')}>
+            <button type="button" aria-pressed={view === 'grid'} aria-label={t('عرض شبكي')} onClick={() => setView('grid')}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+            </button>
+            <button type="button" aria-pressed={view === 'list'} aria-label={t('عرض قائمة')} onClick={() => setView('list')}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/></svg>
+            </button>
+          </div>}
+          <button ref={closeRef} aria-label={t('قفل المكتبة')} onClick={close}>×</button>
+        </div>
       </header>
       <div className={uploading ? 'media-drop busy' : 'media-drop'}
         onDragOver={e => e.preventDefault()}
@@ -143,7 +154,7 @@ export default function MediaPickerField({ onSelect }: { onSelect: (url: string)
         {items !== null && items.length === 0 && <div className="media-empty">
           <p>{t('مفيش صور لسه. ارفع أول صورة.')}</p>
         </div>}
-        <div className="media-grid">
+        {view === 'grid' && <div className="media-grid">
           {(items ?? []).map(item => {
             const active = selected === item.url;
             return <figure key={item.id} className={active ? 'selected' : ''}>
@@ -160,7 +171,23 @@ export default function MediaPickerField({ onSelect }: { onSelect: (url: string)
                 aria-label={`${t('احذف الصورة')} ${displayName(item)}`} onClick={() => void remove(item)}>×</button>
             </figure>;
           })}
-        </div>
+        </div>}
+        {view === 'list' && <div className="media-list">
+          {(items ?? []).map(item => {
+            const active = selected === item.url;
+            return <div key={item.id} className={active ? 'media-row-item selected' : 'media-row-item'}>
+              <button type="button" className="media-row" aria-pressed={active} aria-label={displayName(item)}
+                onClick={() => setSelected(active ? null : item.url)}
+                onDoubleClick={() => pick(item.url)}>
+                <img src={item.url} alt="" loading="lazy" />
+                <span className="media-row-name" title={displayName(item)}>{displayName(item)}</span>
+                <small>{formatSize(item.size)}</small>
+              </button>
+              <button type="button" className="media-delete" disabled={busy || uploading}
+                aria-label={`${t('احذف الصورة')} ${displayName(item)}`} onClick={() => void remove(item)}>×</button>
+            </div>;
+          })}
+        </div>}
       </div>
       <footer className="media-foot">
         <span className="media-selected-name">{selected ? (items?.find(i => i.url === selected)?.name ?? fileName(selected)) : t('اختار صورة من المكتبة')}</span>
