@@ -11,16 +11,20 @@ from app.activities.general.modules.inventory.models.product import Product
 
 SETTING_KEY = 'inventory_website_cards_v0'
 SCHEMA = 'mizan.inventory-website-cards.experimental.v0'
+# v1: identical shape, written only after the owner re-consents under wording
+# that covers product LISTS/repeats as well as cards (consent-scope change
+# pending review - nothing writes v1 yet, so reads below always see v0).
+SCHEMA_V1 = 'mizan.inventory-website-cards.experimental.v1'
 
 
-def card_policy(raw):
+def card_policy(raw, *, schema=SCHEMA):
     if raw is None:
         return {'products': (), 'show_price': False, 'show_image': False, 'currency': None}
     try:
         value = json.loads(raw)
     except (TypeError, ValueError):
         raise SourceUnavailable('Invalid website card policy.') from None
-    if not isinstance(value, dict) or set(value) != {'schema', 'products', 'show_price', 'show_image', 'currency'} or value['schema'] != SCHEMA:
+    if not isinstance(value, dict) or set(value) != {'schema', 'products', 'show_price', 'show_image', 'currency'} or value['schema'] != schema:
         raise SourceUnavailable('Exact website card policy required.')
     if type(value['show_price']) is not bool or type(value['show_image']) is not bool:
         raise SourceUnavailable('Explicit field choices required.')
@@ -41,6 +45,26 @@ def card_policy(raw):
     elif currency is not None:
         raise SourceUnavailable('No implicit unused currency.')
     return {'products': parsed, 'show_price': value['show_price'], 'show_image': value['show_image'], 'currency': currency}
+
+
+async def display_consent(db, context):
+    """Field-level consent for product LISTS/repeats: requires the v1 policy.
+
+    A v0 (cards-worded) policy is NOT read as list consent: owners saved it
+    under text that named cards only. Until the consent-scope wording change
+    ships, no v1 exists and every collection read returns no consent.
+    """
+    raw = await db.scalar(select(StoreSetting.value).where(
+        StoreSetting.tenant_id == context.tenant_id, StoreSetting.key == SETTING_KEY))
+    if raw is None:
+        return None
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError):
+        raise SourceUnavailable('Invalid website card policy.') from None
+    if not isinstance(value, dict) or value.get('schema') != SCHEMA_V1:
+        return None
+    return card_policy(raw, schema=SCHEMA_V1)
 
 
 async def read_cards(db, context, limit, products=None):

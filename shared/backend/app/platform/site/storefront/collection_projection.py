@@ -24,6 +24,10 @@ def checked_template(tree: dict, plan: dict, runtime: CollectionRuntime, context
     if (plan['field'] not in c['fields'] or plan['on_missing'] not in ('hide','empty')
             or type(plan['limit']) is not int or not 1<=plan['limit']<=c['max_items']):
         raise SourceUnavailable('Incompatible bounded heading collection plan.')
+    if c['fields'][plan['field']].get('type')!='text':
+        # Heading expansion renders plain text only; typed money/media fields
+        # are read by card/multi-field paths, never interpolated as text.
+        raise SourceUnavailable('Heading collection field must be plain text.')
     try:
         if len(json.dumps(tree,allow_nan=False).encode())>200000:
             raise SourceUnavailable('Page exceeds collection runtime limit.')

@@ -16,6 +16,13 @@ KEY=re.compile(r'^[a-z][a-z0-9_]{0,47}$')
 ITEM_KEY=re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$')
 
 
+# Typed field kinds beyond plain text. Their bounds come from the reviewed
+# value validators (check_money/check_media), not from string lengths, so the
+# spec carries no max_length. Consent for any typed value is read at provider
+# read time; the declaration alone never supplies a value.
+TYPED_FIELD_SEMANTICS = {'money': 'display_money', 'media': 'display_media'}
+
+
 def collection_problems(value) -> list[str]:
     errors=[]
     if not isinstance(value,dict) or set(value)!={'schema','module','source','key','fields','max_items'}:
@@ -28,12 +35,18 @@ def collection_problems(value) -> list[str]:
     fields=value.get('fields')
     if not isinstance(fields,dict) or not 1<=len(fields)<=12:return errors+['collection:1to12explicit fields required']
     for name,spec in fields.items():
-        if not isinstance(name,str) or not KEY.fullmatch(name) or not isinstance(spec,dict) or set(spec)!={'type','semantic','nullable','max_length'}:
+        if not isinstance(name,str) or not KEY.fullmatch(name) or not isinstance(spec,dict):
             errors.append('field: exact bounded public scalar declaration required');continue
-        if spec.get('type')!='text' or spec.get('semantic')!='plain_text' or type(spec.get('nullable')) is not bool:
-            errors.append('field: first collection slice supports only plain text')
-        if type(spec.get('max_length')) is not int or not 1<=spec['max_length']<=200:
-            errors.append('field: length must be1to200')
+        if spec.get('type') in TYPED_FIELD_SEMANTICS:
+            if set(spec)!={'type','semantic','nullable'} or spec.get('semantic')!=TYPED_FIELD_SEMANTICS[spec['type']] or type(spec.get('nullable')) is not bool:
+                errors.append('field: typed fields use the exact bounded declaration');continue
+        else:
+            if set(spec)!={'type','semantic','nullable','max_length'}:
+                errors.append('field: exact bounded public scalar declaration required');continue
+            if spec.get('type')!='text' or spec.get('semantic')!='plain_text' or type(spec.get('nullable')) is not bool:
+                errors.append('field: first collection slice supports only plain text')
+            if type(spec.get('max_length')) is not int or not 1<=spec['max_length']<=200:
+                errors.append('field: length must be1to200')
     if value.get('key') in fields:errors.append('collection: identity key must not be a display field')
     return errors
 
@@ -100,6 +113,12 @@ class CollectionRuntime:
                 v=row[field]
                 if v is None:
                     if not spec['nullable']:raise ProjectionInvalid('Required item field missing.')
+                elif spec['type']=='money':
+                    from .storefront_values import check_money
+                    check_money(v)
+                elif spec['type']=='media':
+                    from .storefront_values import check_media
+                    check_media(v, context.tenant_id)
                 elif not isinstance(v,str) or len(v)>spec['max_length']:
                     raise ProjectionInvalid('Collection field has wrong type or exceeds bound.')
             result.append(ItemContext(module,source,key,MappingProxyType({k:deepcopy(row[k]) for k in c['fields']}),context.tenant_id,context.language,self._issuer))
