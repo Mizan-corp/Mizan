@@ -87,16 +87,23 @@ async def upload_media(file: UploadFile = File(...), db: AsyncSession = Depends(
                        user: User = Depends(require_perm("site.manage"))):
     content_type = (file.content_type or "").lower()
     if content_type not in ALLOWED_IMAGE_TYPES:
-        raise HTTPException(400, "نوع الملف غير مدعوم. الأنواع المسموحة: JPEG, PNG, GIF, WebP")
+        raise HTTPException(400, "Unsupported file type. Allowed types: JPEG, PNG, GIF, WebP.")
     data = await file.read()
     if not data:
-        raise HTTPException(400, "الملف فارغ")
+        raise HTTPException(400, "The file is empty.")
     if len(data) > MAX_UPLOAD_SIZE:
-        raise HTTPException(400, "حجم الملف يتجاوز 5 ميجابايت")
+        raise HTTPException(400, "The file is larger than 5 MB.")
     if not _signature_matches(data, content_type) or not _decodes_as(data, content_type):
-        raise HTTPException(400, "محتوى الملف لا يطابق نوعه المعلن. ارفع صورة سليمة.")
-    url = await files.store(db, data, kind=KIND, filename=file.filename,
-                            content_type=content_type, owner_id=None, replace=False)
+        raise HTTPException(400, "The file content does not match its declared type. Upload a valid image.")
+    try:
+        url = await files.store(db, data, kind=KIND, filename=file.filename,
+                                content_type=content_type, owner_id=None, replace=False)
+    except HTTPException as exc:
+        if exc.status_code == 503:
+            # The shared files service raises an Arabic 503 for ERP callers; the
+            # studio surface reports the same honest state in English.
+            raise HTTPException(503, "File storage is not configured on this server. Contact support.") from exc
+        raise
     await db.commit()
     row = (await db.execute(select(WorkspaceFile).where(WorkspaceFile.url == url))).scalar_one()
     return _row(row)
@@ -111,9 +118,9 @@ async def delete_media(file_id: uuid.UUID, db: AsyncSession = Depends(get_db),
                                     WorkspaceFile.tenant_id == tid))
     ).scalar_one_or_none()
     if not row:
-        raise HTTPException(404, "الملف غير موجود")
+        raise HTTPException(404, "File not found.")
     if await _in_use(db, tid, row.url):
-        raise HTTPException(409, "الصورة مستخدمة في صفحة. احذفها من الصفحة أولاً.")
+        raise HTTPException(409, "This image is still used by a page or the site design. Remove that use first.")
     await files.remove(db, url=row.url)
     await db.commit()
 
