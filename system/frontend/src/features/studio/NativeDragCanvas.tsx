@@ -10,7 +10,7 @@ import { beginTapGesture, trackTapMove, isTapRelease, type TapGesture } from './
 type Pick={kind:'new';type:string}|{kind:'node';id:string;type:string}|{kind:'preset';type:'columns';preset:import('./nativePresets').PresetKind}|{kind:'template';type:'columns';template:import('./nativePresets').TemplateKind};
 type Drop={parentId:string;index:number;x:number;y:number;width:number;height:number;label:string;box:{x:number;y:number;width:number;height:number}};
 type Feedback={x:number;y:number;label:string;sample:string;valid:boolean;destination:string};
-export default function NativeDragCanvas({tree,projectionMap,selected,onSelect,onChange,onSetting,device,children,lang}:{projectionMap?:Record<string,string>;tree:PageNode;selected:string;onSelect:(id:string)=>void;onChange:(edit:StructureEdit)=>void;onSetting:(id:string,field:string,value:string|number|boolean|number[]|null)=>void;device:NativeDevice;children:ReactNode;lang?:'en'|'ar'}){
+export default function NativeDragCanvas({tree,projectionMap,selected,onSelect,onChange,onSetting,device,children,lang,zoom=1}:{projectionMap?:Record<string,string>;tree:PageNode;selected:string;onSelect:(id:string)=>void;onChange:(edit:StructureEdit)=>void;onSetting:(id:string,field:string,value:string|number|boolean|number[]|null)=>void;device:NativeDevice;children:ReactNode;lang?:'en'|'ar';zoom?:number}){
  const uiLang=useUILang();
  const canvas=useRef<HTMLDivElement>(null),[pick,setPick]=useState<Pick|null>(null),[drop,setDrop]=useState<Drop|null>(null),[feedback,setFeedback]=useState<Feedback|null>(null),[status,setStatus]=useState('Drag a block to the page. On touch, select an element and use Move. Keyboard users can choose Insert here.');
  const [hover,setHover]=useState('');
@@ -153,7 +153,7 @@ export default function NativeDragCanvas({tree,projectionMap,selected,onSelect,o
   const r=resizeRef.current;if(!r)return;
   e.preventDefault();
   if(r.kind==='height'){
-   const v=Math.round(Math.min(1200,Math.max(40,r.startH+(e.clientY-r.startY))));
+   const v=Math.round(Math.min(1200,Math.max(40,(r.startH+(e.clientY-r.startY))/zoom)));
    r.value=v;r.inner.style.minHeight=v+'px';
    setStatus(`Height ${v}px. Release to keep, double-click the handle for content-based height.`);
   }else if(r.kind==='divider'){
