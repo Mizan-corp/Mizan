@@ -51,6 +51,16 @@ class Tests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await c.read_cards(self.db, self.ctx, 6, products=[str(P1)]), [])
         self.db.execute.assert_not_awaited()
 
+    async def test_newer_consent_versions_still_render_cards(self):
+        # The v2-stamping writer is what the current settings UI saves; the
+        # render path must accept every consent version whose wording covered
+        # cards (v0, v1, v2), not only the original v0 shape.
+        for schema in (c.SCHEMA, c.SCHEMA_V1, c.SCHEMA_V2):
+            self.db.scalar.return_value = json.dumps({'schema': schema, 'products': [str(P1)], 'show_price': False, 'show_image': False, 'currency': None})
+            r = MagicMock(); r.all.return_value = [(P1, 'Versioned name')]; self.db.execute.return_value = r
+            rows = await c.read_cards(self.db, self.ctx, 6)
+            self.assertEqual(rows, [{'item_key': str(P1), 'name': 'Versioned name', 'price': None, 'image': None}], schema)
+
     async def test_protective_errors_still_fail_closed(self):
         self.db.scalar.return_value = policy([P1])
         for bad in (['bad-uuid'], [str(P1), str(P1)], 'not-a-list', [str(P1)] * 7, [42]):

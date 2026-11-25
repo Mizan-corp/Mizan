@@ -111,7 +111,11 @@ async def read_cards(db, context, limit, products=None):
     if current_tenant_id.get() != context.tenant_id or 'inventory' not in context.active_modules or type(limit) is not int or not 1 <= limit <= 6:
         raise SourceUnavailable('Website card source unavailable.')
     raw = await db.scalar(select(StoreSetting.value).where(StoreSetting.tenant_id == context.tenant_id, StoreSetting.key == SETTING_KEY))
-    policy = card_policy(raw)
+    # Cards were covered by every consent wording (v0 cards, v1 +lists, v2
+    # +bound elements), so the render path accepts any recorded version via the
+    # same multi-version read the settings UI uses. Parsing with the v0 default
+    # here refused every row saved by the current (v2-stamping) writer.
+    policy = stored_policy(raw)
     selected=policy['products']
     if products is not None:
         try:
