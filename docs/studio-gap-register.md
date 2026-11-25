@@ -104,13 +104,16 @@ no static category pages with copied data, no duplicated catalog.
    pages should follow the same template model once (4) lands.
 
 ### Locale
-Locale switch is DONE (8094ec2): `?lang=` on public pages (validated
-against the page's languages), hreflang alternates, header switch link
-only when a real second language exists, hidden lang input keeps language
-across searches. Editor-side per-language authoring already existed
-(content اللغة select + per-language titles). Open: live two-language
-verification page must be authored through the Studio UI (none exists
-yet); the editor chrome preview does not render the new switcher; the
+Locale switch is DONE and PROVEN LIVE end-to-end (8094ec2, proof
+2026-11-25): bilingual page `bilingual-proof-e2e` authored entirely
+through the Studio UI (New page form, Arabic heading typed in the
+inspector, Arabic title via the per-language title editor, saved,
+published, made public). Visitor: default render ar/rtl with Arabic title
++ heading and an "English" switch link; `?lang=en` renders ltr English
+title + heading with an "العربية" switch link to the bare canonical;
+hreflang alternates [ar, en] on both. `?lang=` validated against the
+page's languages; hidden lang input keeps language across searches.
+Open: the editor chrome preview does not render the new switcher; the
 search E2E still uses requestSubmit rather than a native Enter/click.
 
 ### Assets
@@ -144,6 +147,54 @@ search E2E still uses requestSubmit rather than a native Enter/click.
 12. **Combined pytest runs** of the whole backend test directory show
     cross-file isolation failures (9) unrelated to individual files; run
     affected files individually for signal.
+
+## Execution order for the remaining scope (2026-11-25)
+
+Dependency-ordered. Each phase lists what is verified vs pending; nothing
+moves to Done without the evidence named in this file.
+
+**Phase 1 — verification hardening (no user-visible scope).**
+Native Enter/click search-submit E2E to replace requestSubmit; commit the
+preview-bundle build config used for live editor verification.
+
+**Phase 2 — consent/publication foundation (blocks the catalog work).**
+Extend the explicit UI publication consent accurately (v4-style, same
+reversible pattern as v1/v2) to cover product->category linkage and
+URL-selected current-record retrieval, scoped to published records only.
+Grounded in the user's 17:30/17:32 requests; consent wording, gate tests,
+revocation tests, and a consent-scope doc are part of the slice.
+
+**Phase 3 — dynamic product template + category destinations.**
+"Current item" binding mode resolved from the route (product id from the
+URL; route shape follows existing conventions and is documented here);
+one Studio-authored product template applies to all products; category
+link destinations resolve to category-filtered collection pages following
+the same template model. Depends on Phase 2.
+
+**Phase 4 — Website module (ERP side, user decisions 3-7).**
+Rename frontstore -> Website; its tab manages orders, published products,
+website attributes, and pages (non-UI records/behavior config only);
+page edit opens standalone Studio in a NEW full browser tab with safe
+auth/context handoff; cross-module bidirectional site data flow (e.g.
+Help Desk) follows the same provider/consent pattern, each module keeping
+its own data and logic. Rename/navigation can start in parallel with
+Phase 2-3; the Studio launch handoff lands after Phase 3 contracts are
+stable.
+
+**Phase 5 — remaining Studio surface gaps.**
+Per-device alignment/reorder/gap; arbitrary header sizing/colors; module
+capability surfaces (cookies consent, notifications UI blocks, mobile
+bottom panel — appearance in Studio, behavior config in the owning ERP
+module); original source-asset workflow through the UI media library.
+
+**Phase 6 — Wirya rebuild acceptance.**
+Rebuild the full allwirya.live through the Studio UI only, using the
+above capabilities; the remaining gap discoveries feed back into this
+register.
+
+Blocking user decisions: none. The coordinator's 17:37 proposal list
+(SEO, domains, cookie policy settings, notification rules) is NOT
+approved scope and waits for the user's explicit yes.
 
 ## Out of scope by user ruling
 - Salon adapter: stays an honestly labeled placeholder. No salon adapter.
