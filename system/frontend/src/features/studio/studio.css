@@ -489,9 +489,10 @@
  .media-delete{opacity:1}
  .media-foot{flex-wrap:wrap;padding-bottom:calc(12px + env(safe-area-inset-bottom))}
 }
-/* side-edge width drag handles */
-.native-side-handle{position:fixed;z-index:60;width:10px;height:34px;padding:0;border:1px solid rgba(255,255,255,.55);border-radius:6px;background:#00a8e8;box-shadow:0 1px 4px rgba(0,0,0,.4);cursor:ew-resize;touch-action:none;opacity:.9}
-.native-side-handle:hover{opacity:1}
+/* side-edge width drag zones: the selection border itself is the handle.
+   Invisible at rest; a thin accent line appears on hover exactly at the edge. */
+.native-side-zone{position:fixed;z-index:60;width:10px;padding:0;border:0;background:transparent;cursor:ew-resize;touch-action:none}
+.native-side-zone:hover,.native-side-zone:active{background:linear-gradient(#00a8e8,#00a8e8) center/2px 100% no-repeat}
 
 /* free sizing: custom width/min-height/tracks with mobile-segment vars, fit-content */
 .preview-frame .mz-node.mz-width-custom{width:var(--mz-width,100%);display:inline-block;vertical-align:top}
