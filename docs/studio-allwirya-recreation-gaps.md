@@ -49,8 +49,10 @@ Reference screenshots: cloud-browser-20261125-024139 (hero), -024124 (services),
 
 G1. No search element. allwirya's header search is central; the builder has no
     search/store-search block. (Header editing also cannot inject one.)
-G2. No header logo image (brand is text-only), no cart/account icons, no sticky
-    header control.
+G2. PARTIALLY RESOLVED 2026-11-25: header logo image by URL shipped (theme.header.logo,
+    safe /path or https URL, rendered as an escaped img in both renderers, editable in
+    Style > Header as "Logo URL (optional)"). Remaining: no cart/account icons, no
+    sticky header control, no upload-based logo (G3).
 G3. Image upload/storage not connected on the test host (no BLOB_READ_WRITE_TOKEN;
     provisioning not approved). Blocks hero photo, category cards, product photos.
     Image elements accept URLs; art placeholders exist (sculpture/sculpture_alt).
@@ -76,7 +78,10 @@ G8. Color: no per-element color overrides. Partially addressed 2026-11-25 (N1
     reachable; accent-on-dark still routes through the single primary role.
 G9. Store grids: product cards exist (consent-gated) but there is no "category card
     grid" or "service price list" preset; closest are pricing_cards/features presets.
-G10. Footer is lines + flat links only; no multi-column footer, no social icons.
+G10. PARTIALLY RESOLVED 2026-11-25: multi-column footer shipped (theme.footer.groups:
+    up to 4 titled link groups, 6 links each, rendered as mz-footer-groups columns in
+    both renderers, editable in Style > Footer as "Footer link groups"). Remaining:
+    no social icons.
 
 ## Judgment
 
@@ -112,6 +117,18 @@ N6. SHIPPED 2026-11-25 (feat/studio-render-parity): image src and button href fa
 N7. SHIPPED 2026-11-25 (feat/studio-render-parity): content editing language
     persists across ALL in-app page switches; page titles gate only the first-load
     default (an English-only title no longer resets an Arabic editing session).
+N8. SHIPPED 2026-11-25 (feat/studio-render-parity, commit b8c869f): header logo via
+    URL + footer link groups in shared site chrome. Backend check_settings validates
+    and preserves both losslessly (logo: trimmed, <=300 chars, /path or https://,
+    page_url-checked; groups: <=4 titled groups, <=6 links each, same link rules as
+    flat links); render.py emits escaped img and mz-footer-groups columns; frontend
+    mirrors in treerender ThemeHeader/ThemeFooter, chromeProblems, the classic
+    Project chrome round-trip (model/pagetree/sitePages) and the Style panel editor
+    (Logo URL field, add/remove group, per-link label+URL rows). Live-verified on
+    the test deployment through the no-code flow: logo /studio-assets/tech-laptop.svg
+    and one Arabic footer group (الشركة > من نحن) saved via Style panel and confirmed
+    in GET /api/site/settings plus canvas pixels. Draft page titles are now bilingual
+    on all four recreation drafts (Home الرئيسية, Contact تواصل معنا).
 Draft data fixes 2026-11-25: selected-product card recomposed through editor
 controls only (1-col row -> 2 columns via Insert, heading+price moved with the
 Move drag handle, image width full) - balanced text-left/image-right on desktop,
