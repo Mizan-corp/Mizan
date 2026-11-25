@@ -11,6 +11,11 @@ export default function MediaPickerField({ onSelect }: { onSelect: (url: string)
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
+
+  // The dialog opens under the button; on small viewports that can be below the fold,
+  // so bring it into view when it opens.
+  useEffect(() => { if (open) dialog.current?.scrollIntoView({ block: 'nearest' }); }, [open]);
 
   const refresh = async () => {
     const api = mediaClient();
@@ -45,7 +50,7 @@ export default function MediaPickerField({ onSelect }: { onSelect: (url: string)
   // opens under the button instead of escaping to the nearest positioned ancestor.
   return <div className="media-picker-field">
     <button type="button" className="media-library-open" onClick={() => setOpen(true)}>{t('مكتبة الصور')}</button>
-    {open && <div className="media-picker" role="dialog" aria-label={t('مكتبة الصور')}>
+    {open && <div ref={dialog} className="media-picker" role="dialog" aria-label={t('مكتبة الصور')}>
       <div className="simple-panel-head">
         <strong>{t('مكتبة الصور')}</strong>
         <button aria-label={t('قفل المكتبة')} onClick={() => setOpen(false)}>×</button>
