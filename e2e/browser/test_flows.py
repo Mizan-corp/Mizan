@@ -26,6 +26,8 @@ def test_signup_lands_in_the_owner_panel_and_opens_the_workspace(page: Page, cre
     page.get_by_placeholder(re.compile("مجمع الوادي التجاري")).fill(f"سوبرماركت {tag}")
     page.get_by_role("button", name=re.compile("فرع واحد")).click()
     page.get_by_role("button", name="التالي ←").click()
+    # The visual-identity step: recommendations preselect a palette, continue with it.
+    page.get_by_role("button", name="التالي ←").click()
     page.get_by_role("button", name=re.compile("أنشئ مساحة عملي الآن")).click()
 
     # The owner panel, signed in, with the welcome tour.
