@@ -572,7 +572,7 @@ async def set_connected_data_access(db: AsyncSession, page_id: uuid.UUID, *, ena
         ctx = SourceContext(current_tenant_id.get(), "en", frozenset(await get_active_modules(db)))
         try:
             if has_card(page.published_tree):
-                await resolve_cards(db, page.published_tree, ctx)
+                await resolve_cards(db, page.published_tree, ctx, public=True)
             elif has_repeat(page.published_tree):
                 from .storefront.composition import resolve_composition
                 await resolve_composition(page.published_tree, scalar_registry(db), collection_registry(db), ctx)

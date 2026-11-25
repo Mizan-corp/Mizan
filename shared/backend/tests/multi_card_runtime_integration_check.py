@@ -25,10 +25,10 @@ ctx=SourceContext(A,'en',frozenset({'inventory'}))
 class Tests(unittest.IsolatedAsyncioTestCase):
  async def test_distinct_sections_and_empty_and_mapping_fixture(self):
   source=multi();before=copy.deepcopy(source)
-  async def read(db,context,limit,products):return [{'item_key':products[0],'name':'First section product' if products==[P] else 'Second section product','price':None,'image':None}]
+  async def read(db,context,limit,products,public=False):return [{'item_key':products[0],'name':'First section product' if products==[P] else 'Second section product','price':None,'image':None}]
   with patch.object(c,'scalar_registry',return_value=ProviderRegistry(())),patch.object(c,'read_cards',side_effect=read):out=await c.resolve_cards(None,source,ctx)
   self.assertEqual(source,before);self.assertEqual(out['children'][0]['children'][0]['children'][0]['content']['en']['text'],'First section product');self.assertEqual(out['children'][1]['children'][0]['children'][0]['content']['en']['text'],'Second section product')
-  async def empty_first(db,context,limit,products):return [] if products==[P] else await read(db,context,limit,products)
+  async def empty_first(db,context,limit,products,public=False):return [] if products==[P] else await read(db,context,limit,products)
   with patch.object(c,'scalar_registry',return_value=ProviderRegistry(())),patch.object(c,'read_cards',side_effect=empty_first):empty=await c.resolve_cards(None,source,ctx)
   self.assertEqual(len(empty['children']),1)
   self.assertEqual(len(out['children']),2)

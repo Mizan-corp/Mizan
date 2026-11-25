@@ -99,13 +99,14 @@ async def get_cards(db=Depends(get_db),_=Depends(require_perm('site.manage')),__
 
 @router.put('/cards')
 async def put_cards(data:CardPublicationIn,db=Depends(get_db),_=Depends(require_perm('site.manage')),__=Depends(require_perm('inventory'))):
-    # New saves stamp v2: wording covers individually bound elements as well
-    # as cards and repeating lists. Older rows keep their recorded scope. The
-    # save is accepted only when the client explicitly acknowledges the v2
+    # New saves stamp v3: the first wording that names public pages (via the
+    # per-page publish approval) as well as previews, cards, repeating lists
+    # and individually bound elements. Older rows keep their recorded scope.
+    # The save is accepted only when the client explicitly acknowledges the v3
     # wording; a cached older client is refused (409, reload) so its save can
     # never record consent the owner was never shown. The same implicit-upgrade
     # hole existed in the v0->v1 writer and is closed by this guard.
-    from .cards import card_policy,SETTING_KEY as key,SCHEMA_V2 as schema
+    from .cards import card_policy,SETTING_KEY as key,SCHEMA_V3 as schema
     tid=current_tenant_id.get()
     if tid is None:raise HTTPException(422,'Explicit workspace required.')
     if data.consent_version!=schema:raise HTTPException(409,'Website consent wording changed. Reload before saving.')

@@ -55,11 +55,24 @@ class Tests(unittest.IsolatedAsyncioTestCase):
         # The v2-stamping writer is what the current settings UI saves; the
         # render path must accept every consent version whose wording covered
         # cards (v0, v1, v2), not only the original v0 shape.
-        for schema in (c.SCHEMA, c.SCHEMA_V1, c.SCHEMA_V2):
+        for schema in (c.SCHEMA, c.SCHEMA_V1, c.SCHEMA_V2, c.SCHEMA_V3):
             self.db.scalar.return_value = json.dumps({'schema': schema, 'products': [str(P1)], 'show_price': False, 'show_image': False, 'currency': None})
             r = MagicMock(); r.all.return_value = [(P1, 'Versioned name')]; self.db.execute.return_value = r
             rows = await c.read_cards(self.db, self.ctx, 6)
             self.assertEqual(rows, [{'item_key': str(P1), 'name': 'Versioned name', 'price': None, 'image': None}], schema)
+
+    async def test_public_reads_require_the_v3_public_pages_wording(self):
+        # v0/v1/v2 were recorded under previews-only wording: valid for
+        # previews, never authority for public card reads. v3 names public
+        # pages explicitly and is the only version public reads accept.
+        for schema in (c.SCHEMA, c.SCHEMA_V1, c.SCHEMA_V2):
+            self.db.scalar.return_value = json.dumps({'schema': schema, 'products': [str(P1)], 'show_price': False, 'show_image': False, 'currency': None})
+            with self.assertRaises(SourceUnavailable, msg=schema):
+                await c.read_cards(self.db, self.ctx, 6, public=True)
+        self.db.scalar.return_value = json.dumps({'schema': c.SCHEMA_V3, 'products': [str(P1)], 'show_price': False, 'show_image': False, 'currency': None})
+        r = MagicMock(); r.all.return_value = [(P1, 'Public name')]; self.db.execute.return_value = r
+        rows = await c.read_cards(self.db, self.ctx, 6, public=True)
+        self.assertEqual(rows, [{'item_key': str(P1), 'name': 'Public name', 'price': None, 'image': None}])
 
     async def test_protective_errors_still_fail_closed(self):
         self.db.scalar.return_value = policy([P1])

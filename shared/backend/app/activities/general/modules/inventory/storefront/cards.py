@@ -19,6 +19,10 @@ SCHEMA_V1 = 'mizan.inventory-website-cards.experimental.v1'
 # in addition to cards and repeating lists (consent-scope change
 # docs/studio-consent-scope-v2.md). v1 rows never unlock scalar fields.
 SCHEMA_V2 = 'mizan.inventory-website-cards.experimental.v2'
+# v3 wording is the first that names PUBLIC pages (per-page publish approval),
+# not only signed-in previews. Older recorded versions keep their recorded
+# preview scope: valid for previews, never authority for public reads.
+SCHEMA_V3 = 'mizan.inventory-website-cards.experimental.v3'
 
 
 def card_policy(raw, *, schema=SCHEMA):
@@ -63,7 +67,7 @@ def stored_policy(raw):
     except (TypeError, ValueError):
         raise SourceUnavailable('Invalid website card policy.') from None
     schema = value.get('schema') if isinstance(value, dict) else None
-    if schema not in (SCHEMA, SCHEMA_V1, SCHEMA_V2):
+    if schema not in (SCHEMA, SCHEMA_V1, SCHEMA_V2, SCHEMA_V3):
         raise SourceUnavailable('Exact website card policy required.')
     return card_policy(raw, schema=schema)
 
@@ -82,7 +86,7 @@ async def display_consent(db, context):
         value = json.loads(raw)
     except (TypeError, ValueError):
         raise SourceUnavailable('Invalid website card policy.') from None
-    if not isinstance(value, dict) or value.get('schema') not in (SCHEMA_V1, SCHEMA_V2):
+    if not isinstance(value, dict) or value.get('schema') not in (SCHEMA_V1, SCHEMA_V2, SCHEMA_V3):
         return None
     return card_policy(raw, schema=value['schema'])
 
@@ -92,7 +96,8 @@ async def element_consent(db, context):
 
     v0 (cards-worded) and v1 (cards+lists-worded) policies are NOT read as
     scalar element consent: owners saved them under text that never named
-    individually bound elements. Only a v2 re-consent unlocks scalar reads.
+    individually bound elements. Only a v2+ re-consent unlocks scalar reads.
+    Public scope for those elements still follows the card/public rules.
     """
     raw = await db.scalar(select(StoreSetting.value).where(
         StoreSetting.tenant_id == context.tenant_id, StoreSetting.key == SETTING_KEY))
@@ -102,15 +107,26 @@ async def element_consent(db, context):
         value = json.loads(raw)
     except (TypeError, ValueError):
         raise SourceUnavailable('Invalid website card policy.') from None
-    if not isinstance(value, dict) or value.get('schema') != SCHEMA_V2:
+    if not isinstance(value, dict) or value.get('schema') not in (SCHEMA_V2, SCHEMA_V3):
         return None
-    return card_policy(raw, schema=SCHEMA_V2)
+    return card_policy(raw, schema=value['schema'])
 
 
-async def read_cards(db, context, limit, products=None):
+async def read_cards(db, context, limit, products=None, *, public=False):
     if current_tenant_id.get() != context.tenant_id or 'inventory' not in context.active_modules or type(limit) is not int or not 1 <= limit <= 6:
         raise SourceUnavailable('Website card source unavailable.')
     raw = await db.scalar(select(StoreSetting.value).where(StoreSetting.tenant_id == context.tenant_id, StoreSetting.key == SETTING_KEY))
+    if public:
+        # Public reads (visitor route and the publish-approval dry run, which
+        # simulates exactly that audience) require the v3 wording: v0/v1/v2
+        # were recorded under text that promised signed-in previews only, so
+        # they can never be the authority for exposing fields publicly.
+        try:
+            recorded = json.loads(raw).get('schema') if raw is not None else None
+        except (TypeError, ValueError):
+            raise SourceUnavailable('Invalid website card policy.') from None
+        if recorded != SCHEMA_V3:
+            raise SourceUnavailable('Public product display requires the current website display consent.')
     # Cards were covered by every consent wording (v0 cards, v1 +lists, v2
     # +bound elements), so the render path accepts any recorded version via the
     # same multi-version read the settings UI uses. Parsing with the v0 default

@@ -2,7 +2,7 @@
 explicit acknowledgement of the current disclosure wording.
 
 Covers what the read-side checks cannot: PUT /cards must write
-mizan.inventory-website-cards.experimental.v2 on both first save and re-save
+mizan.inventory-website-cards.experimental.v3 on both first save and re-save
 over an existing v0 row, and only when the payload acknowledges the v2
 wording. A stale cached client (missing, older or unknown acknowledgement) is
 refused before any write; consent is never recorded for wording the owner was
@@ -26,7 +26,7 @@ A = UUID('00000000-0000-4000-8000-000000000001')
 
 
 def data(**patch):
-    payload = {'expected_token': '', 'consent_version': cards.SCHEMA_V2,
+    payload = {'expected_token': '', 'consent_version': cards.SCHEMA_V3,
                'products': [], 'show_price': False, 'show_image': False, 'currency': None}
     payload.update(patch)
     return router.CardPublicationIn(**payload)
@@ -50,7 +50,7 @@ class WriterTests(unittest.IsolatedAsyncioTestCase):
         await self._put(None)
         added = self.db.add.call_args.args[0]
         stored = json.loads(added.value)
-        self.assertEqual(stored['schema'], cards.SCHEMA_V2)
+        self.assertEqual(stored['schema'], cards.SCHEMA_V3)
         self.assertEqual(stored['products'], [])
         self.assertEqual(stored['show_price'], False)
         self.db.commit.assert_awaited()
@@ -65,7 +65,7 @@ class WriterTests(unittest.IsolatedAsyncioTestCase):
         row = type('Row', (), {'value': v0})()
         with patch.object(router, 'card_read', new=AsyncMock(return_value=(row, v0))):
             await router.put_cards(data(expected_token=router.token(v0)), db=AsyncMock())
-        self.assertEqual(json.loads(row.value)['schema'], cards.SCHEMA_V2)
+        self.assertEqual(json.loads(row.value)['schema'], cards.SCHEMA_V3)
 
     async def test_stale_client_acknowledgement_refused_before_any_write(self):
         # A cached v1-worded client must not record v2 consent.

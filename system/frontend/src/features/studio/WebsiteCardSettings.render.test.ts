@@ -7,7 +7,7 @@ import {setUILang} from './uiStrings';
 
 // Regression: the localization commit 1a4206c corrupted the currency select
 // (fallback value became the literal 't(' and the EGP option became ')EGP'),
-// making EGP unselectable on the deployed test host. Also pins the v2 consent
+// making EGP unselectable on the deployed test host. Also pins the v3 consent
 // wording: cards, repeating lists AND individually bound elements,
 // authenticated previews only, no publication/checkout, and the save payload
 // shape including the explicit consent_version acknowledgement.
@@ -58,6 +58,6 @@ it('currency select offers real EGP with an empty fallback and saves the consent
  expect(confirmText).toContain('authenticated website previews');
  expect(confirmText).toContain('does not publish or enable checkout');
  expect(confirmText).toContain('مش نشر ومش بيفعّل الدفع');
- expect(puts[0].body).toEqual({expected_token:'tok1',consent_version:'mizan.inventory-website-cards.experimental.v2',products:['p1'],show_price:true,show_image:false,currency:'EGP'});
+ expect(puts[0].body).toEqual({expected_token:'tok1',consent_version:'mizan.inventory-website-cards.experimental.v3',products:['p1'],show_price:true,show_image:false,currency:'EGP'});
  expect(container.textContent).toContain('authenticated previews only');
 });

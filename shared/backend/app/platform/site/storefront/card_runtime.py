@@ -67,14 +67,14 @@ def card_plan(tree, registry, context):
     return static, declarations, scalars
 
 
-async def resolve_cards(db, tree, context):
+async def resolve_cards(db, tree, context, *, public=False):
     registry = scalar_registry(db)
     static, declarations, scalars = card_plan(tree, registry, context)
     plans=[(node_id,content.get(context.language)) for node_id,content in declarations]
     if any(plan is None for _,plan in plans):
         raise SourceUnavailable('Every card section language must be explicitly configured.')
     for node_id,plan in plans:
-        rows = await read_cards(db, context, plan['limit'], **({'products':plan['products']} if 'products' in plan else {}))
+        rows = await read_cards(db, context, plan['limit'], **({'products':plan['products']} if 'products' in plan else {}), public=public)
         static = project_cards(static, {'template_id':node_id,**plan}, rows, context)
 
     def restore(node):
