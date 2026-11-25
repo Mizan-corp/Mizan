@@ -280,7 +280,7 @@ async def test_transfers_need_two_warehouses_the_user_works_in_and_are_audited()
         assert r.status_code == 200, r.text
     assert await _balance(env, env["product"], env["a"]) == D("6")
     assert await _balance(env, env["product"], env["b"]) == D("4")
-    assert await _scalar(env, "SELECT count(*) FROM audit_log WHERE entity_type = 'stock' AND action = 'transfer'") == 1
+    assert await _scalar(env, "SELECT count(*) FROM audit_log WHERE entity_type = 'stock' AND action_type = 'transfer'") == 1
 
 
 async def test_a_warehouse_holding_stock_is_not_deactivated():

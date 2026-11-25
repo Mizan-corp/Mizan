@@ -14,8 +14,9 @@ Workspace isolation: another workspace's safe or receipt is a 404.
 """
 import os
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -220,7 +221,9 @@ async def test_ledger_totals_cover_the_whole_range_and_payments_are_not_multipli
                           SplitPaymentItem(method="wallet", amount=D("80"), wallet_id=env["wallet_id"])])
     await _sale(env)
     await _sale(env)
-    today = date.today().isoformat()
+    # Reports bucket sales by the workspace clock (Africa/Cairo, tenancy/clock.py),
+    # not the runner's: after 22:00 UTC Cairo is already on the next day.
+    today = datetime.now(ZoneInfo("Africa/Cairo")).date().isoformat()
     async with _client() as c:
         r = await c.get("/reports/ledger", params={"from_date": today, "to_date": today, "page_size": 1}, headers=h["admin"])
         assert r.status_code == 200, r.text

@@ -37,6 +37,7 @@ Turns on: `core`, `contacts`, `inventory`, `operations`, `sales`, `purchases`, `
 | `storefront` | Tenant Storefront & Omnichannel Ordering | *planned* | موقع إلكتروني ومتجر لكل منشأة مع مصمم صفحات وقوالب (ADR-015). النسخة السابقة متوقفة حتى إعادة البناء. |
 | `subscription_billing` | Subscription billing | *planned* |  |
 | `supplier_portal` | Supplier portal | *planned* |  |
+| `website` | Website | **active** | إدارة بيانات الموقع من أي نشاط: الطلبات الواردة من الموقع والمنتجات المنشورة وخصائص الموقع، مع تشغيل الاستوديو في تبويب مستقل (ADR-015).… |
 | `workflow` | Workflow engine | *planned* |  |
 
 ## Creative Agency (`agency`, services)

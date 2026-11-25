@@ -22,6 +22,7 @@ import os
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -206,7 +207,7 @@ async def test_client_flags_dont_sell_below_stock():
         # A workspace that doesn't prevent it lets everyone.
         await _setting(env, "inventory", prevent_negative_stock=False)
         assert (await c.post("/sales", json=_body(env, qty=2), headers=env["h"]["cashier"])).status_code == 200
-    rows = await _sql(env, "SELECT 1 FROM audit_log WHERE action = 'inventory_discrepancy' AND entity_id = :p", p=env["product"])
+    rows = await _sql(env, "SELECT 1 FROM audit_log WHERE action_type = 'inventory_discrepancy' AND entity_id = :p", p=env["product"])
     assert len(rows) == 2
 
 
@@ -307,7 +308,7 @@ async def test_audit_rows_are_written_with_the_document():
         q = (await c.post("/sales/quotations", json=_body(env), headers=env["h"]["cashier"])).json()
         assert (await c.put(f"/sales/{q['id']}", json={"notes": "تعديل"}, headers=env["h"]["cashier"])).status_code == 200
         assert (await c.delete(f"/sales/{q['id']}", headers=env["h"]["cashier"])).status_code == 204
-    rows = {(r.entity_id, r.action) for r in await _sql(env, "SELECT entity_id, action FROM audit_log WHERE tenant_id = :t",
+    rows = {(r.entity_id, r.action_type) for r in await _sql(env, "SELECT entity_id, action_type FROM audit_log WHERE tenant_id = :t",
                                                         t=env["tid"])}
     sid, oid, qid = uuid.UUID(sale["id"]), uuid.UUID(other["id"]), uuid.UUID(q["id"])
     assert {(sid, "create"), (sid, "partial_return"), (oid, "cancel"), (qid, "create"), (qid, "update"),
@@ -332,7 +333,9 @@ async def test_reads_need_a_permission_and_stay_in_the_users_branches():
         # Typed filters: bad input is a 422, not a 500; the last day is included.
         assert (await c.get("/sales", params={"from_date": "yesterday"}, headers=env["h"]["manager"])).status_code == 422
         assert (await c.get("/sales", params={"status": "bogus"}, headers=env["h"]["manager"])).status_code == 422
-        today = datetime.now().date().isoformat()
+        # Sales carry the workspace date (Africa/Cairo, tenancy/clock.py): after 22:00 UTC
+        # Cairo is already on the next day, so the runner's UTC date misses tonight's sales.
+        today = datetime.now(ZoneInfo("Africa/Cairo")).date().isoformat()
         r = await c.get("/sales", params={"from_date": today, "to_date": today}, headers=env["h"]["manager"])
         assert r.status_code == 200 and near["id"] in {s["id"] for s in r.json()}
         # Unknown ids are a 404 in Arabic, not an IntegrityError.

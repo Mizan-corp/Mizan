@@ -66,6 +66,8 @@ PUBLIC = {
     ("POST", "/modules/automation/cron/{job_name}"): "the scheduler: CRON_SECRET in a header, checked inside",
     ("GET", "/themes/assets/files/{theme_id}/{path:path}"): "a theme pack's fonts and images (no data)",
     ("GET", "/themes/assets/{tenant_id}/{theme_id}/{path:path}"): "an uploaded theme's fonts and images (no data)",
+    ("GET", "/themes/assets/fonts/{family_id}/{path:path}"): "a registry font family's file: family and path both validated against the font registry (no data)",
+    ("GET", "/uploads/{path:path}"): "workspace upload readback: ERP session + owning module's permission checked inside; anonymous only for the current sign-in branding, one generic 404 otherwise",
     ("GET", "/clinic/media/{token}"): "one clinic file by a signed, expiring link (the token is checked inside)",
 }
 
@@ -97,6 +99,7 @@ SIGNED_IN = {
     ("GET", "/settings/workspace-profile"): "the activity's terms, variants and custom fields",
     ("GET", "/stock/warehouses"): "the branch picker; stopped branches to settings only",
     ("GET", "/themes/current"): "the workspace's theme",
+    ("GET", "/themes/palettes"): "the static design palette registry (ids, swatches, licences; no workspace data) for the studio's recolor pickers",
     ("GET", "/users/managers"): "names for the approver picker",
     ("GET", "/users/staff"): "names for the handover and assignment pickers",
     ("GET", "/users/me/settings"): "one's own preferences",

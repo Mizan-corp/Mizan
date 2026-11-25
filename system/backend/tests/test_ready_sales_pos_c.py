@@ -182,8 +182,8 @@ async def test_drafts_and_quotations_are_edited_at_todays_prices_by_those_who_ma
 
         assert (await c.delete(f"/sales/{draft['id']}", headers=pos_only["h"])).status_code == 204
         assert (await c.delete(f"/sales/{quote['id']}", headers=quotes_only["h"])).status_code == 204
-    audit = await _sql(env, "SELECT action FROM audit_log WHERE entity_id = :s ORDER BY created_at", s=uuid.UUID(draft["id"]))
-    assert [a.action for a in audit][-2:] == ["update_draft", "delete"]
+    audit = await _sql(env, "SELECT action_type FROM audit_log WHERE entity_id = :s ORDER BY created_at", s=uuid.UUID(draft["id"]))
+    assert [a.action_type for a in audit][-2:] == ["update_draft", "delete"]
 
 
 # ── POS-6 ─────────────────────────────────────────────────────────────────────────────────────
@@ -227,10 +227,10 @@ async def test_cancelling_a_drawer_row_needs_an_approver_and_is_audited():
         assert (await c.delete(f"/shifts/transactions/{rows[1]}", headers=env["h"]["manager"])).status_code == 204
         summary = (await c.get(f"/shifts/{env['shift']}/summary", headers=env["h"]["cashier"])).json()
         assert D(str(summary["expenses_total"])) == D("0")
-    audit = await _sql(env, "SELECT user_id, changes FROM audit_log WHERE entity_id = :s AND action = 'cancel_drawer_tx' "
+    audit = await _sql(env, "SELECT user_id, details FROM audit_log WHERE entity_id = :s AND action_type = 'cancel_drawer_tx' "
                             "ORDER BY created_at", s=env["shift"])
     assert [a.user_id for a in audit] == [supervisor["id"], env["manager"]]
-    assert audit[0].changes["tx_id"] == rows[0]
+    assert json.loads(audit[0].details)["tx_id"] == rows[0]
 
 
 async def test_the_shifts_screen_lists_approvers_and_who_can_take_the_drawer():

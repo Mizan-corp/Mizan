@@ -27,6 +27,10 @@ GLOBAL_BY_DESIGN = {
     "user_permission_overrides",  # (user_id, permission_id)
     "sys_roles",                  # code WHERE tenant_id IS NULL: the platform's standard roles
     "org_positions",              # (activity, code) WHERE tenant_id IS NULL: standard positions
+    "site_page_revisions",        # (page_id, number): the page id already pins the workspace
+    "site_activation",            # (host, slug, page_path): a public URL routes to exactly one
+                                  # page across all workspaces; tenant_id in the index would let
+                                  # two workspaces claim the same URL (v112_site_activation)
 }
 
 

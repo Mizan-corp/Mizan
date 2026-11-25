@@ -175,7 +175,7 @@ async def test_p0_5_p0_6_patient_crud_and_referential_integrity():
         # 2. Check Audit Trail recorded patient creation
         async with AsyncSessionLocal() as session:
             audit_r = await session.execute(
-                text("SELECT action, entity_type, note FROM audit_log WHERE entity_type = 'clinic_patient' ORDER BY created_at DESC LIMIT 1")
+                text("SELECT action_type, entity_type, reason FROM audit_log WHERE entity_type = 'clinic_patient' ORDER BY created_at DESC LIMIT 1")
             )
             audit_row = audit_r.fetchone()
             assert audit_row is not None

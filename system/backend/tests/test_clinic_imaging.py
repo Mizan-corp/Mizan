@@ -114,8 +114,10 @@ async def test_upload_view_and_links(private_dir, monkeypatch):
         assert (await c.get(f"/clinic/media/{theirs}")).status_code == 403
         assert (await c.get(f"/clinic/images/{img['id']}/link", headers=h["doc_b"])).status_code == 403
 
-        # The public /uploads mount never sees it.
-        assert (await c.get("/uploads/" + key.removeprefix("private:"))).status_code == 404
+        # The hardened /uploads readback (framework/uploads_readback.py) never serves it:
+        # an anonymous request meets the session requirement first (401), and only the
+        # workspace's CURRENT sign-in branding is anonymous by design.
+        assert (await c.get("/uploads/" + key.removeprefix("private:"))).status_code == 401
 
         # Deleting removes the file and the record.
         assert (await c.delete(f"/clinic/images/{img['id']}", headers=h["doc_a"])).status_code == 204

@@ -39,16 +39,16 @@ def test_tree_validation_uses_the_sdk_shared_validator():
     bad = tree()
     bad["children"][0]["children"][0]["children"][0]["content"]["fr"] = {"text": "Bonjour"}
     with pytest.raises(HTTPException) as exc:  # a language the site doesn't have is rejected
-        pass
+        check_tree(bad)
     assert exc.value.status_code == 422
     bad = tree()
     bad["children"][0]["children"][0]["children"][0]["type"] = "script"
     with pytest.raises(HTTPException):  # an unknown block is rejected
-        pass
+        check_tree(bad)
     bad = tree()
     bad["children"][0]["children"][0]["children"][0]["content"]["ar"]["text"] = "x" * 201
     with pytest.raises(HTTPException):  # a heading holds at most 200 characters
-        pass
+        check_tree(bad)
     # Markup inside text/html fields is a render-time concern: the server renderer sanitises
     # with nh3 (app/platform/site/render.py), so storage accepts and the output is safe.
     with pytest.raises(HTTPException):  # the root is a section
@@ -169,8 +169,15 @@ async def test_workspaces_cannot_see_each_others_pages(fresh_engine):
             assert await service.list_pages(db) == []
             other = await service.create_page(db, slug="home", titles={"ar": "الرئيسية"})
             assert other.id != page.id
-            with pytest.raises(HTTPException):
-                await service.get_page(db, page.id)
+            # A real cross-workspace read is a NEW request: a fresh session (empty identity
+            # map, so db.get() can't answer without SQL), tenant two bound, RLS through
+            # mizan_app. The plain read AND the locked read (a raw select) must both miss.
+            async with AsyncSessionLocal() as db2:
+                await bind_tenant(db2, two)
+                with pytest.raises(HTTPException):
+                    await service.get_page(db2, page.id)
+                with pytest.raises(HTTPException):
+                    await service.get_page(db2, page.id, locked=True)
         finally:
             await db.rollback()
             await unbind_tenant(db)

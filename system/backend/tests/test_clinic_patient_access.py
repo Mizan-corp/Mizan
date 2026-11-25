@@ -316,7 +316,7 @@ async def test_care_team_management():
         assert removed.status_code == 204
         assert (await c.get("/clinic/encounters", params={"patient_id": p1}, headers=h["nurse"])).status_code == 403
 
-        audit = await _sql("SELECT action FROM audit_log WHERE tenant_id = :t AND entity_type = 'clinic_care_team'",
+        audit = await _sql("SELECT action_type FROM audit_log WHERE tenant_id = :t AND entity_type = 'clinic_care_team'",
                            t=env["tenant_id"])
         assert {("add_member",), ("remove_member",)} <= set(audit)
 

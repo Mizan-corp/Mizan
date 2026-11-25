@@ -189,7 +189,7 @@ async def test_stopped_products_are_listed_for_inventory_and_can_come_back():
         assert (await c.get("/products", params={"status": "all"}, headers=env["h"]["cashier"])).status_code == 403
         r = await c.put(f"/products/{env['other']}", json={"is_active": True}, headers=env["h"]["manager"])
         assert r.status_code == 200 and r.json()["is_active"] is True
-    assert await _scalar(env, "SELECT COUNT(*) FROM audit_log WHERE entity_type = 'product' AND action = 'deactivate' "
+    assert await _scalar(env, "SELECT COUNT(*) FROM audit_log WHERE entity_type = 'product' AND action_type = 'deactivate' "
                               "AND entity_id = :p", p=env["other"]) == 1
 
 
@@ -214,7 +214,7 @@ async def test_stopped_warehouses_are_listed_for_whoever_manages_them():
         r = await c.post("/stock/warehouses", json={"code": f"C-{env['tenant_id'].hex[:4]}", "name": "فرع ج"},
                          headers=env["h"]["manager"])
         assert r.status_code == 200 and r.json()["is_active"] is True
-    assert await _scalar(env, "SELECT COUNT(*) FROM audit_log WHERE entity_type = 'warehouse' AND action = 'create'") == 1
+    assert await _scalar(env, "SELECT COUNT(*) FROM audit_log WHERE entity_type = 'warehouse' AND action_type = 'create'") == 1
 
 
 # ── INV-10 ───────────────────────────────────────────────────────────────────────────────────
@@ -393,7 +393,7 @@ async def test_drafts_are_cancelled_deleted_and_edited_and_received_orders_are_n
         assert (await c.put(f"/purchases/{got}", headers=env["h"]["manager"], json={"notes": "x"})).status_code == 400
         assert (await c.delete(f"/purchases/{got}", headers=env["h"]["manager"])).status_code == 400
         assert (await c.get("/purchases", params={"status": "cancelled"}, headers=env["h"]["manager"])).json()["total"] == 1
-    actions = {r["action"] for r in await _rows(env, "SELECT action FROM audit_log WHERE entity_type = 'purchase'")}
+    actions = {r["action_type"] for r in await _rows(env, "SELECT action_type FROM audit_log WHERE entity_type = 'purchase'")}
     assert {"create", "update", "cancel", "delete", "receive"} <= actions
 
 
@@ -462,7 +462,7 @@ async def test_a_stock_request_is_approved_then_fulfilled_as_a_dispatch():
                               headers=env["h"]["manager"])).json()
         assert [d["id"] for d in listed["items"]] == [req]
     assert await _balance(env, env["a"]) == D("16") and await _balance(env, env["b"]) == D("14")
-    actions = {r["action"] for r in await _rows(env, "SELECT action FROM audit_log WHERE entity_type = 'stock_request'")}
+    actions = {r["action_type"] for r in await _rows(env, "SELECT action_type FROM audit_log WHERE entity_type = 'stock_request'")}
     assert actions == {"create", "approve", "fulfil"}
 
 

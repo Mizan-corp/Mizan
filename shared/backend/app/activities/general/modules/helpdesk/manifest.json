@@ -64,7 +64,11 @@
   ],
   "widgets": [],
   "variants": [
-    "standard"
+    "standard",
+    "consulting",
+    "maintenance",
+    "property",
+    "salon"
   ],
   "settings_schema": [
     {

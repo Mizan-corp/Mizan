@@ -137,6 +137,4 @@ workspaces that use the activity: `require_activity` is added when the module's 
 (`system_api/router.py`) unless all its signed-in routes already check their module. Inside such a
 workspace they check no permission yet (their manifests declare none): a known limit.
 
-**Not swept:** static files (`/uploads` holds public images only; private files are served by
-routes), the community modules' records (their permission is checked per screen inside the route and
-needs an installed package), and the owner, admin and website APIs.
+**Not swept:** workspace upload files are served by the `/uploads/{path}` readback route, which is swept: it checks the ERP session and the owning module's permission inside, and answers anonymous requests only for the current sign-in branding. Also not swept: the community modules' records (their permission is checked per screen inside the route and needs an installed package), and the owner, admin and website APIs.

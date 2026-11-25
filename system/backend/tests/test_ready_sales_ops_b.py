@@ -14,6 +14,7 @@ Each test failed on the code before this change:
   overflow the document's amount (a 500).
 """
 import asyncio
+import json
 import os
 import uuid
 from datetime import UTC, datetime
@@ -212,8 +213,8 @@ async def test_the_drawer_left_for_tomorrow_is_between_zero_and_the_count():
         assert D(str(r.json()["deposit_amount"])) == D("300") and r.json()["deposit_received_by"] == str(env["manager"])
         r = await c.post(url, json={"closing_balance": "1000", "next_day_drawer": "400"}, headers=env["h"]["cashier"])
         assert r.status_code == 200 and D(str(r.json()["next_day_drawer"])) == D("400")
-    rows = await _sql(env, "SELECT changes FROM audit_log WHERE entity_id = :s AND action = 'close_with_manager'", s=env["shift2"])
-    assert len(rows) == 1 and rows[0].changes["approved_by"] == "manager"
+    rows = await _sql(env, "SELECT details FROM audit_log WHERE entity_id = :s AND action_type = 'close_with_manager'", s=env["shift2"])
+    assert len(rows) == 1 and json.loads(rows[0].details)["approved_by"] == "manager"
 
 
 async def test_a_drawer_is_handed_only_to_someone_who_can_take_it():
@@ -340,7 +341,7 @@ async def test_cancelling_a_dispatch_moves_the_stock_back():
     moves = await _sql(env, "SELECT movement_type, warehouse_id, qty FROM stock_movements WHERE ref_type = 'dispatch_cancel'")
     assert sorted((str(m.movement_type).split(".")[-1], m.warehouse_id, m.qty) for m in moves) == sorted(
         [("transfer_out", env["wh2"], D("5")), ("transfer_in", env["wh"], D("5"))])
-    audit = await _sql(env, "SELECT 1 FROM audit_log WHERE entity_type = 'dispatch' AND action = 'cancel'")
+    audit = await _sql(env, "SELECT 1 FROM audit_log WHERE entity_type = 'dispatch' AND action_type = 'cancel'")
     assert len(audit) == 1
 
 
