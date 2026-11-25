@@ -355,6 +355,17 @@ export function ThemeHeader({ header }: { header?: ThemeChrome }) {
         {!!links.length && <nav>{links.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</nav>}
         {!!actions.length && <div className="mz-site-actions">{actions.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</div>}
         {!!icons.length && <div className="mz-header-icons">{icons.map((ic, i) => <a key={i} className="mz-header-icon" href={ic.href} aria-label={ic.label} title={ic.label} onClick={e => e.preventDefault()}><HeaderIcon name={ic.icon} /></a>)}</div>}
+        {(!!links.length || !!barLinks.length || (ctaLabel && ctaHref)) && <details className="mz-header-menu">
+          <summary aria-label="Menu">
+            <svg className="mz-menu-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+            <svg className="mz-menu-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </summary>
+          <nav>
+            {links.map((l, i) => <a key={'n'+i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}
+            {barLinks.map((l, i) => <a key={'b'+i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}
+            {ctaLabel && ctaHref && <a className="mz-header-cta" href={ctaHref} onClick={e => e.preventDefault()}>{ctaLabel}</a>}
+          </nav>
+        </details>}
       </div>
       {(!!barLinks.length || (ctaLabel && ctaHref)) && <div className="mz-header-bar">
         {!!barLinks.length && <nav>{barLinks.map((l, i) => <a key={i} href={l.href} onClick={e => e.preventDefault()}>{l.label}</a>)}</nav>}
