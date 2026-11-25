@@ -65,7 +65,7 @@ the ERP module.
 | Search (data) | Public page `?q=` filters repeat items by case-insensitive substring on rendered display text; blank keeps all | 7e06431 |
 | Search (wiring) | Header search form targets a UI-editable `search_target` header setting; the GET form submits `q` to that page. Verified by real typing + submit in the browser: header on wirya-home -> products-cd-e2e?q=... -> filtered items | pre-existing + 7e06431 |
 | Search (empty state) | Zero-match query renders a localized (en/ar) "no results for q" text node instead of pruning the section; query-less pages keep the old prune behavior | 8083e86 |
-| Search (native E2E) | Real mouse click focus + typed text (Input.insertText) + native Enter key submits the header form and lands filtered on the target page (products-cd-e2e?q=شاشة → 1 item). Replaces the requestSubmit harness | live 2026-11-25 |
+| Search (native E2E) | Real mouse click focus + typed text (Input.insertText) + native Enter key AND a genuine mouse click on the submit button both submit the header form and land filtered on the target page (q=شاشة → 1 item; q=عرض → 2 items). Replaces the requestSubmit harness | live 2026-11-25 |
 
 ## Open gaps
 
