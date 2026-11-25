@@ -137,6 +137,11 @@ async def create_workspace(
         return tenant, None
 
     await bind_tenant(db, tenant.id)
+    from app.platform.site.models import SiteSettings
+    # New workspaces follow the workspace theme and logo on their site by default;
+    # any explicit site setting later wins over the inherited value. Existing sites
+    # (no such row) keep their stored settings untouched.
+    db.add(SiteSettings(value={"follow_workspace": True}))
     admin = User(
         id=uuid.uuid4(),
         tenant_id=tenant.id,

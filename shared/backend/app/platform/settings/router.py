@@ -31,31 +31,8 @@ async def upload_logo(
     current_user: User = Depends(require_perm("settings")),
 ):
     """The workspace's logo, and square PWA icons made from it (files service, #114)."""
-    import io
-
-    from PIL import Image
-
-    from app.framework import files
-
-    contents, img = await _read_image(db, file)
-    logo_url = await files.store(db, contents, kind="logo", filename=file.filename, content_type=file.content_type)
-    icons: dict[str, str] = {}
-    try:
-        w, h = img.size
-        side = min(w, h)
-        square = img.crop(((w - side) // 2, (h - side) // 2, (w - side) // 2 + side, (h - side) // 2 + side))
-        for size in (192, 512):
-            buf = io.BytesIO()
-            square.resize((size, size), Image.LANCZOS).save(buf, "PNG")
-            icons[str(size)] = await files.store(db, buf.getvalue(), kind="logo_icon", owner_id=str(size),
-                                                 filename="icon.png", content_type="image/png")
-    except Exception:
-        logger.warning("could not make PWA icons from the logo", exc_info=True)
-    await _upsert_setting(db, "logo_url", logo_url)
-    for size, url in icons.items():
-        await _upsert_setting(db, f"logo_icon_{size}", url)
-    await db.commit()
-    return {"logo_url": logo_url}
+    from app.platform.settings import branding
+    return await branding.store_workspace_logo(db, file)
 
 
 @router.post("/upload-cover")

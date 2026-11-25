@@ -349,7 +349,12 @@ def check_settings(value) -> dict:
             if footer["layout"] not in ("split", "stacked"):
                 raise HTTPException(422, "Invalid footer layout")
             out["footer"]["layout"] = footer["layout"]
-    unknown = set(value) - {"colors", "typography", "shape", "header", "footer"}
+    follow = value.get("follow_workspace")
+    if follow is not None:
+        if not isinstance(follow, bool):
+            raise HTTPException(422, "إعدادات الموقع غير صالحة")
+        out["follow_workspace"] = follow
+    unknown = set(value) - {"colors", "typography", "shape", "header", "footer", "follow_workspace"}
     if unknown:
         raise HTTPException(422, "إعدادات الموقع تحتوي مفاتيح غير معروفة")
     return out
@@ -499,7 +504,7 @@ async def set_public_access(db: AsyncSession, page_id: uuid.UUID, *, enabled: bo
             raise HTTPException(422, "This page cannot be made public: it references " + ", ".join(problems)
                                 + f". Public pages in synthetic scope only allow addresses on {host} or relative links. "
                                 "Edit the page, publish it again, then make it public; it stays private meanwhile.")
-    theme = await get_settings(db)
+    theme = await resolved_settings(db)
     await db.execute(text("""
         INSERT INTO site_activation (tenant_id, host, slug, page_path, enabled,
                                      allow_connected_data, theme, audience_policy_version,
@@ -522,7 +527,7 @@ async def _refresh_activation_theme(db: AsyncSession, page) -> None:
     host = (settings.PUBLIC_SITE_HOST or "").strip().lower()
     if not host:
         return
-    theme = await get_settings(db)
+    theme = await resolved_settings(db)
     await db.execute(text(
         "UPDATE site_activation SET theme = CAST(:theme AS jsonb), updated_at = now()"
         " WHERE host = :h AND slug = :s AND page_path = :p"
@@ -531,10 +536,95 @@ async def _refresh_activation_theme(db: AsyncSession, page) -> None:
     await db.commit()
 
 
+async def refresh_activation_themes(db: AsyncSession) -> None:
+    """Re-snapshot this workspace's settings into every activation row on this
+    deployment's host. Called when the workspace theme changes: sites that follow
+    the workspace pick the new pack up; other sites rewrite the same stored doc.
+    No-op without a configured host."""
+    from app.core.config import settings
+    host = (settings.PUBLIC_SITE_HOST or "").strip().lower()
+    if not host:
+        return
+    theme = await resolved_settings(db)
+    await db.execute(text(
+        "UPDATE site_activation SET theme = CAST(:theme AS jsonb), updated_at = now()"
+        " WHERE host = :h AND slug = :s"
+    ), {"theme": json.dumps(theme, ensure_ascii=False), "h": host, "s": PUBLIC_SITE_SLUG})
+    await db.commit()
+
+
 async def get_settings(db: AsyncSession) -> dict:
     res = await db.execute(select(SiteSettings).limit(1))
     row = res.scalars().first()
     return dict(row.value) if row else {}
+
+
+def _radius_px(value) -> int | None:
+    """Pack radius (\"0.625rem\") to the renderer's integer px, or None to omit."""
+    if isinstance(value, str):
+        try:
+            if value.endswith("rem"):
+                return max(0, min(64, round(float(value[:-3]) * 16)))
+            if value.endswith("px"):
+                return max(0, min(64, round(float(value[:-2]))))
+        except ValueError:
+            return None
+    return None
+
+
+async def _workspace_logo(db: AsyncSession) -> str:
+    from app.platform.settings.branding import get_workspace_logo
+    return await get_workspace_logo(db)
+
+
+async def workspace_theme_base(db: AsyncSession) -> dict:
+    """The workspace's resolved theme pack mapped onto the site renderer's v0 tokens,
+    plus the workspace logo. Base layer for sites that follow the workspace."""
+    from app.platform.themes import service as themes
+    tid = current_tenant_id.get()
+    tenant = await db.get(Tenant, tid) if tid else None
+    if tenant is None:
+        return {}
+    pack = await themes.resolved(db, tenant)
+    light = (pack.get("colors") or {}).get("light") or {}
+    base: dict = {"colors": {"light": {t: light[t] for t in COLOR_TOKENS
+                                        if isinstance(light.get(t), str) and HEX.fullmatch(light[t])}},
+                  "typography": {"family": "sans-serif"}}
+    radius = _radius_px(pack.get("radius"))
+    if radius is not None:
+        base["shape"] = {"radius": radius}
+    logo = await _workspace_logo(db)
+    if logo:
+        base["header"] = {"brand": "", "links": [], "actions": [], "logo": logo}
+    return base
+
+
+def _merge_site_settings(base: dict, explicit: dict) -> dict:
+    """Explicit site settings win over the workspace base, per token for colors and
+    per key for the header (a site with no logo of its own inherits the workspace's)."""
+    out = dict(base)
+    if "colors" in explicit:
+        light = {**(base.get("colors") or {}).get("light", {}),
+                 **(explicit["colors"].get("light") or {})}
+        out["colors"] = {"light": light}
+    for key in ("typography", "shape"):
+        if key in explicit:
+            out[key] = explicit[key]
+    if "header" in explicit:
+        out["header"] = {**(base.get("header") or {}), **explicit["header"]}
+    if "footer" in explicit:
+        out["footer"] = explicit["footer"]
+    return out
+
+
+async def resolved_settings(db: AsyncSession) -> dict:
+    """What visitors get. Sites that follow the workspace (the new-workspace default,
+    opt-in otherwise) render the workspace theme and logo under their own overrides;
+    other sites keep exactly their stored settings."""
+    raw = await get_settings(db)
+    if raw.get("follow_workspace") is not True:
+        return raw
+    return _merge_site_settings(await workspace_theme_base(db), raw)
 
 
 def settings_token(value: dict) -> str:

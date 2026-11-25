@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import uuid
 from functools import lru_cache
 from pathlib import Path
@@ -23,6 +24,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.framework.manifest import theme_problems
 from app.platform.themes.models import WorkspaceTheme
+
+logger = logging.getLogger(__name__)
 
 APP_DIR = Path(__file__).resolve().parents[2]
 DEFAULT = "mizan"
@@ -163,6 +166,11 @@ async def choose(db: AsyncSession, tenant, theme_id: str, fonts: dict | None = N
             palette.pop("fonts", None)
     tenant.palette = palette
     await db.commit()
+    try:
+        from app.platform.site.service import refresh_activation_themes
+        await refresh_activation_themes(db)
+    except Exception:  # activation refresh is best-effort; sites re-snapshot on the next settings save
+        logger.warning("could not refresh site activation themes after theme choice", exc_info=True)
     return await resolved(db, tenant)
 
 

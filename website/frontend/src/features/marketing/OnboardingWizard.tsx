@@ -6,7 +6,7 @@
  * Primary action: step 0..1 → «التالي»؛ step 2 → «أنشئ مساحة عملي الآن»؛ busy → جارٍ التجهيز
  * Art Direction: Warm Editorial Luxury (Oxblood, Deep Merlot, Warm Ivory, Muted Rose)
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Check,
@@ -42,6 +42,7 @@ import {
   ShieldCheck,
   Ticket,
   Flame,
+  ImagePlus,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -192,6 +193,11 @@ export default function OnboardingWizard() {
   const [bodyFont, setBodyFont] = useState<string>("");
   const [displayFont, setDisplayFont] = useState<string>("");
   const [catalogOpen, setCatalogOpen] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [pendingSession, setPendingSession] = useState<{ access_token: string; owner_token: string } | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [features, setFeatures] = useState<string[]>(() => getSectorDefaultFeatures(initialSector));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -266,12 +272,21 @@ export default function OnboardingWizard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load each advertised family once, so its option chip previews the real face.
+  // Load each advertised family once, so option chips and catalog cards preview the
+  // real face. Font files live on the API (same base lib/theme and lib/api use).
   useEffect(() => {
     if (!branding) return;
+    const api = ((import.meta.env.VITE_API_URL as string | undefined) ?? "/api").replace(/\/+$/, "");
+    const seen = new Set<string>();
     const css = Object.values(branding.family_files ?? {})
       .flat()
-      .map((f) => `@font-face { font-family: "${f.family}"; src: url("${f.src}"); font-weight: ${f.weight ?? "400"}; font-style: ${f.style ?? "normal"}; font-display: swap; }`)
+      .filter((f) => {
+        const key = `${f.family}|${f.src}|${f.weight ?? "400"}|${f.style ?? "normal"}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((f) => `@font-face { font-family: "${f.family}"; src: url("${api}${f.src}"); font-weight: ${f.weight ?? "400"}; font-style: ${f.style ?? "normal"}; font-display: swap; }`)
       .join("\n");
     const el = document.createElement("style");
     el.id = "mizan-branding-families";
@@ -331,9 +346,65 @@ export default function OnboardingWizard() {
     applyWithFonts(palette, body, display);
   }
 
+  function handleLogoPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp", "image/gif"].includes(file.type)) {
+      setLogoError("صيغة الصورة غير مدعومة — PNG أو JPG أو WebP");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setLogoError("الصورة أكبر من 5 ميجابايت");
+      return;
+    }
+    setLogoError(null);
+    setLogoFile(file);
+    setLogoPreview((old) => {
+      if (old) URL.revokeObjectURL(old);
+      return URL.createObjectURL(file);
+    });
+  }
+
+  async function uploadLogo(token: string, file: File) {
+    const base = ((import.meta.env.VITE_API_URL as string | undefined) ?? "/api").replace(/\/+$/, "");
+    const form = new FormData();
+    form.append("file", file);
+    let res: Response;
+    try {
+      res = await fetch(`${base}/branding/logo`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+    } catch {
+      throw new ApiError(0, "تعذر الاتصال بالخادم — تحقق من اتصال الإنترنت");
+    }
+    if (!res.ok) {
+      let msg = "تعذر رفع الشعار";
+      try {
+        const d = await res.json();
+        if (typeof d?.detail === "string" && res.status !== 503) msg = d.detail;
+      } catch { /* keep default */ }
+      if (res.status === 503) msg = "تخزين الملفات غير متاح على هذا الخادم حالياً — حاول مرة أخرى بعد قليل";
+      throw new ApiError(res.status, msg);
+    }
+  }
+
+  function proceed(session: { owner_token: string }) {
+    sessionStorage.removeItem("mizan.owner");
+    sessionStorage.removeItem("vendora.owner");
+
+    // The new owner lands in the owner panel, signed in, where a short tour
+    // shows their workspace, how to open it, the trial and subscriptions.
+    saveOwnerSession(session.owner_token);
+    openWithSession("owner", "/", session.owner_token);
+  }
+
   async function create() {
     setBusy(true);
     setError(null);
+    setLogoError(null);
     try {
       const r = await api.post<{ access_token: string; owner_token: string; tenant: TenantInfo }>("/platform/signup", {
         company_name: company,
@@ -349,13 +420,18 @@ export default function OnboardingWizard() {
         owner_phone: draft!.phone ?? "",
       });
 
-      sessionStorage.removeItem("mizan.owner");
-      sessionStorage.removeItem("vendora.owner");
-
-      // The new owner lands in the owner panel, signed in, where a short tour
-      // shows their workspace, how to open it, the trial and subscriptions.
-      saveOwnerSession(r.owner_token);
-      openWithSession("owner", "/", r.owner_token);
+      // Workspace exists from here on. The logo upload is a separate, retryable
+      // step: it never recreates the workspace, and a failure says so plainly.
+      if (logoFile) {
+        try {
+          await uploadLogo(r.access_token, logoFile);
+        } catch (err) {
+          setPendingSession(r);
+          setLogoError(err instanceof ApiError ? err.message : "تعذر رفع الشعار — حاول مجددًا");
+          return;
+        }
+      }
+      proceed(r);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setError("اسم المستخدم محجوز — ارجع للخطوة السابقة واختر اسمًا آخر.");
@@ -363,6 +439,20 @@ export default function OnboardingWizard() {
       } else {
         setError(err instanceof ApiError ? err.message : "تعذر تجهيز مساحة العمل — حاول مجددًا");
       }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function retryLogoUpload() {
+    if (!pendingSession || !logoFile) return;
+    setBusy(true);
+    setLogoError(null);
+    try {
+      await uploadLogo(pendingSession.access_token, logoFile);
+      proceed(pendingSession);
+    } catch (err) {
+      setLogoError(err instanceof ApiError ? err.message : "تعذر رفع الشعار — حاول مجددًا");
     } finally {
       setBusy(false);
     }
@@ -393,7 +483,7 @@ export default function OnboardingWizard() {
         <div className="flex items-center justify-between gap-2">
           <span
             className="text-xs font-bold text-foreground truncate"
-            style={t.fonts?.body ? { fontFamily: `"${t.fonts.body}", sans-serif` } : undefined}
+            style={t.fonts?.display || t.fonts?.body ? { fontFamily: `"${t.fonts.display || t.fonts.body}", sans-serif` } : undefined}
           >
             {t.name}
           </span>
@@ -417,7 +507,10 @@ export default function OnboardingWizard() {
             />
           ))}
         </div>
-        <span className="block text-[10px] text-muted-foreground leading-relaxed line-clamp-2">
+        <span
+          className="block text-[10px] text-muted-foreground leading-relaxed line-clamp-2"
+          style={t.fonts?.body ? { fontFamily: `"${t.fonts.body}", sans-serif` } : undefined}
+        >
           {t.description}
         </span>
         {t.fonts?.body && (
@@ -662,6 +755,64 @@ export default function OnboardingWizard() {
               </div>
 
               <div>
+                <label className="text-xs font-semibold text-foreground mb-1.5 block">
+                  شعار المنشأة <span className="font-normal text-muted-foreground">(اختياري)</span>
+                </label>
+                <div className="flex items-center gap-3">
+                  {logoPreview ? (
+                    <img
+                      src={logoPreview}
+                      alt="شعار المنشأة"
+                      className="size-12 shrink-0 rounded-xl border border-line object-cover bg-card"
+                    />
+                  ) : (
+                    <span className="grid size-12 shrink-0 place-items-center rounded-xl border border-dashed border-line bg-secondary/40 text-muted-foreground">
+                      <ImagePlus className="size-5" />
+                    </span>
+                  )}
+                  <div className="min-w-0">
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      className="hidden"
+                      onChange={handleLogoPick}
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => logoInputRef.current?.click()}
+                        className="rounded-lg border border-line bg-card px-3 py-1.5 text-xs font-bold text-foreground hover:border-primary/40 hover:bg-secondary/50 transition cursor-pointer"
+                      >
+                        {logoFile ? "تغيير الصورة" : "اختر صورة الشعار"}
+                      </button>
+                      {logoFile && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLogoFile(null);
+                            setLogoPreview((old) => {
+                              if (old) URL.revokeObjectURL(old);
+                              return null;
+                            });
+                          }}
+                          className="text-xs text-muted-foreground hover:text-foreground transition cursor-pointer"
+                        >
+                          إزالة
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      PNG أو JPG حتى 5MB — يظهر في الترويسة والفواتير وموقعك.
+                    </p>
+                    {logoError && !pendingSession && (
+                      <p className="mt-1 text-[10px] font-bold text-destructive-ink">{logoError}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div>
                 <label className="text-xs font-semibold text-foreground mb-2 block">
                   حجم الفروع ونقاط التشغيل
                 </label>
@@ -804,36 +955,75 @@ export default function OnboardingWizard() {
                     </div>
                   )}
 
-                  {/* The one clear preview: what is applied right now. */}
-                  {selectedTheme && (
-                    <div className="rounded-xl border border-line bg-secondary/40 p-4">
-                      <div className="flex items-center justify-between gap-3 flex-wrap">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span className="flex -space-x-1.5 shrink-0" aria-hidden>
-                            {(selectedTheme.swatches ?? []).slice(0, 4).map((sw, i) => (
-                              <span
-                                key={i}
-                                className="size-6 rounded-full border-2 border-card shadow-xs"
-                                style={{ background: sw, zIndex: 4 - i }}
-                              />
-                            ))}
+                  {/* The one clear preview: a representative brand snapshot with the
+                      chosen logo, heading/body faces and a primary button. */}
+                  {selectedTheme && (() => {
+                    const pack = branding.full?.[palette];
+                    const light = pack?.colors?.light ?? {};
+                    const bg = light.background ?? "#ffffff";
+                    const fg = light.foreground ?? "#1a1a1a";
+                    const cardBg = light.card ?? bg;
+                    const primary = light.primary ?? "#651E2C";
+                    const primaryFg = light["primary-foreground"] ?? "#ffffff";
+                    const radius = pack?.radius ?? "0.75rem";
+                    const displayFam = displayFont ? `"${displayFont}", sans-serif` : undefined;
+                    const bodyFam = bodyFont ? `"${bodyFont}", sans-serif` : undefined;
+                    const name = company.trim() || "منشأتك";
+                    return (
+                      <div>
+                        <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+                          <p className="text-xs font-bold text-foreground">
+                            {selectedTheme.name}
+                            <span className="font-normal text-muted-foreground ms-1.5">{selectedTheme.name_en}</span>
+                          </p>
+                          <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                            مطبق الآن على الصفحة ✓
                           </span>
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-foreground truncate">{selectedTheme.name}</p>
-                            <p className="text-[10px] text-muted-foreground truncate">{selectedTheme.name_en}</p>
+                        </div>
+                        <div
+                          className="overflow-hidden border border-line shadow-sm"
+                          style={{ background: bg, color: fg, borderRadius: radius }}
+                        >
+                          <div
+                            className="flex items-center gap-2.5 border-b px-4 py-2.5"
+                            style={{ background: cardBg, borderColor: `${fg}14` }}
+                          >
+                            {logoPreview ? (
+                              <img
+                                src={logoPreview}
+                                alt=""
+                                className="size-7 rounded-lg object-cover border border-black/10"
+                              />
+                            ) : (
+                              <span
+                                className="grid size-7 place-items-center rounded-lg text-xs font-bold"
+                                style={{ background: primary, color: primaryFg, fontFamily: displayFam }}
+                              >
+                                {name.slice(0, 1)}
+                              </span>
+                            )}
+                            <span className="text-sm font-bold truncate" style={{ fontFamily: displayFam }}>
+                              {name}
+                            </span>
+                          </div>
+                          <div className="px-4 py-5">
+                            <p className="text-xl font-bold leading-snug" style={{ fontFamily: displayFam }}>
+                              أهلاً بك في {name}
+                            </p>
+                            <p className="mt-2 text-xs leading-relaxed opacity-80" style={{ fontFamily: bodyFam }}>
+                              هذا نص تجريبي يوضح شكل الفقرات والوصف على موقعك وفي فواتيرك بالخط الذي اخترته للنصوص.
+                            </p>
+                            <span
+                              className="mt-3.5 inline-block px-4 py-2 text-xs font-bold"
+                              style={{ background: primary, color: primaryFg, borderRadius: radius, fontFamily: bodyFam }}
+                            >
+                              ابدأ الآن
+                            </span>
                           </div>
                         </div>
-                        <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full shrink-0">
-                          مطبق الآن على الصفحة ✓
-                        </span>
                       </div>
-                      {selectedTheme.description && (
-                        <p className="mt-2 text-[11px] text-muted-foreground leading-relaxed">
-                          {selectedTheme.description}
-                        </p>
-                      )}
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Independent typography: body and display faces, real preview. */}
                   {branding.families?.length > 0 && (
@@ -1005,6 +1195,29 @@ export default function OnboardingWizard() {
           {error && (
             <div className="mt-5">
               <ErrorBox message={error} />
+            </div>
+          )}
+
+          {/* Workspace was created but the logo upload failed: say so plainly,
+              offer a retry of the upload alone, or continue without a logo. */}
+          {pendingSession && (
+            <div className="mt-5 rounded-xl border border-destructive/30 bg-destructive/10 p-4">
+              <p className="text-xs font-bold text-foreground">
+                مساحة عملك اتجهزت بنجاح، لكن رفع الشعار لم يكتمل.
+              </p>
+              {logoError && <p className="mt-1 text-[11px] text-muted-foreground">{logoError}</p>}
+              <div className="mt-3 flex items-center gap-2">
+                <Button onClick={retryLogoUpload} disabled={busy} className="text-xs font-bold px-4">
+                  {busy ? "جارٍ الرفع..." : "إعادة رفع الشعار"}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => proceed(pendingSession)}
+                  className="text-xs font-medium text-muted-foreground hover:text-foreground transition cursor-pointer"
+                >
+                  المتابعة بدون شعار
+                </button>
+              </div>
             </div>
           )}
 
