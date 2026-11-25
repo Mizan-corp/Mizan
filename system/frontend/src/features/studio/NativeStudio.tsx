@@ -57,6 +57,7 @@ export default function NativeStudio({apiBase='/__studio/api',previewLabel:_prev
   const setPanel=(next:typeof panel)=>{if(panel==='connect'&&next!=='connect'&&moduleDirty&&!window.confirm('Discard unsaved website module settings? Saved values will stay unchanged.'))return;if(next!=='connect')setModuleDirty(false);rawSetPanel(next)};
   const [recoveryPages,setRecoveryPages]=useState<PageSummary[]>([]),[recoveryError,setRecoveryError]=useState('');
   const [pageId,setPageId]=useState(()=>new URLSearchParams(location.search).get('page')??'');
+  const loadedOnce=useRef(false);
   const [lang,setLang]=useState<'en'|'ar'>('en');
   const [device,setDevice]=useState<NativeDevice>(()=>window.innerWidth<700?'mobile':'desktop');
   const [previewOnly,setPreviewOnly]=useState(false);
@@ -141,7 +142,7 @@ export default function NativeStudio({apiBase='/__studio/api',previewLabel:_prev
         try {const settings=await api.getSettings();if(cancelled)return;setTheme(structuredClone(settings.value));}
         catch {if(cancelled)return;}
         setPage(detail);setTitles(detail.titles);setSavedTitles(detail.titles);setTitleOpen(false);setHistory({tree:structuredClone(tree),past:[],future:[]});setSaved(nativeTreeKey(tree));setSelected(tree.id);
-        setLang(previous=>pickContentLanguage(Object.keys(detail.titles),previous));setNotice('Native tree loaded. IDs, other languages and untouched fields are preserved. Local test backend only.');
+        setLang(previous=>pickContentLanguage(Object.keys(detail.titles),previous,!loadedOnce.current));loadedOnce.current=true;setNotice('Native tree loaded. IDs, other languages and untouched fields are preserved. Local test backend only.');
       }catch(e){if(!cancelled)setError(e instanceof Error?e.message:'Load failed. Source is protected.');}
     })();return()=>{cancelled=true};
   },[pageId]);
