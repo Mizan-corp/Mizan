@@ -10,6 +10,13 @@ export function nativeProjectionMap(source:PageNode,resolved:PageNode,lang:'en'|
   for(const child of ac){
    const plan=child.card?.content[lang];
    if(plan){for(const copy of bc){result[copy.id]=child.id;let cursor=0;for(const target of child.children??[]){const actual=copy.children?.[cursor];if(!actual)continue;if((target.id===plan.targets.price||target.id===plan.targets.image)&&actual.type!==target.type)continue;visit(target,actual);cursor++}}return;}
+   if(child.repeat?.schema==='mizan.page-repeat.experimental.v1'&&child.repeat.content[lang]){
+    while(index<bc.length&&bc[index].id!==ac[ac.indexOf(child)+1]?.id){
+     const copy=bc[index++];result[copy.id]=child.id;
+     for(const target of child.children??[]){const actual=(copy.children??[]).find(n=>n.type===target.type);if(actual)visit(target,actual);}
+    }
+    continue;
+   }
    if(child.repeat?.content[lang]){while(index<bc.length&&bc[index].id!==ac[ac.indexOf(child)+1]?.id){visit(child,bc[index++]);}continue;}
    if(bc[index]?.id===child.id)visit(child,bc[index++]);
   }

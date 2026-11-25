@@ -1,5 +1,5 @@
 import {cardProblem,assertCardScope} from './nativeCards';
-import {bindingProblem,repeatProblem} from './nativeBindings';
+import {bindingProblem,repeatProblem,cardRepeatProblem,cardSlotProblem,repeatCardSchema,type NativeCardRepeat} from './nativeBindings';
 import type { PageNode } from './pagetree';
 
 export type NativeDevice = 'desktop' | 'tablet' | 'mobile';
@@ -37,7 +37,11 @@ export function assertNativeTree(tree: PageNode): void {
   const visit=(n: PageNode, parent: string|null, depth: number) => {
     if (!n || typeof n !== 'object' || !settings[n.type] || !/^n_[a-z0-9]{4,16}$/.test(n.id) || ids.has(n.id) || ++count > 500 || depth > 12) throw Error('Unsupported node, duplicate ID or tree limit.');
     if(n.bindings!==undefined&&bindingProblem(n.bindings,n.type))throw Error('Unsupported dynamic binding. Source is protected.');
-    if(n.repeat!==undefined&&(repeatProblem(n.repeat,n.type)||n.bindings))throw Error('Unsupported repeat template.');
+    if(n.repeat!==undefined){
+      const cardRepeat=n.repeat.schema===repeatCardSchema?(n.repeat as NativeCardRepeat):undefined;
+      const problem=cardRepeat?cardRepeatProblem(cardRepeat,n.type)||cardSlotProblem(n.children,cardRepeat.slots)||(n.children??[]).some(c=>c.bindings||c.repeat||c.card):repeatProblem(n.repeat,n.type);
+      if(problem||n.bindings)throw Error('Unsupported repeat template.');
+    }
     if(n.card!==undefined&&(cardProblem(n.card,n.type)||n.bindings||n.repeat))throw Error('Unsupported product card.');
     ids.add(n.id);
     if (Object.keys(n).some(k=>!['id','type','settings','content','children','bindings','repeat','card'].includes(k))) throw Error('Unsupported node metadata. Source is protected.');
