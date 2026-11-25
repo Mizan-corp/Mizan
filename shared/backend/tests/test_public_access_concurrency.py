@@ -69,6 +69,7 @@ class PublicAccessConcurrencyTests(unittest.IsolatedAsyncioTestCase):
                     enabled BOOLEAN NOT NULL DEFAULT false,
                     allow_connected_data BOOLEAN NOT NULL DEFAULT false,
                     theme JSONB, audience_policy_version TEXT,
+                    approved_sources JSONB,
                     activated_by UUID, created_at TIMESTAMPTZ DEFAULT now(),
                     updated_at TIMESTAMPTZ DEFAULT now(),
                     PRIMARY KEY (host, slug, page_path))'''))

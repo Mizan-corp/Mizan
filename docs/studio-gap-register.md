@@ -193,11 +193,15 @@ per-language copy is not yet authorable (see above).
     a probe read; any loosening of the consent gates to shortcut this is
     refused by design.
 
-17. **Publish/enable concurrency test against a real database** — OPEN
-    (visual/security reviewer closeout, 2026-11-25; their F3). The
-    publish/enable lock is currently covered by mocked-session tests only;
-    a real-DB concurrency pass (two simultaneous publish/enable requests,
-    one must conflict) is still owed.
+17. **Publish/enable concurrency test against a real database** — RESOLVED
+    2026-11-25. tests/test_public_access_concurrency.py (the real-DB
+    IsolatedAsyncioTestCase gated on MIZAN_CONCURRENCY_DB) was run against a
+    real local Postgres for the first time: both interleavings pass
+    (enable-public-first then bound publish refused 409; bound publish
+    first then enable-public refused 409). The run exposed a stale mirrored
+    site_activation DDL in the test setup (missing approved_sources, added
+    with the consent work); the mirror now carries the column. Offline
+    suite still skips the file cleanly without the env var.
 18. **Style panel minors** — OPEN (same closeout). Lavender literal
     rgb(145,131,158) bypasses the token scale; three invisible debug nodes
     sit in the Style panel DOM. Cosmetic only, fix in a cleanup pass.
