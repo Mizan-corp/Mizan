@@ -146,7 +146,8 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
     case 'heading': {
       const level = typeof s.level === 'number' && s.level >= 1 && s.level <= 6 ? s.level : 2;
       const Tag = `h${level}` as 'h1';
-      inner = <Tag className="mz-heading" dangerouslySetInnerHTML={{ __html: accentHtml(String(c.text ?? '')) }} />; break;
+      const iconName = typeof s.icon === 'string' && (ICON_MARKUP as Record<string, string>)[s.icon] ? s.icon : '';
+      inner = <Tag className="mz-heading">{iconName && <span className="mz-heading-icon" aria-hidden="true"><IconGlyph name={iconName} /></span>}<span dangerouslySetInnerHTML={{ __html: accentHtml(String(c.text ?? '')) }} /></Tag>; break;
     }
     case 'text': {
       const variant = s.variant === 'eyebrow' || s.variant === 'note' || s.variant === 'check_list' ? ` mz-text-${s.variant}` : '';

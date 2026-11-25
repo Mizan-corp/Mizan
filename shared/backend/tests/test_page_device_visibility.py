@@ -127,3 +127,15 @@ def test_content_width_three_fifths_class_and_mobile_reset():
     assert "mz-content-width-three_fifths" in html
     assert ".mz-content-width-three_fifths>.mz-column{width:60%}" in _BASE_CSS
     assert ".mz-content-width-three_fifths>.mz-column{width:100%}" in _BASE_CSS
+
+
+def test_heading_inline_icon_renders_registry_svg():
+    tree = _band_tree("cover")
+    tree["children"][0]["children"][0]["children"][0]["settings"]["desktop"]["icon"] = "Wrench"
+    html = render_page(tree, lang="ar")
+    assert "mz-heading-icon" in html
+    assert ".mz-heading-icon{" in _BASE_CSS
+    # Unknown names fail validation, and the defensive render skips them either way.
+    tree["children"][0]["children"][0]["children"][0]["settings"]["desktop"]["icon"] = "NotAnIcon"
+    html = render_page(tree, lang="ar", validate=False)
+    assert "mz-heading-icon" not in html

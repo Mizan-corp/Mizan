@@ -651,6 +651,7 @@ PAGE_BLOCKS = {
     "heading": {"version": 1, "category": "basic",
                 "settings": {"visible": "bool", "level": _count(1, 6), "align": _choices("start", "center", "end"),
                              "size": _choices("auto", "s", "m", "l"), "wrap": _choices("normal", "balance"),
+                             "icon": _choices(*PAGE_ICONS),
                              "width": _choices("auto", "full", "half", "third", "two_thirds", "three_fifths")},
                 "content": {"text": ("text", 200)}},
     "text": {"version": 1, "category": "basic",
