@@ -180,7 +180,12 @@ def _render_node_inner(node: dict, lang: str, device: str, link_base: str | None
         # here where the generated .mz-padding-* rules override the default.
         pad = s.get("padding")
         pad_cls = f" mz-padding-{pad}" if isinstance(pad, str) and pad in _SPACER_PX else ""
-        return f'<section class="mz-section{pad_cls}">{kids}</section>'
+        # Same echo for the section gap token: the wrapper's class would apply
+        # `gap` to the block wrapper itself (a no-op), while the author means
+        # the spacing BETWEEN the section's rows.
+        gap = s.get("gap")
+        gap_cls = f" mz-gap-{gap}" if isinstance(gap, str) and gap in _SPACER_PX else ""
+        return f'<section class="mz-section{pad_cls}{gap_cls}">{kids}</section>'
     if ntype == "columns":
         declared = s.get("columns")
         count = declared if isinstance(declared, int) and not isinstance(declared, bool) else 0
@@ -430,7 +435,9 @@ _BASE_CSS += ".mz-header-locale{display:flex;align-items:center;gap:4px}.mz-loca
 _BASE_CSS += "@media(max-width:768px){.mz-columns-2,.mz-columns-3,.mz-columns-4,.mz-columns-5,.mz-columns-6{grid-template-columns:1fr}.mz-columns.mz-cols-custom{grid-template-columns:var(--mz-tracks-m,1fr)}.mz-columns.mz-cols-custom-m{grid-template-columns:var(--mz-tracks-m)}.mz-node.mz-minh-custom>:first-child{min-height:var(--mz-minh-m,var(--mz-minh))}.mz-columns{gap:16px}.mz-section{padding:24px 16px}.mz-width-half,.mz-width-third,.mz-width-two_thirds,.mz-width-three_fifths{width:100%}.mz-node.mz-width-custom{width:var(--mz-width-m,100%)}.mz-reorder .mz-header-search{order:9;flex-basis:100%}.mz-m-density-compact .mz-header-main{padding:4px 14px;gap:8px}.mz-m-hide-search .mz-header-search{display:none}.mz-m-hide-bar .mz-header-menu nav .mz-menu-bar{display:none}}"
 _BASE_CSS += ".mz-site-logo{height:32px;width:auto}.mz-site-footer a{color:inherit;text-decoration:none}.mz-footer-groups{display:flex;gap:32px;flex-wrap:wrap}.mz-footer-group{display:flex;flex-direction:column;gap:10px}.mz-footer-group-title{font-weight:650}"
 for _token, _size in _SPACER_PX.items():
-    _BASE_CSS += f".mz-padding-{_token}{{padding:{_size}px}}.mz-gap-{_token}{{gap:{_size}px}}.mz-height-{_token} .mz-spacer{{height:{_size}px}}"
+    _BASE_CSS += (f".mz-padding-{_token}{{padding:{_size}px}}.mz-gap-{_token}{{gap:{_size}px}}"
+                  f".mz-height-{_token} .mz-spacer{{height:{_size}px}}"
+                  f".mz-section.mz-gap-{_token}{{display:flex;flex-direction:column;gap:{_size}px}}")
 
 
 def render_page(tree: dict, lang: str = "ar", device: str = "desktop", validate: bool = True,

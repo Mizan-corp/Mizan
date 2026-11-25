@@ -142,7 +142,9 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
       // Echo the padding token on the section itself (mirrors render.py): the
       // wrapper's class cannot override the section's own default padding.
       const pad = typeof s.padding === 'string' && ['none','xs','s','m','l','xl'].includes(s.padding) ? ` mz-padding-${s.padding}` : '';
-      inner = <section className={`mz-section${pad}`}>{kids}</section>; break;
+      // Gap token echoed like padding (mirrors render.py): spacing between the section's rows.
+      const gap = typeof s.gap === 'string' && ['none','xs','s','m','l','xl'].includes(s.gap) ? ` mz-gap-${s.gap}` : '';
+      inner = <section className={`mz-section${pad}${gap}`}>{kids}</section>; break;
     }
     case 'columns': {
       const declared = s.columns;

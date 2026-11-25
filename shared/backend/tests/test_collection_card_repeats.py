@@ -161,6 +161,21 @@ class ExpansionTests(unittest.IsolatedAsyncioTestCase):
         ids = [row['id'] for row in rows_out] + [n['id'] for row in rows_out for c in row['children'] for n in [c, *c['children']]]
         self.assertEqual(len(ids), len(set(ids)))
 
+    async def test_split_rows_honor_declared_track_count(self):
+        """A row declaring 4 tracks splits 8 items 4+4 (uniform rows whose own
+        grid gap applies within each), never 6+2 with an orphan pair."""
+        runtime = rows(*[item('p%d' % i, 'Item %d' % i) for i in range(8)])
+        ctx = r.SourceContext(A, 'en', frozenset({'inventory'}))
+        tree = card_tree()
+        tree['children'][0]['settings'] = {'desktop': {'columns': 4}}
+        tree['children'][0]['children'][0]['repeat']['content']['en']['limit'] = 8
+        out = await p.resolve_repeat(tree, runtime, ctx)
+        self.assertEqual(manifest.page_problems(out), [])
+        rows_out = out['children']
+        self.assertEqual([len(row['children']) for row in rows_out], [4, 4])
+        # Every cloned row keeps the declared track count.
+        self.assertTrue(all(row['settings']['desktop']['columns'] == 4 for row in rows_out))
+
     async def test_route_category_plan_expands_through_route_context(self):
         """Phase 3 route-parameterized read: a v2 category plan with
         category='route' resolves through the request's route_item context."""

@@ -227,8 +227,13 @@ async def expand_card_collection(tree:dict, plan:dict, slots:dict, runtime:Colle
     else:
         # A columns block holds 1..6 columns. More items than that are split
         # into sibling rows cloned from the template's row (settings carried,
-        # fresh derived identities), never into an invalid over-full row.
-        rows=[result[i:i+6] for i in range(0,len(result),6)]
+        # fresh derived identities), never into an invalid over-full row. When
+        # the row declares a track count, chunks honor it so split rows stay
+        # uniform (4+4, not 6+2) and the row's own grid gap applies within
+        # every chunk exactly as within one row.
+        declared=(parent.get('settings') or {}).get('desktop',{}).get('columns')
+        chunk=declared if type(declared) is int and 1<=declared<=6 else 6
+        rows=[result[i:i+chunk] for i in range(0,len(result),chunk)]
         blocks=[]
         for row_index,chunk in enumerate(rows):
             block={key:deepcopy(value) for key,value in parent.items() if key!='children'}
