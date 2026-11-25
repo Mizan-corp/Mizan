@@ -161,7 +161,7 @@ async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id
     from app.platform.site import service
     from app.platform.site.render import render_document
     from app.platform.site.storefront.bindings import resolve_tree
-    from app.platform.site.storefront.registry import scalar_registry, collection_registry
+    from app.platform.site.storefront.registry import scalar_registry, collection_registry, item_resolver
     from app.platform.site.storefront.repeats import has_repeat
     from app.platform.site.storefront.card_runtime import has_card, resolve_cards
 
@@ -180,9 +180,11 @@ async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id
         resolved = await resolve_cards(db, tree, ctx)
     elif has_repeat(tree):
         from app.platform.site.storefront.composition import resolve_composition
-        resolved = await resolve_composition(tree, scalar_registry(db), collection_registry(db), ctx, query=query)
+        resolved = await resolve_composition(tree, scalar_registry(db), collection_registry(db), ctx,
+                                             item_resolver(db), query=query)
     else:
-        resolved = await resolve_tree(tree, scalar_registry(db), ctx, lambda t: page_problems(t, ("en", "ar")))
+        resolved = await resolve_tree(tree, scalar_registry(db), ctx, lambda t: page_problems(t, ("en", "ar")),
+                                      item_resolver(db))
     meta = {"canonical": canonical, "titles": titles, "descriptions": {}, "languages": languages,
             "default_language": default_lang}
     return render_document(resolved, meta, settings_value if isinstance(settings_value, dict) else None,

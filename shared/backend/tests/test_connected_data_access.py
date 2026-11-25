@@ -135,6 +135,28 @@ class ConnectedDataAccessTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(params["apv"], service.AUDIENCE_POLICY_CONNECTED)
         self.assertEqual(params["uid"], UID)
 
+    async def test_enable_dry_run_passes_item_resolver(self):
+        """Regression: a page with element item bindings must dry-run with the
+        item resolver, or approval always fails 'Element binding source is
+        unavailable' (live Phase 3 finding)."""
+        db = db_scripted()
+        dry_run = AsyncMock()
+        patches = [p if not (hasattr(p, 'attribute') and p.attribute == 'resolve_tree')
+                   else patch("app.platform.site.storefront.bindings.resolve_tree", new=dry_run)
+                   for p in enable_patches(page())]
+        for p in patches:
+            p.start()
+        token = service.current_tenant_id.set(TID)
+        try:
+            out = await service.set_connected_data_access(db, PAGE_ID, enabled=True, user_id=UID,
+                                                          audience_version=service.AUDIENCE_POLICY_CONNECTED)
+        finally:
+            service.current_tenant_id.reset(token)
+            patch.stopall()
+        self.assertTrue(out["enabled"])
+        args = dry_run.await_args
+        self.assertIsNotNone(args.args[4] if len(args.args) > 4 else args.kwargs.get("items"))
+
     async def test_enable_dry_run_failure_is_422_with_reason(self):
         db = db_scripted()
         for p in enable_patches(page(), resolve_error=SourceUnavailable("consent revoked")):

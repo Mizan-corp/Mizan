@@ -166,9 +166,16 @@ per-language copy is not yet authorable (see above).
     any passing evidence from before the fix is superseded by that
     revalidation. Live uvicorn servers (system 8000, website 8001) run
     with cwd inside /tmp/mizan-push and pick up current code on restart.
-14. **Website-backend public_pages tests** (5) fail at clean HEAD: their
-    request mock predates the ?q/?lang feature (no query_params). Same
-    acceptance-debt rule as #12: resolve before final acceptance.
+14. **Website-backend public_pages tests** — RESOLVED 2026-11-25. Root cause
+    was Phase 3 signature drift, not a pre-existing defect: the request mock
+    lacked query_params and three _render_public test doubles predated the
+    ?q/?lang/route-item kwargs. Mocks updated; the file is green (23 tests).
+    Also fixed the same day: the connected-data approval dry-run and the
+    visitor render path called resolve_tree/resolve_composition without the
+    item resolver, so pages with element item bindings always failed approval
+    ("Element binding source is unavailable"); both paths now pass
+    item_resolver(db), pinned by a regression test in
+    test_connected_data_access.py.
 
 ## Execution order for the remaining scope (2026-11-25)
 

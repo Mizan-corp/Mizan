@@ -654,7 +654,7 @@ async def set_connected_data_access(db: AsyncSession, page_id: uuid.UUID, *, ena
             raise HTTPException(422, "This page cannot be made public: it references " + ", ".join(problems))
         from app.framework.activation import get_active_modules
         from app.framework.storefront_runtime import SourceContext, SourceUnavailable
-        from .storefront.registry import scalar_registry, collection_registry
+        from .storefront.registry import scalar_registry, collection_registry, item_resolver
         from .storefront.bindings import resolve_tree
         from .storefront.repeats import has_repeat
         from .storefront.card_runtime import has_card, resolve_cards
@@ -665,10 +665,11 @@ async def set_connected_data_access(db: AsyncSession, page_id: uuid.UUID, *, ena
                 await resolve_cards(db, page.published_tree, ctx)
             elif has_repeat(page.published_tree):
                 from .storefront.composition import resolve_composition
-                await resolve_composition(page.published_tree, scalar_registry(db), collection_registry(db), ctx)
+                await resolve_composition(page.published_tree, scalar_registry(db), collection_registry(db), ctx,
+                                          item_resolver(db))
             else:
                 await resolve_tree(page.published_tree, scalar_registry(db), ctx,
-                                   lambda t: page_problems(t, LANGUAGES))
+                                   lambda t: page_problems(t, LANGUAGES), item_resolver(db))
         except SourceUnavailable as exc:
             raise HTTPException(422, "A data source on this page is not currently exposable to the public: "
                                 f"{exc}. Fix the module's website consent and selection, then approve again.") from None
