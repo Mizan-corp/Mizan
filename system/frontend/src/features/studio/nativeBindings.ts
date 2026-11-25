@@ -129,7 +129,7 @@ export function cardRepeatProblem(value:unknown,type:string):boolean{
  if(type!=='column'||Object.keys(v).sort().join()!=='content,schema,slots'||(v.schema!==repeatCardSchema&&v.schema!==repeatCategorySchema))return true;
  const slots=v.slots;if(!slots||typeof slots!=='object'||Array.isArray(slots))return true;
  const keys=Object.keys(slots);
- if(!keys.includes('heading')||keys.some(k=>!['heading','text','image'].includes(k)))return true;
+ if(!keys.includes('heading')||keys.some(k=>!['heading','text','text2','text3','image'].includes(k)))return true;
  if(!Object.values(slots).every(s=>typeof s==='string'&&/^[a-z][a-z0-9_]{0,47}$/.test(s)))return true;
  if(!v.content||typeof v.content!=='object'||Array.isArray(v.content)||!Object.keys(v.content).length)return true;
  const planKeys=v.schema===repeatCategorySchema?'category,limit,module,on_missing,source':'limit,module,on_missing,source';
