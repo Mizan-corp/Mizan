@@ -276,15 +276,31 @@ Binding/envelope design:
   field, 2000-char bound, fail-closed).
 Depends on Phase 2 (done).
 
-**Phase 4 — Website module (ERP side, user decisions 3-7).**
+**Phase 4 — Website module (ERP side, user decisions 3-7).** IN PROGRESS.
 Rename frontstore -> Website; its tab manages orders, published products,
 website attributes, and pages (non-UI records/behavior config only);
 page edit opens standalone Studio in a NEW full browser tab with safe
 auth/context handoff; cross-module bidirectional site data flow (e.g.
 Help Desk) follows the same provider/consent pattern, each module keeping
-its own data and logic. Rename/navigation can start in parallel with
-Phase 2-3; the Studio launch handoff lands after Phase 3 contracts are
-stable.
+its own data and logic.
+
+DONE 2026-11-25 (first slice): ERP route /website (Guard site.manage) with
+the pages list (status, slug, archived filtered) and the same reviewed
+module/consent settings components the Studio Data panel mounts (no
+duplicated catalog; Inventory stays source of truth); every design edit
+opens the standalone Studio in a NEW full tab via window.open('/studio/
+?page=<id>', '_blank', 'noopener,noreferrer') — the session cookie carries
+the sign-in, the page id rides in the query string, never a token. App
+launcher entry renamed storefront -> الموقع/Website (id "site", the
+platform module that owns the site API), fixing the previously dead
+/storefront link. vitest: WebsitePage 6/6; full frontend suite unchanged
+(303 passed, 1 skipped, 1 pre-existing treerender fail).
+PENDING: orders surface (which orders belong here vs the legacy commerce
+storefront module is unresolved — the old StorefrontAdminPage/backend stay
+untouched); cross-module (Help Desk) provider/consent surfaces; live ERP
+E2E of the new tab (the sandbox runs no system-app server; the endpoints
+are the already live-proven /site/pages and module-settings routes);
+legacy /studio/ route disposition (item 19).
 
 **Phase 5 — remaining Studio surface gaps.**
 Per-device alignment/reorder/gap; arbitrary header sizing/colors; module
