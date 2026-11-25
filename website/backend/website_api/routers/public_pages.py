@@ -155,7 +155,7 @@ async def _activation(db: AsyncSession, host: str, slug: str, page_path: str):
 
 
 async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id: uuid.UUID, canonical: str,
-                         link_base: str | None = None) -> str:
+                         link_base: str | None = None, query: str | None = None) -> str:
     from app.framework.manifest import page_problems
     from app.platform.site import service
     from app.platform.site.render import render_document
@@ -175,7 +175,7 @@ async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id
         resolved = await resolve_cards(db, tree, ctx)
     elif has_repeat(tree):
         from app.platform.site.storefront.composition import resolve_composition
-        resolved = await resolve_composition(tree, scalar_registry(db), collection_registry(db), ctx)
+        resolved = await resolve_composition(tree, scalar_registry(db), collection_registry(db), ctx, query=query)
     else:
         resolved = await resolve_tree(tree, scalar_registry(db), ctx, lambda t: page_problems(t, ("en", "ar")))
     meta = {"canonical": canonical, "titles": titles, "descriptions": {}, "languages": languages}
@@ -226,6 +226,7 @@ async def public_page(slug: str, page_path: str, request: Request, db: AsyncSess
                 db, page, theme, row.tid,
                 f"https://{host}/site/{slug}/{page_path}",
                 link_base=f"/site/{slug}",
+                query=request.query_params.get("q"),
             )
         except (SourceUnavailable, ProjectionInvalid, ValueError):
             raise _unavailable() from None

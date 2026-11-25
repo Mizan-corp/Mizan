@@ -91,6 +91,26 @@ class ManifestTests(unittest.TestCase):
 
 
 class ExpansionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_query_filters_cards_case_insensitively(self):
+        runtime = rows(item('p1', 'Laptop HP'), item('p2', 'Monitor LG'), item('p3', 'laptop bag'))
+        ctx = r.SourceContext(A, 'en', frozenset({'inventory'}))
+        out = await p.resolve_repeat(card_tree(), runtime, ctx, query='LAPTOP')
+        self.assertEqual([c['children'][0]['content']['en']['text'] for c in columns_of(out)],
+                         ['Laptop HP', 'laptop bag'])
+
+    async def test_query_none_or_blank_keeps_everything(self):
+        runtime = rows(item('p1', 'Widget'), item('p2', 'Gadget'))
+        ctx = r.SourceContext(A, 'en', frozenset({'inventory'}))
+        for q in (None, '', '   '):
+            out = await p.resolve_repeat(card_tree(), runtime, ctx, query=q)
+            self.assertEqual(len(columns_of(out)), 2)
+
+    async def test_query_without_matches_prunes_row(self):
+        runtime = rows(item('p1', 'Widget'))
+        ctx = r.SourceContext(A, 'en', frozenset({'inventory'}))
+        out = await p.resolve_repeat(card_tree(), runtime, ctx, query='zzz')
+        self.assertEqual(out['children'], [])
+
     async def test_expands_typed_slots_with_stable_identities(self):
         runtime = rows(item('p1', 'Widget'), item('p2', 'Gadget', price='25.50'))
         ctx = r.SourceContext(A, 'en', frozenset({'inventory'}))

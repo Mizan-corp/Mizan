@@ -39,9 +39,9 @@ def validate_composition(tree, scalars, collections, context, items=None):
     return repeat_tree, envelopes
 
 
-async def resolve_composition(tree, scalars, collections, context, items=None):
+async def resolve_composition(tree, scalars, collections, context, items=None, query=None):
     repeat_tree, envelopes = validate_composition(tree, scalars, collections, context, items)
-    expanded = await resolve_repeat(repeat_tree, collections, context)
+    expanded = await resolve_repeat(repeat_tree, collections, context, query=query)
 
     def restore(node):
         if node['id'] in envelopes:

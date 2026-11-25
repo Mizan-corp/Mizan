@@ -55,10 +55,22 @@ def checked_template(tree: dict, plan: dict, runtime: CollectionRuntime, context
     return static,found
 
 
-async def expand_heading_collection(tree:dict, plan:dict, runtime:CollectionRuntime, context:SourceContext)->dict:
+def _filter_items(items, field, plan, runtime, context, query):
+    # Public search: case-insensitive substring on the item's display text.
+    # Filtering only ever narrows what consent already exposes.
+    if not query:
+        return items
+    needle = query.casefold()
+    return [it for it in items
+            if needle in (runtime.text(context, it, module=plan['module'], source=plan['source'],
+                                       field=field, on_missing='hide') or '').casefold()]
+
+
+async def expand_heading_collection(tree:dict, plan:dict, runtime:CollectionRuntime, context:SourceContext, query:str|None=None)->dict:
     # All plan/native/source metadata checks precede the first provider read.
     static,(parent,template)=checked_template(tree,plan,runtime,context)
     items=await runtime.items(context,plan['module'],plan['source'],plan['limit'])
+    items=_filter_items(items,plan['field'],plan,runtime,context,query)
     result=[]
     for item in items:
         text=runtime.text(context,item,module=plan['module'],source=plan['source'],field=plan['field'],on_missing=plan['on_missing'])
@@ -141,11 +153,12 @@ def _derived_id(module:str,source:str,node_id:str,item_key:str)->str:
     return 'n_'+hashlib.sha256(identity.encode()).hexdigest()[:16]
 
 
-async def expand_card_collection(tree:dict, plan:dict, slots:dict, runtime:CollectionRuntime, context:SourceContext)->dict:
+async def expand_card_collection(tree:dict, plan:dict, slots:dict, runtime:CollectionRuntime, context:SourceContext, query:str|None=None)->dict:
     # All plan/native/source metadata checks precede the first provider read.
     static,(parent,template)=checked_card_template(tree,plan,slots,runtime,context)
     contract=runtime.declaration(context,plan['module'],plan['source'])
     items=await runtime.items(context,plan['module'],plan['source'],plan['limit'])
+    items=_filter_items(items,slots['heading'],plan,runtime,context,query)
     result=[]
     for item in items:
         name=runtime.text(context,item,module=plan['module'],source=plan['source'],field=slots['heading'],on_missing=plan['on_missing'])

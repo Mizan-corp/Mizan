@@ -43,13 +43,14 @@ def validate_repeat(tree:dict,runtime:CollectionRuntime,context:SourceContext):
     return static,node_id,repeat
 
 
-async def resolve_repeat(tree:dict,runtime:CollectionRuntime,context:SourceContext)->dict:
+async def resolve_repeat(tree:dict,runtime:CollectionRuntime,context:SourceContext,query:str|None=None)->dict:
     static,node_id,repeat=validate_repeat(tree,runtime,context)
     plan=repeat['content'].get(context.language)
     if plan is None:return static
+    query=(query or '').strip()[:100] or None
     if repeat['schema']==PAGE_REPEAT_CARD_SCHEMA:
-        return await expand_card_collection(static,{'template_id':node_id,**plan},repeat['slots'],runtime,context)
-    return await expand_heading_collection(static,{'template_id':node_id,**plan},runtime,context)
+        return await expand_card_collection(static,{'template_id':node_id,**plan},repeat['slots'],runtime,context,query=query)
+    return await expand_heading_collection(static,{'template_id':node_id,**plan},runtime,context,query=query)
 
 
 def has_repeat(tree:dict)->bool:
