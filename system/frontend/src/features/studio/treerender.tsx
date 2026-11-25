@@ -144,7 +144,12 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
     case 'columns': {
       const declared = s.columns;
       const count = typeof declared === 'number' ? declared : (node.children?.length || 1);
-      inner = <div className={`mz-columns mz-columns-${count}${s.stack ? ' mz-stack' : ''}`}>{kids}</div>; break;
+      // Free divider-drag ratio (mirrors render.py): numeric fr weights only.
+      const tracks = Array.isArray(s.tracks) ? s.tracks : null;
+      const okTracks = tracks && tracks.length === (node.children?.length ?? 0) && tracks.length >= 2
+        && tracks.every(v => typeof v === 'number' && Number.isFinite(v) && v >= 0.2 && v <= 8);
+      const trackStyle = okTracks ? { ['--mz-tracks' as string]: tracks.map(v => `${v}fr`).join(' ') } as React.CSSProperties : undefined;
+      inner = <div className={`mz-columns mz-columns-${count}${s.stack ? ' mz-stack' : ''}${okTracks ? ' mz-cols-custom' : ''}`} style={trackStyle}>{kids}</div>; break;
     }
     case 'column': inner = <div className="mz-column">{kids}</div>; break;
     case 'canvas': inner = <div className="mz-canvas">{kids}</div>; break;
@@ -210,8 +215,10 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
     default: return null; // unknown block: render nothing, like render.py
   }
   const bgStyle = backgroundImageStyle(node, s, lang);
-  const cls = `mz-node ${enumClasses(s).join(' ')}${bgStyle ? ' mz-bg-image' : ''}`;
-  return <div id={node.id} className={cls} style={bgStyle}>{inner}</div>;
+  const minH = typeof s.min_height_px === 'number' && Number.isInteger(s.min_height_px) && s.min_height_px >= 40 && s.min_height_px <= 1200 ? s.min_height_px : null;
+  const cls = `mz-node ${enumClasses(s).join(' ')}${bgStyle ? ' mz-bg-image' : ''}${minH ? ' mz-minh-custom' : ''}`;
+  const nodeStyle = { ...(bgStyle ?? {}), ...(minH ? { ['--mz-minh' as string]: `${minH}px` } : {}) } as React.CSSProperties;
+  return <div id={node.id} className={cls} style={Object.keys(nodeStyle).length ? nodeStyle : undefined}>{inner}</div>;
 }
 
 export interface ThemeChrome {

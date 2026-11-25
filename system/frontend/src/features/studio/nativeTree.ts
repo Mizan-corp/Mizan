@@ -5,7 +5,7 @@ import type { PageNode } from './pagetree';
 
 export type NativeDevice = 'desktop' | 'tablet' | 'mobile';
 export type NativeIconItem = { icon: string; text: string };
-export type NativeEdit = { kind: 'content'; id: string; lang: 'en'|'ar'; field: string; value: string } | { kind: 'setting'; id: string; device: NativeDevice; field: string; value: string|number|boolean } | { kind: 'icons'; id: string; lang: 'en'|'ar'; items: NativeIconItem[] };
+export type NativeEdit = { kind: 'content'; id: string; lang: 'en'|'ar'; field: string; value: string } | { kind: 'setting'; id: string; device: NativeDevice; field: string; value: string|number|boolean|number[]|null } | { kind: 'icons'; id: string; lang: 'en'|'ar'; items: NativeIconItem[] };
 const ICON_NAME = /^[A-Z][A-Za-z0-9]{1,40}$/;
 export function iconItemsProblem(value: unknown): string | null {
   if (!Array.isArray(value) || value.length > 24) return 'Icon items must be a list of at most 24 entries.';
@@ -37,6 +37,13 @@ const fields: Record<string, Record<string, number>> = {section:{},columns:{},co
 // Free-text URL settings (validated with safeNativeUrl, image rules), rendered as text
 // inputs in the inspector instead of choice selects. Mirrored from the manifest's "url" kind.
 const urlSettings: Record<string, readonly string[]> = {section:['background_image'],column:['background_image']};
+// Free numeric settings written by border/divider drags (never arbitrary CSS). A null edit
+// removes the key, resetting the block to content-based sizing. Mirrored from the manifest.
+const tracksRule=(v:unknown)=>Array.isArray(v)&&v.length>=2&&v.length<=6&&v.every(x=>typeof x==='number'&&Number.isFinite(x)&&x>=0.2&&x<=8);
+const minHeightPxRule=(v:unknown)=>typeof v==='number'&&Number.isInteger(v)&&v>=40&&v<=1200;
+const freeSettings: Record<string, Record<string,(v:unknown)=>boolean>> = {};
+for(const type of Object.keys(settings))freeSettings[type]={min_height_px:minHeightPxRule};
+freeSettings.columns={...freeSettings.columns,tracks:tracksRule};
 const motion={animation:['none','fade','rise','slide','zoom'],animation_speed:['quick','normal','slow'],animation_delay:['none','short','long']};
 for(const schema of Object.values(settings))Object.assign(schema,motion);
 export function safeNativeUrl(value: string, image = false): boolean {
@@ -72,7 +79,9 @@ export function assertNativeTree(tree: PageNode): void {
       for (const [key,value] of Object.entries(values)) {
         if ((urlSettings[n.type] ?? []).includes(key)) {
           if (typeof value !== 'string' || !safeNativeUrl(value, true) || /[();]/.test(value)) throw Error('Unsupported image address. Source is protected.');
-        } else if (!settings[n.type][key]?.includes(value)) throw Error('Unsupported setting. Source is protected.');
+        } else if (freeSettings[n.type]?.[key]) {
+          if (!freeSettings[n.type][key](value)) throw Error('Unsupported setting. Source is protected.');
+        } else if (!settings[n.type][key]?.includes(value as string|number|boolean)) throw Error('Unsupported setting. Source is protected.');
       }
     }
     for (const [lang,values] of Object.entries(n.content)) {
@@ -110,8 +119,12 @@ export function editNativeTree(tree: PageNode, edit: NativeEdit): PageNode {
     if(!['desktop','tablet','mobile'].includes(edit.device)) throw Error('Unsupported setting edit.');
     if((urlSettings[node.type]??[]).includes(edit.field)){
       if(typeof edit.value!=='string'||!safeNativeUrl(edit.value,true)||/[();]/.test(edit.value)) throw Error('Use a safe URL.');
+    } else if(freeSettings[node.type]?.[edit.field]){
+      if(edit.value!==null&&!freeSettings[node.type][edit.field](edit.value)) throw Error('Unsupported setting edit.');
     } else if(!settings[node.type][edit.field]?.includes(edit.value)) throw Error('Unsupported setting edit.');
-    node.settings={...node.settings,[edit.device]:{...node.settings[edit.device],[edit.field]:edit.value}};
+    const deviceSettings={...node.settings[edit.device]};
+    if(edit.value===null)delete deviceSettings[edit.field];else deviceSettings[edit.field]=edit.value;
+    node.settings={...node.settings,[edit.device]:deviceSettings};
   }
   assertNativeTree(next);return next;
 }

@@ -624,7 +624,7 @@ def _count(lo: int, hi: int):
 
 # Each block declares: version, category, which children it holds, a settings schema (validated
 # per device) and a translatable content schema. Settings kinds: "bool", "string", "url",
-# ("choice", …), ("count", lo, hi). Content kinds: ("text", limit), "url", "href", "embed",
+# ("choice", …), ("count", lo, hi), ("tracks",). Content kinds: ("text", limit), "url", "href", "embed",
 # "images", "icons".
 PAGE_BLOCKS = {
     "section": {"version": 1, "category": "layout", "children": ("columns", "canvas"),
@@ -635,6 +635,7 @@ PAGE_BLOCKS = {
     "columns": {"version": 1, "category": "layout", "children": ("column",),
                 "settings": {"visible": "bool", "columns": _count(1, 6), "gap": _choices(*PAGE_SPACING),
                              "stack": "bool", "reverse": "bool", "bleed": "bool",
+                             "tracks": ("tracks",),
                              "background": _choices("background", "card", "primary", "dark", "dark_raised")},
                 "content": {}},
     "column": {"version": 1, "category": "layout", "children": "blocks",
@@ -700,6 +701,7 @@ for _motion_block in PAGE_BLOCKS.values():
         "animation": _choices(*PAGE_ANIMATIONS),
         "animation_speed": _choices("quick", "normal", "slow"),
         "animation_delay": _choices("none", "short", "long"),
+        "min_height_px": _count(40, 1200),
     })
 
 
@@ -786,6 +788,10 @@ def _page_setting_problems(where: str, kind, value) -> list[str]:
     if isinstance(kind, tuple) and kind[0] == "count":
         ok = isinstance(value, int) and not isinstance(value, bool) and kind[1] <= value <= kind[2]
         return [] if ok else [f"{where} must be a whole number between {kind[1]} and {kind[2]}"]
+    if isinstance(kind, tuple) and kind[0] == "tracks":
+        ok = (isinstance(value, list) and 2 <= len(value) <= 6
+              and all(isinstance(v, (int, float)) and not isinstance(v, bool) and 0.2 <= v <= 8 for v in value))
+        return [] if ok else [f"{where} must be 2 to 6 track weights between 0.2 and 8"]
     return [f"{where} has a kind this validator doesn't know"]  # a registry bug, not user data
 
 
