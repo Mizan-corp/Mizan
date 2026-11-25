@@ -320,6 +320,23 @@ class ResponsiveCssTests(unittest.TestCase):
                                           None, lang="en")
         self.assertIn("@media(max-width:768px)", html)
 
+    def test_dark_surface_role_and_theme_tokens_render(self):
+        from app.platform.site import render
+        tree = {"type": "section", "id": "s1",
+                "settings": {"desktop": {"background": "dark"}},
+                "children": [{"type": "text", "id": "t1", "content": {"en": {"html": "<p>hi</p>"}}, "settings": {}}]}
+        theme = {"colors": {"light": {"dark": "#101820", "dark-foreground": "#F3EEE4",
+                                      "bogus": "#101820", "dark-bad": "red"}}}
+        with patch("app.platform.site.render.page_problems", return_value=[]):
+            html = render.render_document(tree, {"titles": {"en": "Hi"}, "languages": ["en"]},
+                                          theme, lang="en")
+        self.assertIn("mz-background-dark", html)
+        self.assertIn(".mz-background-dark{", html)
+        self.assertIn("--dark:#101820", html)
+        self.assertIn("--dark-foreground:#F3EEE4", html)
+        self.assertNotIn("--bogus", html)
+        self.assertNotIn("--dark-bad", html)
+
     def _chrome_html(self, links, link_base=None):
         from app.platform.site import render
         tree = {"type": "section", "id": "s1", "settings": {},

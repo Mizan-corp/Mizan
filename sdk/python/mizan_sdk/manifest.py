@@ -599,7 +599,7 @@ def _count(lo: int, hi: int):
 PAGE_BLOCKS = {
     "section": {"version": 1, "category": "layout", "children": ("columns", "canvas"),
                 "settings": {"visible": "bool", "padding": _choices(*PAGE_SPACING), "gap": _choices(*PAGE_SPACING),
-                             "background": _choices("background", "card", "primary"), "max_width": _choices("narrow", "normal", "wide", "full")},
+                             "background": _choices("background", "card", "primary", "dark"), "max_width": _choices("narrow", "normal", "wide", "full")},
                 "content": {}},
     "columns": {"version": 1, "category": "layout", "children": ("column",),
                 "settings": {"visible": "bool", "columns": _count(1, 6), "gap": _choices(*PAGE_SPACING),
@@ -607,7 +607,7 @@ PAGE_BLOCKS = {
                 "content": {}},
     "column": {"version": 1, "category": "layout", "children": "blocks",
                "settings": {"visible": "bool", "width": _choices("auto", "full", "half", "third", "two_thirds"), "padding": _choices(*PAGE_SPACING),
-                            "align": _choices("start", "center", "end"), "background": _choices("background", "card", "primary"), "rounded": "bool"},
+                            "align": _choices("start", "center", "end"), "background": _choices("background", "card", "primary", "dark"), "rounded": "bool"},
                "content": {}},
     "canvas": {"version": 1, "category": "layout", "children": "blocks", "per_page": 1,
                "settings": {"visible": "bool", "min_height": _choices("s", "m", "l")},

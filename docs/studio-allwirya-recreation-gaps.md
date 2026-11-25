@@ -62,9 +62,10 @@ G6. No form/input element (CTA band's device-request input).
 G7. Typography: one system font family site-wide; no heading size control, no font
     upload, no Arabic/Latin pairing (chrome UI states this itself). allwirya's Arabic
     display font cannot be reproduced.
-G8. Color: 5 theme roles only; no per-element color overrides, no second surface
-    (allwirya alternates dark navy and light sections with blue accents; reachable
-    only approximately via primary-as-surface).
+G8. Color: no per-element color overrides. Partially addressed 2026-11-25 (N1
+    shipped): theme gained a second surface pair (dark / dark-foreground) and
+    sections/columns accept background=dark, so dark/light alternation is now
+    reachable; accent-on-dark still routes through the single primary role.
 G9. Store grids: product cards exist (consent-gated) but there is no "category card
     grid" or "service price list" preset; closest are pricing_cards/features presets.
 G10. Footer is lines + flat links only; no multi-column footer, no social icons.
@@ -79,11 +80,10 @@ A faithful clone is blocked mainly by G3 (images), G1/G6 (search + input), G5
 
 ## Next useful unblocked implementation (proposal, in priority order)
 
-N1. Section-level surface depth: allow the section background role list to include a
-    second dark surface plus matching foreground, OR per-section explicit color
-    override bounded to theme-safe values. Unlocks the dark/light alternation that
-    defines allwirya's look. Reversible product UI work; no schema migration beyond
-    the settings allowlist.
+N1. SHIPPED 2026-11-25 (feat/studio-render-parity): section/column background role
+    "dark" plus dark / dark-foreground theme tokens (renderer, SDK manifest,
+    settings validation, editor style tab and format panel, both preview CSS
+    copies). Per-section explicit color override remains open.
 N2. Checkmark/feature list: a text variant or column preset rendering a bulleted
     check list (pure renderer + preset; no new data). Unblocks the repair card.
 N3. Heading accent span: bounded inline mark support in heading text (one <mark>

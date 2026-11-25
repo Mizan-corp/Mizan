@@ -14,13 +14,13 @@ export function chromeProblems(value:SiteSettingsValue):string[]{
  const errors:string[]=[];
  const contrast=(a:string,b:string)=>{const luminance=(hex:string)=>{const c=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);return .2126*c[0]+.7152*c[1]+.0722*c[2]};const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
  const light=value.colors?.light;
- if(light)for(const [fg,bg]of [['foreground','background'],['foreground','card'],['primary-foreground','primary']]){const a=light[fg],b=light[bg];if(a&&b&&/^#[0-9a-fA-F]{6}$/.test(a)&&/^#[0-9a-fA-F]{6}$/.test(b)&&contrast(a,b)<4.5)errors.push('Increase contrast between '+fg+' and '+bg+' to at least 4.5:1.');}
+ if(light)for(const [fg,bg]of [['foreground','background'],['foreground','card'],['primary-foreground','primary'],['dark-foreground','dark']]){const a=light[fg],b=light[bg];if(a&&b&&/^#[0-9a-fA-F]{6}$/.test(a)&&/^#[0-9a-fA-F]{6}$/.test(b)&&contrast(a,b)<4.5)errors.push('Increase contrast between '+fg+' and '+bg+' to at least 4.5:1.');}
 
  const normalized=structuredClone(value);
  for(const part of ['header','footer']as const){const s=value[part];if(s)normalized[part]=(part==='header'?{brand:(value.header?.brand??'').trim(),links:value.header?.links??[],actions:value.header?.actions??[],...(value.header?.layout?{layout:value.header.layout}:{})}:{lines:value.footer?.lines??[],links:value.footer?.links??[],...(value.footer?.layout?{layout:value.footer.layout}:{})})as never;}
  if(nativeTreeKey(normalized)!==nativeTreeKey(value))errors.push('Shared settings are not in the supported lossless format.');
 
- if(value.colors&&(Object.keys(value.colors).some(k=>k!=='light')||!value.colors.light||Object.entries(value.colors.light).some(([k,v])=>!['background','foreground','card','primary','primary-foreground'].includes(k)||!/^#[0-9a-fA-F]{6}$/.test(v))))errors.push('Shared colors contain unsupported values.');
+ if(value.colors&&(Object.keys(value.colors).some(k=>k!=='light')||!value.colors.light||Object.entries(value.colors.light).some(([k,v])=>!['background','foreground','card','primary','primary-foreground','dark','dark-foreground'].includes(k)||!/^#[0-9a-fA-F]{6}$/.test(v))))errors.push('Shared colors contain unsupported values.');
  if(value.typography&&(Object.keys(value.typography).some(k=>k!=='family')||!['sans-serif','serif','monospace'].includes(value.typography.family??'')))errors.push('Shared typography is not supported.');
  if(value.shape&&(Object.keys(value.shape).some(k=>k!=='radius')||!Number.isInteger(value.shape.radius)||value.shape.radius!<0||value.shape.radius!>64))errors.push('Shared shape is not supported.');
 

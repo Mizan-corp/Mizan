@@ -61,6 +61,17 @@ describe('TreePreview over toPageTree output', () => {
     const html = render('desktop');
     expect(html).toContain('--background:');
   });
+  it('passes dark surface tokens through and emits the dark role class', () => {
+    const style = themeStyle({ colors: { light: { dark: '#101820', 'dark-foreground': '#F3EEE4', bogus: '#101820' } } } as never);
+    const vars = style as Record<string, string>;
+    expect(vars['--dark']).toBe('#101820');
+    expect(vars['--dark-foreground']).toBe('#F3EEE4');
+    expect(vars['--bogus']).toBeUndefined();
+    const tree = { type: 'section', id: 's1', settings: { desktop: { background: 'dark' } },
+      children: [{ type: 'text', id: 't1', content: { en: { html: '<p>hi</p>' } }, settings: {} }] } as never;
+    const html = renderToStaticMarkup(createElement(TreePreview, { tree, lang: 'en', device: 'desktop' }));
+    expect(html).toContain('mz-background-dark');
+  });
   it('honors per-device visibility', () => {
     const p = structuredClone(initialProject);
     p.sections[1].visible.mobile = false;

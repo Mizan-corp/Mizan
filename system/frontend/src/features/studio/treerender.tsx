@@ -14,7 +14,7 @@ const ENUM_SETTINGS: Record<string, string[]> = {
   padding: ['none', 'xs', 's', 'm', 'l', 'xl'],
   gap: ['none', 'xs', 's', 'm', 'l', 'xl'],
   height: ['none', 'xs', 's', 'm', 'l', 'xl'],
-  background: ['background', 'card', 'primary'],
+  background: ['background', 'card', 'primary', 'dark'],
   max_width: ['narrow', 'normal', 'wide', 'full'],
   width: ['auto', 'full', 'half', 'third', 'two_thirds'],
   align: ['start', 'center', 'end'],
@@ -184,7 +184,7 @@ const FONT_STACKS: Record<string, string> = {
 };
 
 export function themeStyle(theme?: ThemeSpec): CSSProperties {
-  const allowed = new Set(['background', 'foreground', 'card', 'primary', 'primary-foreground']);
+  const allowed = new Set(['background', 'foreground', 'card', 'primary', 'primary-foreground', 'dark', 'dark-foreground']);
   const style: Record<string, string> = {};
   for (const [k, v] of Object.entries(theme?.colors?.light || {})) {
     if (allowed.has(k) && /^#[0-9a-fA-F]{6}$/.test(v)) style[`--${k}`] = v;

@@ -9,9 +9,9 @@ const align = ['start','center','end'];
 const width = ['auto','full','half','third','two_thirds'];
 // Deliberately bounded authoring subset, not the complete platform validator.
 const settings: Record<string, Record<string, readonly (string|number|boolean)[]>> = {
-  section:{visible:[true,false],padding:spacing,gap:spacing,background:['background','card','primary'],max_width:['narrow','normal','wide','full']},
+  section:{visible:[true,false],padding:spacing,gap:spacing,background:['background','card','primary','dark'],max_width:['narrow','normal','wide','full']},
   columns:{visible:[true,false],columns:[1,2,3,4,5,6],gap:spacing,stack:[true,false],reverse:[true,false]},
-  column:{visible:[true,false],width,padding:spacing,align,background:['background','card','primary'],rounded:[true,false]},
+  column:{visible:[true,false],width,padding:spacing,align,background:['background','card','primary','dark'],rounded:[true,false]},
   heading:{visible:[true,false],level:[1,2,3,4,5,6],align},
   text:{visible:[true,false],align,variant:['body','eyebrow','note']},
   image:{visible:[true,false],width,rounded:[true,false],art:['none','sculpture','sculpture_alt']},
