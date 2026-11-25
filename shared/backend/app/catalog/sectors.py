@@ -38,6 +38,18 @@ PALETTE_HUES = {
     "water": 250,
     "copper": 55,
     "midnight": 230,
+    "ruby": 0,
+    "rose": 340,
+    "grape": 290,
+    "violet": 275,
+    "indigo": 255,
+    "ocean": 215,
+    "cyan": 190,
+    "teal": 170,
+    "olive": 145,
+    "lime": 95,
+    "honey": 50,
+    "tangerine": 25,
 }
 
 
