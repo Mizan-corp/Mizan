@@ -5,6 +5,18 @@
   "name": "مقاولات عامة وتشييد",
   "name_en": "Construction",
   "description": "مقايسات BOQ، مستخلصات، مقاولو باطن، ومعدات ثقيلة",
+  "branding": {
+    "themes": [
+      "tangerine",
+      "olive",
+      "slate"
+    ],
+    "fonts": {
+      "body": "Cairo",
+      "display": "Cairo"
+    },
+    "note": "قوة ووضوح مواقع العمل."
+  },
   "modules": [
     "construction",
     "inventory",

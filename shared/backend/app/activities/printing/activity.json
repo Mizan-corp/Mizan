@@ -5,6 +5,18 @@
   "name": "مطابع، تغليف، وتعبئة",
   "name_en": "Print & Packaging",
   "description": "تذاكر تشغيل، مونتاج، استهلاك أحبار وورق، وهالك تجهيز",
+  "branding": {
+    "themes": [
+      "violet",
+      "tangerine",
+      "cyan"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "ألوان طباعة صريحة CMYK الروح."
+  },
   "modules": [
     "printing",
     "inventory",

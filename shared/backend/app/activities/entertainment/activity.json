@@ -5,6 +5,18 @@
   "name": "فعاليات ومدن ترفيهية وألعاب",
   "name_en": "Entertainment",
   "description": "تذاكر، بوابات دخول، بطاقات ألعاب، وتوزيع إيرادات فعاليات",
+  "branding": {
+    "themes": [
+      "violet",
+      "grape",
+      "ruby"
+    ],
+    "fonts": {
+      "body": "Cairo",
+      "display": "Cairo"
+    },
+    "note": "هوية جريئة ومرحة تلفت الانتباه."
+  },
   "modules": [
     "events",
     "pos",

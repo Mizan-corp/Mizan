@@ -5,6 +5,18 @@
   "name": "عمليات بترول وغاز وتكرير",
   "name_en": "Oil & Gas",
   "description": "آبار، إنتاج يومي، محاسبة مشاركات نفطية، وأمان تشغيلي",
+  "branding": {
+    "themes": [
+      "slate",
+      "tangerine",
+      "indigo"
+    ],
+    "fonts": {
+      "body": "Almarai",
+      "display": "Almarai"
+    },
+    "note": "ثقل صناعي وهوية قوية."
+  },
   "modules": [
     "oil_gas",
     "operations",

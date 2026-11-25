@@ -5,6 +5,18 @@
   "name": "خدمات عامة، مكاتب، ومقاولات",
   "name_en": "",
   "description": "استشارات، عقود، فواتير مشاريع، وتتبع تكاليف ميدانية",
+  "branding": {
+    "themes": [
+      "teal",
+      "ocean",
+      "violet"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "مرونة خدمات بوجه ودود."
+  },
   "modules": [
     "services",
     "finance",

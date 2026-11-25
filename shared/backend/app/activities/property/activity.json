@@ -5,6 +5,18 @@
   "name": "إدارة عقارات ومجمعات تجارية",
   "name_en": "Real Estate",
   "description": "وحدات، عقود إيجار، تحصيل شيكات، وصيانة وإيرادات صافية",
+  "branding": {
+    "themes": [
+      "teal",
+      "ocean",
+      "grape"
+    ],
+    "fonts": {
+      "body": "Almarai",
+      "display": "Almarai"
+    },
+    "note": "ثقة عقارية واستقرار."
+  },
   "modules": [
     "real_estate",
     "finance",

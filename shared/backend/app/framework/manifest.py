@@ -375,7 +375,7 @@ def theme_problems(t: dict, package: bool = False) -> list[str]:
 FAMILIES = ("general", "commerce", "food_hospitality", "health", "education", "services", "logistics", "industry",
             "projects", "institutions")
 ACTIVITY_KEYS = {"id", "name", "name_en", "version", "kind", "family", "description", "icon", "modules", "optional",
-                 "terms", "home", "theme", "settings", "positions", "menu", "dashboard", "roles"}
+                 "terms", "home", "theme", "branding", "settings", "positions", "menu", "dashboard", "roles"}
 VARIANT_KEYS = {"module", "description", "fields", "terms", "settings"}
 VARIANT_FIELD_TYPES = ("text", "number", "date", "boolean", "select")
 ROLE_CODE = re.compile(r"^[a-z][a-z0-9_]{1,31}$")

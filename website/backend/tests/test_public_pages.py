@@ -214,7 +214,7 @@ class Tests(unittest.IsolatedAsyncioTestCase):
         db = db_scripted(ok_script(ONHOST_TREE, theme=SYNTH_THEME))
         captured = {}
 
-        async def render(db_, page, theme, tid, canonical):
+        async def render(db_, page, theme, tid, canonical, link_base=""):
             captured["theme"] = theme
             return "<html>ok</html>"
 
@@ -271,13 +271,13 @@ class Tests(unittest.IsolatedAsyncioTestCase):
         barrier = asyncio.Event()
         seen = {}
 
-        async def render_a(db, page, theme, tenant_id, canonical):
+        async def render_a(db, page, theme, tenant_id, canonical, link_base=""):
             seen["a_bind"] = current_tenant_id.get()
             await barrier.wait()  # force overlap with request B
             seen["a_render"] = current_tenant_id.get()
             return "<html>A</html>"
 
-        async def render_b(db, page, theme, tenant_id, canonical):
+        async def render_b(db, page, theme, tenant_id, canonical, link_base=""):
             seen["b_bind"] = current_tenant_id.get()
             barrier.set()
             await asyncio.sleep(0.02)  # let A resume while B is mid-flight

@@ -5,6 +5,18 @@
   "name": "paint",
   "name_en": "",
   "description": "",
+  "branding": {
+    "themes": [
+      "violet",
+      "rose",
+      "teal"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "ألوان تعبر عن المنتج نفسه."
+  },
   "modules": [
     "pos",
     "inventory",

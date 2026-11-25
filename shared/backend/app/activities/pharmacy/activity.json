@@ -5,6 +5,18 @@
   "name": "صيدليات ومستلزمات طبية",
   "name_en": "Pharmacy",
   "description": "دواء، تشغيلات، تواريخ صلاحية، رقابة صرف وتأمين صحي",
+  "branding": {
+    "themes": [
+      "teal",
+      "olive",
+      "cyan"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "ثقة صحية واضحة ومريحة."
+  },
   "modules": [
     "pharmacy",
     "batches",

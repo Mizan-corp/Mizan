@@ -5,6 +5,18 @@
   "name": "صيانة وخدمات ميدانية وتشغيل",
   "name_en": "Field Service",
   "description": "أوامر شغل، توجيه فنيين، قطع غيار متنقلة، وتوقيعات عملاء",
+  "branding": {
+    "themes": [
+      "ocean",
+      "tangerine",
+      "slate"
+    ],
+    "fonts": {
+      "body": "Cairo",
+      "display": "Cairo"
+    },
+    "note": "عملية ووضوح في المتابعة."
+  },
   "modules": [
     "field_service",
     "inventory",

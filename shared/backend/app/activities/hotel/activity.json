@@ -5,6 +5,18 @@
   "name": "فنادق، منتجعات، وضيافة",
   "name_en": "Hotels & Resorts",
   "description": "حجوزات، غرف، فواتير إقامة، وتدقيق ليلي ومطاعم فندقية",
+  "branding": {
+    "themes": [
+      "grape",
+      "ocean",
+      "teal"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "فخامة هادئة تناسب الضيافة الفندقية."
+  },
   "modules": [
     "hospitality",
     "restaurant",

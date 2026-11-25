@@ -5,6 +5,18 @@
   "name": "tiles",
   "name_en": "",
   "description": "",
+  "branding": {
+    "themes": [
+      "olive",
+      "honey",
+      "slate"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "خامات طبيعية وأناقة سيراميك."
+  },
   "modules": [
     "pos",
     "inventory",

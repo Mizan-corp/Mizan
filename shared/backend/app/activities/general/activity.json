@@ -5,6 +5,18 @@
   "name": "الأساس العام",
   "name_en": "General",
   "description": "يرثه كل نشاط: جهات الاتصال، الأصناف، المخزون، المبيعات، المشتريات، المالية، نقاط البيع، الموظفون، التقارير",
+  "branding": {
+    "themes": [
+      "ocean",
+      "teal",
+      "violet"
+    ],
+    "fonts": {
+      "body": "Cairo",
+      "display": "Cairo"
+    },
+    "note": "اختيارات متوازنة تناسب أغلب الأنشطة."
+  },
   "modules": [
     "core",
     "contacts",

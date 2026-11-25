@@ -5,6 +5,18 @@
   "name": "تجارة جملة وتوزيع وتوريدات",
   "name_en": "Wholesale",
   "description": "أسعار كميات، قوائم أسعار عملاء، تسعير حسب الحجم والخصومات",
+  "branding": {
+    "themes": [
+      "ocean",
+      "olive",
+      "indigo"
+    ],
+    "fonts": {
+      "body": "Almarai",
+      "display": "Almarai"
+    },
+    "note": "جدية الجملة ووضوح الأرقام."
+  },
   "modules": [
     "wholesale",
     "inventory",

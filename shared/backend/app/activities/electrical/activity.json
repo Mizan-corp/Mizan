@@ -5,6 +5,18 @@
   "name": "electrical",
   "name_en": "",
   "description": "",
+  "branding": {
+    "themes": [
+      "honey",
+      "tangerine",
+      "ocean"
+    ],
+    "fonts": {
+      "body": "Cairo",
+      "display": "Cairo"
+    },
+    "note": "تيار واضح وأمان مهني."
+  },
   "modules": [
     "pos",
     "inventory",

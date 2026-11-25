@@ -5,6 +5,18 @@
   "name": "تصنيع ومعالجة أغذية ومشروبات",
   "name_en": "Food Mfg",
   "description": "وصفات وخلطات، تتبع تشغيلات، صلاحيات، ورقابة سلامة الغذاء",
+  "branding": {
+    "themes": [
+      "tangerine",
+      "honey",
+      "olive"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "دفء المطبخ البيتي مع وضوح القوائم."
+  },
   "modules": [
     "food_manufacturing",
     "inventory",

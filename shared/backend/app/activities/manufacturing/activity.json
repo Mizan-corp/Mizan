@@ -5,6 +5,18 @@
   "name": "تصنيع وتجميع ميكانيكي وإلكتروني",
   "name_en": "Manufacturing",
   "description": "شجرة منتج BOM، مراكز تشغيل، تخطيط مواد MRP، وتكاليف إنتاج",
+  "branding": {
+    "themes": [
+      "ocean",
+      "slate",
+      "teal"
+    ],
+    "fonts": {
+      "body": "Almarai",
+      "display": "Almarai"
+    },
+    "note": "انضباط صناعي وقراءة مريحة."
+  },
   "modules": [
     "manufacturing",
     "inventory",

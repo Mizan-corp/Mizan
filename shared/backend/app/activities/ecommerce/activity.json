@@ -5,6 +5,18 @@
   "name": "تجارة إلكترونية ومتاجر رقمية",
   "name_en": "E-commerce",
   "description": "ربط المتاجر، مزامنة المخزون اللحظية، وتجهيز الشحنات",
+  "branding": {
+    "themes": [
+      "violet",
+      "ocean",
+      "tangerine"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "حداثة رقمية وثقة في الدفع."
+  },
   "modules": [
     "ecommerce",
     "inventory",

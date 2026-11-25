@@ -5,6 +5,18 @@
   "name": "مدارس ومعاهد تدريب وأكاديميات",
   "name_en": "School",
   "description": "شؤون الطلاب، أقساط، وإيصالات رسوم مدرسية وحافلات نقل",
+  "branding": {
+    "themes": [
+      "ocean",
+      "lime",
+      "teal"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "انفتاح وتعلم وتفاؤل."
+  },
   "modules": [
     "school",
     "finance",

@@ -5,6 +5,18 @@
   "name": "وكالات دعاية وتصميم وترجمة",
   "name_en": "Creative Agency",
   "description": "إدارة ملخصات العملاء، مهام، مراجعة تصاميم، وفواتير مشروعات",
+  "branding": {
+    "themes": [
+      "violet",
+      "ruby",
+      "tangerine"
+    ],
+    "fonts": {
+      "body": "Cairo",
+      "display": "Cairo"
+    },
+    "note": "إبداع وجرأة تناسب الوكالات."
+  },
   "modules": [
     "agency",
     "finance",

@@ -5,6 +5,18 @@
   "name": "مكاتب محاسبة واستشارات",
   "name_en": "Consulting",
   "description": "ساعات قابلة للفوترة، خطابات تكليف، عقود، وتقارير أرباح المشروعات",
+  "branding": {
+    "themes": [
+      "indigo",
+      "violet",
+      "ocean"
+    ],
+    "fonts": {
+      "body": "Almarai",
+      "display": "Almarai"
+    },
+    "note": "خبرة وحضور استشاري واثق."
+  },
   "modules": [
     "services",
     "finance",

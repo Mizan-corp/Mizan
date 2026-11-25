@@ -5,6 +5,18 @@
   "name": "صناعات دوائية وكيميائية",
   "name_en": "Pharma Mfg",
   "description": "سجلات تشغيل إلكترونية، معايير GMP، ورقابة جودة وتتبع حرج",
+  "branding": {
+    "themes": [
+      "teal",
+      "ocean",
+      "indigo"
+    ],
+    "fonts": {
+      "body": "Almarai",
+      "display": "Almarai"
+    },
+    "note": "دقة علمية وهوية مؤسسية."
+  },
   "modules": [
     "pharma_manufacturing",
     "inventory",

@@ -5,6 +5,18 @@
   "name": "نقل، شحن، وخدمات لوجستية",
   "name_en": "Logistics",
   "description": "بوالص شحن، تتبع مسارات، إدارة أساطيل، وتكاليف وقود",
+  "branding": {
+    "themes": [
+      "ocean",
+      "tangerine",
+      "teal"
+    ],
+    "fonts": {
+      "body": "Almarai",
+      "display": "Almarai"
+    },
+    "note": "حركة سريعة وتتبع واضح."
+  },
   "modules": [
     "logistics",
     "finance",

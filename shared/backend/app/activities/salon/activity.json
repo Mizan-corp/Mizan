@@ -5,6 +5,18 @@
   "name": "صالونات تجميل ومراكز سبا",
   "name_en": "Salon & Spa",
   "description": "مواعيد مصففين، باقات خدمات، وعمولات موظفين ومستهلكات",
+  "branding": {
+    "themes": [
+      "rose",
+      "grape",
+      "violet"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "نعومة وأناقة تليق بصالونات التجميل."
+  },
   "modules": [
     "salon",
     "pos",

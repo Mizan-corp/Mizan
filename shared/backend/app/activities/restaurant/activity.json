@@ -5,6 +5,18 @@
   "name": "مطاعم، كافيهات، وضيافة",
   "name_en": "Restaurant",
   "description": "إدارة صالة، طاولات، وشاشات مطبخ KDS تفاعلية وRestaurant-POS",
+  "branding": {
+    "themes": [
+      "tangerine",
+      "honey",
+      "ruby"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "ألوان دافئة تفتح الشهية وتليق بالضيافة."
+  },
   "modules": [
     "restaurant",
     "pos",

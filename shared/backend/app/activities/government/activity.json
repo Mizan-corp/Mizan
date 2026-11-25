@@ -5,6 +5,18 @@
   "name": "جهات حكومية وجمعيات غير ربحية",
   "name_en": "Gov & Nonprofits",
   "description": "محاسبة صناديق، موازنات ومخصصات، مناقصات، ومساعدات مستفيدين",
+  "branding": {
+    "themes": [
+      "indigo",
+      "ocean",
+      "teal"
+    ],
+    "fonts": {
+      "body": "Almarai",
+      "display": "Almarai"
+    },
+    "note": "رسمية وثقة مؤسسية."
+  },
   "modules": [
     "government",
     "finance",

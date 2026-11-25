@@ -50,6 +50,25 @@ async def list_plans():
     return {"plans": PLANS, "trial_days": TRIAL_DAYS}
 
 
+@router.get("/branding")
+async def branding_options():
+    """What the onboarding wizard shows: Mizan's theme packs and each activity's
+    branding recommendations (activity.json "branding"), so a new merchant picks
+    a real, licensed palette with its own fonts instead of static swatches."""
+    import json as _json
+
+    from app.framework.variants import ACTIVITIES
+    from app.platform.themes.service import file_themes, summary
+
+    themes = [summary(t, "") for t in file_themes().values() if t["activity"] is None]
+    recommendations: dict[str, dict] = {}
+    for f in sorted(ACTIVITIES.glob("*/activity.json")):
+        a = _json.loads(f.read_text(encoding="utf-8"))
+        if isinstance(a.get("branding"), dict):
+            recommendations[a["id"]] = a["branding"]
+    return {"themes": themes, "activities": recommendations}
+
+
 @router.post("/signup")
 async def signup(data: SignupRequest, request: Request, db: AsyncSession = Depends(get_db), _=Depends(signup_limiter)):
     norm_scale = SCALE_ALIASES.get(data.scale, data.scale)

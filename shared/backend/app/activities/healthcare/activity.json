@@ -5,6 +5,18 @@
   "name": "عيادات ومراكز طبية ومستشفيات",
   "name_en": "Healthcare",
   "description": "ملفات مرضى، حجز مواعيد، روشتات، وفواتير تأمين طبي",
+  "branding": {
+    "themes": [
+      "teal",
+      "cyan",
+      "ocean"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "هدوء ونظافة يبعثان على الطمأنينة."
+  },
   "modules": [
     "healthcare_clinic",
     "pharmacy",

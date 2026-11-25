@@ -5,6 +5,18 @@
   "name": "مزارع وإنتاج زراعي وحيواني",
   "name_en": "Agriculture",
   "description": "أحواض زراعية، دورات محصولية، أسمدة، وتتبع محاصيل وثروة حيوانية",
+  "branding": {
+    "themes": [
+      "olive",
+      "lime",
+      "honey"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "طبيعة ونمو ومحصول."
+  },
   "modules": [
     "agriculture",
     "inventory",

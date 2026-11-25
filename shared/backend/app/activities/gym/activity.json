@@ -5,6 +5,18 @@
   "name": "أندية وصالات رياضية ولياقة بدنية",
   "name_en": "Gym",
   "description": "اشتراكات، بوابات دخول ذكية، حصص تدريب شخصي، وكافيتيريا Gym-POS",
+  "branding": {
+    "themes": [
+      "tangerine",
+      "lime",
+      "ruby"
+    ],
+    "fonts": {
+      "body": "Cairo",
+      "display": "Cairo"
+    },
+    "note": "طاقة عالية وتحفيز واضح."
+  },
   "modules": [
     "gym",
     "pos",

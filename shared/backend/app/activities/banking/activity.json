@@ -5,6 +5,18 @@
   "name": "بنوك ومؤسسات تمويل وإقراض",
   "name_en": "Banking & Microfinance",
   "description": "محرك قيود مزدوجة لحظي، قروض، فوائد، ومراقبة غسيل أموال",
+  "branding": {
+    "themes": [
+      "indigo",
+      "ocean",
+      "grape"
+    ],
+    "fonts": {
+      "body": "Almarai",
+      "display": "Almarai"
+    },
+    "note": "رصانة وثقة مصرفية."
+  },
   "modules": [
     "banking",
     "finance"

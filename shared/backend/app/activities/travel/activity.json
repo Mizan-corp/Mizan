@@ -5,6 +5,18 @@
   "name": "وكالات السياحة والسفر",
   "name_en": "Travel Agency",
   "description": "برامج سياحية، حجوزات طيران وفنادق، وفواتير موحدة للمجموعات",
+  "branding": {
+    "themes": [
+      "ocean",
+      "cyan",
+      "teal"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "أفق مفتوح وإحساس بالحركة والثقة."
+  },
   "modules": [
     "travel",
     "sales",
