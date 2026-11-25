@@ -40,14 +40,6 @@ export interface Workspace {
   palette?: { name?: string; palette?: string; fonts?: { body?: string; display?: string } };
 }
 
-export interface BrandingProfile {
-  id: string;
-  name: string;
-  theme: string;
-  palette: string | null;
-  fonts: { body?: string; display?: string };
-}
-
 export type DeploymentMode = "cloud_saas" | "desktop" | "lan";
 
 export interface LicenceSummary {
@@ -168,8 +160,6 @@ export const usePlans = () =>
   });
 
 export const useInvoices = () => useQuery({ queryKey: ["invoices"], queryFn: () => api.get<{ items: Invoice[] }>("/account/invoices") });
-export const useBrandingProfiles = () =>
-  useQuery({ queryKey: ["branding-profiles"], queryFn: () => api.get<{ items: BrandingProfile[] }>("/account/branding-profiles") });
 
 /** What paying for a plan now costs and when it runs (#68): shown before sending the owner to Paymob. */
 export interface CheckoutQuote {
@@ -310,9 +300,4 @@ export const actions = {
     api.post<WorkspaceDetail>(`/account/workspaces/${v.id}/installations/${v.installation}/licence`),
   deleteWorkspace: (v: { id: string, confirm: string }) =>
     api.del(`/account/workspaces/${v.id}?confirm=${encodeURIComponent(v.confirm)}`),
-  saveBrandingProfile: (v: { name: string; theme: string; palette?: string | null; fonts?: { body?: string; display?: string } }) =>
-    api.post<BrandingProfile>("/account/branding-profiles", v),
-  applyBrandingProfile: (v: { profile: string; workspace: string }) =>
-    api.post<{ profile: BrandingProfile }>(`/account/branding-profiles/${v.profile}/apply/${v.workspace}`),
-  deleteBrandingProfile: (id: string) => api.del(`/account/branding-profiles/${id}`),
 };

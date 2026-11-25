@@ -4429,6 +4429,9 @@ MIGRATIONS.append(("v116_owner_branding_profiles", """
     -- Named branding profiles an owner saves once and reuses across their workspaces,
     -- plus each workspace's automatic profile synced from theme edits. Owner-scoped
     -- like owner_accounts (no tenant RLS), reached only under the owner session.
+    -- Superseded by v117 (profiles are workspace-scoped so desktop and LAN installs
+    -- behave identically); the table is retained until existing rows have a grounded
+    -- per-workspace mapping, never dropped unconditionally.
     CREATE TABLE IF NOT EXISTS owner_branding_profiles (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         owner_account_id uuid NOT NULL REFERENCES owner_accounts(id) ON DELETE CASCADE,
@@ -4440,4 +4443,29 @@ MIGRATIONS.append(("v116_owner_branding_profiles", """
     );
     CREATE INDEX IF NOT EXISTS ix_owner_branding_profiles_owner_account_id ON owner_branding_profiles (owner_account_id);
     CREATE UNIQUE INDEX IF NOT EXISTS uq_owner_branding_name ON owner_branding_profiles (owner_account_id, name);
+"""))
+MIGRATIONS.append(("v117_workspace_branding_profiles", """
+    -- Branding profiles live inside the workspace itself (each workspace's automatic
+    -- profile synced from theme edits, plus named saves), so the same behavior holds
+    -- on cloud, desktop and LAN installs without an owner-account dependency. Tenant
+    -- scoped with RLS like site_activation. Additive: the superseded owner-level
+    -- table stays until existing rows have a grounded per-workspace mapping.
+    CREATE TABLE IF NOT EXISTS workspace_branding_profiles (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+            DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+        name varchar(80) NOT NULL,
+        theme_id varchar(80) NOT NULL,
+        palette_id varchar(80),
+        fonts jsonb,
+        created_at timestamptz DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS ix_workspace_branding_profiles_tenant_id ON workspace_branding_profiles (tenant_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_workspace_branding_name ON workspace_branding_profiles (tenant_id, name);
+    ALTER TABLE workspace_branding_profiles ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE workspace_branding_profiles FORCE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS tenant_isolation ON workspace_branding_profiles;
+    CREATE POLICY tenant_isolation ON workspace_branding_profiles
+        USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    GRANT SELECT, INSERT, UPDATE, DELETE ON workspace_branding_profiles TO mizan_app;
 """))

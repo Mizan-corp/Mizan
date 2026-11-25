@@ -8,7 +8,7 @@ ERP user (`users.owner_account_id`) that "Open workspace" signs in as.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, func, text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -61,25 +61,3 @@ class RevokedToken(Base):
 
     jti: Mapped[str] = mapped_column(String(64), primary_key=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
-
-
-class OwnerBrandingProfile(Base):
-    """A named branding profile an owner saves once and reuses across their workspaces:
-    a theme plus, optionally, an independent palette and body/display font picks.
-    Owner-scoped: profiles are never shared between owner accounts."""
-
-    __tablename__ = "owner_branding_profiles"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    owner_account_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("owner_accounts.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    name: Mapped[str] = mapped_column(String(80), nullable=False)
-    theme_id: Mapped[str] = mapped_column(String(80), nullable=False)
-    # Independent recolor (themes/service.check_palette_choice); NULL = the theme's own palette.
-    palette_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
-    # Independent typography picks {"body": ..., "display": ...}; NULL = the theme's own faces.
-    fonts: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    __table_args__ = (UniqueConstraint("owner_account_id", "name", name="uq_owner_branding_name"),)

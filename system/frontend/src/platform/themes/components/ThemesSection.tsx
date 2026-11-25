@@ -88,17 +88,35 @@ export function ThemesSection() {
     onError: (e) => fail(e, "تعذر حفظ التخصيص"),
   });
 
-  // The owner's branding profiles: every theme edit auto-saves one, plus named saves
-  // from the owner panel. Private to this owner; applied here in Settings > Themes.
+  // The workspace's branding profiles: every theme edit auto-saves one, plus named
+  // saves below. Workspace-scoped - the same behavior on cloud, desktop and LAN.
   const profiles = useQuery({
     queryKey: ["theme-profiles"],
     queryFn: () => api.get<{ items: BrandingProfile[] }>("/themes/profiles"),
     enabled: manage,
   });
+  const [profileName, setProfileName] = useState("");
   const applyProfile = useMutation({
     mutationFn: (id: string) => api.post<ThemePack>(`/themes/profiles/${id}/apply`),
     onSuccess: (t) => { apply(t); toast("success", "طُبّق ملف الهوية"); },
     onError: (e) => fail(e, "تعذر تطبيق ملف الهوية"),
+  });
+  const saveProfile = useMutation({
+    mutationFn: (name: string) => api.post<BrandingProfile>("/themes/profiles", { name }),
+    onSuccess: () => {
+      setProfileName("");
+      qc.invalidateQueries({ queryKey: ["theme-profiles"] });
+      toast("success", "حُفظ ملف الهوية");
+    },
+    onError: (e) => fail(e, "تعذر حفظ ملف الهوية"),
+  });
+  const deleteProfile = useMutation({
+    mutationFn: (id: string) => api.del(`/themes/profiles/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["theme-profiles"] });
+      toast("success", "حُذف ملف الهوية");
+    },
+    onError: (e) => fail(e, "تعذر حذف ملف الهوية"),
   });
 
   const inspect = useMutation({
@@ -262,26 +280,57 @@ export function ThemesSection() {
             ))}
           </div>
           {customize.isPending && <Spinner />}
-          {profiles.data && profiles.data.items.length > 0 && (
+          {profiles.data && (
             <div>
               <p className="text-xs font-bold text-foreground">ملفات الهوية</p>
               <p className="text-[10px] text-muted-foreground">
-                أي تعديل على المظهر يُحفظ هنا تلقائيًا كملف خاص بك وحدك (المظهر الأصلي لا يتغيّر) — اختر ملفًا لتطبيقه
+                أي تعديل على المظهر يُحفظ هنا تلقائيًا كملف خاص بهذه المساحة (المظهر الأصلي لا يتغيّر). احفظ الحالي باسم، واختر ملفًا لتطبيقه.
               </p>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {profiles.data.items.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    title={`${p.theme}${p.palette ? ` + ${p.palette}` : ""}`}
-                    disabled={applyProfile.isPending}
-                    onClick={() => applyProfile.mutate(p.id)}
-                    className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-muted-foreground transition cursor-pointer hover:border-primary/40 hover:text-foreground disabled:opacity-50"
-                  >
-                    {applyProfile.isPending && applyProfile.variables === p.id ? <Spinner /> : p.name}
-                  </button>
-                ))}
-              </div>
+              <form
+                className="mt-1.5 flex gap-1.5"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const n = profileName.trim();
+                  if (n.length >= 2) saveProfile.mutate(n);
+                }}
+              >
+                <input
+                  className="min-w-0 flex-1 rounded-lg border border-line bg-card px-2 py-1.5 text-xs"
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  placeholder="اسم الملف، مثل: هوية الفرع الجديد"
+                  maxLength={80}
+                />
+                <Button size="sm" type="submit" disabled={profileName.trim().length < 2 || saveProfile.isPending}>
+                  {saveProfile.isPending ? <Spinner /> : "احفظ الحالي"}
+                </Button>
+              </form>
+              {profiles.data.items.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {profiles.data.items.map((p) => (
+                    <span key={p.id} className="inline-flex items-center rounded-lg border border-line text-xs">
+                      <button
+                        type="button"
+                        title={`${p.theme}${p.palette ? ` + ${p.palette}` : ""}`}
+                        disabled={applyProfile.isPending}
+                        onClick={() => applyProfile.mutate(p.id)}
+                        className="px-2.5 py-1.5 text-muted-foreground transition cursor-pointer hover:text-foreground disabled:opacity-50"
+                      >
+                        {applyProfile.isPending && applyProfile.variables === p.id ? <Spinner /> : p.name}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`حذف ${p.name}`}
+                        disabled={deleteProfile.isPending}
+                        onClick={() => deleteProfile.mutate(p.id)}
+                        className="border-s border-line px-1.5 py-1.5 text-muted-foreground transition cursor-pointer hover:text-danger disabled:opacity-50"
+                      >
+                        {deleteProfile.isPending && deleteProfile.variables === p.id ? <Spinner /> : <Trash2 className="size-3" />}
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { ArrowUpLeft, Check, ChevronRight, CreditCard, FlaskConical, ShieldCheck, Smartphone } from "lucide-react";
 import {
   actions,
-  type BrandingProfile,
   type Invoice,
   type Owner,
   type PaymentMethod,
@@ -11,7 +10,6 @@ import {
   useAction,
   useActivityChange,
   useActivityPreview,
-  useBrandingProfiles,
   useDeveloperActivities,
   useCheckoutQuote,
   useMe,
@@ -31,99 +29,6 @@ import { DownloadButton } from "@app/DownloadDialog";
 import { InvoiceTable } from "@app/pages/Invoices";
 
 const ORDER = ["trial", "starter", "pro", "enterprise"];
-
-/** The owner's named branding profiles: save this workspace's theme/palette/fonts as a
-    reusable profile, apply any profile to this workspace, delete profiles. */
-function BrandingPanel({ w }: { w: WorkspaceT }) {
-  const profiles = useBrandingProfiles();
-  const [name, setName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const save = useAction((v: { name: string }) => {
-    const pal = w.palette ?? {};
-    if (!pal.name) return Promise.reject(new Error("لا يوجد مظهر محفوظ لهذه المساحة بعد"));
-    return actions.saveBrandingProfile({ name: v.name, theme: pal.name, palette: pal.palette ?? null, fonts: pal.fonts });
-  });
-  const applyProfile = useAction((v: { profile: string }) => actions.applyBrandingProfile({ profile: v.profile, workspace: w.id }));
-  const remove = useAction((v: { id: string }) => actions.deleteBrandingProfile(v.id));
-  const current = w.palette ?? {};
-  const items = profiles.data?.items ?? [];
-
-  const run = async (label: string, p: Promise<unknown>) => {
-    setError(null);
-    try {
-      await p;
-      toast.success(label);
-    } catch (e) {
-      setError(errorText(e));
-    }
-  };
-
-  return (
-    <Panel title="ملفات الهوية">
-      <p className="text-[13px] leading-relaxed text-mute">
-        احفظ هوية مساحة العمل الحالية (المظهر{current.palette ? " + لوحة الألوان المستقلة" : ""}{current.fonts?.body ? " + الخطوط" : ""}) باسم، وطبّقها لاحقًا على أي مساحة من مساحاتك.
-      </p>
-      <p className="mt-2 text-sm text-ink-2">
-        الحالية: <span className="code" dir="ltr">{current.name ?? "—"}</span>
-        {current.palette && <> · ألوان <span className="code" dir="ltr">{current.palette}</span></>}
-        {current.fonts?.body && <> · {current.fonts.body}{current.fonts.display && current.fonts.display !== current.fonts.body ? ` + ${current.fonts.display}` : ""}</>}
-      </p>
-      <form
-        className="mt-3 flex flex-wrap items-end gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const n = name.trim();
-          if (n.length < 2) return;
-          run("حُفظ الملف", save.mutateAsync({ name: n })).then(() => setName(""));
-        }}
-      >
-        <div className="min-w-48 flex-1">
-          <Field label="اسم الملف">
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="مثال: هوية الفرع الجديد" maxLength={80} />
-          </Field>
-        </div>
-        <Button type="submit" variant="primary" busy={save.isPending} disabled={name.trim().length < 2 || !current.name}>
-          احفظ الحالية كملف
-        </Button>
-      </form>
-      {error && <ErrorNote>{error}</ErrorNote>}
-      {items.length > 0 && (
-        <ul className="mt-4 divide-y divide-line-soft border-t border-line-soft">
-          {items.map((pr: BrandingProfile) => (
-            <li key={pr.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm">
-              <span className="min-w-0">
-                <span className="font-semibold text-ink">{pr.name}</span>
-                <span className="block text-xs text-mute">
-                  <span className="code" dir="ltr">{pr.theme}</span>
-                  {pr.palette && <> · ألوان <span className="code" dir="ltr">{pr.palette}</span></>}
-                  {pr.fonts?.body && <> · {pr.fonts.body}</>}
-                </span>
-              </span>
-              <span className="flex shrink-0 items-center gap-2">
-                <Button
-                  size="sm"
-                  busy={applyProfile.isPending && applyProfile.variables?.profile === pr.id}
-                  disabled={current.name === pr.theme && (current.palette ?? null) === pr.palette}
-                  onClick={() => run("طُبّق الملف على هذه المساحة", applyProfile.mutateAsync({ profile: pr.id }))}
-                >
-                  طبّق هنا
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  busy={remove.isPending && remove.variables?.id === pr.id}
-                  onClick={() => run("حُذف الملف", remove.mutateAsync({ id: pr.id }))}
-                >
-                  احذف
-                </Button>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Panel>
-  );
-}
 
 function CurrentPlan({ w }: { w: WorkspaceT }) {
   if (w.plan === "trial") {
@@ -910,7 +815,6 @@ export default function Workspace() {
 
       <Plans w={w} me={me.data} />
 
-      <BrandingPanel w={w} />
 
       <Panel title="فواتير مساحة العمل" flush>
         <InvoiceTable invoices={invoices as Invoice[]} />

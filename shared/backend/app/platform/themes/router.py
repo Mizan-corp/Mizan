@@ -58,18 +58,36 @@ async def list_palettes(user: User = Depends(get_current_user)):
         "families": sorted(service.family_files().keys())}
 
 
+class ProfileName(BaseModel):
+    name: str = Field(min_length=2, max_length=80)
+
+
 @router.get("/profiles")
-async def list_owner_profiles(db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("themes.manage"))):
-    """The workspace owner's branding profiles - automatic (saved on every theme edit) and
-    named saves - private to that owner, applied here in Settings > Themes."""
-    return {"items": await service.owner_profiles(db, await _tenant(db, user))}
+async def list_profiles(db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("themes.manage"))):
+    """This workspace's branding profiles - the automatic one (updated on every theme edit)
+    and named saves - applied here in Settings > Themes. Workspace-scoped, so the same
+    behavior holds on cloud, desktop and LAN installs."""
+    return {"items": await service.profiles(db, await _tenant(db, user))}
+
+
+@router.post("/profiles", status_code=201)
+async def save_profile(data: ProfileName, db: AsyncSession = Depends(get_db),
+                       user: User = Depends(require_perm("themes.manage"))):
+    """Save the workspace's current theme + palette + fonts as a named profile."""
+    return await service.save_profile(db, await _tenant(db, user), data.name)
+
+
+@router.delete("/profiles/{profile_id}", status_code=204)
+async def delete_profile(profile_id: uuid.UUID, db: AsyncSession = Depends(get_db),
+                         user: User = Depends(require_perm("themes.manage"))):
+    await service.delete_profile(db, await _tenant(db, user), profile_id)
 
 
 @router.post("/profiles/{profile_id}/apply")
-async def apply_owner_profile(profile_id: uuid.UUID, db: AsyncSession = Depends(get_db),
-                              user: User = Depends(require_perm("themes.manage"))):
-    """Apply one of the workspace owner's profiles to this workspace."""
-    return await service.apply_owner_profile(db, await _tenant(db, user), profile_id)
+async def apply_profile(profile_id: uuid.UUID, db: AsyncSession = Depends(get_db),
+                        user: User = Depends(require_perm("themes.manage"))):
+    """Apply one of this workspace's profiles to this workspace."""
+    return await service.apply_profile(db, await _tenant(db, user), profile_id)
 
 
 @router.post("/packages/inspect")
