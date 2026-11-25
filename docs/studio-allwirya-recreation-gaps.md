@@ -102,6 +102,20 @@ N3. SHIPPED 2026-11-25 (feat/studio-render-parity): literal <mark>..</mark>
     editor has an Accent toggle on the current selection.
 N4. Category card preset (image + label + href grid) — degraded to art placeholders
     until G3 storage is approved.
+N5. SHIPPED 2026-11-25 (feat/studio-render-parity): kit columns keep mobile padding
+    's' by default (was 'none' for non-card columns, crushing text edge-to-edge on
+    phones); affects future kit applications.
+N6. SHIPPED 2026-11-25 (feat/studio-render-parity): image src and button href fall
+    back across languages only when unset in the active language; explicit empty
+    stays blank, labels never fall back, unlabeled buttons stay hidden. Both
+    renderers share the rule (render.py _content_ref, treerender contentRef).
+N7. SHIPPED 2026-11-25 (feat/studio-render-parity): content editing language
+    persists across ALL in-app page switches; page titles gate only the first-load
+    default (an English-only title no longer resets an Arabic editing session).
+Draft data fixes 2026-11-25: selected-product card recomposed through editor
+controls only (1-col row -> 2 columns via Insert, heading+price moved with the
+Move drag handle, image width full) - balanced text-left/image-right on desktop,
+stacked on mobile, saved and API-verified.
 Blocked and NOT proposed until approved: image storage provisioning (G3), search and
 form elements (G1/G6 - interactive surface needs its own consent/design pass),
 font upload (G7). G5 icon set is an implementation gap, not approval-gated.
