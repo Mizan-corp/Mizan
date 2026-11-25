@@ -22,7 +22,7 @@ it('updates only edited row column-count when adding a column',()=>{
 it('refuses root deletion, unsupported placement and duplicate IDs without mutation',()=>{
  const tree=toPageTree(initialProject),before=JSON.stringify(tree),state={tree,past:[],future:[]};
  expect(()=>changeStructure(state,{kind:'remove',id:tree.id})).toThrow();
- expect(()=>changeStructure(state,{kind:'insert',parentId:tree.id,type:'image',id:'n_badplace'})).toThrow();
+ expect(()=>changeStructure(state,{kind:'insert',parentId:tree.children![0].children![0].id,type:'columns',id:'n_badplace'})).toThrow();
  expect(()=>changeStructure(state,{kind:'insert',parentId:tree.id,type:'columns',id:tree.id})).toThrow();
  expect(JSON.stringify(tree)).toBe(before);expect(state.past).toEqual([]);
 });
@@ -47,8 +47,40 @@ it('places inserts and moves across compatible columns with original subtree IDs
  expect(nativeNodes(moved.tree).map(n=>n.id).sort()).toEqual(nativeNodes(tree).map(n=>n.id).sort());
  const inserted=changeStructure(state,{kind:'insert',parentId:source.id,type:'heading',id:'n_positioned',index:0});
  expect(inserted.tree.children![0].children![0].children![0].id).toBe('n_positioned');
- expect(()=>changeStructure(state,{kind:'relocate',id:node.id,parentId:tree.id,index:0})).toThrow();
+ // A content block relocated onto a section is wrapped in a fresh row and column.
+ const wrapped=changeStructure(state,{kind:'relocate',id:node.id,parentId:tree.id,index:0});
+ expect(wrapped.tree.children![0].type).toBe('columns');
+ expect(wrapped.tree.children![0].children![0].children![0].id).toBe(node.id);
  expect(()=>changeStructure(state,{kind:'relocate',id:source.id,parentId:source.id,index:0})).toThrow();
  expect(()=>changeStructure(state,{kind:'insert',parentId:source.id,type:'text',id:'n_invalidpos',index:999})).toThrow();
  expect(state.tree).toEqual(tree);
+});
+
+it('wraps a card dropped straight onto a section in a row, styled as a card',()=>{
+ const tree=toPageTree(initialProject),state={tree,past:[],future:[]};
+ const next=changeStructure(state,{kind:'insert',parentId:tree.id,type:'card',id:'n_newcard'});
+ const row=next.tree.children!.at(-1)!;
+ expect(row.type).toBe('columns');expect(row.settings.desktop.columns).toBe(1);
+ const col=row.children![0];
+ expect(col.type).toBe('column');expect(col.id).toBe('n_newcard');
+ expect(col.settings.desktop).toEqual({background:'card',padding:'s',rounded:true});
+});
+it('wraps a content block dropped straight onto a section in a row and column',()=>{
+ const tree=toPageTree(initialProject),state={tree,past:[],future:[]};
+ const next=changeStructure(state,{kind:'insert',parentId:tree.id,type:'text',id:'n_newtext2',index:0});
+ const row=next.tree.children![0];
+ expect(row.type).toBe('columns');
+ expect(row.children![0].type).toBe('column');
+ expect(row.children![0].children![0]).toMatchObject({id:'n_newtext2',type:'text'});
+});
+it('wraps a column relocated onto a section in a fresh row and keeps the source row valid',()=>{
+ const tree=toPageTree(initialProject),state={tree,past:[],future:[]};
+ const sourceRow=tree.children![0];
+ const colId=sourceRow.children![0].id;
+ const targetSection=changeStructure(state,{kind:'insert',parentId:tree.id,type:'columns',id:'n_targetrow'}).tree;
+ const next=changeStructure({tree:targetSection,past:[],future:[]},{kind:'relocate',id:colId,parentId:tree.id,index:0});
+ expect(next.tree.children![0].type).toBe('columns');
+ expect(next.tree.children![0].children![0].id).toBe(colId);
+ const source=nativeNodes(next.tree).find(n=>n.id===sourceRow.id)!;
+ expect(source.settings.desktop.columns).toBe(source.children!.length);
 });

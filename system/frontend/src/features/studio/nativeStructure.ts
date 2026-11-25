@@ -16,8 +16,24 @@ export function changeStructure(state:NativeHistory,edit:StructureEdit):NativeHi
     const index=edit.index??(next.children?.length??0);if(!Number.isInteger(index)||index<0||index>(next.children?.length??0))throw Error('Invalid section drop position.');next.children=[...(next.children??[])];next.children.splice(index,0,createPreset(next,edit.preset));
   }else if(edit.kind==='insert'){
     const parent=nodes.find(n=>n.id===edit.parentId);
-    if(!parent||!childTypes(parent.type).includes(edit.type))throw Error('This node cannot contain that block.');
+    if(!parent)throw Error('This node cannot contain that block.');
     if(nodes.some(n=>n.id===edit.id))throw Error('New ID already exists.');
+    // Direct-manipulation wrap: a card, column or content block dropped straight
+    // onto a section gets the row (and column) it needs instead of a rejection,
+    // so an empty section accepts the first drop as users expect.
+    const effType=edit.type==='card'?'column':edit.type;
+    if(parent.type==='section'&&(effType==='column'||childTypes('column').includes(effType))){
+      const index=edit.index??(parent.children?.length??0);
+      if(!Number.isInteger(index)||index<0||index>(parent.children?.length??0))throw Error('Invalid drop position.');
+      const row=createNode('columns',newNativeId(next));
+      const col=createNode('column',effType==='column'?edit.id:newNativeId(next));
+      if(edit.type==='card')col.settings={desktop:{background:'card',padding:'s',rounded:true}};
+      if(effType!=='column')col.children=[createNode(effType,edit.id)];
+      row.children=[col];row.settings={desktop:{columns:1}};
+      parent.children=[...(parent.children??[])];parent.children.splice(index,0,row);
+      assertNativeTree(next);return {tree:next,past:[...state.past.slice(-29),state.tree],future:[]};
+    }
+    if(!childTypes(parent.type).includes(edit.type))throw Error('This node cannot contain that block.');
     if(parent.type==='columns'&&(parent.children?.length??0)>=6)throw Error('At most six columns.');
     const added=createNode(edit.type,edit.id);
     if(edit.type==='columns'){let childId=newNativeId(next);while(childId===edit.id)childId=newNativeId(next);added.children=[createNode('column',childId)];}
@@ -28,7 +44,23 @@ export function changeStructure(state:NativeHistory,edit:StructureEdit):NativeHi
   }else if(edit.kind==='relocate'){
     if(edit.id===next.id)throw Error('The page root cannot be moved.');
     const node=nodes.find(n=>n.id===edit.id),source=nodes.find(n=>n.children?.some(c=>c.id===edit.id)),target=nodes.find(n=>n.id===edit.parentId);
-    if(!node||!source?.children||!target||!childTypes(target.type).includes(node.type))throw Error('Incompatible drop target.');
+    if(!node||!source?.children||!target)throw Error('Incompatible drop target.');
+    // The same wrap for moves: a column or content block dragged onto a section
+    // lands inside a fresh row (and column) at the drop position.
+    if(target.type==='section'&&(node.type==='column'||childTypes('column').includes(node.type))){
+      if(nativeNodes(node).some(n=>n.id===target.id))throw Error('A node cannot contain itself.');
+      if(!Number.isInteger(edit.index)||edit.index<0||edit.index>(target.children?.length??0))throw Error('Invalid drop position.');
+      if(source.type==='columns'&&source.children.length===1)throw Error('Keep at least one column in the source row.');
+      const oldIndex=source.children.findIndex(n=>n.id===node.id);source.children.splice(oldIndex,1);
+      const row=createNode('columns',newNativeId(next));
+      const col=node.type==='column'?node:createNode('column',newNativeId(next));
+      if(node.type!=='column')col.children=[node];
+      row.children=[col];row.settings={desktop:{columns:1}};
+      target.children??=[];target.children.splice(edit.index,0,row);
+      if(source.type==='columns')source.settings={...source.settings,desktop:{...source.settings.desktop,columns:source.children.length}};
+      assertNativeTree(next);return {tree:next,past:[...state.past.slice(-29),state.tree],future:[]};
+    }
+    if(!childTypes(target.type).includes(node.type))throw Error('Incompatible drop target.');
     if(nativeNodes(node).some(n=>n.id===target.id))throw Error('A node cannot contain itself.');
     if(!Number.isInteger(edit.index)||edit.index<0||edit.index>(target.children?.length??0))throw Error('Invalid drop position.');
     if(source!==target&&source.type==='columns'&&source.children.length===1)throw Error('Keep at least one column in the source row.');

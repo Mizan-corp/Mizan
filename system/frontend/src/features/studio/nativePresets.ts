@@ -8,8 +8,8 @@ export const templateCatalog:{id:TemplateKind;name:string;description:string}[]=
 {id:'studio',name:'Independent studio',description:'An intro, studio story, three values and contact section.'},
 {id:'service',name:'Creative services',description:'A service introduction, benefits, client quote and enquiry invitation.'},
 {id:'editorial',name:'Journal & ideas',description:'A publication introduction, feature story, quote and reading invitation.'}];
-export function readableType(type:string){return ({section:'Page',columns:'Section',column:'Column',heading:'Heading',text:'Text',image:'Image',button:'Button',icon_list:'Icon list',icon:'Icon'} as Record<string,string>)[type]??type;}
-export function readableTypeAr(type:string){return ({section:'صفحة',columns:'قسم',column:'عمود',heading:'عنوان',text:'نص',image:'صورة',button:'زر',icon_list:'قائمة أيقونات',icon:'أيقونة'} as Record<string,string>)[type]??type;}
+export function readableType(type:string){return ({section:'Page',columns:'Section',column:'Column',card:'Card',heading:'Heading',text:'Text',image:'Image',button:'Button',icon_list:'Icon list',icon:'Icon'} as Record<string,string>)[type]??type;}
+export function readableTypeAr(type:string){return ({section:'صفحة',columns:'قسم',column:'عمود',card:'كارت',heading:'عنوان',text:'نص',image:'صورة',button:'زر',icon_list:'قائمة أيقونات',icon:'أيقونة'} as Record<string,string>)[type]??type;}
 export function readableName(node:PageNode,lang='en'):string {
  const c=node.content[lang]??node.content.en??{};
  const raw=node.type==='heading'?c.text:node.type==='text'?c.html:node.type==='button'?c.label:node.type==='image'?c.alt:null;
