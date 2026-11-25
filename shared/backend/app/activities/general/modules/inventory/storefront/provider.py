@@ -53,7 +53,10 @@ def inventory_providers(db):
             if not selected:return []
             consent=None
             if kind=='products':
-                from .cards import display_consent
+                # Absolute import: this module is also loaded standalone by the
+                # integration checks (no package context), where a relative
+                # import fails. Registered sys.modules entries resolve first.
+                from app.activities.general.modules.inventory.storefront.cards import display_consent
                 consent=await display_consent(db,context)
             # Do not even select optional fields before explicit v1 opt-in.
             columns=[model.id,model.name]

@@ -37,7 +37,8 @@ class Tests(unittest.IsolatedAsyncioTestCase):
   from unittest.mock import MagicMock
   db=AsyncMock();db.scalar.return_value=json.dumps({'schema':i.SCHEMA,'products':[str(A)],'categories':[]});result=MagicMock();result.all.return_value=[(A,'Chosen item')];db.execute.return_value=result;runtime=CollectionRuntime(i.inventory_providers(db));token=current_tenant_id.set(A)
   try:
-   items=await runtime.items(SourceContext(A,'en',frozenset({'inventory'})),'inventory','products',8);self.assertEqual(dict(items[0].values),{'name':'Chosen item'});sql=str(db.execute.call_args.args[0]);self.assertIn('products.tenant_id',sql);self.assertIn('products.is_active IS true',sql)
+   # v1 typed keys are always present, None without consent (88f922d).
+   items=await runtime.items(SourceContext(A,'en',frozenset({'inventory'})),'inventory','products',8);self.assertEqual(dict(items[0].values),{'name':'Chosen item','price':None,'image':None});sql=str(db.execute.call_args.args[0]);self.assertIn('products.tenant_id',sql);self.assertIn('products.is_active IS true',sql)
    for forbidden in ['cost_price','wholesale_price','shelf_number','barcode','stock_balance']:self.assertNotIn(forbidden,sql)
   finally:current_tenant_id.reset(token)
  async def test_core_provider_scoped_and_no_invoice_fallback(self):

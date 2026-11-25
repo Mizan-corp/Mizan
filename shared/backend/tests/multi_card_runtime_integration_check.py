@@ -55,9 +55,12 @@ class Tests(unittest.IsolatedAsyncioTestCase):
   token=current_tenant_id.set(A)
   try:
    db=AsyncMock();db.scalar.return_value=json.dumps({'schema':provider.SCHEMA,'products':[P],'show_price':False,'show_image':False,'currency':None})
-   for subset in [[Q],[P,P],['BAD'],[True]]:
+   # User-approved revocation semantics (2026-11-24 15:03): a valid but no-longer
+   # consented selection drops out instead of failing the page; only malformed
+   # selections (duplicates, invalid identities, wrong types) stay fail-closed.
+   for subset in [[P,P],['BAD'],[True]]:
     with self.assertRaises(SourceUnavailable):await provider.read_cards(db,ctx,3,subset)
-   db.execute.assert_not_awaited();self.assertEqual(await provider.read_cards(db,ctx,3,[]),[])
+   db.execute.assert_not_awaited();self.assertEqual(await provider.read_cards(db,ctx,3,[Q]),[]);self.assertEqual(await provider.read_cards(db,ctx,3,[]),[])
    result=MagicMock();result.all.return_value=[(UUID(P),'Chosen')];db.execute.return_value=result;out=await provider.read_cards(db,ctx,3,[P]);self.assertEqual(out[0]['name'],'Chosen');self.assertEqual(list(db.execute.call_args.args[0].compile().params.values())[-2:],[ [UUID(P)],3])
   finally:current_tenant_id.reset(token)
 if __name__=='__main__':unittest.main()
