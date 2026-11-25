@@ -121,3 +121,25 @@ describe('sanitizeHtml', () => {
     expect(sanitizeHtml('<a href="https://a.b/c">x</a>')).toBe('<a href="https://a.b/c">x</a>');
   });
 });
+
+describe('icon_list inline SVG rendering', () => {
+  const iconTree = () => ({ id: 'n_iconroot000', type: 'section', settings: {}, content: {}, children: [
+    { id: 'n_iconrow0000', type: 'columns', settings: { desktop: { columns: 1 } }, content: {}, children: [
+      { id: 'n_iconcol0000', type: 'column', settings: {}, content: {}, children: [
+        { id: 'n_iclist0002', type: 'icon_list', settings: {}, content: { en: { items: [
+          { icon: 'Wrench', text: 'Repairs covered' },
+          { icon: 'NoSuchGlyph', text: 'Unknown falls back' },
+        ] } } },
+      ] },
+    ] },
+  ] });
+  const renderIcons = () => renderToStaticMarkup(createElement(TreePreview, { tree: iconTree() as never, lang: 'en', device: 'desktop', theme: previewPayload(initialProject, 'page-1').theme as never }));
+  it('renders bounded inline SVGs, never data-lucide placeholders', () => {
+    const html = renderIcons();
+    expect(html).toContain('mz-icon-list');
+    expect(html).not.toContain('data-lucide');
+    expect(html.match(/class="mz-icon"/g)!.length).toBe(2);
+    expect(html).toContain('Repairs covered');
+    expect(html).toContain('<circle cx="12" cy="12" r="5"/>'); // fallback dot for the unknown name
+  });
+});

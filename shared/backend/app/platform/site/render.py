@@ -99,6 +99,40 @@ def _content(node: dict, lang: str) -> dict:
 
 _SPACER_PX = {"none": 0, "xs": 8, "s": 16, "m": 32, "l": 64, "xl": 128}
 
+# Bounded inline icon set for icon_list blocks: no icon font, no network fetch.
+# Mirrored in system/frontend/src/features/studio/nativeIcons.tsx (ICON_MARKUP); keep entries identical.
+_ICON_MARKUP = {
+    "Wrench": '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.8 2.8-2-2 2.8-2.8z"/>',
+    "Laptop": '<rect x="4" y="5" width="16" height="10" rx="1.5"/><path d="M2 19h20"/>',
+    "Smartphone": '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18.5h2"/>',
+    "ShieldCheck": '<path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/>',
+    "Truck": '<path d="M1.5 7H14v9H1.5z"/><path d="M14 10h4l3 3v3h-7"/><circle cx="6" cy="18" r="1.6"/><circle cx="17.5" cy="18" r="1.6"/>',
+    "Check": '<path d="M4 12.5l5 5L20 6.5"/>',
+    "Star": '<path d="M12 3l2.7 5.6 6.1.8-4.5 4.2 1.1 6-5.4-2.9L6.6 19.6l1.1-6L3.2 9.4l6.1-.8z"/>',
+    "Headphones": '<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M4 14h3v6H6a2 2 0 0 1-2-2v-4z"/><path d="M20 14h-3v6h1a2 2 0 0 0 2-2v-4z"/>',
+    "Cpu": '<rect x="7" y="7" width="10" height="10" rx="1.5"/><rect x="10.5" y="10.5" width="3" height="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
+    "BatteryCharging": '<rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/><path d="M11 9l-2.5 3.5H11l-1 3 4-4.5h-2.5L13 9z"/>',
+    "Camera": '<path d="M4 7h3l2-2h6l2 2h3v12H4z"/><circle cx="12" cy="13" r="3.2"/>',
+    "Home": '<path d="M3 11l9-8 9 8"/><path d="M5 9.5V20h14V9.5"/>',
+    "Mail": '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/>',
+    "MapPin": '<path d="M12 21s-6-5.2-6-10a6 6 0 0 1 12 0c0 4.8-6 10-6 10z"/><circle cx="12" cy="11" r="2.2"/>',
+    "ArrowRight": '<path d="M4 12h16"/><path d="M13 5l7 7-7 7"/>',
+    "Sparkles": '<path d="M12 4l1.7 4.3L18 10l-4.3 1.7L12 16l-1.7-4.3L6 10l4.3-1.7z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
+    "Clock": '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    "CreditCard": '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
+    "Package": '<path d="M12 3l8 4v10l-8 4-8-4V7z"/><path d="M4 7l8 4 8-4"/><path d="M12 11v10"/>',
+    "Heart": '<path d="M12 20s-7-4.4-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.6-9 9-9 9z"/>',
+}
+_ICON_FALLBACK = '<circle cx="12" cy="12" r="5"/>'
+
+
+def _icon_svg(name: str) -> str:
+    # Unknown stored names render as a dot; markup values are a fixed allowlist, never user input.
+    inner = _ICON_MARKUP.get(name, _ICON_FALLBACK)
+    return ('<svg class="mz-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+            'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+            f"{inner}</svg>")
+
 
 def _render_node_inner(node: dict, lang: str, device: str, link_base: str | None = None) -> str:
     ntype = node.get("type")
@@ -173,7 +207,7 @@ def _render_node_inner(node: dict, lang: str, device: str, link_base: str | None
         items = []
         for entry in c.get("items") or []:
             if isinstance(entry, dict) and isinstance(entry.get("icon"), str):
-                items.append(f'<li><i data-lucide="{_esc(entry["icon"])}"></i> {_esc(entry.get("text", ""))}</li>')
+                items.append(f'<li>{_icon_svg(entry["icon"])}<span>{_esc(entry.get("text", ""))}</span></li>')
         return f'<ul class="mz-icon-list">{"".join(items)}</ul>'
     if ntype == "spacer":
         return '<div class="mz-spacer" aria-hidden="true"></div>'
@@ -208,7 +242,7 @@ def _render_node(node: dict, lang: str, device: str, link_base: str | None = Non
 _BASE_CSS = """
 *{box-sizing:border-box}body{margin:0;background:var(--background,#FAF6F0);color:var(--foreground,#262321);font:18px/1.6 system-ui,sans-serif}
 .mz-section{padding:32px;max-width:1200px;margin:auto}.mz-columns{display:grid;gap:24px}.mz-columns-1{grid-template-columns:1fr}.mz-columns-2{grid-template-columns:repeat(2,minmax(0,1fr))}.mz-columns-3{grid-template-columns:repeat(3,minmax(0,1fr))}.mz-columns-4{grid-template-columns:repeat(4,minmax(0,1fr))}.mz-columns-5{grid-template-columns:repeat(5,minmax(0,1fr))}.mz-columns-6{grid-template-columns:repeat(6,minmax(0,1fr))}.mz-stack{grid-template-columns:1fr}
-.mz-heading{line-height:1.15;margin:0 0 24px;font-weight:750}.mz-heading mark{background:none;color:var(--primary,#651E2C)}h1{font-size:clamp(32px,4.8vw,64px)}h2.mz-heading{font-size:clamp(26px,3vw,38px)}h3.mz-heading{font-size:clamp(21px,2.2vw,27px)}.mz-text p{margin:0 0 24px}.mz-image{display:block;width:100%;height:auto}.mz-rounded{border-radius:var(--radius,16px)}.mz-site-header nav{flex-wrap:wrap;min-width:0}.mz-site-header nav a,.mz-site-footer a{min-height:44px;display:inline-flex;align-items:center}.mz-rounded img{border-radius:var(--radius,16px)}.mz-button{display:inline-block;padding:12px 24px;border-radius:var(--radius,8px);text-decoration:none;background:var(--primary,#651E2C);color:var(--primary-foreground,#FAF6F0)}.mz-button-secondary{background:var(--foreground,#262321);color:var(--background,#FAF6F0)}.mz-button-ghost{background:none;color:var(--primary,#651E2C);outline:1px solid currentColor}.mz-icon-list{padding-inline-start:24px;margin:24px 0}.mz-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.mz-gallery img{width:100%}.mz-gallery[data-mode=slider]{display:flex;overflow:auto;scroll-snap-type:x mandatory}.mz-gallery[data-mode=slider] img{flex:0 0 85%;scroll-snap-align:start}.mz-embed iframe{width:100%;aspect-ratio:16/9;border:0}.mz-embed[data-aspect="4:3"] iframe{aspect-ratio:4/3}.mz-embed[data-aspect="1:1"] iframe{aspect-ratio:1}.mz-divider-dashed{border-style:dashed}.mz-divider-dotted{border-style:dotted}.mz-align-start{text-align:start}.mz-align-center{text-align:center}.mz-align-end{text-align:end}.mz-background-background{background:var(--background,#FAF6F0)}.mz-background-card{background:var(--card,#fff)}.mz-background-primary{background:var(--primary,#651E2C);color:var(--primary-foreground,#FAF6F0)}.mz-background-dark{background:var(--dark,#20303C);color:var(--dark-foreground,#F3EEE4)}.mz-max-width-narrow{max-width:720px;margin:auto}.mz-max-width-normal{max-width:1000px;margin:auto}.mz-max-width-wide{max-width:1400px;margin:auto}.mz-max-width-full{max-width:none}.mz-width-auto{width:auto}.mz-width-full{width:100%}.mz-width-half{width:50%}.mz-width-third{width:33.333%}.mz-width-two_thirds{width:66.666%}.mz-min-height-s{min-height:240px}.mz-min-height-m{min-height:480px}.mz-min-height-l{min-height:720px}.mz-canvas{position:relative;display:flex;flex-wrap:wrap;gap:16px}
+.mz-heading{line-height:1.15;margin:0 0 24px;font-weight:750}.mz-heading mark{background:none;color:var(--primary,#651E2C)}h1{font-size:clamp(32px,4.8vw,64px)}h2.mz-heading{font-size:clamp(26px,3vw,38px)}h3.mz-heading{font-size:clamp(21px,2.2vw,27px)}.mz-text p{margin:0 0 24px}.mz-image{display:block;width:100%;height:auto}.mz-rounded{border-radius:var(--radius,16px)}.mz-site-header nav{flex-wrap:wrap;min-width:0}.mz-site-header nav a,.mz-site-footer a{min-height:44px;display:inline-flex;align-items:center}.mz-rounded img{border-radius:var(--radius,16px)}.mz-button{display:inline-block;padding:12px 24px;border-radius:var(--radius,8px);text-decoration:none;background:var(--primary,#651E2C);color:var(--primary-foreground,#FAF6F0)}.mz-button-secondary{background:var(--foreground,#262321);color:var(--background,#FAF6F0)}.mz-button-ghost{background:none;color:var(--primary,#651E2C);outline:1px solid currentColor}.mz-icon-list{list-style:none;padding-inline-start:0;margin:24px 0;display:grid;gap:12px}.mz-icon-list li{display:flex;align-items:center;gap:10px}.mz-icon-list .mz-icon{width:1.25em;height:1.25em;flex:none;color:var(--primary,#651E2C)}.mz-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.mz-gallery img{width:100%}.mz-gallery[data-mode=slider]{display:flex;overflow:auto;scroll-snap-type:x mandatory}.mz-gallery[data-mode=slider] img{flex:0 0 85%;scroll-snap-align:start}.mz-embed iframe{width:100%;aspect-ratio:16/9;border:0}.mz-embed[data-aspect="4:3"] iframe{aspect-ratio:4/3}.mz-embed[data-aspect="1:1"] iframe{aspect-ratio:1}.mz-divider-dashed{border-style:dashed}.mz-divider-dotted{border-style:dotted}.mz-align-start{text-align:start}.mz-align-center{text-align:center}.mz-align-end{text-align:end}.mz-background-background{background:var(--background,#FAF6F0)}.mz-background-card{background:var(--card,#fff)}.mz-background-primary{background:var(--primary,#651E2C);color:var(--primary-foreground,#FAF6F0)}.mz-background-dark{background:var(--dark,#20303C);color:var(--dark-foreground,#F3EEE4)}.mz-max-width-narrow{max-width:720px;margin:auto}.mz-max-width-normal{max-width:1000px;margin:auto}.mz-max-width-wide{max-width:1400px;margin:auto}.mz-max-width-full{max-width:none}.mz-width-auto{width:auto}.mz-width-full{width:100%}.mz-width-half{width:50%}.mz-width-third{width:33.333%}.mz-width-two_thirds{width:66.666%}.mz-min-height-s{min-height:240px}.mz-min-height-m{min-height:480px}.mz-min-height-l{min-height:720px}.mz-canvas{position:relative;display:flex;flex-wrap:wrap;gap:16px}
 .mz-art{min-height:320px;height:100%;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;background:radial-gradient(ellipse at 45% 25%,#f2f4e8,transparent 65%),#d9e3d5}.mz-art-orb{width:150px;height:195px;border-radius:48% 48% 38% 38%;background:linear-gradient(115deg,#c0caac,#718463 75%,#516a50);box-shadow:inset -18px -10px 30px #344a3229,20px 25px 30px #40543f30;position:relative;z-index:2;transform:rotate(-12deg) translateY(-20px)}.mz-art-orb:before{content:'';display:block;width:60px;height:14px;background:#536b49;border-radius:50%;margin:15px auto;box-shadow:inset 0 5px 8px #182d1b66}.mz-art-plinth{position:absolute;width:220px;height:120px;background:linear-gradient(90deg,#ececdb,#b9c4ae);bottom:35px;border-radius:50% 50% 8% 8%;box-shadow:0 20px 30px #6879602a}.mz-art-sculpture-alt{background:radial-gradient(ellipse at 45% 25%,#f2f4e8,transparent 65%),#d8d4c7}.mz-art-sculpture-alt .mz-art-orb{border-radius:50%;width:185px;height:185px;background:linear-gradient(115deg,#e5d1a8,#ad8f60);transform:rotate(15deg) translateY(-20px)}
 .mz-text-eyebrow p{text-transform:uppercase;letter-spacing:.14em;font-size:13px;opacity:.75}.mz-text-check_list ul{list-style:none;padding-inline-start:0}.mz-text-check_list li{position:relative;padding-inline-start:30px;margin-bottom:10px}.mz-text-check_list li::before{content:"";position:absolute;inset-inline-start:2px;top:4px;width:17px;height:17px;background:var(--primary,#651E2C);-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9.6 15.6 4.8 10.8l1.4-1.4 3.4 3.4 8.2-8.2 1.4 1.4z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9.6 15.6 4.8 10.8l1.4-1.4 3.4 3.4 8.2-8.2 1.4 1.4z'/%3E%3C/svg%3E") center/contain no-repeat}.mz-text-note p{text-transform:uppercase;letter-spacing:.1em;font-size:12px;opacity:.55}
 .mz-site-header{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px 32px;border-bottom:1px solid color-mix(in srgb,currentColor 12%,transparent)}.mz-site-header nav{display:flex;gap:20px}.mz-site-header a{color:inherit;text-decoration:none}.mz-site-brand{font-weight:750;font-size:20px}.mz-site-header .mz-site-actions{display:flex;gap:16px;font-size:15px}

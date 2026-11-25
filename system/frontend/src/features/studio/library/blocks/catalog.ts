@@ -6,6 +6,7 @@ export const blockCatalog: {id:PresetKind;name:string;category:string;descriptio
 {id:'callout',name:'Call to action',category:'Calls to action',description:'A focused message and one clear next step.'},
 {id:'features',name:'Three benefits',category:'Features',description:'Three editable columns for your strongest ideas.'},
 {id:'check_list',name:'Check list',category:'Features',description:'A bulleted list with check marks for included items, steps or benefits.'},
+{id:'icon_list',name:'Icon list',category:'Features',description:'Short points, each with a simple icon you choose from a built-in set.'},
 {id:'quote',name:'Featured quote',category:'Feedback',description:'A centered quote with an attribution.'},
 {id:'contact',name:'Contact invitation',category:'Contact',description:'A contact headline and editable contact-page link.'},
 {id:'hero_center',name:'Centered introduction',category:'Hero sections',description:'A centered headline with art beneath.'},

@@ -58,11 +58,14 @@ G4. Partially addressed 2026-11-25 (N3 shipped): headings support one bounded
     accent span via literal <mark>..</mark> pairs mapped to the primary color
     (all other markup still escapes; editor offers an Accent toggle on the
     heading selection). Arbitrary rich spans remain unsupported.
-G5. No icon system (service-card icons, social icons in the footer). This is an
-    implementation gap, not an authorization gate (2026-11-25, main): a bounded
-    inline icon set may be built without new approval. Repair-card checkmarks
-    are covered by N2. The icon_list registry block still emits dead
-    <i data-lucide> markup and stays unexposed in the native editor.
+G5. Partially addressed 2026-11-25 (icon_list shipped): the icon_list block now
+    renders a bounded inline-SVG set (20 icons, no icon font, no network fetch)
+    in both renderers, unknown stored names fall back to a dot, and the native
+    editor exposes it end to end: an Icon list Insert preset, per-item icon
+    picker + label editing, and tree validation (previously icon_list trees
+    failed native-editor load entirely). Footer social icons remain unsupported.
+    This was an implementation gap, not an authorization gate (2026-11-25, main).
+    Repair-card checkmarks are covered by N2.
 G6. No form/input element (CTA band's device-request input).
 G7. Typography: one system font family site-wide; no heading size control, no font
     upload, no Arabic/Latin pairing (chrome UI states this itself). allwirya's Arabic

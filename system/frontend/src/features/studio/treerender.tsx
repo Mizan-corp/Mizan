@@ -4,6 +4,7 @@
 // block cannot be represented, both renderers must grow together - never diverge.
 import type { CSSProperties } from 'react';
 import type { PageNode } from './pagetree';
+import { IconGlyph } from './nativeIcons';
 
 export type Device = 'desktop' | 'tablet' | 'mobile';
 
@@ -139,7 +140,7 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
     case 'icon_list': {
       const items = (Array.isArray(c.items) ? c.items : [])
         .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object' && typeof e.icon === 'string')
-        .map((e, i) => <li key={i}><i data-lucide={String(e.icon)} /> {String(e.text ?? '')}</li>);
+        .map((e, i) => <li key={i}><IconGlyph name={String(e.icon)} /><span>{String(e.text ?? '')}</span></li>);
       inner = <ul className="mz-icon-list">{items}</ul>; break;
     }
     case 'spacer': {

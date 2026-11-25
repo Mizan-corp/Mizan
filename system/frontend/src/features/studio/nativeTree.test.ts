@@ -53,3 +53,26 @@ describe('tree-native immutable authoring',()=>{
     expect(()=>assertNativeTree(t)).toThrow();
   });
 });
+
+describe('icon_list native editing',()=>{
+  const tree=():PageNode=>({id:'n_iconsroot',type:'section',settings:{},content:{},children:[
+    {id:'n_iconsrow',type:'columns',settings:{desktop:{columns:1}},content:{},children:[
+      {id:'n_iconscol',type:'column',settings:{},content:{},children:[
+        {id:'n_iclist0001',type:'icon_list',settings:{},content:{en:{items:[{icon:'Check',text:'Kept'}]}}},
+      ]},
+    ]},
+  ]});
+  it('accepts icon items through the icons edit kind and survives assertNativeTree',()=>{
+    const items=[{icon:'Wrench',text:'Repairs covered'},{icon:'Truck',text:'Pickup and return'}];
+    const next=editNativeTree(tree(),{kind:'icons',id:'n_iclist0001',lang:'en',items});
+    expect((nativeNodes(next).find(n=>n.id==='n_iclist0001')!.content.en as Record<string,unknown>).items).toEqual(items);
+    assertNativeTree(next);
+  });
+  it('refuses malformed icon items and icons edits on other block types',()=>{
+    expect(()=>editNativeTree(tree(),{kind:'icons',id:'n_iclist0001',lang:'en',items:[{icon:'lowercase',text:'x'}]})).toThrow();
+    expect(()=>editNativeTree(tree(),{kind:'icons',id:'n_iconsrow',lang:'en',items:[{icon:'Check',text:'x'}]})).toThrow();
+    const bad=tree();
+    (nativeNodes(bad).find(n=>n.id==='n_iclist0001')!.content.en as Record<string,unknown>).items=[{icon:'Check',text:'x',extra:1}];
+    expect(()=>assertNativeTree(bad)).toThrow();
+  });
+});

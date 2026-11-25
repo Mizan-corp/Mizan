@@ -237,13 +237,14 @@ def test_gallery_and_icon_list_render():
          "content": {"ar": {"images": [{"src": "/media/a.jpg", "alt": "أ"}, {"src": "x", "alt": "no"},
                                        "junk"]}}},
         {"id": "n_ic01", "type": "icon_list", "settings": {},
-         "content": {"ar": {"items": [{"icon": "Check", "text": "ضمان"}]}}},
+         "content": {"ar": {"items": [{"icon": "Check", "text": "ضمان"}, {"icon": "NoSuchGlyph", "text": "س"}]}}},
         {"id": "n_dv01", "type": "divider", "settings": {}, "content": {}},
         {"id": "n_sp01", "type": "spacer", "settings": {"desktop": {"height": "l"}}, "content": {}},
     ])
     body = render_page(tree, validate=False)  # the renderer stays defensive about stored junk
     assert 'data-mode="slider"' in body and body.count("<img") == 2  # hero + one good gallery image
-    assert 'data-lucide="Check"' in body and "ضمان" in body
+    assert 'data-lucide' not in body and body.count('class="mz-icon"') == 2 and "ضمان" in body
+    assert '<circle cx="12" cy="12" r="5"/>' in body  # unknown stored names render as a fallback dot
     assert 'mz-divider-solid' in body and "mz-height-l" in body
 
 

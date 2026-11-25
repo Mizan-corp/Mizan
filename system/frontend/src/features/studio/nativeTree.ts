@@ -3,7 +3,20 @@ import {bindingProblem,itemBindingProblem,itemBindingSchema,repeatProblem,cardRe
 import type { PageNode } from './pagetree';
 
 export type NativeDevice = 'desktop' | 'tablet' | 'mobile';
-export type NativeEdit = { kind: 'content'; id: string; lang: 'en'|'ar'; field: string; value: string } | { kind: 'setting'; id: string; device: NativeDevice; field: string; value: string|number|boolean };
+export type NativeIconItem = { icon: string; text: string };
+export type NativeEdit = { kind: 'content'; id: string; lang: 'en'|'ar'; field: string; value: string } | { kind: 'setting'; id: string; device: NativeDevice; field: string; value: string|number|boolean } | { kind: 'icons'; id: string; lang: 'en'|'ar'; items: NativeIconItem[] };
+const ICON_NAME = /^[A-Z][A-Za-z0-9]{1,40}$/;
+export function iconItemsProblem(value: unknown): string | null {
+  if (!Array.isArray(value) || value.length > 24) return 'Icon items must be a list of at most 24 entries.';
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return 'Each icon item must be an object.';
+    const e = entry as Record<string, unknown>;
+    if (typeof e.icon !== 'string' || !ICON_NAME.test(e.icon)) return 'Icon names use the bounded set, e.g. Check.';
+    if (typeof e.text !== 'string' || e.text.length > 120) return 'Icon item text must be at most 120 characters.';
+    if (Object.keys(e).some(k => !['icon','text'].includes(k))) return 'Icon items carry icon and text only.';
+  }
+  return null;
+}
 const spacing = ['none','xs','s','m','l','xl'];
 const align = ['start','center','end'];
 const width = ['auto','full','half','third','two_thirds'];
@@ -16,8 +29,9 @@ const settings: Record<string, Record<string, readonly (string|number|boolean)[]
   text:{visible:[true,false],align,variant:['body','eyebrow','note','check_list']},
   image:{visible:[true,false],width,rounded:[true,false],art:['none','sculpture','sculpture_alt']},
   button:{visible:[true,false],style:['primary','secondary','ghost'],align},
+  icon_list:{visible:[true,false],gap:spacing},
 };
-const fields: Record<string, Record<string, number>> = {section:{},columns:{},column:{},heading:{text:200},text:{html:20000},image:{src:2000,alt:300},button:{label:80,href:2000}};
+const fields: Record<string, Record<string, number>> = {section:{},columns:{},column:{},heading:{text:200},text:{html:20000},image:{src:2000,alt:300},button:{label:80,href:2000},icon_list:{}};
 const motion={animation:['none','fade','rise','slide','zoom'],animation_speed:['quick','normal','slow'],animation_delay:['none','short','long']};
 for(const schema of Object.values(settings))Object.assign(schema,motion);
 export function safeNativeUrl(value: string, image = false): boolean {
@@ -54,6 +68,10 @@ export function assertNativeTree(tree: PageNode): void {
     for (const [lang,values] of Object.entries(n.content)) {
       if (!['en','ar'].includes(lang) || !values || typeof values!=='object' || Array.isArray(values)) throw Error('Unsupported language content.');
       for (const [key,value] of Object.entries(values)) {
+        if (n.type==='icon_list'&&key==='items') {
+          if (iconItemsProblem(value)) throw Error('Unsupported icon list.');
+          continue;
+        }
         if (!(key in fields[n.type]) || typeof value!=='string' || value.length > fields[n.type][key]) throw Error('Unsupported content field.');
         if ((key==='src'||key==='href') && !safeNativeUrl(value,key==='src')) throw Error('Unsupported URL.');
       }
@@ -75,6 +93,9 @@ export function editNativeTree(tree: PageNode, edit: NativeEdit): PageNode {
     if(!['en','ar'].includes(edit.lang) || !(edit.field in fields[node.type]) || edit.value.length>fields[node.type][edit.field]) throw Error('Unsupported content edit.');
     if((edit.field==='src'||edit.field==='href')&&!safeNativeUrl(edit.value,edit.field==='src')) throw Error('Use a safe URL.');
     node.content={...node.content,[edit.lang]:{...node.content[edit.lang],[edit.field]:edit.value}};
+  } else if (edit.kind==='icons') {
+    if(!['en','ar'].includes(edit.lang) || node.type!=='icon_list' || iconItemsProblem(edit.items)) throw Error('Unsupported icon list edit.');
+    node.content={...node.content,[edit.lang]:{...node.content[edit.lang],items:edit.items.map(e=>({icon:e.icon,text:e.text}))}};
   } else {
     if(!['desktop','tablet','mobile'].includes(edit.device)||!settings[node.type][edit.field]?.includes(edit.value)) throw Error('Unsupported setting edit.');
     node.settings={...node.settings,[edit.device]:{...node.settings[edit.device],[edit.field]:edit.value}};

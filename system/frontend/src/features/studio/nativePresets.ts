@@ -1,15 +1,15 @@
 import {pageRecipes} from './library/pages/recipes';
 import type { PageNode } from './pagetree';
 import { nativeNodes } from './nativeTree';
-export type PresetKind='product_card'|'hero'|'story'|'callout'|'features'|'quote'|'contact'|'hero_center'|'feedback_cards'|'features_split'|'pricing_cards'|'pricing_simple'|'faq_list'|'faq_columns'|'contact_split'|'gallery_pair'|'gallery_grid'|'team_pair'|'team_grid'|'check_list';
+export type PresetKind='product_card'|'hero'|'story'|'callout'|'features'|'quote'|'contact'|'hero_center'|'feedback_cards'|'features_split'|'pricing_cards'|'pricing_simple'|'faq_list'|'faq_columns'|'contact_split'|'gallery_pair'|'gallery_grid'|'team_pair'|'team_grid'|'check_list'|'icon_list';
 export type TemplateKind='studio'|'service'|'editorial';
 export {blockCatalog} from './library/blocks/catalog';
 export const templateCatalog:{id:TemplateKind;name:string;description:string}[]=[
 {id:'studio',name:'Independent studio',description:'An intro, studio story, three values and contact section.'},
 {id:'service',name:'Creative services',description:'A service introduction, benefits, client quote and enquiry invitation.'},
 {id:'editorial',name:'Journal & ideas',description:'A publication introduction, feature story, quote and reading invitation.'}];
-export function readableType(type:string){return ({section:'Page',columns:'Section',column:'Column',heading:'Heading',text:'Text',image:'Image',button:'Button'} as Record<string,string>)[type]??type;}
-export function readableTypeAr(type:string){return ({section:'صفحة',columns:'قسم',column:'عمود',heading:'عنوان',text:'نص',image:'صورة',button:'زر'} as Record<string,string>)[type]??type;}
+export function readableType(type:string){return ({section:'Page',columns:'Section',column:'Column',heading:'Heading',text:'Text',image:'Image',button:'Button',icon_list:'Icon list'} as Record<string,string>)[type]??type;}
+export function readableTypeAr(type:string){return ({section:'صفحة',columns:'قسم',column:'عمود',heading:'عنوان',text:'نص',image:'صورة',button:'زر',icon_list:'قائمة أيقونات'} as Record<string,string>)[type]??type;}
 export function readableName(node:PageNode,lang='en'):string {
  const c=node.content[lang]??node.content.en??{};
  const raw=node.type==='heading'?c.text:node.type==='text'?c.html:node.type==='button'?c.label:node.type==='image'?c.alt:null;
@@ -36,6 +36,7 @@ export function createPreset(tree:PageNode,kind:PresetKind):PageNode {
  if(kind==='gallery_pair'||kind==='gallery_grid')return row(Array.from({length:kind==='gallery_pair'?2:3},(_,i)=>col([art('Gallery image '+(i+1),i%2===1),t('Your image caption '+(i+1))])));
  if(kind==='team_pair'||kind==='team_grid')return row(Array.from({length:kind==='team_pair'?2:3},(_,i)=>col([art('Replace with team member portrait '+(i+1),i%2===1),h('Team member '+(i+1)),t('Role · Add a short introduction. Sample profile only.')])));
  if(kind==='check_list')return row([col([h('What is included',2),node('text',{html:'<ul><li>First included point. Replace it with your own.</li><li>Second included point. Make it yours.</li><li>Third included point. Keep each one short.</li></ul>'},{desktop:{variant:'check_list'}})])]);
+ if(kind==='icon_list')return row([col([h('Why people choose us',2),node('icon_list',{items:[{icon:'Wrench',text:'First reason. Replace it with your own.'},{icon:'ShieldCheck',text:'Second reason. Make it yours.'},{icon:'Truck',text:'Third reason. Keep each one short.'}]})])]);
  if(kind==='features')return node('columns',{}, {desktop:{columns:3,gap:'m'},mobile:{stack:true}},['Thoughtful by design','Made for real life','Room for your ideas'].map((title,i)=>node('column',{}, {desktop:{padding:'s'}},[node('heading',{text:title},{desktop:{level:3}}),node('text',{html:`<p>Benefit ${i+1}: explain what makes your work different, in your own words.</p>`})])));
  if(kind==='quote')return node('columns',{}, {desktop:{columns:1,gap:'m'}},[node('column',{}, {desktop:{align:'center',padding:'m'}},[node('heading',{text:'Good work starts with a different question.'},{desktop:{level:2,align:'center'}}),node('text',{html:'<p>A thought worth sharing. Add your own attribution here.</p>'},{desktop:{align:'center'}})])]);
  if(kind==='contact')return node('columns',{}, {desktop:{columns:1,gap:'m'}},[node('column',{}, {desktop:{padding:'m'}},[node('heading',{text:'Let’s make something meaningful.'},{desktop:{level:2}}),node('text',{html:'<p>Tell visitors how to reach you. Edit the button destination before using it on your website.</p>'}),node('button',{label:'Get in touch',href:'/contact'},{desktop:{style:'secondary'}})])]);

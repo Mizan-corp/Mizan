@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PageNode } from './pagetree';
-import { nativeContentFields, safeNativeUrl } from './nativeTree';
+import { nativeContentFields, safeNativeUrl, type NativeIconItem } from './nativeTree';
 import { sanitizeHtml } from './treerender';
+import { iconNames } from './nativeIcons';
 import {t} from './uiStrings';
 
-export default function NativeContentControls({node,lang,onEdit}:{node:PageNode;lang:'en'|'ar';onEdit:(field:string,value:string)=>void}){
+export default function NativeContentControls({node,lang,onEdit,onEditItems}:{node:PageNode;lang:'en'|'ar';onEdit:(field:string,value:string)=>void;onEditItems?:(items:NativeIconItem[])=>void}){
   const rich=useRef<HTMLDivElement>(null);
   const headingEl=useRef<HTMLTextAreaElement>(null);
   const [urlError,setUrlError]=useState('');
@@ -26,5 +27,20 @@ export default function NativeContentControls({node,lang,onEdit}:{node:PageNode;
       return <label key={field}>{label} · {lang}<textarea aria-label={`Native ${field}`} maxLength={max} value={String(content[field]??'')} onChange={e=>onEdit(field,e.target.value)}/></label>;
     })}
     {node.type==='image'&&typeof content.src==='string'&&content.src&&safeNativeUrl(content.src,true)&&<img className="native-media-thumbnail" src={content.src} alt={String(content.alt??(ar?t('معاينة الصورة'):'Image preview'))}/>}
+    {node.type==='icon_list'&&onEditItems&&(()=>{
+      const items:NativeIconItem[]=(Array.isArray(content.items)?content.items:[]).filter((e):e is NativeIconItem=>!!e&&typeof e==='object'&&typeof (e as NativeIconItem).icon==='string');
+      const update=(i:number,next:NativeIconItem)=>onEditItems(items.map((e,j)=>j===i?next:e));
+      return <div className="native-rich"><label>{t('عناصر الأيقونات')} · {lang}</label>
+        {items.map((item,i)=><div className="native-icon-item" key={i}>
+          <select aria-label={`Icon ${i+1}`} value={item.icon} onChange={e=>update(i,{...item,icon:e.target.value})}>
+            {Array.from(new Set([item.icon,...iconNames()])).filter(Boolean).map(name=><option key={name} value={name}>{name}</option>)}
+          </select>
+          <input aria-label={`Item text ${i+1}`} maxLength={120} value={item.text} onChange={e=>update(i,{...item,text:e.target.value})}/>
+          <button type="button" aria-label={`Remove item ${i+1}`} onClick={()=>onEditItems(items.filter((_,j)=>j!==i))}>{t('احذف')}</button>
+        </div>)}
+        <button type="button" disabled={items.length>=24} onClick={()=>onEditItems([...items,{icon:'Check',text:''}])}>{t('ضيف عنصر')}</button>
+        <p className="hint">{t('اختار أيقونة من المجموعة الجاهزة واكتب نصًا قصيرًا. الحفظ بيتم مع باقي الصفحة.')}</p>
+      </div>;
+    })()}
   </div>;
 }
