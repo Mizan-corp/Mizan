@@ -75,13 +75,66 @@ def _for_client(t: dict, tenant_id) -> dict:
     return out
 
 
+def family_files() -> dict[str, list[dict]]:
+    """Every font family Mizan's file themes ship -> its file entries, with absolute
+    srcs any theme may borrow (the files are public, like the login page)."""
+    out: dict[str, list[dict]] = {}
+    for t in file_themes().values():
+        for f in (t.get("fonts") or {}).get("files") or []:
+            fam = f.get("family")
+            if isinstance(fam, str) and fam not in out:
+                out[fam] = [{**f, "src": f"/themes/assets/files/{t['id']}/{f['src']}"}
+                            for f in (t.get("fonts") or {}).get("files") or [] if f.get("family") == fam]
+    return out
+
+
+def check_font_choice(fonts) -> dict:
+    """A workspace's own body/display picks (tenants.palette['fonts']); known shipped
+    families only, so the resolved theme never names a face we can't serve."""
+    if not isinstance(fonts, dict):
+        return {}
+    known = family_files()
+    out = {}
+    for k in ("body", "display"):
+        v = fonts.get(k)
+        if isinstance(v, str) and v in known:
+            out[k] = v
+    return out
+
+
+def _with_font_choice(theme: dict, tenant) -> dict:
+    """The workspace's font picks ride over its theme pack (ADR-010 D3 follow-up):
+    family names plus the matching real files, borrowed from whichever pack ships them."""
+    choice = (tenant.palette or {}).get("fonts")
+    if not isinstance(choice, dict):
+        return theme
+    known = family_files()
+    if not any(isinstance(choice.get(k), str) and choice[k] in known for k in ("body", "display")):
+        return theme
+    fonts = dict(theme.get("fonts") or {})
+    files = list(fonts.get("files") or [])
+    for k in ("body", "display"):
+        fam = choice.get(k)
+        if not (isinstance(fam, str) and fam in known):
+            continue
+        fonts[k] = fam
+        have = {f.get("family") for f in files}
+        if fam not in have:
+            files += known[fam]
+    if not files:
+        fonts.pop("files", None)
+    else:
+        fonts["files"] = files
+    return {**theme, "fonts": fonts}
+
+
 async def resolved(db: AsyncSession, tenant) -> dict:
     """The workspace's theme, ready for the app (Mizan's default when it's gone)."""
     wanted = current_id(tenant)
     for t in await available(db, tenant):
         if t["id"] == wanted:
-            return _for_client(t, tenant.id)
-    return _for_client(file_themes()[DEFAULT], tenant.id)
+            return _with_font_choice(_for_client(t, tenant.id), tenant)
+    return _with_font_choice(_for_client(file_themes()[DEFAULT], tenant.id), tenant)
 
 
 def summary(t: dict, current: str) -> dict:
@@ -93,8 +146,8 @@ def summary(t: dict, current: str) -> dict:
             "fonts": t.get("fonts") or {}, "radius": t.get("radius"), "motion": t.get("motion", "full")}
 
 
-async def choose(db: AsyncSession, tenant, theme_id: str) -> dict:
-    """Make `theme_id` the workspace's theme."""
+async def choose(db: AsyncSession, tenant, theme_id: str, fonts: dict | None = None) -> dict:
+    """Make `theme_id` the workspace's theme; optionally its own body/display faces."""
     from app.catalog.sectors import PALETTE_HUES
 
     if not any(t["id"] == theme_id for t in await available(db, tenant)):
@@ -102,6 +155,12 @@ async def choose(db: AsyncSession, tenant, theme_id: str) -> dict:
     palette = dict(tenant.palette or {})
     palette["name"] = theme_id
     palette["hue"] = PALETTE_HUES.get(theme_id, palette.get("hue") or PALETTE_HUES[DEFAULT])
+    if fonts is not None:
+        checked = check_font_choice(fonts)
+        if checked:
+            palette["fonts"] = checked
+        else:
+            palette.pop("fonts", None)
     tenant.palette = palette
     await db.commit()
     return await resolved(db, tenant)

@@ -84,10 +84,19 @@ interface ActivityBranding {
   note: string;
 }
 
+interface ThemeFontFileEntry {
+  family: string;
+  src: string;
+  weight?: string;
+  style?: "normal" | "italic";
+}
+
 interface BrandingOptions {
   themes: ThemeSummary[];
   full: Record<string, ThemePack>;
   activities: Record<string, ActivityBranding>;
+  families: string[];
+  family_files: Record<string, ThemeFontFileEntry[]>;
 }
 
 const STEPS = ["النشاط التجاري", "بيانات المنشأة", "الهوية البصرية", "الوحدات"];
@@ -180,6 +189,9 @@ export default function OnboardingWizard() {
   const [scale, setScale] = useState("medium");
   const [palette, setPalette] = useState<string>("mizan");
   const [branding, setBranding] = useState<BrandingOptions | null>(null);
+  const [bodyFont, setBodyFont] = useState<string>("");
+  const [displayFont, setDisplayFont] = useState<string>("");
+  const [catalogOpen, setCatalogOpen] = useState(false);
   const [features, setFeatures] = useState<string[]>(() => getSectorDefaultFeatures(initialSector));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -188,10 +200,7 @@ export default function OnboardingWizard() {
     setSector(newSector);
     setFeatures(getSectorDefaultFeatures(newSector));
     const rec = branding?.activities?.[newSector]?.themes?.[0];
-    if (rec && branding?.full?.[rec]) {
-      setPalette(rec);
-      applyTheme(branding.full[rec]);
-    }
+    if (rec && branding?.full?.[rec]) handleSelectPalette(rec);
   }
 
   // Ensure features are updated if sector changes externally or initializes
@@ -242,7 +251,12 @@ export default function OnboardingWizard() {
         const rec = b.activities?.[sector]?.themes?.[0];
         if (rec && b.full?.[rec]) {
           setPalette(rec);
-          applyTheme(b.full[rec]);
+          const body = b.full[rec].fonts?.body ?? "";
+          const display = b.full[rec].fonts?.display ?? body;
+          setBodyFont(body);
+          setDisplayFont(display);
+          const files = [...(b.full[rec].fonts?.files ?? [])];
+          applyTheme({ ...b.full[rec], fonts: { ...b.full[rec].fonts, body, display, files } });
         }
       })
       .catch(() => undefined);
@@ -251,6 +265,20 @@ export default function OnboardingWizard() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Load each advertised family once, so its option chip previews the real face.
+  useEffect(() => {
+    if (!branding) return;
+    const css = Object.values(branding.family_files ?? {})
+      .flat()
+      .map((f) => `@font-face { font-family: "${f.family}"; src: url("${f.src}"); font-weight: ${f.weight ?? "400"}; font-style: ${f.style ?? "normal"}; font-display: swap; }`)
+      .join("\n");
+    const el = document.createElement("style");
+    el.id = "mizan-branding-families";
+    el.textContent = css;
+    document.head.appendChild(el);
+    return () => el.remove();
+  }, [branding]);
 
   // Leaving the wizard restores the site's own look.
   useEffect(
@@ -274,10 +302,33 @@ export default function OnboardingWizard() {
     setFeatures((f) => (f.includes(v) ? f.filter((x) => x !== v) : [...f, v]));
   }
 
+  function applyWithFonts(themeId: string, body: string, display: string) {
+    const pack = branding?.full?.[themeId];
+    if (!pack) return;
+    const files = [...(pack.fonts?.files ?? [])];
+    for (const fam of [body, display]) {
+      if (!fam || files.some((f) => f.family === fam)) continue;
+      files.push(...(branding?.family_files?.[fam] ?? []));
+    }
+    applyTheme({ ...pack, fonts: { ...pack.fonts, body: body || pack.fonts?.body, display: display || pack.fonts?.display, files } });
+  }
+
   function handleSelectPalette(themeId: string) {
     setPalette(themeId);
     const pack = branding?.full?.[themeId];
-    if (pack) applyTheme(pack);
+    const body = pack?.fonts?.body ?? "";
+    const display = pack?.fonts?.display ?? body;
+    setBodyFont(body);
+    setDisplayFont(display);
+    applyWithFonts(themeId, body, display);
+  }
+
+  function handlePickFont(which: "body" | "display", fam: string) {
+    const body = which === "body" ? fam : bodyFont;
+    const display = which === "display" ? fam : displayFont;
+    setBodyFont(body);
+    setDisplayFont(display);
+    applyWithFonts(palette, body, display);
   }
 
   async function create() {
@@ -289,6 +340,7 @@ export default function OnboardingWizard() {
         sector,
         scale,
         palette,
+        fonts: bodyFont ? { body: bodyFont, display: displayFont || bodyFont } : undefined,
         features,
         owner_username: draft!.username,
         owner_password: draft!.password,
@@ -322,7 +374,7 @@ export default function OnboardingWizard() {
   const recThemes = recIds
     .map((id) => branding?.themes.find((t) => t.id === id))
     .filter((t): t is ThemeSummary => Boolean(t));
-  const otherThemes = (branding?.themes ?? []).filter((t) => !recIds.includes(t.id));
+  const selectedTheme = branding?.themes.find((t) => t.id === palette);
 
   function ThemeCard({ t }: { t: ThemeSummary }) {
     const isSelected = palette === t.id;
@@ -692,8 +744,8 @@ export default function OnboardingWizard() {
                   هوية منشأتك البصرية
                 </legend>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  اختر مظهر مساحة عملك — تُطبق المعاينة فوراً على هذه الصفحة بألوانها وخطوطها
-                  الحقيقية، ويمكنك تغييرها لاحقاً في أي لحظة من الإعدادات.
+                  ترشيحاتنا التصميمية لنشاطك — المعاينة تُطبق فوراً على هذه الصفحة بألوانها
+                  وخطوطها الحقيقية، وتقدر تغيّر كل حاجة لاحقاً من الإعدادات.
                 </p>
               </div>
 
@@ -703,30 +755,126 @@ export default function OnboardingWizard() {
                     <div>
                       <div className="flex items-center gap-2 mb-1.5">
                         <Sparkles className="size-3.5 text-primary" />
-                        <span className="text-xs font-bold text-foreground">موصى به لنشاطك</span>
+                        <span className="text-xs font-bold text-foreground">ترشيحات تناسب نشاطك</span>
                       </div>
                       {activityBranding?.note && (
                         <p className="text-[11px] text-muted-foreground mb-2.5 leading-relaxed">
                           {activityBranding.note}
                         </p>
                       )}
-                      <div className="grid gap-2.5 sm:grid-cols-3">
-                        {recThemes.map((t) => (
-                          <ThemeCard key={t.id} t={t} />
-                        ))}
+                      <div className="flex flex-wrap gap-2">
+                        {recThemes.map((t) => {
+                          const isSelected = palette === t.id;
+                          return (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => handleSelectPalette(t.id)}
+                              aria-pressed={isSelected}
+                              className={cn(
+                                "flex items-center gap-2 rounded-full border pe-3 ps-1.5 py-1.5 transition-all cursor-pointer",
+                                isSelected
+                                  ? "border-primary bg-primary/[0.08] ring-1 ring-primary shadow-xs"
+                                  : "border-line bg-card hover:border-primary/40 hover:bg-secondary/50"
+                              )}
+                            >
+                              <span className="flex -space-x-1.5" aria-hidden>
+                                {(t.swatches ?? []).slice(0, 3).map((sw, i) => (
+                                  <span
+                                    key={i}
+                                    className="size-5 rounded-full border-2 border-card shadow-xs"
+                                    style={{ background: sw, zIndex: 3 - i }}
+                                  />
+                                ))}
+                              </span>
+                              <span className="text-xs font-bold text-foreground">{t.name}</span>
+                              {isSelected && <Check className="size-3.5 text-primary stroke-[3]" />}
+                            </button>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          onClick={() => setCatalogOpen(true)}
+                          className="flex items-center gap-1.5 rounded-full border border-dashed border-line px-3 py-1.5 text-xs font-bold text-muted-foreground hover:border-primary/40 hover:text-foreground transition cursor-pointer"
+                        >
+                          <Palette className="size-3.5" />
+                          تصفح كل المظاهر ({branding.themes.length})
+                        </button>
                       </div>
                     </div>
                   )}
-                  <div>
-                    <label className="text-xs font-semibold text-foreground mb-2 block">
-                      كل المظاهر ({branding.themes.length})
-                    </label>
-                    <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 max-h-[44vh] overflow-y-auto pe-1">
-                      {otherThemes.map((t) => (
-                        <ThemeCard key={t.id} t={t} />
+
+                  {/* The one clear preview: what is applied right now. */}
+                  {selectedTheme && (
+                    <div className="rounded-xl border border-line bg-secondary/40 p-4">
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="flex -space-x-1.5 shrink-0" aria-hidden>
+                            {(selectedTheme.swatches ?? []).slice(0, 4).map((sw, i) => (
+                              <span
+                                key={i}
+                                className="size-6 rounded-full border-2 border-card shadow-xs"
+                                style={{ background: sw, zIndex: 4 - i }}
+                              />
+                            ))}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-foreground truncate">{selectedTheme.name}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{selectedTheme.name_en}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full shrink-0">
+                          مطبق الآن على الصفحة ✓
+                        </span>
+                      </div>
+                      {selectedTheme.description && (
+                        <p className="mt-2 text-[11px] text-muted-foreground leading-relaxed">
+                          {selectedTheme.description}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Independent typography: body and display faces, real preview. */}
+                  {branding.families?.length > 0 && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {(
+                        [
+                          { which: "body" as const, label: "خط النصوص", value: bodyFont, hint: "القوائم والنماذج والفواتير" },
+                          { which: "display" as const, label: "خط العناوين", value: displayFont, hint: "العناوين والأسماء الكبيرة" },
+                        ]
+                      ).map((row) => (
+                        <div key={row.which}>
+                          <label className="text-xs font-semibold text-foreground block">
+                            {row.label}
+                            <span className="block text-[10px] font-normal text-muted-foreground">{row.hint}</span>
+                          </label>
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {branding.families.map((fam) => {
+                              const isSelected = row.value === fam;
+                              return (
+                                <button
+                                  key={fam}
+                                  type="button"
+                                  onClick={() => handlePickFont(row.which, fam)}
+                                  aria-pressed={isSelected}
+                                  className={cn(
+                                    "rounded-lg border px-3 py-1.5 text-xs transition cursor-pointer",
+                                    isSelected
+                                      ? "border-primary bg-primary/[0.08] text-foreground font-bold ring-1 ring-primary"
+                                      : "border-line bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                                  )}
+                                  style={{ fontFamily: `"${fam}", sans-serif` }}
+                                >
+                                  {fam}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
                       ))}
                     </div>
-                  </div>
+                  )}
                 </>
               ) : (
                 <div>
@@ -861,7 +1009,7 @@ export default function OnboardingWizard() {
           )}
 
           {/* Wizard Action Controls */}
-          <div className="mt-8 flex items-center justify-between gap-3 border-t border-border/60 pt-4">
+          <div className="sticky bottom-0 z-10 -mx-5 sm:-mx-8 -mb-5 sm:-mb-8 mt-8 flex items-center justify-between gap-3 border-t border-border/60 bg-card/95 px-5 sm:px-8 py-3 backdrop-blur-sm rounded-b-2xl">
             <Button
               variant="outline"
               onClick={() => (step === 0 ? nav("/signup") : setStep((s) => s - 1))}
@@ -885,6 +1033,41 @@ export default function OnboardingWizard() {
             )}
           </div>
         </div>
+
+        {/* Full palette catalog lives behind a dialog, not on the wizard body. */}
+        {catalogOpen && branding && (
+          <div
+            className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
+            onClick={() => setCatalogOpen(false)}
+          >
+            <div
+              className="w-full max-w-4xl max-h-[85vh] overflow-y-auto rounded-2xl border border-line bg-card p-5 sm:p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-label="كل المظاهر"
+            >
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div>
+                  <h2 className="text-base font-bold text-foreground">كل المظاهر ({branding.themes.length})</h2>
+                  <p className="text-[11px] text-muted-foreground">اختيارك يُطبق فوراً على الصفحة خلف النافذة.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCatalogOpen(false)}
+                  className="grid size-8 place-items-center rounded-lg border border-line text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition"
+                  aria-label="إغلاق"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+              <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {branding.themes.map((t) => (
+                  <ThemeCard key={t.id} t={t} />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         <p className="mt-4 text-center text-xs text-muted-foreground">
           ستدخل مباشرة على مساحة عمل مهيأة بالكامل، ويمكنك تغيير الأنشطة والوحدات في أي وقت.

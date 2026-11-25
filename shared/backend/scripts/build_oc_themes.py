@@ -60,7 +60,7 @@ SPECS = [
     {"id": "honey",   "oc": "yellow", "name": "عسلي",    "name_en": "Honey",   "fonts": ("Tajawal", "Tajawal"),"hue": 50,
      "desc": "عسلي دافئ للمطاعم والحلويات. تركيبة أصلية من ألوان Open Color (MIT)."},
     {"id": "tangerine","oc": "orange", "name": "ماندرين", "name_en": "Mandarin",   "fonts": ("Cairo", "Almarai"),  "hue": 25,
-     "desc": "برتقالي كهرماني جريء. تركيبة أصلية من ألوان Open Color (MIT)."},
+     "desc": "برتقالي ماندين جريء. تركيبة أصلية من ألوان Open Color (MIT)."},
 ]
 
 GRAY = OC["gray"]  # neutral scale shared by every palette

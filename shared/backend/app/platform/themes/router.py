@@ -26,6 +26,7 @@ async def _tenant(db: AsyncSession, user: User):
 
 class Choice(BaseModel):
     id: str = Field(min_length=2, max_length=80)
+    fonts: dict | None = None
 
 
 @router.get("/current")
@@ -43,7 +44,7 @@ async def list_themes(db: AsyncSession = Depends(get_db), user: User = Depends(r
 
 @router.put("/current")
 async def choose(data: Choice, db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("themes.manage"))):
-    return await service.choose(db, await _tenant(db, user), data.id)
+    return await service.choose(db, await _tenant(db, user), data.id, fonts=data.fonts)
 
 
 @router.post("/packages/inspect")

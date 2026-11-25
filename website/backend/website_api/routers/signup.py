@@ -35,6 +35,9 @@ class SignupRequest(BaseModel):
     sector: str
     scale: str
     palette: str = "mizan"
+    # Optional independent typography picks (body/display); validated against the
+    # families Mizan's themes actually ship, stored on the workspace palette.
+    fonts: dict | None = None
     features: list[str] = Field(default_factory=list)
     owner_username: str = Field(min_length=3, max_length=64, pattern=r"^[\w.\-]+$")
     owner_password: str = Field(min_length=6, max_length=128)
@@ -71,7 +74,11 @@ async def branding_options():
         a = _json.loads(f.read_text(encoding="utf-8"))
         if isinstance(a.get("branding"), dict):
             recommendations[a["id"]] = a["branding"]
-    return {"themes": themes, "full": full, "activities": recommendations}
+    from app.platform.themes.service import family_files
+
+    fam_files = family_files()
+    return {"themes": themes, "full": full, "activities": recommendations,
+            "families": sorted(fam_files.keys()), "family_files": fam_files}
 
 
 # The wizard previews a theme with its real fonts before signup: Mizan's file
@@ -124,6 +131,7 @@ async def signup(data: SignupRequest, request: Request, db: AsyncSession = Depen
             sector=data.sector,
             scale=data.scale,
             palette=data.palette,
+            fonts=data.fonts,
             features=data.features,
             admin_username=data.owner_username,
             admin_full_name=data.owner_full_name,

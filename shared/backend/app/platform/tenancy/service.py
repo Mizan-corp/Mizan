@@ -77,6 +77,7 @@ async def create_workspace(
     trial_days: int = TRIAL_DAYS,
     slug: str | None = None,
     palette: str = "mizan",
+    fonts: dict | None = None,
     features: list[str] | None = None,
     demo_data: bool = True,
 ) -> tuple[Tenant, User | None]:
@@ -108,6 +109,8 @@ async def create_workspace(
 
     if palette not in file_themes():
         palette = activity_def(sector).get("theme") if activity_def(sector).get("theme") in file_themes() else "mizan"
+    from app.platform.themes.service import check_font_choice
+    _font_choice = check_font_choice(fonts) if isinstance(fonts, dict) else {}
     tenant = Tenant(
         id=uuid.uuid4(),
         name=name.strip(),
@@ -115,7 +118,8 @@ async def create_workspace(
         sector=sector,
         business_type=sector,
         scale=scale,
-        palette={"name": palette, "hue": PALETTE_HUES.get(palette, PALETTE_HUES["mizan"])},
+        palette={"name": palette, "hue": PALETTE_HUES.get(palette, PALETTE_HUES["mizan"]),
+                 **({"fonts": _font_choice} if _font_choice else {})},
         features=features,
         active_modules=modules,
         status="active",
