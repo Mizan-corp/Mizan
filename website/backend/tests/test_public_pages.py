@@ -102,13 +102,11 @@ def page_with(tree):
 
 
 def ok_script(tree=None, **row_kw):
-    """Synthetic mode: bypass on, activation, bypass off, bind, page (settings never read).
-    Connected mode (allow_data=True): plus the site_settings select."""
+    """Both scopes: bypass on, activation, bypass off, bind, page. The tenant's
+    shared site_settings are never read on this anonymous route; the public
+    theme is the activation row's snapshot in synthetic AND connected scope."""
     row = activation_row(**row_kw)
-    script = [None, row, None, None, page_with(tree or plain_tree())]
-    if row.allow_data:
-        script.append(SETTINGS)
-    return script
+    return [None, row, None, None, page_with(tree or plain_tree())]
 
 
 class Tests(unittest.IsolatedAsyncioTestCase):
@@ -226,12 +224,20 @@ class Tests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(db.execute.await_count, 5)
         self.assertIsNone(current_tenant_id.get())
 
-    async def test_connected_mode_reads_settings_and_allows_bound_tree(self):
-        db = db_scripted(ok_script(CARD_TREE, allow_data=True))
-        with patch.object(pp, "_render_public", new=AsyncMock(return_value="<html>ok</html>")):
+    async def test_connected_mode_uses_activation_theme_and_never_reads_business_settings(self):
+        db = db_scripted(ok_script(CARD_TREE, allow_data=True, theme=SYNTH_THEME))
+        captured = {}
+
+        async def render(db_, page, theme, tid, canonical, link_base=""):
+            captured["theme"] = theme
+            return "<html>ok</html>"
+
+        with patch.object(pp, "_render_public", new=render):
             resp = await pp.public_page("site", "home", make_request(), db)
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(db.execute.await_count, 6)
+        self.assertEqual(captured["theme"], SYNTH_THEME)
+        # 5 reads: bypass on, activation, bypass off, bind set_config, page. No site_settings.
+        self.assertEqual(db.execute.await_count, 5)
 
     async def test_success_returns_html_with_security_headers_and_clears_context(self):
         db = db_scripted(ok_script())

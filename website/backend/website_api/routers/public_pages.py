@@ -210,8 +210,10 @@ async def public_page(slug: str, page_path: str, request: Request, db: AsyncSess
         if page is None:
             raise _not_found()
         if row.allow_data:
-            settings_row = (await db.execute(text("SELECT value FROM site_settings"))).first()
-            theme = settings_row.value if settings_row else {}
+            # Connected scope: same activation-snapshot theme as synthetic. The
+            # approval time snapshot is the public theme; the tenant's shared
+            # site_settings are never read on this anonymous route.
+            theme = row.activation_theme if isinstance(row.activation_theme, dict) else {}
         else:
             # Synthetic scope: enforceable boundary - no bound/provider nodes, no
             # off-host destinations, and chrome only from the activation row's own
