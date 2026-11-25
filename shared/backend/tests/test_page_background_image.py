@@ -4,6 +4,7 @@ import unittest
 
 from app.framework.manifest import page_problems
 from app.platform.site.render import render_page
+from app.platform.site import render as _render_mod
 
 
 def tree_with(settings):
@@ -73,3 +74,17 @@ class BackgroundImageRender(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SurfaceContrastTests(unittest.TestCase):
+    """Light surfaces reset foreground to the theme foreground.
+
+    A card or page-background surface nested inside a dark band must not
+    inherit the band's light foreground, or its text renders light-on-white.
+    """
+
+    def test_card_surface_resets_foreground(self):
+        self.assertIn('.mz-background-card{background:var(--card,#fff);color:var(--foreground,#262321)}', _render_mod._BASE_CSS)
+
+    def test_page_surface_resets_foreground(self):
+        self.assertIn('.mz-background-background{background:var(--background,#FAF6F0);color:var(--foreground,#262321)}', _render_mod._BASE_CSS)
