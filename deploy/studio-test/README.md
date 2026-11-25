@@ -98,3 +98,37 @@ provider validation.
 ## Recovery checkpoint, 2026-11-24 00:28 Cairo
 
 Test deployment dpl_FKwr7EWS5kXc3QEQEu1NgdpdfYws restores explicit same-origin API targeting and fixes settings login-preview links with React Router useHref so /erp/ is retained. Verified actual Studio editor, ERP products empty state, settings preview URL and same-origin API reads. This supersedes the historical deployment ID above. No settings or business transaction was changed. Owner/admin frontends and distinct-account boundary acceptance remain incomplete.
+
+## v1 typed card-repeat browser proof, 2026-11-25 03:35 Cairo
+
+Two-half live proof on the canonical test host (signed-in, config-h), fixture
+page "Card repeat proof" (id 5f264ca1-a4aa-4d2e-86d8-db51593940e0, slug
+card-repeat-proof), kept as an intentional static fixture:
+
+- Zero-grant half (accepted 03:23): repeat attached with zero consent grants;
+  authenticated preview rendered EMPTY (row pruned, zero-grant privacy
+  behavior); reload persistence verified; repeat then removed and page saved
+  back to static.
+- Positive half (accepted 03:35, NAME+PRICE only): two synthetic fixture
+  products created via ERP UI ("Fixture Card Widget" 42.50, "Fixture Card
+  Gadget" 17.00), catalog selection + display consent (show_price, EGP,
+  both products; images never enabled) saved via the studio Data panel with
+  the bilingual v1 confirm wording; repeat re-attached; in-editor canvas and
+  authenticated private preview both rendered two repeated cards with real
+  names and EGP prices (pixel-verified).
+
+IMAGE SLOT NOT PROVEN: product image upload is refused by design on this host
+(shared/backend/app/framework/files.py: on Vercel without
+BLOB_READ_WRITE_TOKEN, uploads return 503 "file storage not configured"
+rather than silently losing the file). No no-code path can create the
+WorkspaceFile product_image provenance the provider requires, so repeated
+image pixels were not exercised and must not be claimed.
+
+Restore (same run, verified by authenticated GET): consent effective values
+back to exact zero-grant {products: [], show_price: false, show_image: false,
+currency: null}; catalog selection back to {products: [], categories: []};
+both fixture products deactivated (records remain, inactive, reversible; no
+DB cleanup). Metadata deltas, not exact database restoration: edit_tokens on
+both settings rows changed - post-restore cards edit_token 7bd57827...6b3c,
+catalog 8a5789a4...3aca. Fixture products persist as inactive records
+("Fixture Card Widget", "Fixture Card Gadget") in the studio-test workspace.
