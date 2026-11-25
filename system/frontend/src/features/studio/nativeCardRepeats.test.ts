@@ -141,4 +141,32 @@ describe('native card repeats (v1)',()=>{
   bad.children![0].children![0].children![1].content.en={html:'<p><b>10.00 EGP</b></p>'};
   expect(nativeProjectionMap(source,bad,'en')).toEqual({}); // unverified copies are never mapped
  });
+
+ it('expands and validates Arabic content-language projections independently',()=>{
+  const {tree,column}=fixture();
+  const source=changeCardRepeat(tree,column.id,'ar',slots,plan);
+  const attached=source.children![0].children![0];
+  expect(attached.repeat).toEqual({schema:repeatCardSchema,slots,content:{ar:plan}});
+  const cloneAr=(id:string,name:string,price:string|null):PageNode=>{
+   const child=(i:number)=>`n_${id.slice(3,18).padEnd(15,'0')}${i.toString(16)}`;
+   const kids=column.children!;
+   const out:PageNode={id,type:'column',settings:structuredClone(column.settings),content:{},children:[]};
+   out.children!.push({...structuredClone(kids[0]),id:child(1),content:{...structuredClone(kids[0].content),ar:{text:name}}});
+   if(price!==null)out.children!.push({...structuredClone(kids[1]),id:child(2),content:{...structuredClone(kids[1].content),ar:{html:`<p>${price}</p>`}}});
+   return out;
+  };
+  const resolved=structuredClone(tree);
+  resolved.children![0].children=[
+   cloneAr('n_aaaaaaaaaaaaaaa1','ودجت','10.00 جنيه'),
+   cloneAr('n_bbbbbbbbbbbbbbb2','جادجت',null),
+  ];
+  expect(validResolvedTree(source,resolved,'ar')).toBe(true);
+  expect(validResolvedTree(source,resolved,'en')).toBe(false); // en projection does not satisfy the ar plan
+  const tamperedEn=structuredClone(resolved);
+  tamperedEn.children![0].children![0].children![0].content.en={text:'changed'};
+  expect(validResolvedTree(source,tamperedEn,'ar')).toBe(false); // untouched languages must match source
+  const map=nativeProjectionMap(source,resolved,'ar');
+  expect(map['n_aaaaaaaaaaaaaaa1']).toBe(column.id);
+  expect(map['n_bbbbbbbbbbbbbbb2']).toBe(column.id);
+ });
 });
