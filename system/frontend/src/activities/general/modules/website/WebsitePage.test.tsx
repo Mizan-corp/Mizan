@@ -15,6 +15,13 @@ vi.mock("@app/features/studio/sitePages", async (importOriginal) => {
   return { ...actual, createSitePagesClient: () => ({ listPages: state.listPages }) };
 });
 vi.mock("@app/features/studio/WebsiteModuleSettings", () => ({ default: () => null }));
+// The orders panel has its own suite (WebsiteOrders.test.tsx); keep it inert here.
+vi.mock("./siteOrders", () => ({
+  createSiteOrdersClient: () => ({
+    listOrders: vi.fn().mockResolvedValue({ items: [], page: 1, page_size: 50, statuses: [] }),
+    updateStatus: vi.fn(),
+  }),
+}));
 
 import WebsitePage, { studioLaunchUrl } from "./WebsitePage";
 

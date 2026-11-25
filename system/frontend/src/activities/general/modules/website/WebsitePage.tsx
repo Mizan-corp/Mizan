@@ -29,6 +29,7 @@ import {
   TableRow,
 } from "@/components/kit/table";
 import WebsiteModuleSettings from "@app/features/studio/WebsiteModuleSettings";
+import WebsiteOrders from "./WebsiteOrders";
 import {
   createSitePagesClient,
   type PageSummary,
@@ -164,6 +165,8 @@ export default function WebsitePage() {
           </Table>
         </ListState>
       </section>
+
+      <WebsiteOrders apiBase={API_BASE} />
 
       <section aria-label="بيانات الموقع" className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">بيانات الموقع</h2>

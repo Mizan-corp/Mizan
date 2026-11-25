@@ -13,3 +13,5 @@
 .website-module-page .website-module-settings fieldset:disabled{opacity:.55}
 .website-module-page .website-module-settings button{white-space:normal;border:1px solid var(--border,#c7b4e9);border-radius:8px;background:var(--muted,#faf7ff);color:inherit;padding:10px 12px;font:inherit;font-size:13px;cursor:pointer}
 .website-module-page .website-module-settings button:disabled{opacity:.55;cursor:wait}
+.website-module-page .website-order-status{border:1px solid var(--border,#d9cbea);border-radius:8px;background:var(--background,#fff);padding:6px 10px;font:inherit;color:inherit}
+.website-module-page .website-order-status:disabled{opacity:.55;cursor:wait}

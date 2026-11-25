@@ -186,3 +186,8 @@ router.include_router(page_kits_router)
 # Site media library (studio image upload/list/delete).
 from .media import media_router
 router.include_router(media_router)
+
+# Website orders: the Website tab's admin surface for site-origin orders (the
+# suspended storefront module's records; public commerce routes stay suspended).
+from .orders import orders_router
+router.include_router(orders_router)
