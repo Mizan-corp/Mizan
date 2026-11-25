@@ -11,6 +11,45 @@ Conventions: "per-device" means the responsive authoring model (switch
 desktop/tablet/mobile in the editor, edit each view manually, unset values
 inherit from desktop).
 
+## User architecture decisions (2026-11-25, controlling)
+
+These are the user's own decisions (WhatsApp, EET), recorded verbatim in
+English. They control scope and module boundaries; where an earlier note in
+this file conflicts, these win. The coordinator's 17:37 proposal list of
+extra Website-managed areas (SEO, domains, cookie policies, notification
+rules, etc.) was NOT approved by the user and is not scope; the user's
+17:38 boundary below supersedes any part of it that mixed UI settings into
+the ERP module.
+
+1. **Data ownership (17:30).** Categories must be implemented from the
+   Inventory module; all images, descriptions, and content are managed
+   THERE. Studio controls presentation only. No static category pages with
+   copied data, no duplicated catalog.
+2. **Dynamic product page (17:32).** Product pages must NOT be authored one
+   by one. One template is designed once in Studio and applies to every
+   product; each product has an ID that determines its URL.
+3. **Module rename + ownership (17:33).** The frontstore module is renamed
+   **Website**. When enabled, its tab manages orders, published products,
+   and all website-related attributes, instead of those living in
+   Inventory.
+4. **Pages in Website (17:36).** Pages are managed from the Website module
+   too.
+5. **Studio launch UX (17:37).** Choosing to edit a page from Website opens
+   a NEW FULL BROWSER TAB with standalone Studio and that page loaded — not
+   Studio embedded inside the ERP interface/frame.
+6. **UI vs non-UI boundary (17:38, controlling).** ALL website UI/design
+   work belongs in Studio; everything non-UI belongs in the ERP module.
+   The ERP manages page records/publication, data, and behavior config;
+   appearance (layout, header/footer, menus, notification surfaces, any
+   visual editing) is Studio-only. No website visual-editing panels in the
+   ERP.
+7. **Standing constraints carried forward.** Discovering missing Studio
+   features while rebuilding Wirya IS the objective; every gap becomes a
+   reusable UI-editable feature, never Wirya-specific code. Site authoring
+   goes through the Studio UI only (original Wirya source assets; no
+   hand-authored HTML/CSS/SVG, no DB/API page seeding). Responsive
+   authoring is per-device with desktop inheritance.
+
 ## Done this branch (verified live, tests green)
 
 | Area | Capability | Commits |
@@ -41,22 +80,23 @@ descriptions). Studio binds to that data and controls presentation only;
 no static category pages with copied data, no duplicated catalog.
 
 4. **Category destinations.** Menu/bar items need link destinations that
-   resolve to category-filtered collection pages. Blocked on a consent-scope
-   decision: the publication allowlist already exposes selected category
-   names, but product->category linkage (Product.subcategory_id) is a new
-   public projection not named by any consent wording (v0-v3 cover name,
-   plus price/image under display consent). Needs a v4-style scope change
-   (same reversible pattern as v1/v2) before the provider can expose
-   category membership and `?category=` filtering can exist.
+   resolve to category-filtered collection pages. Product->category linkage
+   (Product.subcategory_id) is a new public projection not named by consent
+   wording v0-v3 (they cover name, plus price/image under display consent).
+   Resolved 2026-11-25: this is implementation design within the user's
+   explicit 17:30 category request — extend the explicit UI publication
+   consent accurately (v4, same reversible pattern as v1/v2), scoped to
+   published records only. Not a user-facing question.
 5. **Dynamic product-detail pages.** One Studio-authored template applies
    to every product; the product id selects the record from the URL. Item
    bindings today pin a fixed `item_key` per element; the extension is a
    "current item" binding mode resolved from the route. The consent gate
    (`read_scoped_item`) already refuses unconsented records, so URL-selected
-   reads stay inside the projection; whether v3 wording covers URL-selected
-   (vs page-pinned) records is a model decision for main. Route shape also
-   undecided (e.g. /site/{slug}/product/{id}). Category pages should follow
-   the same template model once (4) is unblocked.
+   reads stay inside the projection. Resolved 2026-11-25: extend the consent
+   wording accurately to cover URL-selected current-record retrieval
+   (scoped published records only); route shape is routine architecture —
+   choose a consistent existing convention and document it here. Category
+   pages should follow the same template model once (4) lands.
 
 ### Locale
 Locale switch is DONE (8094ec2): `?lang=` on public pages (validated
@@ -73,6 +113,16 @@ search E2E still uses requestSubmit rather than a native Enter/click.
    Wirya source assets through the UI (upload/media library), never
    hand-authored HTML/CSS/SVG or DB/API seeding. The hosted test host also
    refuses uploads (no blob storage) — that limitation must stay visible.
+
+### Website module (user decisions 3-6 above)
+13. **Rename frontstore -> Website** with its tab managing orders, published
+    products, website-related attributes, and pages (non-UI records and
+    behavior config only). Source-ground existing IDs/contracts/migrations
+    before semantic changes; keep Inventory as the product/stock source of
+    truth; no duplicated catalog.
+14. **Studio launch from Website** opens a new full browser tab with
+    standalone Studio and the selected page loaded; workspace/page context
+    and auth must cross the launch safely. Not embedded in the ERP frame.
 
 ### Module capabilities (unimplemented module surface)
 7. **Cookies consent.** Module capability must be real consent behavior, not
