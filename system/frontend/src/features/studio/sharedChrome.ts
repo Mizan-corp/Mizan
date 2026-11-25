@@ -24,7 +24,8 @@ export function chromeProblems(value:SiteSettingsValue):string[]{
  if(value.typography&&(Object.keys(value.typography).some(k=>k!=='family')||!['sans-serif','serif','monospace'].includes(value.typography.family??'')))errors.push('Shared typography is not supported.');
  if(value.shape&&(Object.keys(value.shape).some(k=>k!=='radius')||!Number.isInteger(value.shape.radius)||value.shape.radius!<0||value.shape.radius!>64))errors.push('Shared shape is not supported.');
 
- if(Object.keys(value).some(k=>!['header','footer','colors','typography','shape'].includes(k)))errors.push('Shared settings contain fields this editor cannot preserve.');
+ if(Object.keys(value).some(k=>!['header','footer','colors','typography','shape','follow_workspace'].includes(k)))errors.push('Shared settings contain fields this editor cannot preserve.');
+ if(value.follow_workspace!==undefined&&typeof value.follow_workspace!=='boolean')errors.push('Shared follow_workspace flag is not a boolean.');
  for(const part of ['header','footer'] as const){const section=value[part];if(!section)continue;
   if(Object.keys(section).some(k=>!(part==='header'?['brand','logo','links','actions','layout']:['lines','links','groups','layout']).includes(k)))errors.push('Shared '+part+' has unsupported fields.');
   for(const field of part==='header'?['links','actions']:['links']){const links=(section as Record<string,unknown>)[field];if(links!==undefined&&(!Array.isArray(links)||links.length>(field==='actions'?4:8)||links.some(l=>!l||Object.keys(l).some(k=>!['label','href'].includes(k))||typeof l.label!=='string'||l.label!==l.label.trim()||!l.label.trim()||l.label.length>40||typeof l.href!=='string'||l.href.length>200||!safeNativeUrl(l.href)||!(/^(\/|#|https:\/\/)/.test(l.href)))))errors.push('Use a label and safe /path, #anchor or https:// link for every '+field+'.');}

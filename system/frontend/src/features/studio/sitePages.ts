@@ -113,6 +113,8 @@ export type SiteSettingsValue = {
   shape?: { radius?: number };
   header?: { layout?: 'inline'|'centered'; brand?: string; logo?: string; links?: { label: string; href: string }[]; actions?: { label: string; href: string }[] };
   footer?: { layout?: 'split'|'stacked'; lines?: string[]; links?: { label: string; href: string }[]; groups?: { title: string; links: { label: string; href: string }[] }[] };
+  /** Server-owned flag the editor does not edit but must round-trip untouched. */
+  follow_workspace?: boolean;
 };
 
 export function settingsPayload(project: Project): SiteSettingsValue {
