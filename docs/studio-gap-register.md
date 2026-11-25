@@ -193,6 +193,30 @@ per-language copy is not yet authorable (see above).
     a probe read; any loosening of the consent gates to shortcut this is
     refused by design.
 
+17. **Publish/enable concurrency test against a real database** — OPEN
+    (visual/security reviewer closeout, 2026-11-25; their F3). The
+    publish/enable lock is currently covered by mocked-session tests only;
+    a real-DB concurrency pass (two simultaneous publish/enable requests,
+    one must conflict) is still owed.
+18. **Style panel minors** — OPEN (same closeout). Lavender literal
+    rgb(145,131,158) bypasses the token scale; three invisible debug nodes
+    sit in the Style panel DOM. Cosmetic only, fix in a cleanup pass.
+19. **Legacy /studio/ route disposition** — OPEN product-routing question
+    (same closeout, evidence in their 2026-11-24 22:35 report). Reconcile
+    inside Phase 4: with the user-decided flow (Website tab launches
+    standalone Studio in a NEW full browser tab, decision 17:37), decide
+    whether the legacy /studio/ route redirects to the new launch or stays
+    for existing links. No user-visible change before that is settled.
+
+Reconciled from the same closeout (no gap item needed): the reviewer left
+the Home "كل الصفحات ←" / library link click paths inconclusive. Verified
+in source 2026-11-25: "كل الصفحات ←" is a search-reset button rendered only
+while a query is active (PreviewSession.tsx, clears the filter — correct by
+design); "المكتبة الكاملة" appears only in the concept mockups, not in the
+implementation (the implemented entry is "اتفرّج على القوالب", an in-page
+scroll to the templates section). Home search reset and Library minis
+passed the reviewer's final boundary.
+
 ## Execution order for the remaining scope (2026-11-25)
 
 Dependency-ordered. Each phase lists what is verified vs pending; nothing
