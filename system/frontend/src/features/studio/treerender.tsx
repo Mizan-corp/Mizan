@@ -2,7 +2,7 @@
 // block-for-block (same mz-* classes, same settings cascade, same visibility and content
 // rules) so the studio's live preview shows exactly what the durable tree holds. If a
 // block cannot be represented, both renderers must grow together - never diverge.
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { PageNode } from './pagetree';
 import { IconGlyph, ICON_MARKUP } from './nativeIcons';
 
@@ -249,25 +249,34 @@ export interface ThemeChrome {
   search_enabled?: boolean;
   search_target?: string;
   search_placeholder?: string;
+  search_style?: 'filled'|'outline';
+  bar_style?: 'pills'|'plain';
+  density?: 'comfortable'|'compact';
   icons?: { icon: HeaderIconName; label: string; href: string }[];
   bar_links?: { label: string; href: string }[];
   bar_cta_label?: string;
   bar_cta_href?: string;
 }
 
+// Icon markup mirrors render.py's _HEADER_ICONS element-for-element (circles as
+// circle elements, identical path data) so the editor preview and the visitor
+// render the same glyphs.
+export const HEADER_ICON_MARKUP: Record<HeaderIconName, ReactNode> = {
+  whatsapp: <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>,
+  cart: <><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></>,
+  heart: <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>,
+  user: <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
+  phone: <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>,
+  globe: <><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></>,
+  search: <><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></>,
+};
 export const HEADER_ICON_PATHS: Record<HeaderIconName, string> = {
-  whatsapp: 'M7.9 20A9 9 0 1 0 4 16.1L2 22Z',
-  cart: 'M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12M8 21a1 1 0 1 0 0-.01M19 21a1 1 0 1 0 0-.01',
-  heart: 'M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z',
-  user: 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0 .01',
-  phone: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z',
-  globe: 'M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20M12 2a10 10 0 1 0 0 .01',
-  search: 'M11 3a8 8 0 1 0 0 .01M21 21l-4.3-4.3',
+  whatsapp: 'whatsapp', cart: 'cart', heart: 'heart', user: 'user', phone: 'phone', globe: 'globe', search: 'search',
 };
 
 export function HeaderIcon({ name }: { name: string }) {
-  const path = HEADER_ICON_PATHS[(name as HeaderIconName)] ?? HEADER_ICON_PATHS.globe;
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path}/></svg>;
+  const markup = HEADER_ICON_MARKUP[(name as HeaderIconName)] ?? HEADER_ICON_MARKUP.globe;
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{markup}</svg>;
 }
 
 export interface ThemeSpec {
