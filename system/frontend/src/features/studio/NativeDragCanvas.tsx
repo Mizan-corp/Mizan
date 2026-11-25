@@ -28,7 +28,7 @@ export default function NativeDragCanvas({tree,projectionMap,selected,onSelect,o
   // in the row (and column) it needs (see nativeStructure.changeStructure).
   const effType=item.kind==='new'&&item.type==='card'?'column':item.type;
   if(parent.type==='section'&&(effType==='column'||childTypes('column').includes(effType)))return true;
-  if(!childTypes(parent.type).includes(item.type))return false;
+  if(!childTypes(parent.type).includes(effType))return false;
   if(item.kind==='node'){
    const node=nodes.find(n=>n.id===item.id),source=nodes.find(n=>n.children?.some(c=>c.id===item.id));
    if(!node||nativeNodes(node).some(n=>n.id===parent.id))return false;

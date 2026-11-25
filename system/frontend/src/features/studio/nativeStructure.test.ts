@@ -84,3 +84,13 @@ it('wraps a column relocated onto a section in a fresh row and keeps the source 
  const source=nativeNodes(next.tree).find(n=>n.id===sourceRow.id)!;
  expect(source.settings.desktop.columns).toBe(source.children!.length);
 });
+
+it('drops a card into an existing row as a styled column and grows the track count',()=>{
+ const tree=toPageTree(initialProject),row=tree.children![0],before=row.children!.length,state={tree,past:[],future:[]};
+ const next=changeStructure(state,{kind:'insert',parentId:row.id,type:'card',id:'n_card2',index:0});
+ const newRow=next.tree.children![0];
+ expect(newRow.children).toHaveLength(before+1);
+ expect(newRow.settings.desktop.columns).toBe(before+1);
+ expect(newRow.children![0]).toMatchObject({id:'n_card2',type:'column'});
+ expect(newRow.children![0].settings.desktop).toEqual({background:'card',padding:'s',rounded:true});
+});

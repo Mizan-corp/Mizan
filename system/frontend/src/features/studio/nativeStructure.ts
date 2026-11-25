@@ -33,10 +33,11 @@ export function changeStructure(state:NativeHistory,edit:StructureEdit):NativeHi
       parent.children=[...(parent.children??[])];parent.children.splice(index,0,row);
       assertNativeTree(next);return {tree:next,past:[...state.past.slice(-29),state.tree],future:[]};
     }
-    if(!childTypes(parent.type).includes(edit.type))throw Error('This node cannot contain that block.');
+    if(!childTypes(parent.type).includes(effType))throw Error('This node cannot contain that block.');
     if(parent.type==='columns'&&(parent.children?.length??0)>=6)throw Error('At most six columns.');
-    const added=createNode(edit.type,edit.id);
-    if(edit.type==='columns'){let childId=newNativeId(next);while(childId===edit.id)childId=newNativeId(next);added.children=[createNode('column',childId)];}
+    const added=createNode(effType,edit.id);
+    if(edit.type==='card')added.settings={desktop:{background:'card',padding:'s',rounded:true}};
+    if(effType==='columns'){let childId=newNativeId(next);while(childId===edit.id)childId=newNativeId(next);added.children=[createNode('column',childId)];}
     const index=edit.index??(parent.children?.length??0);
     if(!Number.isInteger(index)||index<0||index>(parent.children?.length??0))throw Error('Invalid drop position.');
     parent.children=[...(parent.children??[])];parent.children.splice(index,0,added);
