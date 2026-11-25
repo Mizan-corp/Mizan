@@ -4257,7 +4257,7 @@ MIGRATIONS = [
     """),
     ("v112_site_activation", """
         -- Visitor runtime V1: explicit owner-controlled public activation per
-        -- exact (host, slug, page_path). Default disabled; existence alone grants
+        -- exact (host, slug, page_path). Default disabled, existence alone grants
         -- no anonymous access. One row per publishable page, so an unrelated
         -- published page in the same site can never be served without its own row.
         -- allow_connected_data=false refuses trees that read connected business
@@ -4388,11 +4388,11 @@ async def apply_migrations(session: AsyncSession) -> List[str]:
 MIGRATIONS.append(("v113_site_activation_app_grants", """
     -- v112 created site_activation after the ALL TABLES grant ran, so the
     -- request-scoped role mizan_app has no privileges on it. RLS (FORCE, tenant
-    -- match) still governs every row; this only lets the role attempt them.
+    -- match) still governs every row, and this only lets the role attempt them.
     GRANT SELECT, INSERT, UPDATE, DELETE ON site_activation TO mizan_app;
 """))
 MIGRATIONS.append(("v114_workspace_files_name", """
-    -- Original upload filename for display (media library); additive, nullable.
+    -- Original upload filename for display (media library), additive, nullable.
     ALTER TABLE workspace_files ADD COLUMN IF NOT EXISTS name varchar(256);
 """))
 MIGRATIONS.append(("v110_helpdesk_offerings", "python:app.activities.general.modules.helpdesk.migrate:migrate"))
