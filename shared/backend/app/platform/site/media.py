@@ -21,7 +21,7 @@ from app.dependencies import require_perm
 from app.framework import files
 from app.framework.files import WorkspaceFile
 from app.platform.auth.models.user import User
-from app.platform.site.models import SitePage
+from app.platform.site.models import SitePage, SiteSettings
 from app.platform.tenancy.context import current_tenant_id
 
 media_router = APIRouter(prefix="/site/media", tags=["Site media"])
@@ -44,6 +44,23 @@ def _signature_matches(data: bytes, content_type: str) -> bool:
     if content_type == "image/webp":
         return len(data) > 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP"
     return any(data.startswith(sig) for sig in _SIGNATURES[content_type])
+
+
+_PIL_FORMATS = {"image/png": "PNG", "image/jpeg": "JPEG", "image/gif": "GIF", "image/webp": "WEBP"}
+
+
+def _decodes_as(data: bytes, content_type: str) -> bool:
+    """Structural validation: the whole payload must parse as the declared image type,
+    not only start with its signature. Truncated or appended-garbage files fail."""
+    from io import BytesIO
+
+    try:
+        from PIL import Image
+        with Image.open(BytesIO(data)) as img:
+            img.verify()
+            return img.format == _PIL_FORMATS[content_type]
+    except Exception:
+        return False
 
 
 def _row(f: WorkspaceFile) -> dict:
@@ -76,7 +93,7 @@ async def upload_media(file: UploadFile = File(...), db: AsyncSession = Depends(
         raise HTTPException(400, "الملف فارغ")
     if len(data) > MAX_UPLOAD_SIZE:
         raise HTTPException(400, "حجم الملف يتجاوز 5 ميجابايت")
-    if not _signature_matches(data, content_type):
+    if not _signature_matches(data, content_type) or not _decodes_as(data, content_type):
         raise HTTPException(400, "محتوى الملف لا يطابق نوعه المعلن. ارفع صورة سليمة.")
     url = await files.store(db, data, kind=KIND, filename=file.filename,
                             content_type=content_type, owner_id=None, replace=False)
@@ -102,11 +119,18 @@ async def delete_media(file_id: uuid.UUID, db: AsyncSession = Depends(get_db),
 
 
 async def _in_use(db: AsyncSession, tenant_id, url: str) -> bool:
-    """True when any draft or published tree of the workspace still references the URL.
-    A deleted image must never leave a published page rendering a dead frame."""
+    """True when anything durable of the workspace still references the URL: any draft
+    or published page tree (every block kind and language variant, as stored JSON) or
+    the site settings document (logo, theme, chrome). A deleted image must never leave
+    a published page or the site chrome rendering a dead frame."""
     needle = f"%{url}%"
-    q = select(SitePage.id).where(
+    pages = select(SitePage.id).where(
         SitePage.tenant_id == tenant_id,
         or_(cast(SitePage.draft_tree, Text).like(needle),
             cast(SitePage.published_tree, Text).like(needle)))
-    return (await db.execute(q)).first() is not None
+    if (await db.execute(pages)).first() is not None:
+        return True
+    settings_q = select(SiteSettings.id).where(
+        SiteSettings.tenant_id == tenant_id,
+        cast(SiteSettings.value, Text).like(needle))
+    return (await db.execute(settings_q)).first() is not None

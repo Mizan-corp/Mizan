@@ -33,6 +33,23 @@ def make_upload(data: bytes, content_type: str, filename: str = "shot.png") -> U
                       headers=Headers({"content-type": content_type}))
 
 
+def make_png(w: int = 8, h: int = 8) -> bytes:
+    import struct
+    import zlib
+
+    def chunk(typ, payload):
+        return (struct.pack(">I", len(payload)) + typ + payload
+                + struct.pack(">I", zlib.crc32(typ + payload) & 0xFFFFFFFF))
+
+    ihdr = struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0)
+    raw = b"".join(b"\x00" + b"\xbe\x1e\x1e" * w for _ in range(h))
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+            + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b""))
+
+
+VALID_PNG = make_png()
+
+
 class UploadValidationTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.db = AsyncMock()
@@ -52,6 +69,13 @@ class UploadValidationTests(unittest.IsolatedAsyncioTestCase):
         # wrong signature for the declared type
         with self.assertRaises(HTTPException) as ctx:
             await media.upload_media(make_upload(b"\x89PNG\r\n\x1a\nrest", "image/jpeg"),
+                                     self.db, self.user)
+        self.assertEqual(ctx.exception.status_code, 400)
+
+    async def test_rejects_truncated_file_with_valid_signature(self):
+        # signature passes but the payload does not structurally decode as a PNG
+        with self.assertRaises(HTTPException) as ctx:
+            await media.upload_media(make_upload(b"\x89PNG\r\n\x1a\n" + b"junk" * 10, "image/png"),
                                      self.db, self.user)
         self.assertEqual(ctx.exception.status_code, 400)
 
@@ -83,7 +107,7 @@ class UploadValidationTests(unittest.IsolatedAsyncioTestCase):
         result.scalar_one.return_value = stored
         self.db.execute.return_value = result
         with patch.object(media.files, "store", new=AsyncMock(return_value=stored.url)) as store:
-            out = await media.upload_media(make_upload(b"\x89PNG\r\n\x1a\n...", "image/png"), self.db, self.user)
+            out = await media.upload_media(make_upload(VALID_PNG, "image/png"), self.db, self.user)
         kwargs = store.await_args.kwargs
         self.assertEqual(kwargs["kind"], "site_image")
         self.assertIsNone(kwargs["owner_id"])
@@ -121,6 +145,23 @@ class DeleteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ctx.exception.status_code, 409)
         remove.assert_not_awaited()  # an in-use image is never deleted
 
+    async def test_file_referenced_by_site_settings_is_refused_with_409(self):
+        stored = media.WorkspaceFile(id=uuid.uuid4(), kind=media.KIND, owner_id=None,
+                               url=f"/uploads/t/{TID}/site_image/file-logo.png",
+                               size=3, content_type="image/png")
+        found = MagicMock()
+        found.scalar_one_or_none.return_value = stored
+        pages_miss = MagicMock()
+        pages_miss.first.return_value = None
+        settings_hit = MagicMock()
+        settings_hit.first.return_value = (uuid.uuid4(),)  # logo/theme references the URL
+        self.db.execute.side_effect = [found, pages_miss, settings_hit]
+        with patch.object(media.files, "remove", new=AsyncMock()) as remove:
+            with self.assertRaises(HTTPException) as ctx:
+                await media.delete_media(stored.id, self.db, self.user)
+        self.assertEqual(ctx.exception.status_code, 409)
+        remove.assert_not_awaited()
+
     async def test_delete_goes_through_shared_remove_by_url(self):
         stored = media.WorkspaceFile(id=uuid.uuid4(), kind=media.KIND, owner_id=None,
                                url=f"/uploads/t/{TID}/site_image/file-abc.png",
@@ -129,7 +170,8 @@ class DeleteTests(unittest.IsolatedAsyncioTestCase):
         found.scalar_one_or_none.return_value = stored
         not_in_use = MagicMock()
         not_in_use.first.return_value = None
-        self.db.execute.side_effect = [found, not_in_use]
+        # pages miss, then site-settings miss: both durable references are checked
+        self.db.execute.side_effect = [found, not_in_use, not_in_use]
         with patch.object(media.files, "remove", new=AsyncMock()) as remove:
             await media.delete_media(stored.id, self.db, self.user)
         remove.assert_awaited_once()
