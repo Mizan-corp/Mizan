@@ -59,6 +59,14 @@ def pp_row():
 class PublicItemRouteTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         pp._rate_hits.clear()
+        # The settings singleton is built at first import, so env-before-import cannot
+        # reach it once another module imported main first; set the attribute directly
+        # (same pattern as test_public_pages).
+        self._saved_host = pp.settings.PUBLIC_SITE_HOST
+        pp.settings.PUBLIC_SITE_HOST = HOST
+
+    def tearDown(self):
+        pp.settings.PUBLIC_SITE_HOST = self._saved_host
 
     async def test_unknown_kind_and_bad_uuid_are_generic_404_without_db(self):
         db = AsyncMock()
