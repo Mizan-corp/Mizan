@@ -38,8 +38,6 @@ def separate_bindings(tree: dict, validate_static, items=None):
         if not isinstance(local,dict) or set(local)-{'en','ar'}:
             raise SourceUnavailable('Unsupported binding language.')
         item_envelope=envelope is not None and envelope.get('schema')==PAGE_BINDINGS_ITEM_SCHEMA
-        if item_envelope and len(local)!=1:
-            raise SourceUnavailable('Item bindings address one language at a time.')
         for language,fields in local.items():
             if not isinstance(fields,dict) or not fields:
                 raise SourceUnavailable('Malformed binding fields.')

@@ -7,9 +7,10 @@ import {setUILang} from './uiStrings';
 
 // Regression: the localization commit 1a4206c corrupted the currency select
 // (fallback value became the literal 't(' and the EGP option became ')EGP'),
-// making EGP unselectable on the deployed test host. Also pins the v1 consent
-// wording: cards AND repeating lists, authenticated previews only, no
-// publication/checkout, and the save payload shape.
+// making EGP unselectable on the deployed test host. Also pins the v2 consent
+// wording: cards, repeating lists AND individually bound elements,
+// authenticated previews only, no publication/checkout, and the save payload
+// shape including the explicit consent_version acknowledgement.
 
 const policy={products:['p1'],show_price:false,show_image:false,currency:null};
 const choices={products:{items:[{id:'p1',name:'Widget'}]}};
@@ -18,7 +19,7 @@ let puts:Array<{path:string;body:unknown}>=[];
 
 function fetchMock(input:RequestInfo|URL,init?:RequestInit){
  const path=String(input).replace(/^https?:\/\/[^/]+/,'');
- if(init?.method==='PUT'){const body=JSON.parse(String(init.body));puts.push({path,body});const {expected_token,...value}=body;return Promise.resolve(new Response(JSON.stringify({value,edit_token:'tok2'}),{status:200}))}
+ if(init?.method==='PUT'){const body=JSON.parse(String(init.body));puts.push({path,body});const {expected_token,consent_version,...value}=body;return Promise.resolve(new Response(JSON.stringify({value,edit_token:'tok2'}),{status:200}))}
  if(path.endsWith('/cards'))return Promise.resolve(new Response(JSON.stringify({value:policy,edit_token:'tok1'}),{status:200}));
  if(path.endsWith('/choices'))return Promise.resolve(new Response(JSON.stringify(choices),{status:200}));
  return Promise.resolve(new Response('{}',{status:404}));
@@ -51,10 +52,12 @@ it('currency select offers real EGP with an empty fallback and saves the consent
  fireEvent.click(getByRole('button',{name:'احفظ سياسة عرض منتجات الموقع'}));
  await waitFor(()=>expect(puts).toHaveLength(1));
  expect(confirmText).toContain('repeating product lists');
+ expect(confirmText).toContain('individually bound elements');
  expect(confirmText).toContain('القوائم المتكررة');
+ expect(confirmText).toContain('العناصر المربوطة منفردة');
  expect(confirmText).toContain('authenticated website previews');
  expect(confirmText).toContain('does not publish or enable checkout');
  expect(confirmText).toContain('مش نشر ومش بيفعّل الدفع');
- expect(puts[0].body).toEqual({expected_token:'tok1',products:['p1'],show_price:true,show_image:false,currency:'EGP'});
+ expect(puts[0].body).toEqual({expected_token:'tok1',consent_version:'mizan.inventory-website-cards.experimental.v2',products:['p1'],show_price:true,show_image:false,currency:'EGP'});
  expect(container.textContent).toContain('authenticated previews only');
 });

@@ -90,6 +90,11 @@ async def get_cards(db=Depends(get_db),_=Depends(require_perm('site.manage')),__
     row,raw=await card_read(db)
     try:value=card_value(stored_policy(raw))
     except SourceUnavailable:raise HTTPException(422,'Stored website cards policy is invalid.') from None
+    # Surface the recorded consent version so the settings UI can tell the owner
+    # when an older wording predates individually bound elements.
+    if raw is not None:
+        try:value['schema']=json.loads(raw)['schema']
+        except (TypeError,ValueError,KeyError):raise HTTPException(422,'Stored website cards policy is invalid.') from None
     return {'value':value,'edit_token':token(raw)}
 
 @router.put('/cards')

@@ -1,5 +1,5 @@
 import {cardProblem,assertCardScope} from './nativeCards';
-import {bindingProblem,repeatProblem,cardRepeatProblem,cardSlotProblem,repeatCardSchema,type NativeCardRepeat} from './nativeBindings';
+import {bindingProblem,itemBindingProblem,itemBindingSchema,repeatProblem,cardRepeatProblem,cardSlotProblem,repeatCardSchema,type NativeCardRepeat} from './nativeBindings';
 import type { PageNode } from './pagetree';
 
 export type NativeDevice = 'desktop' | 'tablet' | 'mobile';
@@ -36,7 +36,7 @@ export function assertNativeTree(tree: PageNode): void {
   const ids = new Set<string>(); let count=0;
   const visit=(n: PageNode, parent: string|null, depth: number) => {
     if (!n || typeof n !== 'object' || !settings[n.type] || !/^n_[a-z0-9]{4,16}$/.test(n.id) || ids.has(n.id) || ++count > 500 || depth > 12) throw Error('Unsupported node, duplicate ID or tree limit.');
-    if(n.bindings!==undefined&&bindingProblem(n.bindings,n.type))throw Error('Unsupported dynamic binding. Source is protected.');
+    if(n.bindings!==undefined){const item=n.bindings.schema===itemBindingSchema;if(item?itemBindingProblem(n.bindings,n.type):bindingProblem(n.bindings,n.type))throw Error('Unsupported dynamic binding. Source is protected.');}
     if(n.repeat!==undefined){
       const cardRepeat=n.repeat.schema===repeatCardSchema?(n.repeat as NativeCardRepeat):undefined;
       const problem=cardRepeat?cardRepeatProblem(cardRepeat,n.type)||cardSlotProblem(n.children,cardRepeat.slots)||(n.children??[]).some(c=>c.bindings||c.repeat||c.card):repeatProblem(n.repeat,n.type);

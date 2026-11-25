@@ -9,9 +9,33 @@ export function bindingProblem(value:unknown,type:string):boolean{
  if(Object.keys(x).sort().join()!=='content,schema'||x.schema!==bindingSchema||type!=='heading'||!x.content||typeof x.content!=='object'||Array.isArray(x.content)||!Object.keys(x.content).length)return true;
  return Object.entries(x.content).some(([lang,f])=>!['en','ar'].includes(lang)||!f||Object.keys(f).join()!=='text'||!f.text||Object.keys(f.text).sort().join()!=='field,mode,module,on_missing,source'||f.text.mode!=='dynamic'||!['hide','empty'].includes(f.text.on_missing)||!Object.entries({module:f.text.module,source:f.text.source,field:f.text.field}).every(([k,v])=>typeof v==='string'&&(k==='module'?/^[a-z][a-z0-9_]{0,47}(\.[a-z][a-z0-9_]{0,47})?$/:/^[a-z][a-z0-9_]{0,47}$/).test(v)));
 }
+export const itemBindingSchema='mizan.page-bindings.experimental.v1';
+export type NativeItemBinding={mode:'dynamic';module:string;source:string;item_key:string;field:'name'|'price'|'image';on_missing:'hide'|'empty'};
+export type NativeItemBindings={schema:typeof itemBindingSchema;content:Partial<Record<'en'|'ar',Record<string,NativeItemBinding>>>};
+// Which content field each node type may bind to a consented record, and which
+// provider fields may fill it. Mirrors the platform manifest allowlist.
+export const itemBindingTargets:Record<string,Record<string,ReadonlyArray<NativeItemBinding['field']>>>={heading:{text:['name']},text:{html:['name','price']},image:{src:['image']}};
+export function itemBindingProblem(value:unknown,type:string):boolean{
+ if(!value||typeof value!=='object'||Array.isArray(value))return true;
+ const x=value as NativeItemBindings;
+ if(Object.keys(x).sort().join()!=='content,schema'||x.schema!==itemBindingSchema||!x.content||typeof x.content!=='object'||Array.isArray(x.content)||!Object.keys(x.content).length)return true;
+ const target=itemBindingTargets[type];if(!target)return true;
+ return Object.entries(x.content).some(([lang,f])=>!['en','ar'].includes(lang)||!f||typeof f!=='object'||Array.isArray(f)||Object.keys(f).join()!==Object.keys(target).join()||Object.entries(f).some(([field,b])=>!b||Object.keys(b).sort().join()!=='field,item_key,mode,module,on_missing,source'||b.mode!=='dynamic'||!['hide','empty'].includes(b.on_missing)||!target[field].includes(b.field)||!/^[A-Za-z0-9_-]{1,64}$/.test(b.item_key)||!Object.entries({module:b.module,source:b.source}).every(([k,v])=>typeof v==='string'&&(k==='module'?/^[a-z][a-z0-9_]{0,47}(\.[a-z][a-z0-9_]{0,47})?$/:/^[a-z][a-z0-9_]{0,47}$/).test(v))));
+}
+export function changeItemBinding(tree:PageNode,id:string,language:'en'|'ar',binding:NativeItemBinding|null):PageNode{
+ const next=structuredClone(tree);const visit=(n:PageNode):boolean=>{if(n.id===id){
+  const target=itemBindingTargets[n.type];if(!target||n.repeat||n.card)throw Error('Remove collection or cards before item binding.');
+  const field=Object.keys(target)[0];
+  if(n.bindings&&n.bindings.schema!==itemBindingSchema)throw Error('Remove the existing binding first.');
+  if(binding&&!target[field].includes(binding.field))throw Error('Field not bindable to this element.');
+  const content:Partial<Record<'en'|'ar',Record<string,NativeItemBinding>>>={...(n.bindings?.schema===itemBindingSchema?(n.bindings as NativeItemBindings).content:{})};
+  if(binding)content[language]={[field]:structuredClone(binding)};else delete content[language];
+  if(Object.keys(content).length)n.bindings={schema:itemBindingSchema,content};else delete n.bindings;return true;}return(n.children??[]).some(visit);};
+ if(!visit(next))throw Error('Element not found.');return next;
+}
 export function hasBindings(tree:PageNode):boolean{return !!tree.bindings||!!tree.repeat||!!tree.card||(tree.children??[]).some(hasBindings);}
 export function changeBinding(tree:PageNode,id:string,language:'en'|'ar',binding:NativeBinding|null):PageNode{
- const next=structuredClone(tree);const visit=(n:PageNode):boolean=>{if(n.id===id){if(n.type!=='heading'||n.repeat)throw Error('Remove collection before scalar binding.');const content={...n.bindings?.content};if(binding)content[language]={text:structuredClone(binding)};else delete content[language];if(Object.keys(content).length)n.bindings={schema:bindingSchema,content};else delete n.bindings;return true;}return(n.children??[]).some(visit);};
+ const next=structuredClone(tree);const visit=(n:PageNode):boolean=>{if(n.id===id){if(n.type!=='heading'||n.repeat)throw Error('Remove collection before scalar binding.');if(n.bindings&&n.bindings.schema!==bindingSchema)throw Error('Remove the existing binding first.');const content:Partial<Record<'en'|'ar',{text:NativeBinding}>>={...(n.bindings?.schema===bindingSchema?(n.bindings as NativeBindings).content:{})};if(binding)content[language]={text:structuredClone(binding)};else delete content[language];if(Object.keys(content).length)n.bindings={schema:bindingSchema,content};else delete n.bindings;return true;}return(n.children??[]).some(visit);};
  if(!visit(next))throw Error('Heading not found.');return next;
 }
 const sameJson=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
@@ -52,9 +76,16 @@ function validResolvedScalars(source:PageNode,resolved:PageNode,language:'en'|'a
  const visit=(a:PageNode,b:PageNode):boolean=>{
   if(!b||a.id!==b.id||a.type!==b.type||b.bindings||b.repeat||!same(a.settings,b.settings))return false;
   if(Object.keys(b).some(k=>!['id','type','settings','content','children'].includes(k)))return false;
-  const bound=a.bindings?.content[language]?.text;
+  const boundFields=(a.bindings?.content as Record<string,Record<string,{on_missing:string}>>|undefined)?.[language];
   const expected=structuredClone(a.content);
-  if(bound){const value=b.content[language]?.text;if(typeof value!=='string'||value.length>200)return false;expected[language]={...expected[language],text:value};}
+  if(boundFields)for(const field of Object.keys(boundFields)){
+   const value=b.content[language]?.[field];
+   if(field==='text'){if(typeof value!=='string'||value.length>200)return false;}
+   else if(field==='html'){if(typeof value!=='string'||value.length>20000||!/^<p>(?:[^&<>]|&(amp|lt|gt|quot|#x27);)*<\/p>$/.test(value))return false;}
+   else if(field==='src'){if(typeof value!=='string'||!safeRepeatMedia(value))return false;}
+   else return false;
+   expected[language]={...expected[language],[field]:value};
+  }
   if(!same(expected,b.content))return false;
   const kids=b.children??[],original=a.children??[];let index=0;
   for(const [originalIndex,child] of original.entries()){
@@ -62,7 +93,7 @@ function validResolvedScalars(source:PageNode,resolved:PageNode,language:'en'|'a
    if(cardRepeat?.content[language]){let count=0;while(index<kids.length&&kids[index].id!==original[originalIndex+1]?.id&&/^n_[a-f0-9]{16}$/.test(kids[index].id)&&kids[index].id!==child.id){if(++count>cardRepeat.content[language]!.limit||!validCardClone(child,kids[index],language))return false;index++;}if(!count&&original.length===1)return false;continue;}
    const repeat=child.repeat?.schema===repeatSchema?child.repeat?.content[language]:undefined;
    if(repeat){let count=0;while(index<kids.length&&kids[index].id!==original[originalIndex+1]?.id&&/^n_[a-f0-9]{16}$/.test(kids[index].id)&&kids[index].id!==child.id){const generated=kids[index];const value=generated.content?.[language]?.text;if(typeof value!=='string'||value.length>200||++count>repeat.limit)return false;const expected=structuredClone(child);delete expected.repeat;expected.id=generated.id;expected.content[language]={...expected.content[language],text:value};if(!same(expected,generated))return false;index++;}continue;}
-   if(kids[index]?.id===child.id){if(!visit(child,kids[index++]))return false;}else if(child.bindings?.content[language]?.text?.on_missing==='hide'){continue;}else if(!containsCardRepeat(child,language))return false;
+   if(kids[index]?.id===child.id){if(!visit(child,kids[index++]))return false;}else if(Object.values(((child.bindings?.content as Record<string,Record<string,{on_missing:string}>>|undefined)?.[language])??{}).some(b=>b.on_missing==='hide')){continue;}else if(!containsCardRepeat(child,language))return false;
   }
   return index===kids.length;
  };
