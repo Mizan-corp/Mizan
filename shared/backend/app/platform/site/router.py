@@ -162,3 +162,7 @@ router.include_router(inventory_website_router)
 # Authenticated fixed first-party draft page sets.
 from .page_kits_router import router as page_kits_router
 router.include_router(page_kits_router)
+
+# Site media library (studio image upload/list/delete).
+from .media import media_router
+router.include_router(media_router)
