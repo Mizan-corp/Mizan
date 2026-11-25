@@ -12,9 +12,13 @@ from app.activities.general.modules.inventory.models.product import Product
 SETTING_KEY = 'inventory_website_cards_v0'
 SCHEMA = 'mizan.inventory-website-cards.experimental.v0'
 # v1: identical shape, written only after the owner re-consents under wording
-# that covers product LISTS/repeats as well as cards (consent-scope change
-# pending review - nothing writes v1 yet, so reads below always see v0).
+# that covers product LISTS/repeats as well as cards.
 SCHEMA_V1 = 'mizan.inventory-website-cards.experimental.v1'
+# v2: identical shape, written only after the owner re-consents under wording
+# that ALSO covers individually bound elements (per-property scalar binding),
+# in addition to cards and repeating lists (consent-scope change
+# docs/studio-consent-scope-v2.md). v1 rows never unlock scalar fields.
+SCHEMA_V2 = 'mizan.inventory-website-cards.experimental.v2'
 
 
 def card_policy(raw, *, schema=SCHEMA):
@@ -59,17 +63,16 @@ def stored_policy(raw):
     except (TypeError, ValueError):
         raise SourceUnavailable('Invalid website card policy.') from None
     schema = value.get('schema') if isinstance(value, dict) else None
-    if schema not in (SCHEMA, SCHEMA_V1):
+    if schema not in (SCHEMA, SCHEMA_V1, SCHEMA_V2):
         raise SourceUnavailable('Exact website card policy required.')
     return card_policy(raw, schema=schema)
 
 
 async def display_consent(db, context):
-    """Field-level consent for product LISTS/repeats: requires the v1 policy.
+    """Field-level consent for product LISTS/repeats: requires a v1+ policy.
 
     A v0 (cards-worded) policy is NOT read as list consent: owners saved it
-    under text that named cards only. Until the consent-scope wording change
-    ships, no v1 exists and every collection read returns no consent.
+    under text that named cards only.
     """
     raw = await db.scalar(select(StoreSetting.value).where(
         StoreSetting.tenant_id == context.tenant_id, StoreSetting.key == SETTING_KEY))
@@ -79,9 +82,29 @@ async def display_consent(db, context):
         value = json.loads(raw)
     except (TypeError, ValueError):
         raise SourceUnavailable('Invalid website card policy.') from None
-    if not isinstance(value, dict) or value.get('schema') != SCHEMA_V1:
+    if not isinstance(value, dict) or value.get('schema') not in (SCHEMA_V1, SCHEMA_V2):
         return None
-    return card_policy(raw, schema=SCHEMA_V1)
+    return card_policy(raw, schema=value['schema'])
+
+
+async def element_consent(db, context):
+    """Field-level consent for INDIVIDUALLY BOUND elements: requires the v2 policy.
+
+    v0 (cards-worded) and v1 (cards+lists-worded) policies are NOT read as
+    scalar element consent: owners saved them under text that never named
+    individually bound elements. Only a v2 re-consent unlocks scalar reads.
+    """
+    raw = await db.scalar(select(StoreSetting.value).where(
+        StoreSetting.tenant_id == context.tenant_id, StoreSetting.key == SETTING_KEY))
+    if raw is None:
+        return None
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError):
+        raise SourceUnavailable('Invalid website card policy.') from None
+    if not isinstance(value, dict) or value.get('schema') != SCHEMA_V2:
+        return None
+    return card_policy(raw, schema=SCHEMA_V2)
 
 
 async def read_cards(db, context, limit, products=None):
@@ -126,3 +149,59 @@ async def read_cards(db, context, limit, products=None):
                 image = media_value(url, name, context.tenant_id)
         out.append({'item_key': str(product_id), 'name': name, 'price': price, 'image': image})
     return out
+
+
+async def read_scoped_item(db, context, item_key, fields):
+    """One consented product for an individually bound element (v2 consent only).
+
+    `fields` is a platform-chosen subset of {'name', 'price', 'image'} from the
+    binding target, never client-supplied free text. Returns None when the
+    record is not currently consented or active (revoked drops out, per the
+    user-approved revocation semantics); malformed identities and out-of-scope
+    field selections fail closed. Optional columns are selected only after the
+    matching field-level opt-in.
+    """
+    if current_tenant_id.get() != context.tenant_id or 'inventory' not in context.active_modules:
+        raise SourceUnavailable('Website element source unavailable.')
+    if not isinstance(item_key, str) or len(item_key) > 64:
+        raise SourceUnavailable('Invalid bound record identity.')
+    try:
+        product_id = UUID(item_key)
+    except (ValueError, TypeError):
+        raise SourceUnavailable('Invalid bound record identity.') from None
+    if str(product_id) != item_key:
+        raise SourceUnavailable('Invalid bound record identity.')
+    if not isinstance(fields, (list, tuple)) or not fields or len(fields) > 3 or set(fields) - {'name', 'price', 'image'}:
+        raise SourceUnavailable('Invalid bound field selection.')
+    consent = await element_consent(db, context)
+    if consent is None or product_id not in consent['products']:
+        return None
+    columns = [Product.id, Product.name]
+    if 'price' in fields and consent['show_price']:
+        columns.append(Product.retail_price)
+    if 'image' in fields and consent['show_image']:
+        columns.append(Product.image_url)
+    row = (await db.execute(select(*columns).where(
+        Product.tenant_id == context.tenant_id, Product.is_active.is_(True),
+        Product.id == product_id))).first()
+    if row is None:
+        return None
+    product_id, name, *optional = row
+    if not isinstance(name, str) or not name.strip() or len(name) > 200:
+        raise SourceUnavailable('Invalid bounded website product name.')
+    item = {'name': name, 'price': None, 'image': None}
+    if 'price' in fields and consent['show_price']:
+        item['price'] = money_value(optional.pop(0), consent['currency'])
+    if 'image' in fields and consent['show_image']:
+        url = optional.pop(0)
+        if url:
+            record = await db.scalar(select(WorkspaceFile.id).where(
+                WorkspaceFile.tenant_id == context.tenant_id,
+                WorkspaceFile.kind == 'product_image',
+                WorkspaceFile.owner_id == str(product_id),
+                WorkspaceFile.url == url,
+                WorkspaceFile.content_type.in_(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])))
+            if record is None:
+                raise SourceUnavailable('Product image provenance unavailable.')
+            item['image'] = media_value(url, name, context.tenant_id)
+    return item

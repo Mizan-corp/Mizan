@@ -42,16 +42,16 @@ class WriterTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(router, 'card_read', new=AsyncMock(return_value=(row, raw))):
             return await router.put_cards(data(expected_token=router.token(raw)), db=self.db)
 
-    async def test_first_save_stamps_v1(self):
+    async def test_first_save_stamps_v2(self):
         await self._put(None)
         added = self.db.add.call_args.args[0]
         stored = json.loads(added.value)
-        self.assertEqual(stored['schema'], cards.SCHEMA_V1)
+        self.assertEqual(stored['schema'], cards.SCHEMA_V2)
         self.assertEqual(stored['products'], [])
         self.assertEqual(stored['show_price'], False)
         self.db.commit.assert_awaited()
 
-    async def test_resave_over_v0_upgrades_to_v1(self):
+    async def test_resave_over_v0_upgrades_to_v2(self):
         v0 = json.dumps({'schema': cards.SCHEMA, 'products': [], 'show_price': False,
                          'show_image': False, 'currency': None}, sort_keys=True)
         await self._put(v0)
@@ -61,7 +61,7 @@ class WriterTests(unittest.IsolatedAsyncioTestCase):
         row = type('Row', (), {'value': v0})()
         with patch.object(router, 'card_read', new=AsyncMock(return_value=(row, v0))):
             await router.put_cards(data(expected_token=router.token(v0)), db=AsyncMock())
-        self.assertEqual(json.loads(row.value)['schema'], cards.SCHEMA_V1)
+        self.assertEqual(json.loads(row.value)['schema'], cards.SCHEMA_V2)
 
     async def test_stale_token_refused_before_any_write(self):
         with patch.object(router, 'card_read', new=AsyncMock(return_value=(None, None))):

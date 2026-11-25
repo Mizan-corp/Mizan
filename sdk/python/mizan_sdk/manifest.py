@@ -737,6 +737,48 @@ def _page_setting_problems(where: str, kind, value) -> list[str]:
 
 
 PAGE_BINDINGS_SCHEMA = "mizan.page-bindings.experimental.v0"
+PAGE_BINDINGS_ITEM_SCHEMA = "mizan.page-bindings.experimental.v1"
+# Individually bound elements (v1 envelope): which content field each node type
+# may bind, and which provider fields may fill it. Shape only; consent and
+# record scope are runtime checks (docs/studio-consent-scope-v2.md).
+_BINDING_ITEM_TARGETS = {
+    "heading": ("text", frozenset({"name"})),
+    "text": ("html", frozenset({"name", "price"})),
+    "image": ("src", frozenset({"image"})),
+}
+
+
+def _page_binding_item_problems(value, node_type, languages) -> list[str]:
+    content = value.get("content")
+    if not isinstance(content, dict) or not content or len(content) > 2:
+        return ["bindings: bounded nonempty language map required"]
+    errors = []
+    target = _BINDING_ITEM_TARGETS.get(node_type) if isinstance(node_type, str) else None
+    for language, fields in content.items():
+        if not isinstance(language, str) or language not in ("en", "ar") or (languages is not None and language not in languages):
+            errors.append("bindings: unsupported language")
+        if target is None or not isinstance(fields, dict) or set(fields) != {target[0]}:
+            errors.append("bindings: unsupported element binding target")
+            continue
+        b = fields[target[0]]
+        required = {"mode", "module", "source", "item_key", "field", "on_missing"}
+        if not isinstance(b, dict) or set(b) != required:
+            errors.append("bindings: exact declarative item reference required")
+            continue
+        if b.get("mode") != "dynamic" or b.get("on_missing") not in ("hide", "empty"):
+            errors.append("bindings: explicit dynamic mode and missing behavior required")
+        for key in ("module", "source", "field"):
+            v = b.get(key)
+            pattern = r"[a-z][a-z0-9_]{0,47}(?:\.[a-z][a-z0-9_]{0,47})?" if key == "module" else r"[a-z][a-z0-9_]{0,47}"
+            if not isinstance(v, str) or re.fullmatch(pattern, v) is None:
+                errors.append("bindings: invalid source identifier")
+        if b.get("field") not in target[1]:
+            errors.append("bindings: field not bindable to this element")
+        key = b.get("item_key")
+        if not isinstance(key, str) or not 1 <= len(key) <= 64 or re.fullmatch(r"[A-Za-z0-9_-]+", key) is None:
+            errors.append("bindings: invalid record identity")
+    return errors
+
 
 
 def page_binding_problems(value, node_type, languages=None) -> list[str]:
@@ -748,6 +790,8 @@ def page_binding_problems(value, node_type, languages=None) -> list[str]:
     """
     if not isinstance(value, dict) or set(value) != {"schema", "content"}:
         return ["bindings: schema and content are required, no extra fields"]
+    if value.get("schema") == PAGE_BINDINGS_ITEM_SCHEMA:
+        return _page_binding_item_problems(value, node_type, languages)
     if value.get("schema") != PAGE_BINDINGS_SCHEMA:
         return ["bindings: unsupported experimental schema"]
     content=value.get("content")

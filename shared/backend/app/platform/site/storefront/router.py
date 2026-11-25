@@ -8,7 +8,7 @@ from app.framework.activation import get_active_modules
 from app.framework.storefront_runtime import ProviderRegistry, SourceContext, SourceUnavailable, ProjectionInvalid
 from app.platform.tenancy.context import current_tenant_id
 from .provider import site_provider
-from .registry import scalar_registry, collection_registry
+from .registry import scalar_registry, collection_registry, item_resolver
 
 router = APIRouter(prefix='/site/data', tags=['Site data'])
 
@@ -79,9 +79,9 @@ async def preview(data: PreviewIn, db: AsyncSession = Depends(get_db), _=Depends
             from app.framework.storefront_collections import CollectionRuntime
             from .collections import navigation_labels_provider
             from .composition import resolve_composition
-            tree=await resolve_composition(data.tree,scalar_registry(db),collection_registry(db),ctx)
+            tree=await resolve_composition(data.tree,scalar_registry(db),collection_registry(db),ctx,item_resolver(db))
         else:
-            tree=await resolve_tree(data.tree,scalar_registry(db),ctx,lambda t:page_problems(t,('en','ar')))
+            tree=await resolve_tree(data.tree,scalar_registry(db),ctx,lambda t:page_problems(t,('en','ar')),item_resolver(db))
         return {'html':render_page(tree,lang=data.language,device=data.device),'tree':tree}
     except SourceUnavailable:
         raise HTTPException(422,'Page data source unavailable.') from None

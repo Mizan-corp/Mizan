@@ -48,7 +48,7 @@ async def check_bound_tree(db: AsyncSession, tree: dict) -> None:
     check_tree(tree)
     from app.framework.activation import get_active_modules
     from app.framework.storefront_runtime import ProviderRegistry, SourceContext, SourceUnavailable
-    from .storefront.registry import scalar_registry, collection_registry
+    from .storefront.registry import scalar_registry, collection_registry, item_resolver
     from .storefront.bindings import validate_tree_bindings
     try:
         context=SourceContext(current_tenant_id.get(), 'en', frozenset(await get_active_modules(db)))
@@ -60,9 +60,9 @@ async def check_bound_tree(db: AsyncSession, tree: dict) -> None:
             from app.framework.storefront_collections import CollectionRuntime
             from .storefront.collections import navigation_labels_provider
             from .storefront.composition import validate_composition
-            validate_composition(tree,scalar_registry(db),collection_registry(db),context)
+            validate_composition(tree,scalar_registry(db),collection_registry(db),context,item_resolver(db))
         else:
-            validate_tree_bindings(tree,scalar_registry(db),context,lambda t:page_problems(t,LANGUAGES))
+            validate_tree_bindings(tree,scalar_registry(db),context,lambda t:page_problems(t,LANGUAGES),item_resolver(db))
     except SourceUnavailable:
         raise HTTPException(422,"Page binding source is unavailable or incompatible.") from None
 

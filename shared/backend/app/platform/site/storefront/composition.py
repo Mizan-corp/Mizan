@@ -30,17 +30,17 @@ def split_composition(tree):
     return scalar_tree, repeat_tree, envelopes
 
 
-def validate_composition(tree, scalars, collections, context):
+def validate_composition(tree, scalars, collections, context, items=None):
     scalar_tree, repeat_tree, envelopes = split_composition(tree)
     # Every language and both provider families are checked before any provider read.
     validate_tree_bindings(scalar_tree, scalars, context,
-                           lambda value: page_problems(value, ('en', 'ar')))
+                           lambda value: page_problems(value, ('en', 'ar')), items)
     validate_repeat(repeat_tree, collections, context)
     return repeat_tree, envelopes
 
 
-async def resolve_composition(tree, scalars, collections, context):
-    repeat_tree, envelopes = validate_composition(tree, scalars, collections, context)
+async def resolve_composition(tree, scalars, collections, context, items=None):
+    repeat_tree, envelopes = validate_composition(tree, scalars, collections, context, items)
     expanded = await resolve_repeat(repeat_tree, collections, context)
 
     def restore(node):
@@ -51,4 +51,4 @@ async def resolve_composition(tree, scalars, collections, context):
 
     restore(expanded)
     return await resolve_tree(expanded, scalars, context,
-                              lambda value: page_problems(value, ('en', 'ar')))
+                              lambda value: page_problems(value, ('en', 'ar')), items)

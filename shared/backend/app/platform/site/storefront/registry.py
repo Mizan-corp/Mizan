@@ -8,3 +8,6 @@ from .collections import navigation_labels_provider
 
 def scalar_registry(db):return ProviderRegistry((site_provider(db),core_provider(db)))
 def collection_registry(db):return CollectionRuntime((navigation_labels_provider(db),*inventory_providers(db)))
+def item_resolver(db):
+    from .item_bindings import ScopedItems
+    return ScopedItems(db)

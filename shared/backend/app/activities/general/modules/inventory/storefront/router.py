@@ -90,7 +90,9 @@ async def get_cards(db=Depends(get_db),_=Depends(require_perm('site.manage')),__
 
 @router.put('/cards')
 async def put_cards(data:CardPublicationIn,db=Depends(get_db),_=Depends(require_perm('site.manage')),__=Depends(require_perm('inventory'))):
-    from .cards import card_policy,SETTING_KEY as key,SCHEMA_V1 as schema
+    # New saves stamp v2: wording covers individually bound elements as well
+    # as cards and repeating lists. Older rows keep their recorded scope.
+    from .cards import card_policy,SETTING_KEY as key,SCHEMA_V2 as schema
     tid=current_tenant_id.get()
     if tid is None:raise HTTPException(422,'Explicit workspace required.')
     await db.execute(select(Tenant.id).where(Tenant.id==tid).with_for_update())
