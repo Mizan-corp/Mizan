@@ -43,6 +43,26 @@ class ScopedItemConsentTests(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         current_tenant_id.reset(self.t)
 
+    async def test_public_audience_requires_v3_for_bound_elements(self):
+        # v2 was recorded under previews-only wording: bound elements keep
+        # working in previews but the public visitor audience needs the v3
+        # wording that names public pages.
+        public_ctx = SourceContext(A, 'en', frozenset({'inventory'}), audience='public')
+        self.db.scalar.return_value = policy(c.SCHEMA_V2, [P1])
+        self.assertIsNone(await c.element_consent(self.db, public_ctx))
+        self.assertIsNotNone(await c.element_consent(self.db, self.ctx))
+        self.db.scalar.return_value = policy(c.SCHEMA_V3, [P1])
+        self.assertIsNotNone(await c.element_consent(self.db, public_ctx))
+
+    async def test_public_audience_requires_v3_for_list_display_fields(self):
+        public_ctx = SourceContext(A, 'en', frozenset({'inventory'}), audience='public')
+        for schema in (c.SCHEMA_V1, c.SCHEMA_V2):
+            self.db.scalar.return_value = policy(schema, [P1])
+            self.assertIsNone(await c.display_consent(self.db, public_ctx), schema)
+            self.assertIsNotNone(await c.display_consent(self.db, self.ctx), schema)
+        self.db.scalar.return_value = policy(c.SCHEMA_V3, [P1])
+        self.assertIsNotNone(await c.display_consent(self.db, public_ctx))
+
     async def test_v2_happy_path_name_only_selects_no_optional_columns(self):
         self.db.scalar.return_value = policy(c.SCHEMA_V2, [P1])
         self.db.execute.return_value = rows(P1, 'Fixture Card Widget')

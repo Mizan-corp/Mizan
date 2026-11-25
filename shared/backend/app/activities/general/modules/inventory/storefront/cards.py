@@ -86,7 +86,10 @@ async def display_consent(db, context):
         value = json.loads(raw)
     except (TypeError, ValueError):
         raise SourceUnavailable('Invalid website card policy.') from None
-    if not isinstance(value, dict) or value.get('schema') not in (SCHEMA_V1, SCHEMA_V2, SCHEMA_V3):
+    # v1/v2 were recorded under previews-only wording; public reads of
+    # list fields require the v3 wording that names public pages.
+    accepted = (SCHEMA_V1, SCHEMA_V2, SCHEMA_V3) if context.audience != 'public' else (SCHEMA_V3,)
+    if not isinstance(value, dict) or value.get('schema') not in accepted:
         return None
     return card_policy(raw, schema=value['schema'])
 
@@ -107,16 +110,19 @@ async def element_consent(db, context):
         value = json.loads(raw)
     except (TypeError, ValueError):
         raise SourceUnavailable('Invalid website card policy.') from None
-    if not isinstance(value, dict) or value.get('schema') not in (SCHEMA_V2, SCHEMA_V3):
+    # v2 was recorded under previews-only wording; public reads of bound
+    # element fields require the v3 wording that names public pages.
+    accepted = (SCHEMA_V2, SCHEMA_V3) if context.audience != 'public' else (SCHEMA_V3,)
+    if not isinstance(value, dict) or value.get('schema') not in accepted:
         return None
     return card_policy(raw, schema=value['schema'])
 
 
-async def read_cards(db, context, limit, products=None, *, public=False):
+async def read_cards(db, context, limit, products=None):
     if current_tenant_id.get() != context.tenant_id or 'inventory' not in context.active_modules or type(limit) is not int or not 1 <= limit <= 6:
         raise SourceUnavailable('Website card source unavailable.')
     raw = await db.scalar(select(StoreSetting.value).where(StoreSetting.tenant_id == context.tenant_id, StoreSetting.key == SETTING_KEY))
-    if public:
+    if context.audience == 'public':
         # Public reads (visitor route and the publish-approval dry run, which
         # simulates exactly that audience) require the v3 wording: v0/v1/v2
         # were recorded under text that promised signed-in previews only, so

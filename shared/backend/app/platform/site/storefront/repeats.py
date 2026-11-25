@@ -37,7 +37,7 @@ def validate_repeat(tree:dict,runtime:CollectionRuntime,context:SourceContext):
     card=repeat['schema']==PAGE_REPEAT_CARD_SCHEMA
     # Validate every language before any collection read, including inactive languages.
     for language,plan in repeat['content'].items():
-        ctx=SourceContext(context.tenant_id,language,context.active_modules)
+        ctx=SourceContext(context.tenant_id,language,context.active_modules,audience=context.audience)
         if card:checked_card_template(static,{'template_id':node_id,**plan},repeat['slots'],runtime,ctx)
         else:checked_template(static,{'template_id':node_id,**plan},runtime,ctx)
     return static,node_id,repeat

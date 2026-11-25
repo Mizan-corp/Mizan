@@ -26,12 +26,20 @@ class SourceContext:
     tenant_id: UUID
     language: str
     active_modules: frozenset[str]
+    # 'preview' is the signed-in Studio preview. 'public' is the anonymous
+    # visitor audience; the publish-approval dry run simulates exactly it.
+    # Consent recorded under previews-only wording never authorizes public
+    # reads: public consumers require the wording version that names public
+    # pages (see inventory storefront cards.py).
+    audience: str = 'preview'
 
     def __post_init__(self):
         if not isinstance(self.tenant_id, UUID) or self.language not in ('en', 'ar'):
             raise SourceUnavailable('An explicit tenant and supported language are required.')
         if not isinstance(self.active_modules, frozenset) or not all(isinstance(m, str) for m in self.active_modules):
             raise SourceUnavailable('Verified module state is required.')
+        if self.audience not in ('preview', 'public'):
+            raise SourceUnavailable('An explicit audience is required.')
 
 
 @dataclass(frozen=True)

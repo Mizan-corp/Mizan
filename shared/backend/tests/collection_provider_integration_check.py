@@ -126,10 +126,10 @@ class Tests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(items[0].values['image']['alt'], 'Widget')
 
     def test_stored_policy_accepts_all_versions_rejects_unknown(self):
-        for schema in (cards.SCHEMA, cards.SCHEMA_V1, cards.SCHEMA_V2):
+        for schema in (cards.SCHEMA, cards.SCHEMA_V1, cards.SCHEMA_V2, cards.SCHEMA_V3):
             self.assertEqual(cards.stored_policy(policy(schema))['products'], (P,))
         with self.assertRaises(SourceUnavailable):
-            cards.stored_policy(policy('mizan.inventory-website-cards.experimental.v3'))
+            cards.stored_policy(policy('mizan.inventory-website-cards.experimental.v4'))
         with self.assertRaises(SourceUnavailable):
             cards.stored_policy('not json')
         self.assertEqual(cards.stored_policy(None),

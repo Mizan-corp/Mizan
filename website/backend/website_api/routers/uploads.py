@@ -98,7 +98,7 @@ async def _product_image_public(db: AsyncSession, tid: str, owner_id: str | None
     from app.platform.settings.models import StoreSetting
     from sqlalchemy import select
 
-    ctx = SourceContext(uuid.UUID(tid), "en", frozenset(await get_active_modules(db)))
+    ctx = SourceContext(uuid.UUID(tid), "en", frozenset(await get_active_modules(db)), audience="public")
     consent = await cards.display_consent(db, ctx)
     if consent is None or not consent["show_image"] or owner not in consent["products"]:
         return False

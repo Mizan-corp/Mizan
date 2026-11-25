@@ -170,9 +170,9 @@ async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id
     lang = "ar" if "ar" in languages else languages[0]
 
     await service.check_bound_tree(db, tree)
-    ctx = SourceContext(tenant_id, lang, frozenset(await get_active_modules(db)))
+    ctx = SourceContext(tenant_id, lang, frozenset(await get_active_modules(db)), audience="public")
     if has_card(tree):
-        resolved = await resolve_cards(db, tree, ctx, public=True)
+        resolved = await resolve_cards(db, tree, ctx)
     elif has_repeat(tree):
         from app.platform.site.storefront.composition import resolve_composition
         resolved = await resolve_composition(tree, scalar_registry(db), collection_registry(db), ctx)
