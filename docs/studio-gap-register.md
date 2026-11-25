@@ -465,3 +465,12 @@ re-verified as fixed:
 - Hosted test deploy (mizan-studio-feature-test.vercel.app): link sharing
   deferred by user until asked. Deploy is 2+ commits behind HEAD; re-verify
   before any share.
+
+## 2026-11-25 (late) — SPLIT-ROW GAP PROOF + page layout settings capability
+
+- GAP CLOSED: split card-collection rows touched across chunk boundaries. Cause: expansion chunked at a fixed 6 regardless of the authored column count, and stacked row blocks had no vertical gap token.
+- Capability added (renderer): section gap setting now emits `mz-section mz-gap-<token>` with per-token vertical gap CSS (render.py + treerender.tsx parity).
+- Capability added (Studio): root section (page) is selectable in the inspector so page layout settings (gap/padding/max-width/background) are UI-authorable. Guarded against root removal.
+- Capability fixed (projection): expansion chunk size honors the row's declared desktop columns (1..6, fallback 6) — 4-up authored rows split 4+4, not 6+2.
+- Proof: category-e2e restyled live (gap=m via Studio UI, republished with fresh approval), desktop/tablet/mobile screenshots show consistent gaps; served HTML carries `mz-section mz-gap-m` and two `mz-columns-4`.
+- Debt preserved: bidi unit separation in mixed-script product titles (TB 1 / 16GB visual reorder) is a content/typography issue, not layout.
