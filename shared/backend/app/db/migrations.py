@@ -4395,5 +4395,33 @@ MIGRATIONS.append(("v114_workspace_files_name", """
     -- Original upload filename for display (media library), additive, nullable.
     ALTER TABLE workspace_files ADD COLUMN IF NOT EXISTS name varchar(256);
 """))
+MIGRATIONS.append(("v115_site_media_runner_reconciliation", """
+    -- Forward reconciliation for runner-path installs where comment semicolons
+    -- split v112, v113 or v114 and their statements were skipped while recorded.
+    -- Every statement is idempotent, so healthy databases pass through unchanged.
+    CREATE TABLE IF NOT EXISTS site_activation (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+            DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+        host varchar(255) NOT NULL,
+        slug varchar(80) NOT NULL,
+        page_path varchar(80) NOT NULL,
+        enabled boolean NOT NULL DEFAULT false,
+        allow_connected_data boolean NOT NULL DEFAULT false,
+        theme jsonb,
+        audience_policy_version varchar(40),
+        activated_by uuid,
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_site_activation_host_slug_page ON site_activation (host, slug, page_path);
+    ALTER TABLE site_activation ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE site_activation FORCE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS tenant_isolation ON site_activation;
+    CREATE POLICY tenant_isolation ON site_activation
+        USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    GRANT SELECT, INSERT, UPDATE, DELETE ON site_activation TO mizan_app;
+    ALTER TABLE workspace_files ADD COLUMN IF NOT EXISTS name varchar(256);
+"""))
 MIGRATIONS.append(("v110_helpdesk_offerings", "python:app.activities.general.modules.helpdesk.migrate:migrate"))
 MIGRATIONS.append(("v111_helpdesk_execution_actuals", "python:app.activities.general.modules.helpdesk.migrate_actuals:migrate"))
