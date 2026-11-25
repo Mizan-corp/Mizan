@@ -100,9 +100,9 @@ export default function PreviewSession({config}:{config:PreviewConfig}){
     </button>)}</div>}
    <div className="mz-sec-head" id="mz-templates"><h2>{t('قوالب تبدأ منها')}</h2><span className="mz-count">{t('صفحات جاهزة تتعدل بمزاجك، وبتتساب كمسودات لحد ما تنشر بنفسك')}</span></div>
    <div className="mz-cards">
-    <button className="mz-pcard" onClick={()=>setKitOpen(true)}><div className="mz-thumb" style={{background:'#EFF4F1'}}><Thumb tone="store"/></div><div className="mz-meta"><div><div className="mz-name">{t('مجموعة المتجر التقني')}</div><div className="mz-sub">{t('٤ صفحات مترابطة كمسودات')}</div></div><span className="mz-go">{go}</span></div></button>
-    <button className="mz-pcard" onClick={()=>setKitOpen(true)}><div className="mz-thumb" style={{background:'#F7F3EC'}}><Thumb tone="blog"/></div><div className="mz-meta"><div><div className="mz-name">{t('مجموعة صفحات الكتالوج')}</div><div className="mz-sub">{t('٤ صفحات إرشادية كمسودات')}</div></div><span className="mz-go">{go}</span></div></button>
-    <button className="mz-pcard" onClick={()=>setCreating(true)}><div className="mz-thumb" style={{background:'#F3EEE7'}}><Thumb tone="land"/></div><div className="mz-meta"><div><div className="mz-name">{t('قالب صفحة من المكتبة')}</div><div className="mz-sub">{t('أنشئ صفحة وطبّق عليها قالب من جوه المحرر')}</div></div><span className="mz-go">{go}</span></div></button>
+    <button className="mz-pcard" onClick={()=>{setCreating(false);setKitOpen(true)}}><div className="mz-thumb" style={{background:'#EFF4F1'}}><Thumb tone="store"/></div><div className="mz-meta"><div><div className="mz-name">{t('مجموعة المتجر التقني')}</div><div className="mz-sub">{t('٤ صفحات مترابطة كمسودات')}</div></div><span className="mz-go">{go}</span></div></button>
+    <button className="mz-pcard" onClick={()=>{setCreating(false);setKitOpen(true)}}><div className="mz-thumb" style={{background:'#F7F3EC'}}><Thumb tone="blog"/></div><div className="mz-meta"><div><div className="mz-name">{t('مجموعة صفحات الكتالوج')}</div><div className="mz-sub">{t('٤ صفحات إرشادية كمسودات')}</div></div><span className="mz-go">{go}</span></div></button>
+    <button className="mz-pcard" onClick={()=>{setKitOpen(false);setCreating(true)}}><div className="mz-thumb" style={{background:'#F3EEE7'}}><Thumb tone="land"/></div><div className="mz-meta"><div><div className="mz-name">{t('قالب صفحة من المكتبة')}</div><div className="mz-sub">{t('أنشئ صفحة وطبّق عليها قالب من جوه المحرر')}</div></div><span className="mz-go">{go}</span></div></button>
    </div>
   </div>
  </div>;

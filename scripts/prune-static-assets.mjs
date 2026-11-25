@@ -59,7 +59,10 @@ while (queue.length) {
   }
 }
 
-const assetDirs = walk(root).filter(f => /assets[/\\]/.test(f));
+// Only hashed bundle dirs (an exact "assets" path segment) are prunable.
+// Runtime-referenced public dirs like studio-assets/ are kept: page trees and
+// kit content reference them at runtime, so no HTML/JS/CSS reference exists.
+const assetDirs = walk(root).filter(f => /(^|[/\\])assets[/\\]/.test(f));
 let removed = 0;
 for (const file of assetDirs) {
   if (!keep.has(file)) { fs.rmSync(file); removed++; console.log('pruned', path.relative(root, file)); }
