@@ -3,6 +3,7 @@ import NativeStudio from './NativeStudio';
 import NewPage from './NewPage';
 import DraftPageKit from './DraftPageKit';
 import {type PreviewConfig} from './previewConfig';
+import {siteRequestHeaders} from './sitePages';
 import {t,getUILang,useUILang,uiDir} from './uiStrings';
 type Page={id:string;slug:string;titles:Record<string,string>;status:string;updated_at?:string|null;published?:boolean};
 function arNum(n:number){return getUILang()==='en'?String(n):n.toLocaleString('ar-EG')}
@@ -42,12 +43,12 @@ export default function PreviewSession({config}:{config:PreviewConfig}){
  const [displayName,setDisplayName]=useState('');
  const [pageId,setPageId]=useState(()=>new URLSearchParams(location.search).get('page')??'');
  async function check(){
-  const result=await fetch(config.apiBase+'/site/pages',{credentials:'include',cache:'no-store'});
+  const result=await fetch(config.apiBase+'/site/pages',{credentials:'include',cache:'no-store',headers:siteRequestHeaders(config.apiBase,'GET',false,document.cookie)});
   if(result.status===401){setState('signin');return;}
   if(!result.ok)throw Error(result.status===403?t('الحساب ده مش من حقه يعدّل الموقع ده. سجّل دخولك بحساب الاستوديو بتاعك.'):t('مقدرناش نفتح مساحة العمل. صفحاتك زي ما هي، جرّب تاني.'));
   const data=await result.json();if(!Array.isArray(data.items))throw Error(t('مقدرناش نحمّل صفحاتك. جرّب تاني.'));
   setPages(data.items.filter((p:Page)=>p.status!=='archived'));setState('ready');
-  fetch(config.apiBase+'/auth/me',{credentials:'include',cache:'no-store'}).then(r=>r.ok?r.json():null).then(me=>{const n=(me?.full_name??'').trim();if(n)setDisplayName(n.split(/\s+/)[0])}).catch(()=>{});
+  fetch(config.apiBase+'/auth/me',{credentials:'include',cache:'no-store',headers:siteRequestHeaders(config.apiBase,'GET',false,document.cookie)}).then(r=>r.ok?r.json():null).then(me=>{const n=(me?.full_name??'').trim();if(n)setDisplayName(n.split(/\s+/)[0])}).catch(()=>{});
  }
  useEffect(()=>{check().catch(e=>{setError(e.message);setState('signin')})},[]);
  async function signIn(e:React.FormEvent){e.preventDefault();if(busy)return;setBusy(true);setError('');
