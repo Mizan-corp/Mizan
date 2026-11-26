@@ -109,7 +109,12 @@ function validResolvedScalars(source:PageNode,resolved:PageNode,language:'en'|'a
    if(cardRepeat?.content[language]){let count=0;while(index<kids.length&&kids[index].id!==original[originalIndex+1]?.id&&/^n_[a-f0-9]{16}$/.test(kids[index].id)&&kids[index].id!==child.id){if(++count>cardRepeat.content[language]!.limit||!validCardClone(child,kids[index],language))return false;index++;}if(!count&&original.length===1)return false;continue;}
    const repeat=child.repeat?.schema===repeatSchema?child.repeat?.content[language]:undefined;
    if(repeat){let count=0;while(index<kids.length&&kids[index].id!==original[originalIndex+1]?.id&&/^n_[a-f0-9]{16}$/.test(kids[index].id)&&kids[index].id!==child.id){const generated=kids[index];const value=generated.content?.[language]?.text;if(typeof value!=='string'||value.length>200||++count>repeat.limit)return false;const expected=structuredClone(child);delete expected.repeat;expected.id=generated.id;expected.content[language]={...expected.content[language],text:value};if(!same(expected,generated))return false;index++;}continue;}
-   if(kids[index]?.id===child.id){if(!visit(child,kids[index++]))return false;}else if(Object.values(((child.bindings?.content as Record<string,Record<string,{on_missing:string}>>|undefined)?.[language])??{}).some(b=>b.on_missing==='hide')){continue;}else if(!containsCardRepeat(child,language))return false;
+   if(kids[index]?.id===child.id){if(!visit(child,kids[index++]))return false;}else if(Object.values(((child.bindings?.content as Record<string,Record<string,{on_missing:string}>>|undefined)?.[language])??{}).some(b=>b.on_missing==='hide')){continue;}else if(containsCardRepeat(child,language)){
+    // A repeat that overflows its row is split by the server into sibling rows cloned from this row (derived ids, same type and settings). Rejoin them so the row validates as one.
+    const stop=original[originalIndex+1]?.id,group:PageNode[]=[];
+    while(index<kids.length&&kids[index].id!==stop&&/^n_[a-f0-9]{16}$/.test(kids[index].id)&&kids[index].type===child.type&&same(kids[index].settings,child.settings))group.push(kids[index++]);
+    if(group.length){const merged:PageNode={...group[0],id:child.id,children:group.flatMap(g=>g.children??[])};if(!visit(child,merged))return false;}
+   }else return false;
   }
   return index===kids.length;
  };

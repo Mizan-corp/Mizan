@@ -105,6 +105,20 @@ describe('native card repeats (v1)',()=>{
   expect(validResolvedTree(source,otherLang,'en')).toBe(false); // untouched languages must match
   expect(row.children!.length).toBe(1); // source untouched
  });
+ it('accepts a repeat the server split into sibling rows (declared columns)',()=>{
+  const {tree,row,column}=fixture();
+  const source=changeCardRepeat(tree,column.id,'en',{...slots},{...plan,limit:6});
+  const rowOf=(id:string,kids:PageNode[]):PageNode=>({...structuredClone(row),id,children:kids});
+  const resolved=structuredClone(tree);
+  const cards=['1','2','3','4'].map(n=>clone(column,`n_${n.repeat(15)}${n}`,'P'+n,n+'.00 EGP',IMG));
+  resolved.children=[rowOf('n_aaaaaaaaaaaaaaa0',cards.slice(0,3)),rowOf('n_aaaaaaaaaaaaaaa1',cards.slice(3))];
+  expect(validResolvedTree(source,resolved,'en')).toBe(true);
+  const odd=structuredClone(resolved);odd.children![1].settings={desktop:{align:'end'}};
+  expect(validResolvedTree(source,odd,'en')).toBe(false); // a sibling row with different settings is refused
+  const over=structuredClone(resolved);
+  over.children!.push(rowOf('n_aaaaaaaaaaaaaaa2',[clone(column,'n_555555555555555a','P5','5.00 EGP',IMG),clone(column,'n_666666666666666b','P6','6.00 EGP',IMG),clone(column,'n_777777777777777c','P7','7.00 EGP',IMG)]));
+  expect(validResolvedTree(source,over,'en')).toBe(false); // total still bounded by the plan limit
+ });
  it('handles dropped slots, empty price and the all-hidden pruned row',()=>{
   const {tree,column}=fixture();
   const source=changeCardRepeat(tree,column.id,'en',slots,plan);
