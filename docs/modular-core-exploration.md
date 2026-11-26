@@ -341,3 +341,65 @@ Free-first approach: launch with free listings only. The listing schema reserves
 2. Light review of listing text and images by Mizan staff for every edit at launch, or only for the first publish and any later change to price or name.
 3. SDK download gate: confirm the purpose (tracking and terms, or confidentiality). If confidentiality, the SDK cannot also be published openly on PyPI or GitHub.
 4. GitHub: optional sign-in and Action-based publish first (my default), or required for all developer accounts.
+
+## 8. Revision: packaged artifacts only, source is never published (owner direction, 26 November 2026, 13:45)
+
+The owner's rule: source is NEVER exported or published. Only packaged artifact files are published, one extension per kind: `.mzba` (Mizan business activity), `.mzmo` (Mizan module), and similar extensions for themes and templates.
+
+### 8.1 Reconciling with the repo
+
+Today the repo uses one extension, `.mzm`, for every kind (71 mentions across code and docs; `framework/package.py`). The kind is not in the extension; it is the manifest's `kind` field (`community`, `theme`, `activity`). The owner's naming makes the kind visible from the file name. Proposal:
+
+| Kind | Extension (proposed) | Replaces | Manifest `kind` |
+|---|---|---|---|
+| Module | `.mzmo` | `.mzm` with `community` | `community` (unchanged) |
+| Business activity | `.mzba` | `.mzm` with `activity` | `activity` |
+| Theme / design set (font, palette, header, layout) | `.mzth` | `.mzm` with `theme` | `theme` |
+| Website template | `.mzwt` | not yet a kind | `site_template` (new) |
+| Module UI / layout item (section 6) | `.mzui` | not yet a kind | `module_ui` (new) |
+
+The `.mzth`, `.mzwt` and `.mzui` names are my suggestions in the owner's pattern; he only named `.mzba` and `.mzmo`. They are a naming decision for him (section 8.6).
+
+Reconciliation rules: the container format stays the same (zip, `manifest.json`, `SIGNATURE`, per-file SHA-256, Ed25519 developer signature, Mizan countersignature `MZP1`). The extension must match the manifest `kind`; a mismatch is rejected at upload and at install. `.mzm` stays readable for one transition period so existing packages and the 71 references keep working, then is dropped. Format version bumps from 1 to 2 for the new naming and for the compiled payload (8.3).
+
+### 8.2 What is inside and what is excluded
+
+Inside (all kinds): `manifest.json`, `SIGNATURE`, declared entities, screens, i18n, assets (images, fonts, icons), README and CHANGELOG for the listing, and for code modules a compiled server payload (8.3). Activities add `modules/`, `variants/`, `themes/`, `seed/` as data.
+
+Excluded, enforced by the packager and checked again at upload: source code (`.py`, `.ts`, `.tsx`, `.js` outside the compiled payload), source maps, tests, `.git`, lockfiles, build scripts, environment files, keys and any file not on the allow-list. Today's allow-list (`ALLOWED` in `package.py`) already permits only JSON, images, fonts and text, so declarative packages contain no executable source. The compiled-payload exception is new and narrow.
+
+Important distinction, to avoid overselling: a declarative module is data (entities, screens, settings). Mizan must read that data to run the module, and the owner's workspace holds it after install. That is configuration, not source, but it is not secret from Mizan or from workspaces that install it. Secrecy applies to the developer's source repository, which never leaves their machine or their GitHub.
+
+### 8.3 Code modules as packaged, compiled artifacts
+
+ADR-007 plans code modules as "the same package plus a server program" in a sandbox container. Under the owner's rule:
+- The developer builds locally with `mizan package`. The SDK compiles the server program to a self-contained artifact (for example a WebAssembly module or a compiled bundle with no source and no source maps) and puts only that in `.mzmo`.
+- Honest limit: compiled code can be reverse engineered with effort. The rule protects against casual source exposure and accidental publication; it is not strong copy protection. Real protection is legal terms, signing, and keeping valuable logic behind the developer's own server (ADR-007 D4 already supports that: the module calls the developer's API and receives signed webhooks).
+- Decision for the owner: which compiled target to support first. WebAssembly gives a strong sandbox, portability and no native toolchain, which fits the free-first constraint better than per-module containers (gVisor or Firecracker need cluster resources that are not available now).
+
+### 8.4 How this answers the SDK-gate confidentiality question (section 7.8, decision 3)
+
+The gate is no longer needed to keep Mizan's own source secret, because the question the owner answered is about developers' source: it is never published, so nothing confidential sits in the marketplace. That leaves the download gate with two purposes only: accounts, terms and support, and token issue. Both are compatible with an open-source SDK. Recommendation: the SDK and CLI can be published openly (PyPI or GitHub) if the owner wants reach, with the account required for `mizan login`, publish tokens, the local Studio's online features and marketplace access. If the owner wants the SDK itself kept closed, that is a separate choice and the gate must stay. Decision for him in 8.6.
+
+### 8.5 Impact on review, signing and sandboxing
+
+| Area | Impact |
+|---|---|
+| Review | The reviewer cannot read source, so review changes from reading code to reading declared behaviour: manifest, scopes, new scope diff, webhook hosts, entities, screens, assets, and, for compiled payloads, an automated analysis (declared imports and host calls only, size and resource limits, no filesystem or network outside declared hosts) plus a sandboxed behavioural run against demo data. Manual review can no longer rely on code reading, so scopes and observed behaviour carry the weight. For the first compiled modules, require the developer to be a verified publisher and keep review manual |
+| Signing | Unchanged in design. The developer's Ed25519 signature covers every file hash including the compiled payload; Mizan's `MZP1` countersignature is over item, version, hash and kind. Add the extension and format version to the signed fields so a package cannot be relabelled to another kind |
+| Provenance | Add an optional build attestation: the SDK records tool version, source commit hash and build timestamp in the manifest. This lets a developer or Mizan prove which source produced the artifact without publishing it |
+| Sandbox | Compiled code runs only in the sandbox, with no database credentials, an outbound allow-list, quotas, and only the scoped extension API. Until the sandbox exists, code modules stay off production (section 6.7 decision, unchanged) |
+| Revocation | Unchanged: revoke the version or the developer key; workspaces fall back |
+| Updates | New version means new artifact, new hashes, new review; scope increases require re-consent by the owner |
+| Support | Without source, Mizan cannot debug a developer's module. Developers own support; the portal needs a vulnerability-report path and a "delist on critical issue" action, which exists |
+
+### 8.6 Phase changes to sections 6 and 7
+- Add to section 7.6 phase 0: new extensions and format version 2 in the packager and verifier, kind-extension match check, allow-list kept, `.mzm` read-only for a transition period.
+- Phase 5 (local Studio and SDK) carries the compile step for code modules; code-module publishing stays gated by the sandbox.
+- No change to the free-first position.
+
+### 8.7 Real open decisions for the owner
+1. Names for the other kinds: confirm or change `.mzth` (theme and design sets), `.mzwt` (website template), `.mzui` (module UI and layouts). Only `.mzba` and `.mzmo` were specified.
+2. Keep reading old `.mzm` files for a transition period, or cut over at once (no third-party packages are known to exist yet, so cut-over is cheap).
+3. SDK openness: publish the SDK and CLI openly with account-gated publishing (my recommendation), or keep the SDK closed and gated.
+4. First compiled-code target (WebAssembly recommended for the free-first constraint), or keep community modules declarative only for the first release.
