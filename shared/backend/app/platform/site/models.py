@@ -31,6 +31,11 @@ class SitePage(TenantScoped, Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
     draft_tree: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     published_tree: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Language offering of the PUBLISHED page: copied from titles by publish, never by
+    # draft save, so adding/editing a language in the draft never mutates the live
+    # page's languages (or its title) before an explicit publish. NULL on legacy rows
+    # predating the split; public serving coalesces to titles.
+    published_titles: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now())
 

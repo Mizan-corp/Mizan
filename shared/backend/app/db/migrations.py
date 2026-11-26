@@ -4562,6 +4562,16 @@ MIGRATIONS.append(("v119_audit_log_canonical_shape", """
       END IF;
     END $$;
 """))
+MIGRATIONS.append(("v121_site_pages_published_titles", """
+    -- Draft-vs-published title separation: the public language offering comes from
+    -- published_titles (stamped at publish), while titles stays the draft value an
+    -- author can edit at any time. Backfill keeps every already-published page's
+    -- live offering byte-identical.
+    ALTER TABLE site_pages ADD COLUMN IF NOT EXISTS published_titles jsonb;
+    UPDATE site_pages SET published_titles = titles
+    WHERE published_tree IS NOT NULL AND published_titles IS NULL;
+"""))
+
 MIGRATIONS.append(("v120_site_form_submissions", """
     -- Contact-form block V1: one row per visitor submission of a published
     -- form block. Written only by the public form endpoint after the

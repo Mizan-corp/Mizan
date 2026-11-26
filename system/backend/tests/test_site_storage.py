@@ -231,3 +231,55 @@ async def test_workspaces_cannot_see_each_others_pages(fresh_engine):
         finally:
             await db.rollback()
             await unbind_tenant(db)
+
+
+@pytestmark_db
+async def test_published_titles_separate_from_draft_titles(fresh_engine):
+    """Draft title edits on a published page must never touch the public language
+    offering before an explicit publish: save_draft writes titles only, publish
+    stamps published_titles, and the public read coalesces published_titles first."""
+    from sqlalchemy import text
+
+    from app.db.base import AsyncSessionLocal
+    from app.platform.site import service
+    from app.platform.tenancy.context import bind_tenant
+    from app.platform.tenancy.models import Tenant
+
+    tid = uuid.uuid4()
+    async with AsyncSessionLocal() as db:
+        tenant = Tenant(id=tid, name=f"site-{tid.hex[:8]}", sector="retail", scale="small")
+        db.add(tenant)
+        await db.commit()
+        await bind_tenant(db, tid)
+        try:
+            page = await service.create_page(db, slug="contact", titles={"en": "Contact Us"})
+            await service.save_draft(db, page.id, tree=tree(), titles={"en": "Contact Us"})
+            await service.publish(db, page.id, None)
+            page = await service.get_page(db, page.id)
+            # Publish stamps the public offering from the draft titles.
+            assert page.published_titles == {"en": "Contact Us"}
+
+            # Adding a language to a PUBLISHED page changes the draft only.
+            await service.save_draft(
+                db, page.id, tree=tree(),
+                titles={"en": "Contact Us", "ar": "اتصل بينا"})
+            page = await service.get_page(db, page.id)
+            assert page.titles == {"en": "Contact Us", "ar": "اتصل بينا"}
+            assert page.published_titles == {"en": "Contact Us"}
+
+            # The public route's read shape (COALESCE) still offers English only.
+            row = (await db.execute(
+                text("SELECT COALESCE(published_titles, titles) AS titles FROM site_pages WHERE id = :i"),
+                {"i": page.id})).first()
+            assert row.titles == {"en": "Contact Us"}
+
+            # Publishing exposes the new language publicly.
+            await service.publish(db, page.id, None)
+            page = await service.get_page(db, page.id)
+            assert page.published_titles == {"en": "Contact Us", "ar": "اتصل بينا"}
+            row = (await db.execute(
+                text("SELECT COALESCE(published_titles, titles) AS titles FROM site_pages WHERE id = :i"),
+                {"i": page.id})).first()
+            assert row.titles == {"en": "Contact Us", "ar": "اتصل بينا"}
+        finally:
+            await db.rollback()

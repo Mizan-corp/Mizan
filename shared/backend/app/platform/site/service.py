@@ -198,6 +198,7 @@ async def publish(db: AsyncSession, page_id: uuid.UUID, user_id: uuid.UUID | Non
     db.add(SitePageRevision(page_id=page.id, number=number, tree=page.draft_tree, titles=page.titles,
                             created_by=user_id))
     page.published_tree = page.draft_tree
+    page.published_titles = dict(page.titles or {})
     page.status = "published"
     await db.commit()
     # If this page is publicly activated, its activation theme is a snapshot of

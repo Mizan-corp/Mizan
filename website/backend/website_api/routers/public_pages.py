@@ -290,7 +290,7 @@ async def _serve_public(slug: str, page_path: str, kind: str | None, route_item:
     try:
         await bind_tenant(db, row.tid)
         page = (await db.execute(text(
-            "SELECT slug, titles, published_tree FROM site_pages"
+            "SELECT slug, COALESCE(published_titles, titles) AS titles, published_tree FROM site_pages"
             " WHERE slug = :p AND status = 'published' AND published_tree IS NOT NULL"
         ), {"p": page_path})).first()
         if page is None:
