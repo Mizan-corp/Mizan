@@ -19,7 +19,7 @@ concurrency:
 jobs:
   ci-frontend:
     name: Frontend CI (system · website · owner · admin)
-    runs-on: [self-hosted, ci]   # latitude-e6530 (see .github/RUNNERS.md)
+    runs-on: ubuntu-latest   # hosted runner (self-hosted runners removed from the repo)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -36,7 +36,7 @@ jobs:
 
   ci-backend:
     name: Backend CI
-    runs-on: [self-hosted, ci]   # latitude-e6530 (see .github/RUNNERS.md)
+    runs-on: ubuntu-latest   # hosted runner (self-hosted runners removed from the repo)
     steps:
       - uses: actions/checkout@v4
 
@@ -57,7 +57,7 @@ jobs:
 
   ci-e2e:
     name: E2E (live API)
-    runs-on: [self-hosted, ci]   # latitude-e6530 (see .github/RUNNERS.md)
+    runs-on: ubuntu-latest   # hosted runner (self-hosted runners removed from the repo)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -139,7 +139,7 @@ jobs:
 
   ci-manage:
     name: Manage script check
-    runs-on: [self-hosted, ci]   # latitude-e6530 (see .github/RUNNERS.md)
+    runs-on: ubuntu-latest   # hosted runner (self-hosted runners removed from the repo)
     steps:
       - uses: actions/checkout@v4
       - name: Dependencies (cached on the runner)
