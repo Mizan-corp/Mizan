@@ -1,0 +1,14 @@
+{
+  "id": "standard",
+  "module": "helpdesk",
+  "status": "active",
+  "description": "General service offerings and request/work handling. Features remain independent of variation.",
+  "screens": {},
+  "fields": {},
+  "uses": [],
+  "terms": {},
+  "settings": {},
+  "permissions": [],
+  "templates": {},
+  "widgets": []
+}

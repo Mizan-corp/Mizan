@@ -1,0 +1,33 @@
+{
+  "id": "energy",
+  "family": "projects",
+  "order": 25,
+  "name": "محطات طاقة وتوليد ومرافق",
+  "name_en": "Energy & Utilities",
+  "description": "أصول، صيانة تنبؤية، قراءات عدادات، وتصاريح عمل وأمان بيئي",
+  "branding": {
+    "themes": [
+      "tangerine",
+      "lime",
+      "ocean"
+    ],
+    "fonts": {
+      "body": "Cairo",
+      "display": "Cairo"
+    },
+    "note": "طاقة متجددة وحيوية."
+  },
+  "modules": [
+    "energy",
+    "inventory",
+    "operations",
+    "finance"
+  ],
+  "home": "/eng",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
+}

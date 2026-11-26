@@ -1,0 +1,28 @@
+{
+  "id": "olive",
+  "name": "زيتوني",
+  "name_en": "Olive",
+  "version": "1.0.0",
+  "kind": "theme",
+  "description": "أخضر زيتوني طبيعي. تركيبة أصلية من ألوان Open Color (MIT).",
+  "palette": "olive",
+  "fonts": {
+    "body": "Tajawal",
+    "display": "Almarai",
+    "files": [
+      {
+        "ref": "tajawal"
+      },
+      {
+        "ref": "almarai"
+      }
+    ]
+  },
+  "radius": "0.625rem",
+  "shadows": "soft",
+  "motion": "full",
+  "preview": {
+    "source": "open-color-mit",
+    "designed_for": "mizan"
+  }
+}

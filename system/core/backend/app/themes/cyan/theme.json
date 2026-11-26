@@ -1,0 +1,25 @@
+{
+  "id": "cyan",
+  "name": "سماوي",
+  "name_en": "Cyan",
+  "version": "1.0.0",
+  "kind": "theme",
+  "description": "سماوي منعش وخفيف. تركيبة أصلية من ألوان Open Color (MIT).",
+  "palette": "cyan",
+  "fonts": {
+    "body": "Almarai",
+    "display": "Almarai",
+    "files": [
+      {
+        "ref": "almarai"
+      }
+    ]
+  },
+  "radius": "0.625rem",
+  "shadows": "soft",
+  "motion": "full",
+  "preview": {
+    "source": "open-color-mit",
+    "designed_for": "mizan"
+  }
+}

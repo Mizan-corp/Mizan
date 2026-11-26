@@ -1,0 +1,46 @@
+{
+  "id": "consulting",
+  "family": "services",
+  "order": 4,
+  "name": "مكاتب محاسبة واستشارات",
+  "name_en": "Consulting",
+  "description": "ساعات قابلة للفوترة، خطابات تكليف، عقود، وتقارير أرباح المشروعات",
+  "branding": {
+    "themes": [
+      "indigo",
+      "violet",
+      "ocean"
+    ],
+    "fonts": {
+      "body": "Almarai",
+      "display": "Almarai"
+    },
+    "note": "خبرة وحضور استشاري واثق."
+  },
+  "modules": [
+    "services",
+    "finance",
+    "hr",
+    "helpdesk"
+  ],
+  "home": "/services",
+  "variants": {
+    "helpdesk": "consulting"
+  },
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {},
+  "menu": [
+    {
+      "id": "helpdesk",
+      "label": "الخدمات والدعم",
+      "items": [
+        {
+          "screen": "helpdesk.catalog"
+        }
+      ]
+    }
+  ]
+}

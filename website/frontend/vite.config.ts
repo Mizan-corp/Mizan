@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
 
-// Mizan website app. "@/" is the shared kit (shared/frontend/src), "@app/" is this app.
+// Mizan website app. "@/" is the shared kit (system/core/frontend/src), "@app/" is this app.
 // `npm run build` makes the browser bundle, then the build-time renderer (--ssr), then
 // scripts/prerender.mjs writes every public page as HTML (ADR-016).
 export default defineConfig(({ mode, isSsrBuild }) => {
@@ -16,7 +16,7 @@ export default defineConfig(({ mode, isSsrBuild }) => {
     resolve: {
       alias: {
         "@app": fileURLToPath(new URL("./src", import.meta.url)),
-        "@": fileURLToPath(new URL("../../shared/frontend/src", import.meta.url)),
+        "@": fileURLToPath(new URL("../../system/core/frontend/src", import.meta.url)),
       },
     },
     build: isSsrBuild

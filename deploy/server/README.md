@@ -23,12 +23,9 @@ internet ─ Cloudflare (DNS, TLS, *.allmizan.live) ─ tunnel ─┬─ api   (
 
 ## Releasing
 
-A push to `master` releases it (`.github/workflows/deploy-server.yml`): GitHub builds the two
-images while CI runs and pushes them to GHCR (private); when CI passes on the commit, the runner
-on the server (`/srv/actions-runner`, label `homie`, only this job uses it) runs `deploy.sh`.
-Nothing on the server is reachable from the internet for this. A newer push supersedes an older
-one that hasn't deployed. By hand: Actions → Deploy (server) → Run workflow, or on the server
-`/srv/mizan/deploy.sh <commit>`.
+Manual: Actions > Deploy (homie) > Run workflow. A hosted runner builds the images; after the owner approves the
+`production` Environment it SSHes to homie as the restricted `mizan-deploy` user (forced command, key in an
+environment secret) and runs `deploy.sh`. No GitHub runner lives on homie. Details: [`docs/deploy-homie.md`](../../docs/deploy-homie.md).
 
 ## Secrets (`/srv/mizan/mizan.env`, mode 600, not in git)
 

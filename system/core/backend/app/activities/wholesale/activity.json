@@ -1,0 +1,116 @@
+{
+  "id": "wholesale",
+  "family": "commerce",
+  "order": 6,
+  "name": "تجارة جملة وتوزيع وتوريدات",
+  "name_en": "Wholesale",
+  "description": "أسعار كميات، قوائم أسعار عملاء، تسعير حسب الحجم والخصومات",
+  "branding": {
+    "themes": [
+      "ocean",
+      "olive",
+      "indigo"
+    ],
+    "fonts": {
+      "body": "Almarai",
+      "display": "Almarai"
+    },
+    "note": "جدية الجملة ووضوح الأرقام."
+  },
+  "modules": [
+    "wholesale",
+    "inventory",
+    "sales",
+    "finance"
+  ],
+  "home": "/wholesale",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {},
+  "menu": [
+    {
+      "id": "distribution",
+      "label": "الجملة ومبيعات التوزيع",
+      "items": [
+        {
+          "screen": "wholesale.wholesale",
+          "label": "لوحة الجملة وسلالم الأسعار"
+        },
+        {
+          "screen": "pos.sales",
+          "label": "أوامر وفواتير البيع بالجملة"
+        },
+        {
+          "screen": "finance.customers",
+          "label": "حسابات كبار العملاء والوكلاء"
+        }
+      ]
+    },
+    {
+      "id": "bulk_stock",
+      "label": "المستودعات المركزية والتوريد",
+      "items": [
+        {
+          "screen": "inventory.products",
+          "label": "دليل الأصناف والباركودات"
+        },
+        {
+          "screen": "inventory.inventory",
+          "label": "أرصدة المستودعات والتحويلات",
+          "icon": "Warehouse"
+        },
+        {
+          "screen": "inventory.purchases",
+          "label": "أوامر الشراء من المصانع"
+        }
+      ]
+    },
+    {
+      "id": "wholesale_finance",
+      "label": "الائتمان وأوراق القبض",
+      "items": [
+        {
+          "screen": "finance.suppliers",
+          "label": "حسابات الموردين والمصانع"
+        },
+        {
+          "screen": "finance.finance",
+          "label": "الخزائن ومتابعة الشيكات والذمم"
+        },
+        {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
+        },
+        {
+          "screen": "reporting.reports",
+          "label": "تقارير أعمار الديون والمبيعات"
+        }
+      ]
+    },
+    {
+      "id": "wholesale_admin",
+      "label": "المناديب والإدارة",
+      "items": [
+        {
+          "screen": "hr.hr",
+          "label": "سائقو سيارات التوزيع والمناديب"
+        },
+        {
+          "screen": "core.settings",
+          "label": "إعدادات سقوف الائتمان والأسعار"
+        }
+      ]
+    }
+  ]
+}

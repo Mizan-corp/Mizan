@@ -1,0 +1,36 @@
+{
+  "id": "retail",
+  "family": "commerce",
+  "order": 1,
+  "name": "تجارة، تجزئة، وسوبرماركت",
+  "name_en": "Retail",
+  "description": "سوبرماركت، معارض، ومخازن تجارية وRetail-POS مع موازين وباركود",
+  "branding": {
+    "themes": [
+      "ruby",
+      "tangerine",
+      "ocean"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "جاذبية تجارية تشجع على الشراء."
+  },
+  "modules": [
+    "pos",
+    "inventory",
+    "sales",
+    "finance",
+    "hr"
+  ],
+  "variants": {
+    "pos": "retail"
+  },
+  "optional": [],
+  "terms": {
+    "item": "صنف"
+  },
+  "positions": [],
+  "settings": {}
+}

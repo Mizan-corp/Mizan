@@ -1,0 +1,110 @@
+{
+  "id": "property",
+  "family": "projects",
+  "order": 23,
+  "name": "إدارة عقارات ومجمعات تجارية",
+  "name_en": "Real Estate",
+  "description": "وحدات، عقود إيجار، تحصيل شيكات، وصيانة وإيرادات صافية",
+  "branding": {
+    "themes": [
+      "teal",
+      "ocean",
+      "grape"
+    ],
+    "fonts": {
+      "body": "Almarai",
+      "display": "Almarai"
+    },
+    "note": "ثقة عقارية واستقرار."
+  },
+  "modules": [
+    "real_estate",
+    "finance",
+    "operations",
+    "helpdesk"
+  ],
+  "home": "/rec",
+  "variants": {
+    "helpdesk": "property"
+  },
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {},
+  "menu": [
+    {
+      "id": "helpdesk",
+      "label": "الخدمات والدعم",
+      "items": [
+        {
+          "screen": "helpdesk.catalog"
+        }
+      ]
+    },
+    {
+      "id": "properties",
+      "label": "إدارة العقارات والوحدات",
+      "items": [
+        {
+          "screen": "real_estate.rec",
+          "label": "لوحة الأبراج والوحدات العقارية"
+        },
+        {
+          "screen": "real_estate.rec_leases"
+        },
+        {
+          "screen": "real_estate.rec_maintenance"
+        },
+        {
+          "screen": "finance.customers",
+          "label": "دليل المستأجرين وسجلاتهم"
+        }
+      ]
+    },
+    {
+      "id": "rec_finance",
+      "label": "المالية وحسابات الملاك",
+      "items": [
+        {
+          "screen": "finance.finance",
+          "label": "الخزينة وحافظة شيكات الإيجار"
+        },
+        {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
+        },
+        {
+          "screen": "finance.suppliers",
+          "label": "شركات صيانة المصاعد والمرافق"
+        },
+        {
+          "screen": "reporting.reports",
+          "label": "كشوف حسابات الملاك وصافي الإيراد"
+        }
+      ]
+    },
+    {
+      "id": "rec_admin",
+      "label": "الإدارة والنظام",
+      "items": [
+        {
+          "screen": "hr.hr",
+          "label": "فريق الإشراف والتحصيل"
+        },
+        {
+          "screen": "core.settings",
+          "label": "إعدادات العقارات والعمولات"
+        }
+      ]
+    }
+  ]
+}

@@ -91,7 +91,7 @@ only the window, the server inside is what updates.
 
 ## Building
 
-Needs Node 22, Python 3.12 with `./shared/backend` and `installer/server/requirements.txt` installed,
+Needs Node 22, Python 3.12 with `./system/core/backend` and `installer/server/requirements.txt` installed,
 Rust (stable), and on Linux the Tauri packages (`libwebkit2gtk-4.1-dev libgtk-3-dev
 librsvg2-dev libayatana-appindicator3-dev`).
 
@@ -123,7 +123,7 @@ API (it shows which installs are behind). For updates (#89) each platform also n
 `"payload_url"` (the release's `payload-<version>-<platform>.zip`) and `"payload_sha256"` (from
 `SHA256SUMS.txt`); without them nothing is offered. E.g.
 `{"windows": {"url": "https://github.com/mizan-corp/mizan-releases/releases/download/v1.0.0/MizanSetup-1.0.0-windows.exe", "version": "1.0.0", "size_mb": 150}, "linux": {…}}`
-(see `shared/backend/app/platform/updates/releases.py`), and redeploy it.
+(see `system/core/backend/app/platform/updates/releases.py`), and redeploy it.
 
 The setup binary's layout: `[program][payload.zip][licence stamp][footer]`, footer =
 `MZNSETUP` + payload offset + payload length + stamp length (u64 LE each). See

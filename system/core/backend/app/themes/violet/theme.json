@@ -1,0 +1,25 @@
+{
+  "id": "violet",
+  "name": "بنفسجي",
+  "name_en": "Violet",
+  "version": "1.0.0",
+  "kind": "theme",
+  "description": "بنفسجي واثق مع تباين واضح. تركيبة أصلية من ألوان Open Color (MIT).",
+  "palette": "violet",
+  "fonts": {
+    "body": "Cairo",
+    "display": "Cairo",
+    "files": [
+      {
+        "ref": "cairo"
+      }
+    ]
+  },
+  "radius": "0.625rem",
+  "shadows": "soft",
+  "motion": "full",
+  "preview": {
+    "source": "open-color-mit",
+    "designed_for": "mizan"
+  }
+}

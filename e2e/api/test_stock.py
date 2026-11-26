@@ -37,7 +37,7 @@ def test_warehouse_crud(admin_api, reg, db):
 
     r = admin_api.delete(f"/stock/warehouses/{w['id']}")
     assert r.status_code == 204  # soft delete
-    assert db.one("SELECT count(*) FROM audit_log WHERE entity_id = %s AND action = 'deactivate'", (w["id"],))[0] == 1
+    assert db.one("SELECT count(*) FROM audit_log WHERE entity_id = %s AND action_type = 'deactivate'", (w["id"],))[0] == 1
 
 
 def test_warehouse_delete_guard_when_linked(admin_api, reg, product):
@@ -195,7 +195,7 @@ def test_reset_warehouse_stock_is_audited(admin_api, reg, product, db):
     r = admin_api.delete("/stock/movements", params={"warehouse_id": w["id"]})
     assert r.status_code == 204, r.text[:200]
     assert db.one("SELECT count(*) FROM stock_movements WHERE warehouse_id = %s", (w["id"],))[0] == 0
-    logged = db.one("SELECT changes->>'movements_deleted' FROM audit_log WHERE entity_id = %s AND action = 'reset_stock'", (w["id"],))
+    logged = db.one("SELECT details::jsonb->>'movements_deleted' FROM audit_log WHERE entity_id = %s AND action_type = 'reset_stock'", (w["id"],))
     assert logged and logged[0] == "1"
 
 

@@ -1,0 +1,190 @@
+"""Fixed first-party starter contract, no database or publication effects."""
+import unittest
+from fastapi import HTTPException
+from app.platform.site.page_kits import make_pages,kit_catalog
+from app.platform.site.service import check_tree
+class DraftKitTests(unittest.TestCase):
+ def test_exact_four_native_independent_pages(self):
+  pages=make_pages('my-site');self.assertEqual([p['slug'] for p in pages],['my-site-home','my-site-products','my-site-about','my-site-contact'])
+  self.assertEqual(len(kit_catalog()['items']),2)
+  for page in pages:
+   check_tree(page['tree']);self.assertEqual(set(page),{'slug','titles','tree'});self.assertEqual(set(page['titles']),{'en'})
+   self.assertNotIn('binding',str(page));self.assertNotIn('checkout',str(page['tree']))
+ def test_tech_pages_native_and_fixed(self):
+  from app.platform.site.tech_kit import theme
+  pages=make_pages('tech','tech-business-v0')
+  self.assertEqual([p['slug'] for p in pages],['tech-home','tech-products','tech-services','tech-contact'])
+  from app.platform.site.service import check_settings
+  self.assertEqual(check_settings(theme('tech')),theme('tech'))
+  for page in pages:
+   check_tree(page['tree'])
+   self.assertNotIn('bindings',str(page));self.assertNotIn('repeat',str(page))
+  self.assertEqual([v['href'] for v in theme('tech')['header']['links']],['/'+p['slug'] for p in pages])
+ def test_native_card_surface_and_renderer(self):
+  from app.platform.site.tech_kit import make_tech_pages
+  from app.platform.site.render import _render_node
+  tree=make_tech_pages('tech')[1]['tree']
+  markup=_render_node(tree,'en','desktop')
+  self.assertIn('mz-background-card',markup);self.assertIn('mz-rounded',markup)
+  card=tree['children'][1]['children'][0]
+  card['settings']['desktop']['background']='url(https://bad.test)'
+  with self.assertRaises(HTTPException):check_tree(tree)
+ def test_all_columns_keep_mobile_padding(self):
+  from app.platform.site.tech_kit import make_tech_pages
+  for page in make_tech_pages('tech'):
+   stack=[page['tree']]
+   while stack:
+    node=stack.pop()
+    if node.get('type')=='column':self.assertEqual(node.get('settings',{}).get('mobile',{}).get('padding'),'s',node.get('id'))
+    stack.extend(node.get('children') or [])
+ def test_products_page_has_card_ready_selected_section(self):
+  from app.platform.site.tech_kit import make_tech_pages
+  tree=make_tech_pages('tech')[1]['tree']
+  cols=[r['children'][0] for r in tree['children'] if r.get('type')=='columns' and len(r['children'])==1 and r['children'][0].get('settings',{}).get('desktop',{}).get('background')=='card']
+  self.assertEqual(len(cols),1)
+  col=cols[0]
+  self.assertEqual(col['type'],'column')
+  self.assertEqual([c['type'] for c in col['children']],['image','heading','text'])
+  self.assertIn('Selected product name',str(col))
+  def walk(node):
+   self.assertNotIn('card',node)
+   for child in node.get('children',[]):walk(child)
+  walk(tree)
+ def test_no_shared_object_state(self):
+  first=make_pages('one');first[0]['tree']['settings']['changed']=True
+  self.assertNotIn('changed',make_pages('one')[0]['tree']['settings'])
+ def test_prefix_validation(self):
+  for prefix in ['','../x','Upper','x y','x--y','a'*41]:
+   with self.assertRaises(HTTPException):make_pages(prefix)
+if __name__=='__main__':unittest.main()
+class ContentRefFallbackTests(unittest.TestCase):
+ def _node(self,ntype,content,settings=None):
+  return {'id':'n_x','type':ntype,'settings':settings or {},'content':content}
+ def test_image_src_falls_back_only_when_absent(self):
+  from app.platform.site.render import _render_node
+  img=self._node('image',{'en':{'src':'/studio-assets/tech-laptop.svg','alt':'Laptop'},'ar':{'alt':'لابتوب'}})
+  out=_render_node(img,'ar','desktop')
+  self.assertIn('tech-laptop.svg',out);self.assertIn('لابتوب',out)
+ def test_image_src_explicit_blank_stays_blank(self):
+  from app.platform.site.render import _render_node
+  img=self._node('image',{'en':{'src':'/studio-assets/tech-laptop.svg'},'ar':{'src':''}})
+  self.assertEqual(_render_node(img,'ar','desktop'),'')
+ def test_button_href_falls_back_with_translated_label(self):
+  from app.platform.site.render import _render_node
+  btn=self._node('button',{'en':{'href':'/x','label':'Go'},'ar':{'label':'روح'}})
+  out=_render_node(btn,'ar','desktop')
+  self.assertIn('href="/x"',out);self.assertIn('روح',out)
+ def test_button_without_active_label_stays_hidden(self):
+  from app.platform.site.render import _render_node
+  btn=self._node('button',{'en':{'href':'/x','label':'Go'}})
+  self.assertEqual(_render_node(btn,'ar','desktop'),'')
+ def test_button_explicit_blank_href_stays_hidden(self):
+  from app.platform.site.render import _render_node
+  btn=self._node('button',{'en':{'href':'/x','label':'Go'},'ar':{'label':'روح','href':''}})
+  self.assertEqual(_render_node(btn,'ar','desktop'),'')
+class ChromeLogoGroupTests(unittest.TestCase):
+ def _settings(self):
+  from app.platform.site.tech_kit import theme
+  return theme('tech')
+ def test_header_logo_round_trips(self):
+  from app.platform.site.service import check_settings
+  value=self._settings();value['header']['logo']='https://cdn.example.com/logo.svg'
+  self.assertEqual(check_settings(value),value)
+ def test_header_logo_rejects_unsafe_values(self):
+  from app.platform.site.service import check_settings
+  for bad in ['javascript:alert(1)','//evil.test/x.png',' http://x.test/a.png ','http://user:pw@x.test/a.png','x'*301,'http://x.test:8080/a.png']:
+   value=self._settings();value['header']['logo']=bad
+   with self.assertRaises(HTTPException):check_settings(value)
+ def test_header_logo_empty_is_dropped(self):
+  from app.platform.site.service import check_settings
+  value=self._settings();value['header']['logo']=''
+  self.assertNotIn('logo',check_settings(value)['header'])
+ def test_header_appearance_round_trip(self):
+  from app.platform.site.service import check_settings
+  value=self._settings();value['header'].update({'search_style':'outline','bar_style':'plain','density':'compact','row_align':'evenly','row_gap':'wide','gap_px':20,'element_order':['search','brand','icons'],'tablet':{'density':'compact','hide_search':True},'mobile':{'hide_bar':True}})
+  self.assertEqual(check_settings(value),value)
+ def test_header_appearance_rejects_bad_values(self):
+  from app.platform.site.service import check_settings
+  for field in ('search_style','bar_style','density','row_align','row_gap'):
+   value=self._settings();value['header'][field]='fancy'
+   with self.assertRaises(HTTPException):check_settings(value)
+  for bad in (-1,65,1.5,'12'):
+   value=self._settings();value['header']['gap_px']=bad
+   with self.assertRaises(HTTPException):check_settings(value)
+  for bad in ('x',['density'],{'density':'tall'},{'hide_search':'yes'},{'unknown':1},{'density':'compact','oops':2}):
+   value=self._settings();value['header']['tablet']=bad
+   with self.assertRaises(HTTPException):check_settings(value)
+  for bad in (['brand','brand'],['brand','nav'],'brand',[1,2],['brand','search','icons','extra']):
+   value=self._settings();value['header']['element_order']=bad
+   with self.assertRaises(HTTPException):check_settings(value)
+ def test_render_header_appearance_classes(self):
+  from app.platform.site.render import _theme_chrome
+  theme_value={'header':{'brand':'ويريا','search_enabled':True,'search_target':'/search','search_style':'outline','bar_style':'plain','density':'compact','row_align':'between','row_gap':'tight','gap_px':4,'element_order':['icons','brand'],'bar_links':[{'label':'قطع','href':'/shop/parts'}],'tablet':{'density':'compact','hide_search':True},'mobile':{'hide_bar':True}}}
+  head,_=_theme_chrome(theme_value,link_base='/site/studio')
+  self.assertIn('mz-search-outline',head);self.assertIn('mz-bar-plain',head);self.assertIn('mz-density-compact',head);self.assertIn('mz-gap-tight',head);self.assertIn('mz-reorder',head);self.assertIn('--ord-brand:2',head);self.assertIn('--ord-search:3',head);self.assertIn('mz-row-between',head);self.assertIn('mz-gap-custom',head);self.assertIn('--row-gap:4px',head);self.assertIn('mz-t-density-compact',head);self.assertIn('mz-t-hide-search',head);self.assertIn('mz-m-hide-bar',head);self.assertIn('<span class="mz-menu-bar">',head)
+ def test_render_header_appearance_defaults_add_no_classes(self):
+  from app.platform.site.render import _theme_chrome
+  theme_value={'header':{'brand':'ويريا','search_enabled':True,'search_target':'/search'}}
+  head,_=_theme_chrome(theme_value,link_base='/site/studio')
+  self.assertNotIn('mz-search-outline',head);self.assertNotIn('mz-bar-plain',head);self.assertNotIn('mz-density-compact',head);self.assertNotIn('mz-row-',head);self.assertNotIn('mz-gap-',head);self.assertNotIn('mz-reorder',head);self.assertNotIn('--ord-',head);self.assertNotIn('mz-gap-custom',head);self.assertNotIn('--row-gap',head);self.assertNotIn('mz-t-density-compact',head);self.assertNotIn('mz-m-hide-bar',head);self.assertNotIn('mz-menu-bar',head)
+ def test_footer_groups_round_trip(self):
+  from app.platform.site.service import check_settings
+  value=self._settings();value['footer']['groups']=[{'title':'Company','links':[{'label':'About','href':'/about'}]}]
+  self.assertEqual(check_settings(value),value)
+ def test_footer_groups_limits(self):
+  from app.platform.site.service import check_settings
+  group={'title':'G','links':[{'label':'L','href':'/x'}]}
+  value=self._settings();value['footer']['groups']=[group]*5
+  with self.assertRaises(HTTPException):check_settings(value)
+  value=self._settings();value['footer']['groups']=[{'title':'G','links':[{'label':'L','href':'/x'}]*7}]
+  with self.assertRaises(HTTPException):check_settings(value)
+  for bad_title in ['','  ',' padded','x'*41]:
+   value=self._settings();value['footer']['groups']=[{'title':bad_title,'links':[{'label':'L','href':'/x'}]}]
+   with self.assertRaises(HTTPException):check_settings(value)
+ def test_footer_groups_empty_is_dropped(self):
+  from app.platform.site.service import check_settings
+  value=self._settings();value['footer']['groups']=[]
+  self.assertNotIn('groups',check_settings(value)['footer'])
+ def test_footer_socials_round_trip(self):
+  from app.platform.site.service import check_settings
+  value=self._settings();value['footer']['socials']=[{'icon':'whatsapp','label':'واتساب','href':'https://wa.me/201234567890'},{'icon':'facebook','label':'فيسبوك','href':'https://facebook.com/shop'}]
+  self.assertEqual(check_settings(value),value)
+ def test_footer_socials_limits(self):
+  from app.platform.site.service import check_settings
+  entry={'icon':'instagram','label':'L','href':'/x'}
+  value=self._settings();value['footer']['socials']=[entry]*7
+  with self.assertRaises(HTTPException):check_settings(value)
+  for bad in [{'icon':'tiktok','label':'L','href':'/x'},{'icon':'globe','label':'L','href':'/x'},
+              {'icon':'x','label':'','href':'/x'},{'icon':'x','label':'L','href':'javascript:alert(1)'},
+              {'icon':'x','label':'x'*41,'href':'/x'},{'label':'L','href':'/x'},'notadict']:
+   value=self._settings();value['footer']['socials']=[bad]
+   with self.assertRaises(HTTPException,msg=str(bad)):check_settings(value)
+ def test_footer_socials_empty_is_dropped(self):
+  from app.platform.site.service import check_settings
+  value=self._settings();value['footer']['socials']=[]
+  self.assertNotIn('socials',check_settings(value)['footer'])
+ def test_render_footer_socials(self):
+  from app.platform.site.render import _theme_chrome
+  theme_value={'footer':{'socials':[{'icon':'whatsapp','label':'واتساب','href':'https://wa.me/201234567890'},
+                                   {'icon':'notanicon','label':'X','href':'/x'},
+                                   {'icon':'x','label':'X','href':'javascript:alert(1)'},
+                                   {'icon':'youtube','label':'قناة <b>اليوتيوب','href':'https://youtube.com/@shop'}]}}
+  head,foot=_theme_chrome(theme_value,link_base='/site/studio')
+  self.assertIn('mz-footer-socials',foot)
+  self.assertEqual(foot.count('class="mz-footer-social"'),2)
+  self.assertIn('https://wa.me/201234567890',foot);self.assertIn('https://youtube.com/@shop',foot)
+  self.assertNotIn('javascript:',foot);self.assertNotIn('<b>اليوتيوب</b>',foot)
+  self.assertIn('aria-label="واتساب"',foot)
+ def test_render_header_logo_and_footer_groups(self):
+  from app.platform.site.render import _theme_chrome
+  theme_value={'header':{'brand':'ويريا','logo':'https://cdn.example.com/logo.svg','links':[{'label':'Shop','href':'/shop'}]},
+               'footer':{'lines':['حقوق النشر'],'groups':[{'title':'الشركة','links':[{'label':'من نحن','href':'/about'}]},{'title':'Escaped <b>','links':[{'label':'x','href':'/x'}]}]}}
+  head,foot=_theme_chrome(theme_value,link_base='/site/studio')
+  self.assertIn('<img class="mz-site-logo" src="https://cdn.example.com/logo.svg" alt="">',head)
+  self.assertIn('mz-site-brand',head)
+  self.assertIn('mz-footer-groups',foot);self.assertIn('الشركة',foot);self.assertIn('href="/site/studio/about"',foot)
+  self.assertIn('Escaped &lt;b&gt;',foot)
+ def test_render_drops_unsafe_logo(self):
+  from app.platform.site.render import _theme_chrome
+  head,_=_theme_chrome({'header':{'logo':'javascript:alert(1)','brand':'B'}},link_base=None)
+  self.assertNotIn('javascript:',head);self.assertIn('mz-site-brand',head)

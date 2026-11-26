@@ -1,0 +1,24 @@
+{
+  "id": "amber",
+  "name": "كهرماني",
+  "name_en": "Amber",
+  "version": "1.0.0",
+  "kind": "theme",
+  "description": "دافئ لنقاط البيع والضيافة.",
+  "palette": "amber",
+  "fonts": {
+    "body": "Manrope",
+    "files": [
+      {
+        "ref": "manrope"
+      },
+      {
+        "ref": "tajawal"
+      }
+    ],
+    "body_arabic": "Tajawal"
+  },
+  "radius": "0.875rem",
+  "shadows": "soft",
+  "motion": "full"
+}

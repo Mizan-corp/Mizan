@@ -1,0 +1,28 @@
+{
+  "id": "tangerine",
+  "name": "ماندرين",
+  "name_en": "Mandarin",
+  "version": "1.0.0",
+  "kind": "theme",
+  "description": "برتقالي ماندين جريء. تركيبة أصلية من ألوان Open Color (MIT).",
+  "palette": "tangerine",
+  "fonts": {
+    "body": "Cairo",
+    "display": "Almarai",
+    "files": [
+      {
+        "ref": "cairo"
+      },
+      {
+        "ref": "almarai"
+      }
+    ]
+  },
+  "radius": "0.625rem",
+  "shadows": "soft",
+  "motion": "full",
+  "preview": {
+    "source": "open-color-mit",
+    "designed_for": "mizan"
+  }
+}

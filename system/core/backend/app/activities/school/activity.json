@@ -1,0 +1,101 @@
+{
+  "id": "school",
+  "family": "education",
+  "order": 5,
+  "name": "مدارس ومعاهد تدريب وأكاديميات",
+  "name_en": "School",
+  "description": "شؤون الطلاب، أقساط، وإيصالات رسوم مدرسية وحافلات نقل",
+  "branding": {
+    "themes": [
+      "ocean",
+      "lime",
+      "teal"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "انفتاح وتعلم وتفاؤل."
+  },
+  "modules": [
+    "school",
+    "finance",
+    "hr"
+  ],
+  "home": "/school/students",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {},
+  "menu": [
+    {
+      "id": "academic",
+      "label": "شؤون الطلاب والأكاديميا",
+      "items": [
+        {
+          "screen": "school.school_students",
+          "label": "سجلات الطلاب والقيد"
+        },
+        {
+          "screen": "school.school_students_admissions"
+        },
+        {
+          "screen": "school.school_students_buses"
+        }
+      ]
+    },
+    {
+      "id": "school_fees",
+      "label": "المصروفات والأقساط",
+      "items": [
+        {
+          "screen": "school.school_students_fees"
+        },
+        {
+          "screen": "finance.customers",
+          "label": "أولياء الأمور والجهات المانحة"
+        },
+        {
+          "screen": "finance.finance",
+          "label": "خزينة المدرسة والبنك"
+        },
+        {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
+        },
+        {
+          "screen": "reporting.reports",
+          "label": "تقارير تحصيل الأقساط"
+        }
+      ]
+    },
+    {
+      "id": "school_staff",
+      "label": "الكادر التعليمي والإدارة",
+      "items": [
+        {
+          "screen": "hr.hr",
+          "label": "المعلمون والإداريون"
+        },
+        {
+          "screen": "hr.hr_payroll",
+          "label": "مسيرات رواتب الكادر"
+        },
+        {
+          "screen": "core.settings",
+          "label": "إعدادات المدرسة والعام الدراسي"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "id": "warehousing",
+  "family": "logistics",
+  "order": 8,
+  "name": "مستودعات وخدمات لوجستية للغير",
+  "name_en": "3PL WMS",
+  "description": "مستودعات متعددة العملاء، استلام، وتوزيع حسب مواقع التخزين",
+  "branding": {
+    "themes": [
+      "olive",
+      "ocean",
+      "slate"
+    ],
+    "fonts": {
+      "body": "Almarai",
+      "display": "Almarai"
+    },
+    "note": "ترتيب عملي وألوان مريحة للمخازن."
+  },
+  "modules": [
+    "wms",
+    "inventory",
+    "finance"
+  ],
+  "home": "/wms",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {},
+  "menu": [
+    {
+      "id": "freight_ops",
+      "label": "المستودعات والخدمات اللوجستية",
+      "items": [
+        {
+          "screen": "wms.wms",
+          "label": "لوحة المستودع والتخزين (3PL)"
+        },
+        {
+          "screen": "pos.sales",
+          "label": "فواتير الشحن والمناولة"
+        },
+        {
+          "screen": "finance.customers",
+          "label": "عملاء الشحن والتخزين"
+        }
+      ]
+    },
+    {
+      "id": "freight_stock",
+      "label": "المخزون ومواقع التخزين",
+      "items": [
+        {
+          "screen": "inventory.inventory",
+          "label": "المخزون ومواقع الرفوف (Bins)"
+        }
+      ]
+    },
+    {
+      "id": "freight_finance",
+      "label": "المالية وتكاليف النقل",
+      "items": [
+        {
+          "screen": "finance.finance",
+          "label": "الخزائن وتكاليف الوقود ومصاريف الطرق"
+        },
+        {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
+        },
+        {
+          "screen": "reporting.reports",
+          "label": "تقارير الشحنات والمسارات اليومية"
+        }
+      ]
+    },
+    {
+      "id": "freight_admin",
+      "label": "السائقون والتشغيل",
+      "items": [
+        {
+          "screen": "hr.hr",
+          "label": "سائقو الشاحنات وعمال التحميل"
+        },
+        {
+          "screen": "core.settings",
+          "label": "إعدادات مناطق التوصيل والتسعير"
+        }
+      ]
+    }
+  ]
+}

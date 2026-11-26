@@ -18,8 +18,9 @@
 # or installed, with the time each part took.
 set -euo pipefail
 
-CACHE="${MIZAN_CI_CACHE:-/runner-cache}"
-mkdir -p "$CACHE/bin"
+CACHE="${MIZAN_CI_CACHE:-${RUNNER_TEMP:-/tmp}/ci-cache}"   # hosted runners: fresh each run; self-hosted can set MIZAN_CI_CACHE
+mkdir -p "$CACHE/bin" "$CACHE/markers"
+SUDO=""; [ "$(id -u)" = 0 ] || SUDO="sudo -E"   # hosted runners: non-root user with sudo
 export PATH="$CACHE/bin:$PATH"
 export UV_CACHE_DIR="$CACHE/uv-cache" UV_PYTHON_INSTALL_DIR="$CACHE/python" UV_LINK_MODE=copy
 export npm_config_cache="$CACHE/npm"
@@ -48,8 +49,8 @@ ensure_python() {
 ensure_venv() {  # $1 = backend | e2e
   local files
   case "$1" in
-    backend) files="shared/backend/pyproject.toml" ;;
-    e2e)     files="shared/backend/pyproject.toml shared/backend/requirements-dev.txt e2e/requirements.txt" ;;
+    backend) files="system/core/backend/pyproject.toml" ;;
+    e2e)     files="system/core/backend/pyproject.toml system/core/backend/requirements-dev.txt e2e/requirements.txt" ;;
     *) echo "unknown py set: $1" >&2; exit 2 ;;
   esac
   local key; key=$(cat $files | sha256sum | cut -c1-16)
@@ -62,8 +63,8 @@ ensure_venv() {  # $1 = backend | e2e
     uv venv -q -p "$PY" "$venv.tmp"
     local t0=$SECONDS
     case "$1" in
-      backend) VIRTUAL_ENV="$venv.tmp" uv pip install -q ./shared/backend ruff ;;
-      e2e)     VIRTUAL_ENV="$venv.tmp" uv pip install -q ./shared/backend -r shared/backend/requirements-dev.txt \
+      backend) VIRTUAL_ENV="$venv.tmp" uv pip install -q ./system/core/backend ruff ;;
+      e2e)     VIRTUAL_ENV="$venv.tmp" uv pip install -q ./system/core/backend -r system/core/backend/requirements-dev.txt \
                                                      -r e2e/requirements.txt httpx ;;
     esac
     echo "   ($(( SECONDS - t0 ))s)"
@@ -72,7 +73,7 @@ ensure_venv() {  # $1 = backend | e2e
     find "$CACHE/venv" -maxdepth 1 -name "$1-py$PY-*" ! -name "$(basename "$venv")" -exec rm -rf {} + 2>/dev/null || true
   fi
   # This checkout's own code: editable, so a cached venv never runs yesterday's kernel.
-  VIRTUAL_ENV="$venv" uv pip install -q --no-deps -e ./shared/backend
+  VIRTUAL_ENV="$venv" uv pip install -q --no-deps -e ./system/core/backend
   gh_path "$venv/bin"
   gh_env VIRTUAL_ENV "$venv"
 }
@@ -106,24 +107,24 @@ ensure_playwright() {
   # The browser: in the cache volume. Its system libraries: in this container (root, apt).
   if ls "$PLAYWRIGHT_BROWSERS_PATH"/chromium-* >/dev/null 2>&1; then say chromium cached; else
     say chromium installing; timed python -m playwright install chromium >/dev/null; fi
-  if [ -f /var/lib/mizan-ci/playwright-deps ]; then say "chromium libs" present; else
+  if [ -f $CACHE/markers/playwright-deps ]; then say "chromium libs" present; else
     say "chromium libs" installing
-    timed python -m playwright install-deps chromium >/dev/null
-    mkdir -p /var/lib/mizan-ci && touch /var/lib/mizan-ci/playwright-deps
+    timed $SUDO env "PATH=$PATH" python -m playwright install-deps chromium >/dev/null
+    touch $CACHE/markers/playwright-deps
   fi
 }
 
 ensure_weasyprint() {
   # The same libraries as the server image (deploy/server/Dockerfile.api).
-  if [ -f /var/lib/mizan-ci/weasyprint-deps ]; then say "pdf libs" present; return; fi
+  if [ -f $CACHE/markers/weasyprint-deps ]; then say "pdf libs" present; return; fi
   say "pdf libs" installing
   local t0=$SECONDS
-  DEBIAN_FRONTEND=noninteractive apt-get update -qq >/dev/null
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+  $SUDO env DEBIAN_FRONTEND=noninteractive apt-get update -qq >/dev/null
+  $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
     libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 \
     shared-mime-info fonts-noto-core >/dev/null
   echo "   ($(( SECONDS - t0 ))s)"
-  mkdir -p /var/lib/mizan-ci && touch /var/lib/mizan-ci/weasyprint-deps
+  touch $CACHE/markers/weasyprint-deps
 }
 
 echo "CI dependencies (cache: $CACHE)"

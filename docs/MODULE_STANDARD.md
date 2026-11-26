@@ -1,17 +1,17 @@
 # Mizan module standard
 
 Every module, built or planned, has the same structure. The structure is defined once, as files,
-in `shared/backend/app/framework/module_template/`, and applied by
-`shared/backend/app/framework/scaffold.py`. This document explains it. Background and direction:
+in `system/core/backend/app/framework/module_template/`, and applied by
+`system/core/backend/app/framework/scaffold.py`. This document explains it. Background and direction:
 [ADR-006](decisions/ADR-006-module-platform.md).
 
 ## Where a module lives
 
 | Kind | Backend | Frontend |
 |---|---|---|
-| `business` | `shared/backend/app/activities/<activity>/modules/<module_id>/` | `system/frontend/src/activities/<activity>/modules/<module_id>/` |
-| `platform` | `shared/backend/app/platform/<module_id>/` | `system/frontend/src/platform/<module_id>/` |
-| `integration` | `shared/backend/app/integrations/<module_id>/` | `system/frontend/src/integrations/<module_id>/` |
+| `business` | `system/core/backend/app/activities/<activity>/modules/<module_id>/` | `system/erp/frontend/src/activities/<activity>/modules/<module_id>/` |
+| `platform` | `system/core/backend/app/platform/<module_id>/` | `system/erp/frontend/src/platform/<module_id>/` |
+| `integration` | `system/core/backend/app/integrations/<module_id>/` | `system/erp/frontend/src/integrations/<module_id>/` |
 
 - `<activity>` is the module's **home activity**, one full word (`pharmacy`, `manufacturing`,
   `petroleum`), defined in `app/activities/<activity>/activity.json`, with its demo data in
@@ -46,7 +46,7 @@ in `shared/backend/app/framework/module_template/`, and applied by
 | `seed.py` | Demo data for a new workspace (`is_demo`, removable). | Called by `app/framework/demo.py` in a fixed order with one shared random generator; activities add a `CATALOG` and/or `seed(db, ctx)` in `app/activities/<id>/seed.py`. |
 | `migrations/README.md` | The module's own migrations, in order. | Until the per-module runner exists, migrations go in `app/db/migrations.py`. |
 | `templates/README.md` | Print templates, `templates/<category>/<name>.html`. | Rendered by the print engine (`platform/printing/engine.py`); a variant can replace one. |
-| `tests/README.md` | The module's tests. | Until collected here: `system/backend/tests/` and `e2e/`. |
+| `tests/README.md` | The module's tests. | Until collected here: `system/erp/backend/tests/` and `e2e/`. |
 | `variants/<variant>/variant.json` | How the module works for one activity. In the module only `<variant>` = `standard`, its own defaults for every activity. | Business modules only. An activity's variant is **not** in the module: it lives in that activity, `app/activities/<activity>/variants/<module_id>/variant.json` (ADR-010; the scaffold puts it there), with the same fields: screens, fields, uses, terms, settings, permissions, templates, widgets. `"status": "planned"` until built (the module then runs `standard`). `fields`: `{"product": [{"key", "label", "type": text\|number\|date\|boolean\|select, "required", "options", "searchable", "readonly"}]}` on the records in `app/framework/fields.py` (stored in their `extra` JSON; workspaces can change and add fields). `uses`: modules the variant relies on (they can't be removed while it runs). |
 | `variants/<variant>/hooks.py` (`standard` here; an activity's in `activities/<activity>/variants/<module_id>/hooks.py`) | Rules the variant adds: one function per extension point, `async def before_confirm(db, activity_id=None, **ctx)`. | Raise `HTTPException` to refuse; e.g. `activities/pharmacy/variants/pos/hooks.py`. |
 
@@ -104,7 +104,7 @@ python manage.py module check       # fail if a module is missing part of the st
 python manage.py module catalog     # regenerate docs/MODULE_CATALOG.md from the manifests
 ```
 
-`system/backend/tests/test_module_registry.py` enforces the structure: folder = id, home activity,
+`system/erp/backend/tests/test_module_registry.py` enforces the structure: folder = id, home activity,
 unique ids, frontend mirrors backend, planned modules not offered, Windows-safe names, activity
 folders holding only their known parts, activities' variants adapting real modules that list
 them, and that this document covers every file in the template.

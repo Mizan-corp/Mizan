@@ -56,7 +56,7 @@ Besides the ERP's own records, every workspace has (all tenant-scoped, with RLS)
 | `ext_records` | Records of every community module's entities, as JSONB validated against the entity |
 | `community_webhook_deliveries` | Webhooks to modules' servers: payload, status, attempts, next attempt, last error |
 | `workspace_themes` | Theme packages installed in the workspace (ADR-010), with their font files; the chosen theme is `tenants.palette["name"]` |
-| `workspace_files` | Every uploaded file and its size (#114); private files (kinds `clinic_signature`, `clinic_image`) have a `private:…` key in `url` (PRIVATE_UPLOAD_DIR, never served by URL) |
+| `workspace_files` | Every uploaded file, its size and original filename (`name`, migration v114) (#114); private files (kinds `clinic_signature`, `clinic_image`) have a `private:…` key in `url` (PRIVATE_UPLOAD_DIR, never served by URL) |
 | `clinic_care_team` | A patient's care team (#113): `patient_id` → `clinic_patients`, `user_id` → `users`, `role` (`attending`, `consultant`, `nurse`, `other`), `added_by`, `created_at`, `ended_at` (members are ended, not deleted); one active membership per (patient, user) |
 | `clinic_access_grants` | Break-glass grants (#113): patient, user, `reason`, `starts_at`, `expires_at` (60 minutes), `revoked_at`, `reviewed_by`/`reviewed_at`/`review_note` |
 | `clinic_access_log` | One row per read of clinical data (#113): `user_id`, `user_name`, `patient_id` (`NULL` for a list), `resource` (`patient`, `encounters`, `prescriptions`, `lab_orders`, `referrals`, `referral`, …), `how` (`all`, `setting`, `team`, `break_glass`, `queue`, `referral`), `rows`; no foreign key to the patient, so it outlives the record |
@@ -188,7 +188,7 @@ licence and installation identity live in files under the data folder
 (`app.onprem.state`), not in these tables.
 
 ## 4. Migration Rules
-- Database schema changes are tracked in `shared/backend/app/db/migrations.py` under the ordered `MIGRATIONS` list and applied with `python manage.py db migrate`.
+- Database schema changes are tracked in `system/core/backend/app/db/migrations.py` under the ordered `MIGRATIONS` list and applied with `python manage.py db migrate`.
 - Every migration must be **strictly idempotent** (`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`).
 - Migration runs execute statements sequentially with auto-healing and rollback safety.
 - On-site installs run the same migrations during setup and on every repair/update, so migrations

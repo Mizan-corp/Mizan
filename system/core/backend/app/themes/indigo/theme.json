@@ -1,0 +1,28 @@
+{
+  "id": "indigo",
+  "name": "نيلي",
+  "name_en": "Indigo",
+  "version": "1.0.0",
+  "kind": "theme",
+  "description": "نيلي رسمي مناسب للشركات. تركيبة أصلية من ألوان Open Color (MIT).",
+  "palette": "indigo",
+  "fonts": {
+    "body": "Almarai",
+    "display": "Tajawal",
+    "files": [
+      {
+        "ref": "tajawal"
+      },
+      {
+        "ref": "almarai"
+      }
+    ]
+  },
+  "radius": "0.625rem",
+  "shadows": "soft",
+  "motion": "full",
+  "preview": {
+    "source": "open-color-mit",
+    "designed_for": "mizan"
+  }
+}

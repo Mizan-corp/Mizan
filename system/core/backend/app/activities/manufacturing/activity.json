@@ -1,0 +1,118 @@
+{
+  "id": "manufacturing",
+  "family": "industry",
+  "order": 18,
+  "name": "تصنيع وتجميع ميكانيكي وإلكتروني",
+  "name_en": "Manufacturing",
+  "description": "شجرة منتج BOM، مراكز تشغيل، تخطيط مواد MRP، وتكاليف إنتاج",
+  "branding": {
+    "themes": [
+      "ocean",
+      "slate",
+      "teal"
+    ],
+    "fonts": {
+      "body": "Almarai",
+      "display": "Almarai"
+    },
+    "note": "انضباط صناعي وقراءة مريحة."
+  },
+  "modules": [
+    "manufacturing",
+    "inventory",
+    "operations",
+    "finance"
+  ],
+  "home": "/mfg",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {},
+  "menu": [
+    {
+      "id": "production",
+      "label": "التصنيع وخطوط الإنتاج",
+      "items": [
+        {
+          "screen": "manufacturing.mfg",
+          "label": "لوحة التحكم وأوامر الإنتاج"
+        },
+        {
+          "screen": "manufacturing.mfg_bom"
+        },
+        {
+          "screen": "manufacturing.mfg_mrp"
+        }
+      ]
+    },
+    {
+      "id": "mfg_stock",
+      "label": "الخامات والمنتج التام",
+      "items": [
+        {
+          "screen": "inventory.products",
+          "label": "المنتجات التامة ومواصفاتها"
+        },
+        {
+          "screen": "inventory.inventory",
+          "label": "مستودعات الخامات ومستلزمات الإنتاج",
+          "icon": "Warehouse"
+        },
+        {
+          "screen": "inventory.purchases",
+          "label": "أوامر الشراء من الموردين"
+        }
+      ]
+    },
+    {
+      "id": "mfg_finance",
+      "label": "تكاليف الإنتاج والمالية",
+      "items": [
+        {
+          "screen": "finance.customers",
+          "label": "حسابات كبار العملاء والموزعين"
+        },
+        {
+          "screen": "finance.finance",
+          "label": "الخزائن وتكاليف التشغيل الصناعي"
+        },
+        {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
+        },
+        {
+          "screen": "reporting.reports",
+          "label": "تقارير التكاليف الصناعية والإنتاجية"
+        }
+      ]
+    },
+    {
+      "id": "mfg_admin",
+      "label": "العمالة وخطوط التشغيل",
+      "items": [
+        {
+          "screen": "hr.hr",
+          "label": "مشغلو الماكينات وفنيو الورشة"
+        },
+        {
+          "screen": "pos.shifts",
+          "label": "ورديات المصنع وخطوط الإنتاج"
+        },
+        {
+          "screen": "core.settings",
+          "label": "إعدادات مراكز التكلفة والمصنع"
+        }
+      ]
+    }
+  ]
+}

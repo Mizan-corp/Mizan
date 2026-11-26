@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./shared/backend/app/db/baseline_schema.sql:/docker-entrypoint-initdb.d/00_baseline_schema.sql:ro
+      - ./system/core/backend/app/db/baseline_schema.sql:/docker-entrypoint-initdb.d/00_baseline_schema.sql:ro
     ports:
       - "5433:5432"
     healthcheck:
@@ -31,7 +31,7 @@ services:
   system-api:
     build:
       context: .
-      dockerfile: system/backend/Dockerfile
+      dockerfile: system/erp/backend/Dockerfile
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/inventory_db
@@ -43,8 +43,8 @@ services:
       EMAIL_SMTP_TLS: ${EMAIL_SMTP_TLS:-false}
       FIREBASE_CREDENTIALS: /app/firebase-service-account.json
     volumes:
-      - ./system/backend:/app
-      - ./shared/backend/app:/shared/app
+      - ./system/erp/backend:/app
+      - ./system/core/backend/app:/shared/app
       - uploads_data:/app/uploads
       - ./firebase-service-account.json:/app/firebase-service-account.json:ro
     ports:
@@ -86,7 +86,7 @@ services:
       EMAIL_SMTP_TLS: ${EMAIL_SMTP_TLS:-false}
     volumes:
       - ./website/backend:/app
-      - ./shared/backend/app:/shared/app
+      - ./system/core/backend/app:/shared/app
     ports:
       - "8001:8000"
     depends_on:
@@ -125,7 +125,7 @@ services:
       EMAIL_SMTP_TLS: ${EMAIL_SMTP_TLS:-false}
     volumes:
       - ./admin/backend:/app
-      - ./shared/backend/app:/shared/app
+      - ./system/core/backend/app:/shared/app
     ports:
       - "8002:8000"
     depends_on:
@@ -170,7 +170,7 @@ services:
       PAYMOB_INTEGRATION_IDS: ${PAYMOB_INTEGRATION_IDS:-}
     volumes:
       - ./owner/backend:/app
-      - ./shared/backend/app:/shared/app
+      - ./system/core/backend/app:/shared/app
     ports:
       - "8003:8000"
     depends_on:

@@ -1,0 +1,17 @@
+{
+  "id": "property",
+  "module": "helpdesk",
+  "status": "active",
+  "description": "Activity-specific wording. Catalog feature remains independent; legacy work flows retain source contracts.",
+  "screens": {},
+  "fields": {},
+  "uses": [],
+  "terms": {
+    "helpdesk.offering": "الخدمة",
+    "helpdesk.request": "طلب صيانة وحدة"
+  },
+  "settings": {},
+  "permissions": [],
+  "templates": {},
+  "widgets": []
+}

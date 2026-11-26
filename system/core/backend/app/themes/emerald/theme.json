@@ -1,0 +1,24 @@
+{
+  "id": "emerald",
+  "name": "زمردي",
+  "name_en": "Emerald",
+  "version": "1.0.0",
+  "kind": "theme",
+  "description": "أخضر هادئ للحسابات والمالية.",
+  "palette": "emerald",
+  "fonts": {
+    "body": "Manrope",
+    "files": [
+      {
+        "ref": "manrope"
+      },
+      {
+        "ref": "tajawal"
+      }
+    ],
+    "body_arabic": "Tajawal"
+  },
+  "radius": "0.875rem",
+  "shadows": "soft",
+  "motion": "full"
+}

@@ -1,0 +1,431 @@
+"""Visitor form submissions (contact-form V1): POST /forms/{slug}/{page}/{node}.
+
+Pins: host/slug/node strictly validated (404, no DB read); honeypot answers a
+fake success and stores nothing; the node id must resolve to a form block in
+the page's own published tree; posted keys must be exactly the fields that
+block had enabled; payloads are length-capped and email/message required; a
+real submission is stored and answered with a 303 back to the page.
+DB is mocked like test_public_item_routes.py.
+"""
+import types
+import unittest
+import uuid
+from unittest.mock import AsyncMock, MagicMock
+
+import os, sys
+from pathlib import Path
+os.environ.setdefault('DATABASE_URL', 'postgresql+asyncpg://unused:unused@127.0.0.1/unused')
+os.environ.setdefault('SECRET_KEY', 'offline-test-not-used-for-signing')
+os.environ.setdefault('PUBLIC_SITE_HOST', 'sites.example')
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'system' / 'core' / 'backend'))
+
+from app.platform.tenancy.context import current_tenant_id
+from website_api.routers import public_forms as pf
+from website_api.routers import public_pages as pp
+
+TID = uuid.UUID("a1b975ac-32ac-4813-9b35-e43069616c5f")
+PAGE_ID = uuid.UUID("c3d186ce-54ce-6035-b756-e64189827e71")
+HOST = "sites.example"
+
+FORM_TREE = {
+    "id": "n_root1", "type": "section", "settings": {"desktop": {}}, "content": {},
+    "children": [{
+        "id": "n_cols01", "type": "columns", "settings": {"desktop": {}}, "content": {},
+        "children": [{
+            "id": "n_col001", "type": "column", "settings": {}, "content": {},
+            "children": [{
+                "id": "n_form01", "type": "form",
+                "settings": {"desktop": {"visible": True, "field_name": True, "field_phone": False}},
+                "content": {"en": {"title": "Contact us"}},
+            }],
+        }],
+    }],
+}
+
+
+class FakeForm(dict):
+    def multi_items(self):
+        return list(self._items)
+
+
+def make_form(pairs):
+    form = FakeForm(pairs)
+    form._items = list(pairs)
+    return form
+
+
+def make_request(host=HOST, ip="203.0.113.10", form=None, query=None, origin="default",
+                 content_length=None, body_chunks=()):
+    async def _form():
+        return form if form is not None else make_form([])
+
+    async def _stream():
+        for chunk in body_chunks:
+            yield chunk
+
+    headers = {"host": host}
+    if origin == "default":
+        headers["origin"] = f"https://{host}"
+    elif origin is not None:
+        headers["origin"] = origin
+    if content_length is not None:
+        headers["content-length"] = content_length
+    return types.SimpleNamespace(headers=headers, client=types.SimpleNamespace(host=ip),
+                                 query_params=query or {}, form=_form,
+                                 stream=lambda: _stream())
+
+
+def db_scripted(results):
+    db = AsyncMock()
+    items = iter(results)
+
+    async def _exec(stmt, params=None):
+        r = MagicMock()
+        r.first.return_value = next(items)
+        return r
+
+    db.execute.side_effect = _exec
+    db.connection.return_value = AsyncMock()
+    return db
+
+
+def activation_row():
+    return MagicMock(tid=TID, tstatus="active", allow_data=False, activation_theme={})
+
+
+def page_row(tree=FORM_TREE):
+    return MagicMock(id=PAGE_ID, published_tree=tree)
+
+
+def ok_script(tree=FORM_TREE):
+    # Bypass on, activation, bypass off, bind, page (same shape as
+    # test_public_item_routes.ok_script).
+    return [None, activation_row(), None, None, page_row(tree)]
+
+
+GOOD_FORM = make_form([("name", "Ammar"), ("email", "ammar@example.com"),
+                       ("message", "hello"), ("website", "")])
+
+
+class PublicFormTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        pf._form_hits.clear()
+        self._saved_host = pp.settings.PUBLIC_SITE_HOST
+        pp.settings.PUBLIC_SITE_HOST = HOST
+
+    def tearDown(self):
+        pp.settings.PUBLIC_SITE_HOST = self._saved_host
+
+    async def test_bad_host_slug_and_node_id_are_generic_404_without_db(self):
+        db = AsyncMock()
+        for slug, path, node in (("Bad_Slug", "contact", "n_form01"), ("site", "x" * 81, "n_form01"),
+                                 ("site", "contact", "not-a-node"), ("site", "contact", 'n_bad"x')):
+            with self.assertRaises(pf.HTTPException) as cm:
+                await pf.submit_form(slug, path, node, make_request(form=GOOD_FORM), db)
+            self.assertEqual(cm.exception.status_code, 404, (slug, path, node))
+        db.execute.assert_not_called()
+
+    async def test_honeypot_gets_fake_success_and_stores_nothing(self):
+        db = AsyncMock()
+        res = await pf.submit_form("site", "contact", "n_form01",
+                                   make_request(form={**GOOD_FORM, "website": "http://spam"}), db)
+        self.assertEqual(res.status_code, 303)
+        self.assertEqual(res.headers["location"], "/site/site/contact?form_sent=n_form01")
+        db.execute.assert_not_called()
+        db.add.assert_not_called()
+
+    async def test_successful_submission_is_stored_and_redirects(self):
+        db = db_scripted(ok_script())
+        res = await pf.submit_form("site", "contact", "n_form01",
+                                   make_request(form=GOOD_FORM, query={"lang": "en"}), db)
+        self.assertEqual(res.status_code, 303)
+        self.assertEqual(res.headers["location"], "/site/site/contact?form_sent=n_form01&lang=en")
+        self.assertEqual(db.add.call_count, 1)
+        stored = db.add.call_args.args[0]
+        self.assertEqual(stored.page_id, PAGE_ID)
+        self.assertEqual(stored.block_id, "n_form01")
+        self.assertEqual(stored.payload,
+                         {"name": "Ammar", "email": "ammar@example.com", "message": "hello"})
+        db.commit.assert_awaited()
+
+    async def test_unknown_node_id_is_404(self):
+        db = db_scripted(ok_script())
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_form99", make_request(form=GOOD_FORM), db)
+        self.assertEqual(cm.exception.status_code, 404)
+
+    async def test_node_that_is_not_a_form_is_404(self):
+        tree = {"id": "n_root1", "type": "section", "settings": {"desktop": {}}, "content": {},
+                "children": [{"id": "n_cols01", "type": "columns", "settings": {"desktop": {}}, "content": {},
+                              "children": [{"id": "n_col001", "type": "column", "settings": {}, "content": {},
+                                            "children": [{"id": "n_text01", "type": "text", "settings": {},
+                                                          "content": {"en": {"html": "<p>hi</p>"}}}]}]}]}
+        db = db_scripted(ok_script(tree))
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_text01", make_request(form=GOOD_FORM), db)
+        self.assertEqual(cm.exception.status_code, 404)
+
+    async def test_extra_and_missing_keys_are_rejected(self):
+        base = [("name", "Ammar"), ("email", "ammar@example.com"), ("message", "hello"), ("website", "")]
+        variants = (base + [("subject", "hi")],
+                    [(k, v) for k, v in base if k != "message"],
+                    [(k, "" if k == "email" else v) for k, v in base],
+                    [(k, "not-an-email" if k == "email" else v) for k, v in base])
+        for form in (make_form(pairs) for pairs in variants):
+            db = db_scripted(ok_script())
+            pf._form_hits.clear()
+            with self.assertRaises(pf.HTTPException) as cm:
+                await pf.submit_form("site", "contact", "n_form01", make_request(form=form), db)
+            self.assertEqual(cm.exception.status_code, 400, form)
+            db.add.assert_not_called()
+
+    async def test_disabled_fields_are_not_accepted(self):
+        # field_name off in the tree: posting a name key is an exact-key mismatch.
+        tree = {"id": "n_root1", "type": "section", "settings": {"desktop": {}}, "content": {},
+                "children": [{"id": "n_cols01", "type": "columns", "settings": {"desktop": {}}, "content": {},
+                              "children": [{"id": "n_col001", "type": "column", "settings": {}, "content": {},
+                                            "children": [{"id": "n_form01", "type": "form",
+                                                          "settings": {"desktop": {"visible": True, "field_name": False}},
+                                                          "content": {"en": {}}}]}]}]}
+        db = db_scripted(ok_script(tree))
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_form01", make_request(form=GOOD_FORM), db)
+        self.assertEqual(cm.exception.status_code, 400)
+        db.add.assert_not_called()
+
+    async def test_message_only_inline_form_is_stored(self):
+        tree = {"id": "n_root1", "type": "section", "settings": {"desktop": {}}, "content": {},
+                "children": [{"id": "n_cols01", "type": "columns", "settings": {"desktop": {}}, "content": {},
+                              "children": [{"id": "n_col001", "type": "column", "settings": {}, "content": {},
+                                            "children": [{"id": "n_form01", "type": "form",
+                                                          "settings": {"desktop": {"visible": True, "layout": "inline", "field_email": False}},
+                                                          "content": {"en": {}}}]}]}]}
+        db = db_scripted(ok_script(tree))
+        resp = await pf.submit_form("site", "contact", "n_form01",
+                                    make_request(form=make_form([("message", "need a laptop"), ("website", "")])), db)
+        self.assertEqual(resp.status_code, 303)
+        self.assertEqual(db.add.call_args[0][0].payload, {"message": "need a laptop"})
+        # an email key is refused when the block hides it
+        db2 = db_scripted(ok_script(tree))
+        with self.assertRaises(pf.HTTPException):
+            await pf.submit_form("site", "contact", "n_form01", make_request(form=GOOD_FORM), db2)
+
+    async def test_rate_limit_locks_out_after_ten(self):
+        db = db_scripted(ok_script())
+        for _ in range(10):
+            db2 = db_scripted(ok_script())
+            await pf.submit_form("site", "contact", "n_form01", make_request(form=GOOD_FORM), db2)
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_form01", make_request(form=GOOD_FORM), db)
+        self.assertEqual(cm.exception.status_code, 404)
+        db.execute.assert_not_called()
+
+    async def test_cross_site_origin_is_refused_without_db(self):
+        db = AsyncMock()
+        for origin in ("https://evil.example", "https://sites.example.evil.example", "null"):
+            with self.assertRaises(pf.HTTPException) as cm:
+                await pf.submit_form("site", "contact", "n_form01",
+                                     make_request(form=GOOD_FORM, origin=origin), db)
+            self.assertEqual(cm.exception.status_code, 404, origin)
+        db.execute.assert_not_called()
+
+    async def test_absent_origin_still_passes_the_gate(self):
+        db = db_scripted(ok_script())
+        res = await pf.submit_form("site", "contact", "n_form01",
+                                   make_request(form=GOOD_FORM, origin=None), db)
+        self.assertEqual(res.status_code, 303)
+        self.assertEqual(db.add.call_count, 1)
+
+    async def test_oversize_declared_length_is_refused_without_db(self):
+        db = AsyncMock()
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_form01",
+                                 make_request(form=GOOD_FORM, content_length=str(16 * 1024 + 1)), db)
+        self.assertEqual(cm.exception.status_code, 404)
+        db.execute.assert_not_called()
+
+    async def test_oversize_streamed_body_is_refused_without_a_header(self):
+        # No Content-Length at all (chunked): the streamed bytes themselves are
+        # capped, the form is never parsed and the DB is never touched.
+        db = AsyncMock()
+        req = make_request(form=GOOD_FORM, body_chunks=[b"x" * 8192, b"y" * 8192, b"z"])
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_form01", req, db)
+        self.assertEqual(cm.exception.status_code, 404)
+        db.execute.assert_not_called()
+
+    async def test_understated_content_length_does_not_defeat_the_cap(self):
+        # The header claims 100 bytes; the stream delivers more than the cap.
+        # The header is never trusted for the limit: the read itself stops it.
+        db = AsyncMock()
+        req = make_request(form=GOOD_FORM, content_length="100",
+                           body_chunks=[b"x" * (16 * 1024 + 1)])
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_form01", req, db)
+        self.assertEqual(cm.exception.status_code, 404)
+        db.execute.assert_not_called()
+
+    async def test_duplicate_keys_are_rejected(self):
+        duped = make_form([("name", "Ammar"), ("email", "a@b.co"), ("email", "c@d.co"),
+                           ("message", "hello"), ("website", "")])
+        db = db_scripted(ok_script())
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_form01", make_request(form=duped), db)
+        self.assertEqual(cm.exception.status_code, 400)
+        db.add.assert_not_called()
+
+    async def test_revoked_activation_is_404(self):
+        # Disabling the page's activation (the owner's revoke) stops submissions
+        # immediately: no row match, no write, one generic answer.
+        db = db_scripted([None, None, None])  # bypass on, no enabled row, bypass off
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_form01", make_request(form=GOOD_FORM), db)
+        self.assertEqual(cm.exception.status_code, 404)
+        db.add.assert_not_called()
+
+    async def test_unpublished_page_is_404(self):
+        db = db_scripted([None, activation_row(), None, None, None])  # page lookup misses
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_form01", make_request(form=GOOD_FORM), db)
+        self.assertEqual(cm.exception.status_code, 404)
+        db.add.assert_not_called()
+
+    async def test_real_starlette_request_round_trip(self):
+        # The parsing path against a REAL Starlette Request (ASGI receive), not
+        # the namespace fake: the capped read caches _body and request.form()
+        # parses exactly what the stream delivered.
+        from starlette.requests import Request
+
+        def real_request(body: bytes, headers: dict):
+            state = {"sent": False}
+
+            async def receive():
+                if not state["sent"]:
+                    state["sent"] = True
+                    return {"type": "http.request", "body": body, "more_body": False}
+                return {"type": "http.disconnect"}
+
+            scope = {"type": "http", "method": "POST", "path": "/forms/site/contact/n_form01",
+                     "query_string": b"", "client": ("203.0.113.10", 0),
+                     "headers": [(k.lower().encode(), v.encode()) for k, v in headers.items()]}
+            return Request(scope, receive)
+
+        body = b"name=Ammar&email=ammar%40example.com&message=hello&website="
+        headers = {"host": HOST, "origin": f"https://{HOST}",
+                   "content-type": "application/x-www-form-urlencoded"}
+        db = db_scripted(ok_script())
+        res = await pf.submit_form("site", "contact", "n_form01", real_request(body, headers), db)
+        self.assertEqual(res.status_code, 303)
+        stored = db.add.call_args.args[0]
+        self.assertEqual(stored.payload,
+                         {"name": "Ammar", "email": "ammar@example.com", "message": "hello"})
+
+        # No Content-Length header at all, body past the cap on the wire.
+        big = b"name=Ammar&" + b"x" * (16 * 1024)
+        headers.pop("content-length", None)
+        db = AsyncMock()
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_form01", real_request(big, headers), db)
+        self.assertEqual(cm.exception.status_code, 404)
+        db.execute.assert_not_called()
+
+    async def test_tenant_context_is_cleared_afterwards(self):
+        db = db_scripted(ok_script())
+        await pf.submit_form("site", "contact", "n_form01", make_request(form=GOOD_FORM), db)
+        self.assertIsNone(current_tenant_id.get())
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+class PublicFormMiddlewareTests(unittest.IsolatedAsyncioTestCase):
+    """The anonymous submission route through the REAL middleware stack.
+
+    Pins the narrow CSRF exemption: exactly POST /forms/{slug}/{page}/{node}
+    passes without a double-submit token (native browser forms cannot echo it),
+    while the attacker-Origin rejection stays in the route (before any DB read)
+    and the authenticated admin inbox path remains fully CSRF-protected.
+    """
+
+    def _app(self, db):
+        from fastapi import FastAPI
+        from app.db.base import get_db
+        from app.middleware import add_csrf_middleware
+
+        app = FastAPI()
+        add_csrf_middleware(app)
+        app.include_router(pf.router)
+
+        async def _db():
+            yield db
+
+        app.dependency_overrides[get_db] = _db
+        return app
+
+    def setUp(self):
+        pf._form_hits.clear()
+        self._saved_host = pp.settings.PUBLIC_SITE_HOST
+        pp.settings.PUBLIC_SITE_HOST = HOST
+
+    def tearDown(self):
+        pp.settings.PUBLIC_SITE_HOST = self._saved_host
+
+    async def _post(self, app, origin="default", path="/forms/site/contact/n_form01"):
+        import httpx
+        headers = {"host": HOST}
+        if origin == "default":
+            headers["origin"] = f"https://{HOST}"
+        elif origin is not None:
+            headers["origin"] = origin
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url=f"https://{HOST}") as c:
+            return await c.post(path, headers=headers,
+                                data={"name": "Ammar", "email": "ammar@example.com",
+                                      "message": "hello", "website": ""},
+                                follow_redirects=False)
+
+    async def test_same_origin_native_post_passes_middleware_and_stores(self):
+        db = db_scripted(ok_script())
+        res = await self._post(self._app(db))
+        self.assertEqual(res.status_code, 303)
+        self.assertEqual(db.add.call_count, 1)
+
+    async def test_attacker_origin_rejected_by_route_before_db(self):
+        # No proxy laundering: the hostile Origin reaches the route verbatim.
+        db = db_scripted(ok_script())
+        res = await self._post(self._app(db), origin="https://evil.example")
+        self.assertEqual(res.status_code, 404)
+        db.execute.assert_not_called()
+        db.add.assert_not_called()
+
+    async def test_malformed_origin_is_safe_404(self):
+        db = db_scripted(ok_script())
+        res = await self._post(self._app(db), origin="://nonsense")
+        self.assertEqual(res.status_code, 404)
+        db.add.assert_not_called()
+
+    async def test_absent_origin_still_served(self):
+        # Justified for this anonymous-only route: curl and privacy-stripped
+        # browsers send no Origin; they still face rate limit, honeypot and
+        # exact-key validation, and a session cookie would authorize nothing.
+        db = db_scripted(ok_script())
+        res = await self._post(self._app(db), origin=None)
+        self.assertEqual(res.status_code, 303)
+
+    async def test_wrong_shape_post_stays_csrf_protected(self):
+        # Same prefix family but not the exact anonymous route shape.
+        db = db_scripted(ok_script())
+        res = await self._post(self._app(db), path="/forms/site/contact")
+        self.assertEqual(res.status_code, 403)
+        self.assertIn("CSRF", res.json()["detail"])
+
+    async def test_admin_inbox_mark_read_stays_csrf_protected(self):
+        # The authenticated submissions inbox must never inherit the exemption:
+        # a cookie-session POST there without the token 403s in the middleware
+        # (before routing, so no mount needed to prove the boundary).
+        db = db_scripted(ok_script())
+        res = await self._post(self._app(db), path="/site/forms/submissions/abc/read")
+        self.assertEqual(res.status_code, 403)
+        self.assertIn("CSRF", res.json()["detail"])

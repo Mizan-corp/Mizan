@@ -2,13 +2,17 @@
 inventory print (print token, HTML), daily and periodic ledger, cash flow, aging, admin overview,
 permissions and bad input. Each test sells in its own new branch, so the figures are exact.
 (`/reports/ledger` is the finance module's cash ledger, not a report of this module.)"""
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 from conftest import admin_api, cashier_api, ensure_shift, owner_api, product, wh  # noqa: F401
 
 
 def _today() -> str:
-    return date.today().isoformat()
+    # The reports bucket sales by the workspace clock (Africa/Cairo, tenancy/clock.py),
+    # not the runner's: after 22:00 UTC Cairo is already on the next day, so a UTC
+    # date.today() here queried yesterday's lines and missed tonight's sales.
+    return datetime.now(ZoneInfo("Africa/Cairo")).date().isoformat()
 
 
 def _sell(api, reg, product, wh, qty: int, discount: str = "0") -> dict:

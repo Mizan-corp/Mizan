@@ -1,0 +1,15 @@
+import {t} from './uiStrings';
+import {useEffect,useRef,useState} from 'react';
+import {newPagePayload} from './newPage';
+import {createSitePagesClient,SiteApiError,type PageDetail} from './sitePages';
+export default function NewPage({apiBase,onCreated,onCancel}:{apiBase:string;onCreated:(page:PageDetail)=>void;onCancel:()=>void}){
+ const [title,setTitle]=useState(''),[slug,setSlug]=useState(''),[language,setLanguage]=useState<'en'|'ar'>('en');
+ const [busy,setBusy]=useState(false),[error,setError]=useState(''),[uncertain,setUncertain]=useState(false);const titleRef=useRef<HTMLInputElement>(null),pending=useRef(false);
+ useEffect(()=>{titleRef.current?.focus()},[]);
+ async function submit(e:React.FormEvent){e.preventDefault();if(pending.current)return;setError('');let payload;
+  try{payload=newPagePayload({title,slug,language})}catch(e){setError(e instanceof Error?e.message:t('راجع بيانات الصفحة.'));return;}
+  pending.current=true;setBusy(true);
+  try{const page=await createSitePagesClient({baseUrl:apiBase}).createNativePage(payload);if(!page.id||page.slug!==payload.slug||page.status!=='draft'||page.published||JSON.stringify(page.draft_tree)!==JSON.stringify(payload.tree)||JSON.stringify(page.titles)!==JSON.stringify(payload.titles))throw Error('Creation response did not match');onCreated(page)}catch(e){if(!(e instanceof SiteApiError&&[409,403,422].includes(e.status)))setUncertain(true);setError(e instanceof SiteApiError&&e.isConflict?t('الرابط ده مستخدم قبل كده. اختار رابط تاني. صفحتك الموجودة زي ما هي.'):e instanceof SiteApiError&&e.isForbidden?t('الحساب ده مش من حقه ينشئ صفحات. بياناتك لسه موجودة.'):t('مقدرناش نتأكد إن الصفحة اتنشأت. حدّث قائمة الصفحات قبل ما تعيد المحاولة عشان متنشئش صفحة تانية. بياناتك لسه موجودة.'));}finally{pending.current=false;setBusy(false)}
+ }
+ return <section className="entry-new-page" aria-labelledby="new-page-title"><h2 id="new-page-title">{t('صفحة جديدة')}</h2><p>{t('هنبدأ بعنوان بسيط، ومن غير أي نشر. ده بيضيف مسودة جديدة، ومبيستبدلش أي صفحة موجودة.')}</p><form onSubmit={submit} aria-busy={busy}><fieldset disabled={busy}><label>{t('عنوان الصفحة')}<input ref={titleRef} value={title} onChange={e=>setTitle(e.target.value)} maxLength={120} required autoComplete="off"/></label><label>{t('رابط الصفحة')}<input value={slug} onChange={e=>setSlug(e.target.value)} maxLength={80} required autoComplete="off" spellCheck={false} placeholder="about-us"/><small>{t('حروف إنجليزية صغيرة وأرقام وشرطات مفردة. اختار رابط حتى لو العنوان بالعربي.')}</small></label><label>{t('لغة المحتوى')}<select value={language} onChange={e=>setLanguage(e.target.value as 'en'|'ar')}><option value="ar">{t('العربية')}</option><option value="en">English</option></select></label>{error&&<p className="entry-error" role="alert">{error}</p>}<div className="entry-new-actions"><button className="entry-primary" type="submit" disabled={uncertain}>{busy?t('بننشئ المسودة…'):t('أنشئ المسودة')}</button><button type="button" onClick={onCancel}>{uncertain?t('اقفل وحدّث الصفحات'):t('إلغاء')}</button></div></fieldset></form></section>;
+}

@@ -1,0 +1,24 @@
+{
+  "id": "cobalt",
+  "name": "كوبالت",
+  "name_en": "Cobalt",
+  "version": "1.0.0",
+  "kind": "theme",
+  "description": "أزرق داكن رسمي للمؤسسات.",
+  "palette": "cobalt",
+  "fonts": {
+    "body": "Manrope",
+    "files": [
+      {
+        "ref": "manrope"
+      },
+      {
+        "ref": "tajawal"
+      }
+    ],
+    "body_arabic": "Tajawal"
+  },
+  "radius": "0.875rem",
+  "shadows": "soft",
+  "motion": "full"
+}

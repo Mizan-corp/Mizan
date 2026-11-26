@@ -1,0 +1,9 @@
+#!/bin/bash
+# Runs as ammar via sudo from mizan-deploy-entry. Logs in to GHCR with the token on stdin, releases the sha.
+set -eu
+sha="$1"
+[[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "bad sha" >&2; exit 2; }
+IFS= read -r token
+echo "$token" | docker login ghcr.io -u mizan-deploy --password-stdin >/dev/null
+trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+/srv/mizan/deploy.sh "$sha"

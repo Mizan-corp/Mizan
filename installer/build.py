@@ -74,7 +74,7 @@ def build_web() -> None:
     out = PAYLOAD / "web"
     shutil.rmtree(out, ignore_errors=True)
     npx = "npx.cmd" if os.name == "nt" else "npx"
-    run([npx, "vite", "build", "--outDir", str(out), "--emptyOutDir"], cwd=ROOT / "system" / "frontend", env=env)
+    run([npx, "vite", "build", "--outDir", str(out), "--emptyOutDir"], cwd=ROOT / "system" / "erp" / "frontend", env=env)
 
 
 def build_pgsql(target: str) -> None:

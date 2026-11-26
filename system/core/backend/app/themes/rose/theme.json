@@ -1,0 +1,28 @@
+{
+  "id": "rose",
+  "name": "وردي",
+  "name_en": "Rose",
+  "version": "1.0.0",
+  "kind": "theme",
+  "description": "وردي ناعم وهوية مضيئة. تركيبة أصلية من ألوان Open Color (MIT).",
+  "palette": "rose",
+  "fonts": {
+    "body": "Almarai",
+    "display": "Cairo",
+    "files": [
+      {
+        "ref": "cairo"
+      },
+      {
+        "ref": "almarai"
+      }
+    ]
+  },
+  "radius": "0.625rem",
+  "shadows": "soft",
+  "motion": "full",
+  "preview": {
+    "source": "open-color-mit",
+    "designed_for": "mizan"
+  }
+}

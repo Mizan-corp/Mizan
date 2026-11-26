@@ -95,7 +95,7 @@ admin; `mizan theme new`); paid themes with the marketplace. 3. Done 2026-11-13:
 
 ## 2. Next Major Integration Candidates (Modular Architecture)
 
-Integration modules now live under the **`integrations`** category (`shared/backend/app/integrations/<id>/` + `system/frontend/src/integrations/<id>/`), following the same module contract as core/vertical modules. Each integration is a self-contained, activatable module with its own settings schema, router, models, and UI.
+Integration modules now live under the **`integrations`** category (`system/core/backend/app/integrations/<id>/` + `system/erp/frontend/src/integrations/<id>/`), following the same module contract as core/vertical modules. Each integration is a self-contained, activatable module with its own settings schema, router, models, and UI.
 
 - [x] **WhatsApp Business & Digital Receipt Dispatch (`whatsapp_gateway`)** — Scaffolded as an integration module: settings schema (Cloud API token, phone number ID, template selector, auto-send toggles), message log model, `/integrations/whatsapp/*` endpoints (status, send-receipt, messages), and a management page. Real dispatch to Meta's Cloud API is queued for the worker.
 - [ ] **Egyptian Tax Authority (ETA) e-Invoicing & e-Receipt Module (`eta_einvoice`)** — Implement as an `integrations` module: ETA portal submission queue, document signing schema (UUID, issuer tax ID, activity code, 14% VAT + 1% WHT), status dashboard.

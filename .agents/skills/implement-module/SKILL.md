@@ -9,12 +9,12 @@ When tasked with implementing a new module (e.g. `HLT-02`, a planned module of a
 
 1. **Requirements & Domain Inspection:**
    - Read the requirements (`docs/PRODUCT_REQUIREMENTS.md`, the SRS, the module's `README.md` if it is planned).
-   - Read `docs/MODULE_STANDARD.md` and inspect peer modules in `shared/backend/app/activities/<activity>/modules/`.
+   - Read `docs/MODULE_STANDARD.md` and inspect peer modules in `system/core/backend/app/activities/<activity>/modules/`.
 
 2. **Scaffold with the project's tool:**
    - `python manage.py module new <activity> <module_id> "<Arabic name>" --name-en "<English>"` creates the backend
      (`activities/<activity>/modules/<id>/`: manifest.json, models, schemas, service, router, hooks, seed, README…)
-     and the screens folder (`system/frontend/src/activities/<activity>/modules/<id>/`: index.ts, api.ts, screens/, components/).
+     and the screens folder (`system/erp/frontend/src/activities/<activity>/modules/<id>/`: index.ts, api.ts, screens/, components/).
      On a planned module it makes it active.
    - `python manage.py module check` must pass.
 
@@ -29,6 +29,6 @@ When tasked with implementing a new module (e.g. `HLT-02`, a planned module of a
    - Follow `docs/UI_UX_GUIDELINES.md` and `docs/DESIGN_SYSTEM.md` (tokens only); every state: loading, empty, error, no-permission, full.
 
 5. **Verification & Testing:**
-   - Backend tests in `system/backend/tests/`; `python manage.py test backend`; `test e2e` if routes changed.
-   - `npx tsc -b --noEmit` and `npm run build` in `system/frontend`.
+   - Backend tests in `system/erp/backend/tests/`; `python manage.py test backend`; `test e2e` if routes changed.
+   - `npx tsc -b --noEmit` and `npm run build` in `system/erp/frontend`.
    - Open the screen in a browser (Playwright), check it, and update docs (`TASKS.md`, the module's README).

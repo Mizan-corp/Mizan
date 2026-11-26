@@ -1,0 +1,33 @@
+{
+  "id": "paint",
+  "family": "commerce",
+  "order": 35,
+  "name": "paint",
+  "name_en": "",
+  "description": "",
+  "branding": {
+    "themes": [
+      "violet",
+      "rose",
+      "teal"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "ألوان تعبر عن المنتج نفسه."
+  },
+  "modules": [
+    "pos",
+    "inventory",
+    "finance"
+  ],
+  "home": "/pos",
+  "legacy_of": "retail",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
+}

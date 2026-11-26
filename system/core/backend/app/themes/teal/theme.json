@@ -1,0 +1,28 @@
+{
+  "id": "teal",
+  "name": "فيروزي",
+  "name_en": "Teal",
+  "version": "1.0.0",
+  "kind": "theme",
+  "description": "فيروزي متزن للخدمات الصحية والمهنية. تركيبة أصلية من ألوان Open Color (MIT).",
+  "palette": "teal",
+  "fonts": {
+    "body": "Cairo",
+    "display": "Tajawal",
+    "files": [
+      {
+        "ref": "cairo"
+      },
+      {
+        "ref": "tajawal"
+      }
+    ]
+  },
+  "radius": "0.625rem",
+  "shadows": "soft",
+  "motion": "full",
+  "preview": {
+    "source": "open-color-mit",
+    "designed_for": "mizan"
+  }
+}

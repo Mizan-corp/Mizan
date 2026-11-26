@@ -3,7 +3,7 @@
  * so the admin panel looks like the rest of Mizan. The names below are aliases
  * the admin components use; every colour resolves to a shared token.
  */
-@import "../../../shared/frontend/src/styles.css";
+@import "../../../system/core/frontend/src/styles.css";
 @source "./";
 
 @theme {

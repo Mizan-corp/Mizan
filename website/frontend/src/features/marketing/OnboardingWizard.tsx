@@ -6,7 +6,7 @@
  * Primary action: step 0..1 → «التالي»؛ step 2 → «أنشئ مساحة عملي الآن»؛ busy → جارٍ التجهيز
  * Art Direction: Warm Editorial Luxury (Oxblood, Deep Merlot, Warm Ivory, Muted Rose)
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Check,
@@ -42,6 +42,7 @@ import {
   ShieldCheck,
   Ticket,
   Flame,
+  ImagePlus,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -50,7 +51,7 @@ import { openWithSession } from "@/lib/handoff";
 import { saveOwnerSession } from "@app/lib/ownerSession";
 import { track } from "@app/analytics";
 import { type TenantInfo } from "@/stores/auth";
-import { useUiStore, type ThemePalette } from "@/stores/ui";
+import { applyTheme, type ThemePack } from "@/lib/theme";
 import { Button, ErrorBox, Input } from "@/components/ui";
 import {
   PALETTE_OPTIONS,
@@ -69,7 +70,48 @@ interface OwnerDraft {
   phone?: string;
 }
 
-const STEPS = ["النشاط التجاري", "بيانات المنشأة", "المظهر والوحدات"];
+interface ThemeSummary {
+  id: string;
+  name: string;
+  name_en?: string;
+  description: string;
+  swatches: string[];
+  fonts?: { body?: string; display?: string; body_arabic?: string; display_arabic?: string };
+  radius?: string;
+}
+
+interface ActivityBranding {
+  themes: string[];
+  palettes?: string[];
+  fonts: { body: string; display: string };
+  note: string;
+}
+
+interface RegistryPalette {
+  id: string;
+  colors: { light?: Record<string, string>; dark?: Record<string, string> };
+  swatches: string[];
+  source: string;
+  license: string;
+}
+
+interface ThemeFontFileEntry {
+  family: string;
+  src: string;
+  weight?: string;
+  style?: "normal" | "italic";
+}
+
+interface BrandingOptions {
+  themes: ThemeSummary[];
+  full: Record<string, ThemePack>;
+  activities: Record<string, ActivityBranding>;
+  palettes?: RegistryPalette[];
+  families: string[];
+  family_files: Record<string, ThemeFontFileEntry[]>;
+}
+
+const STEPS = ["النشاط التجاري", "بيانات المنشأة", "الهوية البصرية", "الوحدات"];
 
 interface SectorMeta {
   value: string;
@@ -158,6 +200,16 @@ export default function OnboardingWizard() {
   const [company, setCompany] = useState("");
   const [scale, setScale] = useState("medium");
   const [palette, setPalette] = useState<string>("mizan");
+  const [colorsOverride, setColorsOverride] = useState<string | null>(null); // independent palette pick (theme's own when null)
+  const [branding, setBranding] = useState<BrandingOptions | null>(null);
+  const [bodyFont, setBodyFont] = useState<string>("");
+  const [displayFont, setDisplayFont] = useState<string>("");
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [pendingSession, setPendingSession] = useState<{ access_token: string; owner_token: string } | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [features, setFeatures] = useState<string[]>(() => getSectorDefaultFeatures(initialSector));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -165,6 +217,8 @@ export default function OnboardingWizard() {
   function handleSelectSector(newSector: string) {
     setSector(newSector);
     setFeatures(getSectorDefaultFeatures(newSector));
+    const rec = branding?.activities?.[newSector]?.themes?.[0];
+    if (rec && branding?.full?.[rec]) handleSelectPalette(rec);
   }
 
   // Ensure features are updated if sector changes externally or initializes
@@ -205,6 +259,63 @@ export default function OnboardingWizard() {
     });
   }, [enrichedSectors, sectorCategory, sectorSearch]);
 
+  // Real theme packs + this sector's recommendations; the static grid is the fallback.
+  useEffect(() => {
+    let live = true;
+    api.get<BrandingOptions>("/platform/branding")
+      .then((b) => {
+        if (!live) return;
+        setBranding(b);
+        const rec = b.activities?.[sector]?.themes?.[0];
+        if (rec && b.full?.[rec]) {
+          setPalette(rec);
+          const body = b.full[rec].fonts?.body ?? "";
+          const display = b.full[rec].fonts?.display ?? body;
+          setBodyFont(body);
+          setDisplayFont(display);
+          const files = [...(b.full[rec].fonts?.files ?? [])];
+          applyTheme({ ...b.full[rec], fonts: { ...b.full[rec].fonts, body, display, files } });
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Load each advertised family once, so option chips and catalog cards preview the
+  // real face. Font files live on the API (same base lib/theme and lib/api use).
+  useEffect(() => {
+    if (!branding) return;
+    const api = ((import.meta.env.VITE_API_URL as string | undefined) ?? "/api").replace(/\/+$/, "");
+    const seen = new Set<string>();
+    const css = Object.values(branding.family_files ?? {})
+      .flat()
+      .filter((f) => {
+        const key = `${f.family}|${f.src}|${f.weight ?? "400"}|${f.style ?? "normal"}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((f) => `@font-face { font-family: "${f.family}"; src: url("${api}${f.src}"); font-weight: ${f.weight ?? "400"}; font-style: ${f.style ?? "normal"}; font-display: swap; }`)
+      .join("\n");
+    const el = document.createElement("style");
+    el.id = "mizan-branding-families";
+    el.textContent = css;
+    document.head.appendChild(el);
+    return () => el.remove();
+  }, [branding]);
+
+  // Leaving the wizard restores the site's own look.
+  useEffect(
+    () => () => {
+      applyTheme(null);
+      document.documentElement.removeAttribute("data-theme");
+    },
+    []
+  );
+
   if (!draft || !draft.email || !draft.phone) {
     // No account step yet, or one saved before signup asked for the email and phone (#72).
     return (
@@ -218,20 +329,113 @@ export default function OnboardingWizard() {
     setFeatures((f) => (f.includes(v) ? f.filter((x) => x !== v) : [...f, v]));
   }
 
-  function handleSelectPalette(palId: string) {
-    setPalette(palId);
-    useUiStore.getState().setPalette(palId as ThemePalette);
+  function applyWithFonts(themeId: string, body: string, display: string, colorsId: string | null = colorsOverride) {
+    const pack = branding?.full?.[themeId];
+    if (!pack) return;
+    const files = [...(pack.fonts?.files ?? [])];
+    for (const fam of [body, display]) {
+      if (!fam || files.some((f) => f.family === fam)) continue;
+      files.push(...(branding?.family_files?.[fam] ?? []));
+    }
+    // Independent palette: recolor the theme with a registry palette, keeping its fonts/radius.
+    const overrideColors = colorsId ? branding?.palettes?.find((pl) => pl.id === colorsId)?.colors : undefined;
+    const colors = overrideColors?.light && overrideColors?.dark
+      ? { light: overrideColors.light, dark: overrideColors.dark } : pack.colors;
+    applyTheme({ ...pack, colors, fonts: { ...pack.fonts, body: body || pack.fonts?.body, display: display || pack.fonts?.display, files } });
+  }
+
+  function handlePickPalette(pid: string | null) {
+    setColorsOverride(pid);
+    applyWithFonts(palette, bodyFont, displayFont, pid);
+  }
+
+  function handleSelectPalette(themeId: string) {
+    setPalette(themeId);
+    const pack = branding?.full?.[themeId];
+    const body = pack?.fonts?.body ?? "";
+    const display = pack?.fonts?.display ?? body;
+    setBodyFont(body);
+    setDisplayFont(display);
+    applyWithFonts(themeId, body, display);
+  }
+
+  function handlePickFont(which: "body" | "display", fam: string) {
+    const body = which === "body" ? fam : bodyFont;
+    const display = which === "display" ? fam : displayFont;
+    setBodyFont(body);
+    setDisplayFont(display);
+    applyWithFonts(palette, body, display);
+  }
+
+  function handleLogoPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp", "image/gif"].includes(file.type)) {
+      setLogoError("صيغة الصورة غير مدعومة — PNG أو JPG أو WebP");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setLogoError("الصورة أكبر من 5 ميجابايت");
+      return;
+    }
+    setLogoError(null);
+    setLogoFile(file);
+    setLogoPreview((old) => {
+      if (old) URL.revokeObjectURL(old);
+      return URL.createObjectURL(file);
+    });
+  }
+
+  async function uploadLogo(token: string, file: File) {
+    const base = ((import.meta.env.VITE_API_URL as string | undefined) ?? "/api").replace(/\/+$/, "");
+    const form = new FormData();
+    form.append("file", file);
+    let res: Response;
+    try {
+      res = await fetch(`${base}/branding/logo`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+    } catch {
+      throw new ApiError(0, "تعذر الاتصال بالخادم — تحقق من اتصال الإنترنت");
+    }
+    if (!res.ok) {
+      let msg = "تعذر رفع الشعار";
+      try {
+        const d = await res.json();
+        if (typeof d?.detail === "string" && res.status !== 503) msg = d.detail;
+      } catch { /* keep default */ }
+      if (res.status === 503) msg = "تخزين الملفات غير متاح على هذا الخادم حالياً — حاول مرة أخرى بعد قليل";
+      throw new ApiError(res.status, msg);
+    }
+  }
+
+  function proceed(session: { owner_token: string }) {
+    sessionStorage.removeItem("mizan.owner");
+    sessionStorage.removeItem("vendora.owner");
+
+    // The new owner lands in the owner panel, signed in, where a short tour
+    // shows their workspace, how to open it, the trial and subscriptions.
+    saveOwnerSession(session.owner_token);
+    track("signup_complete");
+    openWithSession("owner", "/", session.owner_token);
   }
 
   async function create() {
+    if (pendingSession) return; // workspace already exists; only logo retry is allowed
     setBusy(true);
     setError(null);
+    setLogoError(null);
     try {
       const r = await api.post<{ access_token: string; owner_token: string; tenant: TenantInfo }>("/platform/signup", {
         company_name: company,
         sector,
         scale,
         palette,
+        colors: colorsOverride ?? undefined,
+        fonts: bodyFont ? { body: bodyFont, display: displayFont || bodyFont } : undefined,
         features,
         owner_username: draft!.username,
         owner_password: draft!.password,
@@ -240,15 +444,18 @@ export default function OnboardingWizard() {
         owner_phone: draft!.phone ?? "",
       });
 
-      useUiStore.getState().setPalette(palette as ThemePalette);
-      sessionStorage.removeItem("mizan.owner");
-      sessionStorage.removeItem("vendora.owner");
-
-      // The new owner lands in the owner panel, signed in, where a short tour
-      // shows their workspace, how to open it, the trial and subscriptions.
-      saveOwnerSession(r.owner_token);
-      track("signup_complete");
-      openWithSession("owner", "/", r.owner_token);
+      // Workspace exists from here on. The logo upload is a separate, retryable
+      // step: it never recreates the workspace, and a failure says so plainly.
+      if (logoFile) {
+        try {
+          await uploadLogo(r.access_token, logoFile);
+        } catch (err) {
+          setPendingSession(r);
+          setLogoError(err instanceof ApiError ? err.message : "تعذر رفع الشعار — حاول مجددًا");
+          return;
+        }
+      }
+      proceed(r);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         setError("اسم المستخدم محجوز — ارجع للخطوة السابقة واختر اسمًا آخر.");
@@ -261,7 +468,88 @@ export default function OnboardingWizard() {
     }
   }
 
+  async function retryLogoUpload() {
+    if (!pendingSession || !logoFile) return;
+    setBusy(true);
+    setLogoError(null);
+    try {
+      await uploadLogo(pendingSession.access_token, logoFile);
+      proceed(pendingSession);
+    } catch (err) {
+      setLogoError(err instanceof ApiError ? err.message : "تعذر رفع الشعار — حاول مجددًا");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const selectedSectorObj = enrichedSectors.find((s) => s.value === sector);
+  const activityBranding = branding?.activities?.[sector];
+  const recIds = activityBranding?.themes ?? [];
+  const recThemes = recIds
+    .map((id) => branding?.themes.find((t) => t.id === id))
+    .filter((t): t is ThemeSummary => Boolean(t));
+  const selectedTheme = branding?.themes.find((t) => t.id === palette);
+
+  function ThemeCard({ t }: { t: ThemeSummary }) {
+    const isSelected = palette === t.id;
+    return (
+      <button
+        type="button"
+        onClick={() => handleSelectPalette(t.id)}
+        aria-pressed={isSelected}
+        className={cn(
+          "group relative flex flex-col gap-2.5 rounded-xl border p-3.5 text-start transition-all cursor-pointer",
+          isSelected
+            ? "border-primary bg-primary/[0.06] ring-1 ring-primary shadow-sm"
+            : "border-line bg-card hover:border-primary/40 hover:bg-secondary/50"
+        )}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className="text-xs font-bold text-foreground truncate"
+            style={t.fonts?.display || t.fonts?.body
+              ? { fontFamily: [`"${t.fonts.display || t.fonts.body}"`, t.fonts.display_arabic ? `"${t.fonts.display_arabic}"` : null, "sans-serif"].filter(Boolean).join(", ") }
+              : undefined}
+          >
+            {t.name}
+          </span>
+          <span
+            className={cn(
+              "grid size-4 shrink-0 place-items-center rounded-full border transition-all",
+              isSelected
+                ? "border-primary bg-primary text-primary-foreground scale-110"
+                : "border-muted-foreground/30 opacity-40 group-hover:opacity-100"
+            )}
+          >
+            {isSelected && <Check className="size-2.5 stroke-[3]" />}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5" aria-hidden>
+          {(t.swatches ?? []).slice(0, 5).map((sw, i) => (
+            <span
+              key={i}
+              className="size-5 rounded-md border border-black/10 shadow-xs"
+              style={{ background: sw }}
+            />
+          ))}
+        </div>
+        <span
+          className="block text-[10px] text-muted-foreground leading-relaxed line-clamp-2"
+          style={t.fonts?.body
+            ? { fontFamily: [`"${t.fonts.body}"`, t.fonts.body_arabic ? `"${t.fonts.body_arabic}"` : null, "sans-serif"].filter(Boolean).join(", ") }
+            : undefined}
+        >
+          {t.description}
+        </span>
+        {t.fonts?.body && (
+          <span className="text-[9px] font-mono text-muted-foreground/70" dir="ltr">
+            {t.fonts.body}
+            {t.fonts.display && t.fonts.display !== t.fonts.body ? ` + ${t.fonts.display}` : ""}
+          </span>
+        )}
+      </button>
+    );
+  }
 
   return (
     <div className="grid min-h-svh place-items-center bg-background p-4 text-foreground selection:bg-primary selection:text-primary-foreground">
@@ -272,13 +560,13 @@ export default function OnboardingWizard() {
 
         <div className="rounded-2xl border border-line bg-card p-5 sm:p-8 shadow-xl backdrop-blur-sm">
           {/* Step Progress Indicator */}
-          <div className="mb-6 flex items-center gap-3" aria-label={`خطوة ${step + 1} من 3`}>
+          <div className="mb-6 flex items-center gap-3" aria-label={`خطوة ${step + 1} من 4`}>
             {STEPS.map((label, i) => (
               <div key={label} className="flex flex-1 flex-col gap-1.5">
                 <div
                   className={cn(
                     "h-1.5 rounded-full transition-all duration-300",
-                    i <= step ? "bg-primary shadow-xs" : "bg-muted"
+                    i <= step ? "bg-primary shadow-xs" : "bg-secondary"
                   )}
                 />
                 <span
@@ -298,7 +586,7 @@ export default function OnboardingWizard() {
               Step 0: Business Sector (Curated, Categorized, Searchable)
               ══════════════════════════════════════════════════════════════════ */}
           {step === 0 && (
-            <fieldset className="space-y-4">
+            <fieldset className="space-y-4 pb-20">
               <div>
                 <legend className="flex items-center gap-2 text-lg sm:text-xl font-bold text-foreground">
                   <Building2 className="size-5 text-primary shrink-0" />
@@ -388,7 +676,7 @@ export default function OnboardingWizard() {
                             "group relative flex flex-col justify-between rounded-xl border p-3.5 text-start transition-all duration-200 cursor-pointer",
                             isSelected
                               ? "border-primary bg-primary/[0.06] shadow-sm ring-1 ring-primary"
-                              : "border-line bg-card hover:border-primary/40 hover:bg-muted/30"
+                              : "border-line bg-card hover:border-primary/40 hover:bg-secondary/50"
                           )}
                         >
                           <div>
@@ -470,7 +758,7 @@ export default function OnboardingWizard() {
               Step 1: Company Profile & Scale
               ══════════════════════════════════════════════════════════════════ */}
           {step === 1 && (
-            <fieldset className="space-y-5">
+            <fieldset className="space-y-5 pb-20">
               <div>
                 <legend className="flex items-center gap-2 text-lg sm:text-xl font-bold text-foreground">
                   <Sparkles className="size-5 text-primary shrink-0" />
@@ -492,6 +780,64 @@ export default function OnboardingWizard() {
                   autoFocus
                   className="h-11 text-sm font-medium"
                 />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-foreground mb-1.5 block">
+                  شعار المنشأة <span className="font-normal text-muted-foreground">(اختياري)</span>
+                </label>
+                <div className="flex items-center gap-3">
+                  {logoPreview ? (
+                    <img
+                      src={logoPreview}
+                      alt="شعار المنشأة"
+                      className="size-12 shrink-0 rounded-xl border border-line object-cover bg-card"
+                    />
+                  ) : (
+                    <span className="grid size-12 shrink-0 place-items-center rounded-xl border border-dashed border-line bg-secondary/40 text-muted-foreground">
+                      <ImagePlus className="size-5" />
+                    </span>
+                  )}
+                  <div className="min-w-0">
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      className="hidden"
+                      onChange={handleLogoPick}
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => logoInputRef.current?.click()}
+                        className="rounded-lg border border-line bg-card px-3 py-1.5 text-xs font-bold text-foreground hover:border-primary/40 hover:bg-secondary/50 transition cursor-pointer"
+                      >
+                        {logoFile ? "تغيير الصورة" : "اختر صورة الشعار"}
+                      </button>
+                      {logoFile && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLogoFile(null);
+                            setLogoPreview((old) => {
+                              if (old) URL.revokeObjectURL(old);
+                              return null;
+                            });
+                          }}
+                          className="text-xs text-muted-foreground hover:text-foreground transition cursor-pointer"
+                        >
+                          إزالة
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      PNG أو JPG حتى 5MB — يظهر في الترويسة والفواتير وموقعك.
+                    </p>
+                    {logoError && !pendingSession && (
+                      <p className="mt-1 text-[10px] font-bold text-destructive-ink">{logoError}</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -530,14 +876,14 @@ export default function OnboardingWizard() {
                           "flex flex-col items-start p-4 rounded-xl border text-start transition-all cursor-pointer",
                           isSelected
                             ? "border-primary bg-primary/5 ring-1 ring-primary shadow-xs"
-                            : "border-line bg-card hover:border-primary/40 hover:bg-muted/30"
+                            : "border-line bg-card hover:border-primary/40 hover:bg-secondary/50"
                         )}
                       >
                         <div className="flex items-center justify-between w-full mb-2">
                           <span
                             className={cn(
                               "grid size-8 place-items-center rounded-lg",
-                              isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                              isSelected ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
                             )}
                           >
                             <ScaleIconComp className="size-4" />
@@ -566,60 +912,314 @@ export default function OnboardingWizard() {
           {/* ══════════════════════════════════════════════════════════════════
               Step 2: Theme Palette & Modular Features
               ══════════════════════════════════════════════════════════════════ */}
+          {/* ══════════════════════════════════════════════════════════════════
+              Step 2: Brand identity - real theme packs, live preview
+              ══════════════════════════════════════════════════════════════════ */}
           {step === 2 && (
-            <fieldset className="space-y-5">
+            <fieldset className="space-y-5 pb-20">
               <div>
                 <legend className="flex items-center gap-2 text-lg sm:text-xl font-bold text-foreground">
                   <Palette className="size-5 text-primary shrink-0" />
-                  اختر الهوية البصرية والوحدات المبدئية
+                  هوية منشأتك البصرية
                 </legend>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  يتم تطبيق لوحة الألوان فورياً أثناء الاختيار، ويمكنك تبديلها لاحقاً في أي لحظة من الإعدادات.
+                  ترشيحاتنا التصميمية لنشاطك — المعاينة تُطبق فوراً على هذه الصفحة بألوانها
+                  وخطوطها الحقيقية، وتقدر تغيّر كل حاجة لاحقاً من الإعدادات.
+                </p>
+              </div>
+
+              {branding ? (
+                <>
+                  {recThemes.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Sparkles className="size-3.5 text-primary" />
+                        <span className="text-xs font-bold text-foreground">ترشيحات تناسب نشاطك</span>
+                      </div>
+                      {activityBranding?.note && (
+                        <p className="text-[11px] text-muted-foreground mb-2.5 leading-relaxed">
+                          {activityBranding.note}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {recThemes.map((t) => {
+                          const isSelected = palette === t.id;
+                          return (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => handleSelectPalette(t.id)}
+                              aria-pressed={isSelected}
+                              className={cn(
+                                "flex items-center gap-2 rounded-full border pe-3 ps-1.5 py-1.5 transition-all cursor-pointer",
+                                isSelected
+                                  ? "border-primary bg-primary/[0.08] ring-1 ring-primary shadow-xs"
+                                  : "border-line bg-card hover:border-primary/40 hover:bg-secondary/50"
+                              )}
+                            >
+                              <span className="flex -space-x-1.5" aria-hidden>
+                                {(t.swatches ?? []).slice(0, 3).map((sw, i) => (
+                                  <span
+                                    key={i}
+                                    className="size-5 rounded-full border-2 border-card shadow-xs"
+                                    style={{ background: sw, zIndex: 3 - i }}
+                                  />
+                                ))}
+                              </span>
+                              <span className="text-xs font-bold text-foreground">{t.name}</span>
+                              {isSelected && <Check className="size-3.5 text-primary stroke-[3]" />}
+                            </button>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          onClick={() => setCatalogOpen(true)}
+                          className="flex items-center gap-1.5 rounded-full border border-dashed border-line px-3 py-1.5 text-xs font-bold text-muted-foreground hover:border-primary/40 hover:text-foreground transition cursor-pointer"
+                        >
+                          <Palette className="size-3.5" />
+                          تصفح كل المظاهر ({branding.themes.length})
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* The one clear preview: a representative brand snapshot with the
+                      chosen logo, heading/body faces and a primary button. */}
+                  {selectedTheme && (() => {
+                    const pack = branding.full?.[palette];
+                    const palColors = colorsOverride ? branding.palettes?.find((pl) => pl.id === colorsOverride)?.colors : undefined;
+                    const light = (palColors ?? pack?.colors)?.light ?? {};
+                    const bg = light.background ?? "#ffffff";
+                    const fg = light.foreground ?? "#1a1a1a";
+                    const cardBg = light.card ?? bg;
+                    const primary = light.primary ?? "#651E2C";
+                    const primaryFg = light["primary-foreground"] ?? "#ffffff";
+                    const radius = pack?.radius ?? "0.75rem";
+                    const displayFam = displayFont ? `"${displayFont}", sans-serif` : undefined;
+                    const bodyFam = bodyFont ? `"${bodyFont}", sans-serif` : undefined;
+                    const name = company.trim() || "منشأتك";
+                    return (
+                      <div>
+                        <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+                          <p className="text-xs font-bold text-foreground">
+                            {selectedTheme.name}
+                            <span className="font-normal text-muted-foreground ms-1.5">{selectedTheme.name_en}</span>
+                          </p>
+                          <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                            مطبق الآن على الصفحة ✓
+                          </span>
+                        </div>
+                        <div
+                          className="overflow-hidden border border-line shadow-sm"
+                          style={{ background: bg, color: fg, borderRadius: radius }}
+                        >
+                          <div
+                            className="flex items-center gap-2.5 border-b px-4 py-2.5"
+                            style={{ background: cardBg, borderColor: `${fg}14` }}
+                          >
+                            {logoPreview ? (
+                              <img
+                                src={logoPreview}
+                                alt=""
+                                className="size-7 rounded-lg object-cover border border-black/10"
+                              />
+                            ) : (
+                              <span
+                                className="grid size-7 place-items-center rounded-lg text-xs font-bold"
+                                style={{ background: primary, color: primaryFg, fontFamily: displayFam }}
+                              >
+                                {name.slice(0, 1)}
+                              </span>
+                            )}
+                            <span className="text-sm font-bold truncate" style={{ fontFamily: displayFam }}>
+                              {name}
+                            </span>
+                          </div>
+                          <div className="px-4 py-5">
+                            <p className="text-xl font-bold leading-snug" style={{ fontFamily: displayFam }}>
+                              أهلاً بك في {name}
+                            </p>
+                            <p className="mt-2 text-xs leading-relaxed opacity-80" style={{ fontFamily: bodyFam }}>
+                              هذا نص تجريبي يوضح شكل الفقرات والوصف على موقعك وفي فواتيرك بالخط الذي اخترته للنصوص.
+                            </p>
+                            <span
+                              className="mt-3.5 inline-block px-4 py-2 text-xs font-bold"
+                              style={{ background: primary, color: primaryFg, borderRadius: radius, fontFamily: bodyFam }}
+                            >
+                              ابدأ الآن
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Independent typography: body and display faces, real preview. */}
+                  {branding.families?.length > 0 && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {(
+                        [
+                          { which: "body" as const, label: "خط النصوص", value: bodyFont, hint: "القوائم والنماذج والفواتير" },
+                          { which: "display" as const, label: "خط العناوين", value: displayFont, hint: "العناوين والأسماء الكبيرة" },
+                        ]
+                      ).map((row) => (
+                        <div key={row.which}>
+                          <label className="text-xs font-semibold text-foreground block">
+                            {row.label}
+                            <span className="block text-[10px] font-normal text-muted-foreground">{row.hint}</span>
+                          </label>
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {branding.families.map((fam) => {
+                              const isSelected = row.value === fam;
+                              return (
+                                <button
+                                  key={fam}
+                                  type="button"
+                                  onClick={() => handlePickFont(row.which, fam)}
+                                  aria-pressed={isSelected}
+                                  className={cn(
+                                    "rounded-lg border px-3 py-1.5 text-xs transition cursor-pointer",
+                                    isSelected
+                                      ? "border-primary bg-primary/[0.08] text-foreground font-bold ring-1 ring-primary"
+                                      : "border-line bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                                  )}
+                                  style={{ fontFamily: `"${fam}", sans-serif` }}
+                                >
+                                  {fam}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Independent palette: keep the theme, recolor it with any registry palette. */}
+                  {branding.palettes && branding.palettes.length > 0 && (() => {
+                    const recIds = activityBranding?.palettes ?? [];
+                    const rec = recIds.map((id) => branding.palettes!.find((pl) => pl.id === id)).filter(Boolean) as RegistryPalette[];
+                    const rest = branding.palettes.filter((pl) => !recIds.includes(pl.id));
+                    const chip = (pl: RegistryPalette) => {
+                      const isSelected = colorsOverride === pl.id;
+                      return (
+                        <button
+                          key={pl.id}
+                          type="button"
+                          onClick={() => handlePickPalette(isSelected ? null : pl.id)}
+                          aria-pressed={isSelected}
+                          title={`${pl.source} — ${pl.license}`}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition cursor-pointer",
+                            isSelected
+                              ? "border-primary bg-primary/[0.08] text-foreground font-bold ring-1 ring-primary"
+                              : "border-line bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                          )}
+                        >
+                          <span className="flex gap-0.5">
+                            {pl.swatches.map((c) => (
+                              <span key={c} className="size-3 rounded-full border border-black/10" style={{ background: c }} />
+                            ))}
+                          </span>
+                          {pl.id}
+                        </button>
+                      );
+                    };
+                    return (
+                      <div>
+                        <label className="text-xs font-semibold text-foreground block">
+                          لوحة الألوان
+                          <span className="block text-[10px] font-normal text-muted-foreground">
+                            ألوان المظهر المختار، أو لوحة مستقلة تُغيّر الألوان فقط وتُبقي الخطوط والشكل
+                          </span>
+                        </label>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handlePickPalette(null)}
+                            aria-pressed={colorsOverride === null}
+                            className={cn(
+                              "rounded-lg border px-2.5 py-1.5 text-xs transition cursor-pointer",
+                              colorsOverride === null
+                                ? "border-primary bg-primary/[0.08] text-foreground font-bold ring-1 ring-primary"
+                                : "border-line bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                            )}
+                          >
+                            ألوان المظهر
+                          </button>
+                          {rec.map(chip)}
+                          {rest.length > 0 && (
+                            <details className="w-full">
+                              <summary className="text-[11px] text-muted-foreground cursor-pointer">كل اللوحات ({branding.palettes.length})</summary>
+                              <div className="mt-1.5 flex flex-wrap gap-1.5">{rest.map(chip)}</div>
+                            </details>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </>
+              ) : (
+                <div>
+                  <label className="text-xs font-semibold text-foreground mb-2 block">
+                    لوحة الألوان الرسمية
+                  </label>
+                  <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                    {PALETTE_OPTIONS.map((o) => {
+                      const isSelected = palette === o.value;
+                      return (
+                        <button
+                          key={o.value}
+                          type="button"
+                          onClick={() => handleSelectPalette(o.value)}
+                          className={cn(
+                            "flex items-start gap-3 rounded-xl border p-3 text-start transition cursor-pointer",
+                            isSelected
+                              ? "border-primary bg-primary/5 ring-1 ring-primary shadow-xs"
+                              : "border-line bg-card hover:border-primary/40 hover:bg-secondary/50"
+                          )}
+                        >
+                          <span
+                            className="mt-0.5 size-5 shrink-0 rounded-full border border-black/10 shadow-xs"
+                            style={{ background: o.swatch }}
+                            aria-hidden
+                          />
+                          <div className="min-w-0">
+                            <span className="block text-xs font-bold text-foreground truncate">{o.label}</span>
+                            <span className="mt-0.5 block text-[10px] text-muted-foreground leading-relaxed line-clamp-2">
+                              {o.desc}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </fieldset>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════════════
+              Step 3: Modular features
+              ══════════════════════════════════════════════════════════════════ */}
+          {step === 3 && (
+            <fieldset className="space-y-5 pb-20">
+              <div>
+                <legend className="flex items-center gap-2 text-lg sm:text-xl font-bold text-foreground">
+                  <Layers className="size-5 text-primary shrink-0" />
+                  الوحدات والمنظومات المبدئية
+                </legend>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  حددنا هذه المنظومات آلياً لتناسب نشاطك — فعّل أو عطّل أي وحدة بضغطة واحدة.
                 </p>
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-foreground mb-2 block">
-                  لوحة الألوان الرسمية
-                </label>
-                <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                  {PALETTE_OPTIONS.map((o) => {
-                    const isSelected = palette === o.value;
-                    return (
-                      <button
-                        key={o.value}
-                        type="button"
-                        onClick={() => handleSelectPalette(o.value)}
-                        className={cn(
-                          "flex items-start gap-3 rounded-xl border p-3 text-start transition cursor-pointer",
-                          isSelected
-                            ? "border-primary bg-primary/5 ring-1 ring-primary shadow-xs"
-                            : "border-line bg-card hover:border-primary/40 hover:bg-muted/30"
-                        )}
-                      >
-                        <span
-                          className="mt-0.5 size-5 shrink-0 rounded-full border border-black/10 shadow-xs"
-                          style={{ background: o.swatch }}
-                          aria-hidden
-                        />
-                        <div className="min-w-0">
-                          <span className="block text-xs font-bold text-foreground truncate">{o.label}</span>
-                          <span className="mt-0.5 block text-[10px] text-muted-foreground leading-relaxed line-clamp-2">
-                            {o.desc}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="border-t border-border/60 pt-4">
                 <div className="flex items-center justify-between gap-2 mb-2.5">
                   <div className="flex items-center gap-2">
                     <Layers className="size-4 text-primary" />
                     <span className="text-xs font-bold text-foreground">
-                      الوحدات والمنظومات التخصصية لقطاع (
+                      وحدات قطاع (
                       <span className="text-primary font-bold">{selectedSectorObj?.label.split("(")[0].trim() || "المنشأة"}</span>)
                     </span>
                   </div>
@@ -627,10 +1227,7 @@ export default function OnboardingWizard() {
                     {features.length} مفعلة
                   </span>
                 </div>
-                <p className="text-[11px] text-muted-foreground mb-3 leading-relaxed">
-                  تم تحديد هذه المنظومات آلياً لتناسب طبيعة نشاطك التجاري والتشغيلي بالكامل. يمكنك تفعيل أو تعطيل أي وحدة بضغطة واحدة:
-                </p>
-                <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 max-h-[48vh] overflow-y-auto pe-1">
                   {getSectorModules(sector).map((o) => {
                     const isSelected = features.includes(o.id);
                     return (
@@ -642,7 +1239,7 @@ export default function OnboardingWizard() {
                           "flex flex-col justify-between rounded-xl border p-3.5 text-start transition cursor-pointer group",
                           isSelected
                             ? "border-primary bg-primary/5 ring-1 ring-primary shadow-xs"
-                            : "border-line bg-card hover:border-primary/40 hover:bg-muted/30"
+                            : "border-line bg-card hover:border-primary/40 hover:bg-secondary/50"
                         )}
                       >
                         <div>
@@ -655,7 +1252,7 @@ export default function OnboardingWizard() {
                                 "mt-0.5 grid size-4 shrink-0 place-items-center rounded-md border transition-all",
                                 isSelected
                                   ? "border-primary bg-primary text-primary-foreground"
-                                  : "border-muted-foreground/30 bg-muted/20"
+                                  : "border-muted-foreground/30 bg-secondary/40"
                               )}
                             >
                               {isSelected && <Check className="size-2.5 stroke-[3]" />}
@@ -670,7 +1267,7 @@ export default function OnboardingWizard() {
                             <span
                               className={cn(
                                 "text-[9px] font-mono px-1.5 py-0.5 rounded font-bold",
-                                isSelected ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                                isSelected ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"
                               )}
                             >
                               {o.badge}
@@ -694,8 +1291,31 @@ export default function OnboardingWizard() {
             </div>
           )}
 
+          {/* Workspace was created but the logo upload failed: say so plainly,
+              offer a retry of the upload alone, or continue without a logo. */}
+          {pendingSession && (
+            <div className="mt-5 rounded-xl border border-destructive/30 bg-destructive/10 p-4">
+              <p className="text-xs font-bold text-foreground">
+                مساحة عملك اتجهزت بنجاح، لكن رفع الشعار لم يكتمل.
+              </p>
+              {logoError && <p className="mt-1 text-[11px] text-muted-foreground">{logoError}</p>}
+              <div className="mt-3 flex items-center gap-2">
+                <Button onClick={retryLogoUpload} disabled={busy} className="text-xs font-bold px-4">
+                  {busy ? "جارٍ الرفع..." : "إعادة رفع الشعار"}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => proceed(pendingSession)}
+                  className="text-xs font-medium text-muted-foreground hover:text-foreground transition cursor-pointer"
+                >
+                  المتابعة بدون شعار
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Wizard Action Controls */}
-          <div className="mt-8 flex items-center justify-between gap-3 border-t border-border/60 pt-4">
+          <div className="sticky bottom-0 z-10 -mx-5 sm:-mx-8 -mb-5 sm:-mb-8 mt-8 flex items-center justify-between gap-3 border-t border-border/60 bg-card/95 px-5 sm:px-8 py-3 backdrop-blur-sm rounded-b-2xl">
             <Button
               variant="outline"
               onClick={() => (step === 0 ? nav("/signup") : setStep((s) => s - 1))}
@@ -704,13 +1324,19 @@ export default function OnboardingWizard() {
               ← رجوع
             </Button>
 
-            {step < 2 ? (
+            {step < 3 ? (
               <Button
                 onClick={() => setStep((s) => s + 1)}
                 disabled={step === 1 && !company.trim()}
                 className="font-bold text-xs px-6"
               >
                 التالي ←
+              </Button>
+            ) : pendingSession ? (
+              // Workspace already created: replace the create action so neither
+              // the UI nor the handler can ever sign up a second workspace.
+              <Button disabled className="font-bold text-xs px-6 opacity-60">
+                مساحة عملك اتجهزت ✓
               </Button>
             ) : (
               <Button onClick={create} disabled={busy} className="font-bold text-xs px-6 shadow-md">
@@ -719,6 +1345,41 @@ export default function OnboardingWizard() {
             )}
           </div>
         </div>
+
+        {/* Full palette catalog lives behind a dialog, not on the wizard body. */}
+        {catalogOpen && branding && (
+          <div
+            className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
+            onClick={() => setCatalogOpen(false)}
+          >
+            <div
+              className="w-full max-w-4xl max-h-[85vh] overflow-y-auto rounded-2xl border border-line bg-card p-5 sm:p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-label="كل المظاهر"
+            >
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div>
+                  <h2 className="text-base font-bold text-foreground">كل المظاهر ({branding.themes.length})</h2>
+                  <p className="text-[11px] text-muted-foreground">اختيارك يُطبق فوراً على الصفحة خلف النافذة.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCatalogOpen(false)}
+                  className="grid size-8 place-items-center rounded-lg border border-line text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition"
+                  aria-label="إغلاق"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+              <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {branding.themes.map((t) => (
+                  <ThemeCard key={t.id} t={t} />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         <p className="mt-4 text-center text-xs text-muted-foreground">
           ستدخل مباشرة على مساحة عمل مهيأة بالكامل، ويمكنك تغيير الأنشطة والوحدات في أي وقت.

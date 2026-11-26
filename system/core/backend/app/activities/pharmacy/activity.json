@@ -1,0 +1,150 @@
+{
+  "id": "pharmacy",
+  "family": "health",
+  "order": 3,
+  "name": "صيدليات ومستلزمات طبية",
+  "name_en": "Pharmacy",
+  "description": "دواء، تشغيلات، تواريخ صلاحية، رقابة صرف وتأمين صحي",
+  "branding": {
+    "themes": [
+      "teal",
+      "olive",
+      "cyan"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "ثقة صحية واضحة ومريحة.",
+    "palettes": [
+      "teal",
+      "emerald",
+      "cyan"
+    ]
+  },
+  "modules": [
+    "pharmacy",
+    "batches",
+    "inventory",
+    "pos",
+    "finance"
+  ],
+  "home": "/pharmacy",
+  "variants": {
+    "pos": "pharmacy",
+    "inventory": "pharmacy"
+  },
+  "optional": [],
+  "terms": {
+    "customer": "مريض",
+    "item": "دواء"
+  },
+  "positions": [],
+  "roles": {},
+  "settings": {
+    "inventory.fefo": true
+  },
+  "menu": [
+    {
+      "id": "dispensing",
+      "label": "صيدلية وصرف الأدوية",
+      "items": [
+        {
+          "screen": "pharmacy.pharmacy",
+          "label": "الصيدلية وصرف الروشتات"
+        },
+        {
+          "screen": "pos.pos",
+          "label": "كاشير ونقطة بيع الأدوية"
+        },
+        {
+          "screen": "pos.sales",
+          "label": "مبيعات الأدوية والمستلزمات"
+        }
+      ]
+    },
+    {
+      "id": "pharmacy_stock",
+      "label": "الأدوية والتشغيلات والصلاحيات",
+      "items": [
+        {
+          "screen": "inventory.products",
+          "label": "الأدوية والمستحضرات"
+        },
+        {
+          "screen": "inventory.inventory",
+          "label": "مخزون الأدوية وتواريخ الصلاحية"
+        },
+        {
+          "screen": "finance.suppliers",
+          "label": "شركات ومستودعات الأدوية"
+        },
+        {
+          "screen": "inventory.purchases",
+          "label": "طلبيات وتوريد الأدوية"
+        }
+      ]
+    },
+    {
+      "id": "pharmacy_finance",
+      "label": "التأمين والمالية",
+      "items": [
+        {
+          "screen": "finance.customers",
+          "label": "عملاء التأمين والنقدي"
+        },
+        {
+          "screen": "finance.finance",
+          "label": "الخزائن والمالية"
+        },
+        {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
+        },
+        {
+          "screen": "reporting.reports",
+          "label": "تقارير الصيدلية والنواقص"
+        }
+      ]
+    },
+    {
+      "id": "pharmacy_admin",
+      "label": "فريق الصيادلة والإدارة",
+      "items": [
+        {
+          "screen": "hr.hr",
+          "label": "الصيادلة ومساعدو الصيدلي"
+        },
+        {
+          "screen": "pos.shifts",
+          "label": "ورديات الصيدلية"
+        },
+        {
+          "screen": "core.settings",
+          "label": "إعدادات الصيدلية"
+        }
+      ]
+    }
+  ],
+  "dashboard": [
+    "reporting.sales_today",
+    "reporting.sales_month",
+    "inventory.low_stock_count",
+    "pos.shift_status",
+    "reporting.sales_trend",
+    "batches.expiring_soon",
+    "inventory.low_stock",
+    {
+      "id": "pos.recent_sales",
+      "size": "l"
+    }
+  ]
+}

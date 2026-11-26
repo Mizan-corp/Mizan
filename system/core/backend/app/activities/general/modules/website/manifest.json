@@ -1,0 +1,22 @@
+{
+  "id": "website",
+  "name": "الموقع الإلكتروني",
+  "name_en": "Website",
+  "activity": "general",
+  "kind": "business",
+  "status": "active",
+  "version": "0.1.0",
+  "icon": "Blocks",
+  "description": "إدارة بيانات الموقع من أي نشاط: الطلبات الواردة من الموقع والمنتجات المنشورة وخصائص الموقع، مع تشغيل الاستوديو في تبويب مستقل (ADR-015). واجهات القراءة والكتابة الفعلية تقدمها وحدة platform/site (site.manage).",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [],
+  "screens": [],
+  "widgets": [],
+  "variants": [
+    "standard"
+  ],
+  "srs": [],
+  "settings_schema": []
+}

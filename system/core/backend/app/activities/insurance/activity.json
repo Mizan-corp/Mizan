@@ -1,0 +1,31 @@
+{
+  "id": "insurance",
+  "family": "institutions",
+  "order": 27,
+  "name": "شركات تأمين وتكافل",
+  "name_en": "Insurance",
+  "description": "وثائق، تسعير اكتواري، مطالبات، واحتياطيات فنية وإعادة تأمين",
+  "branding": {
+    "themes": [
+      "indigo",
+      "teal",
+      "ocean"
+    ],
+    "fonts": {
+      "body": "Almarai",
+      "display": "Almarai"
+    },
+    "note": "أمان واحترافية هادئة."
+  },
+  "modules": [
+    "insurance",
+    "finance"
+  ],
+  "home": "/ins",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
+}

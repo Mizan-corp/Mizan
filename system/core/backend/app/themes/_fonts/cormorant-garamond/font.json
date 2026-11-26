@@ -1,0 +1,20 @@
+{
+  "id": "cormorant-garamond",
+  "family": "Cormorant Garamond",
+  "scripts": [
+    "latin"
+  ],
+  "license": "OFL-1.1",
+  "license_file": "OFL.txt",
+  "source_urls": [
+    "https://raw.githubusercontent.com/google/fonts/main/ofl/cormorantgaramond/CormorantGaramond%5Bwght%5D.ttf",
+    "https://raw.githubusercontent.com/google/fonts/main/ofl/cormorantgaramond/OFL.txt"
+  ],
+  "files": [
+    {
+      "src": "cormorant-garamond.ttf",
+      "weight": "300 700",
+      "style": "normal"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "grape",
+  "name": "عنبي",
+  "name_en": "Grape",
+  "version": "1.0.0",
+  "kind": "theme",
+  "description": "عنبي عميق وهادئ. تركيبة أصلية من ألوان Open Color (MIT).",
+  "palette": "grape",
+  "fonts": {
+    "body": "Tajawal",
+    "display": "Tajawal",
+    "files": [
+      {
+        "ref": "tajawal"
+      }
+    ]
+  },
+  "radius": "0.625rem",
+  "shadows": "soft",
+  "motion": "full",
+  "preview": {
+    "source": "open-color-mit",
+    "designed_for": "mizan"
+  }
+}

@@ -102,7 +102,7 @@ nothing. Details: [`USER_ROLES_AND_PERMISSIONS.md`](USER_ROLES_AND_PERMISSIONS.m
   keys; CLI tokens can be revoked one by one; a password change ends every portal session.
 
 ## 7. The route security sweep (every route, every run)
-`system/backend/tests/test_route_security_sweep.py` checks every route of the system API the same
+`system/erp/backend/tests/test_route_security_sweep.py` checks every route of the system API the same
 way, in about a minute (helpers in `tests/route_sweep.py`):
 
 1. **Inventory.** Each route is protected by its dependency tree (an ERP sign-in through
@@ -137,6 +137,4 @@ workspaces that use the activity: `require_activity` is added when the module's 
 (`system_api/router.py`) unless all its signed-in routes already check their module. Inside such a
 workspace they check no permission yet (their manifests declare none): a known limit.
 
-**Not swept:** static files (`/uploads` holds public images only; private files are served by
-routes), the community modules' records (their permission is checked per screen inside the route and
-needs an installed package), and the owner, admin and website APIs.
+**Not swept:** workspace upload files are served by the `/uploads/{path}` readback route, which is swept: it checks the ERP session and the owning module's permission inside, and answers anonymous requests only for the current sign-in branding. Also not swept: the community modules' records (their permission is checked per screen inside the route and needs an installed package), and the owner, admin and website APIs.

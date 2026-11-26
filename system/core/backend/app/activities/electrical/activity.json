@@ -1,0 +1,33 @@
+{
+  "id": "electrical",
+  "family": "commerce",
+  "order": 33,
+  "name": "electrical",
+  "name_en": "",
+  "description": "",
+  "branding": {
+    "themes": [
+      "honey",
+      "tangerine",
+      "ocean"
+    ],
+    "fonts": {
+      "body": "Cairo",
+      "display": "Cairo"
+    },
+    "note": "تيار واضح وأمان مهني."
+  },
+  "modules": [
+    "pos",
+    "inventory",
+    "finance"
+  ],
+  "home": "/pos",
+  "legacy_of": "retail",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
+}

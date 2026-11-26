@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="system/frontend/public/icon.svg" width="88" alt="Mizan" />
+<img src="system/erp/frontend/public/icon.svg" width="88" alt="Mizan" />
 
 # ميزان · Mizan
 
@@ -111,7 +111,7 @@ one, a workspace can change to it ([ADR-012](docs/decisions/ADR-012-running-acti
 | **Sales invoices / month** | 100 | 500 | 5,000 | Unlimited |
 | **Industries** | Core | Core + Phase 1 | Phases 1–3 | All 30 |
 
-Prices come from `shared/backend/app/platform/billing/plans.py`, which is the source of truth.
+Prices come from `system/core/backend/app/platform/billing/plans.py`, which is the source of truth.
 
 ---
 
@@ -141,7 +141,7 @@ flowchart LR
     subgraph admin["admin/"]
         AF[Admin frontend] --> AA[admin-api<br/>control panel]
     end
-    K[["shared/<br/>kernel: models · tenancy · auth · activities · themes · print engine<br/>kit: components · API client · styles"]]
+    K[["system/core/<br/>kernel: models · tenancy · auth · activities · themes · print engine<br/>kit: components · API client · styles"]]
     WA & SA & OA & AA --- K
     K --> DB[(PostgreSQL 16<br/>Row-Level Security)]
     OA <-. "checkout · signed callback" .-> PM[Paymob]
@@ -176,12 +176,12 @@ filter, automatic stamping on insert, and **PostgreSQL Row-Level Security** as a
 inside the database. If an application bug forgets a filter, the database still says no.
 
 **2. Activities and modules are plug-ins, not forks.**
-Every business activity is one folder, `shared/backend/app/activities/<activity>/`: its
+Every business activity is one folder, `system/core/backend/app/activities/<activity>/`: its
 `activity.json` (modules, menus and dashboards per role, terms, positions, default theme), its
 modules (`modules/<id>/`, each with a `manifest.json`, models, router and templates), how it
 adapts other activities' modules (`variants/<module>/`: extra fields, settings, rules at the
 module's hooks), its themes and its demo data. Screens mirror it in
-`system/frontend/src/activities/<activity>/`. One loader (`app/framework/`) mounts every module,
+`system/erp/frontend/src/activities/<activity>/`. One loader (`app/framework/`) mounts every module,
 and the module centre at `/modules` turns modules on and off per workspace. See
 [ADR-006](docs/decisions/ADR-006-module-platform.md) and [ADR-010](docs/decisions/ADR-010-activity-packages-and-themes.md).
 
@@ -308,7 +308,7 @@ python manage.py doctor    # what's installed, what's running, what to fix
 | Mailpit (emails the APIs send) | http://localhost:8025 | every API (set `MAILPIT_PORT` if 8025 is taken) |
 
 **A new database starts empty.** Docker loads a structure-only baseline
-(`shared/backend/app/db/baseline_schema.sql`, no data), the API builds the rest of the schema,
+(`system/core/backend/app/db/baseline_schema.sql`, no data), the API builds the rest of the schema,
 and `db migrate` creates one workspace (“ميزان”) with two accounts: `ammar` / `changeme` for the
 app and the owner panel, and `platform` / `changeme` for the admin panel (override with `MIZAN_ADMIN_*` and
 `MIZAN_PLATFORM_*` `_USERNAME` / `_PASSWORD`). The bootstrap does nothing once any user exists.
@@ -358,14 +358,14 @@ before its migrations, and a failed migration stops the release.
 
 | Service (on the server) | Built from | Serves |
 |---|---|---|
-| `web` (nginx) | `system/`, `website/`, `owner/`, `admin/` `frontend` | allmizan.live and dev.allmizan.live (website), allmizan.live/owner, allmizan.live/admin, *.allmizan.live (each workspace) |
-| `api` (one process) | `system/`, `website/`, `owner/`, `admin/` `backend` | api., web-api., owner-api., admin-api.allmizan.live |
+| `web` (nginx) | `system/erp/`, `website/`, `owner/`, `admin/` `frontend` | allmizan.live and dev.allmizan.live (website), allmizan.live/owner, allmizan.live/admin, *.allmizan.live (each workspace) |
+| `api` (one process) | `system/erp/`, `website/`, `owner/`, `admin/` `backend` | api., web-api., owner-api., admin-api.allmizan.live |
 | `postgres` | — | the database, backed up nightly and before every release |
 
 - **Migrations must stay backward compatible**: the database is migrated before the new code
   goes live, while the old code still serves (#64). The backup taken before each release is the
   way back (`/mnt/media/backups/mizan`).
-- **Changing `shared/` affects every product**, so check every app that uses what you changed.
+- **Changing `system/core/` affects every product**, so check every app that uses what you changed.
 - **Rollback**: on the server, `/srv/mizan/deploy.sh <previous commit>` (the previous release's
   images are kept). Re-run a release: Actions → Deploy (server) → Run workflow.
 - The four APIs share one database and one `SECRET_KEY`; production settings live in
@@ -396,7 +396,7 @@ installer/              single-device and LAN installs
   server/               mizan-server: install engine, service (PostgreSQL + API + app), CLI
   setup/                Mizan Setup (Tauri): the guided installer, desktop app and headless installs
   build.py · stamp.py   build the installers · stamp a client's licence into one
-shared/                 code every product uses
+system/core/            code every product uses (kernel + kit)
   frontend/src/         design kit (components/kit), API client, stores, i18n, styles, pricing
   backend/app/          kernel: factory, core (config, errors), models, framework
                         (module loader, variants, template, package format), platform (engines:
@@ -417,7 +417,7 @@ manage.py               the one CLI: setup, stack, db, dev, build, test, lint, m
 ```
 
 Frontend import aliases: `@/` is the shared kit, `@app/` is the current app, `@activities/` is the activities' screens (system only).
-Each product folder has its own README: [`system/`](system/README.md) · [`website/`](website/README.md) · [`owner/`](owner/README.md) · [`admin/`](admin/README.md) · [`shared/`](shared/README.md) · [`installer/`](installer/README.md) · [`sdk/python/`](sdk/python/README.md).
+Each product folder has its own README: [`system/`](system/README.md) · [`website/`](website/README.md) · [`owner/`](owner/README.md) · [`admin/`](admin/README.md) · [`system/core/`](system/core/README.md) · [`installer/`](installer/README.md) · [`sdk/python/`](sdk/python/README.md).
 
 ## Documentation
 

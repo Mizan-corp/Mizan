@@ -36,6 +36,8 @@ export interface Workspace {
   created_at: string | null;
   deployment_mode: DeploymentMode;
   licence: LicenceSummary | null;
+  /** The workspace's branding: {name: theme id, hue, palette?: independent palette id, fonts?: {body, display}}. */
+  palette?: { name?: string; palette?: string; fonts?: { body?: string; display?: string } };
 }
 
 export type DeploymentMode = "cloud_saas" | "desktop" | "lan";
@@ -296,6 +298,6 @@ export const actions = {
     api.patch<WorkspaceDetail>(`/account/workspaces/${v.id}`, { name: v.name, slug: v.slug }),
   moveLicence: (v: { id: string; installation: string }) =>
     api.post<WorkspaceDetail>(`/account/workspaces/${v.id}/installations/${v.installation}/licence`),
-  deleteWorkspace: (v: { id: string; confirm: string }) =>
+  deleteWorkspace: (v: { id: string, confirm: string }) =>
     api.del(`/account/workspaces/${v.id}?confirm=${encodeURIComponent(v.confirm)}`),
 };

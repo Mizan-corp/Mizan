@@ -815,6 +815,7 @@ export default function Workspace() {
 
       <Plans w={w} me={me.data} />
 
+
       <Panel title="فواتير مساحة العمل" flush>
         <InvoiceTable invoices={invoices as Invoice[]} />
       </Panel>

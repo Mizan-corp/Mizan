@@ -1,0 +1,440 @@
+[
+ {
+  "path": "*",
+  "perm": null,
+  "module": null,
+  "component": null
+ },
+ {
+  "path": "*",
+  "perm": null,
+  "module": null,
+  "component": null
+ },
+ {
+  "path": "/",
+  "perm": null,
+  "module": null,
+  "component": "WorkspaceHome"
+ },
+ {
+  "path": "/c/:tenantSlug/*",
+  "perm": null,
+  "module": null,
+  "component": null
+ },
+ {
+  "path": "/login",
+  "perm": null,
+  "module": null,
+  "component": "ToOwnerSignIn"
+ },
+ {
+  "path": "/store",
+  "perm": null,
+  "module": null,
+  "component": null
+ },
+ {
+  "path": "accounting/accounts",
+  "perm": "accounting:view",
+  "module": "accounting",
+  "component": "AccountingAccountsPage"
+ },
+ {
+  "path": "accounting/journal",
+  "perm": "accounting:view|accounting:journal",
+  "module": "accounting",
+  "component": "AccountingJournalPage"
+ },
+ {
+  "path": "accounting/opening",
+  "perm": "accounting:settings",
+  "module": "accounting",
+  "component": "AccountingOpeningPage"
+ },
+ {
+  "path": "accounting/periods",
+  "perm": "accounting:close|accounting:settings",
+  "module": "accounting",
+  "component": "AccountingPeriodsPage"
+ },
+ {
+  "path": "accounting/reports",
+  "perm": "accounting:view",
+  "module": "accounting",
+  "component": "AccountingReportsPage"
+ },
+ {
+  "path": "agency",
+  "perm": "",
+  "module": "agency",
+  "component": "CreativeAgencyPage"
+ },
+ {
+  "path": "agr",
+  "perm": "",
+  "module": "agriculture",
+  "component": "AgricultureFarmPage"
+ },
+ {
+  "path": "archive",
+  "perm": "archive",
+  "module": null,
+  "component": "ArchivePage"
+ },
+ {
+  "path": "bnk",
+  "perm": "",
+  "module": "banking",
+  "component": "BankingPage"
+ },
+ {
+  "path": "clinic",
+  "perm": "",
+  "module": "healthcare_clinic",
+  "component": "ClinicHealthcarePage"
+ },
+ {
+  "path": "clinic/:moduleSlug",
+  "perm": "",
+  "module": "healthcare_clinic",
+  "component": "ClinicHealthcarePage"
+ },
+ {
+  "path": "cst",
+  "perm": "",
+  "module": "construction",
+  "component": "ConstructionPage"
+ },
+ {
+  "path": "customers",
+  "perm": "customers",
+  "module": null,
+  "component": "CustomersPage"
+ },
+ {
+  "path": "dashboard",
+  "perm": "",
+  "module": null,
+  "component": "DashboardPage"
+ },
+ {
+  "path": "ecommerce",
+  "perm": "",
+  "module": "ecommerce",
+  "component": "EcommerceHubPage"
+ },
+ {
+  "path": "eng",
+  "perm": "",
+  "module": "energy",
+  "component": "EnergyPowerPlantPage"
+ },
+ {
+  "path": "ent",
+  "perm": "",
+  "module": "events",
+  "component": "EntertainmentPage"
+ },
+ {
+  "path": "field-service",
+  "perm": "",
+  "module": "field_service",
+  "component": "FieldServicePage"
+ },
+ {
+  "path": "finance",
+  "perm": "finance",
+  "module": null,
+  "component": "FinancePage"
+ },
+ {
+  "path": "fod",
+  "perm": "",
+  "module": "food_manufacturing",
+  "component": "FoodProcessingPage"
+ },
+ {
+  "path": "gov",
+  "perm": "",
+  "module": "government",
+  "component": "GovernmentPage"
+ },
+ {
+  "path": "gym",
+  "perm": "",
+  "module": "gym",
+  "component": "GymFitnessPage"
+ },
+ {
+  "path": "helpdesk",
+  "perm": "helpdesk:view|helpdesk:work:view",
+  "module": "helpdesk",
+  "component": "HelpdeskPage"
+ },
+ {
+  "path": "hospitality",
+  "perm": "",
+  "module": "hospitality",
+  "component": "HospitalityPmsPage"
+ },
+ {
+  "path": "hr",
+  "perm": "payroll",
+  "module": null,
+  "component": "HrPage"
+ },
+ {
+  "path": "hr/payroll",
+  "perm": "payroll",
+  "module": null,
+  "component": "PayrollPage"
+ },
+ {
+  "path": "ins",
+  "perm": "",
+  "module": "insurance",
+  "component": "InsurancePage"
+ },
+ {
+  "path": "integrations/whatsapp",
+  "perm": "",
+  "module": "whatsapp_gateway",
+  "component": "WhatsAppGatewayPage"
+ },
+ {
+  "path": "inventory",
+  "perm": "inventory",
+  "module": null,
+  "component": "InventoryPage"
+ },
+ {
+  "path": "inventory/adjustments",
+  "perm": "inventory",
+  "module": null,
+  "component": "InventoryAdjustmentsPage"
+ },
+ {
+  "path": "inventory/categories",
+  "perm": "inventory",
+  "module": null,
+  "component": "InventoryCategoriesPage"
+ },
+ {
+  "path": "inventory/collections",
+  "perm": "inventory",
+  "module": null,
+  "component": "InventoryCollectionsPage"
+ },
+ {
+  "path": "inventory/warehouses",
+  "perm": "settings",
+  "module": null,
+  "component": "InventoryWarehousesPage"
+ },
+ {
+  "path": "law",
+  "perm": "",
+  "module": "law",
+  "component": "LawPracticePage"
+ },
+ {
+  "path": "login",
+  "perm": null,
+  "module": null,
+  "component": "LoginPage"
+ },
+ {
+  "path": "logistics",
+  "perm": "",
+  "module": "logistics",
+  "component": "LogisticsFleetPage"
+ },
+ {
+  "path": "mfg",
+  "perm": "",
+  "module": "manufacturing",
+  "component": "DiscreteManufacturingPage"
+ },
+ {
+  "path": "modules",
+  "perm": "",
+  "module": null,
+  "component": "ModulesPage"
+ },
+ {
+  "path": "oil",
+  "perm": "",
+  "module": "oil_gas",
+  "component": "OilGasPage"
+ },
+ {
+  "path": "operations",
+  "perm": "operations",
+  "module": null,
+  "component": "OperationsPage"
+ },
+ {
+  "path": "pharmacy",
+  "perm": "",
+  "module": "pharmacy",
+  "component": "PharmacyPage"
+ },
+ {
+  "path": "phm",
+  "perm": "",
+  "module": "pharma_manufacturing",
+  "component": "PharmaGmpPage"
+ },
+ {
+  "path": "pos",
+  "perm": "pos",
+  "module": null,
+  "component": "PosPage"
+ },
+ {
+  "path": "pricing",
+  "perm": "",
+  "module": null,
+  "component": "PricingPage"
+ },
+ {
+  "path": "prn",
+  "perm": "",
+  "module": "printing",
+  "component": "PrintingPackagingPage"
+ },
+ {
+  "path": "products",
+  "perm": "inventory",
+  "module": null,
+  "component": "ProductsPage"
+ },
+ {
+  "path": "purchases",
+  "perm": "purchases|finance",
+  "module": null,
+  "component": "PurchasesPage"
+ },
+ {
+  "path": "purchases/:id",
+  "perm": "purchases|finance",
+  "module": null,
+  "component": "PurchaseOrderPage"
+ },
+ {
+  "path": "purchases/price-history",
+  "perm": "purchases|finance",
+  "module": null,
+  "component": "PurchasePriceHistoryPage"
+ },
+ {
+  "path": "purchases/suggestions",
+  "perm": "purchases|finance",
+  "module": null,
+  "component": "PurchaseSuggestionsPage"
+ },
+ {
+  "path": "rec",
+  "perm": "",
+  "module": "real_estate",
+  "component": "RealEstatePage"
+ },
+ {
+  "path": "reports",
+  "perm": "reports",
+  "module": null,
+  "component": "ReportsPage"
+ },
+ {
+  "path": "restaurant/kitchen",
+  "perm": "",
+  "module": "restaurant",
+  "component": "KitchenDisplayPage"
+ },
+ {
+  "path": "restaurant/tables",
+  "perm": "",
+  "module": "restaurant",
+  "component": "RestaurantTablesPage"
+ },
+ {
+  "path": "sales",
+  "perm": "sales",
+  "module": null,
+  "component": "SalesPage"
+ },
+ {
+  "path": "salon",
+  "perm": "",
+  "module": "salon",
+  "component": "SalonSpaPage"
+ },
+ {
+  "path": "school/students",
+  "perm": "",
+  "module": "school",
+  "component": "SchoolStudentsPage"
+ },
+ {
+  "path": "services",
+  "perm": "",
+  "module": "services",
+  "component": "ServicesConsultingPage"
+ },
+ {
+  "path": "settings",
+  "perm": "settings",
+  "module": null,
+  "component": "SettingsPage"
+ },
+ {
+  "path": "shifts",
+  "perm": "shifts",
+  "module": null,
+  "component": "ShiftsPage"
+ },
+ {
+  "path": "suppliers",
+  "perm": "purchases|finance",
+  "module": null,
+  "component": "SuppliersPage"
+ },
+ {
+  "path": "travel",
+  "perm": "",
+  "module": "travel",
+  "component": "TravelTourismPage"
+ },
+ {
+  "path": "users",
+  "perm": "users",
+  "module": null,
+  "component": "UsersPage"
+ },
+ {
+  "path": "website",
+  "perm": "site.manage",
+  "module": null,
+  "component": "WebsitePage"
+ },
+ {
+  "path": "wholesale",
+  "perm": "",
+  "module": "wholesale",
+  "component": "WholesaleDistributionPage"
+ },
+ {
+  "path": "wms",
+  "perm": "",
+  "module": "wms",
+  "component": "WmsWarehousePage"
+ },
+ {
+  "path": "x/:module/:entity",
+  "perm": null,
+  "module": null,
+  "component": "CommunityEntityPage"
+ }
+]

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("marketing claims", () => {
-  const roots = [join(__dirname, "../../features"), join(__dirname, "../../../../../shared/frontend/src/lib/plans.ts")];
+  const roots = [join(__dirname, "../../features"), join(__dirname, "../../../../../system/core/frontend/src/lib/plans.ts")];
   const files: string[] = [];
   const collect = (p: string) => {
     if (statSync(p).isDirectory()) readdirSync(p).forEach((f) => collect(join(p, f)));

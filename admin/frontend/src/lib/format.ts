@@ -90,7 +90,7 @@ const SECTORS: Record<string, string> = {
 export const sectorLabel = (s: string, name?: string | null) => SECTORS[s] ?? name ?? s.replace(/_/g, " ");
 export const SECTOR_OPTIONS = Object.entries(SECTORS).slice(0, 30);
 
-// Module families (shared/backend/app/catalog/families.json).
+// Module families (system/core/backend/app/catalog/families.json).
 const CATEGORIES: Record<string, string> = {
   general: "General",
   commerce: "Commerce",

@@ -8,6 +8,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,6 +35,12 @@ class SignupRequest(BaseModel):
     sector: str
     scale: str
     palette: str = "mizan"
+    # Independent recolor: a registry palette id that overrides the theme's own palette
+    # (theme-level choice stays in `palette`; this is palette-level customization).
+    colors: str | None = None
+    # Optional independent typography picks (body/display); validated against the
+    # families Mizan's themes actually ship, stored on the workspace palette.
+    fonts: dict | None = None
     features: list[str] = Field(default_factory=list)
     owner_username: str = Field(min_length=3, max_length=64, pattern=r"^[\w.\-]+$")
     owner_password: str = Field(min_length=6, max_length=128)
@@ -48,6 +55,72 @@ class SignupRequest(BaseModel):
 @router.get("/plans")
 async def list_plans():
     return {"plans": PLANS, "trial_days": TRIAL_DAYS}
+
+
+@router.get("/branding")
+async def branding_options():
+    """What the onboarding wizard shows: Mizan's theme packs and each activity's
+    branding recommendations (activity.json "branding"), so a new merchant picks
+    a real, licensed palette with its own fonts instead of static swatches."""
+    import json as _json
+
+    from app.framework.variants import ACTIVITIES
+    from app.platform.themes.service import file_themes, summary
+
+    from app.platform.themes.service import _for_client
+
+    file_packs = [t for t in file_themes().values() if t["activity"] is None]
+    themes = [summary(t, "") for t in file_packs]
+    full = {t["id"]: _for_client(t, None) for t in file_packs}
+    recommendations: dict[str, dict] = {}
+    raw: dict[str, dict] = {}
+    for f in sorted(ACTIVITIES.glob("*/activity.json")):
+        a = _json.loads(f.read_text(encoding="utf-8"))
+        if isinstance(a.get("branding"), dict):
+            raw[a["id"]] = a["branding"]
+    # Every activity ends up with theme + palette + font recommendations: its own
+    # branding when it declares one, general's balanced picks otherwise. Palette-level
+    # recommendations therefore exist for every sector, not only the few with branding.
+    general = raw.get("general", {})
+    for f in sorted(ACTIVITIES.glob("*/activity.json")):
+        a = _json.loads(f.read_text(encoding="utf-8"))
+        own = raw.get(a["id"], {})
+        merged = dict(general)
+        merged.update(own)
+        if merged:
+            recommendations[a["id"]] = merged
+    from app.platform.themes.service import family_files, palette_registry
+
+    fam_files = family_files()
+    palettes = [{"id": pid, "colors": pl["colors"],
+                 "swatches": [pl["colors"]["light"].get(k) for k in ("primary", "accent", "background") if pl["colors"]["light"].get(k)],
+                 "source": pl["source"], "license": pl["license"]}
+                for pid, pl in palette_registry().items()]
+    return {"themes": themes, "full": full, "activities": recommendations, "palettes": palettes,
+            "families": sorted(fam_files.keys()), "family_files": fam_files}
+
+
+# The wizard previews a theme with its real fonts before signup: Mizan's file
+# themes are public (the login page shows them too), served like the system's
+# /themes/assets/files/... so theme.ts accepts the URL.
+assets_router = APIRouter(tags=["platform"])
+
+
+@assets_router.get("/themes/assets/fonts/{family_id}/{path:path}")
+async def font_asset(family_id: str, path: str):
+    from fastapi import Response
+    from app.platform.themes import service as themes_service
+
+    data, kind = themes_service.font_asset(family_id, path)
+    return Response(data, media_type=kind)
+
+
+@assets_router.get("/themes/assets/files/{theme_id}/{path:path}")
+async def file_theme_asset(theme_id: str, path: str):
+    from app.platform.themes import service as themes_service
+
+    data, kind = themes_service.file_asset(theme_id, path)
+    return Response(data, media_type=kind, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @router.post("/signup")
@@ -86,6 +159,8 @@ async def signup(data: SignupRequest, request: Request, db: AsyncSession = Depen
             sector=data.sector,
             scale=data.scale,
             palette=data.palette,
+            colors=data.colors,
+            fonts=data.fonts,
             features=data.features,
             admin_username=data.owner_username,
             admin_full_name=data.owner_full_name,

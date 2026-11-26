@@ -1,0 +1,109 @@
+{
+  "id": "maintenance",
+  "family": "services",
+  "order": 17,
+  "name": "صيانة وخدمات ميدانية وتشغيل",
+  "name_en": "Field Service",
+  "description": "أوامر شغل، توجيه فنيين، قطع غيار متنقلة، وتوقيعات عملاء",
+  "branding": {
+    "themes": [
+      "ocean",
+      "tangerine",
+      "slate"
+    ],
+    "fonts": {
+      "body": "Cairo",
+      "display": "Cairo"
+    },
+    "note": "عملية ووضوح في المتابعة."
+  },
+  "modules": [
+    "field_service",
+    "inventory",
+    "operations",
+    "finance",
+    "helpdesk"
+  ],
+  "home": "/field-service",
+  "variants": {
+    "helpdesk": "maintenance"
+  },
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {},
+  "menu": [
+    {
+      "id": "helpdesk",
+      "label": "الخدمات والدعم",
+      "items": [
+        {
+          "screen": "helpdesk.catalog"
+        }
+      ]
+    },
+    {
+      "id": "fsm",
+      "label": "الصيانة والعمل الميداني",
+      "items": [
+        {
+          "screen": "field_service.field_service",
+          "label": "أوامر الشغل وبلاغات الأعطال"
+        },
+        {
+          "screen": "finance.customers",
+          "label": "سجلات العملاء ومواقع التركيب"
+        },
+        {
+          "screen": "pos.sales",
+          "label": "فواتير الصيانة والزيارات"
+        }
+      ]
+    },
+    {
+      "id": "fsm_parts",
+      "label": "قطع الغيار والمخزن المتنقل",
+      "items": [
+        {
+          "screen": "inventory.products",
+          "label": "كتالوج قطع الغيار والمعدات"
+        },
+        {
+          "screen": "inventory.inventory",
+          "label": "مخزون المستودع وسيارة الفني"
+        }
+      ]
+    },
+    {
+      "id": "fsm_admin",
+      "label": "الفنيون والإدارة",
+      "items": [
+        {
+          "screen": "hr.hr",
+          "label": "الفنيون وفرق الصيانة"
+        },
+        {
+          "screen": "finance.finance",
+          "label": "الخزينة وتحصيل الفنيين الميداني"
+        },
+        {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
+        },
+        {
+          "screen": "core.settings",
+          "label": "إعدادات أنواع الأعطال والصيانة"
+        }
+      ]
+    }
+  ]
+}

@@ -2,8 +2,8 @@
 
 Every module, generated from the manifests by `python manage.py module catalog` (a test fails when
 it's out of date); ids are folder names. A business activity is one folder (ADR-010):
-`shared/backend/app/activities/<activity>/modules/<module_id>/`, screens in
-`system/frontend/src/activities/<activity>/modules/<module_id>/`, with the activity's variants of
+`system/core/backend/app/activities/<activity>/modules/<module_id>/`, screens in
+`system/erp/frontend/src/activities/<activity>/modules/<module_id>/`, with the activity's variants of
 other activities' modules in `activities/<activity>/variants/<module>/`.
 Status: **active** (built, offered) or *planned* (laid out from the SRS, not offered yet).
 
@@ -21,6 +21,7 @@ Turns on: `core`, `contacts`, `inventory`, `operations`, `sales`, `purchases`, `
 | `customer_portal` | Customer portal | *planned* |  |
 | `documents` | Document management | *planned* |  |
 | `finance` | Finance & Treasury | **active** | الخزائن والحسابات البنكية والمحافظ الإلكترونية، المصروفات واعتمادها، بنود الصرف، حركة الخزينة اليومية، وإقفال الفترات الشهرية. |
+| `helpdesk` | Help Desk | **active** | Internal service offerings with independent optional catalog. Request/work compatibility in progress. |
 | `hr` | Human Resources & Payroll | **active** | سجلات الموظفين، مسيرات الرواتب الشهرية، الحضور والانصراف، والسلف والخصومات. |
 | `inventory` | Inventory & Supply | **active** | تتبع الأرصدة اللحظية، إدارة الفروع والمستودعات، تسويات الجرد، وأوامر الشراء والتوريد. |
 | `loyalty` | Loyalty rewards | *planned* |  |
@@ -36,6 +37,7 @@ Turns on: `core`, `contacts`, `inventory`, `operations`, `sales`, `purchases`, `
 | `storefront` | Tenant Storefront & Omnichannel Ordering | *planned* | موقع إلكتروني ومتجر لكل منشأة مع مصمم صفحات وقوالب (ADR-015). النسخة السابقة متوقفة حتى إعادة البناء. |
 | `subscription_billing` | Subscription billing | *planned* |  |
 | `supplier_portal` | Supplier portal | *planned* |  |
+| `website` | Website | **active** | إدارة بيانات الموقع من أي نشاط: الطلبات الواردة من الموقع والمنتجات المنشورة وخصائص الموقع، مع تشغيل الاستوديو في تبويب مستقل (ADR-015).… |
 | `workflow` | Workflow engine | *planned* |  |
 
 ## Creative Agency (`agency`, services)
@@ -91,7 +93,7 @@ Turns on: `construction`, `inventory`, `operations`, `finance`.
 
 ساعات قابلة للفوترة، خطابات تكليف، عقود، وتقارير أرباح المشروعات
 
-Turns on: `services`, `finance`, `hr`.
+Turns on: `services`, `finance`, `hr`, `helpdesk`. Adapts: `helpdesk`.
 
 | Module | Name | Status | What it does |
 |---|---|---|---|
@@ -270,7 +272,7 @@ Turns on: `logistics`, `finance`, `operations`.
 
 أوامر شغل، توجيه فنيين، قطع غيار متنقلة، وتوقيعات عملاء
 
-Turns on: `field_service`, `inventory`, `operations`, `finance`.
+Turns on: `field_service`, `inventory`, `operations`, `finance`, `helpdesk`. Adapts: `helpdesk`.
 
 | Module | Name | Status | What it does |
 |---|---|---|---|
@@ -350,7 +352,7 @@ Turns on: `printing`, `inventory`, `operations`, `finance`.
 
 وحدات، عقود إيجار، تحصيل شيكات، وصيانة وإيرادات صافية
 
-Turns on: `real_estate`, `finance`, `operations`.
+Turns on: `real_estate`, `finance`, `operations`, `helpdesk`. Adapts: `helpdesk`.
 
 | Module | Name | Status | What it does |
 |---|---|---|---|
@@ -382,7 +384,7 @@ Turns on: `pos`, `inventory`, `sales`, `finance`, `hr`. Adapts: `pos`.
 
 مواعيد مصففين، باقات خدمات، وعمولات موظفين ومستهلكات
 
-Turns on: `salon`, `pos`, `finance`. Adapts: `pos`.
+Turns on: `salon`, `pos`, `finance`, `helpdesk`. Adapts: `helpdesk`, `pos`.
 
 | Module | Name | Status | What it does |
 |---|---|---|---|
@@ -443,6 +445,7 @@ Turns on: `wholesale`, `inventory`, `sales`, `finance`.
 | `customization` | Tenant customization |  |
 | `i18n` | Internationalization & Multi-language | التبديل بين العربية والإنجليزية مع التكييف الديناميكي لاتجاه الواجهة (RTL / LTR) والخطوط. |
 | `marketplace` | Module marketplace and self-configuration |  |
+| `site` | Site | باني المواقع: صفحات الموقع ومسوداتها ونشرها ومراجعاتها (ADR-015، الخطوة S2). |
 | `themes` | Themes | مظهر المنشأة: ألوان وخطوط وحركة، من ميزان ومن نشاطها ومن حزم المطورين الموقّعة (ADR-010). |
 
 ## Connectors (`app/integrations/`)

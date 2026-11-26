@@ -1,0 +1,38 @@
+{
+  "id": "printing",
+  "family": "industry",
+  "order": 21,
+  "name": "مطابع، تغليف، وتعبئة",
+  "name_en": "Print & Packaging",
+  "description": "تذاكر تشغيل، مونتاج، استهلاك أحبار وورق، وهالك تجهيز",
+  "branding": {
+    "themes": [
+      "violet",
+      "tangerine",
+      "cyan"
+    ],
+    "fonts": {
+      "body": "Tajawal",
+      "display": "Cairo"
+    },
+    "note": "ألوان طباعة صريحة CMYK الروح.",
+    "palettes": [
+      "indigo",
+      "cobalt",
+      "slate"
+    ]
+  },
+  "modules": [
+    "printing",
+    "inventory",
+    "operations",
+    "finance"
+  ],
+  "home": "/prn",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
+}

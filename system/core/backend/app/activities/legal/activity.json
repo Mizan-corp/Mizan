@@ -1,0 +1,32 @@
+{
+  "id": "legal",
+  "family": "services",
+  "order": 11,
+  "name": "مكاتب ومؤسسات المحاماة",
+  "name_en": "Law Firm",
+  "description": "إدارة القضايا، مواعيد الجلسات، وسجلات أموال العملاء وحسابات الأمانة",
+  "branding": {
+    "themes": [
+      "indigo",
+      "grape",
+      "slate"
+    ],
+    "fonts": {
+      "body": "Almarai",
+      "display": "Almarai"
+    },
+    "note": "وقار يليق بالمهن القانونية."
+  },
+  "modules": [
+    "law",
+    "finance",
+    "hr"
+  ],
+  "home": "/law",
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "roles": {},
+  "settings": {}
+}

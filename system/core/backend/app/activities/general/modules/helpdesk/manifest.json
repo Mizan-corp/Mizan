@@ -1,0 +1,103 @@
+{
+  "id": "helpdesk",
+  "name": "مكتب الخدمات والدعم",
+  "name_en": "Help Desk",
+  "activity": "general",
+  "kind": "business",
+  "status": "active",
+  "version": "0.1.0",
+  "icon": "Headset",
+  "description": "Internal service offerings with independent optional catalog. Request/work compatibility in progress.",
+  "dependencies": [
+    "core"
+  ],
+  "permissions": [
+    {
+      "id": "helpdesk:view",
+      "name": "عرض الخدمات",
+      "name_en": "View service offerings"
+    },
+    {
+      "id": "helpdesk:manage",
+      "name": "إدارة الخدمات",
+      "name_en": "Manage service offerings"
+    },
+    {
+      "id": "helpdesk:work:view",
+      "name": "عرض طلبات العمل الموحدة",
+      "name_en": "View unified service work"
+    },
+    {
+      "id": "helpdesk:work:complete",
+      "name": "إنهاء أوامر الصيانة الميدانية",
+      "name_en": "Complete field-service work"
+    },
+    {
+      "id": "helpdesk:work:create",
+      "name": "إنشاء طلب صيانة عقار",
+      "name_en": "Create property maintenance request"
+    },
+    {
+      "id": "helpdesk:work:record",
+      "name": "تسجيل التنفيذ والموارد",
+      "name_en": "Record execution actuals"
+    },
+    {
+      "id": "helpdesk:cost:manage",
+      "name": "مراجعة أساس التكلفة",
+      "name_en": "Review cost snapshots"
+    },
+    {
+      "id": "helpdesk:selling:manage",
+      "name": "مراجعة أساس سعر البيع",
+      "name_en": "Review selling snapshots"
+    }
+  ],
+  "screens": [
+    {
+      "id": "helpdesk.catalog",
+      "path": "/helpdesk",
+      "label": "مكتب الخدمات والدعم",
+      "icon": "Headset",
+      "permission": "helpdesk:view|helpdesk:work:view"
+    }
+  ],
+  "widgets": [],
+  "variants": [
+    "standard",
+    "consulting",
+    "maintenance",
+    "property",
+    "salon"
+  ],
+  "settings_schema": [
+    {
+      "key": "service_catalog",
+      "label": "كتالوج الخدمات",
+      "type": "boolean",
+      "default": false,
+      "description": "Independent module feature, available in every variation. Disabling preserves service records."
+    },
+    {
+      "key": "work_completion",
+      "label": "إنهاء أوامر الصيانة الميدانية",
+      "type": "boolean",
+      "default": false,
+      "description": "Independent module feature in every variation. Requires completion, work-read and source permissions. Does not enable property status writes."
+    },
+    {
+      "key": "work_intake",
+      "label": "استقبال طلبات صيانة العقارات",
+      "type": "boolean",
+      "default": false,
+      "description": "Independent module feature in every variation. Internal property-unit requests only; no dispatch, CAM allocation, invoice or customer portal."
+    },
+    {
+      "key": "work_actuals",
+      "label": "تسجيل التنفيذ والموارد",
+      "type": "boolean",
+      "default": false,
+      "description": "Non-posting actual work/time/material worksheet in every variation. Separate cost/selling scopes; no stock, payroll, invoice or accounting posting."
+    }
+  ]
+}

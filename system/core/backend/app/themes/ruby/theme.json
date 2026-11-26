@@ -1,0 +1,28 @@
+{
+  "id": "ruby",
+  "name": "ياقوتي",
+  "name_en": "Ruby",
+  "version": "1.0.0",
+  "kind": "theme",
+  "description": "أحمر ياقوتي دافئ على ورق فاتح. تركيبة أصلية من ألوان Open Color (MIT).",
+  "palette": "ruby",
+  "fonts": {
+    "body": "Tajawal",
+    "display": "Cairo",
+    "files": [
+      {
+        "ref": "cairo"
+      },
+      {
+        "ref": "tajawal"
+      }
+    ]
+  },
+  "radius": "0.625rem",
+  "shadows": "soft",
+  "motion": "full",
+  "preview": {
+    "source": "open-color-mit",
+    "designed_for": "mizan"
+  }
+}

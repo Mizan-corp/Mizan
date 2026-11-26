@@ -1,0 +1,32 @@
+{
+  "id": "mizan",
+  "name": "ميزان",
+  "name_en": "Mizan",
+  "version": "1.0.0",
+  "kind": "theme",
+  "description": "عنابي دافئ على ورق كريمي: هوية ميزان.",
+  "palette": "mizan",
+  "fonts": {
+    "body": "Manrope",
+    "display": "Cormorant Garamond",
+    "files": [
+      {
+        "ref": "manrope"
+      },
+      {
+        "ref": "cormorant-garamond"
+      },
+      {
+        "ref": "tajawal"
+      },
+      {
+        "ref": "almarai"
+      }
+    ],
+    "body_arabic": "Tajawal",
+    "display_arabic": "Almarai"
+  },
+  "radius": "0.875rem",
+  "shadows": "soft",
+  "motion": "full"
+}

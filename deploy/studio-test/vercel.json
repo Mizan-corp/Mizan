@@ -1,0 +1,54 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": [
+          "app/**",
+          "system_api/**",
+          "website_api/**"
+        ]
+      }
+    },
+    {
+      "src": "static/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api(?:/.*)?",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/site(?:/.*)?",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/forms(?:/.*)?",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/uploads(?:/.*)?",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/erp/assets/(.*)",
+      "dest": "/static/erp/assets/$1"
+    },
+    {
+      "src": "/erp/(sw.js|manifest.webmanifest|icon.svg)",
+      "dest": "/static/erp/$1"
+    },
+    {
+      "src": "/erp(?:/.*)?",
+      "dest": "/static/erp/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/static/$1"
+    }
+  ]
+}

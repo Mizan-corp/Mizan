@@ -10,7 +10,7 @@ RUN apt-get update --fix-missing && \
     rm -rf /var/lib/apt/lists/*
 # Only the dependencies (the kernel's code comes from /shared below), so this layer and the
 # libraries layer change only with pyproject.toml: a release ships just the code layers.
-COPY shared/backend/pyproject.toml /build/pyproject.toml
+COPY system/core/backend/pyproject.toml /build/pyproject.toml
 RUN python -c "import tomllib; print('\n'.join(tomllib.load(open('/build/pyproject.toml', 'rb'))['project']['dependencies']))" > /build/requirements.txt && \
     pip install --prefix=/install --no-cache-dir -r /build/requirements.txt
 
@@ -34,9 +34,9 @@ COPY --from=builder /install/ /usr/local/
 RUN addgroup --system --gid 10001 mizan && adduser --system --uid 10001 --ingroup mizan mizan && \
     mkdir -p /data/uploads /data/private_uploads && chown -R mizan:mizan /data
 # Code last: these small layers are all a release changes.
-COPY shared/backend/app /shared/app
+COPY system/core/backend/app /shared/app
 COPY manage.py /srv/mizan/manage.py
-COPY system/backend /srv/mizan/system/backend
+COPY system/erp/backend /srv/mizan/system/erp/backend
 COPY website/backend /srv/mizan/website/backend
 COPY owner/backend /srv/mizan/owner/backend
 COPY admin/backend /srv/mizan/admin/backend

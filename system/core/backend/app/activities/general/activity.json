@@ -1,0 +1,41 @@
+{
+  "id": "general",
+  "family": "general",
+  "order": 0,
+  "name": "الأساس العام",
+  "name_en": "General",
+  "description": "يرثه كل نشاط: جهات الاتصال، الأصناف، المخزون، المبيعات، المشتريات، المالية، نقاط البيع، الموظفون، التقارير",
+  "branding": {
+    "themes": [
+      "ocean",
+      "teal",
+      "violet"
+    ],
+    "fonts": {
+      "body": "Cairo",
+      "display": "Cairo"
+    },
+    "note": "اختيارات متوازنة تناسب أغلب الأنشطة.",
+    "palettes": [
+      "ocean",
+      "teal",
+      "violet"
+    ]
+  },
+  "modules": [
+    "core",
+    "contacts",
+    "inventory",
+    "operations",
+    "sales",
+    "purchases",
+    "finance",
+    "pos",
+    "hr"
+  ],
+  "variants": {},
+  "optional": [],
+  "terms": {},
+  "positions": [],
+  "settings": {}
+}

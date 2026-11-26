@@ -45,7 +45,7 @@ GPT model: gpt-6
 - If any step fails, the entire operation rolls back
 
 ### 4. Database Design, Migrations, and Data Lifecycle
-- Tracked migrations ONLY — append to the `MIGRATIONS` list in `shared/backend/app/db/migrations.py` (never ALTER directly)
+- Tracked migrations ONLY — append to the `MIGRATIONS` list in `system/core/backend/app/db/migrations.py` (never ALTER directly)
 - Idempotent SQL: `CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`
 - FK indexes on every FK column: `CREATE INDEX IF NOT EXISTS idx_<table>_<col> ON <table>(<col>)`
 - Composite per-tenant uniques replace global ones
@@ -150,7 +150,7 @@ GPT model: gpt-6
 - [ ] Every mutation: inside a single DB transaction
 - [ ] Every list endpoint: paginated (`page`, `size`, `total`, `pages`)
 - [ ] No business logic in routers (belongs in service layer)
-- [ ] Every migration: appended to `MIGRATIONS` in `shared/backend/app/db/migrations.py`, idempotent, numbered `v<N>_<name>`
+- [ ] Every migration: appended to `MIGRATIONS` in `system/core/backend/app/db/migrations.py`, idempotent, numbered `v<N>_<name>`
 - [ ] `AuditLog` entry for every destructive action
 - [ ] FK indexes on every FK column
 - [ ] Money stored as `Numeric`, never float
@@ -169,5 +169,5 @@ GPT model: gpt-6
 > 3. Identify all list endpoints — add pagination
 > 4. Identify all business logic — move to a service, not a router
 > 5. Add an AuditLog entry for any destructive or financial mutation
-> 6. Write the migration as idempotent SQL in shared/backend/app/db/migrations.py
+> 6. Write the migration as idempotent SQL in system/core/backend/app/db/migrations.py
 > 7. After implementation, run: npm test + tsc + build + e2e on affected paths

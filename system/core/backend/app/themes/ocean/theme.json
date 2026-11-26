@@ -1,0 +1,28 @@
+{
+  "id": "ocean",
+  "name": "محيطي",
+  "name_en": "Ocean",
+  "version": "1.0.0",
+  "kind": "theme",
+  "description": "أزرق محيطي نظيف. تركيبة أصلية من ألوان Open Color (MIT).",
+  "palette": "ocean",
+  "fonts": {
+    "body": "Tajawal",
+    "display": "Cairo",
+    "files": [
+      {
+        "ref": "cairo"
+      },
+      {
+        "ref": "tajawal"
+      }
+    ]
+  },
+  "radius": "0.625rem",
+  "shadows": "soft",
+  "motion": "full",
+  "preview": {
+    "source": "open-color-mit",
+    "designed_for": "mizan"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "slate",
+  "name": "رمادي هادئ",
+  "name_en": "Slate",
+  "version": "1.0.0",
+  "kind": "theme",
+  "description": "رمادي محايد ونظيف للأعمال.",
+  "palette": "slate",
+  "fonts": {
+    "body": "Manrope",
+    "files": [
+      {
+        "ref": "manrope"
+      },
+      {
+        "ref": "tajawal"
+      }
+    ],
+    "body_arabic": "Tajawal"
+  },
+  "radius": "0.875rem",
+  "shadows": "soft",
+  "motion": "full"
+}
