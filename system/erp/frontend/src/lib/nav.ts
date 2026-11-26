@@ -37,6 +37,8 @@ export interface RoleScreens {
   dashboard: DashboardWidget[];
   screens: ScreenItem[];
   custom: boolean;
+  /** The activity's default shell (navigation placement); null/absent = classic. A saved personal choice wins. */
+  shell?: "sidebar" | "rail" | "topnav" | null;
 }
 
 /** The acting role's home, menu, dashboard and available screens. */

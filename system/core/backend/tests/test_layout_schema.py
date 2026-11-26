@@ -103,3 +103,27 @@ def test_layout_json_wins_over_activity_json_and_bad_schema_is_refused(tmp_path)
     with pytest.raises(ValueError):
         layout_of(tmp_path)
     assert layout_of(tmp_path / "missing") == {}
+
+
+# ---- step 5: an activity's default shell ----
+def test_shell_defaults_to_classic_and_passes_valid_ids_only():
+    from unittest.mock import patch
+    from app.framework import variants
+
+    real = variants.activity
+
+    def with_shell(value):
+        def fake(activity_id=None):
+            return {**real(activity_id), "shell": value}
+        return fake
+
+    def resolved(activity="general"):
+        return screens.resolve(None, activity, "owner", ALL_PERMS, [])
+
+    assert resolved()["shell"] is None  # no activity sets one today: the look is unchanged
+    assert resolved("retail")["shell"] is None
+    with patch.object(variants, "activity", with_shell("rail")):
+        assert resolved()["shell"] == "rail"
+        assert resolved_screens(resolved()).shell == "rail"
+    with patch.object(variants, "activity", with_shell("sparkly")):
+        assert resolved()["shell"] is None  # unknown ids fall back to classic

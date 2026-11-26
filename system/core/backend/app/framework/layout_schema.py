@@ -22,6 +22,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 SCHEMA_VERSION = 1
 GROUP_ID = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
 WidgetSize = Literal["s", "m", "l"]
+ShellId = Literal["sidebar", "rail", "topnav"]
+SHELL_IDS = ("sidebar", "rail", "topnav")  # "sidebar" is the classic look
 
 
 class _Strict(BaseModel):
@@ -105,6 +107,7 @@ class ResolvedScreensV1(_Strict):
     dashboard: list[ResolvedWidgetV1]
     screens: list[ScreenItemV1]
     custom: bool
+    shell: ShellId | None = None
 
 
 def role_layout(data: dict) -> RoleLayoutV1:

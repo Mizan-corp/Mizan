@@ -612,7 +612,11 @@ export default function Shell() {
   const fetchModules = useModulesStore((s) => s.fetchModules);
   const { layoutMode, appearanceModalOpen, setAppearanceModalOpen } = useUiStore();
 
-  const variant = SHELL_VARIANTS[layoutMode] ?? SHELL_VARIANTS[CLASSIC_SHELL];
+  // A person's own choice (Appearance) wins; otherwise the activity's default shell; otherwise classic.
+  const activityShell = useRoleScreens().data?.shell;
+  const hasOwnChoice = typeof localStorage !== "undefined" && !!localStorage.getItem("mizan.layout");
+  const mode = !hasOwnChoice && activityShell && SHELL_VARIANTS[activityShell] ? activityShell : layoutMode;
+  const variant = SHELL_VARIANTS[mode] ?? SHELL_VARIANTS[CLASSIC_SHELL];
 
   useEffect(() => {
     fetchModules();
@@ -624,7 +628,7 @@ export default function Shell() {
     <div className="flex min-h-svh bg-background text-foreground">
       {/* Navigation placement comes from the shell-variant registry (framework/shellVariants.ts) */}
       {variant.nav.kind === "aside" && (
-        <aside className={variant.nav.className}>{layoutMode === "rail" ? <AppRail /> : <AppSidebar />}</aside>
+        <aside className={variant.nav.className}>{mode === "rail" ? <AppRail /> : <AppSidebar />}</aside>
       )}
 
       {/* Mobile Drawer (Always Available on Small Screens) */}

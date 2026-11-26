@@ -22,6 +22,7 @@ from functools import lru_cache
 from fastapi import HTTPException
 
 from app.framework import variants
+from app.framework.layout_schema import SHELL_IDS
 
 # Available to every workspace whatever its active modules (their routes have no module guard).
 ALWAYS_ON = ("core", "reporting")
@@ -127,8 +128,11 @@ def resolve(layout: dict | None, activity_id: str | None, role_code: str | None,
         if w and installed(w["module"], active) and allowed(w.get("permission"), granted):
             dashboard.append({"id": w["id"], "label": w.get("label"), "module": w["module"], "size": e["size"] or w.get("size")})
 
+    # `shell`: the activity's default navigation placement (framework/layout_schema.SHELL_IDS), or
+    # None for the classic look. A person's own choice in Appearance always wins over it.
+    shell = variants.activity(activity_id).get("shell")
     return {"home": home["path"] if home else "/", "menu": menu, "dashboard": dashboard, "screens": available,
-            "custom": bool(layout)}
+            "custom": bool(layout), "shell": shell if shell in SHELL_IDS else None}
 
 
 def check_layout(layout: dict) -> dict:
