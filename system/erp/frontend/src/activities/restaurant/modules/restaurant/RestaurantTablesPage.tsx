@@ -38,7 +38,7 @@ import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { moneyEGP } from "@/lib/format";
 import { sound } from "@/lib/sound";
-import { RestaurantGuestCheckModal, type DiningTableReceiptData } from "@app/features/modules/SpecializedReceiptModals";
+import { RestaurantGuestCheckModal, type DiningTableReceiptData } from "@app/platform/marketplace/screens/SpecializedReceiptModals";
 
 interface TableItem {
   id: string;

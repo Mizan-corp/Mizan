@@ -16,7 +16,7 @@ reports, the 48 industry modules, and public storefronts.
   panel (impersonation) through `#session=` on first load.
 - Owns schema bootstrap (`create_all`) and the tracked migrations run by `python manage.py db migrate`.
 - Applies the workspace's theme pack (from the workspace resolve and `/auth/me`); the module
-  centre (`src/features/modules/`) holds the themes section and developers' modules
+  centre (`src/platform/marketplace/screens/`) holds the themes section and developers' modules
   (`src/platform/themes/`, `src/platform/community/`), and `/x/<module>/<entity>` renders a
   community module's records.
 - Serves `/ext/v1` for developers' module servers (ADR-007).

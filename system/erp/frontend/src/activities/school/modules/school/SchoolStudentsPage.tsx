@@ -25,7 +25,7 @@ import { Empty, ErrorBox, Input, Modal, useToast } from "@/components/ui";
 import { api } from "@/lib/api";
 import { moneyEGP } from "@/lib/format";
 import { sound } from "@/lib/sound";
-import { SchoolTuitionReceiptModal, type SchoolPaymentReceiptData } from "@app/features/modules/SpecializedReceiptModals";
+import { SchoolTuitionReceiptModal, type SchoolPaymentReceiptData } from "@app/platform/marketplace/screens/SpecializedReceiptModals";
 
 interface Student {
   id: string;

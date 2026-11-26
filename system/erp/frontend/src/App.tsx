@@ -1,19 +1,19 @@
 import { moduleDefinitions } from "@app/framework/registry";
 import { lazy, Suspense } from "react";
-const DashboardPage = lazy(() => import("@app/features/dashboard/DashboardPage"));
+const DashboardPage = lazy(() => import("@app/platform/core/screens/DashboardPage"));
 const ProductsPage = lazy(() => import("@app/activities/general/modules/inventory/screens/ProductsPage"));
 const CustomersPage = lazy(() => import("@app/activities/general/modules/contacts/screens/CustomersPage"));
-const SettingsPage = lazy(() => import("@app/features/settings/SettingsPage"));
+const SettingsPage = lazy(() => import("@app/platform/core/screens/SettingsPage"));
 const DesignerPage = lazy(() => import("@app/features/designer/DesignerPage"));
 const CommunityEntityPage = lazy(() => import("@app/platform/community/screens/EntityPage"));
 const SuppliersPage = lazy(() => import("@app/activities/general/modules/purchases/screens/SuppliersPage"));
-const UsersPage = lazy(() => import("@app/features/users/UsersPage"));
+const UsersPage = lazy(() => import("@app/platform/core/screens/UsersPage"));
 const ReportsPage = lazy(() => import("@app/activities/general/modules/reporting/screens/ReportsPage"));
 const ArchivePage = lazy(() => import("@app/activities/general/modules/documents/screens/ArchivePage"));
 const OperationsPage = lazy(() => import("@app/activities/general/modules/operations/screens/OperationsPage"));
-const ModulesPage = lazy(() => import("@app/features/modules/ModulesPage"));
+const ModulesPage = lazy(() => import("@app/platform/marketplace/screens/ModulesPage"));
 const HelpdeskPage = lazy(() => import("@app/activities/general/modules/helpdesk/screens/HelpdeskPage"));
-const TenantScopeLayout = lazy(() => import("@app/features/tenant/TenantScopeLayout"));
+const TenantScopeLayout = lazy(() => import("@app/platform/core/screens/TenantScopeLayout"));
 
 
 
@@ -42,7 +42,7 @@ import { appUrl } from "@/lib/urls";
 import { Button } from "@/components/kit/button";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/kit/empty";
 import Shell from "@app/components/AppShell";
-import LoginPage from "@app/features/auth/LoginPage";
+import LoginPage from "@app/platform/core/screens/LoginPage";
 import { IS_ON_PREMISE } from "@app/lib/deployment";
 
 function Page({ children }: { children: React.ReactNode }) {

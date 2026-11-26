@@ -5,7 +5,7 @@ import { FileText, Printer } from "lucide-react";
 import { useClinic } from "../ClinicContext";
 import QueryState from "../components/QueryState";
 import { moneyEGP } from "../format";
-import { ClinicInvoiceReceiptModal, type ClinicInvoiceReceiptData } from "@app/features/modules/SpecializedReceiptModals";
+import { ClinicInvoiceReceiptModal, type ClinicInvoiceReceiptData } from "@app/platform/marketplace/screens/SpecializedReceiptModals";
 
 
 export default function BillingTab() {

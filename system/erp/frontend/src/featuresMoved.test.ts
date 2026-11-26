@@ -12,6 +12,13 @@ const MOVED: Record<string, string> = {
   "activities/general/modules/operations/screens/OperationsPage.tsx": "features/operations",
   "activities/general/modules/reporting/screens/ReportsPage.tsx": "features/reports",
   "activities/general/modules/documents/screens/ArchivePage.tsx": "features/archive",
+  // Step 8b: system pages live in the system modules.
+  "platform/core/screens/DashboardPage.tsx": "features/dashboard",
+  "platform/core/screens/SettingsPage.tsx": "features/settings",
+  "platform/core/screens/UsersPage.tsx": "features/users",
+  "platform/core/screens/LoginPage.tsx": "features/auth",
+  "platform/core/screens/TenantScopeLayout.tsx": "features/tenant",
+  "platform/marketplace/screens/ModulesPage.tsx": "features/modules",
 };
 
 describe("business pages are in their module", () => {

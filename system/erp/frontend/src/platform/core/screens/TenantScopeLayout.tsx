@@ -4,7 +4,7 @@ import { api, ApiError } from "@/lib/api";
 import { useAuth, type TenantInfo } from "@/stores/auth";
 import { useModulesStore } from "@app/stores/modules";
 import Shell from "@app/components/AppShell";
-import LoginPage from "@app/features/auth/LoginPage";
+import LoginPage from "@app/platform/core/screens/LoginPage";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/kit/button";
 import { HOST_WORKSPACE, RESERVED_ROOT_PATHS } from "@app/lib/tenant";
