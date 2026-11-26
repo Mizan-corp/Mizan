@@ -94,9 +94,6 @@
         {
           "screen": "core.settings",
           "label": "إعدادات المدرسة والعام الدراسي"
-        },
-        {
-          "screen": "core.designer"
         }
       ]
     }

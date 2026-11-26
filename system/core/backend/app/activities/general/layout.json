@@ -188,9 +188,6 @@
         },
         {
           "screen": "core.settings"
-        },
-        {
-          "screen": "core.designer"
         }
       ]
     }

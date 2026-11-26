@@ -20,8 +20,8 @@ def test_screens_follow_the_acting_role(admin_api, cashier_api):
     cashier = cashier_api.ok(cashier_api.get("/settings/screens"))
     assert admin["menu"] and cashier["menu"]
     admin_ids, cashier_ids = _screen_ids(admin_api), _screen_ids(cashier_api)
-    assert {"core.designer", "core.users", "core.settings"} <= admin_ids
-    assert not {"core.designer", "core.users", "core.settings"} & cashier_ids
+    assert {"core.users", "core.settings"} <= admin_ids
+    assert not {"core.users", "core.settings"} & cashier_ids
     assert cashier_ids < admin_ids
     # The menu only lists screens the role may open.
     in_menu = {i["id"] for g in cashier["menu"] for i in g["items"]}

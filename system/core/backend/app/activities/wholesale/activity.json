@@ -109,9 +109,6 @@
         {
           "screen": "core.settings",
           "label": "إعدادات سقوف الائتمان والأسعار"
-        },
-        {
-          "screen": "core.designer"
         }
       ]
     }

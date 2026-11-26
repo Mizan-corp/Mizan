@@ -110,9 +110,6 @@
         {
           "screen": "core.settings",
           "label": "إعدادات تكويد المشاريع"
-        },
-        {
-          "screen": "core.designer"
         }
       ]
     }

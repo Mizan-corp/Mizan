@@ -102,9 +102,6 @@
         {
           "screen": "core.settings",
           "label": "إعدادات أنواع الأعطال والصيانة"
-        },
-        {
-          "screen": "core.designer"
         }
       ]
     }

@@ -147,9 +147,6 @@
         {
           "screen": "core.settings",
           "label": "إعدادات العيادات والمجمع"
-        },
-        {
-          "screen": "core.designer"
         }
       ]
     }

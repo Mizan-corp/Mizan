@@ -94,9 +94,6 @@
           "screen": "core.settings"
         },
         {
-          "screen": "core.designer"
-        },
-        {
           "screen": "core.modules"
         },
         {

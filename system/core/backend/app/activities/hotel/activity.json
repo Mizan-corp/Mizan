@@ -100,9 +100,6 @@
         {
           "screen": "core.settings",
           "label": "إعدادات أسعار الغرف والمواسم"
-        },
-        {
-          "screen": "core.designer"
         }
       ]
     }

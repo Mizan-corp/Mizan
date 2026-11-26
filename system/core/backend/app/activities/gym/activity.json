@@ -112,9 +112,6 @@
         {
           "screen": "core.settings",
           "label": "إعدادات باقات الاشتراكات"
-        },
-        {
-          "screen": "core.designer"
         }
       ]
     }

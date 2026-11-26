@@ -105,9 +105,6 @@
      {
       "label": "إعدادات تكويد المشاريع",
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "المهندسون وفريق التنفيذ"
@@ -238,9 +235,6 @@
      },
      {
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      },
      {
       "screen": "core.modules"
@@ -474,9 +468,6 @@
      {
       "label": "إعدادات مراكز التكلفة والمصنع",
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "العمالة وخطوط التشغيل"
@@ -681,9 +672,6 @@
      },
      {
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "الإدارة والنظام"
@@ -782,9 +770,6 @@
      {
       "label": "إعدادات باقات الاشتراكات",
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "المدربون والإدارة"
@@ -910,9 +895,6 @@
      {
       "label": "إعدادات العيادات والمجمع",
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "الكادر الطبي والإدارة"
@@ -993,9 +975,6 @@
      {
       "label": "إعدادات أسعار الغرف والمواسم",
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "فريق الفندق والإدارة"
@@ -1083,9 +1062,6 @@
      {
       "label": "إعدادات مناطق التوصيل والتسعير",
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "السائقون والتشغيل"
@@ -1164,9 +1140,6 @@
      {
       "label": "إعدادات أنواع الأعطال والصيانة",
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "الفنيون والإدارة"
@@ -1257,9 +1230,6 @@
      {
       "label": "إعدادات مراكز التكلفة والمصنع",
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "العمالة وخطوط التشغيل"
@@ -1368,9 +1338,6 @@
      },
      {
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      },
      {
       "screen": "core.modules"
@@ -1598,9 +1565,6 @@
      {
       "label": "إعدادات مراكز التكلفة والمصنع",
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "العمالة وخطوط التشغيل"
@@ -1708,9 +1672,6 @@
      {
       "label": "إعدادات الصيدلية",
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "فريق الصيادلة والإدارة"
@@ -1819,9 +1780,6 @@
      },
      {
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      },
      {
       "screen": "core.modules"
@@ -2038,9 +1996,6 @@
      {
       "label": "إعدادات العقارات والعمولات",
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "الإدارة والنظام"
@@ -2139,9 +2094,6 @@
      {
       "label": "إعدادات المطعم",
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "الكادر والإدارة"
@@ -2250,9 +2202,6 @@
      },
      {
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      },
      {
       "screen": "core.modules"
@@ -2469,9 +2418,6 @@
      {
       "label": "إعدادات باقات الصالون",
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "المصففون والعمولات"
@@ -2546,9 +2492,6 @@
      {
       "label": "إعدادات المدرسة والعام الدراسي",
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "الكادر التعليمي والإدارة"
@@ -2673,9 +2616,6 @@
      },
      {
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      },
      {
       "screen": "core.modules"
@@ -2875,9 +2815,6 @@
      {
       "label": "إعدادات برامج السفر والعمولات",
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "فريق الحجوزات والإدارة"
@@ -2953,9 +2890,6 @@
      {
       "label": "إعدادات مناطق التوصيل والتسعير",
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "السائقون والتشغيل"
@@ -3044,9 +2978,6 @@
      {
       "label": "إعدادات سقوف الائتمان والأسعار",
       "screen": "core.settings"
-     },
-     {
-      "screen": "core.designer"
      }
     ],
     "label": "المناديب والإدارة"

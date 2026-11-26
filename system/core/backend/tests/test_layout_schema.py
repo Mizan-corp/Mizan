@@ -68,7 +68,8 @@ BASELINE = Path(__file__).with_name("activity_layouts.baseline.json")
 
 def test_activity_layouts_resolve_exactly_as_before_the_move():
     """tests/activity_layouts.baseline.json was captured from activity.json BEFORE retail and
-    general moved their home/menu/dashboard/roles into layout.json. Resolution must not change."""
+    general moved their home/menu/dashboard/roles into layout.json. Resolution must not change.
+    (Step 8c removed the designer menu entry from the baseline, on purpose: nothing else changed.)"""
     from app.catalog import activities
     from app.framework import variants
 

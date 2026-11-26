@@ -73,13 +73,6 @@
       "permission": "archive"
     },
     {
-      "id": "core.designer",
-      "path": "/designer",
-      "label": "مصمم الشاشات والنماذج",
-      "icon": "Palette",
-      "permission": "designer"
-    },
-    {
       "id": "core.modules",
       "path": "/modules",
       "label": "سوق الوحدات والأنشطة",

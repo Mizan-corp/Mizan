@@ -103,9 +103,6 @@
         {
           "screen": "core.settings",
           "label": "إعدادات العقارات والعمولات"
-        },
-        {
-          "screen": "core.designer"
         }
       ]
     }

@@ -120,12 +120,6 @@
   "component": "DashboardPage"
  },
  {
-  "path": "designer",
-  "perm": "designer",
-  "module": null,
-  "component": "DesignerPage"
- },
- {
   "path": "ecommerce",
   "perm": "",
   "module": "ecommerce",

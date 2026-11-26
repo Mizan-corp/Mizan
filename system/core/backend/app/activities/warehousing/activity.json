@@ -95,9 +95,6 @@
         {
           "screen": "core.settings",
           "label": "إعدادات مناطق التوصيل والتسعير"
-        },
-        {
-          "screen": "core.designer"
         }
       ]
     }

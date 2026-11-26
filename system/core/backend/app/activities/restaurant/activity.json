@@ -126,9 +126,6 @@
         {
           "screen": "core.settings",
           "label": "إعدادات المطعم"
-        },
-        {
-          "screen": "core.designer"
         }
       ]
     }

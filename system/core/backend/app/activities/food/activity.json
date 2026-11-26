@@ -112,9 +112,6 @@
         {
           "screen": "core.settings",
           "label": "إعدادات مراكز التكلفة والمصنع"
-        },
-        {
-          "screen": "core.designer"
         }
       ]
     }

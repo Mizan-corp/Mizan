@@ -4,7 +4,6 @@ const DashboardPage = lazy(() => import("@app/platform/core/screens/DashboardPag
 const ProductsPage = lazy(() => import("@app/activities/general/modules/inventory/screens/ProductsPage"));
 const CustomersPage = lazy(() => import("@app/activities/general/modules/contacts/screens/CustomersPage"));
 const SettingsPage = lazy(() => import("@app/platform/core/screens/SettingsPage"));
-const DesignerPage = lazy(() => import("@app/features/designer/DesignerPage"));
 const CommunityEntityPage = lazy(() => import("@app/platform/community/screens/EntityPage"));
 const SuppliersPage = lazy(() => import("@app/activities/general/modules/purchases/screens/SuppliersPage"));
 const UsersPage = lazy(() => import("@app/platform/core/screens/UsersPage"));
@@ -119,7 +118,6 @@ function renderErpChildRoutes(includeIndex: boolean = true) {
       <Route path="reports" element={<Guard perm="reports"><ReportsPage /></Guard>} />
       <Route path="users" element={<Guard perm="users"><UsersPage /></Guard>} />
       <Route path="settings" element={<Guard perm="settings"><SettingsPage /></Guard>} />
-      <Route path="designer" element={<Guard perm="designer"><DesignerPage /></Guard>} />
       {/* Community modules (ADR-007): their records, drawn from the entity they declare. */}
       <Route path="x/:module/:entity" element={<CommunityEntityPage />} />
       <Route path="modules" element={<Guard perm=""><ModulesPage /></Guard>} />

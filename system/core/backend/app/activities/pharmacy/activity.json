@@ -130,9 +130,6 @@
         {
           "screen": "core.settings",
           "label": "إعدادات الصيدلية"
-        },
-        {
-          "screen": "core.designer"
         }
       ]
     }

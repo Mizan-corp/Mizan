@@ -89,9 +89,6 @@
         {
           "screen": "core.settings",
           "label": "إعدادات برامج السفر والعمولات"
-        },
-        {
-          "screen": "core.designer"
         }
       ]
     }
