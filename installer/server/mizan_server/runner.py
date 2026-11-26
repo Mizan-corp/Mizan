@@ -26,7 +26,7 @@ def app_import_path() -> None:
     if getattr(sys, "frozen", False):
         return
     repo = Path(__file__).resolve().parents[3]
-    for sub in ("system/backend", "system/core/backend"):
+    for sub in ("system/erp/backend", "system/core/backend"):
         path = str(repo / sub)
         if path not in sys.path:
             sys.path.insert(0, path)

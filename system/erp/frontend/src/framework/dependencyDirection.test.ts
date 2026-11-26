@@ -1,12 +1,12 @@
 // Migration step 2b (docs/modular-core-exploration.md, section 12): the dependency direction.
 //   shared (becoming system/core)  imports no app.
-//   owner, admin, website          import shared only, never the ERP app (system_api, system/frontend).
+//   owner, admin, website          import shared only, never the ERP app (system_api, system/erp/frontend).
 // Pure file scan. It pins today's direction before shared/ is merged into system/.
 import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-const ROOT = resolve(__dirname, "../../../..");
+const ROOT = resolve(__dirname, "../../../../..");
 const SKIP = new Set(["node_modules", ".venv", "__pycache__", "build", "dist", "dist-studio", ".git", "uploads", "private_uploads", "updates"]);
 
 function files(dir: string, exts: string[], out: string[] = []): string[] {

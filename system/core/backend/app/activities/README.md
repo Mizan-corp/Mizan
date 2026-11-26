@@ -14,7 +14,7 @@ activities/<activity>/
   themes/<theme>/    theme packs that come with the activity (ADR-010 D3)
 ```
 
-The system app mirrors it: `system/frontend/src/activities/<activity>/modules/<id>/` (screens) and
+The system app mirrors it: `system/erp/frontend/src/activities/<activity>/modules/<id>/` (screens) and
 `variants/<module>/` (screens a variant adds). `general` is inherited by every workspace; its
 modules are the core ERP. A module's own defaults are its `standard` variant
 (`modules/<id>/variants/standard/`).

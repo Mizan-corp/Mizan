@@ -58,7 +58,7 @@ reversing receipts need more (below).
 
 ## Screen
 
-`/customers` (`system/frontend/src/features/customers/CustomersPage.tsx`): paged list with server
+`/customers` (`system/erp/frontend/src/features/customers/CustomersPage.tsx`): paged list with server
 totals, create and edit, balance adjustment, stop, delete, receipts, and the statement with its
 running balance and the reversal of receipts.
 
@@ -78,5 +78,5 @@ on-site PostgreSQL without contrib), a btree on `(tenant_id, lower(name))` (`ix_
 which helps ordering and prefix searches only.
 
 ## Dependencies
-core. Tests: `system/backend/tests/test_money_flows_finance.py`, `test_ready_contacts.py`,
+core. Tests: `system/erp/backend/tests/test_money_flows_finance.py`, `test_ready_contacts.py`,
 `test_b_platform.py`; `e2e/api/test_parties.py`.

@@ -261,7 +261,7 @@ active user whose role holds `accounting:view` gets one notification (type `acco
 link `/accounting/reports?tab=reconciliation`, the differences in `data_json`), at most once in 20
 hours. It changes nothing. One workspace failing doesn't stop the others.
 
-## Screens (`system/frontend/src/activities/general/modules/accounting/`)
+## Screens (`system/erp/frontend/src/activities/general/modules/accounting/`)
 
 Menus (manifest `screens`, placed after "finance" in every activity menu that has it) appear only
 where the module is active and the role holds the screen's permission; the routes are guarded by the
@@ -286,7 +286,7 @@ optional branch (`warehouse_id` on the lines: a line with no branch, such as a c
 safe, is left out of a branch report, so a branch trial balance or balance sheet need not balance
 and says so with `balanced: false` / `difference`), and returns JSON with Arabic and English names.
 Balances are debit minus credit; reports show them in the account's natural direction. The shapes are
-typed in `system/frontend/src/activities/general/modules/accounting/api.ts`.
+typed in `system/erp/frontend/src/activities/general/modules/accounting/api.ts`.
 
 - **Trial balance.** Per account (groups roll their children up, `level` for indentation): `opening`
   = debit − credit of entries before `from`; `debit` / `credit` in `from..to`; `closing` = opening +

@@ -31,7 +31,7 @@ services:
   system-api:
     build:
       context: .
-      dockerfile: system/backend/Dockerfile
+      dockerfile: system/erp/backend/Dockerfile
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/inventory_db
@@ -43,7 +43,7 @@ services:
       EMAIL_SMTP_TLS: ${EMAIL_SMTP_TLS:-false}
       FIREBASE_CREDENTIALS: /app/firebase-service-account.json
     volumes:
-      - ./system/backend:/app
+      - ./system/erp/backend:/app
       - ./system/core/backend/app:/shared/app
       - uploads_data:/app/uploads
       - ./firebase-service-account.json:/app/firebase-service-account.json:ro

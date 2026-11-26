@@ -11,4 +11,4 @@ Theme packs and the workspace's one theme (ADR-010 D3). Always on.
   under `/themes/assets/`.
 - Checks: `theme_problems` in `app/framework/manifest.py`. Table: `workspace_themes` (v73).
 - Applied in the app by `system/core/frontend/src/lib/theme.ts`; chosen in the module centre
-  (`system/frontend/src/platform/themes/`).
+  (`system/erp/frontend/src/platform/themes/`).

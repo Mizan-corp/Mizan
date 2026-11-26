@@ -11,7 +11,7 @@ import main  # noqa: F401
 from app.framework import package as mzm
 from tests.test_community_packages import developer, files
 
-REPO = Path(__file__).resolve().parents[3]
+REPO = Path(__file__).resolve().parents[4]
 
 
 def starter() -> dict[str, dict]:

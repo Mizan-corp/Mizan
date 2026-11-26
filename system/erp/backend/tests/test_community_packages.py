@@ -114,7 +114,7 @@ def test_the_sdk_ships_the_platforms_validator_and_its_packages_verify(tmp_path)
     import sys
     from pathlib import Path
 
-    repo = Path(__file__).resolve().parents[3]
+    repo = Path(__file__).resolve().parents[4]
     platform_copy = (repo / "system/core/backend/app/framework/manifest.py").read_text()
     assert (repo / "sdk/python/mizan_sdk/manifest.py").read_text() == platform_copy, \
         "sdk/python/mizan_sdk/manifest.py is out of date: copy system/core/backend/app/framework/manifest.py over it"

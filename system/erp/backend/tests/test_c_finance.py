@@ -22,7 +22,7 @@ from tests.test_ready_finance import _client, _one, _sql, _ws
 pytestmark = pytest.mark.skipif(not os.environ.get("DATABASE_URL"), reason="DATABASE_URL not set")
 
 D = Decimal
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[4]
 
 
 @pytest.fixture(autouse=True)

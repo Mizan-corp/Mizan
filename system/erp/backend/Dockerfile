@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Mizan system API. Build from the repo root so the shared kernel is available:
-#   docker build -f system/backend/Dockerfile .
+#   docker build -f system/erp/backend/Dockerfile .
 
 # ─── Builder: install the shared kernel and its wheels (compile deps live only here) ──
 FROM python:3.12-slim-bookworm AS builder
@@ -40,7 +40,7 @@ RUN apt-get update --fix-missing && \
 COPY --from=builder /install/ /usr/local/
 
 COPY system/core/backend/app /shared/app
-COPY system/backend /app
+COPY system/erp/backend /app
 
 RUN addgroup --system appgroup && \
     adduser --system --ingroup appgroup appuser && \

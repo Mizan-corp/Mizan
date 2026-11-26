@@ -12,5 +12,5 @@ is decided by the permissions it declares.
   240 requests a minute).
 - `events.py`: signed webhooks, recorded with the change, retried by the `community_webhooks` job.
 - Tables: `community_modules`, `ext_records`, `community_webhook_deliveries` (v69–v71).
-- Screens: `system/frontend/src/platform/community/` (the generic `/x/<module>/<entity>` page and
+- Screens: `system/erp/frontend/src/platform/community/` (the generic `/x/<module>/<entity>` page and
   the module centre section). Developer docs: `dev.allmizan.live/docs`.

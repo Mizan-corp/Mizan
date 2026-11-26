@@ -36,7 +36,7 @@ RUN addgroup --system --gid 10001 mizan && adduser --system --uid 10001 --ingrou
 # Code last: these small layers are all a release changes.
 COPY system/core/backend/app /shared/app
 COPY manage.py /srv/mizan/manage.py
-COPY system/backend /srv/mizan/system/backend
+COPY system/erp/backend /srv/mizan/system/erp/backend
 COPY website/backend /srv/mizan/website/backend
 COPY owner/backend /srv/mizan/owner/backend
 COPY admin/backend /srv/mizan/admin/backend

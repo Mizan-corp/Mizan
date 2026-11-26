@@ -2,7 +2,7 @@
 
 What every workspace has, never switched off (ADR-006):
 
-- **Engines** (folders without a manifest), mounted by `system/backend/system_api/router.py`:
+- **Engines** (folders without a manifest), mounted by `system/erp/backend/system_api/router.py`:
   `auth`, `permissions`, `notifications`, `printing`, `settings`, `billing`, `updates`,
   `archive`, `audit`, `licensing`, `tenancy`, `files`, `storage_quota`, `custom_fields`, and
   `developers` (the developer portal's accounts, teams, keys and CLI tokens, served by the website

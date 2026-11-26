@@ -12,11 +12,11 @@ are not built yet.
 - `printing.py` — the printable inventory sheet (HTML, every name escaped with `printing.routes.h()`).
 - `routes/reports.py` — `/reports/*`; `routes/export.py` — `/export/*` (Excel);
   `routes/admin_overview.py` — `/admin/overview`.
-- Screens: `system/frontend/src/features/reports/ReportsPage.tsx` (`/reports`, a tab each: daily,
+- Screens: `system/erp/frontend/src/features/reports/ReportsPage.tsx` (`/reports`, a tab each: daily,
   monthly, top products, by cashier, by custom field, the day's items, the periodic ledger; with
   `reports:finance`: profit, cash flow, aging, and the company overview for those who see every
   branch; the sales Excel export and the inventory sheet). The financial and ledger tabs are in
-  `system/frontend/src/activities/general/modules/reporting/components/` (filters, CSV export and
+  `system/erp/frontend/src/activities/general/modules/reporting/components/` (filters, CSV export and
   print as the accounting reports do; the rows they export in `lib.ts`, tested); the widgets in
   `widgets.tsx`; the profit cards of the finance screen's cash movements tab.
 
@@ -105,7 +105,7 @@ most 50,000 rows. The product export's cost price, like the stock export's, only
 ## Printing and errors
 `/reports/inventory/print` is the print system's document (`/print/inventory/{id}` prints the same
 sheet): a browser tab gets a refusal or a missing branch as an Arabic page (`PrintRoute`). The screens
-open prints and downloads through `system/frontend/src/lib/documents.ts`, which shows the server's
+open prints and downloads through `system/erp/frontend/src/lib/documents.ts`, which shows the server's
 Arabic message as a toast; a print or download nobody caught is still shown (`DocumentError`).
 
 ## Other modules' tables

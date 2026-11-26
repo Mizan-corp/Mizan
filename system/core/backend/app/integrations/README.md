@@ -1,6 +1,6 @@
 # Integrations
 
-Connectors to outside systems (ADR-006), mirrored for screens in `system/frontend/src/integrations/`.
+Connectors to outside systems (ADR-006), mirrored for screens in `system/erp/frontend/src/integrations/`.
 
 | Folder | What it is | Status |
 |---|---|---|

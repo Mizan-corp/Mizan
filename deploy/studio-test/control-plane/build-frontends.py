@@ -24,11 +24,11 @@ for kind in ("owner", "admin", "website"):
            "VITE_OWNER_URL": origin + "/owner", "VITE_ADMIN_URL": origin + "/admin"}
     subprocess.run(["npx", "vite", "build", "--outDir", str(a.output.resolve()/kind)],
                    cwd=a.repo/kind/"frontend", env=env, check=True)
-# Hosted Studio editor (system/frontend studio entry): talks to the deployment's own
+# Hosted Studio editor (system/erp/frontend studio entry): talks to the deployment's own
 # system API with the signed-in workspace session; served under /studio/.
 studio_env = {**os.environ, "VITE_STUDIO_API": "/api", "VITE_STUDIO_BASE": "/studio/"}
 subprocess.run(["npx", "vite", "build", "--config", "vite.studio.config.ts", "--outDir", str(a.output.resolve()/"studio")],
-               cwd=a.repo/"system"/"frontend", env=studio_env, check=True)
+               cwd=a.repo/"system"/"erp"/"frontend", env=studio_env, check=True)
 print("Builds prepared only. All services and website session handoff remain unhosted.")
 
 # Owner/admin are execution surfaces. Fail if a production Mizan URL slipped in.

@@ -8,7 +8,7 @@ From a full feature-branch checkout, with Node 22+, Python 3.12+ and the reposit
 
 ```sh
 npm ci
-cd system/frontend
+cd system/erp/frontend
 npx vite build --config vite.preview.config.ts --outDir /tmp/mizan-studio-build
 VITE_API_URL=/api VITE_BASE=/erp/ npx vite build --outDir /tmp/mizan-erp-build
 cd ../..

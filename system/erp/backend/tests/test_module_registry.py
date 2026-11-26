@@ -51,7 +51,7 @@ def test_industry_routes_are_guarded_by_their_module():
 
 def test_one_catalogue_and_one_store_of_active_modules():
     # The hard-coded MODULE_CATALOG and the installed_modules setting are gone (migration v50).
-    app_dir = Path(__file__).resolve().parents[3] / "system" / "core" / "backend" / "app"
+    app_dir = Path(__file__).resolve().parents[4] / "system" / "core" / "backend" / "app"
     for py in app_dir.rglob("*.py"):
         if py.name == "migrations.py" or "__pycache__" in py.parts:
             continue
@@ -77,7 +77,7 @@ def test_every_checked_permission_is_declared_once():
             owners.setdefault(p["id"] if isinstance(p, dict) else p, []).append(module_id)
     assert not {k: v for k, v in owners.items() if len(v) > 1}
 
-    root = Path(__file__).resolve().parents[3] / "system" / "core" / "backend" / "app"
+    root = Path(__file__).resolve().parents[4] / "system" / "core" / "backend" / "app"
     checked = set()
     for f in root.rglob("*.py"):
         for call in re.findall(r"require_perm\(([^)]*)\)", f.read_text(errors="ignore")):
@@ -135,10 +135,10 @@ def test_activities_and_families_are_consistent():
         assert module.category == activities()[module.activity]["family"], module.id
 
 
-REPO = Path(__file__).resolve().parents[3]
+REPO = Path(__file__).resolve().parents[4]
 APP = REPO / "system" / "core" / "backend" / "app"
 ACTIVITIES = APP / "activities"
-FRONTEND = REPO / "system" / "frontend" / "src"
+FRONTEND = REPO / "system" / "erp" / "frontend" / "src"
 # What an activity's folder may hold (ADR-010 D1); first-party activities may also share Python
 # code between their modules at the root (healthcare's seeder).
 ACTIVITY_ENTRIES = {"activity.json", "layout.json", "positions.json", "seed.py", "README.md", "modules", "variants", "themes",
@@ -210,7 +210,7 @@ def test_module_paths_are_valid_on_windows():
     # The installers are built on Windows.
     roots = [APP / "platform", APP / "integrations", APP / "framework", APP / "activities", APP / "catalog",
              FRONTEND / "activities", FRONTEND / "platform",
-             REPO / "system" / "frontend" / "src" / "integrations"]
+             REPO / "system" / "erp" / "frontend" / "src" / "integrations"]
     for root in roots:
         for path in root.rglob("*"):
             if "__pycache__" in path.parts:
@@ -244,7 +244,7 @@ def test_frontend_mirrors_the_backend_layout():
     # src/activities/<home_activity>/modules/<module_id>/, src/platform/<id>/, src/integrations/<id>/
     from app.framework import scaffold
 
-    frontend = REPO / "system" / "frontend" / "src"
+    frontend = REPO / "system" / "erp" / "frontend" / "src"
     by_activity: dict[str, set[str]] = {}
     for folder, m in scaffold.manifests():
         if m.get("kind", "business") == "business":

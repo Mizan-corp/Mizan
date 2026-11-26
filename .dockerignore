@@ -12,7 +12,7 @@
 **/tests
 **/uploads
 **/backups
-system/backend/updates
+system/erp/backend/updates
 **/.vercel
 docs
 e2e

@@ -8,7 +8,7 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 HERE = Path(SPECPATH).resolve()
 REPO = HERE.parents[1]
 SHARED = REPO / "system" / "core" / "backend"
-SYSTEM = REPO / "system" / "backend"
+SYSTEM = REPO / "system" / "erp" / "backend"
 
 # Importing the app during analysis reads settings: give it harmless values.
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://build:build@127.0.0.1/build")

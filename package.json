@@ -3,14 +3,14 @@
   "private": true,
   "workspaces": [
     "system/core/frontend",
-    "system/frontend",
+    "system/erp/frontend",
     "website/frontend",
     "owner/frontend",
     "admin/frontend",
     "installer/setup"
   ],
   "scripts": {
-    "dev:system": "npm run dev -w system/frontend",
+    "dev:system": "npm run dev -w system/erp/frontend",
     "dev:website": "npm run dev -w website/frontend",
     "dev:owner": "npm run dev -w owner/frontend",
     "dev:admin": "npm run dev -w admin/frontend",

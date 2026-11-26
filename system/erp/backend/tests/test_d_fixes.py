@@ -32,7 +32,7 @@ from app.platform.tenancy.context import bind_tenant, current_tenant_id
 from tests.test_ready_finance import _client, _one, _sale, _sql, _ws, pytestmark  # noqa: F401
 
 D = Decimal
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[4]
 
 
 @pytest.fixture(autouse=True)

@@ -6,7 +6,7 @@ purchases, shifts, inventory, dispatch, archive). The template engine and paper 
 
 ## Opening a document
 The screens ask for a print token (`POST /auth/print-token`, 60 seconds, `scope: print`) and open the
-document in a new tab with `?token=` (`openPrintDoc`, `system/frontend/src/lib/documents.ts`). A session
+document in a new tab with `?token=` (`openPrintDoc`, `system/erp/frontend/src/lib/documents.ts`). A session
 token is refused, and a print token opens nothing but documents (#154).
 
 ## Who prints what (`guard` in `routes/__init__.py`)
@@ -38,4 +38,4 @@ Routes use `PrintRoute`: a browser tab (`Accept: text/html`) gets a refusal, an 
 missing document or a bad link as an Arabic page with the same status; API clients keep the JSON.
 `paper_size` is `A4` (default: the workspace's setting) or a receipt roll (`80mm`).
 
-Tests: `system/backend/tests/test_print_documents.py`, `test_invoice_pdf.py`; `e2e/api/test_print.py`.
+Tests: `system/erp/backend/tests/test_print_documents.py`, `test_invoice_pdf.py`; `e2e/api/test_print.py`.

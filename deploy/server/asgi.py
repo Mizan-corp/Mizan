@@ -23,7 +23,7 @@ PRODUCTS = {"api": "system", "owner-api": "owner", "web-api": "website", "admin-
 
 
 def _load(product: str):
-    folder = ROOT / product / "backend"
+    folder = ROOT / ("system/erp" if product == "system" else product) / "backend"
     sys.path.insert(0, str(folder))
     spec = importlib.util.spec_from_file_location(f"mizan_{product}_main", folder / "main.py")
     module = importlib.util.module_from_spec(spec)

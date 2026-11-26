@@ -46,7 +46,7 @@ Whatever the client sends:
 
 ## Offline and retries
 The POS sends `local_id`, a UUID made on the device and kept across retries and the offline queue
-(`system/frontend/src/lib/offline.ts`). It is stored in `sales.local_id`, unique per (workspace,
+(`system/erp/frontend/src/lib/offline.ts`). It is stored in `sales.local_id`, unique per (workspace,
 cashier); a sale sent again returns the sale already recorded.
 
 ## Numbers
@@ -54,7 +54,7 @@ Per workspace (`app/platform/archive/numbering.py`): `INV-000001` invoices, `RET
 quotations, `DRF-` drafts (a draft gets its invoice number only when it is confirmed).
 
 ## The sales screen (SAL-11)
-`system/frontend/src/activities/general/modules/sales/screens/SalesPage.tsx`:
+`system/erp/frontend/src/activities/general/modules/sales/screens/SalesPage.tsx`:
 - **Lists** come from `GET /sales/page` (`{items, total, page, page_size}`): the tab (`kind=invoices`:
   sales, returns, cancelled; `kind=quotations`: quotations and drafts), dates (the workspace's days,
   the last one whole), search and branch are filtered on the server before paging. `GET /sales`

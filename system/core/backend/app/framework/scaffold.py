@@ -2,7 +2,7 @@
 
 The structure itself is the template in ``app/framework/module_template/``: ``backend/`` becomes
 ``app/activities/<activity>/modules/<id>/`` (``app/platform/<id>/``, ``app/integrations/<id>/`` by kind),
-``frontend/`` the matching folder under ``system/frontend/src/``. Used by
+``frontend/`` the matching folder under ``system/erp/frontend/src/``. Used by
 ``python manage.py module new|scaffold|check``. Only missing files are created; existing files
 are never changed. Standard library only, so it runs without the API's settings.
 """
@@ -14,7 +14,7 @@ from pathlib import Path
 
 APP_DIR = Path(__file__).resolve().parents[1]
 REPO = APP_DIR.parents[2]
-FRONTEND = REPO / "system" / "frontend" / "src"
+FRONTEND = REPO / "system" / "erp" / "frontend" / "src"
 TEMPLATE = Path(__file__).resolve().parent / "module_template"
 MODULE_ID = re.compile(r"^[a-z][a-z0-9_]*$")
 KIND_ROOT = {"platform": "platform", "integration": "integrations"}
@@ -203,7 +203,7 @@ def catalog_markdown() -> str:
              "Every module, generated from the manifests by `python manage.py module catalog` (a test fails when",
              "it's out of date); ids are folder names. A business activity is one folder (ADR-010):",
              "`system/core/backend/app/activities/<activity>/modules/<module_id>/`, screens in",
-             "`system/frontend/src/activities/<activity>/modules/<module_id>/`, with the activity's variants of",
+             "`system/erp/frontend/src/activities/<activity>/modules/<module_id>/`, with the activity's variants of",
              "other activities' modules in `activities/<activity>/variants/<module>/`.",
              "Status: **active** (built, offered) or *planned* (laid out from the SRS, not offered yet).", ""]
     for a in ["general"] + sorted(x for x in acts if x != "general"):

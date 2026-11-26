@@ -140,12 +140,12 @@ server's.
 
 ## Tests
 
-`system/backend/tests/test_hr_ready.py`, `test_c_hr.py`, `test_d_fixes.py`, `test_money_flows_finance.py`, `test_accounting_postings_2.py`;
+`system/erp/backend/tests/test_hr_ready.py`, `test_c_hr.py`, `test_d_fixes.py`, `test_money_flows_finance.py`, `test_accounting_postings_2.py`;
 `e2e/api/test_hr.py`, `test_periods.py`, `test_security.py`, `test_sessions.py`.
 
 ## Screens
 
-`/hr` (`system/frontend/src/activities/general/modules/hr/HrPage.tsx`, tabs in `components/`):
+`/hr` (`system/erp/frontend/src/activities/general/modules/hr/HrPage.tsx`, tabs in `components/`):
 employees (create, edit with hire date and shift, stop and bring back, an employee's detailed report
 or payslip for a month), attendance (paged by month and employee, a day entered or corrected by
 hand, the CSV import with its result, the month's report), advances / deductions / bonuses (paged,

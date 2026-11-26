@@ -16,7 +16,7 @@ FONT = b"wOF2\x00\x01fake-font"
 
 def platform_theme(theme_id: str) -> dict:
     """A platform theme as consumers see it: palette + font refs expanded."""
-    base = os.path.join(os.path.dirname(__file__), "../../../system/core/backend/app/themes")
+    base = os.path.join(os.path.dirname(__file__), "../../../../core/backend/app/themes")
     t = json.loads(open(os.path.join(base, theme_id, "theme.json"), encoding="utf-8").read())
     if "colors" not in t and isinstance(t.get("palette"), str):
         pal = json.loads(open(os.path.join(base, "_palettes", t["palette"] + ".json"), encoding="utf-8").read())
@@ -166,7 +166,7 @@ def test_the_sdk_starts_themes_from_mizans_own_and_checks_them_the_same_way(tmp_
     import sys
     from pathlib import Path
 
-    repo = Path(__file__).resolve().parents[3]
+    repo = Path(__file__).resolve().parents[4]
     platform = json.loads((repo / "system/core/backend/app/themes/mizan/theme.json").read_text(encoding="utf-8"))
     sys.path.insert(0, str(repo / "sdk/python"))
     try:

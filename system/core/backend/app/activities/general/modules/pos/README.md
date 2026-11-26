@@ -12,7 +12,7 @@ retail
 core, inventory, contacts (customer payments at the drawer), finance (safes and wallets).
 
 ## VAT (ADR-014 D6, step 6)
-The point of sale shows the VAT the server will store (`system/frontend/src/lib/vat.ts`, same rule
+The point of sale shows the VAT the server will store (`system/erp/frontend/src/lib/vat.ts`, same rule
 and the rates from `GET /settings/vat`): "منها ضريبة" when prices include VAT, the tax added to the
 total to collect when they don't. The receipt (`/print/sale/{id}`) prints the stored amounts.
 
@@ -49,7 +49,7 @@ first method); sales recorded before payment lines existed count whole under the
 `wallet_total` is what came in other than cash or on credit.
 
 ## The shifts screen (POS-8)
-`system/frontend/src/activities/general/modules/pos/screens/ShiftsPage.tsx`: the open shift's summary
+`system/erp/frontend/src/activities/general/modules/pos/screens/ShiftsPage.tsx`: the open shift's summary
 (expected cash before closing), drawer rows by hand with the expense category
 (`/financial-categories`, type `expense`) and cash or wallet, cancelling a row, revenue delivery to a
 safe with a manager's password, handing the drawer to a colleague, closing alone or with a manager

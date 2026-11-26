@@ -86,14 +86,14 @@ Permission: `finance` (declared here). Reports read with `finance` or `reports`.
 
 ## Screen
 
-`/finance` (`system/frontend/src/activities/general/modules/finance/FinancePage.tsx`): the cash
+`/finance` (`system/erp/frontend/src/activities/general/modules/finance/FinancePage.tsx`): the cash
 book; safes and wallets (create, edit, stop, deposit, withdraw, transfer, history, a wallet's reset
 with a confirmation and a client id; `components/TreasuryWorkspace.tsx`); expenses
 (`components/ExpensesWorkspace.tsx`: paged and filtered, create and edit a draft, approve, reject
 with a reason, cancel, delete, the recurrence; after a decision only the notes and recurrence);
 categories and expense vendors (`components/CategoriesVendorsWorkspace.tsx`: create, edit, stop or
 delete); and periods (`components/PeriodsWorkspace.tsx`). Amounts show the workspace's currency
-(`system/frontend/src/lib/currency.ts`). The rules the screens mirror are in `lib.ts` (tested).
+(`system/erp/frontend/src/lib/currency.ts`). The rules the screens mirror are in `lib.ts` (tested).
 
 ## Not yet
 
@@ -101,7 +101,7 @@ delete); and periods (`components/PeriodsWorkspace.tsx`). Amounts show the works
   belong to contacts and purchases: their screen ids are kept because saved role layouts name them.
 
 ## Dependencies
-core. Tests: `system/backend/tests/test_money_flows_finance.py`, `test_ready_finance.py`, `test_b_platform.py`, `test_c_finance.py`;
+core. Tests: `system/erp/backend/tests/test_money_flows_finance.py`, `test_ready_finance.py`, `test_b_platform.py`, `test_c_finance.py`;
 `e2e/api/test_expenses.py`, `test_finance.py`, `test_periods.py`, `test_shifts_safes.py`.
 
 ## Expense VAT (ADR-014 D6, step 6)

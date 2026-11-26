@@ -72,7 +72,7 @@ CURRENCY_NAMES = {"EGP": "ج.م", "SAR": "ر.س", "AED": "د.إ", "KWD": "د.ك"
 
 async def currency(db: AsyncSession) -> str:
     """The workspace's currency as its settings name it (العملة; an ISO code gets its Arabic short
-    name, as on the screens: system/frontend/src/lib/currency.ts), else the Egyptian pound."""
+    name, as on the screens: system/erp/frontend/src/lib/currency.ts), else the Egyptian pound."""
     value = ((await db.execute(text("SELECT value FROM store_settings WHERE key = 'currency'"))).scalar() or "").strip()
     return CURRENCY_NAMES.get(value.upper(), value) if value else "ج.م"
 

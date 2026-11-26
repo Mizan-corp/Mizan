@@ -22,7 +22,7 @@ screen has them under "المتجر والفوترة". A change applies to new d
 
 `vat.py` is the one place for the rates (`TAX_RATES`: `standard` 14 %, `zero` 0 % and still
 reported, `exempt` outside VAT) and the rule, used by sales, purchases and the VAT report (the
-point of sale mirrors it in `system/frontend/src/lib/vat.ts`, with the rates from the server):
+point of sale mirrors it in `system/erp/frontend/src/lib/vat.ts`, with the rates from the server):
 
 - Each line's amount after its own discount and its share of the invoice discount (shared pro
   rata, each share rounded, the remainder on the largest line); the lines are made to add up to the

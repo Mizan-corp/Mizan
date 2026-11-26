@@ -63,12 +63,21 @@ class App:
     api_port: int
 
     @property
+    def base(self) -> str:
+        """Folder of the app: the ERP lives in system/erp, the others at the repo root."""
+        return "system/erp" if self.name == "system" else self.name
+
+    @property
     def frontend(self) -> Path:
-        return ROOT / self.name / "frontend"
+        return ROOT / self.base / "frontend"
+
+    @property
+    def backend(self) -> Path:
+        return ROOT / self.base / "backend"
 
     @property
     def workspace(self) -> str:
-        return f"{self.name}/frontend"
+        return f"{self.base}/frontend"
 
     @property
     def health_url(self) -> str:
@@ -823,8 +832,8 @@ def _test_unit() -> None:
 def _test_backend() -> None:
     require_db()
     for app in ("system", "website", "owner", "admin"):
-        step(f"Backend tests ({app}/backend/tests)")
-        run([python_bin(), "-m", "pytest", "-q", "--no-header"], cwd=ROOT / app / "backend", env=_backend_env())
+        step(f"Backend tests ({APPS[app].base}/backend/tests)")
+        run([python_bin(), "-m", "pytest", "-q", "--no-header"], cwd=APPS[app].backend, env=_backend_env())
     step("Installed-server engine tests (installer/server/tests)")
     run([python_bin(), "-m", "pytest", "-q", "--no-header"], cwd=ROOT / "installer" / "server")
     step("SDK tests (sdk/python/tests)")
@@ -873,7 +882,7 @@ def _lint() -> None:
     ruff = [python_bin(), "-m", "ruff"] if VENV.exists() else ["ruff"]
     if not VENV.exists():
         need("ruff", "Run `python manage.py setup` or `pip install ruff`.")
-    run([*ruff, "check", "system/core/backend", "system/backend", "website/backend", "owner/backend", "admin/backend", "sdk/python",
+    run([*ruff, "check", "system/core/backend", "system/erp/backend", "website/backend", "owner/backend", "admin/backend", "sdk/python",
          "--select", "E9,F63,F7,F82,F821,F601,F401,F841"])
     ok("ruff")
     _need_node_modules()

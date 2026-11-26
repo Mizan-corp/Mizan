@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
       alias: {
         "@app": fileURLToPath(new URL("./src", import.meta.url)),
       "@activities": fileURLToPath(new URL("./src/activities", import.meta.url)),
-        "@": fileURLToPath(new URL("../../system/core/frontend/src", import.meta.url)),
+        "@": fileURLToPath(new URL("../../core/frontend/src", import.meta.url)),
       },
     },
     build: {

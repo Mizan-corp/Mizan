@@ -7,9 +7,9 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { moduleDefinitions } from "./registry";
 
-const ROOT = resolve(__dirname, "../../../..");
+const ROOT = resolve(__dirname, "../../../../..");
 const BACKEND = join(ROOT, "system/core/backend/app");
-const FRONTEND = join(ROOT, "system/frontend/src");
+const FRONTEND = join(ROOT, "system/erp/frontend/src");
 
 interface Manifest { id: string; kind?: string; activity?: string; status?: string; screens?: { id: string; path: string }[] }
 

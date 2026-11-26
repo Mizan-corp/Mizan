@@ -30,7 +30,7 @@ is read and written per patient; the rules are in `service.py`:
 - Every clinical read is logged in `clinic_access_log`. `clinic:privacy`: `GET /clinic/access-log`,
   `GET /clinic/break-glass`, `POST /clinic/break-glass/{id}/review` and `/revoke`.
 
-## Screen (system/frontend/src/activities/healthcare/modules/healthcare_clinic/)
+## Screen (system/erp/frontend/src/activities/healthcare/modules/healthcare_clinic/)
 
 - `ClinicHealthcarePage.tsx`: routing (`?tab=`, `/clinic/:moduleSlug`), permissions, data and the
   open dialog only; `ClinicContext.tsx` (typed `useClinic()`) hands them to the parts.
@@ -61,7 +61,7 @@ stays open on an error so the user can correct it, and its submit button waits w
 `{items, total, page, pages}`. Patient rows keep the #113 redaction, and a page read clinically is
 logged. On the screen the search box is debounced (300 ms) and sent to the server, each list has
 a pager, and the dialogs pick patients with `PatientPicker` (the same search, 20 at a time).
-Tests: `system/backend/tests/test_clinic_pagination.py`.
+Tests: `system/erp/backend/tests/test_clinic_pagination.py`.
 
 ## Role separation (#131)
 
@@ -71,7 +71,7 @@ them all, and the standard clinical roles don't hold it. The table of who does w
 `docs/USER_ROLES_AND_PERMISSIONS.md` (§2). The screen mirrors the guards with `useClinicPerms()`
 (`permissions.ts`). Dispensing and lab invoices carry neutral line text (no medication or test
 name). `GET /clinic/summary` returns the money figures only to `clinic:billing`. Migration
-`v84_clinic_role_separation`; tests `system/backend/tests/test_clinic_role_separation.py`.
+`v84_clinic_role_separation`; tests `system/erp/backend/tests/test_clinic_role_separation.py`.
 
 ## Departments, rooms and rosters (#36)
 
@@ -88,7 +88,7 @@ name). `GET /clinic/summary` returns the money figures only to `clinic:billing`.
   no roster is booked at any time, as before. Logic in `scheduling.py`, routes in
   `routes/scheduling.py`; screen: the «الأقسام والجداول» tab (`tabs/SchedulingTab.tsx`) and the
   booking dialog. Migration `v85_clinic_departments_rosters`; tests
-  `system/backend/tests/test_clinic_scheduling.py`.
+  `system/erp/backend/tests/test_clinic_scheduling.py`.
 
 ## Referrals (#45)
 
@@ -105,7 +105,7 @@ name). `GET /clinic/summary` returns the money figures only to `clinic:billing`.
   for those who reach the record, logged as `referral`.
 - Screen: the «الإحالات» tab (`tabs/ReferralsTab.tsx`), «إحالة» on patient rows and encounter cards
   (`components/ReferralDialog.tsx`). Migration `v86_clinic_referrals`; tests
-  `system/backend/tests/test_clinic_referrals.py`.
+  `system/erp/backend/tests/test_clinic_referrals.py`.
 
 ## Vitals trends (#42)
 
@@ -115,7 +115,7 @@ not recorded), plus reported numeric blood-glucose lab results (`glucose_labs`).
 `blood_glucose` (mg/dL, optional; migration `v87_clinic_encounter_glucose`). Screen: the patient
 chart dialog (`components/PatientChartDialog.tsx` → `VitalsPanel.tsx`: latest values with
 sparklines, Recharts trend lines through the kit's `ChartContainer`), opened from «الملف» on a
-patient row and «مؤشرات المريض» on an encounter card. Tests `system/backend/tests/test_clinic_vitals.py`.
+patient row and «مؤشرات المريض» on an encounter card. Tests `system/erp/backend/tests/test_clinic_vitals.py`.
 
 ## Consent forms (#43)
 
@@ -134,7 +134,7 @@ patient row and «مؤشرات المريض» on an encounter card. Tests `syste
   the module and the user's access to the patient's record, and is logged.
 - Screen: «نماذج الموافقة» in the patient chart (`components/ConsentsPanel.tsx`,
   `SignaturePad.tsx`: a `<canvas>` with pointer events, finger, pen or mouse). Migration
-  `v88_clinic_consent_forms`; tests `system/backend/tests/test_clinic_consents.py`.
+  `v88_clinic_consent_forms`; tests `system/erp/backend/tests/test_clinic_consents.py`.
 
 ## Medical images (#44)
 
@@ -150,11 +150,11 @@ patient row and «مؤشرات المريض» on an encounter card. Tests `syste
   والأشعة» on an encounter card in the EMR tab (filtered to that encounter): thumbnail grid and a
   lightbox (arrows, Esc) for JPEG/PNG/WebP; DICOM shows a tile that downloads the file (no browser
   DICOM decoder is bundled). Migration `v89_clinic_images`; tests
-  `system/backend/tests/test_clinic_imaging.py`.
+  `system/erp/backend/tests/test_clinic_imaging.py`.
 
 Route guards are in `guards.py` (shared by `router.py` and `routes/`); the route areas in
 `routes/` are included by `router.py` under `/clinic`.
 
 Migrations: `v79_clinic_patient_access` (tables and columns), `v79b_clinic_care_team_backfill`
 (`migrate.py`: links existing records to users by exact doctor name). Tests:
-`system/backend/tests/test_clinic_patient_access.py`.
+`system/erp/backend/tests/test_clinic_patient_access.py`.

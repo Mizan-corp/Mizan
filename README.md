@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="system/frontend/public/icon.svg" width="88" alt="Mizan" />
+<img src="system/erp/frontend/public/icon.svg" width="88" alt="Mizan" />
 
 # ميزان · Mizan
 
@@ -181,7 +181,7 @@ Every business activity is one folder, `system/core/backend/app/activities/<acti
 modules (`modules/<id>/`, each with a `manifest.json`, models, router and templates), how it
 adapts other activities' modules (`variants/<module>/`: extra fields, settings, rules at the
 module's hooks), its themes and its demo data. Screens mirror it in
-`system/frontend/src/activities/<activity>/`. One loader (`app/framework/`) mounts every module,
+`system/erp/frontend/src/activities/<activity>/`. One loader (`app/framework/`) mounts every module,
 and the module centre at `/modules` turns modules on and off per workspace. See
 [ADR-006](docs/decisions/ADR-006-module-platform.md) and [ADR-010](docs/decisions/ADR-010-activity-packages-and-themes.md).
 

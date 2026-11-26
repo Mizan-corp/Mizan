@@ -12,7 +12,7 @@ const settings = (registered: boolean, inclusive: boolean): VatSettings => ({
 });
 const s = (d: Decimal) => d.toFixed(2);
 
-// The same cases as the server's tests (system/backend/tests/test_accounting_vat.py): both sides
+// The same cases as the server's tests (system/erp/backend/tests/test_accounting_vat.py): both sides
 // must agree to the piastre, or a sale with prices excluding VAT would be refused.
 describe("VAT math mirrors the server", () => {
   it("includes or adds the tax per line, rounding half up", () => {

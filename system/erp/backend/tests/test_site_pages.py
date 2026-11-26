@@ -6,7 +6,7 @@ from pathlib import Path
 from app.framework.manifest import PAGE_BLOCKS, PAGE_EMBED_HOSTS, page_problems
 from app.platform.site.render import render_document, render_page, sanitize_html
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[4]
 
 
 def page(**over):

@@ -198,7 +198,7 @@ def _load_admin_app():
     import sys
     from pathlib import Path
 
-    admin_dir = Path(__file__).resolve().parents[3] / "admin" / "backend"
+    admin_dir = Path(__file__).resolve().parents[4] / "admin" / "backend"
     if str(admin_dir) not in sys.path:
         sys.path.insert(0, str(admin_dir))
     spec = importlib.util.spec_from_file_location("admin_main", admin_dir / "main.py")
