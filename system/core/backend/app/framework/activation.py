@@ -331,7 +331,9 @@ async def get_active_modules(db: AsyncSession) -> list[str]:
     if tid is not None:
         mods = await db.scalar(select(Tenant.active_modules).where(Tenant.id == tid))
         if mods:
-            return canonical_modules(["core", *mods])
+            from app.framework.composition import system_modules
+
+            return canonical_modules(["core", *system_modules(), *mods])
     return list(DEFAULT_MODULES)
 
 

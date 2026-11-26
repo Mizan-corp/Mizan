@@ -89,6 +89,9 @@ class ModuleManifest:
     settings_schema: list[SettingField] = field(default_factory=list)
     activity: str = GENERAL
     kind: str = "business"
+    # A system module is part of the ERP itself, not something the owner installs: always on, not
+    # listed in the module centre or the marketplace, cannot be removed. Only platform modules.
+    system: bool = False
 
 
 # Manifest v2 (ADR-006): the module's home activity (its family comes from it) and its kind.
@@ -108,6 +111,8 @@ def manifest_problems(data: dict[str, Any]) -> list[str]:
         problems.append(f"unknown activity '{data['activity']}'")
     if data.get("kind", "business") not in MODULE_KINDS:
         problems.append(f"kind must be one of {MODULE_KINDS}")
+    if "system" in data and (not isinstance(data["system"], bool) or (data["system"] and data.get("kind") != "platform")):
+        problems.append("'system' must be true or false, and only a platform module can be a system module")
     if data.get("status", "active") not in ("active", "planned"):
         problems.append("status must be 'active' or 'planned'")
     if not isinstance(data.get("srs", []), list):
@@ -214,6 +219,7 @@ class ModuleRegistry:
                 category=family_of(data["activity"]) or GENERAL,
                 activity=data["activity"],
                 kind=data.get("kind", "business"),
+                system=bool(data.get("system", False)),
                 version=data.get("version", "1.0.0"),
                 icon=data.get("icon", "Blocks"),
                 description=data.get("description", ""),

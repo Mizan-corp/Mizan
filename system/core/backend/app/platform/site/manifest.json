@@ -22,5 +22,6 @@
   "widgets": [],
   "srs": [],
   "settings_schema": [],
+  "system": true,
   "is_core": true
 }

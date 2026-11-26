@@ -94,13 +94,13 @@ def check_target(tenant, to: str) -> str:
 def plan(tenant, to: str) -> dict:
     """Which modules leave, join and stay, and which ones work differently (no database)."""
     from app.framework import variants
-    from app.framework.composition import ALWAYS, base_modules, dependents, installable
+    from app.framework.composition import always_on, base_modules, dependents, installable
     from app.framework.loader import manifest_index
 
     manifests = manifest_index()
     old = tenant.sector
     active = list(tenant.active_modules or [])
-    leaving = [m for m in active if m not in ALWAYS and not installable(m, to)[0]]
+    leaving = [m for m in active if m not in always_on() and not installable(m, to)[0]]
     for m in list(leaving):
         for d in dependents(m, active):
             if d not in leaving:

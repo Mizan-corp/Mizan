@@ -59,6 +59,8 @@ async def list_modules(
     activity = await workspace_activity(db)
     base = set(base_modules(activity))
     for m in combined.values():
+        if m.system:  # part of the ERP itself: not offered, not removable
+            continue
         d = asdict(m)
         d["is_installed"] = m.id in active_mods
         # ADR-006 D2: what this workspace may add, and what its activity starts with.

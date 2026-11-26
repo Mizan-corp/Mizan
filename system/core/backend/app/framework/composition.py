@@ -34,6 +34,16 @@ KEEP_DAYS = 30
 ALWAYS = ("core",)
 
 
+def system_modules() -> tuple[str, ...]:
+    """Modules that are part of the ERP itself (manifest `system: true`, e.g. the site builder):
+    always on in every workspace, never offered in the module centre or marketplace."""
+    return tuple(sorted(i for i, m in _manifests().items() if m.get("system")))
+
+
+def always_on() -> tuple[str, ...]:
+    return (*ALWAYS, *system_modules())
+
+
 class ModuleRetention(TenantScoped, Base):
     """A removed module's data: kept hidden until purge_after, or deleted (with an export)."""
     __tablename__ = "module_retention"
@@ -58,7 +68,7 @@ def base_modules(activity_id: str | None) -> list[str]:
     """What a new workspace of this activity starts with."""
     acts = activities()
     act = variants.activity(activity_id)
-    return canonical_modules(["core", *acts.get("general", {}).get("modules", []), *(act.get("modules") or [])])
+    return canonical_modules(["core", *system_modules(), *acts.get("general", {}).get("modules", []), *(act.get("modules") or [])])
 
 
 def installable(module_id: str, activity_id: str | None) -> tuple[bool, str]:
@@ -180,7 +190,7 @@ async def _delete_data(db: AsyncSession, module_ids: list[str]) -> None:
 
 async def uninstall(db: AsyncSession, tenant, module_id: str, mode: str, user_id) -> dict:
     """Remove the module (and those needing it); keep its data 30 days or delete it now."""
-    if module_id in ALWAYS:
+    if module_id in always_on():
         raise HTTPException(400, "لا يمكن إزالة النواة الأساسية للنظام")
     active = list(tenant.active_modules or [])
     if module_id not in active:
