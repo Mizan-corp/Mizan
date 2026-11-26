@@ -159,3 +159,82 @@ Both live in one `studio` platform entry with one manifest, one nav entry in the
 ### 5.7 Decisions needed from the owner
 1. Approve the two-layer model (activity layouts by admins, workspace overrides by owners), with one shared Studio engine. Or prefer admin-only authoring for now and postpone owner overrides beyond today's Designer.
 2. Which activity is the first target to prove it: `retail` (most complete) or the Wirya-style website business?
+
+## 6. Revision: roles, choice-based customisation and community authoring (owner direction, 26 November 2026, 13:33)
+
+The owner's direction: (1) the ERP owner only chooses among layouts, headers, fonts and colours; (2) SaaS developers design those options in their Studio and the owner picks from them; (3) community developers get their own studio to tune the same things plus anything website-related, can design UI for modules, and can write modules and integrations by hand; (4) one module can have several listed pages or tabs in the ERP. This section replaces the "owner edits overrides freely" idea in section 5.3 with a choice-based model.
+
+### 6.1 Roles
+
+| Role | Does | Cannot |
+|---|---|---|
+| Workspace owner | Picks one option from each catalog the workspace is offered: layout, header, font pair, colour palette (and, per role, a menu preset). Stores only the choice ids and small parameters | Edit layout structure or write CSS |
+| SaaS developer (Mizan staff) | Designs the options in the SaaS Studio: layouts, headers, font sets, palettes, activity defaults. Publishes them to the platform catalog | Bypass review of their own publish (second person or automated checks) |
+| Community developer | Authors in a community Studio: the same option types (as listings), website templates and blocks, module UI (pages, tabs, widgets), and hand-written modules and integrations through the existing developer portal | Publish directly to workspaces; touch core or other modules' tables |
+
+This is narrower than section 5.3: workspace-level edits become "selection plus bounded parameters". Fine-grained arrangement (form fields, role menus) that the Designer already offers stays as it is today and is not widened.
+
+### 6.2 What exists that this builds on
+- Third-party modules: `docs/decisions/ADR-007-third-party-modules.md`. Declarative modules and code modules, scopes, signed webhooks, developer teams and signing keys, review states (`in_review`, `approved`, `rejected`, `withdrawn`), Mizan countersignature, revocation, free marketplace listings (`platform/developers`, `platform/marketplace`). Code-module sandboxing in containers is planned, not built.
+- Themes and fonts: `themes/` palettes and font folders, activity theme packs (ADR-010).
+- Several pages per module: already supported. A manifest's `screens` is a list; POS declares `/pos`, `/sales` and `/shifts`. What is missing is tabs inside one page and a declared page hierarchy.
+
+### 6.3 What it means for the layout schema
+Make everything a **catalog item** with an id, version, owner (platform or developer), status and a typed payload:
+
+| Item type | Payload | Chosen by |
+|---|---|---|
+| `shell_layout` | Region arrangement (sidebar, rail, top nav, app tabs), slots for header and menu | Owner |
+| `header` | Header composition from header blocks (logo, search, actions, user menu) | Owner |
+| `font_set` | Heading and body families, sizes scale; self-hosted files only | Owner |
+| `palette` | Token values (brand hue, surfaces, semantic colours) with contrast checks | Owner |
+| `activity_app` | Activity default: modules, menu tree, home, dashboard, default choices above | Applied by activity |
+| `module_ui` | A module's pages and tabs as layout data over its screens and widgets | Installed with module |
+
+Workspace state becomes `{shell_layout: id@version, header: id@version, font_set: id@version, palette: id@version, per_role: {...}}`. Resolution stays role > workspace > activity > module default. Items are referenced by id and version; a removed or revoked item falls back to the activity default.
+
+Pages and tabs: add to each screen entry `parent` (for grouping) and `tabs: [{id, label, route, permission, widget_or_component}]`. A module declares one or many top-level pages, each with optional tabs. The menu builder shows a module's pages as a group; the page header renders tabs. Permissions are per page and per tab; the resolver intersects with the role's permissions and the active modules, so a tab never shows what the role cannot open. Existing single-screen modules need no change.
+
+### 6.4 Studios
+One editor engine, three scopes, different permissions:
+
+| Studio | Users | Edits | Output |
+|---|---|---|---|
+| SaaS Studio | Mizan developers | Platform catalog items, activity apps | Published catalog versions |
+| Community Studio | Community developers | Own listings: option items, website templates and blocks, module UI | Submissions to review |
+| Site Studio (today) | Workspace owner or staff | One workspace's public pages | The workspace's site |
+
+Site Studio stays a core service on the ERP session. The other two live in the developer portal domain with their own login and team accounts, not in a customer workspace.
+
+### 6.5 Publishing and review of community work
+1. Author edits a draft in the Community Studio; preview runs against demo data in an isolated preview, never against a real workspace.
+2. Submit creates an immutable version (hash, manifest, declared scopes), state `in_review`, as ADR-007 already does for modules.
+3. Automated checks: schema validation, allowed block types only, asset type and size limits, font licence field, contrast checks for palettes, no external script or remote CSS, no inline code in declarative items, dependency and scope diff against the previous version.
+4. Human review by Mizan for first submission and for any scope increase; later versions with no scope change can pass on automated checks plus spot review.
+5. Approval: Mizan countersigns; item appears in the marketplace. Owners install or select it; installing shows the scopes in plain language.
+6. Revocation: Mizan can revoke a version; workspaces fall back to the activity default and are notified.
+7. Updates never change a workspace silently: a new version is offered, and the owner accepts it.
+
+### 6.6 Security
+- **Declarative items carry no code.** Layouts, headers, fonts and palettes are data. Rendered by core blocks. This removes script injection from the common case.
+- **Hand-written modules and integrations** keep ADR-007's model: scopes, signed packages, webhook signing, revocation. Until container sandboxing exists, community code modules should stay disabled for production workspaces. This is the main gating decision in section 6.7.
+- **Isolation:** community items never read workspace data at design time; preview uses demo data. At run time they read only through scoped APIs.
+- **Assets:** fonts and images are uploaded, scanned, size-limited and served from Mizan's own origin. No remote font or CSS loading, which also protects owner privacy.
+- **Website side:** community website blocks and templates render through the same sanitising path as Studio pages; no raw HTML or script blocks without a reviewed exception.
+- **Accounts:** developer and customer identities are separate. Developer keys are per team and revocable. Every publish, approve and revoke is audit-logged.
+- **Abuse and trust:** item payloads have size and complexity caps; ratings and verified-publisher status come later, not first.
+
+### 6.7 Revised migration order
+1. Contract tests and the route registry (as section 5.5 steps 1 and 2).
+2. Catalog item schema v1 for `font_set`, `palette`, `header`, `shell_layout`, derived from what themes and the shell already do. The current look is item `classic`, unchanged.
+3. Workspace selection model (choose among items) and the owner chooser UI. A mockup is required before any new UI.
+4. Pages and tabs in the screen schema, with the menu and page header support. Backward compatible.
+5. SaaS Studio for catalog items and activity apps, platform-admin only, draft and publish, second-person approval.
+6. Studio unification: one editor engine, SSO for Site Studio (session reuse is committed as 1ae5ecc2 and not deployed).
+7. Community Studio and submissions on top of the existing developer portal and review states; declarative items only.
+8. Hand-written code modules for production workspaces, only after the container sandbox exists.
+
+### 6.8 Real open decisions for the owner
+1. Community code modules (hand-written, with their own backend logic): allowed on production workspaces only after the sandbox exists, or earlier for reviewed and signed modules? The default in this plan is after.
+2. Who reviews community submissions at launch: Mizan staff manually for every submission, or automated checks plus spot review once a developer has an approved history?
+3. Should a first release of the owner chooser cover fonts and colours only (lowest risk, data only), with layouts and headers following?
