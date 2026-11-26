@@ -3,7 +3,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.framework import screens
-from app.framework.layout_schema import ResolvedScreensV1, RoleLayoutV1, SCHEMA_VERSION, resolved_screens, role_layout
+from app.framework.layout_schema import ResolvedScreensV1, SCHEMA_VERSION, resolved_screens, role_layout
 
 ALL_PERMS = frozenset({"*"})
 
