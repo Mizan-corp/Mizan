@@ -123,6 +123,15 @@ async def submit_form(slug: str, page_path: str, node_id: str, request: Request,
     sent_redirect = RedirectResponse(
         f"/site/{slug}/{page_path}?form_sent={node_id}{lang_suffix}", status_code=303)
 
+    # The declared Content-Length above is only a fast pre-read rejection; it
+    # can be absent (chunked) or understated. The real cap is enforced on the
+    # streamed bytes themselves before the form is parsed.
+    received = bytearray()
+    async for chunk in request.stream():
+        received.extend(chunk)
+        if len(received) > _MAX_BODY_BYTES:
+            raise _not_found()
+    request._body = bytes(received)
     try:
         posted = await request.form()
     except Exception:

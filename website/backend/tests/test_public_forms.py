@@ -56,9 +56,14 @@ def make_form(pairs):
 
 
 def make_request(host=HOST, ip="203.0.113.10", form=None, query=None, origin="default",
-                 content_length=None):
+                 content_length=None, body_chunks=()):
     async def _form():
         return form if form is not None else make_form([])
+
+    async def _stream():
+        for chunk in body_chunks:
+            yield chunk
+
     headers = {"host": host}
     if origin == "default":
         headers["origin"] = f"https://{host}"
@@ -67,7 +72,8 @@ def make_request(host=HOST, ip="203.0.113.10", form=None, query=None, origin="de
     if content_length is not None:
         headers["content-length"] = content_length
     return types.SimpleNamespace(headers=headers, client=types.SimpleNamespace(host=ip),
-                                 query_params=query or {}, form=_form)
+                                 query_params=query or {}, form=_form,
+                                 stream=lambda: _stream())
 
 
 def db_scripted(results):
@@ -214,11 +220,32 @@ class PublicFormTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res.status_code, 303)
         self.assertEqual(db.add.call_count, 1)
 
-    async def test_oversize_body_is_refused_without_db(self):
+    async def test_oversize_declared_length_is_refused_without_db(self):
         db = AsyncMock()
         with self.assertRaises(pf.HTTPException) as cm:
             await pf.submit_form("site", "contact", "n_form01",
                                  make_request(form=GOOD_FORM, content_length=str(16 * 1024 + 1)), db)
+        self.assertEqual(cm.exception.status_code, 404)
+        db.execute.assert_not_called()
+
+    async def test_oversize_streamed_body_is_refused_without_a_header(self):
+        # No Content-Length at all (chunked): the streamed bytes themselves are
+        # capped, the form is never parsed and the DB is never touched.
+        db = AsyncMock()
+        req = make_request(form=GOOD_FORM, body_chunks=[b"x" * 8192, b"y" * 8192, b"z"])
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_form01", req, db)
+        self.assertEqual(cm.exception.status_code, 404)
+        db.execute.assert_not_called()
+
+    async def test_understated_content_length_does_not_defeat_the_cap(self):
+        # The header claims 100 bytes; the stream delivers more than the cap.
+        # The header is never trusted for the limit: the read itself stops it.
+        db = AsyncMock()
+        req = make_request(form=GOOD_FORM, content_length="100",
+                           body_chunks=[b"x" * (16 * 1024 + 1)])
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_form01", req, db)
         self.assertEqual(cm.exception.status_code, 404)
         db.execute.assert_not_called()
 
@@ -246,6 +273,45 @@ class PublicFormTests(unittest.IsolatedAsyncioTestCase):
             await pf.submit_form("site", "contact", "n_form01", make_request(form=GOOD_FORM), db)
         self.assertEqual(cm.exception.status_code, 404)
         db.add.assert_not_called()
+
+    async def test_real_starlette_request_round_trip(self):
+        # The parsing path against a REAL Starlette Request (ASGI receive), not
+        # the namespace fake: the capped read caches _body and request.form()
+        # parses exactly what the stream delivered.
+        from starlette.requests import Request
+
+        def real_request(body: bytes, headers: dict):
+            state = {"sent": False}
+
+            async def receive():
+                if not state["sent"]:
+                    state["sent"] = True
+                    return {"type": "http.request", "body": body, "more_body": False}
+                return {"type": "http.disconnect"}
+
+            scope = {"type": "http", "method": "POST", "path": "/forms/site/contact/n_form01",
+                     "query_string": b"", "client": ("203.0.113.10", 0),
+                     "headers": [(k.lower().encode(), v.encode()) for k, v in headers.items()]}
+            return Request(scope, receive)
+
+        body = b"name=Ammar&email=ammar%40example.com&message=hello&website="
+        headers = {"host": HOST, "origin": f"https://{HOST}",
+                   "content-type": "application/x-www-form-urlencoded"}
+        db = db_scripted(ok_script())
+        res = await pf.submit_form("site", "contact", "n_form01", real_request(body, headers), db)
+        self.assertEqual(res.status_code, 303)
+        stored = db.add.call_args.args[0]
+        self.assertEqual(stored.payload,
+                         {"name": "Ammar", "email": "ammar@example.com", "message": "hello"})
+
+        # No Content-Length header at all, body past the cap on the wire.
+        big = b"name=Ammar&" + b"x" * (16 * 1024)
+        headers.pop("content-length", None)
+        db = AsyncMock()
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_form01", real_request(big, headers), db)
+        self.assertEqual(cm.exception.status_code, 404)
+        db.execute.assert_not_called()
 
     async def test_tenant_context_is_cleared_afterwards(self):
         db = db_scripted(ok_script())
