@@ -4619,4 +4619,12 @@ MIGRATIONS.append(("v122_workspace_file_blobs", """
     DROP POLICY IF EXISTS tenant_isolation ON workspace_file_blobs;
     CREATE POLICY tenant_isolation ON workspace_file_blobs
         USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    -- Usable by the app role even when applied outside apply_migrations (console): default
+    -- privileges only cover tables the granting role makes (see APP_ROLE_GRANTS, ADR-011).
+    DO $$
+    BEGIN
+        IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'mizan_app') THEN
+            GRANT SELECT, INSERT, UPDATE, DELETE ON workspace_file_blobs TO mizan_app;
+        END IF;
+    END $$;
 """))
