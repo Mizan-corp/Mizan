@@ -18,7 +18,7 @@
 # or installed, with the time each part took.
 set -euo pipefail
 
-CACHE="${MIZAN_CI_CACHE:-/runner-cache}"
+CACHE="${MIZAN_CI_CACHE:-${RUNNER_TEMP:-/tmp}/ci-cache}"   # hosted runners: fresh each run; self-hosted can set MIZAN_CI_CACHE
 mkdir -p "$CACHE/bin"
 export PATH="$CACHE/bin:$PATH"
 export UV_CACHE_DIR="$CACHE/uv-cache" UV_PYTHON_INSTALL_DIR="$CACHE/python" UV_LINK_MODE=copy
