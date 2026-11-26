@@ -576,4 +576,5 @@ A test enforces it: files under `system/core/` import nothing from `system/erp/`
 2. Timing: do the move now before steps 3 to 5 (recommended, smallest diff), or after the layout work.
 3. Branches: OK to rebase or merge the open feature branches around the move.
 | 2b-1. Dependency-direction test (no files moved): shared imports no app; owner, admin, website never import the ERP API or ERP frontend | `feat/modular-step2b-dependency-test` | Done: `system/frontend/src/framework/dependencyDirection.test.ts`, passes on today's tree, and was checked to fail when a probe violation is added |
+| 3. Layout schema v1: typed, versioned models for a stored role layout and for the `/settings/screens` response (`framework/layout_schema.py`) | `feat/modular-step3-layout-schema` | Done, additive only: nothing calls the models at request time. `tests/test_layout_schema.py` validates every activity's defaults and `resolve()` output against the schema (77 checks), plus rejects bad layouts |
 
