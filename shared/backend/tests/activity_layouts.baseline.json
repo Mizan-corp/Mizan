@@ -1,0 +1,3057 @@
+{
+ "None": {
+  "dashboard": null,
+  "home": null,
+  "menu": null,
+  "roles": null
+ },
+ "agency": {
+  "dashboard": null,
+  "home": "/agency",
+  "menu": null,
+  "roles": {}
+ },
+ "agriculture": {
+  "dashboard": null,
+  "home": "/agr",
+  "menu": null,
+  "roles": {}
+ },
+ "banking": {
+  "dashboard": null,
+  "home": "/bnk",
+  "menu": null,
+  "roles": {}
+ },
+ "construction": {
+  "dashboard": null,
+  "home": "/cst",
+  "menu": [
+   {
+    "id": "contracting",
+    "items": [
+     {
+      "label": "لوحة المشاريع والمقايسات",
+      "screen": "construction.cst"
+     },
+     {
+      "screen": "construction.cst_boq"
+     },
+     {
+      "screen": "construction.cst_invoices"
+     },
+     {
+      "screen": "construction.cst_subcontractors"
+     }
+    ],
+    "label": "المقايسات والمشاريع (BOQ)"
+   },
+   {
+    "id": "site_assets",
+    "items": [
+     {
+      "icon": "Warehouse",
+      "label": "مخزن الموقع ومواد البناء",
+      "screen": "inventory.inventory"
+     },
+     {
+      "label": "توريدات الحديد والإسمنت والمواد",
+      "screen": "inventory.purchases"
+     }
+    ],
+    "label": "الموقع والمعدات والمخزن"
+   },
+   {
+    "id": "cst_finance",
+    "items": [
+     {
+      "label": "الملاك وجهات الإسناد",
+      "screen": "finance.customers"
+     },
+     {
+      "label": "موردو المواد ومقاولو الباطن",
+      "screen": "finance.suppliers"
+     },
+     {
+      "label": "العهد الموقعية والخزينة",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير ربحية المشاريع والتدفقات",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "المالية وتكاليف المشاريع"
+   },
+   {
+    "id": "cst_staff",
+    "items": [
+     {
+      "label": "مهندسو المواقع والعمالة",
+      "screen": "hr.hr"
+     },
+     {
+      "label": "إعدادات تكويد المشاريع",
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "المهندسون وفريق التنفيذ"
+   }
+  ],
+  "roles": {}
+ },
+ "consulting": {
+  "dashboard": null,
+  "home": "/services",
+  "menu": [
+   {
+    "id": "helpdesk",
+    "items": [
+     {
+      "screen": "helpdesk.catalog"
+     }
+    ],
+    "label": "الخدمات والدعم"
+   }
+  ],
+  "roles": {}
+ },
+ "ecommerce": {
+  "dashboard": null,
+  "home": "/ecommerce",
+  "menu": null,
+  "roles": {}
+ },
+ "electrical": {
+  "dashboard": [
+   "reporting.sales_today",
+   "reporting.sales_month",
+   "pos.shift_status",
+   "inventory.low_stock_count",
+   "reporting.sales_trend",
+   "pos.recent_sales",
+   "inventory.low_stock"
+  ],
+  "home": "/pos",
+  "menu": [
+   {
+    "id": "checkout",
+    "items": [
+     {
+      "label": "الكاشير (نقطة البيع)",
+      "screen": "pos.pos"
+     },
+     {
+      "label": "فواتير المبيعات والمرتجعات",
+      "screen": "pos.sales"
+     },
+     {
+      "label": "الورديات وتسليم الدرج",
+      "screen": "pos.shifts"
+     }
+    ],
+    "label": "الكاشير والمبيعات"
+   },
+   {
+    "id": "stock",
+    "items": [
+     {
+      "label": "الأصناف والباركود والموازين",
+      "screen": "inventory.products"
+     },
+     {
+      "label": "المخزون والجرد",
+      "screen": "inventory.inventory"
+     },
+     {
+      "label": "التحويلات والتسويات والهالك",
+      "screen": "inventory.operations"
+     },
+     {
+      "label": "طلبيات وتوريدات الموردين",
+      "screen": "inventory.purchases"
+     }
+    ],
+    "label": "الأصناف والمخزون"
+   },
+   {
+    "id": "money",
+    "items": [
+     {
+      "label": "العملاء والبيع الآجل",
+      "screen": "finance.customers"
+     },
+     {
+      "label": "الموردون والمستحقات",
+      "screen": "finance.suppliers"
+     },
+     {
+      "label": "الخزائن والمصروفات",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير المبيعات والأصناف",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "العملاء والموردون والمالية"
+   },
+   {
+    "id": "admin",
+    "items": [
+     {
+      "label": "فريق المتجر",
+      "screen": "hr.hr"
+     },
+     {
+      "screen": "hr.hr_payroll"
+     },
+     {
+      "screen": "core.users"
+     },
+     {
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     },
+     {
+      "screen": "core.modules"
+     },
+     {
+      "screen": "core.archive"
+     }
+    ],
+    "label": "فريق المتجر والإدارة"
+   }
+  ],
+  "roles": {
+   "accountant": {
+    "dashboard": [
+     "reporting.sales_today",
+     "reporting.sales_month",
+     "reporting.sales_trend"
+    ],
+    "home": "finance.finance",
+    "menu": [
+     {
+      "id": "money",
+      "items": [
+       {
+        "label": "الخزائن والمصروفات",
+        "screen": "finance.finance"
+       },
+       {
+        "screen": "accounting.journal"
+       },
+       {
+        "screen": "accounting.accounts"
+       },
+       {
+        "screen": "accounting.reports"
+       },
+       {
+        "screen": "accounting.periods"
+       },
+       {
+        "label": "العملاء والآجل",
+        "screen": "finance.customers"
+       },
+       {
+        "label": "الموردون والمستحقات",
+        "screen": "finance.suppliers"
+       },
+       {
+        "label": "فواتير المبيعات",
+        "screen": "pos.sales"
+       },
+       {
+        "label": "الورديات وتسليم الدرج",
+        "screen": "pos.shifts"
+       },
+       {
+        "label": "تقييم المخزون",
+        "screen": "inventory.inventory"
+       },
+       {
+        "label": "التقارير",
+        "screen": "reporting.reports"
+       }
+      ],
+      "label": "الحسابات"
+     }
+    ]
+   },
+   "cashier": {
+    "dashboard": [
+     "pos.shift_status",
+     "reporting.sales_today",
+     "pos.recent_sales"
+    ],
+    "home": "pos.pos",
+    "menu": [
+     {
+      "id": "checkout",
+      "items": [
+       {
+        "label": "الكاشير (نقطة البيع)",
+        "screen": "pos.pos"
+       },
+       {
+        "label": "فواتيري والمرتجعات",
+        "screen": "pos.sales"
+       },
+       {
+        "label": "ورديتي ودرج النقدية",
+        "screen": "pos.shifts"
+       },
+       {
+        "label": "العملاء والبيع الآجل",
+        "screen": "finance.customers"
+       }
+      ],
+      "label": "الكاشير"
+     }
+    ]
+   },
+   "storekeeper": {
+    "dashboard": [
+     "inventory.low_stock_count",
+     "inventory.low_stock"
+    ],
+    "home": "inventory.inventory",
+    "menu": [
+     {
+      "id": "stock",
+      "items": [
+       {
+        "label": "المخزون والجرد",
+        "screen": "inventory.inventory"
+       },
+       {
+        "label": "الأصناف والباركود والموازين",
+        "screen": "inventory.products"
+       },
+       {
+        "label": "التحويلات والتسويات والهالك",
+        "screen": "inventory.operations"
+       },
+       {
+        "label": "استلام توريدات الموردين",
+        "screen": "inventory.purchases"
+       },
+       {
+        "label": "الموردون",
+        "screen": "finance.suppliers"
+       }
+      ],
+      "label": "المخزن"
+     }
+    ]
+   }
+  }
+ },
+ "energy": {
+  "dashboard": null,
+  "home": "/eng",
+  "menu": null,
+  "roles": {}
+ },
+ "entertainment": {
+  "dashboard": null,
+  "home": "/ent",
+  "menu": null,
+  "roles": {}
+ },
+ "food": {
+  "dashboard": null,
+  "home": "/fod",
+  "menu": [
+   {
+    "id": "production",
+    "items": [
+     {
+      "icon": "Factory",
+      "label": "لوحة التحكم وأوامر الإنتاج",
+      "screen": "food_manufacturing.fod"
+     },
+     {
+      "screen": "food_manufacturing.fod_bom"
+     },
+     {
+      "screen": "food_manufacturing.fod_mrp"
+     }
+    ],
+    "label": "التصنيع وخطوط الإنتاج"
+   },
+   {
+    "id": "mfg_stock",
+    "items": [
+     {
+      "label": "المنتجات التامة ومواصفاتها",
+      "screen": "inventory.products"
+     },
+     {
+      "icon": "Warehouse",
+      "label": "مستودعات الخامات ومستلزمات الإنتاج",
+      "screen": "inventory.inventory"
+     },
+     {
+      "label": "أوامر الشراء من الموردين",
+      "screen": "inventory.purchases"
+     }
+    ],
+    "label": "الخامات والمنتج التام"
+   },
+   {
+    "id": "mfg_finance",
+    "items": [
+     {
+      "label": "حسابات كبار العملاء والموزعين",
+      "screen": "finance.customers"
+     },
+     {
+      "label": "الخزائن وتكاليف التشغيل الصناعي",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير التكاليف الصناعية والإنتاجية",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "تكاليف الإنتاج والمالية"
+   },
+   {
+    "id": "mfg_admin",
+    "items": [
+     {
+      "label": "مشغلو الماكينات وفنيو الورشة",
+      "screen": "hr.hr"
+     },
+     {
+      "label": "ورديات المصنع وخطوط الإنتاج",
+      "screen": "pos.shifts"
+     },
+     {
+      "label": "إعدادات مراكز التكلفة والمصنع",
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "العمالة وخطوط التشغيل"
+   }
+  ],
+  "roles": {}
+ },
+ "general": {
+  "dashboard": [
+   "reporting.sales_today",
+   "reporting.sales_month",
+   "inventory.low_stock_count",
+   "pos.shift_status",
+   "reporting.sales_trend",
+   "pos.recent_sales",
+   "inventory.low_stock"
+  ],
+  "home": "/",
+  "menu": [
+   {
+    "id": "helpdesk",
+    "items": [
+     {
+      "screen": "helpdesk.catalog"
+     }
+    ],
+    "label": "الخدمات والدعم"
+   },
+   {
+    "id": "main",
+    "items": [
+     {
+      "screen": "core.home"
+     },
+     {
+      "screen": "pos.pos"
+     },
+     {
+      "screen": "pos.sales"
+     },
+     {
+      "screen": "pos.shifts"
+     },
+     {
+      "screen": "pharmacy.pharmacy"
+     },
+     {
+      "screen": "restaurant.restaurant_tables"
+     },
+     {
+      "screen": "restaurant.restaurant_kitchen"
+     },
+     {
+      "screen": "school.school_students"
+     },
+     {
+      "screen": "services.services"
+     },
+     {
+      "screen": "logistics.logistics"
+     },
+     {
+      "screen": "ecommerce.ecommerce"
+     },
+     {
+      "screen": "healthcare_clinic.clinic"
+     },
+     {
+      "screen": "law.law"
+     },
+     {
+      "screen": "travel.travel"
+     },
+     {
+      "screen": "hospitality.hospitality"
+     },
+     {
+      "screen": "gym.gym"
+     },
+     {
+      "screen": "salon.salon"
+     },
+     {
+      "screen": "agency.agency"
+     },
+     {
+      "screen": "real_estate.rec"
+     },
+     {
+      "screen": "government.gov"
+     },
+     {
+      "screen": "events.ent"
+     }
+    ],
+    "label": "التشغيل والعمليات"
+   },
+   {
+    "id": "stock",
+    "items": [
+     {
+      "screen": "wholesale.wholesale"
+     },
+     {
+      "screen": "wms.wms"
+     },
+     {
+      "screen": "field_service.field_service"
+     },
+     {
+      "screen": "manufacturing.mfg"
+     },
+     {
+      "screen": "food_manufacturing.fod"
+     },
+     {
+      "screen": "pharma_manufacturing.phm"
+     },
+     {
+      "screen": "printing.prn"
+     },
+     {
+      "screen": "construction.cst"
+     },
+     {
+      "screen": "agriculture.agr"
+     },
+     {
+      "screen": "energy.eng"
+     },
+     {
+      "screen": "oil_gas.oil"
+     },
+     {
+      "screen": "inventory.products"
+     },
+     {
+      "screen": "inventory.inventory"
+     },
+     {
+      "screen": "inventory.operations"
+     },
+     {
+      "screen": "inventory.purchases"
+     }
+    ],
+    "label": "المخزون والتوريد"
+   },
+   {
+    "id": "money",
+    "items": [
+     {
+      "screen": "banking.bnk"
+     },
+     {
+      "screen": "insurance.ins"
+     },
+     {
+      "screen": "finance.customers"
+     },
+     {
+      "screen": "finance.suppliers"
+     },
+     {
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "المال والعلاقات"
+   },
+   {
+    "id": "admin",
+    "items": [
+     {
+      "screen": "hr.hr"
+     },
+     {
+      "screen": "hr.hr_payroll"
+     },
+     {
+      "screen": "core.modules"
+     },
+     {
+      "screen": "core.archive"
+     },
+     {
+      "screen": "core.users"
+     },
+     {
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "الإدارة والنظام"
+   }
+  ],
+  "roles": {}
+ },
+ "government": {
+  "dashboard": null,
+  "home": "/gov",
+  "menu": null,
+  "roles": {}
+ },
+ "gym": {
+  "dashboard": null,
+  "home": "/gym",
+  "menu": [
+   {
+    "id": "fitness",
+    "items": [
+     {
+      "label": "لوحة تحكم الصالة والمشتركين",
+      "screen": "gym.gym"
+     },
+     {
+      "screen": "gym.gym_members"
+     },
+     {
+      "screen": "gym.gym_access"
+     },
+     {
+      "screen": "gym.gym_pt"
+     },
+     {
+      "label": "كافيتيريا ومكملات الجيم",
+      "screen": "pos.pos"
+     }
+    ],
+    "label": "الصالة والاشتراكات"
+   },
+   {
+    "id": "gym_stock",
+    "items": [
+     {
+      "label": "المكملات والبروتين والمشروبات",
+      "screen": "inventory.products"
+     },
+     {
+      "label": "مخزون الكافيتيريا والمستودع",
+      "screen": "inventory.inventory"
+     }
+    ],
+    "label": "المكملات والمخزون"
+   },
+   {
+    "id": "gym_finance",
+    "items": [
+     {
+      "label": "فواتير الاشتراكات والخدمات",
+      "screen": "pos.sales"
+     },
+     {
+      "label": "الخزينة والاشتراكات المجدولة",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير تجديد الاشتراكات",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "الاشتراكات والمالية"
+   },
+   {
+    "id": "gym_staff",
+    "items": [
+     {
+      "label": "المدربون وفريق الاستقبال",
+      "screen": "hr.hr"
+     },
+     {
+      "label": "ورديات الصالة",
+      "screen": "pos.shifts"
+     },
+     {
+      "label": "إعدادات باقات الاشتراكات",
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "المدربون والإدارة"
+   }
+  ],
+  "roles": {}
+ },
+ "healthcare": {
+  "dashboard": null,
+  "home": "/clinic",
+  "menu": [
+   {
+    "id": "clinical",
+    "items": [
+     {
+      "label": "لوحة التحكم الطبية",
+      "screen": "healthcare_clinic.clinic"
+     },
+     {
+      "screen": "healthcare_clinic.clinic_appointments"
+     },
+     {
+      "screen": "healthcare_clinic.clinic_patients"
+     },
+     {
+      "screen": "healthcare_clinic.clinic_emr"
+     },
+     {
+      "screen": "healthcare_clinic.clinic_rx_labs"
+     },
+     {
+      "screen": "healthcare_clinic.clinic_labs"
+     },
+     {
+      "screen": "healthcare_clinic.clinic_beds"
+     },
+     {
+      "screen": "healthcare_clinic.clinic_referrals"
+     },
+     {
+      "screen": "healthcare_clinic.clinic_scheduling"
+     }
+    ],
+    "label": "العيادات والتشغيل الطبي"
+   },
+   {
+    "id": "pharmacy_supplies",
+    "items": [
+     {
+      "label": "صيدلية وصرف الأدوية",
+      "screen": "pharmacy.pharmacy"
+     },
+     {
+      "label": "المخزون والمستلزمات الطبية",
+      "screen": "inventory.inventory"
+     },
+     {
+      "label": "طلبيات وتوريد الأدوية",
+      "screen": "inventory.purchases"
+     }
+    ],
+    "label": "الصيدلية والمستلزمات الطبية"
+   },
+   {
+    "id": "medical_finance",
+    "items": [
+     {
+      "screen": "healthcare_clinic.clinic_billing"
+     },
+     {
+      "screen": "healthcare_clinic.clinic_claims"
+     },
+     {
+      "label": "حسابات المرضى والتعاقدات",
+      "screen": "finance.customers"
+     },
+     {
+      "label": "شركات الأدوية والموردين",
+      "screen": "finance.suppliers"
+     },
+     {
+      "label": "الخزائن والإيرادات الطبية",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "التقارير الطبية والمالية",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "المالية والفوترة الطبية"
+   },
+   {
+    "id": "medical_staff",
+    "items": [
+     {
+      "label": "الأطباء وهيئة التمريض",
+      "screen": "hr.hr"
+     },
+     {
+      "label": "نوبتجيات ومناوبات الكادر",
+      "screen": "pos.shifts"
+     },
+     {
+      "label": "سوق الوحدات الطبية",
+      "screen": "core.modules"
+     },
+     {
+      "label": "المستخدمون وصلاحيات النظام",
+      "screen": "core.users"
+     },
+     {
+      "label": "إعدادات العيادات والمجمع",
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "الكادر الطبي والإدارة"
+   }
+  ],
+  "roles": {}
+ },
+ "hotel": {
+  "dashboard": null,
+  "home": "/hospitality",
+  "menu": [
+   {
+    "id": "hotel_ops",
+    "items": [
+     {
+      "label": "خريطة الغرف والتسكين",
+      "screen": "hospitality.hospitality"
+     },
+     {
+      "screen": "hospitality.hospitality_guests"
+     },
+     {
+      "screen": "hospitality.hospitality_housekeeping"
+     },
+     {
+      "icon": "Utensils",
+      "label": "مطاعم وبوفيه الفندق",
+      "screen": "restaurant.restaurant_tables"
+     }
+    ],
+    "label": "الغرف والتسكين (PMS)"
+   },
+   {
+    "id": "hotel_finance",
+    "items": [
+     {
+      "label": "فواتير الإقامة والخدمات",
+      "screen": "pos.sales"
+     },
+     {
+      "label": "شركات السياحة والحجوزات",
+      "screen": "finance.customers"
+     },
+     {
+      "label": "الخزائن والتدقيق الليلي",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير نسب الإشغال و RevPAR",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "المالية والتدقيق الليلي"
+   },
+   {
+    "id": "hotel_admin",
+    "items": [
+     {
+      "label": "طاقم الاستقبال والخدمة",
+      "screen": "hr.hr"
+     },
+     {
+      "label": "ورديات الاستقبال والخدمة",
+      "screen": "pos.shifts"
+     },
+     {
+      "label": "إعدادات أسعار الغرف والمواسم",
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "فريق الفندق والإدارة"
+   }
+  ],
+  "roles": {}
+ },
+ "insurance": {
+  "dashboard": null,
+  "home": "/ins",
+  "menu": null,
+  "roles": {}
+ },
+ "legal": {
+  "dashboard": null,
+  "home": "/law",
+  "menu": null,
+  "roles": {}
+ },
+ "logistics": {
+  "dashboard": null,
+  "home": "/logistics",
+  "menu": [
+   {
+    "id": "freight_ops",
+    "items": [
+     {
+      "label": "بوالص الشحن وتتبع المسارات",
+      "screen": "logistics.logistics"
+     },
+     {
+      "label": "فواتير الشحن والمناولة",
+      "screen": "pos.sales"
+     },
+     {
+      "label": "عملاء الشحن والتخزين",
+      "screen": "finance.customers"
+     }
+    ],
+    "label": "الشحن وإدارة الأسطول"
+   },
+   {
+    "id": "freight_stock",
+    "items": [
+     {
+      "label": "المخزون ومواقع الرفوف (Bins)",
+      "screen": "inventory.inventory"
+     }
+    ],
+    "label": "المخزون ومواقع التخزين"
+   },
+   {
+    "id": "freight_finance",
+    "items": [
+     {
+      "label": "الخزائن وتكاليف الوقود ومصاريف الطرق",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير الشحنات والمسارات اليومية",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "المالية وتكاليف النقل"
+   },
+   {
+    "id": "freight_admin",
+    "items": [
+     {
+      "label": "سائقو الشاحنات وعمال التحميل",
+      "screen": "hr.hr"
+     },
+     {
+      "label": "إعدادات مناطق التوصيل والتسعير",
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "السائقون والتشغيل"
+   }
+  ],
+  "roles": {}
+ },
+ "maintenance": {
+  "dashboard": null,
+  "home": "/field-service",
+  "menu": [
+   {
+    "id": "helpdesk",
+    "items": [
+     {
+      "screen": "helpdesk.catalog"
+     }
+    ],
+    "label": "الخدمات والدعم"
+   },
+   {
+    "id": "fsm",
+    "items": [
+     {
+      "label": "أوامر الشغل وبلاغات الأعطال",
+      "screen": "field_service.field_service"
+     },
+     {
+      "label": "سجلات العملاء ومواقع التركيب",
+      "screen": "finance.customers"
+     },
+     {
+      "label": "فواتير الصيانة والزيارات",
+      "screen": "pos.sales"
+     }
+    ],
+    "label": "الصيانة والعمل الميداني"
+   },
+   {
+    "id": "fsm_parts",
+    "items": [
+     {
+      "label": "كتالوج قطع الغيار والمعدات",
+      "screen": "inventory.products"
+     },
+     {
+      "label": "مخزون المستودع وسيارة الفني",
+      "screen": "inventory.inventory"
+     }
+    ],
+    "label": "قطع الغيار والمخزن المتنقل"
+   },
+   {
+    "id": "fsm_admin",
+    "items": [
+     {
+      "label": "الفنيون وفرق الصيانة",
+      "screen": "hr.hr"
+     },
+     {
+      "label": "الخزينة وتحصيل الفنيين الميداني",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "إعدادات أنواع الأعطال والصيانة",
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "الفنيون والإدارة"
+   }
+  ],
+  "roles": {}
+ },
+ "manufacturing": {
+  "dashboard": null,
+  "home": "/mfg",
+  "menu": [
+   {
+    "id": "production",
+    "items": [
+     {
+      "label": "لوحة التحكم وأوامر الإنتاج",
+      "screen": "manufacturing.mfg"
+     },
+     {
+      "screen": "manufacturing.mfg_bom"
+     },
+     {
+      "screen": "manufacturing.mfg_mrp"
+     }
+    ],
+    "label": "التصنيع وخطوط الإنتاج"
+   },
+   {
+    "id": "mfg_stock",
+    "items": [
+     {
+      "label": "المنتجات التامة ومواصفاتها",
+      "screen": "inventory.products"
+     },
+     {
+      "icon": "Warehouse",
+      "label": "مستودعات الخامات ومستلزمات الإنتاج",
+      "screen": "inventory.inventory"
+     },
+     {
+      "label": "أوامر الشراء من الموردين",
+      "screen": "inventory.purchases"
+     }
+    ],
+    "label": "الخامات والمنتج التام"
+   },
+   {
+    "id": "mfg_finance",
+    "items": [
+     {
+      "label": "حسابات كبار العملاء والموزعين",
+      "screen": "finance.customers"
+     },
+     {
+      "label": "الخزائن وتكاليف التشغيل الصناعي",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير التكاليف الصناعية والإنتاجية",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "تكاليف الإنتاج والمالية"
+   },
+   {
+    "id": "mfg_admin",
+    "items": [
+     {
+      "label": "مشغلو الماكينات وفنيو الورشة",
+      "screen": "hr.hr"
+     },
+     {
+      "label": "ورديات المصنع وخطوط الإنتاج",
+      "screen": "pos.shifts"
+     },
+     {
+      "label": "إعدادات مراكز التكلفة والمصنع",
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "العمالة وخطوط التشغيل"
+   }
+  ],
+  "roles": {}
+ },
+ "paint": {
+  "dashboard": [
+   "reporting.sales_today",
+   "reporting.sales_month",
+   "pos.shift_status",
+   "inventory.low_stock_count",
+   "reporting.sales_trend",
+   "pos.recent_sales",
+   "inventory.low_stock"
+  ],
+  "home": "/pos",
+  "menu": [
+   {
+    "id": "checkout",
+    "items": [
+     {
+      "label": "الكاشير (نقطة البيع)",
+      "screen": "pos.pos"
+     },
+     {
+      "label": "فواتير المبيعات والمرتجعات",
+      "screen": "pos.sales"
+     },
+     {
+      "label": "الورديات وتسليم الدرج",
+      "screen": "pos.shifts"
+     }
+    ],
+    "label": "الكاشير والمبيعات"
+   },
+   {
+    "id": "stock",
+    "items": [
+     {
+      "label": "الأصناف والباركود والموازين",
+      "screen": "inventory.products"
+     },
+     {
+      "label": "المخزون والجرد",
+      "screen": "inventory.inventory"
+     },
+     {
+      "label": "التحويلات والتسويات والهالك",
+      "screen": "inventory.operations"
+     },
+     {
+      "label": "طلبيات وتوريدات الموردين",
+      "screen": "inventory.purchases"
+     }
+    ],
+    "label": "الأصناف والمخزون"
+   },
+   {
+    "id": "money",
+    "items": [
+     {
+      "label": "العملاء والبيع الآجل",
+      "screen": "finance.customers"
+     },
+     {
+      "label": "الموردون والمستحقات",
+      "screen": "finance.suppliers"
+     },
+     {
+      "label": "الخزائن والمصروفات",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير المبيعات والأصناف",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "العملاء والموردون والمالية"
+   },
+   {
+    "id": "admin",
+    "items": [
+     {
+      "label": "فريق المتجر",
+      "screen": "hr.hr"
+     },
+     {
+      "screen": "hr.hr_payroll"
+     },
+     {
+      "screen": "core.users"
+     },
+     {
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     },
+     {
+      "screen": "core.modules"
+     },
+     {
+      "screen": "core.archive"
+     }
+    ],
+    "label": "فريق المتجر والإدارة"
+   }
+  ],
+  "roles": {
+   "accountant": {
+    "dashboard": [
+     "reporting.sales_today",
+     "reporting.sales_month",
+     "reporting.sales_trend"
+    ],
+    "home": "finance.finance",
+    "menu": [
+     {
+      "id": "money",
+      "items": [
+       {
+        "label": "الخزائن والمصروفات",
+        "screen": "finance.finance"
+       },
+       {
+        "screen": "accounting.journal"
+       },
+       {
+        "screen": "accounting.accounts"
+       },
+       {
+        "screen": "accounting.reports"
+       },
+       {
+        "screen": "accounting.periods"
+       },
+       {
+        "label": "العملاء والآجل",
+        "screen": "finance.customers"
+       },
+       {
+        "label": "الموردون والمستحقات",
+        "screen": "finance.suppliers"
+       },
+       {
+        "label": "فواتير المبيعات",
+        "screen": "pos.sales"
+       },
+       {
+        "label": "الورديات وتسليم الدرج",
+        "screen": "pos.shifts"
+       },
+       {
+        "label": "تقييم المخزون",
+        "screen": "inventory.inventory"
+       },
+       {
+        "label": "التقارير",
+        "screen": "reporting.reports"
+       }
+      ],
+      "label": "الحسابات"
+     }
+    ]
+   },
+   "cashier": {
+    "dashboard": [
+     "pos.shift_status",
+     "reporting.sales_today",
+     "pos.recent_sales"
+    ],
+    "home": "pos.pos",
+    "menu": [
+     {
+      "id": "checkout",
+      "items": [
+       {
+        "label": "الكاشير (نقطة البيع)",
+        "screen": "pos.pos"
+       },
+       {
+        "label": "فواتيري والمرتجعات",
+        "screen": "pos.sales"
+       },
+       {
+        "label": "ورديتي ودرج النقدية",
+        "screen": "pos.shifts"
+       },
+       {
+        "label": "العملاء والبيع الآجل",
+        "screen": "finance.customers"
+       }
+      ],
+      "label": "الكاشير"
+     }
+    ]
+   },
+   "storekeeper": {
+    "dashboard": [
+     "inventory.low_stock_count",
+     "inventory.low_stock"
+    ],
+    "home": "inventory.inventory",
+    "menu": [
+     {
+      "id": "stock",
+      "items": [
+       {
+        "label": "المخزون والجرد",
+        "screen": "inventory.inventory"
+       },
+       {
+        "label": "الأصناف والباركود والموازين",
+        "screen": "inventory.products"
+       },
+       {
+        "label": "التحويلات والتسويات والهالك",
+        "screen": "inventory.operations"
+       },
+       {
+        "label": "استلام توريدات الموردين",
+        "screen": "inventory.purchases"
+       },
+       {
+        "label": "الموردون",
+        "screen": "finance.suppliers"
+       }
+      ],
+      "label": "المخزن"
+     }
+    ]
+   }
+  }
+ },
+ "petroleum": {
+  "dashboard": null,
+  "home": "/oil",
+  "menu": null,
+  "roles": {}
+ },
+ "pharmaceuticals": {
+  "dashboard": null,
+  "home": "/phm",
+  "menu": [
+   {
+    "id": "production",
+    "items": [
+     {
+      "icon": "Factory",
+      "label": "لوحة التحكم وأوامر الإنتاج",
+      "screen": "pharma_manufacturing.phm"
+     },
+     {
+      "screen": "pharma_manufacturing.phm_bom"
+     },
+     {
+      "screen": "pharma_manufacturing.phm_mrp"
+     }
+    ],
+    "label": "التصنيع وخطوط الإنتاج"
+   },
+   {
+    "id": "mfg_stock",
+    "items": [
+     {
+      "label": "المنتجات التامة ومواصفاتها",
+      "screen": "inventory.products"
+     },
+     {
+      "icon": "Warehouse",
+      "label": "مستودعات الخامات ومستلزمات الإنتاج",
+      "screen": "inventory.inventory"
+     },
+     {
+      "label": "أوامر الشراء من الموردين",
+      "screen": "inventory.purchases"
+     }
+    ],
+    "label": "الخامات والمنتج التام"
+   },
+   {
+    "id": "mfg_finance",
+    "items": [
+     {
+      "label": "حسابات كبار العملاء والموزعين",
+      "screen": "finance.customers"
+     },
+     {
+      "label": "الخزائن وتكاليف التشغيل الصناعي",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير التكاليف الصناعية والإنتاجية",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "تكاليف الإنتاج والمالية"
+   },
+   {
+    "id": "mfg_admin",
+    "items": [
+     {
+      "label": "مشغلو الماكينات وفنيو الورشة",
+      "screen": "hr.hr"
+     },
+     {
+      "label": "ورديات المصنع وخطوط الإنتاج",
+      "screen": "pos.shifts"
+     },
+     {
+      "label": "إعدادات مراكز التكلفة والمصنع",
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "العمالة وخطوط التشغيل"
+   }
+  ],
+  "roles": {}
+ },
+ "pharmacy": {
+  "dashboard": [
+   "reporting.sales_today",
+   "reporting.sales_month",
+   "inventory.low_stock_count",
+   "pos.shift_status",
+   "reporting.sales_trend",
+   "batches.expiring_soon",
+   "inventory.low_stock",
+   {
+    "id": "pos.recent_sales",
+    "size": "l"
+   }
+  ],
+  "home": "/pharmacy",
+  "menu": [
+   {
+    "id": "dispensing",
+    "items": [
+     {
+      "label": "الصيدلية وصرف الروشتات",
+      "screen": "pharmacy.pharmacy"
+     },
+     {
+      "label": "كاشير ونقطة بيع الأدوية",
+      "screen": "pos.pos"
+     },
+     {
+      "label": "مبيعات الأدوية والمستلزمات",
+      "screen": "pos.sales"
+     }
+    ],
+    "label": "صيدلية وصرف الأدوية"
+   },
+   {
+    "id": "pharmacy_stock",
+    "items": [
+     {
+      "label": "الأدوية والمستحضرات",
+      "screen": "inventory.products"
+     },
+     {
+      "label": "مخزون الأدوية وتواريخ الصلاحية",
+      "screen": "inventory.inventory"
+     },
+     {
+      "label": "شركات ومستودعات الأدوية",
+      "screen": "finance.suppliers"
+     },
+     {
+      "label": "طلبيات وتوريد الأدوية",
+      "screen": "inventory.purchases"
+     }
+    ],
+    "label": "الأدوية والتشغيلات والصلاحيات"
+   },
+   {
+    "id": "pharmacy_finance",
+    "items": [
+     {
+      "label": "عملاء التأمين والنقدي",
+      "screen": "finance.customers"
+     },
+     {
+      "label": "الخزائن والمالية",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير الصيدلية والنواقص",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "التأمين والمالية"
+   },
+   {
+    "id": "pharmacy_admin",
+    "items": [
+     {
+      "label": "الصيادلة ومساعدو الصيدلي",
+      "screen": "hr.hr"
+     },
+     {
+      "label": "ورديات الصيدلية",
+      "screen": "pos.shifts"
+     },
+     {
+      "label": "إعدادات الصيدلية",
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "فريق الصيادلة والإدارة"
+   }
+  ],
+  "roles": {}
+ },
+ "plumbing": {
+  "dashboard": [
+   "reporting.sales_today",
+   "reporting.sales_month",
+   "pos.shift_status",
+   "inventory.low_stock_count",
+   "reporting.sales_trend",
+   "pos.recent_sales",
+   "inventory.low_stock"
+  ],
+  "home": "/pos",
+  "menu": [
+   {
+    "id": "checkout",
+    "items": [
+     {
+      "label": "الكاشير (نقطة البيع)",
+      "screen": "pos.pos"
+     },
+     {
+      "label": "فواتير المبيعات والمرتجعات",
+      "screen": "pos.sales"
+     },
+     {
+      "label": "الورديات وتسليم الدرج",
+      "screen": "pos.shifts"
+     }
+    ],
+    "label": "الكاشير والمبيعات"
+   },
+   {
+    "id": "stock",
+    "items": [
+     {
+      "label": "الأصناف والباركود والموازين",
+      "screen": "inventory.products"
+     },
+     {
+      "label": "المخزون والجرد",
+      "screen": "inventory.inventory"
+     },
+     {
+      "label": "التحويلات والتسويات والهالك",
+      "screen": "inventory.operations"
+     },
+     {
+      "label": "طلبيات وتوريدات الموردين",
+      "screen": "inventory.purchases"
+     }
+    ],
+    "label": "الأصناف والمخزون"
+   },
+   {
+    "id": "money",
+    "items": [
+     {
+      "label": "العملاء والبيع الآجل",
+      "screen": "finance.customers"
+     },
+     {
+      "label": "الموردون والمستحقات",
+      "screen": "finance.suppliers"
+     },
+     {
+      "label": "الخزائن والمصروفات",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير المبيعات والأصناف",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "العملاء والموردون والمالية"
+   },
+   {
+    "id": "admin",
+    "items": [
+     {
+      "label": "فريق المتجر",
+      "screen": "hr.hr"
+     },
+     {
+      "screen": "hr.hr_payroll"
+     },
+     {
+      "screen": "core.users"
+     },
+     {
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     },
+     {
+      "screen": "core.modules"
+     },
+     {
+      "screen": "core.archive"
+     }
+    ],
+    "label": "فريق المتجر والإدارة"
+   }
+  ],
+  "roles": {
+   "accountant": {
+    "dashboard": [
+     "reporting.sales_today",
+     "reporting.sales_month",
+     "reporting.sales_trend"
+    ],
+    "home": "finance.finance",
+    "menu": [
+     {
+      "id": "money",
+      "items": [
+       {
+        "label": "الخزائن والمصروفات",
+        "screen": "finance.finance"
+       },
+       {
+        "screen": "accounting.journal"
+       },
+       {
+        "screen": "accounting.accounts"
+       },
+       {
+        "screen": "accounting.reports"
+       },
+       {
+        "screen": "accounting.periods"
+       },
+       {
+        "label": "العملاء والآجل",
+        "screen": "finance.customers"
+       },
+       {
+        "label": "الموردون والمستحقات",
+        "screen": "finance.suppliers"
+       },
+       {
+        "label": "فواتير المبيعات",
+        "screen": "pos.sales"
+       },
+       {
+        "label": "الورديات وتسليم الدرج",
+        "screen": "pos.shifts"
+       },
+       {
+        "label": "تقييم المخزون",
+        "screen": "inventory.inventory"
+       },
+       {
+        "label": "التقارير",
+        "screen": "reporting.reports"
+       }
+      ],
+      "label": "الحسابات"
+     }
+    ]
+   },
+   "cashier": {
+    "dashboard": [
+     "pos.shift_status",
+     "reporting.sales_today",
+     "pos.recent_sales"
+    ],
+    "home": "pos.pos",
+    "menu": [
+     {
+      "id": "checkout",
+      "items": [
+       {
+        "label": "الكاشير (نقطة البيع)",
+        "screen": "pos.pos"
+       },
+       {
+        "label": "فواتيري والمرتجعات",
+        "screen": "pos.sales"
+       },
+       {
+        "label": "ورديتي ودرج النقدية",
+        "screen": "pos.shifts"
+       },
+       {
+        "label": "العملاء والبيع الآجل",
+        "screen": "finance.customers"
+       }
+      ],
+      "label": "الكاشير"
+     }
+    ]
+   },
+   "storekeeper": {
+    "dashboard": [
+     "inventory.low_stock_count",
+     "inventory.low_stock"
+    ],
+    "home": "inventory.inventory",
+    "menu": [
+     {
+      "id": "stock",
+      "items": [
+       {
+        "label": "المخزون والجرد",
+        "screen": "inventory.inventory"
+       },
+       {
+        "label": "الأصناف والباركود والموازين",
+        "screen": "inventory.products"
+       },
+       {
+        "label": "التحويلات والتسويات والهالك",
+        "screen": "inventory.operations"
+       },
+       {
+        "label": "استلام توريدات الموردين",
+        "screen": "inventory.purchases"
+       },
+       {
+        "label": "الموردون",
+        "screen": "finance.suppliers"
+       }
+      ],
+      "label": "المخزن"
+     }
+    ]
+   }
+  }
+ },
+ "printing": {
+  "dashboard": null,
+  "home": "/prn",
+  "menu": null,
+  "roles": {}
+ },
+ "property": {
+  "dashboard": null,
+  "home": "/rec",
+  "menu": [
+   {
+    "id": "helpdesk",
+    "items": [
+     {
+      "screen": "helpdesk.catalog"
+     }
+    ],
+    "label": "الخدمات والدعم"
+   },
+   {
+    "id": "properties",
+    "items": [
+     {
+      "label": "لوحة الأبراج والوحدات العقارية",
+      "screen": "real_estate.rec"
+     },
+     {
+      "screen": "real_estate.rec_leases"
+     },
+     {
+      "screen": "real_estate.rec_maintenance"
+     },
+     {
+      "label": "دليل المستأجرين وسجلاتهم",
+      "screen": "finance.customers"
+     }
+    ],
+    "label": "إدارة العقارات والوحدات"
+   },
+   {
+    "id": "rec_finance",
+    "items": [
+     {
+      "label": "الخزينة وحافظة شيكات الإيجار",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "شركات صيانة المصاعد والمرافق",
+      "screen": "finance.suppliers"
+     },
+     {
+      "label": "كشوف حسابات الملاك وصافي الإيراد",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "المالية وحسابات الملاك"
+   },
+   {
+    "id": "rec_admin",
+    "items": [
+     {
+      "label": "فريق الإشراف والتحصيل",
+      "screen": "hr.hr"
+     },
+     {
+      "label": "إعدادات العقارات والعمولات",
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "الإدارة والنظام"
+   }
+  ],
+  "roles": {}
+ },
+ "restaurant": {
+  "dashboard": null,
+  "home": "/restaurant/tables",
+  "menu": [
+   {
+    "id": "dining",
+    "items": [
+     {
+      "screen": "restaurant.restaurant_tables"
+     },
+     {
+      "screen": "restaurant.restaurant_kitchen"
+     },
+     {
+      "label": "نقطة بيع المطعم والطلبات",
+      "screen": "pos.pos"
+     },
+     {
+      "label": "فواتير الطلبات والضيافة",
+      "screen": "pos.sales"
+     }
+    ],
+    "label": "الصالة والتشغيل الفندقي"
+   },
+   {
+    "id": "kitchen_stock",
+    "items": [
+     {
+      "icon": "Utensils",
+      "label": "قائمة المأكولات والمشروبات (Menu)",
+      "screen": "inventory.products"
+     },
+     {
+      "label": "المكونات والمخزون الغذائي",
+      "screen": "inventory.inventory"
+     },
+     {
+      "label": "توريدات الأغذية والخضار",
+      "screen": "inventory.purchases"
+     }
+    ],
+    "label": "المطبخ والمخزون الغذائي"
+   },
+   {
+    "id": "dining_finance",
+    "items": [
+     {
+      "label": "حسابات عملاء الشركات والولاء",
+      "screen": "finance.customers"
+     },
+     {
+      "label": "موردو اللحوم والأغذية",
+      "screen": "finance.suppliers"
+     },
+     {
+      "label": "الخزينة والمالية اليومية",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير المبيعات وهدر المطبخ",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "المالية وحسابات العملاء"
+   },
+   {
+    "id": "dining_staff",
+    "items": [
+     {
+      "label": "الشيفات وطاقم الخدمة",
+      "screen": "hr.hr"
+     },
+     {
+      "label": "ورديات العمل",
+      "screen": "pos.shifts"
+     },
+     {
+      "label": "إعدادات المطعم",
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "الكادر والإدارة"
+   }
+  ],
+  "roles": {}
+ },
+ "retail": {
+  "dashboard": [
+   "reporting.sales_today",
+   "reporting.sales_month",
+   "pos.shift_status",
+   "inventory.low_stock_count",
+   "reporting.sales_trend",
+   "pos.recent_sales",
+   "inventory.low_stock"
+  ],
+  "home": "/pos",
+  "menu": [
+   {
+    "id": "checkout",
+    "items": [
+     {
+      "label": "الكاشير (نقطة البيع)",
+      "screen": "pos.pos"
+     },
+     {
+      "label": "فواتير المبيعات والمرتجعات",
+      "screen": "pos.sales"
+     },
+     {
+      "label": "الورديات وتسليم الدرج",
+      "screen": "pos.shifts"
+     }
+    ],
+    "label": "الكاشير والمبيعات"
+   },
+   {
+    "id": "stock",
+    "items": [
+     {
+      "label": "الأصناف والباركود والموازين",
+      "screen": "inventory.products"
+     },
+     {
+      "label": "المخزون والجرد",
+      "screen": "inventory.inventory"
+     },
+     {
+      "label": "التحويلات والتسويات والهالك",
+      "screen": "inventory.operations"
+     },
+     {
+      "label": "طلبيات وتوريدات الموردين",
+      "screen": "inventory.purchases"
+     }
+    ],
+    "label": "الأصناف والمخزون"
+   },
+   {
+    "id": "money",
+    "items": [
+     {
+      "label": "العملاء والبيع الآجل",
+      "screen": "finance.customers"
+     },
+     {
+      "label": "الموردون والمستحقات",
+      "screen": "finance.suppliers"
+     },
+     {
+      "label": "الخزائن والمصروفات",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير المبيعات والأصناف",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "العملاء والموردون والمالية"
+   },
+   {
+    "id": "admin",
+    "items": [
+     {
+      "label": "فريق المتجر",
+      "screen": "hr.hr"
+     },
+     {
+      "screen": "hr.hr_payroll"
+     },
+     {
+      "screen": "core.users"
+     },
+     {
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     },
+     {
+      "screen": "core.modules"
+     },
+     {
+      "screen": "core.archive"
+     }
+    ],
+    "label": "فريق المتجر والإدارة"
+   }
+  ],
+  "roles": {
+   "accountant": {
+    "dashboard": [
+     "reporting.sales_today",
+     "reporting.sales_month",
+     "reporting.sales_trend"
+    ],
+    "home": "finance.finance",
+    "menu": [
+     {
+      "id": "money",
+      "items": [
+       {
+        "label": "الخزائن والمصروفات",
+        "screen": "finance.finance"
+       },
+       {
+        "screen": "accounting.journal"
+       },
+       {
+        "screen": "accounting.accounts"
+       },
+       {
+        "screen": "accounting.reports"
+       },
+       {
+        "screen": "accounting.periods"
+       },
+       {
+        "label": "العملاء والآجل",
+        "screen": "finance.customers"
+       },
+       {
+        "label": "الموردون والمستحقات",
+        "screen": "finance.suppliers"
+       },
+       {
+        "label": "فواتير المبيعات",
+        "screen": "pos.sales"
+       },
+       {
+        "label": "الورديات وتسليم الدرج",
+        "screen": "pos.shifts"
+       },
+       {
+        "label": "تقييم المخزون",
+        "screen": "inventory.inventory"
+       },
+       {
+        "label": "التقارير",
+        "screen": "reporting.reports"
+       }
+      ],
+      "label": "الحسابات"
+     }
+    ]
+   },
+   "cashier": {
+    "dashboard": [
+     "pos.shift_status",
+     "reporting.sales_today",
+     "pos.recent_sales"
+    ],
+    "home": "pos.pos",
+    "menu": [
+     {
+      "id": "checkout",
+      "items": [
+       {
+        "label": "الكاشير (نقطة البيع)",
+        "screen": "pos.pos"
+       },
+       {
+        "label": "فواتيري والمرتجعات",
+        "screen": "pos.sales"
+       },
+       {
+        "label": "ورديتي ودرج النقدية",
+        "screen": "pos.shifts"
+       },
+       {
+        "label": "العملاء والبيع الآجل",
+        "screen": "finance.customers"
+       }
+      ],
+      "label": "الكاشير"
+     }
+    ]
+   },
+   "storekeeper": {
+    "dashboard": [
+     "inventory.low_stock_count",
+     "inventory.low_stock"
+    ],
+    "home": "inventory.inventory",
+    "menu": [
+     {
+      "id": "stock",
+      "items": [
+       {
+        "label": "المخزون والجرد",
+        "screen": "inventory.inventory"
+       },
+       {
+        "label": "الأصناف والباركود والموازين",
+        "screen": "inventory.products"
+       },
+       {
+        "label": "التحويلات والتسويات والهالك",
+        "screen": "inventory.operations"
+       },
+       {
+        "label": "استلام توريدات الموردين",
+        "screen": "inventory.purchases"
+       },
+       {
+        "label": "الموردون",
+        "screen": "finance.suppliers"
+       }
+      ],
+      "label": "المخزن"
+     }
+    ]
+   }
+  }
+ },
+ "salon": {
+  "dashboard": null,
+  "home": "/salon",
+  "menu": [
+   {
+    "id": "helpdesk",
+    "items": [
+     {
+      "screen": "helpdesk.catalog"
+     }
+    ],
+    "label": "الخدمات والدعم"
+   },
+   {
+    "id": "beauty",
+    "items": [
+     {
+      "label": "أجندة المواعيد وجدول الخدمة",
+      "screen": "salon.salon"
+     },
+     {
+      "label": "كاشير الصالون وبيع المنتجات",
+      "screen": "pos.pos"
+     },
+     {
+      "label": "فواتير الخدمات والصبغات",
+      "screen": "pos.sales"
+     },
+     {
+      "label": "سجلات العميلات وتفضيلات الخدمة",
+      "screen": "finance.customers"
+     }
+    ],
+    "label": "الصالون وحجز المواعيد"
+   },
+   {
+    "id": "salon_stock",
+    "items": [
+     {
+      "label": "مستحضرات التجميل والعناية",
+      "screen": "inventory.products"
+     },
+     {
+      "label": "مخزون الصبغات والشامبوهات",
+      "screen": "inventory.inventory"
+     }
+    ],
+    "label": "المستحضرات والمستهلكات"
+   },
+   {
+    "id": "salon_staff",
+    "items": [
+     {
+      "label": "المصففون وأخصائيو التجميل",
+      "screen": "hr.hr"
+     },
+     {
+      "label": "ورديات العمل",
+      "screen": "pos.shifts"
+     },
+     {
+      "label": "الخزينة والعمولات اليومية",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "إعدادات باقات الصالون",
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "المصففون والعمولات"
+   }
+  ],
+  "roles": {}
+ },
+ "school": {
+  "dashboard": null,
+  "home": "/school/students",
+  "menu": [
+   {
+    "id": "academic",
+    "items": [
+     {
+      "label": "سجلات الطلاب والقيد",
+      "screen": "school.school_students"
+     },
+     {
+      "screen": "school.school_students_admissions"
+     },
+     {
+      "screen": "school.school_students_buses"
+     }
+    ],
+    "label": "شؤون الطلاب والأكاديميا"
+   },
+   {
+    "id": "school_fees",
+    "items": [
+     {
+      "screen": "school.school_students_fees"
+     },
+     {
+      "label": "أولياء الأمور والجهات المانحة",
+      "screen": "finance.customers"
+     },
+     {
+      "label": "خزينة المدرسة والبنك",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير تحصيل الأقساط",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "المصروفات والأقساط"
+   },
+   {
+    "id": "school_staff",
+    "items": [
+     {
+      "label": "المعلمون والإداريون",
+      "screen": "hr.hr"
+     },
+     {
+      "label": "مسيرات رواتب الكادر",
+      "screen": "hr.hr_payroll"
+     },
+     {
+      "label": "إعدادات المدرسة والعام الدراسي",
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "الكادر التعليمي والإدارة"
+   }
+  ],
+  "roles": {}
+ },
+ "services": {
+  "dashboard": null,
+  "home": "/services",
+  "menu": [
+   {
+    "id": "helpdesk",
+    "items": [
+     {
+      "screen": "helpdesk.catalog"
+     }
+    ],
+    "label": "الخدمات والدعم"
+   }
+  ],
+  "roles": {}
+ },
+ "tiles": {
+  "dashboard": [
+   "reporting.sales_today",
+   "reporting.sales_month",
+   "pos.shift_status",
+   "inventory.low_stock_count",
+   "reporting.sales_trend",
+   "pos.recent_sales",
+   "inventory.low_stock"
+  ],
+  "home": "/pos",
+  "menu": [
+   {
+    "id": "checkout",
+    "items": [
+     {
+      "label": "الكاشير (نقطة البيع)",
+      "screen": "pos.pos"
+     },
+     {
+      "label": "فواتير المبيعات والمرتجعات",
+      "screen": "pos.sales"
+     },
+     {
+      "label": "الورديات وتسليم الدرج",
+      "screen": "pos.shifts"
+     }
+    ],
+    "label": "الكاشير والمبيعات"
+   },
+   {
+    "id": "stock",
+    "items": [
+     {
+      "label": "الأصناف والباركود والموازين",
+      "screen": "inventory.products"
+     },
+     {
+      "label": "المخزون والجرد",
+      "screen": "inventory.inventory"
+     },
+     {
+      "label": "التحويلات والتسويات والهالك",
+      "screen": "inventory.operations"
+     },
+     {
+      "label": "طلبيات وتوريدات الموردين",
+      "screen": "inventory.purchases"
+     }
+    ],
+    "label": "الأصناف والمخزون"
+   },
+   {
+    "id": "money",
+    "items": [
+     {
+      "label": "العملاء والبيع الآجل",
+      "screen": "finance.customers"
+     },
+     {
+      "label": "الموردون والمستحقات",
+      "screen": "finance.suppliers"
+     },
+     {
+      "label": "الخزائن والمصروفات",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير المبيعات والأصناف",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "العملاء والموردون والمالية"
+   },
+   {
+    "id": "admin",
+    "items": [
+     {
+      "label": "فريق المتجر",
+      "screen": "hr.hr"
+     },
+     {
+      "screen": "hr.hr_payroll"
+     },
+     {
+      "screen": "core.users"
+     },
+     {
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     },
+     {
+      "screen": "core.modules"
+     },
+     {
+      "screen": "core.archive"
+     }
+    ],
+    "label": "فريق المتجر والإدارة"
+   }
+  ],
+  "roles": {
+   "accountant": {
+    "dashboard": [
+     "reporting.sales_today",
+     "reporting.sales_month",
+     "reporting.sales_trend"
+    ],
+    "home": "finance.finance",
+    "menu": [
+     {
+      "id": "money",
+      "items": [
+       {
+        "label": "الخزائن والمصروفات",
+        "screen": "finance.finance"
+       },
+       {
+        "screen": "accounting.journal"
+       },
+       {
+        "screen": "accounting.accounts"
+       },
+       {
+        "screen": "accounting.reports"
+       },
+       {
+        "screen": "accounting.periods"
+       },
+       {
+        "label": "العملاء والآجل",
+        "screen": "finance.customers"
+       },
+       {
+        "label": "الموردون والمستحقات",
+        "screen": "finance.suppliers"
+       },
+       {
+        "label": "فواتير المبيعات",
+        "screen": "pos.sales"
+       },
+       {
+        "label": "الورديات وتسليم الدرج",
+        "screen": "pos.shifts"
+       },
+       {
+        "label": "تقييم المخزون",
+        "screen": "inventory.inventory"
+       },
+       {
+        "label": "التقارير",
+        "screen": "reporting.reports"
+       }
+      ],
+      "label": "الحسابات"
+     }
+    ]
+   },
+   "cashier": {
+    "dashboard": [
+     "pos.shift_status",
+     "reporting.sales_today",
+     "pos.recent_sales"
+    ],
+    "home": "pos.pos",
+    "menu": [
+     {
+      "id": "checkout",
+      "items": [
+       {
+        "label": "الكاشير (نقطة البيع)",
+        "screen": "pos.pos"
+       },
+       {
+        "label": "فواتيري والمرتجعات",
+        "screen": "pos.sales"
+       },
+       {
+        "label": "ورديتي ودرج النقدية",
+        "screen": "pos.shifts"
+       },
+       {
+        "label": "العملاء والبيع الآجل",
+        "screen": "finance.customers"
+       }
+      ],
+      "label": "الكاشير"
+     }
+    ]
+   },
+   "storekeeper": {
+    "dashboard": [
+     "inventory.low_stock_count",
+     "inventory.low_stock"
+    ],
+    "home": "inventory.inventory",
+    "menu": [
+     {
+      "id": "stock",
+      "items": [
+       {
+        "label": "المخزون والجرد",
+        "screen": "inventory.inventory"
+       },
+       {
+        "label": "الأصناف والباركود والموازين",
+        "screen": "inventory.products"
+       },
+       {
+        "label": "التحويلات والتسويات والهالك",
+        "screen": "inventory.operations"
+       },
+       {
+        "label": "استلام توريدات الموردين",
+        "screen": "inventory.purchases"
+       },
+       {
+        "label": "الموردون",
+        "screen": "finance.suppliers"
+       }
+      ],
+      "label": "المخزن"
+     }
+    ]
+   }
+  }
+ },
+ "travel": {
+  "dashboard": null,
+  "home": "/travel",
+  "menu": [
+   {
+    "id": "tourism",
+    "items": [
+     {
+      "label": "البرامج السياحية والأفواج",
+      "screen": "travel.travel"
+     },
+     {
+      "label": "فواتير الحجوزات والتذاكر",
+      "screen": "pos.sales"
+     },
+     {
+      "label": "سجلات المسافرين والجوازات",
+      "screen": "finance.customers"
+     }
+    ],
+    "label": "السياحة والرحلات"
+   },
+   {
+    "id": "travel_finance",
+    "items": [
+     {
+      "label": "خطوط الطيران والفنادق الشريكة",
+      "screen": "finance.suppliers"
+     },
+     {
+      "label": "الخزينة وحسابات وكلاء السفر",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير أرباح الأفواج والرحلات",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "المالية وشركات الطيران"
+   },
+   {
+    "id": "travel_admin",
+    "items": [
+     {
+      "label": "موظفو الحجز ومسؤولو العلاقات",
+      "screen": "hr.hr"
+     },
+     {
+      "label": "إعدادات برامج السفر والعمولات",
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "فريق الحجوزات والإدارة"
+   }
+  ],
+  "roles": {}
+ },
+ "warehousing": {
+  "dashboard": null,
+  "home": "/wms",
+  "menu": [
+   {
+    "id": "freight_ops",
+    "items": [
+     {
+      "label": "لوحة المستودع والتخزين (3PL)",
+      "screen": "wms.wms"
+     },
+     {
+      "label": "فواتير الشحن والمناولة",
+      "screen": "pos.sales"
+     },
+     {
+      "label": "عملاء الشحن والتخزين",
+      "screen": "finance.customers"
+     }
+    ],
+    "label": "المستودعات والخدمات اللوجستية"
+   },
+   {
+    "id": "freight_stock",
+    "items": [
+     {
+      "label": "المخزون ومواقع الرفوف (Bins)",
+      "screen": "inventory.inventory"
+     }
+    ],
+    "label": "المخزون ومواقع التخزين"
+   },
+   {
+    "id": "freight_finance",
+    "items": [
+     {
+      "label": "الخزائن وتكاليف الوقود ومصاريف الطرق",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير الشحنات والمسارات اليومية",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "المالية وتكاليف النقل"
+   },
+   {
+    "id": "freight_admin",
+    "items": [
+     {
+      "label": "سائقو الشاحنات وعمال التحميل",
+      "screen": "hr.hr"
+     },
+     {
+      "label": "إعدادات مناطق التوصيل والتسعير",
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "السائقون والتشغيل"
+   }
+  ],
+  "roles": {}
+ },
+ "wholesale": {
+  "dashboard": null,
+  "home": "/wholesale",
+  "menu": [
+   {
+    "id": "distribution",
+    "items": [
+     {
+      "label": "لوحة الجملة وسلالم الأسعار",
+      "screen": "wholesale.wholesale"
+     },
+     {
+      "label": "أوامر وفواتير البيع بالجملة",
+      "screen": "pos.sales"
+     },
+     {
+      "label": "حسابات كبار العملاء والوكلاء",
+      "screen": "finance.customers"
+     }
+    ],
+    "label": "الجملة ومبيعات التوزيع"
+   },
+   {
+    "id": "bulk_stock",
+    "items": [
+     {
+      "label": "دليل الأصناف والباركودات",
+      "screen": "inventory.products"
+     },
+     {
+      "icon": "Warehouse",
+      "label": "أرصدة المستودعات والتحويلات",
+      "screen": "inventory.inventory"
+     },
+     {
+      "label": "أوامر الشراء من المصانع",
+      "screen": "inventory.purchases"
+     }
+    ],
+    "label": "المستودعات المركزية والتوريد"
+   },
+   {
+    "id": "wholesale_finance",
+    "items": [
+     {
+      "label": "حسابات الموردين والمصانع",
+      "screen": "finance.suppliers"
+     },
+     {
+      "label": "الخزائن ومتابعة الشيكات والذمم",
+      "screen": "finance.finance"
+     },
+     {
+      "screen": "accounting.journal"
+     },
+     {
+      "screen": "accounting.accounts"
+     },
+     {
+      "screen": "accounting.reports"
+     },
+     {
+      "screen": "accounting.periods"
+     },
+     {
+      "label": "تقارير أعمار الديون والمبيعات",
+      "screen": "reporting.reports"
+     }
+    ],
+    "label": "الائتمان وأوراق القبض"
+   },
+   {
+    "id": "wholesale_admin",
+    "items": [
+     {
+      "label": "سائقو سيارات التوزيع والمناديب",
+      "screen": "hr.hr"
+     },
+     {
+      "label": "إعدادات سقوف الائتمان والأسعار",
+      "screen": "core.settings"
+     },
+     {
+      "screen": "core.designer"
+     }
+    ],
+    "label": "المناديب والإدارة"
+   }
+  ],
+  "roles": {}
+ }
+}

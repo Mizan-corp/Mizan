@@ -16,6 +16,8 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
+from app.catalog import layout_of
+
 ACTIVITIES = Path(__file__).resolve().parents[1] / "activities"
 
 
@@ -33,7 +35,7 @@ def activity(activity_id: str | None) -> dict:
     data = json.loads(f.read_text(encoding="utf-8"))
     if data.get("legacy_of"):
         return activity(data["legacy_of"])
-    return data
+    return {**data, **layout_of(f.parent)}
 
 
 @lru_cache(maxsize=1)

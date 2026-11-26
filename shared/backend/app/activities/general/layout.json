@@ -1,0 +1,208 @@
+{
+  "schema": 1,
+  "home": "/",
+  "menu": [
+    {
+      "id": "helpdesk",
+      "label": "الخدمات والدعم",
+      "items": [
+        {
+          "screen": "helpdesk.catalog"
+        }
+      ]
+    },
+    {
+      "id": "main",
+      "label": "التشغيل والعمليات",
+      "items": [
+        {
+          "screen": "core.home"
+        },
+        {
+          "screen": "pos.pos"
+        },
+        {
+          "screen": "pos.sales"
+        },
+        {
+          "screen": "pos.shifts"
+        },
+        {
+          "screen": "pharmacy.pharmacy"
+        },
+        {
+          "screen": "restaurant.restaurant_tables"
+        },
+        {
+          "screen": "restaurant.restaurant_kitchen"
+        },
+        {
+          "screen": "school.school_students"
+        },
+        {
+          "screen": "services.services"
+        },
+        {
+          "screen": "logistics.logistics"
+        },
+        {
+          "screen": "ecommerce.ecommerce"
+        },
+        {
+          "screen": "healthcare_clinic.clinic"
+        },
+        {
+          "screen": "law.law"
+        },
+        {
+          "screen": "travel.travel"
+        },
+        {
+          "screen": "hospitality.hospitality"
+        },
+        {
+          "screen": "gym.gym"
+        },
+        {
+          "screen": "salon.salon"
+        },
+        {
+          "screen": "agency.agency"
+        },
+        {
+          "screen": "real_estate.rec"
+        },
+        {
+          "screen": "government.gov"
+        },
+        {
+          "screen": "events.ent"
+        }
+      ]
+    },
+    {
+      "id": "stock",
+      "label": "المخزون والتوريد",
+      "items": [
+        {
+          "screen": "wholesale.wholesale"
+        },
+        {
+          "screen": "wms.wms"
+        },
+        {
+          "screen": "field_service.field_service"
+        },
+        {
+          "screen": "manufacturing.mfg"
+        },
+        {
+          "screen": "food_manufacturing.fod"
+        },
+        {
+          "screen": "pharma_manufacturing.phm"
+        },
+        {
+          "screen": "printing.prn"
+        },
+        {
+          "screen": "construction.cst"
+        },
+        {
+          "screen": "agriculture.agr"
+        },
+        {
+          "screen": "energy.eng"
+        },
+        {
+          "screen": "oil_gas.oil"
+        },
+        {
+          "screen": "inventory.products"
+        },
+        {
+          "screen": "inventory.inventory"
+        },
+        {
+          "screen": "inventory.operations"
+        },
+        {
+          "screen": "inventory.purchases"
+        }
+      ]
+    },
+    {
+      "id": "money",
+      "label": "المال والعلاقات",
+      "items": [
+        {
+          "screen": "banking.bnk"
+        },
+        {
+          "screen": "insurance.ins"
+        },
+        {
+          "screen": "finance.customers"
+        },
+        {
+          "screen": "finance.suppliers"
+        },
+        {
+          "screen": "finance.finance"
+        },
+        {
+          "screen": "accounting.journal"
+        },
+        {
+          "screen": "accounting.accounts"
+        },
+        {
+          "screen": "accounting.reports"
+        },
+        {
+          "screen": "accounting.periods"
+        },
+        {
+          "screen": "reporting.reports"
+        }
+      ]
+    },
+    {
+      "id": "admin",
+      "label": "الإدارة والنظام",
+      "items": [
+        {
+          "screen": "hr.hr"
+        },
+        {
+          "screen": "hr.hr_payroll"
+        },
+        {
+          "screen": "core.modules"
+        },
+        {
+          "screen": "core.archive"
+        },
+        {
+          "screen": "core.users"
+        },
+        {
+          "screen": "core.settings"
+        },
+        {
+          "screen": "core.designer"
+        }
+      ]
+    }
+  ],
+  "dashboard": [
+    "reporting.sales_today",
+    "reporting.sales_month",
+    "inventory.low_stock_count",
+    "pos.shift_status",
+    "reporting.sales_trend",
+    "pos.recent_sales",
+    "inventory.low_stock"
+  ],
+  "roles": {}
+}

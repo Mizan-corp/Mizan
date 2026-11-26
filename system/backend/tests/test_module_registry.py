@@ -141,7 +141,7 @@ ACTIVITIES = APP / "activities"
 FRONTEND = REPO / "system" / "frontend" / "src"
 # What an activity's folder may hold (ADR-010 D1); first-party activities may also share Python
 # code between their modules at the root (healthcare's seeder).
-ACTIVITY_ENTRIES = {"activity.json", "positions.json", "seed.py", "README.md", "modules", "variants", "themes",
+ACTIVITY_ENTRIES = {"activity.json", "layout.json", "positions.json", "seed.py", "README.md", "modules", "variants", "themes",
                     "seed", "i18n", "assets", "__pycache__", "__init__.py"}
 
 

@@ -28,12 +28,28 @@ def families() -> dict[str, dict[str, Any]]:
 ACTIVITIES_DIR = CATALOG_DIR.parent / "activities"
 
 
+LAYOUT_KEYS = ("home", "menu", "dashboard", "roles")
+
+
+def layout_of(folder: Path) -> dict[str, Any]:
+    """An activity's layout as data (migration step 4): `layout.json` next to `activity.json`,
+    `{"schema": 1, "home", "menu", "dashboard", "roles"}` (framework/layout_schema.py). Its keys
+    take the place of the same keys in activity.json; an activity without the file is unchanged."""
+    f = folder / "layout.json"
+    if not f.is_file():
+        return {}
+    data = json.loads(f.read_text(encoding="utf-8"))
+    if data.get("schema") != 1:
+        raise ValueError(f"{f}: unsupported layout schema {data.get('schema')!r}")
+    return {k: data[k] for k in LAYOUT_KEYS if k in data}
+
+
 @lru_cache(maxsize=1)
 def activities() -> dict[str, dict[str, Any]]:
     """Every activity, from app/activities/<activity_id>/activity.json."""
     found = {}
     for f in sorted(ACTIVITIES_DIR.glob("*/activity.json")):
-        data = json.loads(f.read_text(encoding="utf-8"))
+        data = {**json.loads(f.read_text(encoding="utf-8")), **layout_of(f.parent)}
         found[data["id"]] = data
     return dict(sorted(found.items(), key=lambda kv: kv[1].get("order", 999)))
 
