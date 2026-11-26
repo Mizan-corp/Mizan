@@ -214,7 +214,7 @@ def entity_problems(e: dict, entity_ids: set[str], scopes: set[str]) -> list[str
 
 
 # ── Theme packs (ADR-010 D3) ─────────────────────────────────────────────────────
-# A theme sets the app's design tokens (the CSS variables of shared/frontend/src/styles.css) for
+# A theme sets the app's design tokens (the CSS variables of system/core/frontend/src/styles.css) for
 # light and dark, and picks fonts, corner radius, shadows and motion. Only these keys and strict
 # value formats are accepted, so a theme can't inject CSS or break layouts.
 
@@ -232,7 +232,7 @@ THEME_MOTION = ("full", "reduced", "none")
 THEME_DENSITY = ("comfortable", "compact")
 FONT_FILE = re.compile(r"^assets/[A-Za-z0-9_.-]+\.(woff2|woff|ttf|otf)$")
 # A theme may also borrow a font another theme ships, by its public absolute path
-# (mirrors the client's SAFE_ABS_SRC in shared/frontend/src/lib/theme.ts).
+# (mirrors the client's SAFE_ABS_SRC in system/core/frontend/src/lib/theme.ts).
 FONT_FILE_ABS = re.compile(r"^/themes/assets/files/[a-z][a-z0-9_]{0,47}/assets/[A-Za-z0-9_.-]+\.(woff2|woff|ttf|otf)$")
 FONT_FILE_REGISTRY = re.compile(r"^/themes/assets/fonts/[a-z][a-z0-9_-]{0,47}/[A-Za-z0-9_.-]+\.(woff2|woff|ttf|otf)$")
 FONT_WEIGHT = re.compile(r"^[1-9]00( [1-9]00)?$")

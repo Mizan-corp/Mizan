@@ -5,5 +5,5 @@
 - **Tenancy Boundary:** Every query on workspace data runs with the workspace bound (`TenantScoped`, RLS, the `mizan_app` role). Platform rows (no `tenant_id`) are written only with no workspace bound (#112).
 - **Permissions decide:** routes check `require_perm("<id>")` with ids declared in a manifest; no role-name checks.
 - **No Circular Imports:** keep routes, schemas, services and models layered.
-- **Shared Code Audit:** before changing `system/core/backend/app/{core,framework,platform}/` or `shared/frontend/src/`, search every product that uses it (system, website, owner, admin, installer, SDK).
+- **Shared Code Audit:** before changing `system/core/backend/app/{core,framework,platform}/` or `system/core/frontend/src/`, search every product that uses it (system, website, owner, admin, installer, SDK).
 - **One validator:** `app/framework/manifest.py` is shared with the SDK (`sdk/python/mizan_sdk/manifest.py`, a byte copy kept by a test); change both together.

@@ -10,5 +10,5 @@ Theme packs and the workspace's one theme (ADR-010 D3). Always on.
   `/themes/packages/inspect|install`, `DELETE /themes/{id}` (`themes.manage`), public font files
   under `/themes/assets/`.
 - Checks: `theme_problems` in `app/framework/manifest.py`. Table: `workspace_themes` (v73).
-- Applied in the app by `shared/frontend/src/lib/theme.ts`; chosen in the module centre
+- Applied in the app by `system/core/frontend/src/lib/theme.ts`; chosen in the module centre
   (`system/frontend/src/platform/themes/`).

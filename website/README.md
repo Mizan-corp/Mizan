@@ -13,7 +13,7 @@ self-serve signup with the 3-step onboarding wizard, contact, the legal pages, a
   developer portal's `/developers/*`. Signup creates the owner account and workspace, seeds
   sector demo data and returns a token.
 - After onboarding the new owner lands in the **owner panel**, already signed in
-  (`openWithSession` in `shared/frontend/src/lib/handoff.ts`).
+  (`openWithSession` in `system/core/frontend/src/lib/handoff.ts`).
 - "Sign in" goes to `/login`, which forwards to the owner panel's sign-in (`/owner/login`,
   ADR-008); owners come back through `/session`
   here: the website keeps its own copy of the owner's session (`mizan.owner_session`) to

@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
 
-// Mizan website app. "@/" is the shared kit (shared/frontend/src), "@app/" is this app.
+// Mizan website app. "@/" is the shared kit (system/core/frontend/src), "@app/" is this app.
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
 
@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         "@app": fileURLToPath(new URL("./src", import.meta.url)),
-        "@": fileURLToPath(new URL("../../shared/frontend/src", import.meta.url)),
+        "@": fileURLToPath(new URL("../../system/core/frontend/src", import.meta.url)),
       },
     },
     build: {

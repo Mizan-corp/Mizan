@@ -100,7 +100,7 @@ Examples include:
 - Authentication and session storage (`stores/auth.ts`, JWT tokens, session cookies).
 - Authorization (`system/core/backend/app/platform/permissions/`: `access.py` (roles, acting role, `can`), `routes_access.py`, `roles.py`, `migrate.py`; the older `engine.py`/`catalog.py`; `require_perm` in `app/dependencies.py`).
 - Tenant context and resolution (`admoon/resolve-slug`).
-- Design tokens and theme packs (`shared/frontend/src/styles.css`, `lib/theme.ts`, `app/themes/`, ADR-010).
+- Design tokens and theme packs (`system/core/frontend/src/styles.css`, `lib/theme.ts`, `app/themes/`, ADR-010).
 - Shared components (`@/components/ui/*`, modals, data tables).
 - API clients and request wrappers (`src/lib/api.ts`).
 - Database models and migrations (`system/core/backend/app/db/migrations.py`, applied by `python manage.py db migrate`; base models).

@@ -46,7 +46,7 @@ describe("dependency direction", () => {
 
   it("shared frontend imports no app (no @app alias, no path into an app)", () => {
     const forbidden = /^@app\/|(^|\/)(system|owner|admin|website)\/(frontend|backend)\//;
-    const bad = files(join(ROOT, "shared/frontend/src"), [".ts", ".tsx"]).flatMap((f) => tsImports(f, forbidden));
+    const bad = files(join(ROOT, "system/core/frontend/src"), [".ts", ".tsx"]).flatMap((f) => tsImports(f, forbidden));
     expect(bad).toEqual([]);
   });
 
@@ -58,6 +58,6 @@ describe("dependency direction", () => {
 
   it("scans real files (guard against an empty scan passing)", () => {
     expect(files(join(ROOT, "system/core/backend/app"), [".py"]).length).toBeGreaterThan(100);
-    expect(files(join(ROOT, "shared/frontend/src"), [".ts", ".tsx"]).length).toBeGreaterThan(20);
+    expect(files(join(ROOT, "system/core/frontend/src"), [".ts", ".tsx"]).length).toBeGreaterThan(20);
   });
 });

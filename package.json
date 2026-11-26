@@ -2,7 +2,7 @@
   "name": "mizan",
   "private": true,
   "workspaces": [
-    "shared/frontend",
+    "system/core/frontend",
     "system/frontend",
     "website/frontend",
     "owner/frontend",

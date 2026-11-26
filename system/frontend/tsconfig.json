@@ -16,7 +16,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
-    "paths": { "@app/*": ["src/*"], "@/*": ["../../shared/frontend/src/*"], "@activities/*": ["src/activities/*"] }
+    "paths": { "@app/*": ["src/*"], "@/*": ["../../system/core/frontend/src/*"], "@activities/*": ["src/activities/*"] }
   },
-  "include": ["src", "../../shared/frontend/src"]
+  "include": ["src", "../../system/core/frontend/src"]
 }
