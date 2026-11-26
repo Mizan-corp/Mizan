@@ -36,7 +36,7 @@ const settings: Record<string, Record<string, readonly (string|number|boolean)[]
   button:{visible:[true,false],style:['primary','secondary','ghost','soft'],align,hover},
   icon_list:{visible:[true,false],gap:spacing},
   icon:{visible:[true,false],icon:iconNames(),size:['s','m','l'],tone:['none','primary','dark','card'],align},
-  form:{visible:[true,false],field_name:[true,false],field_phone:[true,false],align:['start','center']},
+  form:{visible:[true,false],field_name:[true,false],field_phone:[true,false],field_email:[true,false],layout:['stack','inline'],align:['start','center']},
 };
 const fields: Record<string, Record<string, number>> = {section:{},columns:{},column:{},heading:{text:200},text:{html:20000},image:{src:2000,alt:300},button:{label:80,href:2000},icon_list:{},icon:{},form:{title:120,name_label:40,email_label:40,phone_label:40,message_label:40,submit_label:40,success_message:200}};
 // Free-text URL settings (validated with safeNativeUrl, image rules), rendered as text

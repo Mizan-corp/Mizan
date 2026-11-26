@@ -218,18 +218,19 @@ function NodeView({ node, lang, device }: { node: PageNode; lang: string; device
       const title = typeof c.title === 'string' ? c.title : '';
       const controls: [string, string, string, boolean][] = [];
       if (s.field_name === true) controls.push(['name', String(c.name_label ?? 'Name'), 'text', false]);
-      controls.push(['email', String(c.email_label ?? 'Email'), 'email', true]);
+      if (s.field_email !== false) controls.push(['email', String(c.email_label ?? 'Email'), 'email', true]);
       if (s.field_phone === true) controls.push(['phone', String(c.phone_label ?? 'Phone'), 'text', false]);
-      controls.push(['message', String(c.message_label ?? 'Message'), 'textarea', true]);
+      const inline = s.layout === 'inline';
+      controls.push(['message', String(c.message_label ?? 'Message'), inline ? 'text' : 'textarea', true]);
       inner = (
-        <div className={`mz-form mz-form-inert${s.align === 'center' ? ' mz-form-center' : ''}`}>
+        <div className={`mz-form mz-form-inert${s.align === 'center' ? ' mz-form-center' : ''}${inline ? ' mz-form-inline' : ''}`}>
           {title && <p className="mz-form-title">{title}</p>}
           {controls.map(([name, label, kind, required]) => (
             <div className="mz-form-field" key={name}>
               <label className="mz-form-label">{label}</label>
               {kind === 'textarea'
                 ? <textarea className="mz-form-input" rows={4} maxLength={2000} required={required} readOnly />
-                : <input className="mz-form-input" type={kind} maxLength={name === 'email' ? 254 : name === 'name' ? 120 : 40} required={required} readOnly />}
+                : <input className="mz-form-input" type={kind} maxLength={name === 'email' ? 254 : name === 'name' ? 120 : name === 'message' ? 2000 : 40} required={required} readOnly />}
             </div>
           ))}
           <button className="mz-button mz-button-primary mz-form-submit" type="button" disabled>{String(c.submit_label ?? 'Send')}</button>

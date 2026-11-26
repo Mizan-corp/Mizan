@@ -194,6 +194,23 @@ class PublicFormTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(cm.exception.status_code, 400)
         db.add.assert_not_called()
 
+    async def test_message_only_inline_form_is_stored(self):
+        tree = {"id": "n_root1", "type": "section", "settings": {"desktop": {}}, "content": {},
+                "children": [{"id": "n_cols01", "type": "columns", "settings": {"desktop": {}}, "content": {},
+                              "children": [{"id": "n_col001", "type": "column", "settings": {}, "content": {},
+                                            "children": [{"id": "n_form01", "type": "form",
+                                                          "settings": {"desktop": {"visible": True, "layout": "inline", "field_email": False}},
+                                                          "content": {"en": {}}}]}]}]}
+        db = db_scripted(ok_script(tree))
+        resp = await pf.submit_form("site", "contact", "n_form01",
+                                    make_request(form=make_form([("message", "need a laptop"), ("website", "")])), db)
+        self.assertEqual(resp.status_code, 303)
+        self.assertEqual(db.add.call_args[0][0].payload, {"message": "need a laptop"})
+        # an email key is refused when the block hides it
+        db2 = db_scripted(ok_script(tree))
+        with self.assertRaises(pf.HTTPException):
+            await pf.submit_form("site", "contact", "n_form01", make_request(form=GOOD_FORM), db2)
+
     async def test_rate_limit_locks_out_after_ten(self):
         db = db_scripted(ok_script())
         for _ in range(10):

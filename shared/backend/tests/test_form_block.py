@@ -121,3 +121,23 @@ class LiveRender(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class InlineLayout(unittest.TestCase):
+    def test_inline_message_only_band(self):
+        tree = form_tree({"layout": "inline", "field_email": False}, FULL_CONTENT)
+        self.assertEqual(page_problems(tree, languages=("en",)), [])
+        html = render_page(tree, lang="en", form_action_base="/forms/studio/x")
+        self.assertIn("mz-form-inline", html)
+        self.assertNotIn('name="email"', html)
+        self.assertNotIn("<textarea", html)
+        self.assertIn('name="message"', html)
+
+    def test_default_layout_unchanged(self):
+        html = render_page(form_tree({}, FULL_CONTENT), lang="en", form_action_base="/forms/studio/x")
+        self.assertIn('name="email"', html)
+        self.assertIn("<textarea", html)
+        self.assertNotIn("mz-form-inline", html)
+
+    def test_bad_layout_rejected(self):
+        self.assertNotEqual(page_problems(form_tree({"layout": "grid"}), languages=("en",)), [])

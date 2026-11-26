@@ -71,12 +71,13 @@ def _find_form(node, node_id: str):
 def _enabled_fields(form_node: dict) -> list[str]:
     """Exactly the payload keys the rendered form can post: name/phone only when
     the block's desktop settings (the visitor route's single render) show them,
-    email and message always."""
+    email unless field_email is explicitly false, and message always."""
     settings = (form_node.get("settings") or {}).get("desktop") or {}
     fields = []
     if settings.get("field_name"):
         fields.append("name")
-    fields.append("email")
+    if settings.get("field_email") is not False:
+        fields.append("email")
     if settings.get("field_phone"):
         fields.append("phone")
     fields.append("message")

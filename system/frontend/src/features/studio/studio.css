@@ -531,6 +531,10 @@
 .preview-frame .mz-form-input{width:100%;padding:10px 12px;border:1px solid color-mix(in srgb,var(--foreground,#262321) 22%,transparent);border-radius:var(--radius,8px);background:var(--card,#fff);color:inherit;font:inherit;font-size:15px}
 .preview-frame textarea.mz-form-input{resize:vertical}
 .preview-frame .mz-form-hp{display:none}
+.preview-frame .mz-form-inline{max-width:none;flex-direction:row;flex-wrap:wrap;align-items:flex-end}
+.preview-frame .mz-form-inline .mz-form-title,.preview-frame .mz-form-inline .mz-form-success{flex:1 1 100%}
+.preview-frame .mz-form-inline .mz-form-field{flex:1 1 220px}
+.preview-frame .mz-form-inline .mz-form-submit{align-self:auto}
 .preview-frame .mz-form-success{padding:10px 14px;border-radius:var(--radius,8px);background:color-mix(in srgb,var(--primary,#651E2C) 12%,transparent);font-size:15px}
 .preview-frame .mz-form-submit{align-self:flex-start;border:0;cursor:pointer;font:inherit}
 .preview-frame .mz-form-center .mz-form-submit{align-self:center}

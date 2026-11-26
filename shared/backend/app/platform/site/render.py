@@ -293,6 +293,11 @@ def _render_node_inner(node: dict, lang: str, device: str, link_base: str | None
         # base for this page (the public visitor route). In previews and exports
         # the block renders its fields inert so it can never post anywhere.
         align_cls = " mz-form-center" if s.get("align") == "center" else ""
+        # layout "inline": one row (message input + submit), like a request band. The message
+        # field becomes a single-line input; email stays unless field_email is explicitly false.
+        inline = s.get("layout") == "inline"
+        if inline:
+            align_cls += " mz-form-inline"
         node_id = node.get("id") if isinstance(node.get("id"), str) else ""
         parts = []
         if c.get("title"):
@@ -302,10 +307,11 @@ def _render_node_inner(node: dict, lang: str, device: str, link_base: str | None
         controls = []
         if s.get("field_name"):
             controls.append(("name", c.get("name_label") or "Name", "text", 120, False))
-        controls.append(("email", c.get("email_label") or "Email", "email", 254, True))
+        if s.get("field_email") is not False:
+            controls.append(("email", c.get("email_label") or "Email", "email", 254, True))
         if s.get("field_phone"):
             controls.append(("phone", c.get("phone_label") or "Phone", "text", 40, False))
-        controls.append(("message", c.get("message_label") or "Message", "textarea", 2000, True))
+        controls.append(("message", c.get("message_label") or "Message", "text" if inline else "textarea", 2000, True))
         for fname, flabel, fkind, fmax, frequired in controls:
             field_id = f"mz-f-{node_id}-{fname}"
             label_html = f'<label class="mz-form-label" for="{_esc(field_id)}">{_esc(flabel)}</label>'
@@ -479,7 +485,7 @@ _BASE_CSS += ".mz-reorder .mz-site-logo,.mz-reorder .mz-site-brand{order:var(--o
 _BASE_CSS += ".mz-header-menu nav .mz-menu-bar{display:contents}@media(min-width:769px) and (max-width:1024px){.mz-t-density-compact .mz-header-main{padding:6px 32px;gap:10px}.mz-t-density-compact .mz-header-search{max-width:560px}.mz-t-density-compact .mz-header-search button{width:30px;height:30px}.mz-t-density-compact .mz-header-icon{width:34px;height:34px}.mz-t-density-compact .mz-header-bar{padding:4px 32px;min-height:40px}.mz-t-density-compact .mz-header-bar nav a{min-height:30px;font-size:14px}.mz-t-hide-search .mz-header-search{display:none}.mz-t-hide-bar .mz-header-bar{display:none}}"
 _BASE_CSS += ".mz-header-locale{display:flex;align-items:center;gap:4px}.mz-locale-switch{display:inline-flex;align-items:center;min-height:32px;padding:0 10px;border-radius:999px;font-size:13px;font-weight:650;color:inherit;text-decoration:none;border:1px solid rgba(127,127,127,.45)}"
 _BASE_CSS += "@media(max-width:768px){.mz-columns-2,.mz-columns-3,.mz-columns-4,.mz-columns-5,.mz-columns-6{grid-template-columns:1fr}.mz-columns.mz-cols-custom{grid-template-columns:var(--mz-tracks-m,1fr)}.mz-columns.mz-cols-custom-m{grid-template-columns:var(--mz-tracks-m)}.mz-node.mz-minh-custom>:first-child{min-height:var(--mz-minh-m,var(--mz-minh))}.mz-columns{gap:16px}.mz-section{padding:24px 16px}.mz-width-half,.mz-width-third,.mz-width-two_thirds,.mz-width-three_fifths{width:100%}.mz-node.mz-width-custom{width:var(--mz-width-m,100%)}.mz-reorder .mz-header-search{order:9;flex-basis:100%}.mz-m-density-compact .mz-header-main{padding:4px 14px;gap:8px}.mz-m-hide-search .mz-header-search{display:none}.mz-m-hide-bar .mz-header-menu nav .mz-menu-bar{display:none}}"
-_BASE_CSS += ".mz-form{display:flex;flex-direction:column;gap:14px;max-width:520px;margin:0 0 24px}.mz-form-center{margin-inline:auto;text-align:center}.mz-form-center .mz-form-field{text-align:start}.mz-form-title{font-size:clamp(21px,2.2vw,27px);font-weight:750;margin:0}.mz-form-field{display:flex;flex-direction:column;gap:6px}.mz-form-label{font-size:14px;font-weight:600}.mz-form-input{width:100%;padding:10px 12px;border:1px solid color-mix(in srgb,var(--foreground,#262321) 22%,transparent);border-radius:var(--radius,8px);background:var(--card,#fff);color:inherit;font:inherit;font-size:15px}textarea.mz-form-input{resize:vertical}.mz-form-hp{display:none}.mz-form-success{padding:10px 14px;border-radius:var(--radius,8px);background:color-mix(in srgb,var(--primary,#651E2C) 12%,transparent);font-size:15px}.mz-form-submit{align-self:flex-start;border:0;cursor:pointer;font:inherit}.mz-form-center .mz-form-submit{align-self:center}.mz-form-inert .mz-form-input{pointer-events:none;opacity:.7}.mz-form-inert .mz-form-submit{opacity:.6;cursor:default}"
+_BASE_CSS += ".mz-form{display:flex;flex-direction:column;gap:14px;max-width:520px;margin:0 0 24px}.mz-form-center{margin-inline:auto;text-align:center}.mz-form-center .mz-form-field{text-align:start}.mz-form-title{font-size:clamp(21px,2.2vw,27px);font-weight:750;margin:0}.mz-form-field{display:flex;flex-direction:column;gap:6px}.mz-form-label{font-size:14px;font-weight:600}.mz-form-input{width:100%;padding:10px 12px;border:1px solid color-mix(in srgb,var(--foreground,#262321) 22%,transparent);border-radius:var(--radius,8px);background:var(--card,#fff);color:inherit;font:inherit;font-size:15px}textarea.mz-form-input{resize:vertical}.mz-form-hp{display:none}.mz-form-inline{max-width:none;flex-direction:row;flex-wrap:wrap;align-items:flex-end}.mz-form-inline .mz-form-title,.mz-form-inline .mz-form-success{flex:1 1 100%}.mz-form-inline .mz-form-field{flex:1 1 220px}.mz-form-inline .mz-form-submit{align-self:auto}.mz-form-success{padding:10px 14px;border-radius:var(--radius,8px);background:color-mix(in srgb,var(--primary,#651E2C) 12%,transparent);font-size:15px}.mz-form-submit{align-self:flex-start;border:0;cursor:pointer;font:inherit}.mz-form-center .mz-form-submit{align-self:center}.mz-form-inert .mz-form-input{pointer-events:none;opacity:.7}.mz-form-inert .mz-form-submit{opacity:.6;cursor:default}"
 _BASE_CSS += ".mz-site-logo{height:32px;width:auto}.mz-site-footer a{color:inherit;text-decoration:none}.mz-footer-groups{display:flex;gap:32px;flex-wrap:wrap}.mz-footer-group{display:flex;flex-direction:column;gap:10px}.mz-footer-group-title{font-weight:650}.mz-footer-socials{display:flex;gap:14px;align-items:center}.mz-footer-social{display:inline-flex;align-items:center;min-height:44px}.mz-footer-social svg{width:20px;height:20px}"
 for _token, _size in _SPACER_PX.items():
     _BASE_CSS += (f".mz-padding-{_token}{{padding:{_size}px}}.mz-gap-{_token}{{gap:{_size}px}}"
