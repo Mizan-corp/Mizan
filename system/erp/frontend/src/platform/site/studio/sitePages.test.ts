@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { siteRequestHeaders, SiteApiError, applySettings, createPayload, createSitePagesClient, draftPayload, settingsPayload, slugFromName } from './sitePages';
+import { ssoToken, siteRequestHeaders, SiteApiError, applySettings, createPayload, createSitePagesClient, draftPayload, settingsPayload, slugFromName } from './sitePages';
 import { initialProject } from './model';
 import { toPageTree } from './pagetree';
 
@@ -236,4 +236,18 @@ describe('native cookie CSRF protocol', () => {
   expect(siteRequestHeaders('/api','POST',false,'csrf_token=%QQ')).toEqual({});
   expect(siteRequestHeaders('/api','POST',false,'other=x')).toEqual({});
  });
+});
+
+describe('studio single sign-on token', () => {
+  const HOST = 'https://api.allmizan.live/api';
+  const raw = JSON.stringify({ token: 'abc.def', user: { id: 1 } });
+  it('returns the ERP session token only for the configured production API', () => {
+    expect(ssoToken(HOST, HOST, raw)).toBe('abc.def');
+    expect(ssoToken('/api', HOST, raw)).toBeNull();
+    expect(ssoToken('https://evil.test/api', HOST, raw)).toBeNull();
+    expect(ssoToken(HOST, undefined, raw)).toBeNull();
+  });
+  it('is quiet without an ERP session or with a broken one', () => {
+    for (const bad of [null, '', 'not json', '{}', '{"token":""}', '{"token":5}', 'null']) expect(ssoToken(HOST, HOST, bad)).toBeNull();
+  });
 });

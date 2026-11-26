@@ -50,8 +50,24 @@ export class SiteApiError extends Error {
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
+/**
+ * Single sign-on: Studio opened from the ERP on the same host reuses the ERP session token.
+ * Only for the one configured production API origin, never for a caller-supplied origin.
+ * Pure so it is testable: `raw` is the stored `mizan.session` JSON.
+ */
+export function ssoToken(baseUrl: string, hosted: string | undefined, raw: string | null): string | null {
+  if (!hosted || baseUrl !== hosted) return null;
+  try {
+    const token = (JSON.parse(raw ?? 'null') as { token?: unknown } | null)?.token;
+    return typeof token === 'string' && token ? token : null;
+  } catch { return null; /* no ERP session: the API answers 401 */ }
+}
+
 export function siteRequestHeaders(baseUrl: string, method: string, hasBody: boolean, cookies: string): Record<string, string> {
   const headers: Record<string, string> = hasBody ? { 'Content-Type': 'application/json' } : {};
+  const sso = ssoToken(baseUrl, import.meta.env.VITE_STUDIO_API as string | undefined,
+    typeof localStorage === 'undefined' ? null : localStorage.getItem('mizan.session'));
+  if (sso) headers['Authorization'] = `Bearer ${sso}`;
   // Match the native workspace client's double-submit cookie protocol. Never forward
   // this readable cookie to a caller-supplied external API origin.
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method) && (baseUrl === '' || (baseUrl.startsWith('/') && !baseUrl.includes('//')))) {
@@ -63,15 +79,6 @@ export function siteRequestHeaders(baseUrl: string, method: string, hasBody: boo
 
 async function request<T>(fetchImpl: FetchLike, baseUrl: string, method: string, path: string, body?: unknown): Promise<T> {
   const headers = siteRequestHeaders(baseUrl, method, body !== undefined, typeof document === 'undefined' ? '' : document.cookie);
-  // Single sign-on: opened from the ERP on the same host, reuse its session token. Only for
-  // the configured production API, never for a caller-supplied origin.
-  const hosted = import.meta.env.VITE_STUDIO_API as string | undefined;
-  if (hosted && baseUrl === hosted && typeof localStorage !== 'undefined') {
-    try {
-      const token = (JSON.parse(localStorage.getItem('mizan.session') ?? 'null') as { token?: string } | null)?.token;
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-    } catch { /* no ERP session: the API answers 401 */ }
-  }
   const response = await fetchImpl(`${baseUrl}${path}`, {
     method,
     credentials: 'include',
