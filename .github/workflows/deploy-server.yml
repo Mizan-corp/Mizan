@@ -7,8 +7,6 @@ name: Deploy (server)
 # By hand (Run workflow): releases the chosen commit once its CI has passed.
 
 on:
-  push:
-    branches: [master]
   workflow_dispatch: {}
 
 permissions:
