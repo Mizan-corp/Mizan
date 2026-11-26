@@ -63,6 +63,20 @@ export function ssoToken(baseUrl: string, hosted: string | undefined, raw: strin
   } catch { return null; /* no ERP session: the API answers 401 */ }
 }
 
+/**
+ * The workspace the ERP is signed into (shared `mizan.tenant`), so Studio names the real
+ * workspace instead of a default. Pure: `raw` is the stored JSON. Falls back to `fallback`.
+ */
+export function ssoWorkspace(raw: string | null, fallback: string): { slug: string; label: string } {
+  try {
+    const t = JSON.parse(raw ?? 'null') as { slug?: unknown; name?: unknown } | null;
+    const slug = typeof t?.slug === 'string' && t.slug ? t.slug : '';
+    const name = typeof t?.name === 'string' && t.name.trim() ? t.name.trim().slice(0, 80) : '';
+    if (slug || name) return { slug: slug || fallback, label: name || slug };
+  } catch { /* no ERP workspace: keep the default */ }
+  return { slug: fallback, label: fallback };
+}
+
 export function siteRequestHeaders(baseUrl: string, method: string, hasBody: boolean, cookies: string): Record<string, string> {
   const headers: Record<string, string> = hasBody ? { 'Content-Type': 'application/json' } : {};
   const sso = ssoToken(baseUrl, import.meta.env.VITE_STUDIO_API as string | undefined,
