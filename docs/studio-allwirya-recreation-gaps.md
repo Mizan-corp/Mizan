@@ -62,8 +62,11 @@ G1. PARTIALLY RESOLVED 2026-11-26: catalog search shipped as header chrome
     docs/studio-search-form-design.md are still not implemented.
 G2. PARTIALLY RESOLVED 2026-11-25: header logo image by URL shipped (theme.header.logo,
     safe /path or https URL, rendered as an escaped img in both renderers, editable in
-    Style > Header as "Logo URL (optional)"). Remaining: no cart/account icons, no
-    sticky header control, no upload-based logo (G3).
+    Style > Header as "Logo URL (optional)"). Header icon links shipped 2026-11-26
+    (c0f41f08): a bounded icon row (whatsapp/cart/heart/user/phone/globe, up to 6,
+    safe links only) editable in Style > Header and rendered in both renderers;
+    these are visual links, not wired cart/account functions. Remaining: no
+    functional cart/account wiring, no sticky header control, no upload-based logo (G3).
 G3. Image upload/storage not connected on the test host (no BLOB_READ_WRITE_TOKEN;
     provisioning not approved). Blocks hero photo, category cards, product photos.
     Image elements accept URLs; art placeholders exist (sculpture/sculpture_alt).
@@ -76,16 +79,27 @@ G5. Partially addressed 2026-11-25 (icon_list shipped): the icon_list block now
     in both renderers, unknown stored names fall back to a dot, and the native
     editor exposes it end to end: an Icon list Insert preset, per-item icon
     picker + label editing, and tree validation (previously icon_list trees
-    failed native-editor load entirely). Footer social icons remain unsupported.
+    failed native-editor load entirely). Footer social icons shipped 2026-11-26
+    (ad901c45): theme.footer.socials, up to 6 entries over a named set
+    (whatsapp/facebook/instagram/x/youtube/linkedin), sanitized label + safe link
+    (/, #, https://) per entry, editable in Style > Footer, rendered as
+    mz-footer-socials with accessible labels in both renderers; live-verified
+    UI-authored save > publish > visitor SSR (RTL desktop + mobile).
     This was an implementation gap, not an authorization gate (2026-11-25, main).
     Repair-card checkmarks are covered by N2.
-G6. No form/input element (CTA band's device-request input).
-    DESIGN RESEARCHED 2026-11-25: docs/studio-search-form-design.md - mailto compose
-    form is pure markup and is the recommended honest v0 once the owner's
-    destination address is verified; stored submissions need storage/privacy/
-    anti-spam approvals.
-G7. Typography: one system font family site-wide; no heading size control, no font
-    upload, no Arabic/Latin pairing (chrome UI states this itself). allwirya's Arabic
+G6. MOSTLY RESOLVED 2026-11-25 (36c0c30c): native form block shipped - title,
+    always-on email + message fields, optional name/phone toggles, editable
+    labels/submit/success text, live visitor POST with Website inbox storage and
+    admin read. This covers the FUNCTION of the CTA band's device-request input
+    (a visitor submits free text and it lands in the Website inbox). It does NOT
+    reproduce the original layout: an inline single-line input inside a colored
+    CTA band row. The form block is a vertical form section; email is always
+    required, so a message-only composition is not possible. Inline-band input
+    remains unsupported.
+G7. Typography: one system font family site-wide. Heading size control shipped
+    (451132c2): headings accept size auto/s/m/l rendered as bounded font-size
+    clamps (mz-size-*) in both renderers. Remaining: no font upload, no
+    Arabic/Latin pairing (chrome UI states this itself). allwirya's Arabic
     display font cannot be reproduced.
 G8. Color: no per-element color overrides. Partially addressed 2026-11-25 (N1
     shipped): theme gained a second surface pair (dark / dark-foreground) and
@@ -93,18 +107,19 @@ G8. Color: no per-element color overrides. Partially addressed 2026-11-25 (N1
     reachable; accent-on-dark still routes through the single primary role.
 G9. Store grids: product cards exist (consent-gated) but there is no "category card
     grid" or "service price list" preset; closest are pricing_cards/features presets.
-G10. PARTIALLY RESOLVED 2026-11-25: multi-column footer shipped (theme.footer.groups:
-    up to 4 titled link groups, 6 links each, rendered as mz-footer-groups columns in
-    both renderers, editable in Style > Footer as "Footer link groups"). Remaining:
-    no social icons.
+G10. RESOLVED 2026-11-26: multi-column footer shipped (theme.footer.groups: up to
+    4 titled link groups, 6 links each, rendered as mz-footer-groups columns in
+    both renderers, editable in Style > Footer as "Footer link groups"). Footer
+    social icons shipped 2026-11-26 (ad901c45, see G5).
 
 ## Judgment
 
 With current capabilities a normal user can reproduce the page's STRUCTURE and
 Arabic RTL copy (hero, two cards, services list as pricing_cards, CTA band as
 heading+text+button, footer links) at a recognizable but visually plainer level.
-A faithful clone is blocked mainly by G3 (images), G6 (input/form elements),
-G5 (icons), G7/G8 (typography/color depth), G4 (heading accent). G1 catalog
+A faithful clone is blocked mainly by G3 (images), G6 remainder (inline-band
+input layout), G7 remainder (font upload/pairing), G8 (color depth), G4
+(heading accent). G1 catalog
 search shipped 2026-11-26 (header chrome + `?q=` filtering); only the in-page
 filter and static-content site search variants remain open there.
 
@@ -156,8 +171,9 @@ Draft data fixes 2026-11-25: selected-product card recomposed through editor
 controls only (1-col row -> 2 columns via Insert, heading+price moved with the
 Move drag handle, image width full) - balanced text-left/image-right on desktop,
 stacked on mobile, saved and API-verified.
-Blocked and NOT proposed until approved: image storage provisioning (G3), form
-elements and the remaining search variants (G6, G1 remainder - design researched
-in docs/studio-search-form-design.md; the numbered consent points there gate any
-live enabling), font upload (G7). G5 icon
-set is an implementation gap, not approval-gated.
+Blocked and NOT proposed until approved: image storage provisioning (G3), the
+remaining search variants (G1 remainder - design researched in
+docs/studio-search-form-design.md; the numbered consent points there gate any
+live enabling), font upload (G7). Form elements shipped 2026-11-25 (36c0c30c,
+see G6); the G5 icon set shipped 2026-11-25/26 (icon_list + header icon row +
+footer socials).
