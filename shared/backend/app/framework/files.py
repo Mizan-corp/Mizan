@@ -2,7 +2,9 @@
 
 - Cloud (Vercel): Vercel Blob, a public store; each file gets a random suffix, so its URL can't be
   guessed. The function's own disk isn't kept between requests, so without BLOB_READ_WRITE_TOKEN
-  uploads are refused rather than silently lost.
+  the platform database keeps the bytes (workspace_file_blobs, v122) - the same Neon Postgres the
+  deployment already has, tenant-isolated by RLS like the metadata, surviving redeploys with no
+  extra service to provision.
 - On-site installs and development: the local disk (UPLOAD_DIR), served at /uploads.
 
 Private files (store_private/read_private; clinical images and signatures, #43/#44) are never
@@ -29,7 +31,8 @@ import uuid
 from datetime import datetime
 
 from fastapi import HTTPException
-from sqlalchemy import BigInteger, DateTime, String, func, select, text
+from fastapi.responses import FileResponse, Response
+from sqlalchemy import BigInteger, DateTime, LargeBinary, String, func, select, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
@@ -57,6 +60,17 @@ class WorkspaceFile(TenantScoped, Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class WorkspaceFileBlob(TenantScoped, Base):
+    """The bytes of a file the database backend stored (v122), keyed by the same /uploads/ URL
+    the metadata row carries. Bytea keeps them in the Neon Postgres the deployment already has."""
+    __tablename__ = "workspace_file_blobs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    url: Mapped[str] = mapped_column(String(1024), unique=True, nullable=False)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 # ── Backends ──────────────────────────────────────────────────────────────────────────────────
 
 def _blob_token() -> str | None:
@@ -81,14 +95,14 @@ def _blob_request(method: str, path: str, *, body: bytes | None = None, headers:
 
 
 class _Blob:
-    async def put(self, pathname: str, data: bytes, content_type: str) -> str:
+    async def put(self, pathname: str, data: bytes, content_type: str, db: AsyncSession | None = None) -> str:
         query = urllib.parse.urlencode({"pathname": pathname})
         out = await asyncio.to_thread(_blob_request, "PUT", f"/?{query}", body=data, headers={
             "x-vercel-blob-access": "public", "x-add-random-suffix": "1", "x-content-type": content_type,
             "x-cache-control-max-age": str(60 * 60 * 24 * 365)})
         return out["url"]
 
-    async def delete(self, urls: list[str]) -> None:
+    async def delete(self, urls: list[str], db: AsyncSession | None = None) -> None:
         if urls:
             await asyncio.to_thread(_blob_request, "POST", "/delete", body=json.dumps({"urls": urls}).encode(),
                                     headers={"content-type": "application/json"})
@@ -112,7 +126,7 @@ class _Disk:
 
         return settings.UPLOAD_DIR
 
-    async def put(self, pathname: str, data: bytes, content_type: str) -> str:
+    async def put(self, pathname: str, data: bytes, content_type: str, db: AsyncSession | None = None) -> str:
         stem, ext = os.path.splitext(pathname)
         name = f"{stem}-{uuid.uuid4().hex[:12]}{ext}"  # like Blob's random suffix: never overwrite, not guessable
         path = os.path.join(self._root(), name)
@@ -120,7 +134,7 @@ class _Disk:
         await asyncio.to_thread(_write, path, data)
         return f"/uploads/{name}"
 
-    async def delete(self, urls: list[str]) -> None:
+    async def delete(self, urls: list[str], db: AsyncSession | None = None) -> None:
         for url in urls:
             if url.startswith("/uploads/") and ".." not in url:
                 path = os.path.join(self._root(), url.removeprefix("/uploads/"))
@@ -139,6 +153,57 @@ class _Disk:
 def _write(path: str, data: bytes) -> None:
     with open(path, "wb") as f:
         f.write(data)
+
+
+class _DB:
+    """Bytes in the platform database (workspace_file_blobs): the backend for hosts whose
+    filesystem is thrown away and that have no blob token (Vercel without BLOB_READ_WRITE_TOKEN).
+    The URL keeps the disk shape (/uploads/t/<tenant>/<kind>/<name>-<random>.<ext>) so the serving
+    routes, reference checks and quota counting work unchanged. Rows commit with the caller's
+    transaction (the metadata row in workspace_files lands in the same one), so a file and its
+    record are never out of step."""
+
+    async def put(self, pathname: str, data: bytes, content_type: str, db: AsyncSession | None = None) -> str:
+        if db is None:
+            raise RuntimeError("the database backend needs the caller's session")
+        stem, ext = os.path.splitext(pathname)
+        name = f"{stem}-{uuid.uuid4().hex[:12]}{ext}"  # like Blob's random suffix: never overwrite, not guessable
+        db.add(WorkspaceFileBlob(url=f"/uploads/{name}", data=data))
+        return f"/uploads/{name}"
+
+    async def delete(self, urls: list[str], db: AsyncSession | None = None) -> None:
+        urls = [u for u in urls if u.startswith("/uploads/")]
+        if urls:
+            if db is None:
+                raise RuntimeError("the database backend needs the caller's session")
+            await db.execute(text("DELETE FROM workspace_file_blobs WHERE url = ANY(:urls)"), {"urls": urls})
+
+    async def delete_prefix(self, prefix: str) -> int:
+        # Called from workspace purge with no session or bound workspace: open one and bypass RLS
+        # (the workspace is being deleted; all of its blobs go, whichever tenant they carry).
+        if ".." in prefix:
+            return 0
+        from app.db.base import AsyncSessionLocal
+        async with AsyncSessionLocal() as s:
+            await s.execute(text("SELECT set_config('app.bypass', 'on', true)"))
+            res = await s.execute(text("DELETE FROM workspace_file_blobs WHERE url LIKE :p ESCAPE '\\'"),
+                                  {"p": "/uploads/" + prefix.rstrip("/").replace("%", "\\%").replace("_", "\\_") + "/%"})
+            await s.commit()
+            return res.rowcount or 0
+
+    async def read(self, db: AsyncSession, url: str) -> tuple[bytes, str | None] | None:
+        """The stored bytes and declared content type, or None. Callers run inside their own access
+        gate; the fetch itself uses the request-local bypass (anonymous public serving binds no
+        workspace). Bytes and metadata commit in one transaction, so the join always matches."""
+        await db.execute(text("SELECT set_config('app.bypass', 'on', true)"))
+        try:
+            row = (await db.execute(
+                select(WorkspaceFileBlob.data, WorkspaceFile.content_type)
+                .join(WorkspaceFile, WorkspaceFile.url == WorkspaceFileBlob.url)
+                .where(WorkspaceFileBlob.url == url))).first()
+        finally:
+            await db.execute(text("SELECT set_config('app.bypass', 'off', true)"))
+        return (bytes(row[0]), row[1]) if row is not None else None
 
 
 PRIVATE = "private:"
@@ -179,17 +244,43 @@ def _read(path: str) -> bytes:
         return f.read()
 
 
-def backend() -> _Blob | _Disk:
+def backend() -> _Blob | _Disk | _DB:
     if _blob_token():
         return _Blob()
     if os.environ.get("VERCEL"):
-        # The function's disk is thrown away: a file written there would be lost.
-        raise HTTPException(503, "تخزين الملفات غير مهيأ على الخادم. تواصل مع الدعم.")
+        # The function's disk is thrown away: the platform database keeps the bytes instead
+        # (workspace_file_blobs), so uploads work and survive redeploys with no extra service.
+        return _DB()
     return _Disk()
 
 
 def backend_name() -> str:
-    return "blob" if _blob_token() else "disk"
+    if _blob_token():
+        return "blob"
+    return "db" if os.environ.get("VERCEL") else "disk"
+
+
+async def serve_file(db: AsyncSession, url: str, content_type: str | None = None) -> Response | None:
+    """A response for a stored /uploads/ URL whichever backend holds the bytes; None when absent.
+    Serving routes call this only AFTER their own access gate passes (branding reference, session,
+    module permission, public reference). On the database backend the fetch uses the request-local
+    bypass like the metadata lookups in those routes."""
+    if backend_name() == "db":
+        found = await _DB().read(db, url)
+        if found is None:
+            return None
+        data, stored_type = found
+        return Response(content=data, media_type=content_type or stored_type or "application/octet-stream",
+                        headers={"cache-control": "public, max-age=31536000, immutable"})
+    if url.startswith("/uploads/") and ".." not in url:
+        import mimetypes
+        from app.core.config import settings
+        root = os.path.realpath(settings.UPLOAD_DIR)
+        full = os.path.realpath(os.path.join(root, url.removeprefix("/uploads/")))
+        if full.startswith(root + os.sep) and os.path.isfile(full):
+            media_type = content_type or mimetypes.guess_type(full)[0] or "application/octet-stream"
+            return FileResponse(full, media_type=media_type)
+    return None
 
 
 # ── The service ───────────────────────────────────────────────────────────────────────────────
@@ -207,7 +298,7 @@ async def store(db: AsyncSession, data: bytes, *, kind: str, filename: str | Non
     if not EXT.match(ext):
         ext = ".bin"
     pathname = f"{_prefix(tenant_id)}{kind}/{owner_id or 'file'}{ext}"
-    url = await backend().put(pathname, data, content_type)
+    url = await backend().put(pathname, data, content_type, db=db)
     if replace:
         await remove(db, kind=kind, owner_id=owner_id)
     display = None
@@ -273,7 +364,7 @@ async def remove(db: AsyncSession, *, kind: str | None = None, owner_id: str | N
         if r.url.startswith(PRIVATE) and _PRIVATE_KEY.match(r.url) and os.path.isfile(_private_path(r.url)):
             os.remove(_private_path(r.url))
     try:
-        await backend().delete([r.url for r in rows if not r.url.startswith(PRIVATE)])
+        await backend().delete([r.url for r in rows if not r.url.startswith(PRIVATE)], db=db)
     except HTTPException:
         log.warning("could not delete %d stored file(s); their records are removed anyway", len(rows))
     for r in rows:

@@ -3,9 +3,10 @@ studio pages (the renderer's image/gallery blocks reference durable URLs; this i
 a tenant gets those URLs without leaving the platform).
 
 Same storage service, allowed types and limits as product images
-(app/framework/files.py): Vercel Blob when a token is configured, local disk
-otherwise, and an honest 503 where neither exists. No storage provisioning is added
-here. Every route needs site.manage; rows are workspace-scoped (TenantScoped + RLS),
+(app/framework/files.py): Vercel Blob when a token is configured, the platform database
+on serverless hosts without one (workspace_file_blobs), local disk otherwise. The plan's
+storage quota caps the aggregate (ensure_room, ADR-006 D3). No storage provisioning is
+added here. Every route needs site.manage; rows are workspace-scoped (TenantScoped + RLS),
 and list/delete additionally filter the bound workspace explicitly.
 """
 from __future__ import annotations
@@ -95,6 +96,8 @@ async def upload_media(file: UploadFile = File(...), db: AsyncSession = Depends(
         raise HTTPException(400, "The file is larger than 5 MB.")
     if not _signature_matches(data, content_type) or not _decodes_as(data, content_type):
         raise HTTPException(400, "The file content does not match its declared type. Upload a valid image.")
+    from app.framework.storage import ensure_room
+    await ensure_room(db, len(data))  # storage quota (ADR-006 D3), like every other upload route
     try:
         url = await files.store(db, data, kind=KIND, filename=file.filename,
                                 content_type=content_type, owner_id=None, replace=False)

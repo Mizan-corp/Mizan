@@ -4596,3 +4596,27 @@ MIGRATIONS.append(("v120_site_form_submissions", """
     CREATE POLICY tenant_isolation ON site_form_submissions
         USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
 """))
+
+MIGRATIONS.append(("v122_workspace_file_blobs", """
+    -- File bytes in the database (#114): on hosts without a file-store token
+    -- (a Vercel deployment without BLOB_READ_WRITE_TOKEN) uploads were refused
+    -- because the function disk is thrown away. The database the platform
+    -- already has keeps the bytes instead, so a workspace's images survive
+    -- redeploys with no extra service to provision. workspace_files keeps the
+    -- metadata (kind, owner, size, content type); this table keeps the bytes,
+    -- with the same tenant default, RLS and bypass shape as workspace_files.
+    CREATE TABLE IF NOT EXISTS workspace_file_blobs (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+            DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+        url varchar(1024) NOT NULL UNIQUE,
+        data bytea NOT NULL,
+        created_at timestamptz DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS ix_workspace_file_blobs_tenant ON workspace_file_blobs (tenant_id);
+    ALTER TABLE workspace_file_blobs ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE workspace_file_blobs FORCE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS tenant_isolation ON workspace_file_blobs;
+    CREATE POLICY tenant_isolation ON workspace_file_blobs
+        USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+"""))

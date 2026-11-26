@@ -20,16 +20,14 @@ signed-in ERP and the pre-login sign-in page only.
 """
 from __future__ import annotations
 
-import os
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.db.base import get_db
+from app.framework import files
 from app.framework.files import WorkspaceFile
 
 router = APIRouter(tags=["Workspace uploads"])
@@ -74,12 +72,13 @@ async def _is_current_branding(db: AsyncSession, tenant_id: str, url: str) -> bo
         await db.execute(text("SELECT set_config('app.bypass', 'off', true)"))
 
 
-def _serve(url: str, content_type: str | None) -> FileResponse:
-    root = os.path.realpath(settings.UPLOAD_DIR)
-    full = os.path.realpath(os.path.join(root, url.removeprefix(_URL_PREFIX)))
-    if not full.startswith(root + os.sep) or not os.path.isfile(full):
+async def _serve(db: AsyncSession, url: str, content_type: str | None):
+    """The stored bytes whichever backend holds them (disk on site, database rows on serverless);
+    reached only after the route's access gate. One generic 404 when absent."""
+    res = await files.serve_file(db, url, content_type)
+    if res is None:
         raise HTTPException(404, "Not found")
-    return FileResponse(full, media_type=content_type or "application/octet-stream")
+    return res
 
 
 @router.get("/uploads/{path:path}")
@@ -91,7 +90,7 @@ async def serve_workspace_upload(path: str, request: Request, db: AsyncSession =
     url = _URL_PREFIX + path
     row = await _recorded_file(db, tenant_id, url)
     if row is not None and kind in _BRANDING_KINDS and await _is_current_branding(db, tenant_id, url):
-        return _serve(url, row.content_type)
+        return await _serve(db, url, row.content_type)
 
     # Everything else: an ERP session for the same workspace is required.
     from app.dependencies import get_current_user
@@ -105,4 +104,4 @@ async def serve_workspace_upload(path: str, request: Request, db: AsyncSession =
             raise HTTPException(404, "Not found")
     if row is None:
         raise HTTPException(404, "Not found")
-    return _serve(url, row.content_type)
+    return await _serve(db, url, row.content_type)

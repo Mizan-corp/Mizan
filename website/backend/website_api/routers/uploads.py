@@ -30,18 +30,16 @@ for anonymous requests; the bypass is cleared before any other work.
 """
 from __future__ import annotations
 
-import mimetypes
-import os
 import re
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.db.base import get_db
+from app.framework import files
 
 router = APIRouter()
 
@@ -167,8 +165,7 @@ async def public_upload(path: str, db: AsyncSession = Depends(get_db)):
         await db.execute(text("SELECT set_config('app.bypass', 'off', true)"))
     if not referenced:
         raise _not_found()
-    root = os.path.realpath(settings.UPLOAD_DIR)
-    full = os.path.realpath(os.path.join(root, path))
-    if not full.startswith(root + os.sep) or not os.path.isfile(full):
+    res = await files.serve_file(db, url, None)  # content type from the metadata row on the db backend
+    if res is None:
         raise _not_found()
-    return FileResponse(full, media_type=mimetypes.guess_type(full)[0] or "application/octet-stream")
+    return res
