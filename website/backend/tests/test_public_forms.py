@@ -44,10 +44,29 @@ FORM_TREE = {
 }
 
 
-def make_request(host=HOST, ip="203.0.113.10", form=None, query=None):
+class FakeForm(dict):
+    def multi_items(self):
+        return list(self._items)
+
+
+def make_form(pairs):
+    form = FakeForm(pairs)
+    form._items = list(pairs)
+    return form
+
+
+def make_request(host=HOST, ip="203.0.113.10", form=None, query=None, origin="default",
+                 content_length=None):
     async def _form():
-        return form or {}
-    return types.SimpleNamespace(headers={"host": host}, client=types.SimpleNamespace(host=ip),
+        return form if form is not None else make_form([])
+    headers = {"host": host}
+    if origin == "default":
+        headers["origin"] = f"https://{host}"
+    elif origin is not None:
+        headers["origin"] = origin
+    if content_length is not None:
+        headers["content-length"] = content_length
+    return types.SimpleNamespace(headers=headers, client=types.SimpleNamespace(host=ip),
                                  query_params=query or {}, form=_form)
 
 
@@ -79,7 +98,8 @@ def ok_script(tree=FORM_TREE):
     return [None, activation_row(), None, None, page_row(tree)]
 
 
-GOOD_FORM = {"name": "Ammar", "email": "ammar@example.com", "message": "hello", "website": ""}
+GOOD_FORM = make_form([("name", "Ammar"), ("email", "ammar@example.com"),
+                       ("message", "hello"), ("website", "")])
 
 
 class PublicFormTests(unittest.IsolatedAsyncioTestCase):
@@ -141,10 +161,12 @@ class PublicFormTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(cm.exception.status_code, 404)
 
     async def test_extra_and_missing_keys_are_rejected(self):
-        for form in ({**GOOD_FORM, "subject": "hi"},
-                     {k: v for k, v in GOOD_FORM.items() if k != "message"},
-                     {**GOOD_FORM, "email": ""},
-                     {**GOOD_FORM, "email": "not-an-email"}):
+        base = [("name", "Ammar"), ("email", "ammar@example.com"), ("message", "hello"), ("website", "")]
+        variants = (base + [("subject", "hi")],
+                    [(k, v) for k, v in base if k != "message"],
+                    [(k, "" if k == "email" else v) for k, v in base],
+                    [(k, "not-an-email" if k == "email" else v) for k, v in base])
+        for form in (make_form(pairs) for pairs in variants):
             db = db_scripted(ok_script())
             pf._form_hits.clear()
             with self.assertRaises(pf.HTTPException) as cm:
@@ -175,6 +197,55 @@ class PublicFormTests(unittest.IsolatedAsyncioTestCase):
             await pf.submit_form("site", "contact", "n_form01", make_request(form=GOOD_FORM), db)
         self.assertEqual(cm.exception.status_code, 404)
         db.execute.assert_not_called()
+
+    async def test_cross_site_origin_is_refused_without_db(self):
+        db = AsyncMock()
+        for origin in ("https://evil.example", "https://sites.example.evil.example", "null"):
+            with self.assertRaises(pf.HTTPException) as cm:
+                await pf.submit_form("site", "contact", "n_form01",
+                                     make_request(form=GOOD_FORM, origin=origin), db)
+            self.assertEqual(cm.exception.status_code, 404, origin)
+        db.execute.assert_not_called()
+
+    async def test_absent_origin_still_passes_the_gate(self):
+        db = db_scripted(ok_script())
+        res = await pf.submit_form("site", "contact", "n_form01",
+                                   make_request(form=GOOD_FORM, origin=None), db)
+        self.assertEqual(res.status_code, 303)
+        self.assertEqual(db.add.call_count, 1)
+
+    async def test_oversize_body_is_refused_without_db(self):
+        db = AsyncMock()
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_form01",
+                                 make_request(form=GOOD_FORM, content_length=str(16 * 1024 + 1)), db)
+        self.assertEqual(cm.exception.status_code, 404)
+        db.execute.assert_not_called()
+
+    async def test_duplicate_keys_are_rejected(self):
+        duped = make_form([("name", "Ammar"), ("email", "a@b.co"), ("email", "c@d.co"),
+                           ("message", "hello"), ("website", "")])
+        db = db_scripted(ok_script())
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_form01", make_request(form=duped), db)
+        self.assertEqual(cm.exception.status_code, 400)
+        db.add.assert_not_called()
+
+    async def test_revoked_activation_is_404(self):
+        # Disabling the page's activation (the owner's revoke) stops submissions
+        # immediately: no row match, no write, one generic answer.
+        db = db_scripted([None, None, None])  # bypass on, no enabled row, bypass off
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_form01", make_request(form=GOOD_FORM), db)
+        self.assertEqual(cm.exception.status_code, 404)
+        db.add.assert_not_called()
+
+    async def test_unpublished_page_is_404(self):
+        db = db_scripted([None, activation_row(), None, None, None])  # page lookup misses
+        with self.assertRaises(pf.HTTPException) as cm:
+            await pf.submit_form("site", "contact", "n_form01", make_request(form=GOOD_FORM), db)
+        self.assertEqual(cm.exception.status_code, 404)
+        db.add.assert_not_called()
 
     async def test_tenant_context_is_cleared_afterwards(self):
         db = db_scripted(ok_script())

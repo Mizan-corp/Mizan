@@ -34,6 +34,11 @@ _FORM_RATE_WINDOW_SECONDS = 60
 _FORM_RATE_MAX_REQUESTS = 10
 _form_hits: dict[str, list[float]] = {}
 
+# A rendered form posts a few short fields: under ~2.5 KB. Anything larger is
+# not a visitor message; the bound is enforced on the declared length before
+# the body is read at all.
+_MAX_BODY_BYTES = 16384
+
 # Server-side caps mirror the rendered maxlengths; email's is the RFC 5321
 # address limit, the rest are the block schema's own content caps.
 _FIELD_CAPS = {"name": 120, "email": 254, "phone": 40, "message": 2000}
@@ -89,6 +94,22 @@ async def submit_form(slug: str, page_path: str, node_id: str, request: Request,
         raise _not_found()
     if not PAGE_NODE_ID.fullmatch(node_id):
         raise _not_found()
+    # Cross-site POST boundary (CSP's form-action limits where OUR pages post;
+    # it says nothing about who posts TO us). A browser form post always sends
+    # Origin; a cross-site forgery carries the attacker's origin. Only the
+    # activation host's own origin may submit. An absent Origin (curl, privacy
+    # strips) still faces the rate limit, honeypot and exact-key validation.
+    origin = request.headers.get("origin")
+    if origin is not None and origin.strip().lower() not in (
+            f"https://{configured}", f"http://{configured}"):
+        raise _not_found()
+    length = request.headers.get("content-length")
+    if length is not None:
+        try:
+            if int(length) > _MAX_BODY_BYTES:
+                raise _not_found()
+        except ValueError:
+            raise _not_found() from None
     client = request.client.host if request.client else "unknown"
     if not _form_rate_ok(f"{client}:{host}:{slug}:{page_path}:{node_id}"):
         raise _not_found()
@@ -126,8 +147,10 @@ async def submit_form(slug: str, page_path: str, node_id: str, request: Request,
             raise _not_found()
 
         allowed = _enabled_fields(form_node)
-        keys = {k for k in posted.keys() if k != "website"}
-        if keys != set(allowed):
+        # Duplicated keys (email=x&email=y) are not a browser form's doing:
+        # refuse them rather than guess which value the visitor meant.
+        keys = [k for k, _ in posted.multi_items() if k != "website"]
+        if len(set(keys)) != len(keys) or set(keys) != set(allowed):
             raise HTTPException(400, "Invalid form submission")
         payload = {}
         for key in allowed:
