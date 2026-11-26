@@ -181,3 +181,22 @@ docs/studio-search-form-design.md; the numbered consent points there gate any
 live enabling), font upload (G7). Form elements shipped 2026-11-25 (36c0c30c,
 see G6); the G5 icon set shipped 2026-11-25/26 (icon_list + header icon row +
 footer socials).
+
+## Hosted evidence, 2026-11-26 (isolated test host)
+
+- G6 inline request band: resolved. Authored in the Studio UI (name off, email
+  off, inline layout), published, and a visitor submission reached the Website
+  inbox as a message-only payload.
+- Category template (`/site/studio/<page>/c/<category-id>`): authored in the
+  Studio UI with "Category products from the page link", published with
+  per-page approval of `inventory.category_products`. A visitor sees only the
+  products of that category; an unknown id returns 404.
+- Product detail template (`/site/studio/<page>/p/<product-id>`): heading and
+  text elements bound to "Product from the page link" (name, price,
+  description). Revoking public data made the URL return 404; re-approving
+  restored it. A bug hid the field selector for URL-bound elements; fixed in
+  aa6f8c4b.
+- Still open: a live product grid on the Products page, category cards linking
+  to `/c/<id>`, product images (test products have none), and the Settings
+  audit.
+- Test data only: six test products and three categories on the test tenant.
