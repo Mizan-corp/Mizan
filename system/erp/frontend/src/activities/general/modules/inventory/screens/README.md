@@ -8,4 +8,4 @@ Full pages of `inventory`, one file each (`<Name>Page.tsx`). A variant can repla
 - `WarehousesPage` (`/inventory/warehouses`, `settings`): warehouses and branches.
 
 The balances screen is still `../InventoryPage.tsx` and the products screen
-`src/features/products/ProductsPage.tsx`; both use this module's header and components.
+`screens/ProductsPage.tsx`; both use this module's header and components.

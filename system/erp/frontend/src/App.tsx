@@ -1,18 +1,18 @@
 import { moduleDefinitions } from "@app/framework/registry";
 import { lazy, Suspense } from "react";
 const DashboardPage = lazy(() => import("@app/features/dashboard/DashboardPage"));
-const ProductsPage = lazy(() => import("@app/features/products/ProductsPage"));
-const CustomersPage = lazy(() => import("@app/features/customers/CustomersPage"));
+const ProductsPage = lazy(() => import("@app/activities/general/modules/inventory/screens/ProductsPage"));
+const CustomersPage = lazy(() => import("@app/activities/general/modules/contacts/screens/CustomersPage"));
 const SettingsPage = lazy(() => import("@app/features/settings/SettingsPage"));
 const DesignerPage = lazy(() => import("@app/features/designer/DesignerPage"));
 const CommunityEntityPage = lazy(() => import("@app/platform/community/screens/EntityPage"));
-const SuppliersPage = lazy(() => import("@app/features/suppliers/SuppliersPage"));
+const SuppliersPage = lazy(() => import("@app/activities/general/modules/purchases/screens/SuppliersPage"));
 const UsersPage = lazy(() => import("@app/features/users/UsersPage"));
-const ReportsPage = lazy(() => import("@app/features/reports/ReportsPage"));
-const ArchivePage = lazy(() => import("@app/features/archive/ArchivePage"));
-const OperationsPage = lazy(() => import("@app/features/operations/OperationsPage"));
+const ReportsPage = lazy(() => import("@app/activities/general/modules/reporting/screens/ReportsPage"));
+const ArchivePage = lazy(() => import("@app/activities/general/modules/documents/screens/ArchivePage"));
+const OperationsPage = lazy(() => import("@app/activities/general/modules/operations/screens/OperationsPage"));
 const ModulesPage = lazy(() => import("@app/features/modules/ModulesPage"));
-const HelpdeskPage = lazy(() => import("./features/helpdesk/HelpdeskPage"));
+const HelpdeskPage = lazy(() => import("@app/activities/general/modules/helpdesk/screens/HelpdeskPage"));
 const TenantScopeLayout = lazy(() => import("@app/features/tenant/TenantScopeLayout"));
 
 

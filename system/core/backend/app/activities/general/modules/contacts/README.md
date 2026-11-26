@@ -58,7 +58,7 @@ reversing receipts need more (below).
 
 ## Screen
 
-`/customers` (`system/erp/frontend/src/features/customers/CustomersPage.tsx`): paged list with server
+`/customers` (`system/erp/frontend/src/activities/general/modules/contacts/screens/CustomersPage.tsx`): paged list with server
 totals, create and edit, balance adjustment, stop, delete, receipts, and the statement with its
 running balance and the reversal of receipts.
 

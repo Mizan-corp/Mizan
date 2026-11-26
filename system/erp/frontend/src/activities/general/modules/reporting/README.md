@@ -13,5 +13,5 @@ sales widgets. The backend, its rules and permissions:
 - `components/LedgerReports.tsx`: the day's items and the periodic (weekly / monthly / yearly) ledger.
 - `lib.ts`: labels and the rows each report exports (tested in `__tests__/lib.test.ts`).
 
-The page itself is `src/features/reports/ReportsPage.tsx` (`/reports`, permission `reports`; the
+The page itself is `screens/ReportsPage.tsx` (`/reports`, permission `reports`; the
 financial tabs need `reports:finance`, the overview also every branch).

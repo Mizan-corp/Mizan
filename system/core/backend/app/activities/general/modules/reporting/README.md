@@ -12,7 +12,7 @@ are not built yet.
 - `printing.py` — the printable inventory sheet (HTML, every name escaped with `printing.routes.h()`).
 - `routes/reports.py` — `/reports/*`; `routes/export.py` — `/export/*` (Excel);
   `routes/admin_overview.py` — `/admin/overview`.
-- Screens: `system/erp/frontend/src/features/reports/ReportsPage.tsx` (`/reports`, a tab each: daily,
+- Screens: `system/erp/frontend/src/activities/general/modules/reporting/screens/ReportsPage.tsx` (`/reports`, a tab each: daily,
   monthly, top products, by cashier, by custom field, the day's items, the periodic ledger; with
   `reports:finance`: profit, cash flow, aging, and the company overview for those who see every
   branch; the sales Excel export and the inventory sheet). The financial and ledger tabs are in
