@@ -16,7 +16,7 @@ FONT = b"wOF2\x00\x01fake-font"
 
 def platform_theme(theme_id: str) -> dict:
     """A platform theme as consumers see it: palette + font refs expanded."""
-    base = os.path.join(os.path.dirname(__file__), "../../../../core/backend/app/themes")
+    base = os.path.join(os.path.dirname(__file__), "../../../../system/core/backend/app/themes")
     t = json.loads(open(os.path.join(base, theme_id, "theme.json"), encoding="utf-8").read())
     if "colors" not in t and isinstance(t.get("palette"), str):
         pal = json.loads(open(os.path.join(base, "_palettes", t["palette"] + ".json"), encoding="utf-8").read())

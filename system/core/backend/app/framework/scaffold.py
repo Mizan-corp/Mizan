@@ -13,7 +13,7 @@ import re
 from pathlib import Path
 
 APP_DIR = Path(__file__).resolve().parents[1]
-REPO = APP_DIR.parents[2]
+REPO = APP_DIR.parents[3]
 FRONTEND = REPO / "system" / "erp" / "frontend" / "src"
 TEMPLATE = Path(__file__).resolve().parent / "module_template"
 MODULE_ID = re.compile(r"^[a-z][a-z0-9_]*$")
