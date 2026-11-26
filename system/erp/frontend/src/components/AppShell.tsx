@@ -50,6 +50,7 @@ import { dateTime } from "@/lib/format";
 import { CommandPalette, TrialBanner, useHotkeySearch } from "@app/components/shell-parts";
 import { OnPremLicenceBanner } from "@app/components/OnPremLicenceBanner";
 import { useUiStore } from "@/stores/ui";
+import { CLASSIC_SHELL, SHELL_VARIANTS } from "@app/framework/shellVariants";
 import { sound } from "@/lib/sound";
 import { Kbd } from "@/components/kit/kbd";
 import { AppearanceSettingsModal } from "@app/components/AppearanceSettingsModal";
@@ -611,6 +612,8 @@ export default function Shell() {
   const fetchModules = useModulesStore((s) => s.fetchModules);
   const { layoutMode, appearanceModalOpen, setAppearanceModalOpen } = useUiStore();
 
+  const variant = SHELL_VARIANTS[layoutMode] ?? SHELL_VARIANTS[CLASSIC_SHELL];
+
   useEffect(() => {
     fetchModules();
   }, [fetchModules]);
@@ -619,18 +622,9 @@ export default function Shell() {
 
   return (
     <div className="flex min-h-svh bg-background text-foreground">
-      {/* Sidebar Layout Mode */}
-      {layoutMode === "sidebar" && (
-        <aside className="no-print sticky top-0 hidden h-svh w-64 shrink-0 lg:block">
-          <AppSidebar />
-        </aside>
-      )}
-
-      {/* Rail Layout Mode */}
-      {layoutMode === "rail" && (
-        <aside className="no-print sticky top-0 hidden h-svh w-16 shrink-0 lg:block">
-          <AppRail />
-        </aside>
+      {/* Navigation placement comes from the shell-variant registry (framework/shellVariants.ts) */}
+      {variant.nav.kind === "aside" && (
+        <aside className={variant.nav.className}>{layoutMode === "rail" ? <AppRail /> : <AppSidebar />}</aside>
       )}
 
       {/* Mobile Drawer (Always Available on Small Screens) */}
@@ -644,7 +638,7 @@ export default function Shell() {
       {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col">
         <AppTopbar onOpenMenu={() => setMenuOpen(true)} onOpenSearch={() => setSearchOpen(true)} />
-        {layoutMode === "topnav" && <AppTopNav />}
+        {variant.nav.kind === "topbar" && <AppTopNav />}
         <TrialBanner />
         <OnPremLicenceBanner />
         <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
