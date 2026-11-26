@@ -110,7 +110,7 @@ ensure_playwright() {
   if [ -f $CACHE/markers/playwright-deps ]; then say "chromium libs" present; else
     say "chromium libs" installing
     timed $SUDO env "PATH=$PATH" python -m playwright install-deps chromium >/dev/null
-    mkdir -p /var/lib/mizan-ci && touch $CACHE/markers/playwright-deps
+    touch $CACHE/markers/playwright-deps
   fi
 }
 
@@ -124,7 +124,7 @@ ensure_weasyprint() {
     libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 \
     shared-mime-info fonts-noto-core >/dev/null
   echo "   ($(( SECONDS - t0 ))s)"
-  mkdir -p /var/lib/mizan-ci && touch $CACHE/markers/weasyprint-deps
+  touch $CACHE/markers/weasyprint-deps
 }
 
 echo "CI dependencies (cache: $CACHE)"
