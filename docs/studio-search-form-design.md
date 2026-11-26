@@ -1,9 +1,13 @@
 # Studio search and form blocks - safe design research (G1/G6)
 
-Status: DESIGN RESEARCH ONLY. No block types, renderer support, visitor-side
-JavaScript, endpoints, or authority changes are shipped or proposed as shipped.
-Every point that needs owner or platform approval is listed explicitly under
-"Unresolved consent/action points" and nothing in that list has been implemented.
+Status: Option C (catalog search over the module catalog) SHIPPED 2026-11-26
+as header-chrome search + `?q=` collection filtering under the existing
+connected-data consent gates (see docs/studio-allwirya-recreation-gaps.md G1).
+Options A (in-page client filter) and B (static-content site search endpoint)
+remain DESIGN RESEARCH ONLY: no visitor-side JavaScript, no new endpoints, no
+block types, and no authority changes are shipped or proposed as shipped for
+them. Remaining points that need owner or platform approval are listed under
+"Unresolved consent/action points".
 
 ## Context and constraints
 

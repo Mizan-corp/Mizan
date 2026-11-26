@@ -5,8 +5,9 @@ Default disabled twice over: the server must be configured with PUBLIC_SITE_HOST
 (the registered domain this deployment answers for), AND an enabled
 site_activation row must exist for the exact (host, slug, page_path) triple.
 Published trees only; consent and module activation are re-read on every
-request; nothing is cached. No forms, search, accounts, cart, tracking or
-checkout here.
+request; nothing is cached. Header search (?q= on collection pages, filtered
+only over the disclosed heading field) and the separate forms router ship
+under the same consent gates; no accounts, cart, tracking or checkout here.
 
 Synthetic scope (allow_connected_data=false, the approved first exposure):
 trees with ANY data binding/provider node (bindings/card/repeat) are refused,

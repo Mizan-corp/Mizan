@@ -47,11 +47,19 @@ Reference screenshots: cloud-browser-20261125-024139 (hero), -024124 (services),
 
 ## Verified gaps (block a faithful clone today)
 
-G1. No search element. allwirya's header search is central; the builder has no
-    search/store-search block. (Header editing also cannot inject one.)
-    DESIGN RESEARCHED 2026-11-25: docs/studio-search-form-design.md - page filter
-    needs the first visitor-side JS (platform decision), GET-form site search
-    needs an endpoint decision, catalog search needs the connected-data boundary.
+G1. PARTIALLY RESOLVED 2026-11-26: catalog search shipped as header chrome
+    (theme.header.search_enabled/search_target/search_placeholder, editable in
+    Style > Header, persisted per activation snapshot) plus a plain GET form and
+    `?q=` filtering on collection repeat pages. The filter matches only the
+    disclosed heading field of consented, published, in-allowlist products;
+    unconsented queries render an escaped bilingual no-results notice; the
+    current page language is preserved through submission via a hidden lang
+    input. Live-verified on the visitor route (form renders, q filters to the
+    matching laptop only, unconsented query leaks nothing, HTML injection is
+    escaped, ?lang=en survives the submit). Remaining: an in-page "search this
+    page" filter block (needs the first visitor-side JS - platform decision)
+    and a GET-form static-content site search (needs an endpoint decision) from
+    docs/studio-search-form-design.md are still not implemented.
 G2. PARTIALLY RESOLVED 2026-11-25: header logo image by URL shipped (theme.header.logo,
     safe /path or https URL, rendered as an escaped img in both renderers, editable in
     Style > Header as "Logo URL (optional)"). Remaining: no cart/account icons, no
@@ -95,8 +103,10 @@ G10. PARTIALLY RESOLVED 2026-11-25: multi-column footer shipped (theme.footer.gr
 With current capabilities a normal user can reproduce the page's STRUCTURE and
 Arabic RTL copy (hero, two cards, services list as pricing_cards, CTA band as
 heading+text+button, footer links) at a recognizable but visually plainer level.
-A faithful clone is blocked mainly by G3 (images), G1/G6 (search + input), G5
-(icons), G7/G8 (typography/color depth), G4 (heading accent).
+A faithful clone is blocked mainly by G3 (images), G6 (input/form elements),
+G5 (icons), G7/G8 (typography/color depth), G4 (heading accent). G1 catalog
+search shipped 2026-11-26 (header chrome + `?q=` filtering); only the in-page
+filter and static-content site search variants remain open there.
 
 ## Next useful unblocked implementation (proposal, in priority order)
 
@@ -146,7 +156,8 @@ Draft data fixes 2026-11-25: selected-product card recomposed through editor
 controls only (1-col row -> 2 columns via Insert, heading+price moved with the
 Move drag handle, image width full) - balanced text-left/image-right on desktop,
 stacked on mobile, saved and API-verified.
-Blocked and NOT proposed until approved: image storage provisioning (G3), search and
-form elements (G1/G6 - design researched in docs/studio-search-form-design.md; the
-numbered consent points there gate any live enabling), font upload (G7). G5 icon
+Blocked and NOT proposed until approved: image storage provisioning (G3), form
+elements and the remaining search variants (G6, G1 remainder - design researched
+in docs/studio-search-form-design.md; the numbered consent points there gate any
+live enabling), font upload (G7). G5 icon
 set is an implementation gap, not approval-gated.
