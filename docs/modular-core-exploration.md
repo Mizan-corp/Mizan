@@ -513,3 +513,65 @@ docs/                                                     this plan, ADRs, MODUL
 
 Rules that stay true during every move: public URLs and API paths do not change; each step is a separate branch with tests; the old import path keeps working (a re-export) until the next step removes it.
 | 2. Route registry: modules declare routes in `index.ts` (`ModuleDefinition.routes`), `App.tsx` builds them into the route table | `feat/modular-step2-routes` | Done for every route whose page lives in a module folder with an `index.ts` (about 60 routes across 40 modules). Routes whose pages still live in `features/` stay in `App.tsx` until step 8 moves them. Test `routeTable.test.ts` compares the full table (path, guard permission, required module) with `routeTable.baseline.json`, taken before the move. |
+
+## 12. Decision: merge `shared/` into `system/` (owner direction, 26 November 2026, 13:57)
+
+The owner decided there is no separate `shared/` folder: its contents move inside `system/`. This section records what that touches, the dependency direction, the risks and a safe order. No file has been moved yet.
+
+### 12.1 What imports `shared/` today (checked in the repo)
+
+| Consumer | How | Where it is wired |
+|---|---|---|
+| `system`, `owner`, `admin` backends | Python dependency `mizan-shared` (path `../../shared/backend`), import name `app` | each `pyproject.toml`, Dockerfiles, `manage.py`, `docker-compose.yml`, `ruff.toml`, `installer/server/mizan_server/runner.py` |
+| `website` API | the same backend package | same |
+| `system`, `owner`, `admin` frontends | alias `@/` to `shared/frontend/src` | `vite.config.ts`, `vitest.config.ts`, `tsconfig.json` in each app |
+| `website` frontend | npm workspace member with `shared/frontend` | root `package.json`, `deploy/server/Dockerfile.web` (`-w shared/frontend -w system/frontend -w website/frontend`) |
+| SDK and deploy tooling | paths into `shared/backend/app/framework` | `sdk/python/mizan_sdk/*`, `deploy/studio-test/package.py`, `.github/ci-deps.sh`, `.github/workflows/ci.yml` |
+| Tests and docs | about 40 files reference `shared/` paths; 66 mentions in docs and `AGENTS.md` | across the repo |
+
+### 12.2 Dependency direction
+
+Before: `system`, `owner`, `admin`, `website` all point down to `shared`; `shared` imports nobody.
+
+After the merge, the same direction must hold, or the owner panel and admin app would depend on the whole ERP. So `system/` is split inside, and the direction is:
+
+```
+system/core/      (was shared: runtime, framework, platform services, UI kit, tokens, API client)   <- imports nothing above
+system/erp/       (ERP app: system_api, ERP shell, ERP pages, system modules such as Studio)        -> imports system/core
+owner/ admin/ website/                                                                              -> import system/core ONLY, never system/erp
+```
+
+A test enforces it: files under `system/core/` import nothing from `system/erp/`, `owner/`, `admin/`, `website/`; files in `owner/`, `admin/`, `website/` import nothing from `system/erp/`. If the split is skipped and `shared` content sits next to the ERP app in one flat `system/`, owner, admin and website would import the ERP tree, which breaks that rule. I recommend the `core` / `erp` split.
+
+### 12.3 Risks
+
+| Risk | Why | Mitigation |
+|---|---|---|
+| Broken builds and CI | `shared/` is hard-coded in about 40 files including Dockerfiles, CI, npm workspaces, vite and tsconfig aliases | Do it in two mechanical steps (below); run the full CI, a Docker build of the API and web images, and the frontend builds of all four apps before any deploy |
+| Python package identity | the dependency is named `mizan-shared` and imported as `app`. Renaming the import breaks every module and every installed `.mzm` (hooks and scopes reference module paths) | Keep the import name `app` unchanged. Only the folder moves; the distribution name may stay `mizan-shared` (or be renamed once, separately) |
+| Git history loss | moving folders can hide blame | `git mv` in one commit with no content change, so history follows |
+| Open branches | 8 feature branches touch `shared/` paths; a move causes conflicts | Merge or rebase them after the move; do it only when the owner agrees, or move and tell him which branches need a rebase |
+| Production deploy | the deploy workflow, `Dockerfile.api` and `Dockerfile.web` use `shared/` paths | Change paths and image builds in the same commit, verify with a real CI build, and deploy only after approval, as for every deploy |
+| Owner, admin, website reach into ERP code | if the split in 12.2 is skipped | enforced by the dependency test |
+| Wasted effort ordering | moving files before steps 3 to 5 enlarges every later diff | Do the move as its own step, right after step 2, when the diff surface is smallest, and before layouts and shell work |
+| Uploads, updates, build folders | `shared/backend/uploads`, `updates`, `build` are runtime or build artefacts inside `shared/` | Check each is git-ignored; move code only |
+
+### 12.4 Safe order (each its own branch, tests green, no behaviour change)
+
+1. **Dependency test first** (no move): check that nothing in `shared/` imports an app, and that `owner/`, `admin/`, `website/` import `shared/` only. This pins today's direction before touching paths.
+2. **Move backend**: `shared/backend/*` to `system/core/backend/*` with `git mv`; update `pyproject.toml` path dependencies, Dockerfiles, `manage.py`, `ruff.toml`, `docker-compose.yml`, installer runner, SDK and CI. Import name `app` unchanged. Verify: backend test suite, API Docker build, installer smoke.
+3. **Move frontend**: `shared/frontend/*` to `system/core/frontend/*`; update the `@/` alias in all four apps, tsconfigs, npm workspaces and `Dockerfile.web`. Verify: all four frontend builds, vitest suites, `Dockerfile.web` build, the Studio standalone build.
+4. **Rename ERP app folders** into `system/erp/` (backend `system_api`, frontend app) in a separate step, because it moves the most files. Verify the same way.
+5. Update docs (`AGENTS.md`, `MODULE_STANDARD.md`, this plan) and add the dependency test to CI.
+
+### 12.5 Effect on the plan in sections 5 to 11
+
+- Section 11's tree: every path under `shared/` reads as `system/core/` instead. `system/` has two children, `core/` and `erp/`; the system modules (Studio) live in `system/erp/` on the frontend and under `system/core/backend/app/system/` on the backend because every API mounts them.
+- Migration step order: this move is inserted as step 2b, after step 2 and before step 3.
+- The "who may import" rule: every app may import `system/core`; `system/core` imports no app; `owner`, `admin`, `website` never import `system/erp`.
+
+### 12.6 Decisions for the owner
+
+1. Confirm the `system/core` and `system/erp` split inside `system/` (recommended), instead of one flat `system/`.
+2. Timing: do the move now before steps 3 to 5 (recommended, smallest diff), or after the layout work.
+3. Branches: OK to rebase or merge the open feature branches around the move.
