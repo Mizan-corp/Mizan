@@ -4,8 +4,8 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from app.core.config import settings
 from app.factory import create_app
 from system_api.router import router
-from website_api.routers import public_pages, uploads
-_app=create_app(title="Mizan Test API",routers=[router,public_pages.router],create_tables=False,serve_files=True)
+from website_api.routers import public_forms, public_pages, uploads
+_app=create_app(title="Mizan Test API",routers=[router,public_pages.router,public_forms.router],create_tables=False,serve_files=True)
 # Production serves uploads from two origins: the ERP origin (session gate) and the website
 # origin (anonymous, referenced-public-assets only). This test host has ONE origin and both
 # routers claim GET /uploads/{path}, so dispatch like the two origins would: a request with no

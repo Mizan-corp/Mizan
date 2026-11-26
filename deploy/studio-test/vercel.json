@@ -27,6 +27,10 @@
       "dest": "/api/index.py"
     },
     {
+      "src": "/forms(?:/.*)?",
+      "dest": "/api/index.py"
+    },
+    {
       "src": "/uploads(?:/.*)?",
       "dest": "/api/index.py"
     },
