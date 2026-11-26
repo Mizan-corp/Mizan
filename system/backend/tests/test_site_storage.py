@@ -147,6 +147,56 @@ async def test_draft_publish_revision_rollback_lifecycle(fresh_engine):
 
 
 @pytestmark_db
+async def test_form_submission_roundtrip_and_isolation(fresh_engine):
+    """site_form_submissions (contact-form V1): the public endpoint's writes are
+    tenant-stamped, readable by the owning workspace, and invisible to another
+    workspace through a fresh session (empty identity map) under RLS."""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from app.db.base import AsyncSessionLocal
+    from app.platform.site import service
+    from app.platform.site.models import SiteFormSubmission
+    from app.platform.tenancy.context import bind_tenant, unbind_tenant
+    from app.platform.tenancy.models import Tenant
+
+    one, two = uuid.uuid4(), uuid.uuid4()
+    async with AsyncSessionLocal() as db:
+        db.add_all([Tenant(id=one, name=f"site-{one.hex[:8]}", sector="retail", scale="small"),
+                    Tenant(id=two, name=f"site-{two.hex[:8]}", sector="retail", scale="small")])
+        await db.commit()
+        await bind_tenant(db, one)
+        try:
+            page = await service.create_page(db, slug="contact", titles={"en": "Contact"})
+            sub = SiteFormSubmission(page_id=page.id, block_id="n_form01",
+                                     payload={"email": "a@b.co", "message": "hi"})
+            db.add(sub)
+            await db.commit()
+            sub_id = sub.id
+            rows = (await db.execute(select(SiteFormSubmission))).scalars().all()
+            assert [r.id for r in rows] == [sub_id]
+            assert rows[0].tenant_id == one and rows[0].read_at is None
+            # The owning workspace marks it read.
+            rows[0].read_at = datetime.now(timezone.utc)
+            await db.commit()
+        finally:
+            await unbind_tenant(db)
+        await bind_tenant(db, two)
+        try:
+            assert (await db.execute(select(SiteFormSubmission))).scalars().all() == []
+            # A real cross-workspace read is a NEW request: a fresh session (empty
+            # identity map, so db.get() can't answer without SQL), tenant two
+            # bound, RLS through mizan_app.
+            async with AsyncSessionLocal() as db2:
+                await bind_tenant(db2, two)
+                assert await db2.get(SiteFormSubmission, sub_id) is None
+        finally:
+            await db.rollback()
+            await unbind_tenant(db)
+
+
+@pytestmark_db
 async def test_workspaces_cannot_see_each_others_pages(fresh_engine):
     from fastapi import HTTPException
 

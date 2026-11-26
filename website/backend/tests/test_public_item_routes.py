@@ -87,8 +87,10 @@ class PublicItemRouteTests(unittest.IsolatedAsyncioTestCase):
         seen = {}
 
         async def render(db_, page, theme, tid, canonical, link_base=None, query=None,
-                         lang_override=None, route_item=None, route_kind=None):
-            seen.update(canonical=canonical, route_item=route_item, tid=tid)
+                         lang_override=None, route_item=None, route_kind=None,
+                         form_action_base=None, form_sent=None):
+            seen.update(canonical=canonical, route_item=route_item, tid=tid,
+                        form_action_base=form_action_base, form_sent=form_sent)
             return "<html>ok</html>"
 
         with patch.object(pp, "_render_public", new=render):
@@ -97,6 +99,8 @@ class PublicItemRouteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(seen["route_item"], str(PID))
         self.assertEqual(seen["canonical"], f"https://{HOST}/site/site/product/p/{PID}")
         self.assertEqual(seen["tid"], TID)
+        self.assertEqual(seen["form_action_base"], "/forms/site/product")
+        self.assertIsNone(seen["form_sent"])
         self.assertIsNone(current_tenant_id.get())
 
     async def test_category_kind_canonical(self):
@@ -104,7 +108,8 @@ class PublicItemRouteTests(unittest.IsolatedAsyncioTestCase):
         seen = {}
 
         async def render(db_, page, theme, tid, canonical, link_base=None, query=None,
-                         lang_override=None, route_item=None, route_kind=None):
+                         lang_override=None, route_item=None, route_kind=None,
+                         form_action_base=None, form_sent=None):
             seen["canonical"] = canonical
             seen["route_kind"] = route_kind
             return "<html>ok</html>"
@@ -120,7 +125,8 @@ class PublicItemRouteTests(unittest.IsolatedAsyncioTestCase):
         db = db_scripted(ok_script())
 
         async def render(db_, page, theme, tid, canonical, link_base=None, query=None,
-                         lang_override=None, route_item=None, route_kind=None):
+                         lang_override=None, route_item=None, route_kind=None,
+                         form_action_base=None, form_sent=None):
             raise pp.RouteRecordUnavailable()
 
         with patch.object(pp, "_render_public", new=render):
@@ -150,7 +156,8 @@ class PublicItemRouteTests(unittest.IsolatedAsyncioTestCase):
         db = db_scripted(ok_script())
 
         async def render(db_, page, theme, tid, canonical, link_base=None, query=None,
-                         lang_override=None, route_item=None, route_kind=None):
+                         lang_override=None, route_item=None, route_kind=None,
+                         form_action_base=None, form_sent=None):
             raise pp.RouteRecordUnavailable()
 
         with patch.object(pp, "_render_public", new=render):

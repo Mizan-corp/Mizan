@@ -20,7 +20,7 @@ import nh3
 from jinja2 import StrictUndefined
 from jinja2.sandbox import SandboxedEnvironment
 
-from app.framework.manifest import PAGE_BLOCKS, PAGE_LANGUAGE, page_url, page_problems
+from app.framework.manifest import PAGE_BLOCKS, PAGE_LANGUAGE, PAGE_NODE_ID, page_url, page_problems
 
 # Rich text (the text block) may use these; the html block adds EXTRA_TAGS. No inline styles,
 # no event handlers, no scripts: the runtime CSP forbids them, so the sanitizer drops them.
@@ -164,7 +164,8 @@ def _icon_svg(name: str) -> str:
             f"{inner}</svg>")
 
 
-def _render_node_inner(node: dict, lang: str, device: str, link_base: str | None = None) -> str:
+def _render_node_inner(node: dict, lang: str, device: str, link_base: str | None = None,
+                       form_action_base: str | None = None, form_sent: str | None = None) -> str:
     ntype = node.get("type")
     if ntype not in PAGE_BLOCKS:
         return ""
@@ -172,7 +173,8 @@ def _render_node_inner(node: dict, lang: str, device: str, link_base: str | None
     # become CSS classes on the single-render visitor route); inner renders content.
     s = _settings(node, device)
     c = _content(node, lang)
-    kids = "".join(_render_node(k, lang, device, link_base) for k in node.get("children") or [] if isinstance(k, dict))
+    kids = "".join(_render_node(k, lang, device, link_base, form_action_base, form_sent)
+                   for k in node.get("children") or [] if isinstance(k, dict))
 
     if ntype == "section":
         # The wrapper div also carries the padding class, but the inner section's
@@ -215,7 +217,8 @@ def _render_node_inner(node: dict, lang: str, device: str, link_base: str | None
             track_cls = " mz-cols-custom-m"
             track_style = f' style="--mz-tracks-m:{m_weights}"'
         if s.get("reverse") is True:
-            kids = "".join(_render_node(k, lang, device, link_base) for k in reversed(node.get("children") or []) if isinstance(k, dict))
+            kids = "".join(_render_node(k, lang, device, link_base, form_action_base, form_sent)
+                           for k in reversed(node.get("children") or []) if isinstance(k, dict))
         return f'<div class="mz-columns mz-columns-{int(count)}{stack}{track_cls}"{track_style}>{kids}</div>'
     if ntype == "column":
         return f'<div class="mz-column">{kids}</div>'
@@ -285,6 +288,48 @@ def _render_node_inner(node: dict, lang: str, device: str, link_base: str | None
         if not isinstance(name, str) or name not in _ICON_MARKUP:
             return ""
         return f'<span class="mz-icon-badge" aria-hidden="true">{_icon_svg(name)}</span>'
+    if ntype == "form":
+        # A native POST form, wired only when a hosting runtime passes the action
+        # base for this page (the public visitor route). In previews and exports
+        # the block renders its fields inert so it can never post anywhere.
+        align_cls = " mz-form-center" if s.get("align") == "center" else ""
+        node_id = node.get("id") if isinstance(node.get("id"), str) else ""
+        parts = []
+        if c.get("title"):
+            parts.append(f'<p class="mz-form-title">{_esc(c.get("title", ""))}</p>')
+        if form_sent and form_sent == node_id:
+            parts.append(f'<p class="mz-form-success" role="status">{_esc(c.get("success_message") or "Thank you.")}</p>')
+        controls = []
+        if s.get("field_name"):
+            controls.append(("name", c.get("name_label") or "Name", "text", 120, False))
+        controls.append(("email", c.get("email_label") or "Email", "email", 254, True))
+        if s.get("field_phone"):
+            controls.append(("phone", c.get("phone_label") or "Phone", "text", 40, False))
+        controls.append(("message", c.get("message_label") or "Message", "textarea", 2000, True))
+        for fname, flabel, fkind, fmax, frequired in controls:
+            field_id = f"mz-f-{node_id}-{fname}"
+            label_html = f'<label class="mz-form-label" for="{_esc(field_id)}">{_esc(flabel)}</label>'
+            if fkind == "textarea":
+                control = (f'<textarea class="mz-form-input" id="{_esc(field_id)}" name="{fname}" '
+                           f'maxlength="{fmax}" rows="4" required></textarea>')
+            else:
+                req = " required" if frequired else ""
+                control = (f'<input class="mz-form-input" id="{_esc(field_id)}" name="{fname}" '
+                           f'type="{fkind}" maxlength="{fmax}"{req}>')
+            parts.append(f'<div class="mz-form-field">{label_html}{control}</div>')
+        submit = _esc(c.get("submit_label") or "Send")
+        if form_action_base and PAGE_NODE_ID.fullmatch(node_id):
+            # lang rides the action URL so the post-submit redirect can return
+            # the visitor to the same language.
+            action = f"{form_action_base.rstrip('/')}/{node_id}?lang={lang}"
+            honeypot = ('<div class="mz-form-hp" aria-hidden="true"><label>Website'
+                        '<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>')
+            return (f'<form class="mz-form{align_cls}" method="post" action="{_esc(action)}">'
+                    + "".join(parts) + honeypot
+                    + f'<button class="mz-button mz-button-primary mz-form-submit" type="submit">{submit}</button></form>')
+        return (f'<div class="mz-form mz-form-inert{align_cls}">'
+                + "".join(parts)
+                + f'<button class="mz-button mz-button-primary mz-form-submit" type="button" disabled>{submit}</button></div>')
     if ntype == "spacer":
         return '<div class="mz-spacer" aria-hidden="true"></div>'
     if ntype == "divider":
@@ -295,7 +340,8 @@ def _render_node_inner(node: dict, lang: str, device: str, link_base: str | None
     return ""
 
 
-def _render_node(node: dict, lang: str, device: str, link_base: str | None = None) -> str:
+def _render_node(node: dict, lang: str, device: str, link_base: str | None = None,
+                 form_action_base: str | None = None, form_sent: str | None = None) -> str:
     # Per-device visibility on the single-render visitor route: the page is
     # rendered once (desktop settings) and narrow viewports adapt through media
     # queries, so a mobile `visible` override becomes a CSS class instead of a
@@ -308,7 +354,7 @@ def _render_node(node: dict, lang: str, device: str, link_base: str | None = Non
             return ""
     elif device == "desktop" and ((node.get("settings") or {}).get("mobile") or {}).get("visible") is False:
         device_visibility_class = "mz-hide-mobile"
-    rendered = _render_node_inner(node, lang, device, link_base)
+    rendered = _render_node_inner(node, lang, device, link_base, form_action_base, form_sent)
     if not rendered:
         return ""
     if device_visibility_class:
@@ -433,6 +479,7 @@ _BASE_CSS += ".mz-reorder .mz-site-logo,.mz-reorder .mz-site-brand{order:var(--o
 _BASE_CSS += ".mz-header-menu nav .mz-menu-bar{display:contents}@media(min-width:769px) and (max-width:1024px){.mz-t-density-compact .mz-header-main{padding:6px 32px;gap:10px}.mz-t-density-compact .mz-header-search{max-width:560px}.mz-t-density-compact .mz-header-search button{width:30px;height:30px}.mz-t-density-compact .mz-header-icon{width:34px;height:34px}.mz-t-density-compact .mz-header-bar{padding:4px 32px;min-height:40px}.mz-t-density-compact .mz-header-bar nav a{min-height:30px;font-size:14px}.mz-t-hide-search .mz-header-search{display:none}.mz-t-hide-bar .mz-header-bar{display:none}}"
 _BASE_CSS += ".mz-header-locale{display:flex;align-items:center;gap:4px}.mz-locale-switch{display:inline-flex;align-items:center;min-height:32px;padding:0 10px;border-radius:999px;font-size:13px;font-weight:650;color:inherit;text-decoration:none;border:1px solid rgba(127,127,127,.45)}"
 _BASE_CSS += "@media(max-width:768px){.mz-columns-2,.mz-columns-3,.mz-columns-4,.mz-columns-5,.mz-columns-6{grid-template-columns:1fr}.mz-columns.mz-cols-custom{grid-template-columns:var(--mz-tracks-m,1fr)}.mz-columns.mz-cols-custom-m{grid-template-columns:var(--mz-tracks-m)}.mz-node.mz-minh-custom>:first-child{min-height:var(--mz-minh-m,var(--mz-minh))}.mz-columns{gap:16px}.mz-section{padding:24px 16px}.mz-width-half,.mz-width-third,.mz-width-two_thirds,.mz-width-three_fifths{width:100%}.mz-node.mz-width-custom{width:var(--mz-width-m,100%)}.mz-reorder .mz-header-search{order:9;flex-basis:100%}.mz-m-density-compact .mz-header-main{padding:4px 14px;gap:8px}.mz-m-hide-search .mz-header-search{display:none}.mz-m-hide-bar .mz-header-menu nav .mz-menu-bar{display:none}}"
+_BASE_CSS += ".mz-form{display:flex;flex-direction:column;gap:14px;max-width:520px;margin:0 0 24px}.mz-form-center{margin-inline:auto;text-align:center}.mz-form-center .mz-form-field{text-align:start}.mz-form-title{font-size:clamp(21px,2.2vw,27px);font-weight:750;margin:0}.mz-form-field{display:flex;flex-direction:column;gap:6px}.mz-form-label{font-size:14px;font-weight:600}.mz-form-input{width:100%;padding:10px 12px;border:1px solid color-mix(in srgb,var(--foreground,#262321) 22%,transparent);border-radius:var(--radius,8px);background:var(--card,#fff);color:inherit;font:inherit;font-size:15px}textarea.mz-form-input{resize:vertical}.mz-form-hp{display:none}.mz-form-success{padding:10px 14px;border-radius:var(--radius,8px);background:color-mix(in srgb,var(--primary,#651E2C) 12%,transparent);font-size:15px}.mz-form-submit{align-self:flex-start;border:0;cursor:pointer;font:inherit}.mz-form-center .mz-form-submit{align-self:center}.mz-form-inert .mz-form-input{pointer-events:none;opacity:.7}.mz-form-inert .mz-form-submit{opacity:.6;cursor:default}"
 _BASE_CSS += ".mz-site-logo{height:32px;width:auto}.mz-site-footer a{color:inherit;text-decoration:none}.mz-footer-groups{display:flex;gap:32px;flex-wrap:wrap}.mz-footer-group{display:flex;flex-direction:column;gap:10px}.mz-footer-group-title{font-weight:650}"
 for _token, _size in _SPACER_PX.items():
     _BASE_CSS += (f".mz-padding-{_token}{{padding:{_size}px}}.mz-gap-{_token}{{gap:{_size}px}}"
@@ -441,15 +488,20 @@ for _token, _size in _SPACER_PX.items():
 
 
 def render_page(tree: dict, lang: str = "ar", device: str = "desktop", validate: bool = True,
-                link_base: str | None = None) -> str:
-    """The page body: every visible block of the published tree, in order."""
+                link_base: str | None = None, form_action_base: str | None = None,
+                form_sent: str | None = None) -> str:
+    """The page body: every visible block of the published tree, in order.
+    `form_action_base`: per-page submission URL prefix (e.g. "/forms/studio/about");
+    when set, form blocks render as live POST forms to <base>/<node_id>. `form_sent`:
+    the node id of a form whose submission was just accepted, so it shows its
+    success message."""
     if validate and page_problems(tree):
         raise ValueError("render_page() takes a tree that passed page_problems()")
     def unresolved(node):
         return isinstance(node, dict) and ("bindings" in node or "repeat" in node or "card" in node or any(unresolved(c) for c in node.get("children", []) or []))
     if unresolved(tree):
         raise ValueError("Dynamic content requires authorized provider resolution before rendering.")
-    return _render_node(tree, lang, device, link_base)
+    return _render_node(tree, lang, device, link_base, form_action_base, form_sent)
 
 
 def _site_link(href: str, link_base: str | None) -> str:
@@ -673,7 +725,8 @@ _DOCUMENT = SandboxedEnvironment(autoescape=True, undefined=StrictUndefined).fro
 
 
 def render_document(tree: dict, meta: dict, theme: dict | None = None, lang: str = "ar",
-                    device: str = "desktop", link_base: str | None = None) -> str:
+                    device: str = "desktop", link_base: str | None = None,
+                    form_action_base: str | None = None, form_sent: str | None = None) -> str:
     """A full HTML document: SEO head (title and description per language, canonical, hreflang,
     Open Graph) plus the rendered page. `meta`: {"canonical": url, "titles": {lang: …},
     "descriptions": {lang: …}, "languages": [codes]}. `link_base`: when the page is served
@@ -725,6 +778,7 @@ def render_document(tree: dict, meta: dict, theme: dict | None = None, lang: str
                                for code in languages if code != lang]}
 
     header_html, footer_html = _theme_chrome(theme, link_base=link_base, locale=locale)
-    body = header_html + render_page(tree, lang=lang, device=device, link_base=link_base) + footer_html
+    body = header_html + render_page(tree, lang=lang, device=device, link_base=link_base,
+                                     form_action_base=form_action_base, form_sent=form_sent) + footer_html
     return _DOCUMENT.render(language=lang, direction=direction,
                             head="\n".join(head) + "<style>" + _BASE_CSS + "</style>" + _theme_style(theme), body=body)

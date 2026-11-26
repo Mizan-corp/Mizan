@@ -53,6 +53,26 @@ class SitePageRevision(TenantScoped, Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class SiteFormSubmission(TenantScoped, Base):
+    """One visitor submission of a published form block. Written only by the
+    public form endpoint after the activation gate, rate limit, honeypot and
+    exact-key payload validation; read by the owning workspace in the Website
+    tab. The block id pins which form on the page sent it; payload holds only
+    the fields that block had enabled at render time."""
+
+    __tablename__ = "site_form_submissions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    page_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("site_pages.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    block_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    read_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+
+
 class SiteSettings(TenantScoped, Base):
     """One row per workspace: the site's durable theme and chrome (ADR-015 D4/D5).
 

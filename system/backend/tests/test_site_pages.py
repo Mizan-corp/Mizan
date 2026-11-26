@@ -45,9 +45,11 @@ def test_a_well_formed_page_validates():
 
 def test_the_registry_covers_the_contract_blocks():
     # 'icon' joined the contract in adb9550e (rendered by render.py's icon branch).
+    # 'form' joined the contract with the visitor submission surface (contact-form V1):
+    # the block, its renderer branch and the public POST endpoint land together.
     assert set(PAGE_BLOCKS) == {"section", "columns", "column", "canvas", "heading", "text", "image",
                                 "gallery", "video_embed", "button", "icon", "icon_list", "spacer",
-                                "divider", "html"}
+                                "divider", "html", "form"}
     assert all(b["version"] == 1 for b in PAGE_BLOCKS.values())
 
 

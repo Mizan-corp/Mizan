@@ -56,7 +56,7 @@ _HEADERS = {
         "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' https:; "
         "frame-src https://www.youtube.com https://www.youtube-nocookie.com "
         "https://www.google.com https://maps.google.com; "
-        "base-uri 'none'; frame-ancestors 'none'"
+        "form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
     ),
 }
 
@@ -199,7 +199,8 @@ async def _activation(db: AsyncSession, host: str, slug: str, page_path: str):
 async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id: uuid.UUID, canonical: str,
                          link_base: str | None = None, query: str | None = None,
                          lang_override: str | None = None, route_item: str | None = None,
-                         route_kind: str | None = None) -> str:
+                         route_kind: str | None = None, form_action_base: str | None = None,
+                         form_sent: str | None = None) -> str:
     from app.framework.manifest import page_problems
     from app.platform.site import service
     from app.platform.site.render import render_document
@@ -241,7 +242,8 @@ async def _render_public(db: AsyncSession, page, settings_value: dict, tenant_id
     meta = {"canonical": canonical, "titles": titles, "descriptions": {}, "languages": languages,
             "default_language": default_lang}
     return render_document(resolved, meta, settings_value if isinstance(settings_value, dict) else None,
-                           lang=lang, link_base=link_base)
+                           lang=lang, link_base=link_base, form_action_base=form_action_base,
+                           form_sent=form_sent)
 
 
 @router.api_route("/site/{slug}/{page_path}", methods=["GET", "HEAD"], response_class=HTMLResponse)
@@ -315,6 +317,8 @@ async def _serve_public(slug: str, page_path: str, kind: str | None, route_item:
                 lang_override=request.query_params.get("lang"),
                 route_item=route_item,
                 route_kind=kind,
+                form_action_base=f"/forms/{slug}/{page_path}",
+                form_sent=request.query_params.get("form_sent"),
             )
         except RouteRecordUnavailable:
             return HTMLResponse(_route_notice_html(page.titles, request.query_params.get("lang")),

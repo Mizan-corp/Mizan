@@ -193,3 +193,8 @@ router.include_router(media_router)
 # suspended storefront module's records; public commerce routes stay suspended).
 from .orders import orders_router
 router.include_router(orders_router)
+
+# Website form submissions: the Website tab's inbox for visitor contact-form
+# messages (written by the anonymous public form endpoint, read here only).
+from .forms import forms_router
+router.include_router(forms_router)

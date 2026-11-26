@@ -4562,3 +4562,27 @@ MIGRATIONS.append(("v119_audit_log_canonical_shape", """
       END IF;
     END $$;
 """))
+MIGRATIONS.append(("v120_site_form_submissions", """
+    -- Contact-form block V1: one row per visitor submission of a published
+    -- form block. Written only by the public form endpoint after the
+    -- activation gate, rate limit, honeypot and exact-key payload validation;
+    -- read by the owning workspace. tenant_id defaults from the request GUC
+    -- and RLS matches the site_activation shape (same trust boundary).
+    CREATE TABLE IF NOT EXISTS site_form_submissions (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE
+            DEFAULT NULLIF(current_setting('app.tenant_id', true), '')::uuid,
+        page_id uuid NOT NULL REFERENCES site_pages(id) ON DELETE CASCADE,
+        block_id varchar(40) NOT NULL,
+        payload jsonb NOT NULL DEFAULT '{}',
+        created_at timestamptz DEFAULT now(),
+        read_at timestamptz,
+        read_by uuid
+    );
+    CREATE INDEX IF NOT EXISTS ix_site_form_submissions_tenant_page ON site_form_submissions (tenant_id, page_id);
+    ALTER TABLE site_form_submissions ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE site_form_submissions FORCE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS tenant_isolation ON site_form_submissions;
+    CREATE POLICY tenant_isolation ON site_form_submissions
+        USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+"""))
