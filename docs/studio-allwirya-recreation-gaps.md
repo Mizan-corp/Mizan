@@ -205,3 +205,20 @@ footer socials).
   Finding: a static sibling column in the same row as a repeat column made the
   publish approval fail with a generic "data source not exposable" message.
   Removing the sibling fixed it. The refusal message should name the cause.
+
+## Repeated cards as a multi-column grid (2026-11-26)
+
+- No new code was needed. The row that holds a repeat column already has a
+  "columns" setting (1 to 6). Setting it to 3 on the row makes the repeated
+  copies flow into a three-column grid for visitors (mobile still stacks).
+  The row is selected on the canvas; it is not listed in Layers.
+- Adding a child to a repeat column (for example an image) is refused while a
+  repeat is attached ("Unsupported repeat template", slots are fixed). The UI
+  path is: detach the repeat in each content language, add the element, then
+  attach `inventory.products` again in each language.
+- Evidence: visitor EN screenshots of the Products page on the test host show
+  six product cards with name, price and uploaded image in three columns.
+- Regression test: `test_declared_column_count_lays_out_expanded_repeat_copies_as_a_grid`
+  in `shared/backend/tests/test_public_access.py`.
+- Open usability gaps: the row cannot be picked from Layers, and the refusal
+  message for editing a repeat column does not say to detach the repeat first.

@@ -335,6 +335,14 @@ class LocaleSwitchTests(unittest.TestCase):
 
 
 class ResponsiveCssTests(unittest.TestCase):
+    def test_declared_column_count_lays_out_expanded_repeat_copies_as_a_grid(self):
+        from app.platform.site import render
+        col=lambda i:{"id":f"n_col{i}","type":"column","settings":{},"content":{},"children":[]}
+        row={"id":"n_row1","type":"columns","settings":{"desktop":{"columns":3}},"content":{},"children":[col(i) for i in range(6)]}
+        html=render._render_node(row,"en","desktop")
+        self.assertIn("mz-columns-3",html)
+        self.assertEqual(html.count('class="mz-column"'),6)
+
     def test_base_css_stacks_columns_and_tightens_gutters_on_narrow_viewports(self):
         from app.platform.site import render
         css = render._BASE_CSS
