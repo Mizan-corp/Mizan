@@ -264,6 +264,7 @@ async def reopen(db: AsyncSession, page_id: uuid.UUID) -> SitePage:
 HEX = re.compile(r"#[0-9a-fA-F]{6}")
 COLOR_TOKENS = {"background", "foreground", "card", "primary", "primary-foreground", "dark", "dark-foreground", "dark-raised"}
 HEADER_ICON_NAMES = ("whatsapp", "cart", "heart", "user", "phone", "globe", "search")
+SOCIAL_ICON_NAMES = ("whatsapp", "facebook", "instagram", "x", "youtube", "linkedin")
 FONT_FAMILIES = ("sans-serif", "serif", "monospace")
 MAX_SETTINGS_BYTES = 20_000
 
@@ -445,6 +446,20 @@ def check_settings(value) -> dict:
                 checked_groups.append({"title": title, "links": _check_links(group.get("links"), 6)})
             if checked_groups:
                 out["footer"]["groups"] = checked_groups
+        socials = footer.get("socials")
+        if socials is not None:
+            if not isinstance(socials, list) or len(socials) > 6:
+                raise HTTPException(422, "أيقونات التواصل غير صالحة")
+            checked_socials = []
+            for entry in socials:
+                if not isinstance(entry, dict) or entry.get("icon") not in SOCIAL_ICON_NAMES:
+                    raise HTTPException(422, "أيقونات التواصل غير صالحة")
+                pair = _check_links([{"label": entry.get("label"), "href": entry.get("href")}], 1)
+                if not pair:
+                    raise HTTPException(422, "أيقونات التواصل غير صالحة")
+                checked_socials.append({"icon": entry["icon"], "label": pair[0]["label"], "href": pair[0]["href"]})
+            if checked_socials:
+                out["footer"]["socials"] = checked_socials
         if "layout" in footer:
             if footer["layout"] not in ("split", "stacked"):
                 raise HTTPException(422, "Invalid footer layout")

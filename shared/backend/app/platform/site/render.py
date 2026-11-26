@@ -480,7 +480,7 @@ _BASE_CSS += ".mz-header-menu nav .mz-menu-bar{display:contents}@media(min-width
 _BASE_CSS += ".mz-header-locale{display:flex;align-items:center;gap:4px}.mz-locale-switch{display:inline-flex;align-items:center;min-height:32px;padding:0 10px;border-radius:999px;font-size:13px;font-weight:650;color:inherit;text-decoration:none;border:1px solid rgba(127,127,127,.45)}"
 _BASE_CSS += "@media(max-width:768px){.mz-columns-2,.mz-columns-3,.mz-columns-4,.mz-columns-5,.mz-columns-6{grid-template-columns:1fr}.mz-columns.mz-cols-custom{grid-template-columns:var(--mz-tracks-m,1fr)}.mz-columns.mz-cols-custom-m{grid-template-columns:var(--mz-tracks-m)}.mz-node.mz-minh-custom>:first-child{min-height:var(--mz-minh-m,var(--mz-minh))}.mz-columns{gap:16px}.mz-section{padding:24px 16px}.mz-width-half,.mz-width-third,.mz-width-two_thirds,.mz-width-three_fifths{width:100%}.mz-node.mz-width-custom{width:var(--mz-width-m,100%)}.mz-reorder .mz-header-search{order:9;flex-basis:100%}.mz-m-density-compact .mz-header-main{padding:4px 14px;gap:8px}.mz-m-hide-search .mz-header-search{display:none}.mz-m-hide-bar .mz-header-menu nav .mz-menu-bar{display:none}}"
 _BASE_CSS += ".mz-form{display:flex;flex-direction:column;gap:14px;max-width:520px;margin:0 0 24px}.mz-form-center{margin-inline:auto;text-align:center}.mz-form-center .mz-form-field{text-align:start}.mz-form-title{font-size:clamp(21px,2.2vw,27px);font-weight:750;margin:0}.mz-form-field{display:flex;flex-direction:column;gap:6px}.mz-form-label{font-size:14px;font-weight:600}.mz-form-input{width:100%;padding:10px 12px;border:1px solid color-mix(in srgb,var(--foreground,#262321) 22%,transparent);border-radius:var(--radius,8px);background:var(--card,#fff);color:inherit;font:inherit;font-size:15px}textarea.mz-form-input{resize:vertical}.mz-form-hp{display:none}.mz-form-success{padding:10px 14px;border-radius:var(--radius,8px);background:color-mix(in srgb,var(--primary,#651E2C) 12%,transparent);font-size:15px}.mz-form-submit{align-self:flex-start;border:0;cursor:pointer;font:inherit}.mz-form-center .mz-form-submit{align-self:center}.mz-form-inert .mz-form-input{pointer-events:none;opacity:.7}.mz-form-inert .mz-form-submit{opacity:.6;cursor:default}"
-_BASE_CSS += ".mz-site-logo{height:32px;width:auto}.mz-site-footer a{color:inherit;text-decoration:none}.mz-footer-groups{display:flex;gap:32px;flex-wrap:wrap}.mz-footer-group{display:flex;flex-direction:column;gap:10px}.mz-footer-group-title{font-weight:650}"
+_BASE_CSS += ".mz-site-logo{height:32px;width:auto}.mz-site-footer a{color:inherit;text-decoration:none}.mz-footer-groups{display:flex;gap:32px;flex-wrap:wrap}.mz-footer-group{display:flex;flex-direction:column;gap:10px}.mz-footer-group-title{font-weight:650}.mz-footer-socials{display:flex;gap:14px;align-items:center}.mz-footer-social{display:inline-flex;align-items:center;min-height:44px}.mz-footer-social svg{width:20px;height:20px}"
 for _token, _size in _SPACER_PX.items():
     _BASE_CSS += (f".mz-padding-{_token}{{padding:{_size}px}}.mz-gap-{_token}{{gap:{_size}px}}"
                   f".mz-height-{_token} .mz-spacer{{height:{_size}px}}"
@@ -543,6 +543,27 @@ _HEADER_ICONS = {
 
 def _header_icon(name: str) -> str:
     path = _HEADER_ICONS.get(name, _HEADER_ICONS["globe"])
+    return ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+            f'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{path}</svg>')
+
+
+# Footer social row: bounded brand glyphs, inline SVG only (no icon font, no
+# network fetch), same stroke style as the header icon row. Mirrored
+# element-for-element in the editor preview (treerender.tsx SOCIAL_ICON_MARKUP).
+_SOCIAL_ICONS = {
+    "whatsapp": _HEADER_ICONS["whatsapp"],
+    "facebook": '<path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>',
+    "instagram": '<rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>',
+    "x": '<path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"/>',
+    "youtube": '<path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/>',
+    "linkedin": '<path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4V8h4z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/>',
+}
+
+
+def _social_icon(name: str) -> str:
+    path = _SOCIAL_ICONS.get(name)
+    if path is None:
+        return ""
     return ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
             f'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{path}</svg>')
 
@@ -674,7 +695,22 @@ def _theme_chrome(theme: dict | None, link_base: str | None = None, locale: dict
                                     f'{_esc(title.strip()[:40])}</span>{glinks}</div>')
         if groups_html:
             groups_html = f'<div class="mz-footer-groups">{groups_html}</div>'
-        parts = "".join(f"<span>{_esc(x)}</span>" for x in lines) + links + groups_html
+        socials_html = ""
+        socials = footer.get("socials")
+        if isinstance(socials, list):
+            sparts = []
+            for entry in socials[:6]:
+                if not isinstance(entry, dict):
+                    continue
+                href = _safe_href(entry.get("href"))
+                label = entry.get("label")
+                name = entry.get("icon")
+                if href is None or not isinstance(label, str) or not label.strip() or name not in _SOCIAL_ICONS:
+                    continue
+                sparts.append(f'<a class="mz-footer-social" href="{_esc(_site_link(href, link_base))}" aria-label="{_esc(label.strip()[:40])}" title="{_esc(label.strip()[:40])}">{_social_icon(str(name))}</a>')
+            if sparts:
+                socials_html = f'<div class="mz-footer-socials">{"".join(sparts)}</div>'
+        parts = "".join(f"<span>{_esc(x)}</span>" for x in lines) + links + groups_html + socials_html
         if parts:
             footer_class = "mz-site-footer mz-footer-stacked" if footer.get("layout") == "stacked" else "mz-site-footer"
             foot_html = f'<footer class="{footer_class}">{parts}</footer>'

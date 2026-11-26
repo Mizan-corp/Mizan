@@ -218,6 +218,20 @@ describe('Theme chrome logo and footer groups', () => {
     expect(html).toContain('>L6<');
     expect(html).not.toContain('>L7<');
   });
+  it('renders footer socials with bounded icons and drops unsafe entries', () => {
+    const socials = [
+      { icon: 'whatsapp', label: 'WhatsApp', href: 'https://wa.me/201234567890' },
+      { icon: 'notanicon', label: 'Bad', href: '/x' },
+      { icon: 'x', label: 'X', href: 'javascript:alert(1)' },
+      { icon: 'youtube', label: 'YT', href: 'https://youtube.com/@shop' },
+    ];
+    const html = renderToStaticMarkup(createElement(TreePreview, { tree, lang: 'en', device: 'desktop', theme: { footer: { socials } } } as never));
+    expect(html).toContain('mz-footer-socials');
+    expect((html.match(/mz-footer-social"/g) || []).length).toBe(2);
+    expect(html).toContain('https://wa.me/201234567890');
+    expect(html).not.toContain('javascript:');
+    expect(html).toContain('aria-label="WhatsApp"');
+  });
 });
 
 describe('form block (contact-form V1)', () => {

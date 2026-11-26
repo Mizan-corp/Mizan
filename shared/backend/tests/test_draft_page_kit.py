@@ -145,6 +145,36 @@ class ChromeLogoGroupTests(unittest.TestCase):
   from app.platform.site.service import check_settings
   value=self._settings();value['footer']['groups']=[]
   self.assertNotIn('groups',check_settings(value)['footer'])
+ def test_footer_socials_round_trip(self):
+  from app.platform.site.service import check_settings
+  value=self._settings();value['footer']['socials']=[{'icon':'whatsapp','label':'واتساب','href':'https://wa.me/201234567890'},{'icon':'facebook','label':'فيسبوك','href':'https://facebook.com/shop'}]
+  self.assertEqual(check_settings(value),value)
+ def test_footer_socials_limits(self):
+  from app.platform.site.service import check_settings
+  entry={'icon':'instagram','label':'L','href':'/x'}
+  value=self._settings();value['footer']['socials']=[entry]*7
+  with self.assertRaises(HTTPException):check_settings(value)
+  for bad in [{'icon':'tiktok','label':'L','href':'/x'},{'icon':'globe','label':'L','href':'/x'},
+              {'icon':'x','label':'','href':'/x'},{'icon':'x','label':'L','href':'javascript:alert(1)'},
+              {'icon':'x','label':'x'*41,'href':'/x'},{'label':'L','href':'/x'},'notadict']:
+   value=self._settings();value['footer']['socials']=[bad]
+   with self.assertRaises(HTTPException,msg=str(bad)):check_settings(value)
+ def test_footer_socials_empty_is_dropped(self):
+  from app.platform.site.service import check_settings
+  value=self._settings();value['footer']['socials']=[]
+  self.assertNotIn('socials',check_settings(value)['footer'])
+ def test_render_footer_socials(self):
+  from app.platform.site.render import _theme_chrome
+  theme_value={'footer':{'socials':[{'icon':'whatsapp','label':'واتساب','href':'https://wa.me/201234567890'},
+                                   {'icon':'notanicon','label':'X','href':'/x'},
+                                   {'icon':'x','label':'X','href':'javascript:alert(1)'},
+                                   {'icon':'youtube','label':'قناة <b>اليوتيوب','href':'https://youtube.com/@shop'}]}}
+  head,foot=_theme_chrome(theme_value,link_base='/site/studio')
+  self.assertIn('mz-footer-socials',foot)
+  self.assertEqual(foot.count('class="mz-footer-social"'),2)
+  self.assertIn('https://wa.me/201234567890',foot);self.assertIn('https://youtube.com/@shop',foot)
+  self.assertNotIn('javascript:',foot);self.assertNotIn('<b>اليوتيوب</b>',foot)
+  self.assertIn('aria-label="واتساب"',foot)
  def test_render_header_logo_and_footer_groups(self):
   from app.platform.site.render import _theme_chrome
   theme_value={'header':{'brand':'ويريا','logo':'https://cdn.example.com/logo.svg','links':[{'label':'Shop','href':'/shop'}]},
