@@ -1,7 +1,7 @@
 // Client for the Website tab's form-submissions inbox (/site/forms,
 // app/platform/site/forms.py). Visitor messages sent through published form
 // blocks are read here; the only mutation is marking a message read.
-import { SiteApiError, siteRequestHeaders } from "@app/features/studio/sitePages";
+import { SiteApiError, siteRequestHeaders } from "@app/platform/site/studio/sitePages";
 
 export type SiteFormSubmission = {
   id: string;

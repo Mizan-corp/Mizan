@@ -10,13 +10,13 @@ const state = vi.hoisted(() => ({
   open: vi.fn(),
 }));
 
-vi.mock("@app/features/studio/WebsiteModuleSettings", () => ({ default: () => null }));
+vi.mock("@app/platform/site/studio/WebsiteModuleSettings", () => ({ default: () => null }));
 // Orders and published-products panels have their own suites.
 vi.mock("./WebsiteOrders", () => ({ default: () => <div data-testid="orders-panel" /> }));
 vi.mock("./WebsitePublishedProducts", () => ({ default: () => <div data-testid="products-panel" /> }));
 
 import WebsitePage, { studioLaunchUrl } from "./WebsitePage";
-import { getUILang, setUILang } from "@app/features/studio/uiStrings";
+import { getUILang, setUILang } from "@app/platform/site/studio/uiStrings";
 import { useI18nStore } from "@/i18n";
 
 afterEach(() => {

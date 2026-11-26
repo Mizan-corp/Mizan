@@ -19,6 +19,8 @@ const MOVED: Record<string, string> = {
   "platform/core/screens/LoginPage.tsx": "features/auth",
   "platform/core/screens/TenantScopeLayout.tsx": "features/tenant",
   "platform/marketplace/screens/ModulesPage.tsx": "features/modules",
+  // Step 8e: Studio is part of the site system module.
+  "platform/site/studio/NativeStudio.tsx": "features/studio",
 };
 
 describe("business pages are in their module", () => {

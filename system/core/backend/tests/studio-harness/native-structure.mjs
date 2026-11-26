@@ -62,7 +62,7 @@ await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, dev
 
 await send('Page.navigate',{url:'http://127.0.0.1:5188/studio.html'});
 await waitFor(`!!document.querySelector('.studio-inspector')`);
-const tree=await evaluate(`(async()=>{const {toPageTree}=await import('/src/features/studio/pagetree.ts');const {initialProject}=await import('/src/features/studio/model.ts');return toPageTree(initialProject)})()`);
+const tree=await evaluate(`(async()=>{const {toPageTree}=await import('/src/platform/site/studio/pagetree.ts');const {initialProject}=await import('/src/platform/site/studio/model.ts');return toPageTree(initialProject)})()`);
 
 const second={id:'n_secondroot',type:'section',settings:{desktop:{padding:'s'},mobile:{padding:'none'}},content:{},children:[{id:'n_differentrow',type:'columns',settings:{desktop:{columns:1,gap:'s'}},content:{},children:[{id:'n_customcolumn',type:'column',settings:{desktop:{align:'center'}},content:{},children:[{id:'n_originaltitle',type:'heading',settings:{desktop:{level:3},mobile:{align:'end'}},content:{en:{text:'Distinct page'},ar:{text:'صفحة أخرى'}}},{id:'n_originalrich',type:'text',settings:{desktop:{variant:'body'}},content:{en:{html:'<p><strong>Retain this markup</strong></p>'}}},{id:'n_originalbutton',type:'button',settings:{desktop:{style:'ghost'}},content:{en:{label:'Contact us',href:'/contact'}}}]}]}]};
 
@@ -101,6 +101,6 @@ if(!(await evaluate(`window.__calls.filter(c=>c.method!=='GET').every(c=>c.path.
 await send('Page.reload');await sleep(400);await waitFor(`!!document.querySelector('.native-node')`);
 if(!(await evaluate(`document.body.textContent.includes('New no-code section heading') && document.body.textContent.includes('No-code formatted copy') && !!document.querySelector('.mz-site-footer a[href="/returns"]')`)))throw Error('save reload failed');
 await selectType('image');await shot((process.env.STUDIO_OUT||'/downloads')+'/native-media-theme.png');
-const structural=await evaluate(`(async()=>{const {changeStructure}=await import('/src/features/studio/nativeStructure.ts');const {toPageTree}=await import('/src/features/studio/pagetree.ts');const {initialProject}=await import('/src/features/studio/model.ts');const tree=toPageTree(initialProject);return changeStructure({tree,past:[],future:[]},{kind:'insert',parentId:tree.id,type:'columns',id:'n_newvalidrow'}).tree})()`);
+const structural=await evaluate(`(async()=>{const {changeStructure}=await import('/src/platform/site/studio/nativeStructure.ts');const {toPageTree}=await import('/src/platform/site/studio/pagetree.ts');const {initialProject}=await import('/src/platform/site/studio/model.ts');const tree=toPageTree(initialProject);return changeStructure({tree,past:[],future:[]},{kind:'insert',parentId:tree.id,type:'columns',id:'n_newvalidrow'}).tree})()`);
 writeFileSync('/tmp/native-structural-tree.json',JSON.stringify(structural));
 console.log('PASS MOCKED structure/controls/theme: stable added ID, reorder/remove/undo, rich copy, invalid link refusal, media alt, save/reload, saved theme rendered with zero settings writes');ws.close();

@@ -63,7 +63,7 @@ await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, dev
 
 await send('Page.navigate',{url:'http://127.0.0.1:5188/studio.html'});
 await waitFor(`!!document.querySelector('.studio-inspector')`);
-const tree=await evaluate(`(async()=>{const {toPageTree}=await import('/src/features/studio/pagetree.ts');const {initialProject}=await import('/src/features/studio/model.ts');return toPageTree(initialProject)})()`);
+const tree=await evaluate(`(async()=>{const {toPageTree}=await import('/src/platform/site/studio/pagetree.ts');const {initialProject}=await import('/src/platform/site/studio/model.ts');return toPageTree(initialProject)})()`);
 await send('Page.addScriptToEvaluateOnNewDocument',{source:`
 window.__writes=[];window.__release=null;localStorage.clear();
 window.fetch=async (url,init={})=>{

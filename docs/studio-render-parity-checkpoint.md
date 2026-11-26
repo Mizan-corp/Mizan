@@ -9,7 +9,7 @@ Status: INCOMPLETE branch, NOT for merge, NOT deployed, NOT validated from a cle
 
 ## What this branch contains
 - Backend: SiteSettings model, migration v109 definition (the table is created only when the migration is applied), settings validation and upsert, GET/PUT /site/settings (site.manage), theme-aware renderer (font allowlist, radius), registry art/reverse settings.
-- Studio frontend (system/erp/frontend/src/features/studio): page-tree conversion, tree renderer (React) with parity to the Python renderer, site pages + settings client, inspector with theme controls and header links/actions/footer lines, tests.
+- Studio frontend (system/erp/frontend/src/platform/site/studio): page-tree conversion, tree renderer (React) with parity to the Python renderer, site pages + settings client, inspector with theme controls and header links/actions/footer lines, tests.
 - Test-only harness under system/core/backend/tests/studio-harness (see its README).
 
 ## Verified (exercised, in the author's sandbox)
@@ -54,7 +54,7 @@ test -z "$(git status --porcelain)"
 node --version
 python3 --version
 npm ci
-npm exec -w system/erp/frontend -- vitest run src/features/studio
+npm exec -w system/erp/frontend -- vitest run src/platform/site/studio
 npm exec -w system/erp/frontend -- vitest run
 python3 -m venv .venv
 . .venv/bin/activate

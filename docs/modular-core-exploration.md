@@ -15,7 +15,7 @@ Status: planning document. No code changed, nothing deployed. Written 26 Novembe
 | API apps | `system/backend` (ERP API), plus owner, admin and website apps | Thin entry points that call the factory |
 | ERP frontend | `system/frontend/src/{App.tsx,components,features,activities,platform,framework}` | The panel: shell, pages, module UIs |
 | Shared frontend | `shared/frontend/src` (`styles.css`, `components/kit`, `lib`, `stores`) | Design tokens, UI kit, API client, auth store |
-| Studio | `system/frontend/src/features/studio` plus `platform/site` on the API side | Page builder (standalone entry `studio-preview.html`) |
+| Studio | `system/frontend/src/platform/site/studio` plus `platform/site` on the API side | Page builder (standalone entry `studio-preview.html`) |
 
 Boundary rules already written down (`docs/MODULE_STANDARD.md`): a module never touches another module's tables, other modules call only its `service.py`, modules talk through events (`notify`) and hooks (`emit`), every table is tenant scoped.
 
@@ -70,7 +70,7 @@ Studio is a core service because the goal is that any workspace can build its si
 |---|---|
 | Routes listed by hand in `App.tsx` | Each module's `index.ts` also declares its routes (path, lazy component, permission); `App.tsx` builds routes from the registry |
 | Menu from backend, route from frontend, two places that must agree | Manifest `screens` is the single source; a test fails when a screen has no route |
-| Studio spread over `features/studio`, `platform/site`, `website` | One `studio` platform entry with its own manifest and `index.ts`, same folders as other platform modules |
+| Studio spread over `platform/site/studio`, `platform/site`, `website` | One `studio` platform entry with its own manifest and `index.ts`, same folders as other platform modules |
 | All routers mounted for everyone, guarded at call time | Unchanged at first (safe); later, unmount or lazy-load inactive modules |
 | Install = flip an id | Add `on_enable` and `on_disable` hooks and a declared data-retention policy per module |
 
@@ -487,7 +487,7 @@ system/frontend/src/
   App.tsx                                                 shrinks to: shell, auth guard, route table built from the registry
   shell/                                                  AppShell.tsx, shell-parts.tsx, variants/classic (the current look, unchanged)
   system/                                                 NEW: system modules' UI
-    studio/                                               index.ts (ModuleDefinition + routes), pages and editor moved from features/studio
+    studio/                                               index.ts (ModuleDefinition + routes), pages and editor moved from platform/site/studio
     dashboard/ settings/ designer/ modules/               moved from features/ in step 8
   activities/<activity>/modules/<id>/                     business module UI; index.ts now also declares routes
   platform/<id>/  integrations/<id>/                      as today, index.ts declares routes
@@ -507,12 +507,13 @@ docs/                                                     this plan, ADRs, MODUL
 | 2 | Routes: out of `App.tsx` into each module's `index.ts`. Files stay where they are |
 | 3 | New `framework/layouts/` (backend) and a layout resolver module (frontend). No file moves |
 | 5 | `AppShell.tsx` and `shell-parts.tsx` into `shell/`, current look becomes `variants/classic` byte for byte |
-| 7 | Studio: `features/studio/*` to `system/studio/`; backend `platform/site` Studio parts to `system/studio/` (public site routes stay in `platform/site`); manifest `kind: system`, `always_on: true`; hidden from module centre and marketplace |
+| 7 | Studio: `platform/site/studio/*` to `system/studio/`; backend `platform/site` Studio parts to `system/studio/` (public site routes stay in `platform/site`); manifest `kind: system`, `always_on: true`; hidden from module centre and marketplace |
 | 8 | Remaining `features/*` pages to `system/*` (dashboard, settings, designer, modules centre) or into their business module (products to inventory, customers to contacts, suppliers to purchases) |
 | 8a. Business pages moved into their module (`screens/`): customers to contacts, suppliers to purchases, products to inventory, helpdesk, operations, reports to reporting, archive to documents | `feat/modular-step8a-pages-into-modules` | File moves and import fixes only, no visual change. Left in features/: dashboard, settings, designer, modules, users, auth, tenant (system UI) and studio (98 files, own step). Tests: `featuresMoved.test.ts`, existing 62 test files pass, `tsc -b` clean. |
-| 8b. System pages moved into the system modules: dashboard, settings, users, login and tenant layout to `platform/core/screens`, the module centre to `platform/marketplace/screens` | `feat/modular-step8b-system-pages` | File moves and import fixes only, no visual change. Studio stays in `features/studio` (own step). The designer is removed in its own step (8c). Tests: `featuresMoved.test.ts`, 63 test files pass, `tsc -b` clean. |
+| 8b. System pages moved into the system modules: dashboard, settings, users, login and tenant layout to `platform/core/screens`, the module centre to `platform/marketplace/screens` | `feat/modular-step8b-system-pages` | File moves and import fixes only, no visual change. Studio stays in `platform/site/studio` (own step). The designer is removed in its own step (8c). Tests: `featuresMoved.test.ts`, 63 test files pass, `tsc -b` clean. |
 | 8c. Designer UI removed (user decision: too advanced for a business owner, Studio is the way): `features/designer`, the `/designer` route and the `core.designer` screen and its 15 menu entries | `feat/modular-step8c-remove-designer-ui` | Frontend and menu data only. Kept for now, pending the user's OK: the `/settings/designer/*` backend (roles, forms, step 6 shell), the `designer` permission, `/settings/fields` (custom field create/delete), stored layouts. Unused now: every `/settings/designer/*` endpoint, `/settings/fields` writes (no UI), `framework.screens.check_layout` (used only by the role save). Kept because runtime needs them: `/settings/screens`, `workspace_layouts`, `/settings/forms/{record}`. The baseline test drops the designer entry on purpose. |
 | 8d. Designer backend removed: `/settings/designer/*` (overview, role layouts, form layouts) and the step 6 `/settings/designer/shell` API with its override code (`workspace_shell`, `shells`), plus their e2e tests | `feat/modular-step8d-remove-designer-backend` | Kept: `/settings/screens`, `/settings/forms/{record}`, `workspace_layouts` and `framework/layouts` (stored layouts still apply), the step 5 activity default shell and the personal choice. Kept on purpose, needs the user's decision: `/settings/fields` (custom field create/delete) and the `designer` permission that guards it, because custom fields still feed forms, reports (`CustomFieldReport`) and exports and have 2 e2e tests; removing them would leave nobody able to add a custom field. Shell order is now: personal choice, activity default, classic. |
+| 8e. Studio frontend moved into the site system module: `features/studio` to `platform/site/studio` (98 files; `src/features/` no longer exists) | `feat/modular-step8e-studio-into-site` | Move and path updates only (imports, `studio.html`, `studio-preview.html`, harness scripts, docs, render.py comment), no visual change. Checks: `tsc -b` clean, all frontend tests pass, `vite build` (see CI). |
 | 9 | Packaging code in `framework/packaging/`; SDK adds the `.mz*` builder |
 
 Rules that stay true during every move: public URLs and API paths do not change; each step is a separate branch with tests; the old import path keeps working (a re-export) until the next step removes it.

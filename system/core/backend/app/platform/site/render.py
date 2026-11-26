@@ -119,7 +119,7 @@ def _content_ref(node: dict, lang: str, key: str):
 _SPACER_PX = {"none": 0, "xs": 8, "s": 16, "m": 32, "l": 64, "xl": 128}
 
 # Bounded inline icon set for icon_list blocks: no icon font, no network fetch.
-# Mirrored in system/erp/frontend/src/features/studio/nativeIcons.tsx (ICON_MARKUP); keep entries identical.
+# Mirrored in system/erp/frontend/src/platform/site/studio/nativeIcons.tsx (ICON_MARKUP); keep entries identical.
 _ICON_MARKUP = {
     "Wrench": '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.8 2.8-2-2 2.8-2.8z"/>',
     "Laptop": '<rect x="4" y="5" width="16" height="10" rx="1.5"/><path d="M2 19h20"/>',

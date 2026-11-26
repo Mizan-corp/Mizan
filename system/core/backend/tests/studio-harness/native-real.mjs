@@ -63,7 +63,7 @@ await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, dev
 
 await send('Page.navigate',{url:'http://127.0.0.1:5188/studio.html'});
 await waitFor(`!!document.querySelector('.studio-inspector')`);
-const tree=await evaluate(`(async()=>{const {toPageTree}=await import('/src/features/studio/pagetree.ts');const {initialProject}=await import('/src/features/studio/model.ts');return toPageTree(initialProject)})()`);
+const tree=await evaluate(`(async()=>{const {toPageTree}=await import('/src/platform/site/studio/pagetree.ts');const {initialProject}=await import('/src/platform/site/studio/model.ts');return toPageTree(initialProject)})()`);
 
 
 // Real authenticated loopback bridge, no fetch overrides.
@@ -78,7 +78,7 @@ const snapshot=await evaluate(`fetch('/__studio/api/site/pages/${created.id}').t
 const expected=structuredClone(tree);expected.children[0].children[0].children.find(n=>n.id===heading).content.en.text='Native real first save';
 if(JSON.stringify(snapshot.draft_tree)!==JSON.stringify(expected)){
  const key=v=>JSON.stringify(v, Object.keys(v).sort()); // compare using page-native canonicalizer below
- if(!(await evaluate(`(async()=>{const {nativeTreeKey}=await import('/src/features/studio/nativeTree.ts');return nativeTreeKey(${JSON.stringify(snapshot.draft_tree)})===nativeTreeKey(${JSON.stringify(expected)})})()`)))throw Error('real save changed unrelated tree');
+ if(!(await evaluate(`(async()=>{const {nativeTreeKey}=await import('/src/platform/site/studio/nativeTree.ts');return nativeTreeKey(${JSON.stringify(snapshot.draft_tree)})===nativeTreeKey(${JSON.stringify(expected)})})()`)))throw Error('real save changed unrelated tree');
 }
 await send('Page.reload');await sleep(250);await waitFor(`!!document.querySelector('.native-node')`);await edit('Local edits must survive conflict');
 // Another authenticated client writes with its freshly loaded token.

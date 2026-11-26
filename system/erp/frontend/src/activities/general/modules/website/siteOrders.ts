@@ -1,7 +1,7 @@
 // Client for the Website tab's orders API (/site/orders, app/platform/site/orders.py).
 // Site-origin orders are managed here while the records stay in the storefront
 // module's tables; the suspended public commerce routes are untouched.
-import { SiteApiError, siteRequestHeaders } from "@app/features/studio/sitePages";
+import { SiteApiError, siteRequestHeaders } from "@app/platform/site/studio/sitePages";
 
 export type SiteOrderItem = {
   product_name: string;
