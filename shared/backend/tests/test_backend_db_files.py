@@ -114,17 +114,17 @@ class ServeFileTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res.media_type, "image/png")
         self.assertEqual(res.headers["cache-control"], "private, no-cache")
 
-    async def test_db_backend_public_asset_cache_is_browser_only(self):
-        # Referenced public assets get a long PRIVATE lifetime: the reader's own browser may
-        # keep them, a shared/edge cache may not.
+    async def test_db_backend_public_asset_also_revalidates(self):
+        # Referenced public assets revalidate every request too: a revoke must take effect for
+        # every reader on their next view, not only stop new readers.
         db = AsyncMock()
         result = MagicMock()
         result.first.return_value = (b"IMG", "image/png")
         db.execute = AsyncMock(side_effect=[MagicMock(), result, MagicMock()])
         with patch.dict(os.environ, SERVERLESS):
             res = await files.serve_file(db, "/uploads/t/x/site_image/a.png", "image/png",
-                                         cache=files.CACHE_PRIVATE_LONG)
-        self.assertEqual(res.headers["cache-control"], "private, max-age=31536000, immutable")
+                                         cache=files.CACHE_REVALIDATE)
+        self.assertEqual(res.headers["cache-control"], "private, no-cache")
 
     async def test_disk_backend_carries_the_cache_policy(self):
         import tempfile

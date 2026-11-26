@@ -260,15 +260,15 @@ def backend_name() -> str:
     return "db" if os.environ.get("VERCEL") else "disk"
 
 
-# Cache policies for served files. A serving route's access gate only runs when the request
-# reaches the app, so a response a SHARED cache may keep would outlive the gate: after a session
-# ends, a file is unreferenced or a page is unpublished, an edge/browser-shared copy marked
-# public would still be served to anyone, bypassing the gate. Nothing gated is ever marked
-# `public`. The default revalidates every request (session-gated reads); referenced public
-# assets may be kept by the reader's OWN browser only (private) - their URLs carry a random
-# suffix, so a long private lifetime is safe and a revoke only has to stop NEW readers.
+# Cache policy for served files. A serving route's access gate only runs when the request
+# reaches the app, so any cached copy that skips the app outlives the gate: after a session
+# ends, a file is unreferenced or a page is unpublished, a cached copy would still be served
+# without re-checking access. Nothing gated is ever marked `public` (no shared cache may keep
+# it), and every gated response revalidates on each request (private, no-cache) - including
+# referenced public assets, so an unpublish, delete or reference-removal takes effect for every
+# reader on their next view instead of only stopping new readers. A copy a reader already
+# downloaded cannot be recalled, but no future request bypasses the gate by design.
 CACHE_REVALIDATE = "private, no-cache"
-CACHE_PRIVATE_LONG = "private, max-age=31536000, immutable"
 
 
 async def serve_file(db: AsyncSession, url: str, content_type: str | None = None,

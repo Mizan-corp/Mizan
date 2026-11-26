@@ -165,10 +165,11 @@ async def public_upload(path: str, db: AsyncSession = Depends(get_db)):
         await db.execute(text("SELECT set_config('app.bypass', 'off', true)"))
     if not referenced:
         raise _not_found()
-    # Referenced public asset: the reader's own browser may keep it long-term (private), but
-    # no shared cache may - a cached public copy would keep serving after unpublish or delete,
-    # bypassing the reference gate above (framework.files cache-policy note).
-    res = await files.serve_file(db, url, None, cache=files.CACHE_PRIVATE_LONG)  # content type from the metadata row on the db backend
+    # Referenced public asset: still revalidate every request (private, no-cache) so unpublish,
+    # delete or reference-removal stops every reader on their next view - a long private
+    # lifetime would let a reader's own browser keep serving the bytes without re-running the
+    # reference gate above (framework.files cache-policy note).
+    res = await files.serve_file(db, url, None, cache=files.CACHE_REVALIDATE)  # content type from the metadata row on the db backend
     if res is None:
         raise _not_found()
     return res
