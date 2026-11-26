@@ -12,7 +12,7 @@ export const BUSINESS = {
   phoneDigits: "201067790350",
   phoneDisplay: "+20 106 779 0350",
   /** When the current versions of the legal pages took effect. */
-  effective: { ar: "10 نوفمبر 2026", en: "10 November 2026" },
+  effective: { ar: "23 نوفمبر 2026", en: "23 November 2026" },
 } as const;
 
 export const PHONE_HREF = `tel:+${BUSINESS.phoneDigits}`;

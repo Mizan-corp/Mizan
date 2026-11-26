@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@app/seo/LocaleLink";
 import {
   Search,
   Clock,
@@ -121,8 +121,12 @@ export default function BlogPage() {
                 <div className="lg:col-span-5">
                   <div className="relative rounded-2xl overflow-hidden border border-[#E7D6C1] aspect-[16/11] bg-[#35151D]">
                     <img
-                      src={assetUrl("assets/marketing/arch-hero-feature.jpg")}
-                      alt="PostgreSQL RLS Architecture"
+                      src={assetUrl("assets/marketing/arch-hero-feature.webp")}
+                      alt=""
+                      width={310}
+                      height={200}
+                      decoding="async"
+                      loading="lazy"
                       className="w-full h-full object-cover opacity-90 hover:scale-105 transition-transform duration-500"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#35151D]/70 via-transparent to-transparent" />

@@ -328,7 +328,8 @@ export const LEGAL_DOCS: Record<LegalSlug, { ar: LegalContent; en: LegalContent 
       title: "سياسة الخصوصية",
       description: "ما البيانات التي نجمعها، ولماذا، ومع من نشاركها، وكيف تتحكم فيها.",
       summary: [
-        "لا نبيع بياناتك، ولا نستخدم أدوات إعلانات أو تتبع.",
+        "لا نبيع بياناتك، ولا نستخدم أدوات إعلانات.",
+        "نعدّ زيارات موقعنا بأنفسنا بلا ملفات تعريف ارتباط؛ وGoogle Analytics لا يعمل إلا إذا وافقت عليه.",
         "بيانات منشأتك ملكك؛ نعالجها فقط لتقديم الخدمة.",
         "لا نستلم بيانات بطاقتك؛ تعالجها Paymob.",
       ],
@@ -374,7 +375,15 @@ export const LEGAL_DOCS: Record<LegalSlug, { ar: LegalContent; en: LegalContent 
           id: "browser",
           title: "ما نحفظه في متصفحك",
           blocks: [
-            "نحفظ في متصفحك جلسة الدخول وتفضيلاتك (اللغة، المظهر، مساحة العمل الحالية) لتعمل الخدمة. لا نستخدم ملفات تعريف ارتباط إعلانية ولا أدوات تحليلات أو تتبع من أطراف أخرى.",
+            "نحفظ في متصفحك جلسة الدخول وتفضيلاتك (اللغة، المظهر، مساحة العمل الحالية، واختيارك بشأن Google Analytics) لتعمل الخدمة. لا نستخدم ملفات تعريف ارتباط إعلانية.",
+          ],
+        },
+        {
+          id: "website-analytics",
+          title: "إحصاءات الموقع",
+          blocks: [
+            "على موقعنا (allmizan.live) نعدّ الزيارات بأنفسنا: عندما تفتح صفحة، أو تضغط على واتساب أو الاتصال، أو ترسل طلبًا، أو تبدأ التسجيل، يُضاف واحد إلى عدّاد يومي لتلك الصفحة ولغتها، ومعه اسم الموقع الذي جئت منه إن وُجد. لا نستخدم لذلك أي ملف تعريف ارتباط، ولا نحفظ عنوان IP ولا نوع المتصفح ولا أي معرّف لك، فلا يمكن ربط العدّاد بك.",
+            "Google Analytics 4: لا يُحمَّل إلا إذا وافقت عليه في الشريط الذي يظهر على الموقع. عندها يضع ملفات تعريف ارتباط من Google ويرسل إليها بيانات استخدامك للموقع (الصفحات التي تفتحها، ونوع الجهاز والمتصفح، والموقع الجغرافي التقريبي) لنفهم كيف يُستخدم الموقع، وقد تُعالج خارج مصر. لا نستخدمه للإعلانات. يمكنك سحب موافقتك في أي وقت من «إعدادات الإحصاءات» أسفل الموقع. لا يعمل Google Analytics داخل النظام ولا في لوحة المالك.",
           ],
         },
         {
@@ -384,11 +393,12 @@ export const LEGAL_DOCS: Record<LegalSlug, { ar: LegalContent; en: LegalContent 
             "لا نبيع بياناتك ولا نؤجرها. نشاركها فقط مع مزودي الخدمة الذين نحتاجهم لتشغيل ميزان، وبالقدر اللازم:",
             {
               list: [
-                "الاستضافة وقاعدة البيانات: Vercel وNeon.",
+                "الاستضافة: خوادمنا الخاصة. الشبكة وحماية الاتصال والنسخ الاحتياطية المشفرة خارج الموقع: Cloudflare.",
                 "الدفع: Paymob.",
                 "الإشعارات على الأجهزة (عند تفعيلها): Google Firebase.",
                 "إرسال البريد الإلكتروني (عند تفعيله): مزود بريد إلكتروني.",
                 "إيصالات واتساب (إذا فعّلتها لمنشأتك): Meta (WhatsApp Business).",
+                "إحصاءات الموقع (بموافقتك فقط): Google Analytics.",
               ],
             },
             "وقد نفصح عن بيانات إذا ألزمنا القانون أو جهة قضائية مختصة بذلك.",
@@ -453,7 +463,8 @@ export const LEGAL_DOCS: Record<LegalSlug, { ar: LegalContent; en: LegalContent 
       title: "Privacy Policy",
       description: "What data we collect, why, who we share it with, and how you control it.",
       summary: [
-        "We don't sell your data, and we use no advertising or tracking tools.",
+        "We don't sell your data, and we use no advertising tools.",
+        "We count visits to our website ourselves, without cookies; Google Analytics runs only if you agree to it.",
         "Your business data is yours; we process it only to provide the service.",
         "We never receive your card details; Paymob processes them.",
       ],
@@ -499,7 +510,15 @@ export const LEGAL_DOCS: Record<LegalSlug, { ar: LegalContent; en: LegalContent 
           id: "browser",
           title: "What we store in your browser",
           blocks: [
-            "We store your sign-in session and preferences (language, appearance, current workspace) in your browser so the service works. We use no advertising cookies and no third-party analytics or tracking tools.",
+            "We store your sign-in session and preferences (language, appearance, current workspace, and your choice about Google Analytics) in your browser so the service works. We use no advertising cookies.",
+          ],
+        },
+        {
+          id: "website-analytics",
+          title: "Website analytics",
+          blocks: [
+            "On our website (allmizan.live) we count visits ourselves: when you open a page, tap WhatsApp or call, send a request, or start signing up, one is added to a daily counter for that page and its language, with the name of the site you came from, if any. No cookie is used for this, and we store no IP address, no browser details and no identifier, so the counts can't be linked to you.",
+            "Google Analytics 4: it loads only if you accept it in the banner on the website. It then sets Google cookies and sends Google data about how you use the site (the pages you open, your device and browser type, your approximate location) so we can understand how the site is used; this may be processed outside Egypt. We don't use it for advertising. You can withdraw your consent at any time from \"Analytics settings\" at the bottom of the website. Google Analytics never runs inside the system or the owner panel.",
           ],
         },
         {
@@ -509,11 +528,12 @@ export const LEGAL_DOCS: Record<LegalSlug, { ar: LegalContent; en: LegalContent 
             "We don't sell or rent your data. We share it only with the providers we need to run Mizan, and only as needed:",
             {
               list: [
-                "Hosting and database: Vercel and Neon.",
+                "Hosting: our own servers. Network, connection protection and encrypted off-site backups: Cloudflare.",
                 "Payments: Paymob.",
                 "Device notifications (when enabled): Google Firebase.",
                 "Email delivery (when enabled): an email provider.",
                 "WhatsApp receipts (if you turn them on for your business): Meta (WhatsApp Business).",
+                "Website analytics (only with your consent): Google Analytics.",
               ],
             },
             "We may disclose data where the law or a competent court requires it.",

@@ -4352,6 +4352,18 @@ MIGRATIONS = [
         DROP POLICY IF EXISTS tenant_isolation ON site_activation;
         CREATE POLICY tenant_isolation ON site_activation
             USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid OR current_setting('app.bypass', true) = 'on');
+    # The public website's cookieless visit counters (ADR-016, app/platform/site_analytics): counts only.
+    ("v108_site_analytics", """
+        CREATE TABLE IF NOT EXISTS site_analytics_daily (
+            day date NOT NULL,
+            kind varchar(16) NOT NULL,
+            name varchar(32) NOT NULL,
+            path varchar(160) NOT NULL,
+            lang varchar(2) NOT NULL,
+            ref_host varchar(100) NOT NULL DEFAULT '',
+            count integer NOT NULL DEFAULT 0,
+            PRIMARY KEY (day, kind, name, path, lang, ref_host)
+        );
     """),
 ]
 

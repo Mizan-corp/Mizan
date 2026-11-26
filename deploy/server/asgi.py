@@ -42,6 +42,18 @@ async def _respond(send, status: int, body: dict) -> None:
     await send({"type": "http.response.body", "body": data})
 
 
+ROBOTS = b"User-agent: *\nDisallow: /\n"
+
+
+def _noindex(send):
+    """The APIs are not for search engines (ADR-016): every answer says so."""
+    async def wrapped(message):
+        if message["type"] == "http.response.start":
+            message = {**message, "headers": [*message.get("headers", []), (b"x-robots-tag", b"noindex, nofollow")]}
+        await send(message)
+    return wrapped
+
+
 async def _lifespan(receive, send) -> None:
     async with AsyncExitStack() as stack:
         await receive()  # lifespan.startup
@@ -63,6 +75,13 @@ async def app(scope, receive, send):
     if scope["type"] == "http" and scope["path"] == "/healthz":
         await _respond(send, 200, {"status": "ok"})
         return
+    if scope["type"] == "http":
+        send = _noindex(send)
+        if scope["path"] == "/robots.txt":
+            await send({"type": "http.response.start", "status": 200,
+                        "headers": [(b"content-type", b"text/plain; charset=utf-8"), (b"content-length", str(len(ROBOTS)).encode())]})
+            await send({"type": "http.response.body", "body": ROBOTS})
+            return
     host = next((v.decode("latin-1") for k, v in scope.get("headers", []) if k == b"host"), "")
     target = BY_LABEL.get(host.split(":")[0].split(".")[0].lower())
     if target is None:

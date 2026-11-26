@@ -9,6 +9,8 @@ export interface Plan {
   maxStorageMb: number;
   features: string[];
   recommendedFor: string;
+  /** English copy for the website's English pricing page (ADR-016); same claims as the Arabic. */
+  en: { name: string; tagline: string; recommendedFor: string; features: string[] };
 }
 
 /* Canonical SaaS plans aligned with Admoon control plane and platform API */
@@ -28,6 +30,17 @@ export const PLANS: Plan[] = [
       "تقارير مبيعات وورديات يومية",
       "دعم فني عبر البريد وتحديثات سحابية",
     ],
+    en: {
+      name: "Trial",
+      tagline: "The full cloud service for 14 days, no card needed",
+      recommendedFor: "Exploring the platform and trying the retail setup",
+      features: [
+        "Fast point of sale with instant invoices",
+        "Inventory, suppliers and customers",
+        "Daily sales and shift reports",
+        "Support by email, with cloud updates",
+      ],
+    },
   },
   {
     id: "starter",
@@ -45,6 +58,18 @@ export const PLANS: Plan[] = [
       "أرشفة سحابية وتنبيهات نواقص المخزون",
       "شاشات مطبخ KDS أو ماسح باركود سريع",
     ],
+    en: {
+      name: "Starter",
+      tagline: "For new shops and small businesses: one complete branch",
+      recommendedFor: "Single shops, small cafés and service offices",
+      features: [
+        "Up to 5 users with role-based permissions",
+        "Everything in point of sale and stock management",
+        "80mm/58mm thermal receipt printing",
+        "Cloud archive and low-stock alerts",
+        "Kitchen display (KDS) or fast barcode scanning",
+      ],
+    },
   },
   {
     id: "pro",
@@ -59,11 +84,24 @@ export const PLANS: Plan[] = [
     features: [
       "حتى 3 فروع و15 مستخدماً متزامناً",
       "كافة كوليكشنات الأنشطة (نوادي، مطاعم، مدارس، عيادات)",
-      "قاعدة بيانات سحابية مستقلة (Neon Postgres)",
+      "بيانات كل منشأة معزولة ومحمية",
       "إدارة الرواتب والموظفين HR والورديات",
       "نسخ احتياطي يومي مشفر تلقائي",
-      "دعم فني مباشر على مدار الساعة",
+      "دعم فني عبر واتساب والهاتف",
     ],
+    en: {
+      name: "Pro",
+      tagline: "Most popular: gyms, restaurants and growing centres",
+      recommendedFor: "Gyms, restaurant chains, training and medical centres",
+      features: [
+        "Up to 3 branches and 15 users at a time",
+        "Every activity package (clubs, restaurants, schools, clinics)",
+        "Each business's data isolated and protected",
+        "Payroll, staff and shift management (HR)",
+        "Automatic encrypted daily backup",
+        "Support over WhatsApp and phone",
+      ],
+    },
   },
   {
     id: "enterprise",
@@ -79,9 +117,22 @@ export const PLANS: Plan[] = [
       "خادم VPS مخصص مع عزل أمني فائق",
       "ترخيص نسخة سطح مكتب أوفلاين (.exe) بلا إنترنت",
       "نطاق مخصص وشهادة SSL خاصة (Custom Domain)",
-      "تخزين سحابي S3 غير محدود للأرشفة والوثائق",
+      "تخزين سحابي غير محدود للأرشفة والوثائق",
       "مدير حساب تقني ودعم مخصص للأجهزة والعتاد",
     ],
+    en: {
+      name: "Enterprise",
+      tagline: "For large chains and multi-branch operations",
+      recommendedFor: "Large companies and branch chains with audit requirements",
+      features: [
+        "Unlimited branches and users",
+        "Dedicated VPS with strong security isolation",
+        "Offline desktop licence (.exe), no internet needed",
+        "Custom domain with its own SSL certificate",
+        "Unlimited cloud storage for archives and documents",
+        "Technical account manager and dedicated hardware support",
+      ],
+    },
   },
 ];
 
@@ -453,7 +504,7 @@ export const DEPLOYMENT_MODES = [
       "تشغيل فوري عبر متصفح الويب من أي جهاز",
       "نسخ احتياطي يومي مشفر وتلقائي",
       "شهادة أمان SSL ونطاق فرعي مخصص للمنشأة",
-      "قواعد بيانات متدرجة التوسع (Neon / PostgreSQL)",
+      "قاعدة بيانات PostgreSQL",
     ],
   },
   {
@@ -463,7 +514,7 @@ export const DEPLOYMENT_MODES = [
     badge: "دون اتصال نهائياً",
     bullets: [
       "لا يشترط وجود اتصال بالإنترنت للتشغيل والبيع",
-      "قاعدة بيانات SQLite محلية مدمجة وسريعة",
+      "قاعدة بيانات PostgreSQL مدمجة في البرنامج",
       "ترخيص رقمي مشفر بـ HMAC-SHA256 مقيد بالجهاز",
       "مثالي للمناطق النائية أو الفروع ذات الاتصال غير المستقر",
     ],

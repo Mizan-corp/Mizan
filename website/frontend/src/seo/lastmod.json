@@ -1,0 +1,262 @@
+{
+  "/": {
+    "hash": "9c34c35852952b9f",
+    "date": "2026-11-23"
+  },
+  "/about": {
+    "hash": "863054b7e561fad3",
+    "date": "2026-11-23"
+  },
+  "/blog": {
+    "hash": "b5dd0e07f509f45c",
+    "date": "2026-11-23"
+  },
+  "/blog/offline-first-cashier-velocity": {
+    "hash": "9d9621e2c99f4a64",
+    "date": "2026-11-23"
+  },
+  "/blog/postgresql-rls-multi-tenancy": {
+    "hash": "c27d961a43dfd1ff",
+    "date": "2026-11-23"
+  },
+  "/blog/why-modular-erps-win": {
+    "hash": "e3d94afe9f38ded2",
+    "date": "2026-11-23"
+  },
+  "/contact": {
+    "hash": "6a78fc9a3df03fac",
+    "date": "2026-11-23"
+  },
+  "/demo": {
+    "hash": "bf31b5cd6aad6b60",
+    "date": "2026-11-23"
+  },
+  "/docs": {
+    "hash": "c3b9e6c4f1f7ff2f",
+    "date": "2026-11-23"
+  },
+  "/docs/admin/company-management": {
+    "hash": "331ea8d6eaf6674e",
+    "date": "2026-11-23"
+  },
+  "/docs/admin/data-import-export": {
+    "hash": "b5bfa75a26e17d8f",
+    "date": "2026-11-23"
+  },
+  "/docs/admin/developer-modules": {
+    "hash": "5dfdd7d6a6285c63",
+    "date": "2026-11-23"
+  },
+  "/docs/admin/module-config": {
+    "hash": "da9fba718d00e210",
+    "date": "2026-11-23"
+  },
+  "/docs/admin/tenant-settings": {
+    "hash": "71083d4b5c37079a",
+    "date": "2026-11-23"
+  },
+  "/docs/admin/themes": {
+    "hash": "bb86c899334a1bd8",
+    "date": "2026-11-23"
+  },
+  "/docs/admin/users-permissions": {
+    "hash": "352efa0cfb1bfd3f",
+    "date": "2026-11-23"
+  },
+  "/docs/company-settings": {
+    "hash": "3f1c4cdf25999c02",
+    "date": "2026-11-23"
+  },
+  "/docs/create-account": {
+    "hash": "f13cd68f28362ef1",
+    "date": "2026-11-23"
+  },
+  "/docs/create-company": {
+    "hash": "ae7644def05ed1ac",
+    "date": "2026-11-23"
+  },
+  "/docs/dashboard": {
+    "hash": "6c3fbfa0c35310d4",
+    "date": "2026-11-23"
+  },
+  "/docs/deploy/backup-restore": {
+    "hash": "e15c67fd1922ffd3",
+    "date": "2026-11-23"
+  },
+  "/docs/deploy/install": {
+    "hash": "51a159d2b304b2cc",
+    "date": "2026-11-23"
+  },
+  "/docs/deploy/lan": {
+    "hash": "43417c1885d089bc",
+    "date": "2026-11-23"
+  },
+  "/docs/deploy/manage": {
+    "hash": "8e4d29b851cf60d0",
+    "date": "2026-11-23"
+  },
+  "/docs/deploy/modes": {
+    "hash": "db27d5fdf7d5b8c7",
+    "date": "2026-11-23"
+  },
+  "/docs/first-steps": {
+    "hash": "c2ba58c92c6080dc",
+    "date": "2026-11-23"
+  },
+  "/docs/introduction": {
+    "hash": "30b0c1ad9828e87a",
+    "date": "2026-11-23"
+  },
+  "/docs/modules/accounting": {
+    "hash": "616e90a3258592a0",
+    "date": "2026-11-23"
+  },
+  "/docs/modules/healthcare_clinic": {
+    "hash": "71d6a59b06a4a1c4",
+    "date": "2026-11-23"
+  },
+  "/docs/modules/hr": {
+    "hash": "747ab3c71ff3d71d",
+    "date": "2026-11-23"
+  },
+  "/docs/modules/inventory": {
+    "hash": "097efe10d0e518af",
+    "date": "2026-11-23"
+  },
+  "/docs/modules/manufacturing": {
+    "hash": "1f0e19669d414fe0",
+    "date": "2026-11-23"
+  },
+  "/docs/modules/pos": {
+    "hash": "6c73db8391179554",
+    "date": "2026-11-23"
+  },
+  "/docs/modules/purchasing": {
+    "hash": "fb5baf16535999d5",
+    "date": "2026-11-23"
+  },
+  "/docs/modules/restaurant": {
+    "hash": "3f663c3d0ac2ce76",
+    "date": "2026-11-23"
+  },
+  "/docs/navigation": {
+    "hash": "565e26358f9b8be6",
+    "date": "2026-11-23"
+  },
+  "/docs/notifications": {
+    "hash": "66c2f50251e22eae",
+    "date": "2026-11-23"
+  },
+  "/docs/overview": {
+    "hash": "d3afbd9f6a943b8c",
+    "date": "2026-11-23"
+  },
+  "/docs/search-filters": {
+    "hash": "40a288b638eed4b8",
+    "date": "2026-11-23"
+  },
+  "/docs/support/contact": {
+    "hash": "cf99897d1f74ad1b",
+    "date": "2026-11-23"
+  },
+  "/docs/support/faq": {
+    "hash": "f3dcb13ead7d5bef",
+    "date": "2026-11-23"
+  },
+  "/docs/support/release-notes": {
+    "hash": "2fdb17f20b68d362",
+    "date": "2026-11-23"
+  },
+  "/docs/support/troubleshooting": {
+    "hash": "ee5f809a8cb71616",
+    "date": "2026-11-23"
+  },
+  "/docs/users-roles": {
+    "hash": "be39fc10df9c55ee",
+    "date": "2026-11-23"
+  },
+  "/docs/workspace-setup": {
+    "hash": "768d70dae923548f",
+    "date": "2026-11-23"
+  },
+  "/en": {
+    "hash": "318956a188dfd679",
+    "date": "2026-11-23"
+  },
+  "/en/about": {
+    "hash": "1de8f63b4ecc8b6b",
+    "date": "2026-11-23"
+  },
+  "/en/contact": {
+    "hash": "9c748167faa6923d",
+    "date": "2026-11-23"
+  },
+  "/en/demo": {
+    "hash": "5b46752b91a332bd",
+    "date": "2026-11-23"
+  },
+  "/en/features": {
+    "hash": "c12e89b643777b9d",
+    "date": "2026-11-23"
+  },
+  "/en/features/inventory": {
+    "hash": "5e213e6298250f31",
+    "date": "2026-11-23"
+  },
+  "/en/industries": {
+    "hash": "f55b17db0435f577",
+    "date": "2026-11-23"
+  },
+  "/en/pricing": {
+    "hash": "81653bae7d2c4f94",
+    "date": "2026-11-23"
+  },
+  "/en/privacy": {
+    "hash": "c2581272efd19682",
+    "date": "2026-11-23"
+  },
+  "/en/product": {
+    "hash": "cf460c666154d818",
+    "date": "2026-11-23"
+  },
+  "/en/refund-policy": {
+    "hash": "1e8963ec1ea25138",
+    "date": "2026-11-23"
+  },
+  "/en/terms": {
+    "hash": "d49f8458f2978a0b",
+    "date": "2026-11-23"
+  },
+  "/features": {
+    "hash": "0542c8a9d0c92508",
+    "date": "2026-11-23"
+  },
+  "/features/inventory": {
+    "hash": "178dc3461c7b970a",
+    "date": "2026-11-23"
+  },
+  "/industries": {
+    "hash": "ea9683f17dcf2eb6",
+    "date": "2026-11-23"
+  },
+  "/pricing": {
+    "hash": "200d8dead5dc0a56",
+    "date": "2026-11-23"
+  },
+  "/privacy": {
+    "hash": "7c71ef82740c574a",
+    "date": "2026-11-23"
+  },
+  "/product": {
+    "hash": "74e13559c50e8c28",
+    "date": "2026-11-23"
+  },
+  "/refund-policy": {
+    "hash": "fabc52c6418009c4",
+    "date": "2026-11-23"
+  },
+  "/terms": {
+    "hash": "88d825d4c1dfe933",
+    "date": "2026-11-23"
+  }
+}

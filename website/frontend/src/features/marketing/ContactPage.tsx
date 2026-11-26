@@ -17,8 +17,9 @@ import { sound } from "@/lib/sound";
 import { useTranslation } from "@/i18n";
 import { assetUrl } from "@/lib/utils";
 import { MizanMagnetic } from "@/components/motion/MizanMagnetic";
-import { Link } from "react-router-dom";
+import { Link } from "@app/seo/LocaleLink";
 import { BUSINESS, PHONE_HREF, whatsappHref } from "@app/features/legal/business";
+import { track } from "@app/analytics";
 
 export default function ContactPage() {
   const { locale } = useTranslation();
@@ -57,6 +58,7 @@ export default function ContactPage() {
       industryLabel && `${isAr ? "النشاط" : "Industry"}: ${industryLabel}`,
       message.trim() && `\n${message.trim()}`,
     ].filter(Boolean);
+    track(inquiryType === "demo" ? "demo_request" : "contact_submit", { inquiry_type: inquiryType });
     window.open(whatsappHref(lines.join("\n")), "_blank", "noopener,noreferrer");
     setIsSuccess(true);
     try {
@@ -103,8 +105,11 @@ export default function ContactPage() {
               <div className="rounded-3xl border border-[#E7D6C1] bg-white p-8 shadow-xs space-y-6">
                 <div className="relative rounded-2xl overflow-hidden border border-[#E7D6C1] aspect-[16/10] bg-[#35151D]">
                   <img
-                    src={assetUrl("assets/marketing/contact-building.jpg")}
-                    alt="Mizan Headquarters"
+                    src={assetUrl("assets/marketing/contact-building.webp")}
+                    alt=""
+                    width={184}
+                    height={176}
+                    decoding="async"
                     className="w-full h-full object-cover opacity-90 hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#35151D]/80 via-transparent to-transparent" />

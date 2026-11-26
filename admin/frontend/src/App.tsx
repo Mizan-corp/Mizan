@@ -16,6 +16,7 @@ const Activity = lazy(() => import("@app/pages/Activity"));
 const Marketplace = lazy(() => import("@app/pages/Marketplace"));
 const Team = lazy(() => import("@app/pages/Team"));
 const System = lazy(() => import("@app/pages/System"));
+const Website = lazy(() => import("@app/pages/Website"));
 
 const isStaff = (u: User | null) => !!u && (u.is_superadmin || u.role === "superadmin");
 
@@ -54,6 +55,7 @@ export default function App() {
           <Route path="billing" element={<Billing />} />
           <Route path="activity" element={<Activity />} />
           <Route path="marketplace" element={<Marketplace />} />
+          <Route path="website" element={<Website />} />
           <Route path="team" element={<Team />} />
           <Route path="system" element={<System />} />
         </Route>

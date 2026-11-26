@@ -291,6 +291,24 @@ export const useOwner = (id: string | null) =>
 
 export const useTeam = () => useQuery({ queryKey: ["team"], queryFn: () => api.get<{ items: Person[]; me: string }>("/admoon/team") });
 
+export interface WebsiteAnalytics {
+  since: string;
+  days: number;
+  page_views: number;
+  by_day: { day: string; views: number }[];
+  pages: { path: string; views: number }[];
+  languages: { lang: string; views: number }[];
+  referrers: { host: string; views: number }[];
+  events: { name: string; count: number }[];
+  event_pages: { name: string; path: string; count: number }[];
+}
+
+export const useWebsiteAnalytics = (days: number) =>
+  useQuery({
+    queryKey: ["website-analytics", days],
+    queryFn: () => api.get<WebsiteAnalytics>("/admoon/website/analytics", { days }),
+  });
+
 export const useSystem = () =>
   useQuery({ queryKey: ["system"], queryFn: () => api.get<SystemHealth>("/admoon/system"), refetchInterval: 30_000 });
 

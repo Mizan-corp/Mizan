@@ -13,8 +13,9 @@ import { Button } from "@/components/kit/button";
 import { Badge } from "@/components/kit/badge";
 import { toast as sonnerToast } from "sonner";
 import { useTranslation } from "@/i18n";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import { MizanMagnetic } from "@/components/motion/MizanMagnetic";
+import { PRICING_FAQS } from "./pricingFaqs";
 
 interface SubscriptionInfo {
   plan: string;
@@ -42,6 +43,8 @@ function SiteLink({ to, ...rest }: { to: string } & Omit<ComponentProps<"a">, "h
   return APP_KIND === "website" ? <Link to={to} {...rest} /> : <a href={appUrl("website", to)} {...rest} />;
 }
 
+const samePath = (path: string) => path;
+
 /**
  * Plans & checkout. The website renders it inside its marketing layout for
  * visitors; the system app renders it inside the app shell for upgrades.
@@ -49,10 +52,13 @@ function SiteLink({ to, ...rest }: { to: string } & Omit<ComponentProps<"a">, "h
 export default function PricingPage({
   layout: Layout = PlainLayout,
   ownerPanel = null,
+  sitePath = samePath,
 }: {
   layout?: ComponentType<{ children: ReactNode }>;
   /** On the website, for a signed-in owner (#79): opens a path of the owner panel with their session. */
   ownerPanel?: ((path: string) => void) | null;
+  /** On the website: a page's address in the visitor's language ("/signup" → "/en/signup"). */
+  sitePath?: (path: string) => string;
 }) {
   const { user, tenant } = useAuth();
   const navigate = useNavigate();
@@ -60,7 +66,8 @@ export default function PricingPage({
   const isAr = locale === "ar";
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("monthly");
-  const [currency, setCurrency] = useState<"USD" | "EGP">("USD");
+  // The price animates when the visitor changes the billing cycle, not on the first paint.
+  const [priceChanged, setPriceChanged] = useState(false);
 
   // Live Subscription Status (if logged in)
   const [subInfo, setSubInfo] = useState<SubscriptionInfo | null>(null);
@@ -86,7 +93,7 @@ export default function PricingPage({
       return;
     }
     if (!user) {
-      if (APP_KIND === "website") navigate("/signup");
+      if (APP_KIND === "website") navigate(sitePath("/signup"));
       else window.location.assign(appUrl("website", "/signup"));
       return;
     }
@@ -111,42 +118,15 @@ export default function PricingPage({
   const comparisonFeatures = [
     { nameAr: "المستخدمين النشطين", nameEn: "Active Users", starter: "5", pro: "15", enterprise: "غير محدود / Unlimited" },
     { nameAr: "الفروع والمخازن المتصلة", nameEn: "Branches & Warehouses", starter: "1", pro: "3", enterprise: "غير محدود / Unlimited" },
-    { nameAr: "المعمارية ونمط العمل الأوفلاين", nameEn: "Offline-First Engine", starter: true, pro: true, enterprise: true },
-    { nameAr: "قاعدة بيانات معزولة RLS مشفرة", nameEn: "Encrypted Isolated RLS Database", starter: true, pro: true, enterprise: true },
-    { nameAr: "كافة الـ 47 موديول قطاعي", nameEn: "Full 47 Sector Modules", starter: false, pro: true, enterprise: true },
-    { nameAr: "شاشات المطابخ KDS وبوالص الشحن", nameEn: "Kitchen KDS & Fleet Dispatch", starter: false, pro: true, enterprise: true },
-    { nameAr: "استيراد ملفات وتكامل REST API", nameEn: "REST API & Webhooks Access", starter: false, pro: true, enterprise: true },
+    { nameAr: "حفظ الفواتير عند انقطاع الإنترنت", nameEn: "Sales kept when the internet drops", starter: true, pro: true, enterprise: true },
+    { nameAr: "عزل بيانات كل منشأة (RLS)", nameEn: "Each business's data isolated (RLS)", starter: true, pro: true, enterprise: true },
+    { nameAr: "الأنشطة المتاحة", nameEn: "Business activities", starter: "الأساسية / Core", pro: "التجارية والخدمية / Trade & services", enterprise: "كلها / All" },
+    { nameAr: "شاشة المطبخ KDS", nameEn: "Kitchen display (KDS)", starter: true, pro: true, enterprise: true },
     { nameAr: "خادم مخصص ونطاق خاص (Custom Domain)", nameEn: "Dedicated Server & Custom Domain", starter: false, pro: false, enterprise: true },
     { nameAr: "ترخيص مكتبي .exe محلي للأجهزة", nameEn: "Local .exe Desktop License", starter: false, pro: false, enterprise: true },
-    { nameAr: "مدير حساب هندسي ودعم 24/7", nameEn: "Dedicated Engineering Manager", starter: "Standard", pro: "Priority", enterprise: "24/7 SLA" },
+    { nameAr: "الدعم الفني", nameEn: "Support", starter: "واتساب وهاتف / WhatsApp & phone", pro: "واتساب وهاتف / WhatsApp & phone", enterprise: "مدير حساب / Account manager" },
   ];
 
-  const faqs = [
-    {
-      qAr: "هل أحتاج لبطاقة ائتمان لبدء التجربة المجانية؟",
-      qEn: "Do I need a credit card for the 14-day trial?",
-      aAr: "إطلاقاً. يمكنك تفعيل حسابك والبدء في إدارة مخزونك ونقاط البيع مجاناً بالكامل لمدة 14 يوماً بدون إدخال أي وسيلة دفع.",
-      aEn: "Not at all. You can register and experience full POS, inventory, and accounting features for 14 days with zero payment info required.",
-    },
-    {
-      qAr: "ما هي طرق الدفع المتاحة داخل مصر وخارجها؟",
-      qEn: "What payment methods are supported?",
-      aAr: "ندعم السداد بالجنيه المصري عبر كود فوري (Fawry)، تحويل فوري عبر إنستاباي (InstaPay)، محفظة فودافون كاش، والبطاقات الائتمانية البنكية (Visa / MasterCard).",
-      aEn: "We support EGP billing via Fawry pay code, instant bank transfers via InstaPay, Vodafone Cash, and standard Visa / Mastercard.",
-    },
-    {
-      qAr: "هل يمكنني الترقية أو تغيير الباقة لاحقاً مع توسع فروعنا؟",
-      qEn: "Can I scale or upgrade our plan as we add branches?",
-      aAr: "نعم وبكل سهولة. يتم احتساب فرق السعر بدقة متناهية (Prorated) وترقية مساحة العمل فورياً دون أي انقطاع في الخدمة أو توقف للكاشير.",
-      aEn: "Yes, seamlessly. Pricing is prorated and your workspace limits and modules upgrade instantly with zero cashier downtime.",
-    },
-    {
-      qAr: "هل تبقى بيانات مشروعي معزولة في حال انتهاء الاشتراك؟",
-      qEn: "Is our financial data safe if subscription lapses?",
-      aAr: "تبقى كافة فواتيرك وقيودك المحاسبية محفوظة ومعزولة ومشفرة بنمط القراءة فقط لمدة 90 يوماً إضافية مع إمكانية تصديرها بالكامل بصيغة Excel أو JSON في أي وقت.",
-      aEn: "All financial journals and transaction records remain strictly isolated, encrypted, and accessible in read-only mode for 90 days with one-click Excel/JSON export.",
-    },
-  ];
 
   return (
     <Layout>
@@ -182,13 +162,13 @@ export default function PricingPage({
               : "Choose the package tailored to your business scale. No hidden fees, upgrade or adjust branches anytime."}
           </p>
 
-          {/* Billing Cycle & Currency Toggles */}
+          {/* Billing cycle toggle */}
           <div className="pt-4 flex flex-wrap items-center justify-center gap-4">
             {/* Monthly / Annual Toggle with sliding layoutId indicator */}
             <div className="relative inline-flex items-center rounded-full border border-[#E7D6C1] bg-white p-1 shadow-xs">
               <button
                 type="button"
-                onClick={() => setBillingCycle("monthly")}
+                onClick={() => { setBillingCycle("monthly"); setPriceChanged(true); }}
                 className={`relative z-10 rounded-full px-5 py-2 text-xs font-semibold transition-colors ${
                   billingCycle === "monthly"
                     ? "text-white"
@@ -206,7 +186,7 @@ export default function PricingPage({
               </button>
               <button
                 type="button"
-                onClick={() => setBillingCycle("annual")}
+                onClick={() => { setBillingCycle("annual"); setPriceChanged(true); }}
                 className={`relative z-10 rounded-full px-5 py-2 text-xs font-semibold transition-colors flex items-center gap-1.5 ${
                   billingCycle === "annual"
                     ? "text-white"
@@ -228,36 +208,12 @@ export default function PricingPage({
                       : "bg-[#B86B76]/20 text-[#651E2C]"
                   }`}
                 >
-                  {isAr ? "وفر 20%" : "Save 20%"}
+                  {isAr ? "شهران مجانًا" : "2 months free"}
                 </span>
               </button>
             </div>
 
-            {/* Currency Switcher */}
-            <div className="inline-flex items-center rounded-full border border-[#E7D6C1] bg-white p-1 shadow-xs">
-              <button
-                type="button"
-                onClick={() => setCurrency("USD")}
-                className={`rounded-full px-4 py-2 text-xs font-bold transition-all ${
-                  currency === "USD"
-                    ? "bg-[#651E2C] text-white shadow-xs"
-                    : "text-[#77716E] hover:text-[#262321]"
-                }`}
-              >
-                USD ($)
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrency("EGP")}
-                className={`rounded-full px-4 py-2 text-xs font-bold transition-all ${
-                  currency === "EGP"
-                    ? "bg-[#651E2C] text-white shadow-xs"
-                    : "text-[#77716E] hover:text-[#262321]"
-                }`}
-              >
-                EGP (ج.م)
-              </button>
-            </div>
+            {/* Plans are sold in Egyptian pounds only (Paymob): the price shown is the price charged. */}
           </div>
 
           {/* Active Tenant Workspace Quota Status */}
@@ -311,18 +267,9 @@ export default function PricingPage({
               const isPopular = plan.popular;
               const isCurrent = isCurrentPlan(plan.id);
 
-              const usdRates: Record<string, { monthly: number; annual: number }> = {
-                starter: { monthly: 49, annual: 39 },
-                pro: { monthly: 99, annual: 79 },
-                enterprise: { monthly: 199, annual: 159 },
-              };
-
-              const price = currency === "USD"
-                ? (billingCycle === "annual" ? (usdRates[plan.id]?.annual ?? 49) : (usdRates[plan.id]?.monthly ?? 49))
-                : (billingCycle === "annual" ? Math.round(plan.price_annual_egp / 12) : plan.price_egp);
-
-              const symbol = currency === "USD" ? "$" : "";
-              const period = currency === "USD" ? (isAr ? "/ شهر" : "/ mo") : (isAr ? "ج.م / شهر" : "EGP / mo");
+              const price = billingCycle === "annual" ? Math.round(plan.price_annual_egp / 12) : plan.price_egp;
+              const symbol = "";
+              const period = isAr ? "ج.م / شهر" : "EGP / mo";
 
               return (
                 <div
@@ -341,13 +288,11 @@ export default function PricingPage({
 
                   <div className="space-y-6">
                     <div>
-                      <h3 className="font-display text-2xl font-bold text-[#262321]">
-                        {isAr
-                          ? plan.name.split("(")[0].trim()
-                          : plan.id.charAt(0).toUpperCase() + plan.id.slice(1)}
-                      </h3>
+                      <h2 className="font-display text-2xl font-bold text-[#262321]">
+                        {isAr ? plan.name.split("(")[0].trim() : plan.en.name}
+                      </h2>
                       <p className="mt-2 text-xs text-[#77716E] leading-relaxed">
-                        {isAr ? plan.tagline : plan.recommendedFor}
+                        {isAr ? plan.tagline : plan.en.tagline}
                       </p>
                     </div>
 
@@ -357,12 +302,12 @@ export default function PricingPage({
                           {symbol}
                           <motion.span
                             key={price}
-                            initial={{ opacity: 0, y: -8 }}
+                            initial={priceChanged ? { opacity: 0, y: -8 } : false}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.25 }}
                             className="inline-block"
                           >
-                            {price.toLocaleString()}
+                            {price.toLocaleString("en-US")}
                           </motion.span>
                         </span>
                         <span className="text-xs font-semibold text-[#77716E]">
@@ -371,7 +316,7 @@ export default function PricingPage({
                       </div>
                       <p className="mt-1 text-[11px] text-[#B86B76] font-medium font-mono">
                         {billingCycle === "annual"
-                          ? (isAr ? "(تدفع سنوياً مع خصم 20%)" : "(Billed annually, save 20%)")
+                          ? (isAr ? "(تُدفع سنويًا: شهران مجانًا)" : "(Billed yearly: 2 months free)")
                           : (isAr ? "(فاتورة شهرية مرنة)" : "(Flexible monthly billing)")}
                       </p>
                     </div>
@@ -381,7 +326,7 @@ export default function PricingPage({
                         {isAr ? "المزايا المتضمنة:" : "Included Capabilities:"}
                       </p>
                       <ul className="space-y-2.5 text-xs text-[#262321]">
-                        {plan.features.map((feat, idx) => (
+                        {(isAr ? plan.features : plan.en.features).map((feat, idx) => (
                           <li key={idx} className="flex items-start gap-2.5 leading-relaxed">
                             <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-[#FAF6F0] text-[#651E2C] border border-[#E7D6C1]">
                               <Check className="size-2.5 stroke-[3]" />
@@ -513,7 +458,7 @@ export default function PricingPage({
           </div>
 
           <div className="space-y-3">
-            {faqs.map((faq, idx) => {
+            {PRICING_FAQS.map((faq, idx) => {
               const isOpen = openFaq === idx;
               return (
                 <div
@@ -522,6 +467,8 @@ export default function PricingPage({
                 >
                   <button
                     type="button"
+                    aria-expanded={isOpen}
+                    aria-controls={`pricing-faq-${idx}`}
                     onClick={() => setOpenFaq(isOpen ? null : idx)}
                     className="w-full flex items-center justify-between p-5 text-start font-semibold text-xs sm:text-sm text-[#262321] hover:text-[#651E2C] transition-colors"
                   >
@@ -532,19 +479,14 @@ export default function PricingPage({
                       }`}
                     />
                   </button>
-                  <AnimatePresence>
-                    {isOpen && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="px-5 pb-5 text-xs text-[#77716E] leading-relaxed border-t border-[#E7D6C1]/50 pt-3"
-                      >
-                        {isAr ? faq.aAr : faq.aEn}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                  {/* In the page even when closed: the answers are the FAQ structured data's text. */}
+                  <div
+                    id={`pricing-faq-${idx}`}
+                    hidden={!isOpen}
+                    className="px-5 pb-5 text-xs text-[#77716E] leading-relaxed border-t border-[#E7D6C1]/50 pt-3"
+                  >
+                    {isAr ? faq.aAr : faq.aEn}
+                  </div>
                 </div>
               );
             })}
@@ -560,17 +502,17 @@ export default function PricingPage({
               </h2>
               <p className="mx-auto max-w-xl text-xs sm:text-sm text-[#E7D6C1] font-body leading-relaxed">
                 {isAr
-                  ? "فريقنا الهندسي مستعد لمساعدتك في تخطيط استضافة مخصصة، نقل البيانات التاريخية، وتدريب طاقم العمل."
-                  : "Our engineering consultants will assist you with custom deployments, legacy data migration, and on-premise setups."}
+                  ? "تواصل معنا لنخطط معك الاستضافة المخصصة أو التشغيل داخل منشأتك ونقل بياناتك الحالية."
+                  : "Talk to us about a dedicated server, running Mizan on your own premises, and bringing your existing data over."}
               </p>
               <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
                 <Button
-                  render={<SiteLink to="/contact" />}
+                  render={<SiteLink to={sitePath("/contact")} />}
                   nativeButton={false}
                   size="lg"
                   className="bg-[#651E2C] text-white hover:bg-[#8A293B] rounded-full px-6 py-2.5 text-xs font-bold"
                 >
-                  {isAr ? "حجز جلسة استشارية مع مهندس حلول" : "Book Enterprise Architecture Session"}
+                  {isAr ? "تواصل معنا" : "Contact us"}
                 </Button>
                 {ownerPanel ? (
                   <Button
@@ -583,7 +525,7 @@ export default function PricingPage({
                   </Button>
                 ) : (
                   <Button
-                    render={<SiteLink to="/signup" />}
+                    render={<SiteLink to={sitePath("/signup")} />}
                     nativeButton={false}
                     size="lg"
                     variant="outline"

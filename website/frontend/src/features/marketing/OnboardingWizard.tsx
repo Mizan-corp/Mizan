@@ -49,6 +49,7 @@ import {
 import { api, ApiError } from "@/lib/api";
 import { openWithSession } from "@/lib/handoff";
 import { saveOwnerSession } from "@app/lib/ownerSession";
+import { track } from "@app/analytics";
 import { type TenantInfo } from "@/stores/auth";
 import { applyTheme, type ThemePack } from "@/lib/theme";
 import { Button, ErrorBox, Input } from "@/components/ui";
@@ -418,6 +419,7 @@ export default function OnboardingWizard() {
     // The new owner lands in the owner panel, signed in, where a short tour
     // shows their workspace, how to open it, the trial and subscriptions.
     saveOwnerSession(session.owner_token);
+    track("signup_complete");
     openWithSession("owner", "/", session.owner_token);
   }
 

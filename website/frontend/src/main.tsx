@@ -1,11 +1,8 @@
-import React from "react";
 import ReactDOM from "react-dom/client";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
-import App from "./App";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { ToastProvider } from "@/components/ui";
-import { Toaster } from "@/components/kit/sonner";
+import type { ReactNode } from "react";
+import { Root, makeQueryClient } from "./Root";
+import "./fonts.css";
 import "@/styles.css";
 
 document.documentElement.classList.toggle(
@@ -19,23 +16,17 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((r) => r.unregister())).catch(() => {});
 }
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { retry: 1, staleTime: 30_000, refetchOnWindowFocus: false },
-  },
-});
-
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter basename={import.meta.env.BASE_URL}>
-          <ToastProvider>
-            <App />
-            <Toaster position="top-center" dir="rtl" />
-          </ToastProvider>
-        </BrowserRouter>
-      </QueryClientProvider>
-    </ErrorBoundary>
-  </React.StrictMode>,
+const Router = ({ children }: { children: ReactNode }) => (
+  <BrowserRouter basename={import.meta.env.BASE_URL}>{children}</BrowserRouter>
 );
+
+const container = document.getElementById("root")!;
+const tree = <Root router={Router} queryClient={makeQueryClient()} />;
+
+// Public pages arrive pre-rendered (ADR-016): React takes over the HTML that is already there.
+// Application pages (signup, onboarding, the developer portal…) come as the empty shell.
+if (container.dataset.prerendered) {
+  ReactDOM.hydrateRoot(container, tree);
+} else {
+  ReactDOM.createRoot(container).render(tree);
+}

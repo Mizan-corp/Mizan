@@ -13,9 +13,9 @@ internet ─ Cloudflare (DNS, TLS, *.allmizan.live) ─ tunnel ─┬─ api   (
 | File | What |
 |---|---|
 | `compose.yaml` | The services. On the server in `/srv/mizan`, next to `mizan.env` (secrets) and `.env` (`MIZAN_TAG`, the running commit). Only `127.0.0.1` ports; the tunnel is the way in. |
-| `asgi.py` | The four APIs in one process: picks the app by host (`api.`, `owner-api.`, `web-api.`, `admin-api.`) and drops the `/api` prefix, as Vercel's rewrites did. |
+| `asgi.py` | The four APIs in one process: picks the app by host (`api.`, `owner-api.`, `web-api.`, `admin-api.`) and drops the `/api` prefix, as Vercel's rewrites did. Every answer carries `X-Robots-Tag: noindex`, and `/robots.txt` disallows everything. |
 | `Dockerfile.api`, `Dockerfile.web` | The images. Dependencies sit in layers that change only with `pyproject.toml`/`package-lock.json`, so a release moves a few MB. |
-| `nginx.conf`, `mizan-*.conf` | The apps by host: `allmizan.live` and `dev.` the website, `/owner/` and `/admin/` the panels, any other host the ERP. |
+| `nginx.conf`, `mizan-*.conf` | The apps by host: `allmizan.live` the website's pre-rendered pages (real 404s, 301s for trailing slashes and moved addresses, robots.txt and sitemaps, application pages `noindex`; ADR-016), `dev.` the developer platform, `/owner/` and `/admin/` the panels (`mizan-panels.conf`), any other host the ERP (`noindex`, robots `Disallow: /`). Text files are served from the `.gz` copies the image makes (`gzip_static`); Cloudflare adds brotli for browsers. |
 | `deploy.sh` | A release: pull, back up, migrate (`manage.py db migrate --production`), switch; keeps the previous release for rollback (`deploy.sh <previous tag>`). |
 | `backup.sh`, `mizan-backup.{service,timer}` | Nightly `pg_dump` to `/mnt/media/backups/mizan` (another partition), 14 kept. |
 | `backup-offsite.sh` | Run by `mizan-backup.service` after the nightly `backup.sh` (not on releases): encrypts the newest dump (gpg, AES-256, passphrase in `/srv/mizan/backup.passphrase`) and uploads it to the R2 bucket `mizan-backups` (credentials in `/srv/mizan/r2.env`, scoped to that bucket). Each object is locked for 30 days and deleted after 35. See *Restoring from the off-site copy* below. |

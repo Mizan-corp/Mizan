@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@app/seo/LocaleLink";
 import {
   ShoppingCart,
   UtensilsCrossed,
@@ -29,8 +29,8 @@ export default function IndustriesPage() {
       titleEn: "Retail, Supermarkets & Showrooms",
       taglineAr: "سرعة في طوابير الكاشير، ربط الموازين والباركود، وتنبيهات نواقص الأرفف اللحظية.",
       taglineEn: "High-speed cashier checkout, scales and barcode integration, and live stock shortage alerts.",
-      descAr: "صُممت حزمة التجزئة خصيصاً للمتاجر الاستهلاكية، معارض الأجهزة، ومحلات السوبرماركت المزدحمة. تدعم قراءة باركود الأوزان للمواد الطازجة، إصدار الفواتير الضريبية في أقل من ثانيتين، وتحديث أرصدة المستودعات فورياً.",
-      descEn: "Designed for high-traffic retail outlets, supermarkets, and showrooms. Supports weight scale barcodes, under 2-second invoicing, and instant multi-branch stock reconciliation.",
+      descAr: "صُممت حزمة التجزئة خصيصاً للمتاجر الاستهلاكية، معارض الأجهزة، ومحلات السوبرماركت المزدحمة. تقرأ ملصقات باركود موازين الوزن للمواد الطازجة، وتصدر الفواتير بسرعة، وتحدّث أرصدة المستودعات فورياً.",
+      descEn: "For busy shops, supermarkets and showrooms: reads the barcode labels of weighing scales, fast invoicing, and stock that updates in every branch as you sell.",
       metricsAr: [
         { label: "سرعة الفاتورة", value: "< ثانيتين" },
         { label: "دقة المخزون", value: "99.8%" },
@@ -45,13 +45,13 @@ export default function IndustriesPage() {
         "دعم قراءة باركود الأوزان للمواد الطازجة",
         "تقسيم طرق الدفع (نقدي / فيزا / آجل)",
         "تعليق واستئناف الفواتير بنقرة زر",
-        "تقارير Z-Report اليومية لمطابقة الخزينة",
+        "تقفيل الوردية ومطابقة الخزينة يوميًا",
       ],
       featuresEn: [
         "Weight scale barcode scanning",
         "Split payment methods (Cash/Card/Credit)",
         "Instant bill holding and resume",
-        "Daily Z-Report register reconciliation",
+        "Daily shift close and drawer count",
       ],
     },
     {
@@ -61,8 +61,8 @@ export default function IndustriesPage() {
       titleEn: "Building Materials & Contracting Supplies",
       taglineAr: "تحويل الوحدات المركبة (أمتار، لفات، شكائر)، يومية الموردين، وتتبع الهالك والتوالف.",
       taglineEn: "Compound units conversion (meters, coils, bags), vendor credit ledgers, and scrap write-offs.",
-      descAr: "حل متخصص لشركات وتجار الأسمنت، السيراميك، الأدوات الصحية، السباكة، والأسلاك والإنارة. يعالج بدقة بيع الأطوال والأوزان المركبة وخصمها اللحظي من المخزن.",
-      descEn: "Engineered specifically for building materials, hardware, plumbing, and electrical merchants with compound length/weight units tracking.",
+      descAr: "حل متخصص لشركات وتجار الأسمنت، السيراميك، الأدوات الصحية، السباكة، والأسلاك والإنارة. يتابع آلاف الأصناف وأرصدتها في كل مخزن، والبيع الآجل لعملائك من المقاولين.",
+      descEn: "For building materials, hardware, plumbing and electrical merchants: thousands of items with their stock in every warehouse, and selling on credit to contractors.",
       metricsAr: [
         { label: "معاملات الوحدات", value: "آلية فورية" },
         { label: "مطابقة الموردين", value: "100%" },
@@ -74,16 +74,16 @@ export default function IndustriesPage() {
         { label: "Offline Mode", value: "Uninterrupted" },
       ],
       featuresAr: [
-        "بيع بالمتر أو اللفة أو الشيكارة مع تحويل فوري",
-        "متابعة مسحوبات الأجل وشيكات الموردين المؤجلة",
+        "البيع الآجل وكشف حساب لكل عميل",
+        "متابعة حسابات الموردين والمدفوعات",
         "تسجيل كسر السيراميك وتوالف الأنابيب والأسلاك",
-        "إصدار إيصالات حرارية 80mm متوافقة مع ETA",
+        "طباعة إيصالات حرارية 80mm",
       ],
       featuresEn: [
-        "Compound units conversion (meter/roll/bag)",
-        "Vendor payables and post-dated checks",
+        "Credit sales and a statement per customer",
+        "Supplier accounts and payments",
         "Scrap and breakage cost write-offs",
-        "ETA tax-compliant 80mm thermal receipts",
+        "80mm thermal receipt printing",
       ],
     },
     {
@@ -93,8 +93,8 @@ export default function IndustriesPage() {
       titleEn: "Restaurants, Cafes & Hospitality",
       taglineAr: "مخطط الصالة والطاولات، شاشات المطبخ اللحظية (KDS)، وتفكيك وصفات الوجبات الخام.",
       taglineEn: "Floorplan table mapping, real-time Kitchen Displays (KDS), and raw ingredients recipe costing.",
-      descAr: "منظومة متكاملة لقطاع الأغذية والمشروبات تربط الكابتن أوردر، شاشات المطبخ، والكاشير بسلاسة، مع خصم المقادير الخام للوجبة من المستودع تلقائياً.",
-      descEn: "End-to-end hospitality system linking table orders, kitchen display screens, and cashier checkout with automated raw recipe backflushing.",
+      descAr: "منظومة لقطاع الأغذية والمشروبات تربط الطاولات وشاشات المطبخ والكاشير، مع وصفات الأصناف وخصم مقاديرها من المخزن.",
+      descEn: "For restaurants and cafés: tables, kitchen display screens and the till together, with recipes that take their ingredients out of stock.",
       metricsAr: [
         { label: "ترحيل الطلب", value: "فوري لحظي" },
         { label: "خفض الهدر", value: "حتى 18%" },
@@ -108,14 +108,14 @@ export default function IndustriesPage() {
       featuresAr: [
         "شاشات مطبخ تفاعلية ملونة تصنف الطلبات وتحدد مدة التحضير",
         "مخطط تفاعلي لحالة الطاولات (مشغولة، فارغة، قيد التحاسب)",
-        "تجزئة الشيك (Split Bill) بعدة طرق دفع مقسمة",
-        "خصم مقادير الوجبة الخام من مستودع الأغذية تلقائياً",
+        "الدفع بأكثر من طريقة في الفاتورة نفسها",
+        "وصفات الأصناف وخصم مقاديرها وتسجيل الهالك",
       ],
       featuresEn: [
         "Interactive color-coded touch KDS displays",
-        "Interactive floorplan and table reservation states",
-        "Split bill processing across multiple diners",
-        "Automated raw ingredients recipe backflushing",
+        "Table plan with each table's status",
+        "Several payment methods on one bill",
+        "Recipes that deduct ingredients, and waste logging",
       ],
     },
     {
@@ -125,8 +125,8 @@ export default function IndustriesPage() {
       titleEn: "Manufacturing & Production Lines",
       taglineAr: "شجرة المواد (BOM)، أوامر التشغيل، تتبع تكاليف العمالة والآلات، وإدارة مراحل الإنتاج.",
       taglineEn: "Bill of Materials (BOM), work orders, machine/labor cost tracking, and production stage audits.",
-      descAr: "حزمة متقدمة للمصانع والورش والمنشآت التحويلية لمتابعة استهلاك المواد الخام، تكاليف التشغيل غير المباشرة، وحساب التكلفة الفعلية للمنتج النهائي بدقة متناهية.",
-      descEn: "Advanced manufacturing engine tracking raw materials consumption, overhead costs, and actual finished goods unit profitability.",
+      descAr: "حزمة للمصانع والورش: شجرة مكونات المنتج، مراكز العمل، أوامر الإنتاج ومراحلها، وفحوصات الجودة.",
+      descEn: "For factories and workshops: bills of materials, work centres, production orders and their stages, and quality checks.",
       metricsAr: [
         { label: "تتبع شجرة المواد", value: "دقة 100%" },
         { label: "أوامر التشغيل", value: "لحظية" },
@@ -138,16 +138,16 @@ export default function IndustriesPage() {
         { label: "Unit Costing", value: "Automated" },
       ],
       featuresAr: [
-        "شجرة مواد تفصيلية للمنتجات المعقدة متعدة المستويات",
+        "شجرة مكونات المنتج (BOM)",
         "أوامر تشغيل ومتابعة مراحل الإنتاج من المادة الخام للتام",
-        "توزيع تكاليف الكهرباء والعمالة والصيانة على التشغيلات",
-        "تقارير فروق التكلفة المعيارية والتكلفة الفعلية",
+        "مراكز العمل وتكلفة ساعة العمل",
+        "فحوصات الجودة وكفاءة المعدات (OEE)",
       ],
       featuresEn: [
-        "Multi-level Bill of Materials (BOM) definitions",
+        "Bills of materials (BOM)",
         "Work orders tracking stages from raw to finished",
-        "Labor, electricity, and maintenance cost allocation",
-        "Standard vs actual costing variance analytics",
+        "Work centres and their hourly labour cost",
+        "Quality inspections and equipment efficiency (OEE)",
       ],
     },
     {
@@ -158,7 +158,7 @@ export default function IndustriesPage() {
       taglineAr: "الملفات الطبية الإلكترونية (EMR)، حجز المواعيد والكشوفات، والروشتات الرقمية.",
       taglineEn: "Electronic Medical Records (EMR), appointment scheduling, and digital prescription workflows.",
       descAr: "نظام إداري وطبي متكامل للمجمعات الطبية والعيادات التخصصية، يدعم تنظيم جدول الأطباء، السجل المرضي الموحد لكل مريض، وإرسال الروشتة إلكترونياً لصيدلية المركز.",
-      descEn: "Comprehensive clinical and administrative management for healthcare facilities, patient files, appointment queuing, and digital doctor notes.",
+      descEn: "Clinical and administrative management for clinics: patient files, doctors' appointments, prescriptions sent to the centre's pharmacy, lab orders, billing and insurance claims.",
       metricsAr: [
         { label: "أرشفة السجلات", value: "سحابية مشفرة" },
         { label: "زمن الانتظار", value: "انخفاض 40%" },
@@ -171,15 +171,15 @@ export default function IndustriesPage() {
       ],
       featuresAr: [
         "سجل مرضي إلكتروني شامل لكل مريض يوثق الزيارات والتشخيص",
-        "جدول مواعيد تفاعلي للأطباء مع رسائل تذكير تلقائية",
+        "جدول مواعيد الأطباء والحجوزات",
         "طباعة الروشتات الرقمية وطلبات التحاليل والأشعة المعتمدة",
-        "تقارير محاسبية لنسب وأتعاب الأطباء مع المطالبات المالية",
+        "فواتير العيادة ومطالبات التأمين",
       ],
       featuresEn: [
         "Comprehensive patient history and diagnostic records",
-        "Doctor appointment scheduling with SMS reminders",
+        "Doctors' appointments and bookings",
         "Digital prescriptions and lab test requests printing",
-        "Doctor revenue share commissions and fee statements",
+        "Clinic billing and insurance claims",
       ],
     },
     {
@@ -189,8 +189,8 @@ export default function IndustriesPage() {
       titleEn: "Professional Services & Consulting",
       taglineAr: "عقود الخدمات، الساعات القابلة للفوترة، خطابات التكليف، وربط المصروفات بالمشروعات.",
       taglineEn: "Client contracts, billable hours, engagement letters, and cost-center project profitability.",
-      descAr: "صُممت لمكاتب المحاسبة، الاستشارات، شركات البرمجيات، ووكالات الدعاية لتتبع ربحية المشروعات بدقة واحتساب الساعات المستحقة وإصدار المطالبات الدورية.",
-      descEn: "Tailored for consulting, law firms, software agencies, and professional practices to track project profitability and billable client retainers.",
+      descAr: "لمكاتب المحاسبة والاستشارات وشركات البرمجيات ووكالات الدعاية: ساعات العمل القابلة للفوترة، عقود العملاء ورصيد كل عقد، والمواعيد النهائية.",
+      descEn: "For accounting firms, consultancies, software and creative agencies: billable hours, client engagements and their retainer balance, and deadlines.",
       metricsAr: [
         { label: "تتبع الساعات", value: "دقيق لحظياً" },
         { label: "أرباح المشروعات", value: "كشف فوري" },
@@ -203,15 +203,15 @@ export default function IndustriesPage() {
       ],
       featuresAr: [
         "تسجيل ساعات عمل الاستشاريين القابلة للفوترة",
-        "إدارة العقود والمطالبات المالية الدورية التلقائية",
-        "تحليل ربحية كل مشروع وكل عميل على حدة",
-        "إدارة مهام الفريق وتوزيع المسؤوليات بنظام كانبان",
+        "عقود العملاء (Retainer) والخصم من رصيدها",
+        "متابعة المواعيد النهائية والتسليمات",
+        "ملخص لكل عميل: الساعات والرصيد",
       ],
       featuresEn: [
         "Billable consultant time and timesheet approvals",
-        "Recurring service contracts and retainer management",
-        "Granular project and client profitability analytics",
-        "Team task assignment and Kanban milestone boards",
+        "Client engagements and retainer drawdowns",
+        "Deadlines and deliverables",
+        "A summary per client: hours and balance",
       ],
     },
   ];

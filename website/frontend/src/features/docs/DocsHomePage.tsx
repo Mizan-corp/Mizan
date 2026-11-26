@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { Link } from "@app/seo/LocaleLink";
 import {
   BookOpen,
   Boxes,
@@ -116,8 +117,11 @@ export default function DocsHomePage() {
           {/* Arched Architectural Photo Side */}
           <div className="hidden lg:block lg:col-span-4 h-full min-h-[300px] relative overflow-hidden">
             <img
-              src={assetUrl("assets/marketing/arch-hero-feature.jpg")}
-              alt="Mizan Knowledge Arch"
+              src={assetUrl("assets/marketing/arch-hero-feature.webp")}
+              alt=""
+              width={310}
+              height={200}
+              decoding="async"
               className="w-full h-full object-cover opacity-90 hover:scale-105 transition-transform duration-700"
             />
             <div className="absolute inset-0 bg-gradient-to-e from-[#35151D] via-[#35151D]/40 to-transparent" />

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
+import { Link } from "@app/seo/LocaleLink";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Search,
@@ -14,7 +15,7 @@ import {
 } from "lucide-react";
 import { DOC_SECTIONS, type DocSection } from "./docsData";
 import { useUiStore } from "@/stores/ui";
-import { useI18nStore } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { MizanLogo } from "@/components/MizanLogo";
 import { MizanReadingProgress } from "@/components/motion/MizanReadingProgress";
 
@@ -39,7 +40,8 @@ export function DocsLayout({
 }: DocsLayoutProps) {
   const location = useLocation();
   const { themeMode, toggleThemeMode } = useUiStore();
-  const { locale, toggleLocale, dir } = useI18nStore();
+  // The page's language (the user docs are Arabic; the developer docs choose their own).
+  const { locale, dir } = useTranslation();
   const isAr = locale === "ar";
 
   const [searchOpen, setSearchOpen] = useState(false);
@@ -112,7 +114,7 @@ export function DocsLayout({
             </button>
 
             <Link to={home} className="flex items-center gap-2">
-              <MizanLogo size="sm" showWordmark={true} />
+              <MizanLogo size="sm" showWordmark={true} locale={locale} />
             </Link>
 
             <span className="text-[#E7D6C1] hidden sm:inline-block">/</span>
@@ -148,14 +150,14 @@ export function DocsLayout({
               </kbd>
             </button>
 
-            <button
+            {onToggleLocale && <button
               type="button"
-              onClick={onToggleLocale ?? toggleLocale}
+              onClick={onToggleLocale}
               title={isAr ? "Switch to English" : "التبديل إلى العربية"}
               className="flex size-9 items-center justify-center rounded-full border border-[#E7D6C1] bg-white text-xs font-bold text-[#262321] hover:border-[#651E2C]"
             >
               {isAr ? "EN" : "ع"}
-            </button>
+            </button>}
 
             <button
               type="button"
@@ -256,7 +258,7 @@ export function DocsLayout({
                 className="fixed inset-y-0 start-0 w-80 bg-[#FAF6F0] p-6 shadow-2xl overflow-y-auto border-e border-[#E7D6C1]"
               >
                 <div className="flex items-center justify-between pb-4 border-b border-[#E7D6C1] mb-4">
-                  <MizanLogo size="sm" showWordmark={true} />
+                  <MizanLogo size="sm" showWordmark={true} locale={locale} />
                   <button
                     type="button"
                     onClick={() => setMobileSidebarOpen(false)}
