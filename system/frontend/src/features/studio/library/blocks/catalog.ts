@@ -10,6 +10,7 @@ export const blockCatalog: {id:PresetKind;name:string;category:string;descriptio
 {id:'icon_list',name:'Icon list',category:'Features',description:'Short points, each with a simple icon you choose from a built-in set.'},
 {id:'quote',name:'Featured quote',category:'Feedback',description:'A centered quote with an attribution.'},
 {id:'contact',name:'Contact invitation',category:'Contact',description:'A contact headline and editable contact-page link.'},
+{id:'contact_form',name:'Contact form',category:'Contact',description:'A working contact form: visitors send a message from the published page, you read every message in the Website tab. Email and message are always asked; name and phone are switches.'},
 {id:'hero_center',name:'Centered introduction',category:'Hero sections',description:'A centered headline with art beneath.'},
 {id:'feedback_cards',name:'Two customer stories',category:'Feedback',description:'Two editable testimonial cards. Replace all sample quotes.'},
 {id:'features_split',name:'Benefit + illustration',category:'Features',description:'An illustration beside a focused benefit story.'},

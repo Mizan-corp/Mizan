@@ -219,3 +219,33 @@ describe('Theme chrome logo and footer groups', () => {
     expect(html).not.toContain('>L7<');
   });
 });
+
+describe('form block (contact-form V1)', () => {
+  const formTree = {
+    id: 'n_root1', type: 'section', settings: { desktop: {} }, content: {},
+    children: [{
+      id: 'n_cols01', type: 'columns', settings: { desktop: {} }, content: {},
+      children: [{
+        id: 'n_col001', type: 'column', settings: {}, content: {},
+        children: [{
+          id: 'n_form01', type: 'form',
+          settings: { desktop: { visible: true, field_name: true, field_phone: false } },
+          content: { en: { title: 'Contact us', submit_label: 'Send' } },
+        }],
+      }],
+    }],
+  };
+  function renderForm() {
+    return renderToStaticMarkup(createElement(TreePreview, { tree: formTree as never, lang: 'en', device: 'desktop' }));
+  }
+  it('renders inert: no form element, disabled button, fields by toggle', () => {
+    const html = renderForm();
+    expect(html).not.toContain('<form');
+    expect(html).toContain('mz-form-inert');
+    expect(html).toContain('disabled');
+    expect(html).toContain('Contact us');
+    expect(html).toContain('>Name</label>');
+    expect(html).not.toContain('>Phone</label>');
+    expect(html).toContain('type="email"');
+  });
+});
