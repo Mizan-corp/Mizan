@@ -100,7 +100,9 @@ class DbBackendTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ServeFileTests(unittest.IsolatedAsyncioTestCase):
-    async def test_db_backend_serves_bytes_with_immutable_cache(self):
+    async def test_db_backend_serves_bytes_with_revalidate_cache_by_default(self):
+        # The default policy revalidates every request and is never `public`: a shared cache
+        # must not be able to serve gated bytes after a session ends or access is revoked.
         db = AsyncMock()
         result = MagicMock()
         result.first.return_value = (b"IMG", "image/png")
@@ -110,7 +112,33 @@ class ServeFileTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(res, Response)
         self.assertEqual(res.body, b"IMG")
         self.assertEqual(res.media_type, "image/png")
-        self.assertIn("immutable", res.headers["cache-control"])
+        self.assertEqual(res.headers["cache-control"], "private, no-cache")
+
+    async def test_db_backend_public_asset_cache_is_browser_only(self):
+        # Referenced public assets get a long PRIVATE lifetime: the reader's own browser may
+        # keep them, a shared/edge cache may not.
+        db = AsyncMock()
+        result = MagicMock()
+        result.first.return_value = (b"IMG", "image/png")
+        db.execute = AsyncMock(side_effect=[MagicMock(), result, MagicMock()])
+        with patch.dict(os.environ, SERVERLESS):
+            res = await files.serve_file(db, "/uploads/t/x/site_image/a.png", "image/png",
+                                         cache=files.CACHE_PRIVATE_LONG)
+        self.assertEqual(res.headers["cache-control"], "private, max-age=31536000, immutable")
+
+    async def test_disk_backend_carries_the_cache_policy(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d, patch.dict(os.environ, ON_SITE):
+            from app.core.config import settings
+            saved = settings.UPLOAD_DIR
+            settings.UPLOAD_DIR = d
+            try:
+                os.makedirs(os.path.join(d, "t", "x", "site_image"))
+                Path(os.path.join(d, "t", "x", "site_image", "a.png")).write_bytes(b"IMG")
+                res = await files.serve_file(AsyncMock(), "/uploads/t/x/site_image/a.png", "image/png")
+                self.assertEqual(res.headers["cache-control"], "private, no-cache")
+            finally:
+                settings.UPLOAD_DIR = saved
 
     async def test_db_backend_missing_is_none(self):
         db = AsyncMock()

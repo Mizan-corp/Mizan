@@ -260,18 +260,32 @@ def backend_name() -> str:
     return "db" if os.environ.get("VERCEL") else "disk"
 
 
-async def serve_file(db: AsyncSession, url: str, content_type: str | None = None) -> Response | None:
+# Cache policies for served files. A serving route's access gate only runs when the request
+# reaches the app, so a response a SHARED cache may keep would outlive the gate: after a session
+# ends, a file is unreferenced or a page is unpublished, an edge/browser-shared copy marked
+# public would still be served to anyone, bypassing the gate. Nothing gated is ever marked
+# `public`. The default revalidates every request (session-gated reads); referenced public
+# assets may be kept by the reader's OWN browser only (private) - their URLs carry a random
+# suffix, so a long private lifetime is safe and a revoke only has to stop NEW readers.
+CACHE_REVALIDATE = "private, no-cache"
+CACHE_PRIVATE_LONG = "private, max-age=31536000, immutable"
+
+
+async def serve_file(db: AsyncSession, url: str, content_type: str | None = None,
+                     *, cache: str = CACHE_REVALIDATE) -> Response | None:
     """A response for a stored /uploads/ URL whichever backend holds the bytes; None when absent.
     Serving routes call this only AFTER their own access gate passes (branding reference, session,
-    module permission, public reference). On the database backend the fetch uses the request-local
-    bypass like the metadata lookups in those routes."""
+    module permission, public reference) and pass the cache policy their gate allows: never a
+    `public` policy, so no shared cache can serve gated bytes after access changes. On the
+    database backend the fetch uses the request-local bypass like the metadata lookups in those
+    routes."""
     if backend_name() == "db":
         found = await _DB().read(db, url)
         if found is None:
             return None
         data, stored_type = found
         return Response(content=data, media_type=content_type or stored_type or "application/octet-stream",
-                        headers={"cache-control": "public, max-age=31536000, immutable"})
+                        headers={"cache-control": cache})
     if url.startswith("/uploads/") and ".." not in url:
         import mimetypes
         from app.core.config import settings
@@ -279,7 +293,7 @@ async def serve_file(db: AsyncSession, url: str, content_type: str | None = None
         full = os.path.realpath(os.path.join(root, url.removeprefix("/uploads/")))
         if full.startswith(root + os.sep) and os.path.isfile(full):
             media_type = content_type or mimetypes.guess_type(full)[0] or "application/octet-stream"
-            return FileResponse(full, media_type=media_type)
+            return FileResponse(full, media_type=media_type, headers={"cache-control": cache})
     return None
 
 
