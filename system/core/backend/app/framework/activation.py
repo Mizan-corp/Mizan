@@ -381,7 +381,9 @@ async def set_active_modules(db: AsyncSession, modules: list[str], preset_id: st
     if tid is None:
         raise HTTPException(status_code=400, detail="لا توجد منشأة محددة")
 
-    clean_mods = with_dependencies(canonical_modules(["core", *modules]))
+    from app.framework.composition import system_modules
+
+    clean_mods = with_dependencies(canonical_modules(["core", *system_modules(), *modules]))
 
     tenant = await db.get(Tenant, tid)
     if tenant is None:
