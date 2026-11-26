@@ -48,7 +48,7 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://ci:ci@localhost:5432/ci  # dummy — not connected at import
           SECRET_KEY: ci-secret-key-not-for-production-32ch
         run: |
-          for svc in system website owner admin; do
+          for svc in system/erp website owner admin; do
             (cd $svc/backend && python -c "import main; print('$svc:', len(main.app.routes), 'routes')")
           done
 
@@ -97,8 +97,8 @@ jobs:
 
       - name: Start the four dev servers (browser flows)
         run: |
-          for w in system website admin owner; do
-            nohup npm run dev -w $w/frontend > /tmp/dev_$w.log 2>&1 &
+          for w in system/erp website admin owner; do
+            nohup npm run dev -w $w/frontend > /tmp/dev_${w##*/}.log 2>&1 &
           done
           for port in 5173 5174 5175 5176; do
             for i in $(seq 1 60); do curl -s -o /dev/null http://localhost:$port && break; sleep 2; done

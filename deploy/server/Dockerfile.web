@@ -24,7 +24,7 @@ COPY website/frontend website/frontend
 COPY owner/frontend owner/frontend
 COPY admin/frontend admin/frontend
 COPY --from=sdk /out website/frontend/public/sdk
-RUN for app in system website owner admin; do npm run build -w $app/frontend || exit 1; done
+RUN for app in system/erp website owner admin; do npm run build -w $app/frontend || exit 1; done
 # The standalone Studio (the Website module's "Open Studio" opens /studio-preview.html on the ERP host).
 # VITE_STUDIO_API makes it a hosted build: it saves and loads through the production API, same as the ERP.
 RUN cd system/erp/frontend && VITE_STUDIO_API=https://api.allmizan.live/api \
