@@ -185,6 +185,33 @@ class ConnectedDataAccessTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(updates), 1)
         self.assertIn("allow_connected_data IS TRUE", updates[0][0])
 
+    async def test_ordinary_disable_preserves_managed_audience_version(self):
+        # An ordinary availability disable on a managed row (allow_connected_data)
+        # must not overwrite the connected-data audience wording the activation
+        # was approved under with the synthetic one: the upsert carries the
+        # row's stored version instead.
+        db = db_scripted()
+        managed_row = MagicMock(enabled=True, allow_connected_data=True,
+                                audience_policy_version=service.AUDIENCE_POLICY_CONNECTED)
+
+        async def _exec(stmt, params=None):
+            db._calls.append((str(stmt), params))
+            r = MagicMock()
+            r.first.return_value = managed_row if "FROM site_activation" in str(stmt) else None
+            return r
+
+        db.execute.side_effect = _exec
+        with patch.object(service, "get_page", new=AsyncMock(return_value=page())), \
+             patch.object(settings, "PUBLIC_SITE_HOST", HOST), \
+             patch.object(service, "resolved_settings", new=AsyncMock(return_value={"a": 1})), \
+             patch.object(service, "get_public_access", new=AsyncMock(return_value={"enabled": False})):
+            await service.set_public_access(db, PAGE_ID, enabled=False, user_id=UID)
+        writes = [c for c in db._calls if "INSERT INTO site_activation" in c[0]]
+        self.assertEqual(len(writes), 1)
+        self.assertEqual(writes[0][1]["apv"], service.AUDIENCE_POLICY_CONNECTED)
+        # The conflict UPDATE still never touches the flag itself.
+        self.assertNotIn("allow_connected_data", writes[0][0].split("DO UPDATE", 1)[1])
+
 
 class PublishGuardTests(unittest.IsolatedAsyncioTestCase):
     """publish() under an enabled connected activation must stay inside the

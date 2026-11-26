@@ -793,18 +793,23 @@ async def set_public_access(db: AsyncSession, page_id: uuid.UUID, *, enabled: bo
         # content only.
         raise HTTPException(409, "Pages that read business data cannot be made public in synthetic scope")
     host = _public_host()
+    # Fail-closed on managed rows (review F1): an activation row carrying
+    # allow_connected_data=True can only come from a separately approved
+    # operation. An ordinary availability toggle must not re-enable such a
+    # row: that would expose connected data publicly without renewed scope.
+    # Refuse instead of silently stripping the approved flag. Disabling is
+    # unaffected and never touches the flag - and now also preserves the
+    # connected-data audience wording the row was approved under instead of
+    # overwriting it with the synthetic one.
+    existing = (await db.execute(text(
+        "SELECT enabled, allow_connected_data, audience_policy_version FROM site_activation"
+        " WHERE host = :h AND slug = :s AND page_path = :p"
+    ), {"h": host, "s": PUBLIC_SITE_SLUG, "p": page.slug})).first()
+    managed = existing is not None and existing.allow_connected_data
+    effective_apv = (existing.audience_policy_version if managed and existing.audience_policy_version
+                     else _AUDIENCE_POLICY)
     if enabled:
-        # Fail-closed on managed rows (review F1): an activation row carrying
-        # allow_connected_data=True can only come from a separately approved
-        # operation. An ordinary availability toggle must not re-enable such a
-        # row: that would expose connected data publicly without renewed scope.
-        # Refuse instead of silently stripping the approved flag. Disabling is
-        # unaffected and never touches the flag.
-        existing = (await db.execute(text(
-            "SELECT enabled, allow_connected_data FROM site_activation"
-            " WHERE host = :h AND slug = :s AND page_path = :p"
-        ), {"h": host, "s": PUBLIC_SITE_SLUG, "p": page.slug})).first()
-        if existing is not None and existing.allow_connected_data:
+        if managed:
             if existing.enabled:
                 # Already public under the managed activation: refusing the
                 # toggle changes nothing, so say exactly that - never claim
@@ -829,7 +834,7 @@ async def set_public_access(db: AsyncSession, page_id: uuid.UUID, *, enabled: bo
             activated_by = :uid, updated_at = now()
     """), {"tid": current_tenant_id.get(), "h": host, "s": PUBLIC_SITE_SLUG,
            "p": page.slug, "en": enabled, "theme": json.dumps(theme, ensure_ascii=False),
-           "apv": _AUDIENCE_POLICY, "uid": user_id})
+           "apv": effective_apv, "uid": user_id})
     await db.commit()
     return await get_public_access(db, page_id)
 

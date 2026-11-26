@@ -235,7 +235,7 @@ export default function NativeStudio({apiBase='/__studio/api',previewLabel:_prev
   const connectedSection=publishedBound&&pubAccess?<div className="mz-connected-access">
     <strong>{t('بيانات من شغلك على الصفحة')}</strong>
     {pubAccess.connected_data&&!widerApprovalNeeded?<>
-      <p>{t('الصفحة دي متاحة للعامة ببياناتها المتصلة. أي حد يفتح العنوان يشوف البيانات دي من غير تسجيل دخول. المصادر المعتمدة:')}</p>
+      <p>{pubAccess.enabled?t('الصفحة دي متاحة للعامة ببياناتها المتصلة. أي حد يفتح العنوان يشوف البيانات دي من غير تسجيل دخول. المصادر المعتمدة:'):t('بيانات الصفحة دي معتمدة للعرض العام، بس الإتاحة متوقفة دلوقتي - العنوان مش بيفتح للزوار. المصادر المعتمدة:')}</p>
       <ul>{(pubAccess.sources??[]).map(s=><li key={s}><code dir="ltr">{s}</code></li>)}</ul>
       {!pubAccess.enabled&&<p className="hint">{t('الإتاحة العامة متوقفة دلوقتي. تشغيلها تاني محتاج موافقة جديدة على نفس المصادر المعتمدة.')}</p>}
       {!pubAccess.enabled&&<button className="mz-btn primary" disabled={pubBusy} onClick={()=>void toggleConnected(true)}>{t('أوافق، خلّي البيانات دي عامة')}</button>}
@@ -330,14 +330,14 @@ export default function NativeStudio({apiBase='/__studio/api',previewLabel:_prev
       <li className={Object.values(titles).some(x=>typeof x==='string'&&x.trim())?'ok':'warn'}>{Object.values(titles).some(x=>typeof x==='string'&&x.trim())?t('الصفحة ليها عنوان'):t('الصفحة محتاجة عنوان قبل النشر')}</li>
       <li className="info">{page.published?t('الصفحة منشورة قبل كده. النشر بيحدّث النسخة العامة وبيحفظ نسخة جديدة.'):t('أول نشرة للصفحة دي. كل نشر بيتحفظ كنسخة تقدر ترجع لها.')}</li>
       </ul>
-      {page.published&&pubAccess&&<div className="mz-publish-actions"><button className="mz-btn ghost" disabled={pubBusy} onClick={()=>void togglePublic()}>{pubAccess.enabled?t('وقّف الإتاحة'):t('خلّيها متاحة للناس')}</button></div>}
+      {page.published&&pubAccess&&!publishedBound&&<div className="mz-publish-actions"><button className="mz-btn ghost" disabled={pubBusy} onClick={()=>void togglePublic()}>{pubAccess.enabled?t('وقّف الإتاحة'):t('خلّيها متاحة للناس')}</button></div>}
       {pubError&&<p role="alert" className="mz-publish-error">{pubError}</p>}
       <div className="mz-publish-actions"><button className="mz-btn primary" disabled={pubBusy||dirty||moduleDirty||sharedDirty||!Object.values(titles).some(x=>typeof x==='string'&&x.trim())} onClick={()=>void doPublish()}>{pubBusy?t('بننشر…'):t('انشر الصفحة')}</button><button className="mz-btn ghost" disabled={pubBusy} onClick={()=>setPublishOpen(false)}>{t('كمان مراجعة')}</button></div>
       </>}
       {pubDone&&<>
       {pubAccess?.url?<div className="mz-publish-linkrow"><a className="mz-publish-link" href={pubAccess.url} target="_blank" rel="noreferrer">{urlLine(pubAccess.url)}</a><button className="mz-inline" onClick={()=>{const u=pubAccess.url??'';if(navigator.clipboard)void navigator.clipboard.writeText(u).then(()=>setPubError(''),()=>setPubError(t('تعذّر نسخ العنوان.')))}}>{t('نسخ العنوان')}</button></div>:<p>{t('الصفحة اتنشرت كنسخة عامة محفوظة.')}</p>}
-      <p className="motion-note">{pubAccess?.enabled?t('الصفحة متاحة للناس على العنوان ده.'):t('الصفحة لسه خاصة. فعّل الإتاحة عشان العنوان يفتح للناس.')}</p>
-      {pubAccess&&<button className="mz-btn ghost" disabled={pubBusy} onClick={()=>void togglePublic()}>{pubAccess.enabled?t('وقّف الإتاحة'):t('خلّيها متاحة للناس')}</button>}
+      <p className="motion-note">{pubAccess?.enabled?t('الصفحة متاحة للناس على العنوان ده.'):publishedBound?t('الصفحة لسه خاصة. الإتاحة بتتفعّل بالموافقة على عرض البيانات من فوق.'):t('الصفحة لسه خاصة. فعّل الإتاحة عشان العنوان يفتح للناس.')}</p>
+      {pubAccess&&!publishedBound&&<button className="mz-btn ghost" disabled={pubBusy} onClick={()=>void togglePublic()}>{pubAccess.enabled?t('وقّف الإتاحة'):t('خلّيها متاحة للناس')}</button>}
       {pubError&&<p role="alert" className="mz-publish-error">{pubError}</p>}
       <details className="mz-publish-revisions"><summary>{t('النسخ المحفوظة')} ({revisions.length})</summary>{revisions.map(r=><div className="mz-revision" key={r.id}><span>{t('نسخة')} {r.number}{r.created_at?` · ${new Date(r.created_at).toLocaleString('ar-EG')}`:''}</span><button className="mz-inline" disabled={pubBusy} onClick={()=>void doRollback(r.id)}>{t('رجّع النسخة دي')}</button></div>)}</details>
       <div className="mz-publish-actions"><button className="mz-btn primary" onClick={()=>setPublishOpen(false)}>{t('رجوع للتعديل')}</button></div>
