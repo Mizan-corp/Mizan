@@ -111,7 +111,7 @@ one, a workspace can change to it ([ADR-012](docs/decisions/ADR-012-running-acti
 | **Sales invoices / month** | 100 | 500 | 5,000 | Unlimited |
 | **Industries** | Core | Core + Phase 1 | Phases 1–3 | All 30 |
 
-Prices come from `shared/backend/app/platform/billing/plans.py`, which is the source of truth.
+Prices come from `system/core/backend/app/platform/billing/plans.py`, which is the source of truth.
 
 ---
 
@@ -176,7 +176,7 @@ filter, automatic stamping on insert, and **PostgreSQL Row-Level Security** as a
 inside the database. If an application bug forgets a filter, the database still says no.
 
 **2. Activities and modules are plug-ins, not forks.**
-Every business activity is one folder, `shared/backend/app/activities/<activity>/`: its
+Every business activity is one folder, `system/core/backend/app/activities/<activity>/`: its
 `activity.json` (modules, menus and dashboards per role, terms, positions, default theme), its
 modules (`modules/<id>/`, each with a `manifest.json`, models, router and templates), how it
 adapts other activities' modules (`variants/<module>/`: extra fields, settings, rules at the
@@ -308,7 +308,7 @@ python manage.py doctor    # what's installed, what's running, what to fix
 | Mailpit (emails the APIs send) | http://localhost:8025 | every API (set `MAILPIT_PORT` if 8025 is taken) |
 
 **A new database starts empty.** Docker loads a structure-only baseline
-(`shared/backend/app/db/baseline_schema.sql`, no data), the API builds the rest of the schema,
+(`system/core/backend/app/db/baseline_schema.sql`, no data), the API builds the rest of the schema,
 and `db migrate` creates one workspace (“ميزان”) with two accounts: `ammar` / `changeme` for the
 app and the owner panel, and `platform` / `changeme` for the admin panel (override with `MIZAN_ADMIN_*` and
 `MIZAN_PLATFORM_*` `_USERNAME` / `_PASSWORD`). The bootstrap does nothing once any user exists.

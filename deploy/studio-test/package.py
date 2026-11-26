@@ -19,7 +19,7 @@ a = parser.parse_args()
 r, out = a.repo.resolve(), a.output.resolve()
 if out.exists():
     raise SystemExit("Use a new output directory. Existing output is never overwritten.")
-for needed in [r/"shared/backend/app", r/"system/backend/system_api", r/"website/backend/website_api", a.studio_build/"studio-preview.html", a.erp_build/"index.html"]:
+for needed in [r/"system/core/backend/app", r/"system/backend/system_api", r/"website/backend/website_api", a.studio_build/"studio-preview.html", a.erp_build/"index.html"]:
     if not needed.exists():
         raise SystemExit(f"Missing required build/source: {needed}")
 # Catch the repository production-env default before packaging a test ERP.
@@ -28,10 +28,10 @@ for asset in (a.erp_build/"assets").glob("*.js"):
         raise SystemExit("ERP build targets the existing external API. Rebuild with VITE_API_URL=/api.")
 out.mkdir(parents=True)
 ignore = shutil.ignore_patterns("__pycache__", "*.pyc", ".ruff_cache", ".pytest_cache", ".env*", "*.egg-info", "build")
-shutil.copytree(r/"shared/backend/app", out/"app", ignore=ignore)
+shutil.copytree(r/"system/core/backend/app", out/"app", ignore=ignore)
 shutil.copytree(r/"system/backend/system_api", out/"system_api", ignore=ignore)
 shutil.copytree(r/"website/backend/website_api", out/"website_api", ignore=ignore)
-deps = tomllib.loads((r/"shared/backend/pyproject.toml").read_text())["project"]["dependencies"]
+deps = tomllib.loads((r/"system/core/backend/pyproject.toml").read_text())["project"]["dependencies"]
 (out/"requirements.txt").write_text("\n".join(deps)+"\n")
 (out/".python-version").write_text("3.12\n")
 (out/"api").mkdir()

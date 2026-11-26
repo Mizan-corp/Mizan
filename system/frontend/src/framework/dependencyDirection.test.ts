@@ -35,7 +35,7 @@ function tsImports(file: string, forbidden: RegExp): string[] {
 
 describe("dependency direction", () => {
   it("shared backend imports no app package", () => {
-    const bad = files(join(ROOT, "shared/backend/app"), [".py"]).flatMap((f) => pyImports(f, ["system_api", "owner_api", "admin_api", "website_api"]));
+    const bad = files(join(ROOT, "system/core/backend/app"), [".py"]).flatMap((f) => pyImports(f, ["system_api", "owner_api", "admin_api", "website_api"]));
     expect(bad).toEqual([]);
   });
 
@@ -57,7 +57,7 @@ describe("dependency direction", () => {
   });
 
   it("scans real files (guard against an empty scan passing)", () => {
-    expect(files(join(ROOT, "shared/backend/app"), [".py"]).length).toBeGreaterThan(100);
+    expect(files(join(ROOT, "system/core/backend/app"), [".py"]).length).toBeGreaterThan(100);
     expect(files(join(ROOT, "shared/frontend/src"), [".ts", ".tsx"]).length).toBeGreaterThan(20);
   });
 });

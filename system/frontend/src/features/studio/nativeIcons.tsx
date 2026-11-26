@@ -1,5 +1,5 @@
 // Bounded inline icon set for icon_list blocks: no icon font, no network fetch.
-// Mirrored in shared/backend/app/platform/site/render.py (_ICON_MARKUP); keep entries identical.
+// Mirrored in system/core/backend/app/platform/site/render.py (_ICON_MARKUP); keep entries identical.
 export const ICON_MARKUP: Record<string, string> = {
   Wrench: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.8 2.8-2-2 2.8-2.8z"/>',
   Laptop: '<rect x="4" y="5" width="16" height="10" rx="1.5"/><path d="M2 19h20"/>',

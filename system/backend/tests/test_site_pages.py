@@ -151,7 +151,7 @@ def test_pages_stay_within_size_limits():
 
 
 def test_the_sdk_ships_this_validator_byte_for_byte():
-    backend = ROOT / "shared" / "backend" / "app" / "framework" / "manifest.py"
+    backend = ROOT / "system" / "core" / "backend" / "app" / "framework" / "manifest.py"
     sdk = ROOT / "sdk" / "python" / "mizan_sdk" / "manifest.py"
     assert backend.read_bytes() == sdk.read_bytes()
 

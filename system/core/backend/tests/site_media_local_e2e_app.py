@@ -8,7 +8,7 @@ import sys
 import uuid
 from types import SimpleNamespace
 
-sys.path.insert(0, "/tmp/mizan-push/shared/backend")
+sys.path.insert(0, "/tmp/mizan-push/system/core/backend")
 
 from fastapi import FastAPI, Request  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402

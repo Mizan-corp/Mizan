@@ -6,7 +6,7 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 SDK = ROOT / 'sdk/python/mizan_sdk/storefront.py'
-PLATFORM = ROOT / 'shared/backend/app/framework/storefront.py'
+PLATFORM = ROOT / 'system/core/backend/app/framework/storefront.py'
 if not PLATFORM.exists():
     PLATFORM = ROOT / 'backend/app/framework/storefront.py'
 spec = importlib.util.spec_from_file_location('storefront_contract', SDK)

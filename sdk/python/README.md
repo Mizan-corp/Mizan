@@ -19,7 +19,7 @@ mizan whoami | logout
 ```
 
 `mizan_sdk/manifest.py` is a byte copy of the platform's validator
-(`shared/backend/app/framework/manifest.py`) and `mizan_sdk/themes.py` of Mizan's own theme;
+(`system/core/backend/app/framework/manifest.py`) and `mizan_sdk/themes.py` of Mizan's own theme;
 platform tests fail if either drifts. Tests: `python -m pytest` here (also run by
 `python manage.py test backend` and CI). Until the package is on PyPI, the release workflow
 builds the wheel that `dev.allmizan.live/sdk/` serves.

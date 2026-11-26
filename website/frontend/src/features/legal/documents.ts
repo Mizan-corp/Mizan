@@ -1,7 +1,7 @@
 /**
  * The legal pages' text, in Arabic and English. Keep both languages saying the
  * same thing, and keep them true to how Mizan works (pricing in
- * shared/backend/app/core/plans.py, payments in ADR-004, on-site installs in ADR-005).
+ * system/core/backend/app/core/plans.py, payments in ADR-004, on-site installs in ADR-005).
  * When a page changes, update BUSINESS.effective.
  */
 import { BUSINESS as B } from "./business";

@@ -199,7 +199,7 @@ export function createSitePagesClient(options: { baseUrl: string; fetchImpl?: Fe
     getPublicAccess: (pageId: string) => call<PublicAccess>('GET', `/site/pages/${pageId}/public-access`),
     setPublicAccess: (pageId: string, enabled: boolean) => call<PublicAccess>('PUT', `/site/pages/${pageId}/public-access`, { enabled }),
     setConnectedDataAccess: (pageId: string, enabled: boolean, audienceVersion: string) => call<PublicAccess>('PUT', `/site/pages/${pageId}/connected-data-access`, { enabled, audience_version: audienceVersion }),
-    // Must mirror AUDIENCE_POLICY_CONNECTED in shared/backend app/platform/site/service.py;
+    // Must mirror AUDIENCE_POLICY_CONNECTED in system/core/backend app/platform/site/service.py;
     // the writer refuses any other version so stale cached wording can never approve silently.
     connectedDataAudienceVersion: 'mizan.site-audience.connected-data.v1' as const,
     listRevisions: (pageId: string) => call<ListResponse<Revision>>('GET', `/site/pages/${pageId}/revisions`),

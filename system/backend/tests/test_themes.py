@@ -16,7 +16,7 @@ FONT = b"wOF2\x00\x01fake-font"
 
 def platform_theme(theme_id: str) -> dict:
     """A platform theme as consumers see it: palette + font refs expanded."""
-    base = os.path.join(os.path.dirname(__file__), "../../../shared/backend/app/themes")
+    base = os.path.join(os.path.dirname(__file__), "../../../system/core/backend/app/themes")
     t = json.loads(open(os.path.join(base, theme_id, "theme.json"), encoding="utf-8").read())
     if "colors" not in t and isinstance(t.get("palette"), str):
         pal = json.loads(open(os.path.join(base, "_palettes", t["palette"] + ".json"), encoding="utf-8").read())
@@ -167,7 +167,7 @@ def test_the_sdk_starts_themes_from_mizans_own_and_checks_them_the_same_way(tmp_
     from pathlib import Path
 
     repo = Path(__file__).resolve().parents[3]
-    platform = json.loads((repo / "shared/backend/app/themes/mizan/theme.json").read_text(encoding="utf-8"))
+    platform = json.loads((repo / "system/core/backend/app/themes/mizan/theme.json").read_text(encoding="utf-8"))
     sys.path.insert(0, str(repo / "sdk/python"))
     try:
         from mizan_sdk.cli import theme_starter
@@ -178,7 +178,7 @@ def test_the_sdk_starts_themes_from_mizans_own_and_checks_them_the_same_way(tmp_
     assert MIZAN == platform, "sdk/python/mizan_sdk/themes.py is out of date with app/themes/mizan/theme.json"
     from mizan_sdk.themes import MIZAN_COLORS
 
-    palette = json.loads((repo / "shared/backend/app/themes/_palettes/mizan.json").read_text(encoding="utf-8"))
+    palette = json.loads((repo / "system/core/backend/app/themes/_palettes/mizan.json").read_text(encoding="utf-8"))
     assert MIZAN_COLORS == palette["colors"], "MIZAN_COLORS is out of date with _palettes/mizan.json"
     key, cert = developer()
     pkg = mzm.verify(sdk_build({"manifest.json": json.dumps(theme_starter("acme.dawn")).encode()}, key, cert))

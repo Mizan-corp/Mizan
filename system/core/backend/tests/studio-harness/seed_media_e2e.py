@@ -7,7 +7,7 @@ import os
 import sys
 import uuid
 
-sys.path.insert(0, os.environ.get("STUDIO_BACKEND_ROOT", "/tmp/mizan-push/shared/backend"))
+sys.path.insert(0, os.environ.get("STUDIO_BACKEND_ROOT", "/tmp/mizan-push/system/core/backend"))
 os.environ["DATABASE_URL"] = "postgresql+asyncpg://postgres@127.0.0.1:5544/mizan_studio_e2e"
 os.environ.setdefault("SECRET_KEY", "studio-e2e-secret")
 

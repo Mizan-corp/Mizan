@@ -606,7 +606,7 @@ PAGE_EMBED_HOSTS = ("www.youtube.com", "www.youtube-nocookie.com", "maps.google.
 
 # Bounded inline icon set names for icon blocks and icon_list items: the renderers carry the
 # matching inline SVG markup (no icon font, no network fetch); mirrored in
-# shared/backend/app/platform/site/render.py (_ICON_MARKUP) and nativeIcons.tsx (ICON_MARKUP).
+# system/core/backend/app/platform/site/render.py (_ICON_MARKUP) and nativeIcons.tsx (ICON_MARKUP).
 PAGE_ICONS = ("Wrench", "Laptop", "Smartphone", "ShieldCheck", "Truck", "Check", "Star", "Headphones",
               "Cpu", "BatteryCharging", "Camera", "Home", "Mail", "MapPin", "ArrowRight", "Sparkles",
               "Clock", "CreditCard", "Package", "Heart", "ShoppingBag", "BookOpen", "Stethoscope",

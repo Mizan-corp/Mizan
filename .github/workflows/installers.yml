@@ -8,7 +8,7 @@ on:
     tags: ['v*']
     paths-ignore: ['**.md']
   pull_request:
-    paths: ['installer/**', 'shared/backend/app/onprem/**', '.github/workflows/installers.yml']
+    paths: ['installer/**', 'system/core/backend/app/onprem/**', '.github/workflows/installers.yml']
   workflow_dispatch:
 
 concurrency:
@@ -59,7 +59,7 @@ jobs:
         run: |
           npm ci
           python -m pip install --upgrade pip
-          pip install ./shared/backend -r installer/server/requirements.txt
+          pip install ./system/core/backend -r installer/server/requirements.txt
 
       - name: Cache PostgreSQL and WinSW downloads
         uses: actions/cache@v4

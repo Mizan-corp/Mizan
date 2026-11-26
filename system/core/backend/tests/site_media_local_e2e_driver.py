@@ -4,7 +4,7 @@ import os
 import sys
 import uuid
 
-sys.path.insert(0, "/tmp/mizan-push/shared/backend")
+sys.path.insert(0, "/tmp/mizan-push/system/core/backend")
 os.environ["DATABASE_URL"] = "postgresql+asyncpg://postgres@127.0.0.1:5544/mizan_media"
 
 import httpx  # noqa: E402

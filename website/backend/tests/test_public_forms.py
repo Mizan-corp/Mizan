@@ -18,7 +18,7 @@ os.environ.setdefault('DATABASE_URL', 'postgresql+asyncpg://unused:unused@127.0.
 os.environ.setdefault('SECRET_KEY', 'offline-test-not-used-for-signing')
 os.environ.setdefault('PUBLIC_SITE_HOST', 'sites.example')
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'shared' / 'backend'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'system' / 'core' / 'backend'))
 
 from app.platform.tenancy.context import current_tenant_id
 from website_api.routers import public_forms as pf

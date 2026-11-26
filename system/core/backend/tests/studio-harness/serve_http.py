@@ -7,7 +7,7 @@ to /tmp/pgtest/roundtrip_token.txt for the node round-trip script.
 import os
 import sys
 
-sys.path.insert(0, os.environ.get("STUDIO_BACKEND_ROOT", "/tmp/pgtest"))  # dir containing app/ (shared/backend in the repo)
+sys.path.insert(0, os.environ.get("STUDIO_BACKEND_ROOT", "/tmp/pgtest"))  # dir containing app/ (system/core/backend in the repo)
 os.environ["DATABASE_URL"] = "postgresql://postgres@/postgres?host=" + os.environ.get("STUDIO_PGDATA", "/tmp/pgdata2")
 
 import datetime as _dt  # noqa: E402

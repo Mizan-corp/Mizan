@@ -1,5 +1,5 @@
 """Local development preview bridge. Not an authenticated production API or site service.
-Uses the S2 renderer from MIZAN_SITE_BACKEND (path to shared/backend on its branch).
+Uses the S2 renderer from MIZAN_SITE_BACKEND (path to system/core/backend on its branch).
 Read one bounded JSON request from stdin and write one HTML document to stdout.
 """
 import json
@@ -8,7 +8,7 @@ import sys
 
 backend = os.environ.get('MIZAN_SITE_BACKEND')
 if not backend:
-    raise SystemExit('Set MIZAN_SITE_BACKEND to shared/backend from feat/s2-page-engine')
+    raise SystemExit('Set MIZAN_SITE_BACKEND to system/core/backend from feat/s2-page-engine')
 sys.path.insert(0, backend)
 from app.platform.site.render import render_document  # noqa: E402
 

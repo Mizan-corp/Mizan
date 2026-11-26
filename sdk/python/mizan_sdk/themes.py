@@ -1,4 +1,4 @@
-"""Mizan's own theme (shared/backend/app/themes/mizan/theme.json), the starting point of
+"""Mizan's own theme (system/core/backend/app/themes/mizan/theme.json), the starting point of
 `mizan theme new`. A platform test keeps it identical; MIZAN_COLORS mirrors
 _palettes/mizan.json so starters embed real colors (packages are self-contained)."""
 import json

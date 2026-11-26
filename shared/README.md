@@ -26,7 +26,7 @@ and admin apps, and rebuilds all of them.
   `state`). `app/platform/licensing/` signs and verifies licence keys, release offers and
   developer certificates; `app/platform/updates/` lists the published installers.
 
-Services depend on it via `pyproject.toml` (`[tool.uv.sources] mizan-shared = { path = "../../shared/backend" }`);
+Services depend on it via `pyproject.toml` (`[tool.uv.sources] mizan-shared = { path = "../../system/core/backend" }`);
 Docker images install it from the repo root build context.
 
 ## `frontend/`: the kit (`@mizan/shared`, imported as `@/`)

@@ -4,7 +4,7 @@ Local-only scripts that exercise the web studio against the site storage API and
 Nothing here is imported by the app. WIP on an INCOMPLETE branch, not for merge.
 
 Environment (all optional; defaults are the original sandbox paths):
-- STUDIO_BACKEND_ROOT: directory that contains app/ (shared/backend in this repo)
+- STUDIO_BACKEND_ROOT: directory that contains app/ (system/core/backend in this repo)
 - STUDIO_PGDATA: pgserver data dir for the throwaway database
 - STUDIO_OUT: directory where screenshots are written (default /downloads)
 - FIXTURE: parity-img fixture json (default ../fixtures/fixture-image.json)

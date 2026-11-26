@@ -51,7 +51,7 @@ def test_industry_routes_are_guarded_by_their_module():
 
 def test_one_catalogue_and_one_store_of_active_modules():
     # The hard-coded MODULE_CATALOG and the installed_modules setting are gone (migration v50).
-    app_dir = Path(__file__).resolve().parents[3] / "shared" / "backend" / "app"
+    app_dir = Path(__file__).resolve().parents[3] / "system" / "core" / "backend" / "app"
     for py in app_dir.rglob("*.py"):
         if py.name == "migrations.py" or "__pycache__" in py.parts:
             continue
@@ -77,7 +77,7 @@ def test_every_checked_permission_is_declared_once():
             owners.setdefault(p["id"] if isinstance(p, dict) else p, []).append(module_id)
     assert not {k: v for k, v in owners.items() if len(v) > 1}
 
-    root = Path(__file__).resolve().parents[3] / "shared" / "backend" / "app"
+    root = Path(__file__).resolve().parents[3] / "system" / "core" / "backend" / "app"
     checked = set()
     for f in root.rglob("*.py"):
         for call in re.findall(r"require_perm\(([^)]*)\)", f.read_text(errors="ignore")):
@@ -136,7 +136,7 @@ def test_activities_and_families_are_consistent():
 
 
 REPO = Path(__file__).resolve().parents[3]
-APP = REPO / "shared" / "backend" / "app"
+APP = REPO / "system" / "core" / "backend" / "app"
 ACTIVITIES = APP / "activities"
 FRONTEND = REPO / "system" / "frontend" / "src"
 # What an activity's folder may hold (ADR-010 D1); first-party activities may also share Python

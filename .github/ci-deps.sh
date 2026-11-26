@@ -49,8 +49,8 @@ ensure_python() {
 ensure_venv() {  # $1 = backend | e2e
   local files
   case "$1" in
-    backend) files="shared/backend/pyproject.toml" ;;
-    e2e)     files="shared/backend/pyproject.toml shared/backend/requirements-dev.txt e2e/requirements.txt" ;;
+    backend) files="system/core/backend/pyproject.toml" ;;
+    e2e)     files="system/core/backend/pyproject.toml system/core/backend/requirements-dev.txt e2e/requirements.txt" ;;
     *) echo "unknown py set: $1" >&2; exit 2 ;;
   esac
   local key; key=$(cat $files | sha256sum | cut -c1-16)
@@ -63,8 +63,8 @@ ensure_venv() {  # $1 = backend | e2e
     uv venv -q -p "$PY" "$venv.tmp"
     local t0=$SECONDS
     case "$1" in
-      backend) VIRTUAL_ENV="$venv.tmp" uv pip install -q ./shared/backend ruff ;;
-      e2e)     VIRTUAL_ENV="$venv.tmp" uv pip install -q ./shared/backend -r shared/backend/requirements-dev.txt \
+      backend) VIRTUAL_ENV="$venv.tmp" uv pip install -q ./system/core/backend ruff ;;
+      e2e)     VIRTUAL_ENV="$venv.tmp" uv pip install -q ./system/core/backend -r system/core/backend/requirements-dev.txt \
                                                      -r e2e/requirements.txt httpx ;;
     esac
     echo "   ($(( SECONDS - t0 ))s)"
@@ -73,7 +73,7 @@ ensure_venv() {  # $1 = backend | e2e
     find "$CACHE/venv" -maxdepth 1 -name "$1-py$PY-*" ! -name "$(basename "$venv")" -exec rm -rf {} + 2>/dev/null || true
   fi
   # This checkout's own code: editable, so a cached venv never runs yesterday's kernel.
-  VIRTUAL_ENV="$venv" uv pip install -q --no-deps -e ./shared/backend
+  VIRTUAL_ENV="$venv" uv pip install -q --no-deps -e ./system/core/backend
   gh_path "$venv/bin"
   gh_env VIRTUAL_ENV "$venv"
 }

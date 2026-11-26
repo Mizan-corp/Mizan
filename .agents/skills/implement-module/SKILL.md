@@ -9,7 +9,7 @@ When tasked with implementing a new module (e.g. `HLT-02`, a planned module of a
 
 1. **Requirements & Domain Inspection:**
    - Read the requirements (`docs/PRODUCT_REQUIREMENTS.md`, the SRS, the module's `README.md` if it is planned).
-   - Read `docs/MODULE_STANDARD.md` and inspect peer modules in `shared/backend/app/activities/<activity>/modules/`.
+   - Read `docs/MODULE_STANDARD.md` and inspect peer modules in `system/core/backend/app/activities/<activity>/modules/`.
 
 2. **Scaffold with the project's tool:**
    - `python manage.py module new <activity> <module_id> "<Arabic name>" --name-en "<English>"` creates the backend

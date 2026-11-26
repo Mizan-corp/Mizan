@@ -49,7 +49,7 @@ elsewhere (`paths.ts`). **English by default**, Arabic on request: its own langu
 - `AuthPage.tsx`, `PortalShell.tsx`, `TeamsPage.tsx`, `TeamPage.tsx`, `TokensPage.tsx`,
   `AccountPage.tsx`: the portal (developer accounts, teams and members, signing keys with
   Mizan's certificates, CLI tokens, password), over `/developers` on this API
-  (`backend/website_api/routers/developers.py`; logic in `shared/backend/app/platform/developers/`).
+  (`backend/website_api/routers/developers.py`; logic in `system/core/backend/app/platform/developers/`).
 - `devDocs.en.ts`, `devDocs.ts`: the developer docs in English and Arabic, rendered by the docs
   components (`features/docs/`). Keep them true to the code: the validator
   (`app/framework/manifest.py`), `/ext/v1`, webhooks, the CLI (`sdk/python`).

@@ -8,7 +8,7 @@ import { join, resolve } from "node:path";
 import { moduleDefinitions } from "./registry";
 
 const ROOT = resolve(__dirname, "../../../..");
-const BACKEND = join(ROOT, "shared/backend/app");
+const BACKEND = join(ROOT, "system/core/backend/app");
 const FRONTEND = join(ROOT, "system/frontend/src");
 
 interface Manifest { id: string; kind?: string; activity?: string; status?: string; screens?: { id: string; path: string }[] }

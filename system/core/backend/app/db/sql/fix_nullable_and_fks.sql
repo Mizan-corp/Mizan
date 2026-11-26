@@ -1,5 +1,5 @@
 -- Fix nullable columns + add missing FKs
--- Run: psql -U postgres -d <database> -f shared/backend/app/db/sql/fix_nullable_and_fks.sql
+-- Run: psql -U postgres -d <database> -f system/core/backend/app/db/sql/fix_nullable_and_fks.sql
 -- IMPORTANT: Back up database before running!
 
 -- 1. Set NOT NULL + DEFAULT 0 on sales.paid_amount and sales.returns_total

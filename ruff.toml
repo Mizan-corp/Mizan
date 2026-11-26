@@ -19,5 +19,5 @@ extend-immutable-calls = [
 known-first-party = ["app", "system_api", "website_api", "admin_api", "admoon"]
 [lint.per-file-ignores]
 # These import models so SQLAlchemy registers them (and re-export them); nothing else uses the names.
-"shared/backend/app/models/registry.py" = ["F401"]
-"shared/backend/app/activities/healthcare/models.py" = ["F401"]
+"system/core/backend/app/models/registry.py" = ["F401"]
+"system/core/backend/app/activities/healthcare/models.py" = ["F401"]

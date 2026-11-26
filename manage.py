@@ -41,8 +41,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 VENV = ROOT / ".venv"
 BACKUPS = ROOT / "backups"
-BASELINE = ROOT / "shared" / "backend" / "app" / "db" / "baseline_schema.sql"
-SHARED_BACKEND = ROOT / "shared" / "backend"
+BASELINE = ROOT / "system" / "core" / "backend" / "app" / "db" / "baseline_schema.sql"
+SHARED_BACKEND = ROOT / "system" / "core" / "backend"
 COMPOSE = ["docker", "compose", "-f", str(ROOT / "docker-compose.yml")]
 
 DB_SERVICE, DB_NAME, DB_USER = "db", "inventory_db", "postgres"
@@ -873,7 +873,7 @@ def _lint() -> None:
     ruff = [python_bin(), "-m", "ruff"] if VENV.exists() else ["ruff"]
     if not VENV.exists():
         need("ruff", "Run `python manage.py setup` or `pip install ruff`.")
-    run([*ruff, "check", "shared/backend", "system/backend", "website/backend", "owner/backend", "admin/backend", "sdk/python",
+    run([*ruff, "check", "system/core/backend", "system/backend", "website/backend", "owner/backend", "admin/backend", "sdk/python",
          "--select", "E9,F63,F7,F82,F821,F601,F401,F841"])
     ok("ruff")
     _need_node_modules()
@@ -930,7 +930,7 @@ asyncio.run(go())
 
 def cmd_module(opts: argparse.Namespace) -> None:
     """The ADR-006 module layout: create a module, fill in missing pieces, or check."""
-    sys.path.insert(0, str(ROOT / "shared" / "backend"))
+    sys.path.insert(0, str(ROOT / "system" / "core" / "backend"))
     from app.framework import scaffold
 
     if opts.action == "new":

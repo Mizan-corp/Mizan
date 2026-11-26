@@ -7,7 +7,7 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 HERE = Path(SPECPATH).resolve()
 REPO = HERE.parents[1]
-SHARED = REPO / "shared" / "backend"
+SHARED = REPO / "system" / "core" / "backend"
 SYSTEM = REPO / "system" / "backend"
 
 # Importing the app during analysis reads settings: give it harmless values.

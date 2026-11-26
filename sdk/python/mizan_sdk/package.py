@@ -1,5 +1,5 @@
 """Building a signed .mzm package from a module folder (the format Mizan verifies:
-shared/backend/app/framework/package.py, ADR-007 D1/D5)."""
+system/core/backend/app/framework/package.py, ADR-007 D1/D5)."""
 from __future__ import annotations
 
 import base64

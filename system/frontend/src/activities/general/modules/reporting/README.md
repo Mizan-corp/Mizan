@@ -2,7 +2,7 @@
 
 `reporting`, a module of the `general` activity: the fixed reports' screens and the dashboard's
 sales widgets. The backend, its rules and permissions:
-`shared/backend/app/activities/general/modules/reporting/README.md`. Custom and scheduled reports
+`system/core/backend/app/activities/general/modules/reporting/README.md`. Custom and scheduled reports
 (SRS XMOD-04, CORE-10) are not built yet.
 
 - `api.ts`: the reports' shapes (money as decimal strings) and the widgets' queries.

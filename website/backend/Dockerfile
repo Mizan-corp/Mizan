@@ -15,7 +15,7 @@ RUN apt-get update --fix-missing && \
       gcc g++ libpq-dev libffi-dev && \
     rm -rf /var/lib/apt/lists/*
 
-COPY shared/backend /build/shared
+COPY system/core/backend /build/shared
 RUN pip install --prefix=/install --no-cache-dir /build/shared
 
 # ─── Runtime: only what the service needs at run time (no gcc/toolchain) ───
@@ -39,7 +39,7 @@ RUN apt-get update --fix-missing && \
 
 COPY --from=builder /install/ /usr/local/
 
-COPY shared/backend/app /shared/app
+COPY system/core/backend/app /shared/app
 COPY website/backend /app
 
 RUN addgroup --system appgroup && \

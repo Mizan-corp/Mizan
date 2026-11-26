@@ -1,5 +1,5 @@
 -- Add composite indexes for common query patterns
--- Run: psql -U postgres -d <database> -f shared/backend/app/db/sql/add_indexes.sql
+-- Run: psql -U postgres -d <database> -f system/core/backend/app/db/sql/add_indexes.sql
 
 -- Stock movements: queries filtering by product + warehouse
 CREATE INDEX IF NOT EXISTS idx_stock_movements_product_warehouse

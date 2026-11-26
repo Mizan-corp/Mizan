@@ -5,7 +5,7 @@ existing studio-harness serve_http.py - never mounted in a real app."""
 import os
 import sys
 
-sys.path.insert(0, os.environ.get("STUDIO_BACKEND_ROOT", "/tmp/mizan-push/shared/backend"))
+sys.path.insert(0, os.environ.get("STUDIO_BACKEND_ROOT", "/tmp/mizan-push/system/core/backend"))
 os.environ["DATABASE_URL"] = os.environ.get("STUDIO_E2E_DB", "postgresql://postgres@127.0.0.1:5544/mizan_studio_e2e")
 os.environ.setdefault("SECRET_KEY", "studio-e2e-secret")
 os.environ.setdefault("UPLOAD_DIR", "/tmp/studio-e2e-uploads")

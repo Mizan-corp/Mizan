@@ -7,7 +7,7 @@ third-party palette collection. Each theme bundles its real font files (SIL OFL
 1.1, license text included in assets/) so the preview and the applied workspace
 render the same face. Run from the repo root:
 
-    python3 shared/backend/scripts/build_oc_themes.py
+    python3 system/core/backend/scripts/build_oc_themes.py
 
 Regenerating overwrites app/themes/<id>/ for the ids in SPECS only.
 """

@@ -1,4 +1,4 @@
-// React renderer for the S2 page tree: mirrors shared/backend/app/platform/site/render.py
+// React renderer for the S2 page tree: mirrors system/core/backend/app/platform/site/render.py
 // block-for-block (same mz-* classes, same settings cascade, same visibility and content
 // rules) so the studio's live preview shows exactly what the durable tree holds. If a
 // block cannot be represented, both renderers must grow together - never diverge.

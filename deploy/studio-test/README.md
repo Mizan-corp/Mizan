@@ -41,7 +41,7 @@ The current source preservation step compares pinned remote files with deployed/
 
 ## Visitor-runtime packaging correction, 2026-11-25 01:20 Cairo
 
-The synthetic visitor runtime (commit 88aeda3, website/backend/website_api/routers/public_pages.py) was never served by this deployment: the packager copied only shared/backend/app and system_api, api/index.py mounted only the system router, and vercel.json routed only /api/* to Python. Every /site/* request fell through to a Vercel edge NOT_FOUND. That universal edge-404 was never evidence of the activation privacy policy or of functional publishing, and any earlier observation that treated it as such is invalid and retracted.
+The synthetic visitor runtime (commit 88aeda3, website/backend/website_api/routers/public_pages.py) was never served by this deployment: the packager copied only system/core/backend/app and system_api, api/index.py mounted only the system router, and vercel.json routed only /api/* to Python. Every /site/* request fell through to a Vercel edge NOT_FOUND. That universal edge-404 was never evidence of the activation privacy policy or of functional publishing, and any earlier observation that treated it as such is invalid and retracted.
 
 The recipe now copies website_api into the function, mounts public_pages on the same app, and routes /site/* to it (commit 8217f02). Verified live on the test host, anonymous requests, 2026-11-25 ~01:19 Cairo: enabled synthetic fixture https://mizan-studio-feature-test.vercel.app/site/studio/welcome returns 200 with its static content, the runtime CSP (default-src 'none', frame-ancestors 'none') and cache-control: private, no-store; disabling its activation returns the app-level 404 {"detail":"Not found"}; re-enabling returns 200. Bound pages stay un-publicizable (publish refusal and fail-closed activation refusal from the page-bindings policy commits).
 
@@ -129,7 +129,7 @@ card-repeat-proof), kept as an intentional static fixture:
   names and EGP prices (pixel-verified).
 
 IMAGE SLOT NOT PROVEN: product image upload is refused by design on this host
-(shared/backend/app/framework/files.py: on Vercel without
+(system/core/backend/app/framework/files.py: on Vercel without
 BLOB_READ_WRITE_TOKEN, uploads return 503 "file storage not configured"
 rather than silently losing the file). No no-code path can create the
 WorkspaceFile product_image provenance the provider requires, so repeated
