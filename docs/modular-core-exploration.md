@@ -403,3 +403,31 @@ The gate is no longer needed to keep Mizan's own source secret, because the ques
 2. Keep reading old `.mzm` files for a transition period, or cut over at once (no third-party packages are known to exist yet, so cut-over is cheap).
 3. SDK openness: publish the SDK and CLI openly with account-gated publishing (my recommendation), or keep the SDK closed and gated.
 4. First compiled-code target (WebAssembly recommended for the free-first constraint), or keep community modules declarative only for the first release.
+
+## 9. Open questions (consolidated, all unanswered)
+
+Collected from sections 5 to 8 at the owner's request (26 November 2026, 13:47) so they can be decided later. Each has a default that applies if nothing is decided; no default has been approved. Nothing in this document has been implemented.
+
+### Layers and Studio (from section 5)
+1. **Two-layer model.** Activity layouts by SaaS admins plus workspace choices, with one shared Studio engine, or admin-only authoring first. Default: two layers, one engine, because the workspace and role layout storage already exists and one engine avoids two editors.
+2. **First activity to prove it.** `retail` or the Wirya-style website business. Default: `retail`, the most complete activity with the most existing layout data; the website case is already covered by Site Studio.
+
+### Owner choices and community authoring (from section 6)
+3. **Community code modules on production.** Only after the sandbox exists, or earlier when reviewed and signed. Default: after the sandbox, because hand-written code on real workspaces without isolation is the highest risk in the plan.
+4. **Review at launch.** Manual review of every submission, or automated checks plus spot review once a developer has an approved history. Default: manual for every submission at launch, then relax on track record; volume will be small and a mistake is costly.
+5. **First owner chooser release.** Fonts and colours only, with layouts and headers later. Default: fonts and colours only, since they are pure data with the lowest risk and no new page structure.
+
+### Marketplace and developer platform (from section 7)
+6. **Paid listings.** Free listings only at launch, price shown as free, paid items later. Default: free only, because paid needs a payment provider, tax, payouts and developer verification, and the owner said money is tight.
+7. **Review of listing text and images.** Every edit, or only the first publish and later changes to name or price. Default: every edit at launch, then relax; the public storefront shows these directly to customers.
+8. **Purpose of the SDK download gate.** Tracking and terms, or confidentiality. Default: tracking, terms and token issue. Section 8.4 explains that publishing only packaged artifacts removes the confidentiality need, so the SDK can be open.
+9. **GitHub.** Optional sign-in and publish from Actions first, or required for all developer accounts. Default: optional, so developers without GitHub are not excluded.
+
+### Package formats and compiled code (from section 8)
+10. **Names for the other kinds.** Confirm `.mzth` (theme and design sets), `.mzwt` (website template) and `.mzui` (module UI and layouts) next to the owner's `.mzmo` and `.mzba`. Default: these names, in the owner's pattern; only the first two were specified.
+11. **Old `.mzm` files.** Transition period or immediate cut-over. Default: cut over at once, because no third-party packages are known to exist; revisit if any do.
+12. **SDK openness.** Open SDK and CLI with login required for publishing, or a closed SDK. Default: open with gated publishing, for reach at no cost.
+13. **First compiled-code target.** WebAssembly, or declarative-only community modules for the first release. Default: declarative-only first, then WebAssembly when the sandbox exists, because it matches the free-first constraint and the sandbox gate in question 3.
+
+### Execution that follows this plan (not from the sections above)
+14. **Studio on the live server.** Deploy the current branch (Studio in the same web image as the ERP, ERP session reused so no second login) to homie, then test with a test account. Default: deploy only after the owner says so; it needs his approval click in GitHub. Until then nothing from this plan or the Studio changes is live.
