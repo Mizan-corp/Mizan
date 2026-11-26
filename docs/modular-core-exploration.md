@@ -238,3 +238,88 @@ Site Studio stays a core service on the ERP session. The other two live in the d
 1. Community code modules (hand-written, with their own backend logic): allowed on production workspaces only after the sandbox exists, or earlier for reviewed and signed modules? The default in this plan is after.
 2. Who reviews community submissions at launch: Mizan staff manually for every submission, or automated checks plus spot review once a developer has an approved history?
 3. Should a first release of the owner chooser cover fonts and colours only (lowest risk, data only), with layouts and headers following?
+
+## 7. Revision: public marketplace and developer platform (owner direction, 26 November 2026, 13:43)
+
+The owner's direction: (a) a community marketplace on `allmizan.live` where developers publish and promote modules, business activities and website templates, with the main storefront made for business owners to browse freely; (b) `dev.allmizan.live` for everything developer-related plus documentation; (c) the SDK downloads locally and brings the CLI tools and the Studio with it; (d) developers have accounts, can contribute with friends (GitHub-managed), can publish to Mizan and customise from the site their module's images, description, price and their profile as a programmer or company. He also said money is tight and free options come first, so every paid item below is a decision, not an assumption.
+
+### 7.1 What the repo already has (ADR-007, ADR-008, ADR-010, ADR-012)
+
+| Wish | Already there | Source |
+|---|---|---|
+| Developer accounts, separate from owner accounts, with teams | Built: accounts, teams, handles | `platform/developers`, ADR-007 D5 |
+| Signing and trust | Built: Ed25519 developer keys certified by Mizan, offline verification, revocation, countersignature `MZP1` on approval | ADR-007 D5, milestone 1 and 2 |
+| Publish flow | Built: `.mzm` package submit, `in_review/approved/rejected/withdrawn`, reviewer note, delist and relist, install counts | `platform/marketplace/listings.py`, ADR-007 milestone 2 |
+| Review console | Built: admin "Marketplace" page with scope diff, webhooks, permissions, theme colours and fonts | ADR-007 milestone 2 |
+| Store inside the ERP | Built: store section in the module centre (browse, search, filter by kind, installed and update available), re-verifies before install | system API `/modules/store` |
+| `dev.allmizan.live` | Reserved and routed: nginx already sends `allmizan.live` and `dev.allmizan.live` to the website app; ADR-007 D6 puts the portal, docs and SDK wheel there | `deploy/server/nginx.conf`, ADR-008 |
+| SDK and CLI | Specified and partly built: `mizan-sdk` (`mizan login`, `module new`, `check`, `package`, `publish`; `mizan dev` later) | ADR-007 D6, `sdk/` |
+| Kinds of listing | Modules and theme packs only. Developer activity packages wait for the second part of #107 | ADR-007 milestone 2 |
+| Free only | Paid listings, revenue share and payouts are not built and wait for Paymob (#65) | ADR-007 |
+
+### 7.2 What is missing
+
+1. **A public storefront on `allmizan.live`.** The store exists only inside a logged-in ERP (`/modules/store`, needs `community.manage`). Business owners cannot browse it from the public site, and nothing is indexable.
+2. **Listing pages as marketing pages:** images and screenshots, long description, categories, version history, reviews or ratings (later), install count, developer profile link.
+3. **Listing kinds beyond modules and themes:** business activities (needs #107 part 2: running a developer's activity package in a workspace), website templates (Studio page sets and blocks as a package kind), layout, header, font and palette items from section 6.
+4. **Developer self-service for listing content:** edit images, description and price on the site without a new package version. Today description and media come from the package manifest and the reviewer sees them only at submission. Needs a mutable "listing profile" separate from the immutable signed version, with its own light review for text and images.
+5. **Developer profile pages:** person or company, avatar, bio, links, verified status, their listings.
+6. **GitHub-managed collaboration.** Teams exist, but there is no GitHub link. Options: sign in with GitHub and map team members to a GitHub org or repo; publish from a GitHub Action using a scoped publish token. Nothing is built.
+7. **The SDK installing the Studio locally.** The SDK today is a Python package with a CLI; the Community Studio (section 6) does not exist and has no local mode. `mizan dev` (a local Mizan with the module) is listed as later.
+8. **Developer docs to match.** Docs are planned at `dev.allmizan.live/docs`; the older inaccurate articles on the website are to be replaced.
+9. **Paid items, payouts, tax and developer verification.** Entirely absent (see 7.5).
+
+### 7.3 Hosting and routing for the two hostnames
+
+Both hosts already hit the same website web container and the website API (`nginx.conf`: one server block for `allmizan.live` and `dev.allmizan.live`; `/owner/` and `/admin/` panels on the apex). Implications:
+
+| Concern | Proposal |
+|---|---|
+| Public marketplace | A section of the website app on the apex, for example `allmizan.live/marketplace/...`, reading a public, cache-friendly listings API (approved, listed items only, no auth). Server-rendered or pre-rendered for search engines. Free to run on the current homie server |
+| Developer platform | Stays on the website app under the `dev.*` host rule: home, portal, docs, SDK download, team and listing management |
+| Separate identities | Owner login and developer login must not share a session. Cookies stay host-scoped (no Domain attribute today), which already keeps `dev.` and the apex apart. Keep it that way |
+| Storage | Listing images and screenshots need an upload path with type and size limits, scanning, and serving from Mizan's origin. The package bytes already live in `marketplace_versions` |
+| CDN and cost | Cloudflare already fronts the tunnel; cacheable listing and image routes cost nothing extra. No new hosting needed for phases 1 to 3 |
+| Install source | An owner installing from the public page lands in their workspace's module centre, which re-verifies signatures as today. The public page never installs anything itself |
+| On-site servers | Cloud store installs on on-site servers are listed as "not yet" in ADR-007. Keep out of the first phases |
+
+### 7.4 Developer workflow, end to end (target)
+
+1. Developer signs up at `dev.allmizan.live`, optionally with GitHub; creates a profile (person or company) and a team; invites friends. GitHub repo link is optional metadata at first.
+2. `pip install mizan-sdk` (or the later installer). The SDK brings the `mizan` CLI and, in a later phase, the local Studio (`mizan studio`) that runs against a local Mizan with demo data.
+3. Build: `mizan module new`, edit, `mizan check`, `mizan package`. Hand-written modules and integrations follow ADR-007 scopes.
+4. `mizan publish` (or a GitHub Action with a team publish token). A signed version goes to `in_review`.
+5. In the portal the team edits the listing: images, description, category, price (free by default), profile. Text and images changes go through light review.
+6. Approved: Mizan countersigns, the listing appears on the public marketplace and in the ERP store.
+7. Owners browse publicly, pick one, install from their workspace.
+
+### 7.5 Pricing and payouts: decisions, not assumptions
+
+Nothing here is decided. Facts: ADR-007 says paid listings wait for Paymob (#65); revenue share, payout schedule and developer verification are open questions in the ADR. The owner said money is tight and free comes first.
+
+Free-first approach: launch with free listings only. The listing schema reserves `price` and `currency` fields set to free, so adding paid items later changes no listing format. Paid items need, at minimum: a payment provider contract, refund policy, tax handling, payout method and schedule, developer identity verification, and dispute handling. Each has legal and cost consequences. None is built or proposed for build now.
+
+### 7.6 Phased plan (free to build and run)
+
+| Phase | Deliverable | Cost | Depends on |
+|---|---|---|---|
+| 0 | Contract tests and route registry (section 5.5, steps 1 and 2); decide what the public listing API exposes | none | none |
+| 1 | Public read-only marketplace for existing kinds (modules, themes): listing API without auth, listing page, search and filter, developer profile page, owner-facing "Install from your workspace" hand-off | none (current server) | existing review and listings |
+| 2 | Listing profile editing for developers (images, description, categories, price field fixed to free), light review for text and images, profile pages editable | none | phase 1 |
+| 3 | Developer docs on `dev.allmizan.live/docs` replacing the old articles; SDK download page; GitHub sign-in and publish token for Actions | none | phase 1 |
+| 4 | New listing kinds: website templates, layout, header, font and palette items (section 6 catalog items) | none | section 6 steps 2 and 7 |
+| 5 | Local Studio with the SDK (`mizan studio`, `mizan dev`) | none | section 6, Community Studio |
+| 6 | Business activity listings | none | #107 part 2 |
+| 7 | Paid listings, payouts, ratings, analytics | provider fees, legal | owner decision; Paymob (#65) |
+
+### 7.7 Risks
+- A public storefront makes review quality visible to customers. Do not list anything not approved; keep delist with reason.
+- Mutable listing text and images next to immutable signed versions: keep them clearly separate so a developer cannot change what an install actually does by editing a description.
+- User-uploaded images are an abuse and malware vector: type sniffing, size caps, re-encoding.
+- GitHub integration adds a third party: use read-only scopes, never store tokens in the clear, and keep publishing authorised by Mizan's own signing keys, not by a GitHub identity alone.
+- Running both hosts on one app is cheap but couples their deploys. Acceptable now; revisit if the developer platform grows.
+
+### 7.8 Real open decisions for the owner
+1. First public release: free listings only, with price shown as "free", and paid items postponed until a payment provider and payout terms are decided. This plan assumes yes.
+2. Light review of listing text and images by Mizan staff for every edit at launch, or only for the first publish and any later change to price or name.
+3. GitHub: optional sign-in and Action-based publish first (my default), or required for all developer accounts.
