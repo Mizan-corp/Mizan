@@ -437,3 +437,78 @@ Collected from sections 5 to 8 at the owner's request (26 November 2026, 13:47) 
 | Step | Branch | Status |
 |---|---|---|
 | 1. Contract tests (every active manifest screen has a route in `App.tsx`; every active module has a frontend `index.ts`) | `feat/modular-step1-contracts` | Done locally: `system/frontend/src/framework/moduleContract.test.ts`, passes against the current tree (no behaviour change) |
+
+## 11. Folder structure: current and proposed (Studio as a system module)
+
+"System module" means: part of the ERP's own composition (declared in the platform tree, always on, not in the workspace's `active_modules` list, not shown in the module centre or the marketplace, cannot be uninstalled). It is not a user module and not a developer module. Backend manifests get `"kind": "system"` (new) with `"always_on": true`; the loader mounts it for every workspace and `require_module` is not applied to it, while `require_perm` still is.
+
+### 11.1 Current (relevant parts)
+
+```
+shared/backend/app/
+  core/ db/ middleware.py factory.py dependencies.py     core runtime
+  framework/                                              loader, activation, layouts, screens, events, hooks, package
+  catalog/                                                activity families, module ids
+  platform/<id>/                                          auth, tenancy, permissions, settings, site, themes, marketplace, ...
+  activities/<activity>/modules/<id>/                     business modules (general holds the shared ones)
+  integrations/<id>/                                      connectors
+  themes/                                                 palettes, fonts
+system/frontend/src/
+  App.tsx                                                 hand-written route list (78 routes)
+  components/AppShell.tsx shell-parts.tsx ...             panel shell
+  features/<page>/                                        dashboard, products, customers, settings, designer, modules, studio, ...
+  activities/<activity>/modules/<id>/                     business module UI
+  platform/<id>/  integrations/<id>/                      platform and connector UI
+  framework/                                              registry.ts, types.ts, forms, widgets
+system/frontend/studio*.html, vite.studio.config.ts       Studio's separate entries and build
+shared/frontend/src/                                      styles.css tokens, kit, lib, stores
+sdk/python/                                               mizan-sdk and CLI
+admin/ owner/ website/                                    other apps
+```
+
+### 11.2 Proposed
+
+```
+shared/backend/app/
+  core/ db/ middleware.py factory.py dependencies.py      unchanged
+  framework/
+    layouts/                                              layout schema, resolver, validators (step 3)
+    packaging/                                            .mzmo/.mzba/... packer and verifier (section 8)
+    (existing files stay; split only when touched)
+  system/                                                 NEW: modules that are part of the ERP itself, always on
+    studio/                                               manifest.json (kind: system), router, service, models, migrations, tests
+    (later, one by one: settings, designer, modules centre moved here from platform/ and features/)
+  platform/<id>/                                          unchanged for now (shared services)
+  activities/<activity>/modules/<id>/                     unchanged (business modules)
+  integrations/<id>/                                      unchanged
+  catalog/ themes/                                        unchanged; catalog items (section 6.3) added under catalog/
+
+system/frontend/src/
+  App.tsx                                                 shrinks to: shell, auth guard, route table built from the registry
+  shell/                                                  AppShell.tsx, shell-parts.tsx, variants/classic (the current look, unchanged)
+  system/                                                 NEW: system modules' UI
+    studio/                                               index.ts (ModuleDefinition + routes), pages and editor moved from features/studio
+    dashboard/ settings/ designer/ modules/               moved from features/ in step 8
+  activities/<activity>/modules/<id>/                     business module UI; index.ts now also declares routes
+  platform/<id>/  integrations/<id>/                      as today, index.ts declares routes
+  framework/registry.ts types.ts                          ModuleDefinition gains routes[], tabs[]
+  features/                                               emptied by step 8, then removed (auth, tenant, users, archive, reports move to system/ or their business module)
+  studio-entry/                                           the standalone Studio HTML entries and vite configs (studio.html, studio-preview.html, vite.studio.config.ts), kept only for the hosted standalone build
+
+shared/frontend/src/                                      styles.css tokens, kit, lib, stores: unchanged
+sdk/python/mizan_sdk/                                     adds packaging (.mz* build), device login, studio launcher (later phases)
+docs/                                                     this plan, ADRs, MODULE_STANDARD.md updated for kind "system"
+```
+
+### 11.3 What moves where, by step
+
+| Step | Move |
+|---|---|
+| 2 | Routes: out of `App.tsx` into each module's `index.ts`. Files stay where they are |
+| 3 | New `framework/layouts/` (backend) and a layout resolver module (frontend). No file moves |
+| 5 | `AppShell.tsx` and `shell-parts.tsx` into `shell/`, current look becomes `variants/classic` byte for byte |
+| 7 | Studio: `features/studio/*` to `system/studio/`; backend `platform/site` Studio parts to `system/studio/` (public site routes stay in `platform/site`); manifest `kind: system`, `always_on: true`; hidden from module centre and marketplace |
+| 8 | Remaining `features/*` pages to `system/*` (dashboard, settings, designer, modules centre) or into their business module (products to inventory, customers to contacts, suppliers to purchases) |
+| 9 | Packaging code in `framework/packaging/`; SDK adds the `.mz*` builder |
+
+Rules that stay true during every move: public URLs and API paths do not change; each step is a separate branch with tests; the old import path keeps working (a re-export) until the next step removes it.
