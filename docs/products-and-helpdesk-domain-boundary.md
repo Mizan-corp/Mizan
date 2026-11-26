@@ -14,12 +14,12 @@ The user's 07:35 Cairo clarification distinguishes services (Help Desk) from pro
 - Feature-repository code searches for helpdesk and help desk returned no indexed results. Local source inspection also found no matching dedicated ticket contract. Search absence is not proof that no such contract exists elsewhere or on another branch. Verify the owning activity/module and canonical branch before implementing one.
 
 Inspected paths:
-- shared/backend/app/activities/general/modules/inventory/models/product.py
-- shared/backend/app/activities/services/{activity.json,seed.py}
-- shared/backend/app/activities/consulting/modules/services/{manifest.json,models.py}
-- shared/backend/app/activities/maintenance/{activity.json,modules/field_service/manifest.json,modules/field_service/models.py}
-- system/frontend/src/activities/consulting/modules/services/ServicesConsultingPage.tsx
-- system/frontend/src/activities/maintenance/modules/field_service/FieldServicePage.tsx
+- system/core/backend/app/activities/general/modules/inventory/models/product.py
+- system/core/backend/app/activities/services/{activity.json,seed.py}
+- system/core/backend/app/activities/consulting/modules/services/{manifest.json,models.py}
+- system/core/backend/app/activities/maintenance/{activity.json,modules/field_service/manifest.json,modules/field_service/models.py}
+- system/erp/frontend/src/activities/consulting/modules/services/ServicesConsultingPage.tsx
+- system/erp/frontend/src/activities/maintenance/modules/field_service/FieldServicePage.tsx
 
 ## Required separation
 

@@ -47,7 +47,7 @@ Mizan is a single platform that serves up to 30 business types through a shared 
 | TenantScoped | Any database table that carries `tenant_id` and is isolated by RLS |
 | RLS | PostgreSQL Row-Level Security — enforces tenant isolation at DB level |
 | ORM filter | SQLAlchemy global query filter that injects `tenant_id == ctx` |
-| Migration | A tracked, idempotent SQL change in `shared/backend/app/db/migrations.py` |
+| Migration | A tracked, idempotent SQL change in `system/core/backend/app/db/migrations.py` |
 | `.num` | CSS class applied to every financial figure for tabular lining display |
 | Shift | A cashier work session with opening/closing balance |
 | Demo data | Seeded data with `is_demo = true` — can be wiped via `/platform/wipe-demo` |
@@ -391,7 +391,7 @@ The admin panel must support technical management and support for tenants across
 | SYS-07 | Performance monitoring | Must | `/health` returns `{"status":"ok","database":"connected"}`; Sentry error tracking |
 | SYS-08 | Automated testing | Must | 107 e2e tests in CI; 9 vitest unit tests; `tsc --noEmit`; build |
 | SYS-09 | Configurable business rules | Should | Module feature flags per tenant stored in DB |
-| SYS-10 | Data migration | Must | All migrations in `shared/backend/app/db/migrations.py`; idempotent; tracked by version |
+| SYS-10 | Data migration | Must | All migrations in `system/core/backend/app/db/migrations.py`; idempotent; tracked by version |
 
 ---
 
@@ -805,7 +805,7 @@ Activate these reusable capabilities only for activities that need them. Each re
 
 | ID | Requirement |
 |---|---|
-| MAINT-01 | All migrations tracked in `shared/backend/app/db/migrations.py`; idempotent |
+| MAINT-01 | All migrations tracked in `system/core/backend/app/db/migrations.py`; idempotent |
 | MAINT-02 | No business logic in routers; belongs in service layer |
 | MAINT-03 | No new `components/ui.tsx` usages; migrate to `components/kit/` |
 | MAINT-04 | All FK columns have indexes |
@@ -934,7 +934,7 @@ RLS only binds roles without BYPASSRLS, so while a workspace is bound every tran
 
 ### 9.3 Migrations
 
-- 35 tracked migrations (v0–v32) in `shared/backend/app/db/migrations.py`
+- 35 tracked migrations (v0–v32) in `system/core/backend/app/db/migrations.py`
 - All new migrations must be appended to `MIGRATIONS` list
 - Idempotent SQL: `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`
 - Migrations run with `app.bypass = 'on'`
@@ -1111,7 +1111,7 @@ A feature is complete when ALL of the following pass:
 - [ ] Every mutation is wrapped in a single DB transaction
 - [ ] Every list endpoint is paginated (`page`, `size`, `total`, `pages`)
 - [ ] No business logic lives in a router (belongs in a service)
-- [ ] Migration appended to `shared/backend/app/db/migrations.py`, idempotent, numbered `v<N>_<name>`
+- [ ] Migration appended to `system/core/backend/app/db/migrations.py`, idempotent, numbered `v<N>_<name>`
 - [ ] `AuditLog` entry exists for every destructive or financial mutation
 - [ ] FK indexes exist on every FK column
 - [ ] Money stored as `Numeric`, never `float`

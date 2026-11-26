@@ -2,8 +2,8 @@
 
 Every module, generated from the manifests by `python manage.py module catalog` (a test fails when
 it's out of date); ids are folder names. A business activity is one folder (ADR-010):
-`shared/backend/app/activities/<activity>/modules/<module_id>/`, screens in
-`system/frontend/src/activities/<activity>/modules/<module_id>/`, with the activity's variants of
+`system/core/backend/app/activities/<activity>/modules/<module_id>/`, screens in
+`system/erp/frontend/src/activities/<activity>/modules/<module_id>/`, with the activity's variants of
 other activities' modules in `activities/<activity>/variants/<module>/`.
 Status: **active** (built, offered) or *planned* (laid out from the SRS, not offered yet).
 

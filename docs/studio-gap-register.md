@@ -159,7 +159,7 @@ per-language copy is not yet authorable (see above).
     (/tmp/mizan-venv) carries an editable install whose meta-path finder
     always resolved `app` to /tmp/mizan, a stale non-git snapshot, silently
     shadowing the working branch in every plain import. Fixed durably: the
-    finder MAPPING now points at /tmp/mizan-push/shared/backend/app.
+    finder MAPPING now points at /tmp/mizan-push/system/core/backend/app.
     Verified loaded paths: app.framework.manifest and the inventory
     storefront modules resolve to /tmp/mizan-push/... files. All backend
     suites were re-run after the fix and pass against the intended code;
@@ -225,7 +225,7 @@ per-language copy is not yet authorable (see above).
     old .motion-note color; 8959d6e (2026-11-24) retokenized it and removed
     the "Workspace details" debug block (the three persistence-bar spans)
     from the editor chrome. Re-verified 2026-11-25: no #91839e /
-    rgb(145,131,158) / lavender anywhere in system/frontend/src, and no
+    rgb(145,131,158) / lavender anywhere in system/erp/frontend/src, and no
     Workspace-details block in the DOM. Cosmetic note, not a gate: the
     motion panel keeps other purple literal colors off the token scale.
 19. **Legacy /studio/ route disposition** — RESOLVED 2026-11-25 in
@@ -286,11 +286,11 @@ optional description display field, scoped to published records only.
 Grounded in the user's 17:30/17:32 requests. Wording, gate tests,
 revocation tests and docs/studio-consent-scope-v4.md shipped.
 Verification boundaries (exact commands):
-- Backend: pytest per test FILE (shared/backend/tests): writer 5,
+- Backend: pytest per test FILE (system/core/backend/tests): writer 5,
   scoped-item 14, revocation 5, consent-v4 12 green; runtime/bindings/
   repeats/card_repeats/typed_fields/projection/scalar_gate/core_site/
   card_provider/card_runtime/multi_card all green individually.
-- Frontend: single `npx vitest run` in system/frontend = 51 files,
+- Frontend: single `npx vitest run` in system/erp/frontend = 51 files,
   293 tests: 291 passed, 1 skipped, 1 failed. The one failure is
   treerender.test.ts "wraps the page in one mz-section", verified
   pre-existing at clean HEAD via git stash (not from v4 work). tsc
@@ -481,7 +481,7 @@ re-verified as fixed:
 - Framework constraint found: collection contracts cap plain_text at 200 chars, so the description bound is 200 (not 2000 as first drafted); longer descriptions belong to a future detail surface with its own wording.
 - Provider rows always carry the exact contract keys; unconsented fields read as None, richer columns are never SELECTed under older/unchecked consent.
 - Proof: 24 helpdesk tests + v4/repeats/bindings/public-access regressions green; UI render test pins the bilingual v1 wording and payload; live sandbox save stamped v1 (both fields) and was restored to the exact prior v0 value afterward.
-- Note: ERP backend for the sandbox preview lives on port 8000 (system/backend); the website API on 8001 does not serve module-settings routes.
+- Note: ERP backend for the sandbox preview lives on port 8000 (system/erp/backend); the website API on 8001 does not serve module-settings routes.
 
 ## 2026-11-25 (late) — HELP DESK v1 REAL-CLICK SAVE PROOF + copy fix
 

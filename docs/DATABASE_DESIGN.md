@@ -187,7 +187,7 @@ licence and installation identity live in files under the data folder
 (`app.onprem.state`), not in these tables.
 
 ## 4. Migration Rules
-- Database schema changes are tracked in `shared/backend/app/db/migrations.py` under the ordered `MIGRATIONS` list and applied with `python manage.py db migrate`.
+- Database schema changes are tracked in `system/core/backend/app/db/migrations.py` under the ordered `MIGRATIONS` list and applied with `python manage.py db migrate`.
 - Every migration must be **strictly idempotent** (`CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`).
 - Migration runs execute statements sequentially with auto-healing and rollback safety.
 - On-site installs run the same migrations during setup and on every repair/update, so migrations

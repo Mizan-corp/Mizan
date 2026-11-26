@@ -219,6 +219,6 @@ footer socials).
 - Evidence: visitor EN screenshots of the Products page on the test host show
   six product cards with name, price and uploaded image in three columns.
 - Regression test: `test_declared_column_count_lays_out_expanded_repeat_copies_as_a_grid`
-  in `shared/backend/tests/test_public_access.py`.
+  in `system/core/backend/tests/test_public_access.py`.
 - Open usability gaps: the row cannot be picked from Layers, and the refusal
   message for editing a repeat column does not say to detach the repeat first.

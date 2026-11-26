@@ -1,6 +1,6 @@
 # Mizan ERP — Roles, Positions & Permissions
 
-One permission system (ADR-006 phase 3, `shared/backend/app/platform/permissions/`).
+One permission system (ADR-006 phase 3, `system/core/backend/app/platform/permissions/`).
 
 ## 1. Three ideas, kept apart
 

@@ -39,7 +39,7 @@ business activity manifest (08:35:37), fetch real fonts (08:36:54).
 - Real font delivery: theme fonts.files entries {family, src: "assets/<file>.ttf",
   weight, style}; the server serves them at /themes/assets/files/<id>/assets/<file>
   (app/platform/themes/service.py) and the client builds real @font-face rules
-  (shared/frontend/src/lib/theme.ts themeCss). FONT_FILE validation allows
+  (system/core/frontend/src/lib/theme.ts themeCss). FONT_FILE validation allows
   woff2/woff/ttf/otf.
 - Workspace choice: tenants.palette {name, hue}; app/catalog/sectors.py
   PALETTE_HUES must list any new palette id with a hue. Signup POST /platform/signup

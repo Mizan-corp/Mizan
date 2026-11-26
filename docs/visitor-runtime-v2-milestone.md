@@ -25,7 +25,7 @@ no tracking. Nothing on production business systems changed.
 
 ## The scoped activation API (the V1 manual step, replaced)
 
-`shared/backend/app/platform/site/service.py` grew `get_public_access` /
+`system/core/backend/app/platform/site/service.py` grew `get_public_access` /
 `set_public_access`, exposed on the existing site.manage-gated pages router
 (`GET`/`PUT /site/pages/{page_id}/public-access`). Hard limits, enforced in the
 statement and service, not by convention:

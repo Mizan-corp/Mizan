@@ -6,8 +6,8 @@ scope for now. Decided the same day: **the 11 built modules first**; the 11 plac
 website builder of ADR-015.
 
 This file is the plan and the record. Each finding has an id (`SAL-3`), a severity and the place in
-the code (paths are relative to `shared/backend/app/activities/general/modules/` unless they start
-with `shared/`, `system/` or `e2e/`; frontend `F/` = `system/frontend/src/`). Tick a finding with the PR
+the code (paths are relative to `system/core/backend/app/activities/general/modules/` unless they start
+with `shared/`, `system/` or `e2e/`; frontend `F/` = `system/erp/frontend/src/`). Tick a finding with the PR
 that closed it. Line numbers are from the audit of 2026-11-17 and drift; search by the quoted name.
 
 ## The bar

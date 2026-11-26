@@ -9,14 +9,14 @@ than changing the ADR roadmap.
 
 ## Implemented subset
 
-- `shared/backend/app/framework/manifest.py`: version-1 block registry and `page_problems()`.
+- `system/core/backend/app/framework/manifest.py`: version-1 block registry and `page_problems()`.
   `sdk/python/mizan_sdk/manifest.py` is the byte-identical copy. The SDK drift test checks bytes.
-- `shared/backend/app/platform/site/render.py`: fixed platform block rendering, escaped text,
+- `system/core/backend/app/platform/site/render.py`: fixed platform block rendering, escaped text,
   HTML5 parser sanitization through pinned `nh3`, and a fixed sandboxed Jinja2 document wrapper.
   No user-supplied theme templates or JavaScript execute here.
-- `system/backend/tests/test_site_pages.py` and `sdk/python/tests/test_pagetree.py`: focused
+- `system/erp/backend/tests/test_site_pages.py` and `sdk/python/tests/test_pagetree.py`: focused
   validator, sanitizer, URL, rendering, metadata and byte-copy tests. No database required.
-- `shared/backend/pyproject.toml`: declares `jinja2==3.1.6` and `nh3==0.3.2` for the renderer.
+- `system/core/backend/pyproject.toml`: declares `jinja2==3.1.6` and `nh3==0.3.2` for the renderer.
 
 ## Supported data and rendering
 

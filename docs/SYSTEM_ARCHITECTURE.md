@@ -3,7 +3,7 @@
 ## 1. Architectural Style
 Mizan is built as a **Modular Monolith** optimized for developer velocity, transaction integrity, and deployment simplicity:
 - **Shared Enterprise Kernel:** Multi-tenancy resolution, database session lifecycle, audit logging, security context, and notification dispatch.
-- **Pluggable Domain Modules:** Each in its activity's folder, `shared/backend/app/activities/<home_activity>/modules/<module_id>/` (manifest, models, router, templates), with screens in `system/frontend/src/activities/<home_activity>/modules/<module_id>/`; an activity also holds its variants of other modules and its themes (ADR-010); platform modules in `app/platform/`, connectors in `app/integrations/`, the loader in `app/framework/` (ADR-006).
+- **Pluggable Domain Modules:** Each in its activity's folder, `system/core/backend/app/activities/<home_activity>/modules/<module_id>/` (manifest, models, router, templates), with screens in `system/erp/frontend/src/activities/<home_activity>/modules/<module_id>/`; an activity also holds its variants of other modules and its themes (ADR-010); platform modules in `app/platform/`, connectors in `app/integrations/`, the loader in `app/framework/` (ADR-006).
 
 ```
                     ┌─────────────────────────────────┐
@@ -55,11 +55,11 @@ and nginx serves the four apps (ADR-011, `deploy/server/`; see `docs/decisions/A
 
 | Folder | What it is | Frontend (served at) | Backend (served at) |
 |---|---|---|---|
-| `system/` | The ERP tenants use every day | `system/frontend` → `<workspace>.allmizan.live` | `system/backend` → `api.allmizan.live` |
+| `system/` | The ERP tenants use every day | `system/erp/frontend` → `<workspace>.allmizan.live` | `system/erp/backend` → `api.allmizan.live` |
 | `website/` | Landing, pricing, docs, signup, onboarding, the developer platform | `website/frontend` → `allmizan.live`, `dev.allmizan.live` | `website/backend` → `web-api.allmizan.live` |
 | `owner/` | The owner panel: an owner's workspaces, subscriptions, Paymob payments (Arabic) | `owner/frontend` → `allmizan.live/owner` | `owner/backend` → `owner-api.allmizan.live` |
 | `admin/` | The admin panel (English, Mizan team only) | `admin/frontend` → `allmizan.live/admin` | `admin/backend` → `admin-api.allmizan.live` |
-| `shared/` | Code every product uses | `shared/frontend` (design kit) | `shared/backend` (domain kernel) |
+| `shared/` | Code every product uses | `system/core/frontend` (design kit) | `system/core/backend` (domain kernel) |
 | `installer/` | Single-device and LAN installs (ADR-005) | `installer/setup` (Mizan Setup, Tauri) | `installer/server` (mizan-server, PyInstaller) |
 | `sdk/` | `mizan-sdk` and the `mizan` CLI for outside developers (ADR-007, ADR-010) | — | `sdk/python` |
 
@@ -67,7 +67,7 @@ The website app also serves the **developer platform** at `dev.allmizan.live` (u
 elsewhere): its home, the developer portal and the developer docs, backed by the website API
 (ADR-007 D6).
 
-- `shared/backend/` — installable Python package `app` (`mizan-shared`):
+- `system/core/backend/` — installable Python package `app` (`mizan-shared`):
   - `app/factory.py`: builds every service (middleware, CORS, CSRF, errors, health).
   - `core/`: the kernel: config, exceptions, pagination, rate limiting.
   - `models/registry.py` (imports every module's models so the schema is complete), `db/` (engine + tracked SQL migrations in `db/sql/`). Models and schemas live in their module or platform engine.
@@ -84,14 +84,14 @@ elsewhere): its home, the developer portal and the developer docs, backed by the
     `variants/<module>/` (how the activity adapts another activity's module) and `themes/`.
   - `themes/<id>/theme.json`: Mizan's theme packs; `catalog/`: families and legacy ids;
     `integrations/`: connectors.
-- `system/backend/`: `main.py` + `system_api/` (route list, tenant resolution, tenant-side platform endpoints).
+- `system/erp/backend/`: `main.py` + `system_api/` (route list, tenant resolution, tenant-side platform endpoints).
 - `website/backend/`: `main.py` + `website_api/` (plans, self-serve signup, the developer portal's `/developers` API).
 - `owner/backend/`: `main.py` + `owner_api/` (account, workspaces, billing and the Paymob callback).
 - `admin/backend/`: `main.py` + `admin_api/` (one router per page: overview, workspaces, billing, activity, team, system).
-- `shared/backend/app/onprem/`: server mode for on-site installs (one address for app + API, licence gate, cloud check-in, first-install setup).
+- `system/core/backend/app/onprem/`: server mode for on-site installs (one address for app + API, licence gate, cloud check-in, first-install setup).
 - `installer/`: `server/mizan_server/` (install engine, service runner, CLI), `setup/` (the wizard, desktop app, headless installs), `build.py`, `stamp.py`, `ci_smoke.py`.
-- `shared/frontend/src/`: kit components, API client, auth/UI stores, i18n, styles, plans, pricing page, cross-app URLs and session handoff.
-- `system/frontend/src/`: app shell, ERP features, tenant routing, `activities/<activity>/{modules,variants}/` (each activity's screens), `platform/` and `integrations/`.
+- `system/core/frontend/src/`: kit components, API client, auth/UI stores, i18n, styles, plans, pricing page, cross-app URLs and session handoff.
+- `system/erp/frontend/src/`: app shell, ERP features, tenant routing, `activities/<activity>/{modules,variants}/` (each activity's screens), `platform/` and `integrations/`.
 - `website/frontend/src/`: marketing pages, the user docs, and `features/developers/` (the developer platform: home, portal, developer docs; English by default).
 - `sdk/python/`: `mizan-sdk` (`mizan` CLI, `MizanClient` for `/ext/v1`, `verify_webhook`).
 - `owner/frontend/src/`: the owner panel pages and the welcome tour.
@@ -173,7 +173,7 @@ Outside developers build on Mizan with the same framework Mizan's own activities
 - **Developer portal** (`dev.allmizan.live`, website app + `/developers` on the website API):
   developer accounts (separate from owners), teams, members, signing keys, CLI tokens (`mzd_`),
   and the developer docs. It speaks English by default (`Accept-Language: ar` for Arabic).
-- **Themes at runtime**: the system app applies the workspace's theme (`shared/frontend/src/lib/theme.ts`):
+- **Themes at runtime**: the system app applies the workspace's theme (`system/core/frontend/src/lib/theme.ts`):
   tokens become CSS variables on `html[data-theme="workspace"]`, plus `@font-face`, radius,
   shadows and `data-motion`. Printed invoices use its brand colour.
 

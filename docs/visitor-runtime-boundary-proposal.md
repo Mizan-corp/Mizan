@@ -10,7 +10,7 @@ Status: DESIGN ONLY, 24 November 2026. No public route, publication permission c
 - Tenant context and PostgreSQL app role/RLS are part of isolation. A public request must bind its independently resolved tenant before any page, settings or provider reads, and clear it on every exit.
 - The isolated website adapter currently contains signup/developer routes, not a site-page runtime. A new runtime must not reuse account or developer endpoints as a visitor capability.
 
-Source paths: shared/backend/app/platform/site/{models,router,service}.py, shared/backend/app/platform/site/storefront/{router,registry,card_runtime}.py, shared/backend/app/platform/tenancy/context.py. The isolated deployment adapter was inspected at api/website.py in the deployment package, its canonical repository path must be verified before implementation.
+Source paths: system/core/backend/app/platform/site/{models,router,service}.py, system/core/backend/app/platform/site/storefront/{router,registry,card_runtime}.py, system/core/backend/app/platform/tenancy/context.py. The isolated deployment adapter was inspected at api/website.py in the deployment package, its canonical repository path must be verified before implementation.
 
 ## First slice
 

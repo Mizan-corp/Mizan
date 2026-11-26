@@ -8,7 +8,7 @@ named in it.
 ## How to run the suites
 
 - Offline unit suites (pure stdlib, no DB, system python3 OK):
-  `cd shared/backend/tests && python3 <file>.py`
+  `cd system/core/backend/tests && python3 <file>.py`
   Files: test_storefront_runtime, test_storefront_bindings,
   test_collection_repeats, test_collection_card_repeats,
   test_collection_typed_fields, test_collection_projection,
@@ -22,7 +22,7 @@ named in it.
   multi_card_runtime_integration_check.
 - test_card_consent_revocation: same venv plus env and path:
   `DATABASE_URL='postgresql+asyncpg://u:u@127.0.0.1/u' SECRET_KEY='offline-test' PYTHONPATH=.. /tmp/mizan-venv/bin/python test_card_consent_revocation.py`
-- Frontend: `cd system/frontend && npx vitest run` (226 pass, 1 skipped as of
+- Frontend: `cd system/erp/frontend && npx vitest run` (226 pass, 1 skipped as of
   f7e368a) and `npx tsc --noEmit`.
 - `python3 -m unittest discover` from the tests directory shows import errors
   for DB-backed modules (wrong cwd, missing env) — that is a runner invocation

@@ -9,8 +9,8 @@ Status: INCOMPLETE branch, NOT for merge, NOT deployed, NOT validated from a cle
 
 ## What this branch contains
 - Backend: SiteSettings model, migration v109 definition (the table is created only when the migration is applied), settings validation and upsert, GET/PUT /site/settings (site.manage), theme-aware renderer (font allowlist, radius), registry art/reverse settings.
-- Studio frontend (system/frontend/src/features/studio): page-tree conversion, tree renderer (React) with parity to the Python renderer, site pages + settings client, inspector with theme controls and header links/actions/footer lines, tests.
-- Test-only harness under shared/backend/tests/studio-harness (see its README).
+- Studio frontend (system/erp/frontend/src/features/studio): page-tree conversion, tree renderer (React) with parity to the Python renderer, site pages + settings client, inspector with theme controls and header links/actions/footer lines, tests.
+- Test-only harness under system/core/backend/tests/studio-harness (see its README).
 
 ## Verified (exercised, in the author's sandbox)
 - Unit tests, studio folder: treerender 12, sitePages 14, fromtree 4, model 4, pagetree 4 (1 skipped) = 37 passed + 1 skipped. Whole frontend run (11 files, adds 6 lib test files) using the branch's own lib files: 54 passed + 1 skipped (the workspace-host test on this branch has 3 tests; my sandbox checkout had a newer 4-test variant that gave 55).
@@ -54,19 +54,19 @@ test -z "$(git status --porcelain)"
 node --version
 python3 --version
 npm ci
-npm exec -w system/frontend -- vitest run src/features/studio
-npm exec -w system/frontend -- vitest run
+npm exec -w system/erp/frontend -- vitest run src/features/studio
+npm exec -w system/erp/frontend -- vitest run
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install -e shared/backend -e system/backend -e website/backend -e owner/backend -e admin/backend
-python -m pip install -r shared/backend/requirements-dev.txt ruff
+python -m pip install -e system/core/backend -e system/erp/backend -e website/backend -e owner/backend -e admin/backend
+python -m pip install -r system/core/backend/requirements-dev.txt ruff
 export DATABASE_URL=postgresql+asyncpg://ci:ci@127.0.0.1:5432/ci
 export SECRET_KEY=ci-secret-key-not-for-production-32ch
 # Import only. This dummy DB is not expected to exist. Do not start the app here.
 for svc in system website owner admin; do
   (cd "$svc/backend" && python -c 'import main; print(len(main.app.routes), "routes")') || exit 1
 done
-ruff check shared/backend system/backend website/backend owner/backend admin/backend sdk/python --select E9,F63,F7,F82,F821,F601,F401,F841
+ruff check system/core/backend system/erp/backend website/backend owner/backend admin/backend sdk/python --select E9,F63,F7,F82,F821,F601,F401,F841
 ```
 
 Expected historical frontend count for this branch is 54 passed plus 1 skipped, including 37 passed plus 1 skipped in the studio folder. A changed count requires investigation, not automatic acceptance. The four full-app import commands and repository-wide lint above have NOT passed in this work. A successful import is not a successful startup or database migration.
@@ -78,21 +78,21 @@ The following is a diagnostic recipe against the real checked-out app files, not
 ```bash
 # From the checkout root, with .venv activated.
 python -m pip install pgserver
-export STUDIO_BACKEND_ROOT="$PWD/shared/backend"
+export STUDIO_BACKEND_ROOT="$PWD/system/core/backend"
 export STUDIO_PGDATA="$(mktemp -d)"
 export STUDIO_OUT="$(mktemp -d)"
-python shared/backend/tests/studio-harness/run_db_tests.py
+python system/core/backend/tests/studio-harness/run_db_tests.py
 # Continue only after the DB checks pass.
-python shared/backend/tests/studio-harness/serve_http.py
+python system/core/backend/tests/studio-harness/serve_http.py
 ```
 
-Keep that local-only API in a separate terminal. It binds 127.0.0.1:8791. It writes a throwaway local-test token into shared/backend/roundtrip_token.txt. Do not commit or share that token. In a second activated terminal from the same checkout root:
+Keep that local-only API in a separate terminal. It binds 127.0.0.1:8791. It writes a throwaway local-test token into system/core/backend/roundtrip_token.txt. Do not commit or share that token. In a second activated terminal from the same checkout root:
 
 ```bash
-export MIZAN_SITE_BACKEND="$PWD/shared/backend"
+export MIZAN_SITE_BACKEND="$PWD/system/core/backend"
 export MIZAN_SITE_API=http://127.0.0.1:8791
-export MIZAN_SITE_TOKEN="$(cat shared/backend/roundtrip_token.txt)"
-cd system/frontend
+export MIZAN_SITE_TOKEN="$(cat system/core/backend/roundtrip_token.txt)"
+cd system/erp/frontend
 npm exec -- vite --config vite.studio.config.ts
 ```
 
@@ -101,7 +101,7 @@ In a third terminal, start an isolated local Chromium (replace chromium with the
 ```bash
 chromium --headless --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222 --user-data-dir="$(mktemp -d)" about:blank
 # In another terminal, from the checkout root:
-STUDIO_OUT="$(mktemp -d)" node shared/backend/tests/studio-harness/e2e.mjs
+STUDIO_OUT="$(mktemp -d)" node system/core/backend/tests/studio-harness/e2e.mjs
 ```
 
 Stop the local processes after testing. Delete the throwaway token and database only after all test processes are stopped. Keep logs and screenshots with the pinned SHA. The fault endpoint in serve_http.py must never be mounted in the production app.
@@ -126,7 +126,7 @@ Local exercise, still INCOMPLETE and not clean-source/full-app validated:
 - Studio unit tests: 39 passed plus 1 skipped, including two new shared-settings mapping tests. The two page projects retain distinct content, get the same stored chrome and do not share mutable link objects.
 - Reduced DB harness: 15 checks passed. The new check persists two distinct pages, commits site-wide header/footer settings, clears the session identity map, reloads and renders both pages with the shared chrome and distinct content. Still uses the reduced schema and two shims described above. It is not a full-app test.
 - Local browser exercise: footer add/edit, local save/reload restoration, reorder, remove, invalid-destination feedback and preview rejection passed. Actual screenshot pixels were inspected. This pass used browser-only local persistence, not a new API e2e run.
-- Reproducible driver: shared/backend/tests/studio-harness/chrome-controls.mjs. With local Vite and isolated Chromium CDP on 9222 as above, run `STUDIO_OUT=/path/to/existing/output node shared/backend/tests/studio-harness/chrome-controls.mjs`. It clears the isolated browser's local storage. Do not run it against a personal browser profile.
+- Reproducible driver: system/core/backend/tests/studio-harness/chrome-controls.mjs. With local Vite and isolated Chromium CDP on 9222 as above, run `STUDIO_OUT=/path/to/existing/output node system/core/backend/tests/studio-harness/chrome-controls.mjs`. It clears the isolated browser's local storage. Do not run it against a personal browser profile.
 
 Multi-page UI selection/switching, live global-settings propagation to an already-open second page, full-app startup/migrations and clean-checkout validation remain UNVERIFIED. Existing two-request draft/settings save is unchanged. No CI, merge, PR, deployment, real order or payment.
 

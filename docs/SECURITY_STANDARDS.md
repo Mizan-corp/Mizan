@@ -102,7 +102,7 @@ nothing. Details: [`USER_ROLES_AND_PERMISSIONS.md`](USER_ROLES_AND_PERMISSIONS.m
   keys; CLI tokens can be revoked one by one; a password change ends every portal session.
 
 ## 7. The route security sweep (every route, every run)
-`system/backend/tests/test_route_security_sweep.py` checks every route of the system API the same
+`system/erp/backend/tests/test_route_security_sweep.py` checks every route of the system API the same
 way, in about a minute (helpers in `tests/route_sweep.py`):
 
 1. **Inventory.** Each route is protected by its dependency tree (an ERP sign-in through

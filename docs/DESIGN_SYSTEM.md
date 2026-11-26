@@ -7,7 +7,7 @@ Screen-level rules: [`UI_UX_GUIDELINES.md`](UI_UX_GUIDELINES.md) and [`ui-ux-kit
 ## 1. Tokens, never colours
 
 Screens never write a colour. They use the **design tokens**, the CSS variables in
-`shared/frontend/src/styles.css`, through Tailwind (`bg-background`, `text-foreground`,
+`system/core/frontend/src/styles.css`, through Tailwind (`bg-background`, `text-foreground`,
 `bg-card`, `border-border`, `bg-primary text-primary-foreground`, `text-muted-foreground`,
 `bg-sidebar`…). A workspace's theme sets the tokens, so every screen follows it (section 2).
 
@@ -33,13 +33,13 @@ A workspace has **one theme pack**, chosen by its admin (module centre → ال�
 theme sets the tokens for light and dark, the fonts, the corner radius, the shadows and the
 motion. Users choose only what is theirs, on their device: dark mode, layout and density.
 
-- **Where themes come from**: Mizan's six (`shared/backend/app/themes/`: mizan, slate, cobalt,
+- **Where themes come from**: Mizan's six (`system/core/backend/app/themes/`: mizan, slate, cobalt,
   emerald, amber, monokai, the default being *mizan*), the activity's
   (`activities/<activity>/themes/`), and signed theme packages from developers.
 - **Checked before use** (`theme_problems` in `app/framework/manifest.py`): known tokens only,
   `#hex` / `rgb()` / `oklch()` values, and readable contrast (4.5 for text on background, card
   and sidebar; 3 for the other pairs). A new theme must pass the same checks.
-- **Applied by** `shared/frontend/src/lib/theme.ts`: the tokens become variables on
+- **Applied by** `system/core/frontend/src/lib/theme.ts`: the tokens become variables on
   `html[data-theme="workspace"]` (and `html.dark[…]`), with `@font-face`, `--radius`, the
   shadow preset and `data-motion`.
 

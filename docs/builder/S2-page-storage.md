@@ -22,7 +22,7 @@ revisions"), in `app/platform/site/`:
 - Migration `v108_site_pages` in `app/db/migrations.py` — both tables with
   `ENABLE`/`FORCE ROW LEVEL SECURITY` and the standard `tenant_isolation` policy.
 - `app/models/registry.py` — registers the models for metadata-wide operations.
-- `system/backend/tests/test_site_storage.py` — validation tests that run anywhere, and
+- `system/erp/backend/tests/test_site_storage.py` — validation tests that run anywhere, and
   draft/publish/revision/rollback/isolation lifecycle tests that run against the database
   (`DATABASE_URL`), following the themes tests.
 
