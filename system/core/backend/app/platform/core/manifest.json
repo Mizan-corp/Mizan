@@ -50,11 +50,6 @@
       "id": "supervise",
       "name": "الإشراف على كل الفروع والورديات",
       "name_en": "Supervise every branch and shift"
-    },
-    {
-      "id": "designer",
-      "name": "تصميم الشاشات والحقول والنماذج",
-      "name_en": "Design screens, fields and forms"
     }
   ],
   "screens": [

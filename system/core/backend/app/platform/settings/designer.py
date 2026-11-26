@@ -1,8 +1,9 @@
 """What every screen reads at runtime (ADR-006 D4): the acting role's home, menu and dashboard
 (/settings/screens) and a record's form for this workspace (/settings/forms/<record>). The editing
 endpoints (/settings/designer/*) were removed in step 8d: layouts are authored by developers and
-in Studio, not by the owner. Stored layouts keep applying. Custom fields are still edited through
-/settings/fields (the `designer` permission)."""
+in Studio, not by the owner. Stored layouts keep applying. The custom-field editing API
+(/settings/fields) and the `designer` permission were removed in step 8f; fields declared by
+activities and modules still apply, and workspace_fields rows already stored still show."""
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 

@@ -245,13 +245,7 @@ async def update_product_options(data: dict, db: AsyncSession = Depends(get_db),
     return {"detail": "Product options updated"}
 
 
-# ── The workspace's activity profile and its fields (ADR-006 phase 4) ─────────────────────────
-
-class FieldIn(BaseModel):
-    definition: dict[str, Any] = {}
-    hidden: bool = False
-    position: int = 0
-
+# ── The workspace's activity profile (ADR-006 phase 4) ─────────────────────────
 
 @router.get("/workspace-profile")
 async def workspace_profile(db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)):
@@ -269,57 +263,6 @@ async def workspace_profile(db: AsyncSession = Depends(get_db), _: User = Depend
         "terms": variants.terms_for(activity_id),
         "fields": {r: await F.fields_for(db, r, activity_id) for r in F.RECORDS},
     }
-
-
-@router.get("/fields/{record}")
-async def list_fields(record: str, db: AsyncSession = Depends(get_db), _: User = Depends(require_perm("designer"))):
-    """A record's fields, hidden ones included (for editing)."""
-    from app.framework import fields as F
-    from app.framework.hooks import workspace_activity
-
-    if record not in F.RECORDS:
-        raise HTTPException(404, "سجل غير معروف")
-    return await F.fields_for(db, record, await workspace_activity(db), include_hidden=True)
-
-
-@router.put("/fields/{record}/{key}")
-async def save_field(record: str, key: str, data: FieldIn, db: AsyncSession = Depends(get_db),
-                     _: User = Depends(require_perm("designer"))):
-    """Add a field of the workspace's own, or change (relabel, require, hide) a variant's field."""
-    from app.framework import fields as F
-    from app.framework.hooks import workspace_activity
-
-    if record not in F.RECORDS:
-        raise HTTPException(404, "سجل غير معروف")
-    if not F.KEY.match(key):
-        raise HTTPException(422, "مفتاح الحقل: حروف إنجليزية صغيرة وأرقام و _ فقط")
-    activity_id = await workspace_activity(db)
-    from app.framework.layouts import forms
-
-    if key in {f["key"] for f in (forms().get(record) or {}).get("fields", [])}:
-        raise HTTPException(422, "هذا المفتاح مستخدم لحقل أساسي في النموذج")
-    base = {f["key"]: f for f in F.variant_fields(record, activity_id)}.get(key)
-    definition = F.check_definition({**(base or {}), **data.definition})
-    if base is None and not definition.get("label"):
-        raise HTTPException(422, "اسم الحقل مطلوب")
-    row = (await db.execute(select(F.WorkspaceField).where(F.WorkspaceField.record == record,
-                                                            F.WorkspaceField.key == key))).scalar_one_or_none()
-    if row is None:
-        row = F.WorkspaceField(record=record, key=key)
-        db.add(row)
-    row.definition, row.hidden, row.position = definition, data.hidden, data.position
-    await db.commit()
-    return [f for f in await F.fields_for(db, record, activity_id, include_hidden=True) if f["key"] == key][0]
-
-
-@router.delete("/fields/{record}/{key}", status_code=204)
-async def reset_field(record: str, key: str, db: AsyncSession = Depends(get_db),
-                      _: User = Depends(require_perm("designer"))):
-    """Remove the workspace's change (a variant's field goes back to its default) or its own field
-    (values already saved stay on the records)."""
-    await db.execute(text("DELETE FROM workspace_fields WHERE record = :r AND key = :k"), {"r": record, "k": key})
-    await db.commit()
-
 
 
 @router.get("/storage")
