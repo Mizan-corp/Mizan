@@ -19,7 +19,8 @@
 set -euo pipefail
 
 CACHE="${MIZAN_CI_CACHE:-${RUNNER_TEMP:-/tmp}/ci-cache}"   # hosted runners: fresh each run; self-hosted can set MIZAN_CI_CACHE
-mkdir -p "$CACHE/bin"
+mkdir -p "$CACHE/bin" "$CACHE/markers"
+SUDO=""; [ "$(id -u)" = 0 ] || SUDO="sudo -E"   # hosted runners: non-root user with sudo
 export PATH="$CACHE/bin:$PATH"
 export UV_CACHE_DIR="$CACHE/uv-cache" UV_PYTHON_INSTALL_DIR="$CACHE/python" UV_LINK_MODE=copy
 export npm_config_cache="$CACHE/npm"
@@ -106,24 +107,24 @@ ensure_playwright() {
   # The browser: in the cache volume. Its system libraries: in this container (root, apt).
   if ls "$PLAYWRIGHT_BROWSERS_PATH"/chromium-* >/dev/null 2>&1; then say chromium cached; else
     say chromium installing; timed python -m playwright install chromium >/dev/null; fi
-  if [ -f /var/lib/mizan-ci/playwright-deps ]; then say "chromium libs" present; else
+  if [ -f $CACHE/markers/playwright-deps ]; then say "chromium libs" present; else
     say "chromium libs" installing
-    timed python -m playwright install-deps chromium >/dev/null
-    mkdir -p /var/lib/mizan-ci && touch /var/lib/mizan-ci/playwright-deps
+    timed $SUDO env "PATH=$PATH" python -m playwright install-deps chromium >/dev/null
+    mkdir -p /var/lib/mizan-ci && touch $CACHE/markers/playwright-deps
   fi
 }
 
 ensure_weasyprint() {
   # The same libraries as the server image (deploy/server/Dockerfile.api).
-  if [ -f /var/lib/mizan-ci/weasyprint-deps ]; then say "pdf libs" present; return; fi
+  if [ -f $CACHE/markers/weasyprint-deps ]; then say "pdf libs" present; return; fi
   say "pdf libs" installing
   local t0=$SECONDS
-  DEBIAN_FRONTEND=noninteractive apt-get update -qq >/dev/null
-  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
+  $SUDO env DEBIAN_FRONTEND=noninteractive apt-get update -qq >/dev/null
+  $SUDO env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends \
     libpango-1.0-0 libpangoft2-1.0-0 libpangocairo-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 \
     shared-mime-info fonts-noto-core >/dev/null
   echo "   ($(( SECONDS - t0 ))s)"
-  mkdir -p /var/lib/mizan-ci && touch /var/lib/mizan-ci/weasyprint-deps
+  mkdir -p /var/lib/mizan-ci && touch $CACHE/markers/weasyprint-deps
 }
 
 echo "CI dependencies (cache: $CACHE)"
