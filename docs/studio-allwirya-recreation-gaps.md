@@ -105,8 +105,12 @@ G8. Color: no per-element color overrides. Partially addressed 2026-11-25 (N1
     shipped): theme gained a second surface pair (dark / dark-foreground) and
     sections/columns accept background=dark, so dark/light alternation is now
     reachable; accent-on-dark still routes through the single primary role.
-G9. Store grids: product cards exist (consent-gated) but there is no "category card
-    grid" or "service price list" preset; closest are pricing_cards/features presets.
+G9. RESOLVED 2026-11-26: doc drift - the "Category cards" preset already exists
+    (eabbc70e, Catalog category: artwork + name + text + browse link per card,
+    editable in Studio) and covers the category card grid; the service price list
+    is composable with the pricing_cards preset (Arabic preset names for
+    category_cards/icon_list/check_list/contact_form added in the same change -
+    Arabic UI previously fell back to English for those four).
 G10. RESOLVED 2026-11-26: multi-column footer shipped (theme.footer.groups: up to
     4 titled link groups, 6 links each, rendered as mz-footer-groups columns in
     both renderers, editable in Style > Footer as "Footer link groups"). Footer
