@@ -2,18 +2,16 @@
 disk on site and in development, and never the throwaway disk of a Vercel function."""
 import asyncio
 
-import pytest
-from fastapi import HTTPException
-
 from app.framework import files
 
 
-def test_vercel_without_a_blob_token_refuses_uploads(monkeypatch):
+def test_vercel_without_a_blob_token_keeps_files_in_the_database(monkeypatch):
+    """The throwaway disk of a Vercel function is never used: with no blob token the platform
+    database keeps the bytes (workspace_file_blobs) instead of refusing uploads."""
     monkeypatch.delenv("BLOB_READ_WRITE_TOKEN", raising=False)
     monkeypatch.setenv("VERCEL", "1")
-    with pytest.raises(HTTPException) as e:
-        files.backend()
-    assert e.value.status_code == 503
+    assert isinstance(files.backend(), files._DB) and files.backend_name() == "db"
+    assert not isinstance(files.backend(), files._Disk)
 
 
 def test_the_backend_follows_the_token(monkeypatch):

@@ -4628,3 +4628,10 @@ MIGRATIONS.append(("v122_workspace_file_blobs", """
         END IF;
     END $$;
 """))
+
+MIGRATIONS.append(("v123_workspace_file_blobs_tenant_unique", """
+    -- A file URL is unique inside its workspace (the tenant id is part of every URL), never across
+    -- workspaces: like every other workspace table, the unique key carries tenant_id.
+    ALTER TABLE workspace_file_blobs DROP CONSTRAINT IF EXISTS workspace_file_blobs_url_key;
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_workspace_file_blobs_tenant_url ON workspace_file_blobs (tenant_id, url);
+"""))
