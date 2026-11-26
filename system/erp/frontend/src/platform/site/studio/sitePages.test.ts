@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ssoToken, siteRequestHeaders, SiteApiError, applySettings, createPayload, createSitePagesClient, draftPayload, settingsPayload, slugFromName } from './sitePages';
+import { ssoWorkspace, ssoToken, siteRequestHeaders, SiteApiError, applySettings, createPayload, createSitePagesClient, draftPayload, settingsPayload, slugFromName } from './sitePages';
 import { initialProject } from './model';
 import { toPageTree } from './pagetree';
 
@@ -249,5 +249,15 @@ describe('studio single sign-on token', () => {
   });
   it('is quiet without an ERP session or with a broken one', () => {
     for (const bad of [null, '', 'not json', '{}', '{"token":""}', '{"token":5}', 'null']) expect(ssoToken(HOST, HOST, bad)).toBeNull();
+  });
+});
+
+describe('studio workspace label', () => {
+  it('uses the ERP workspace slug and name', () => {
+    expect(ssoWorkspace(JSON.stringify({ id: '1', name: ' My Shop ', slug: 'my-shop' }), 'studio-test')).toEqual({ slug: 'my-shop', label: 'My Shop' });
+    expect(ssoWorkspace(JSON.stringify({ name: 'Only name' }), 'studio-test')).toEqual({ slug: 'studio-test', label: 'Only name' });
+  });
+  it('falls back to the default without a usable ERP workspace', () => {
+    for (const bad of [null, '', 'oops', '{}', 'null', '{"name":5,"slug":7}']) expect(ssoWorkspace(bad, 'studio-test')).toEqual({ slug: 'studio-test', label: 'studio-test' });
   });
 });

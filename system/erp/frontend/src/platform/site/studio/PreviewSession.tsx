@@ -3,7 +3,7 @@ import NativeStudio from './NativeStudio';
 import NewPage from './NewPage';
 import DraftPageKit from './DraftPageKit';
 import {type PreviewConfig} from './previewConfig';
-import {siteRequestHeaders} from './sitePages';
+import {siteRequestHeaders,ssoWorkspace} from './sitePages';
 import {t,getUILang,useUILang,uiDir} from './uiStrings';
 type Page={id:string;slug:string;titles:Record<string,string>;status:string;updated_at?:string|null;published?:boolean};
 function arNum(n:number){return getUILang()==='en'?String(n):n.toLocaleString('ar-EG')}
@@ -37,7 +37,8 @@ export default function PreviewSession({config}:{config:PreviewConfig}){
   const uiLang=useUILang();
    const go=uiDir(uiLang)==='rtl'?'←':'→';
  const [state,setState]=useState<'checking'|'signin'|'ready'>('checking');
- const [username,setUsername]=useState(''),[password,setPassword]=useState(''),[workspace,setWorkspace]=useState('studio-test');
+ const [username,setUsername]=useState(''),[password,setPassword]=useState(''),[workspace,setWorkspace]=useState(()=>ssoWorkspace(config.apiBase==='/api'?null:localStorage.getItem('mizan.tenant'),'studio-test').slug);
+ const workspaceLabel=ssoWorkspace(config.apiBase==='/api'?null:localStorage.getItem('mizan.tenant'),workspace).label;
  const [error,setError]=useState(''),[busy,setBusy]=useState(false),[pages,setPages]=useState<Page[]>([]);
  const [creating,setCreating]=useState(false),[kitOpen,setKitOpen]=useState(false),[query,setQuery]=useState('');
  const [displayName,setDisplayName]=useState('');
@@ -76,7 +77,7 @@ export default function PreviewSession({config}:{config:PreviewConfig}){
  return <div dir={uiDir(uiLang)} className="mz-home">
   <div className="mz-topbar">
    <div className="mz-logo"><div className="mz-logo-mark"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round"><path d="M12 4v13M8 20h8M4 8h16"/><circle cx="7" cy="12.5" r="2.6"/><circle cx="17" cy="12.5" r="2.6"/></svg></div>{t('ميزان ستوديو')}</div>
-   <div className="mz-wkchip" title={workspace}>{t('مساحة عمل')} {workspace}</div>
+   <div className="mz-wkchip" title={workspaceLabel}>{t('مساحة عمل')} {workspaceLabel}</div>
    <div className="mz-spacer"/>
    <div className="mz-search-home"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={t("دوّر على صفحة…")} aria-label={t("دوّر على صفحة")}/></div>
    <div className="mz-avatar" aria-hidden>{name?name[0]:t('م')}</div>
