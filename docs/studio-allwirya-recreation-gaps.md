@@ -200,3 +200,8 @@ footer socials).
   to `/c/<id>`, product images (test products have none), and the Settings
   audit.
 - Test data only: six test products and three categories on the test tenant.
+- Products page (2026-11-26): the live grid is bound to `inventory.products`
+  in both languages and the category cards link to `/c/<id>` through buttons.
+  Finding: a static sibling column in the same row as a repeat column made the
+  publish approval fail with a generic "data source not exposable" message.
+  Removing the sibling fixed it. The refusal message should name the cause.
