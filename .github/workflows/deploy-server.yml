@@ -1,35 +1,38 @@
-name: Deploy (server)
+name: Deploy (homie)
 
-# Production on the self-hosted server (deploy/server/README.md): a push to master is a release.
-# The images build while CI runs; the release starts the moment CI passes on the commit:
-# homie's runner pulls the new layers, backs up, migrates and switches (deploy/server/deploy.sh).
-# A newer push supersedes an older one that hasn't released yet (its CI may be cancelled).
-# By hand (Run workflow): releases the chosen commit once its CI has passed.
+# Manual production release to homie (allmizan.live). Run by hand: Actions > Deploy (homie) > Run workflow.
+# 1. GitHub-hosted runner builds the two images and pushes them to GHCR, tagged with the commit.
+# 2. The "deploy" job waits for approval of the `production` Environment (required reviewer),
+#    then SSHes to homie as the restricted user `mizan-deploy`. Its key can run only one forced command
+#    (`deploy <40-hex sha>`), which logs in to GHCR with this job's short-lived token and runs
+#    /srv/mizan/deploy.sh (back up, migrate, switch, health check). See docs/deploy-homie.md.
+# No push, pull_request or schedule trigger: fork PRs can never reach the key.
 
 on:
   workflow_dispatch: {}
 
 permissions:
   contents: read
-  packages: write
-  actions: read
 
 jobs:
   build:
     name: Image (${{ matrix.image }})
-    runs-on: [self-hosted, ci]   # waits for CI only; latitude-e6530
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     strategy:
       matrix:
         image: [api, web]
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: deploy/server/Dockerfile.${{ matrix.image }}
@@ -41,79 +44,27 @@ jobs:
   deploy:
     name: Release on homie
     needs: build
-    runs-on: homie   # the runner on the server (registered with only this label)
+    runs-on: ubuntu-latest
+    environment: production   # required reviewer approves before this job (and its secret) starts
     concurrency:
       group: server-production
       cancel-in-progress: false
     permissions:
       contents: read
       packages: read
-      actions: read
     steps:
-      - name: Wait for CI on this commit (skip if master moves on)
-        id: latest
+      - name: Release over SSH (forced command)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          API: ${{ github.api_url }}/repos/${{ github.repository }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
         run: |
-          get() { curl -fsS -H "Authorization: Bearer $GH_TOKEN" "$API/$1"; }
-          for i in $(seq 1 120); do
-            if [ "${{ github.event_name }}" = push ]; then
-              head=$(get commits/master | python3 -c "import json,sys; print(json.load(sys.stdin)['sha'])")
-              if [ "$head" != "$GITHUB_SHA" ]; then
-                echo "master is now $head; its own run releases it."
-                echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
-              fi
-            fi
-            state=$(get "actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&per_page=1" |
-              python3 -c "import json,sys; r=json.load(sys.stdin)['workflow_runs']; print((r[0]['status']+' '+str(r[0]['conclusion'])) if r else 'none')")
-            case "$state" in
-              "completed success") echo "CI passed"; exit 0 ;;
-              completed*) echo "CI didn't pass ($state): not releasing"; exit 1 ;;
-            esac
-            sleep 15
-          done
-          echo "CI didn't finish in 30 minutes"; exit 1
-
-      - uses: actions/checkout@v4
-        if: steps.latest.outputs.skip != 'true'
-        with:
-          sparse-checkout: |
-            deploy/server
-            deploy/k3s
-          sparse-checkout-cone-mode: true
-
-      - name: Update the server's compose file and scripts
-        if: steps.latest.outputs.skip != 'true'
-        run: |
-          cp deploy/server/compose.yaml deploy/server/deploy.sh deploy/server/backup.sh deploy/server/backup-offsite.sh deploy/server/mizan-cron.sh /srv/mizan/
-          chmod +x /srv/mizan/deploy.sh /srv/mizan/backup.sh /srv/mizan/backup-offsite.sh /srv/mizan/mizan-cron.sh
-
-      - name: Release
-        if: steps.latest.outputs.skip != 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin >/dev/null
-          trap 'docker logout ghcr.io >/dev/null' EXIT
-          /srv/mizan/deploy.sh "$GITHUB_SHA"
-
-      # The cluster copy (deploy/k3s, ADR-011): latitude serves alongside homie's compose. Runs after
-      # the release, so the database is already migrated. Doesn't fail the release while the cluster
-      # is being introduced; homie's compose keeps serving either way.
-      - name: Cluster
-        if: steps.latest.outputs.skip != 'true'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          KUBECONFIG: /home/ammar/.kube/mizan-k3s
-        run: |
-          [ -f "$KUBECONFIG" ] || { echo "no kubeconfig: cluster skipped"; exit 0; }
-          # A pull secret from this job's token: the cluster pulls the new images now, while it's valid,
-          # and keeps them (IfNotPresent) for restarts.
-          kubectl -n mizan create secret docker-registry ghcr --docker-server=ghcr.io \
-            --docker-username="${{ github.actor }}" --docker-password="$GH_TOKEN" \
-            --dry-run=client -o yaml | kubectl apply -f -
-          sed "s/MIZAN_TAG/$GITHUB_SHA/g" deploy/k3s/mizan.yaml | kubectl apply -f -
-          kubectl -n mizan rollout status deploy/api --timeout=10m
-          kubectl -n mizan rollout status deploy/web --timeout=5m
+          set -eu
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key; chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          trap 'rm -f ~/.ssh/deploy_key' EXIT
+          printf '%s\n' "$GH_TOKEN" | ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o PasswordAuthentication=no -o BatchMode=yes -o ServerAliveInterval=30 \
+            mizan-deploy@"$DEPLOY_HOST" "deploy $GITHUB_SHA"
