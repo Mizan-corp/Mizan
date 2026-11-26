@@ -25,6 +25,12 @@ COPY owner/frontend owner/frontend
 COPY admin/frontend admin/frontend
 COPY --from=sdk /out website/frontend/public/sdk
 RUN for app in system website owner admin; do npm run build -w $app/frontend || exit 1; done
+# The standalone Studio (the Website module's "Open Studio" opens /studio-preview.html on the ERP host).
+# VITE_STUDIO_API makes it a hosted build: it saves and loads through the production API, same as the ERP.
+RUN cd system/frontend && VITE_STUDIO_API=https://api.allmizan.live/api \
+      npx vite build --config vite.preview.config.ts --outDir dist-studio --emptyOutDir && \
+    test -f dist-studio/studio-preview.html && \
+    ! grep -E '(src|href)="assets/' dist-studio/studio-preview.html
 
 FROM nginx:1.27-alpine
 RUN rm /etc/nginx/conf.d/default.conf
@@ -32,6 +38,8 @@ COPY deploy/server/nginx.conf /etc/nginx/conf.d/mizan.conf
 COPY deploy/server/mizan-common.conf deploy/server/mizan-panel-headers.conf /etc/nginx/
 COPY --from=build /repo/website/frontend/dist /srv/web/website
 COPY --from=build /repo/system/frontend/dist /srv/web/system
+COPY --from=build /repo/system/frontend/dist-studio/assets/ /srv/web/system/assets/
+COPY --from=build /repo/system/frontend/dist-studio/studio-preview.html /srv/web/system/studio-preview.html
 COPY --from=build /repo/owner/frontend/dist/owner /srv/web/panels/owner
 COPY --from=build /repo/admin/frontend/dist/admin /srv/web/panels/admin
 RUN chown -R nginx:nginx /var/cache/nginx /var/log/nginx /srv/web && \
