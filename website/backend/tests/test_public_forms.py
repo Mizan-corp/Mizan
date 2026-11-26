@@ -321,3 +321,94 @@ class PublicFormTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PublicFormMiddlewareTests(unittest.IsolatedAsyncioTestCase):
+    """The anonymous submission route through the REAL middleware stack.
+
+    Pins the narrow CSRF exemption: exactly POST /forms/{slug}/{page}/{node}
+    passes without a double-submit token (native browser forms cannot echo it),
+    while the attacker-Origin rejection stays in the route (before any DB read)
+    and the authenticated admin inbox path remains fully CSRF-protected.
+    """
+
+    def _app(self, db):
+        from fastapi import FastAPI
+        from app.db.base import get_db
+        from app.middleware import add_csrf_middleware
+
+        app = FastAPI()
+        add_csrf_middleware(app)
+        app.include_router(pf.router)
+
+        async def _db():
+            yield db
+
+        app.dependency_overrides[get_db] = _db
+        return app
+
+    def setUp(self):
+        pf._form_hits.clear()
+        self._saved_host = pp.settings.PUBLIC_SITE_HOST
+        pp.settings.PUBLIC_SITE_HOST = HOST
+
+    def tearDown(self):
+        pp.settings.PUBLIC_SITE_HOST = self._saved_host
+
+    async def _post(self, app, origin="default", path="/forms/site/contact/n_form01"):
+        import httpx
+        headers = {"host": HOST}
+        if origin == "default":
+            headers["origin"] = f"https://{HOST}"
+        elif origin is not None:
+            headers["origin"] = origin
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url=f"https://{HOST}") as c:
+            return await c.post(path, headers=headers,
+                                data={"name": "Ammar", "email": "ammar@example.com",
+                                      "message": "hello", "website": ""},
+                                follow_redirects=False)
+
+    async def test_same_origin_native_post_passes_middleware_and_stores(self):
+        db = db_scripted(ok_script())
+        res = await self._post(self._app(db))
+        self.assertEqual(res.status_code, 303)
+        self.assertEqual(db.add.call_count, 1)
+
+    async def test_attacker_origin_rejected_by_route_before_db(self):
+        # No proxy laundering: the hostile Origin reaches the route verbatim.
+        db = db_scripted(ok_script())
+        res = await self._post(self._app(db), origin="https://evil.example")
+        self.assertEqual(res.status_code, 404)
+        db.execute.assert_not_called()
+        db.add.assert_not_called()
+
+    async def test_malformed_origin_is_safe_404(self):
+        db = db_scripted(ok_script())
+        res = await self._post(self._app(db), origin="://nonsense")
+        self.assertEqual(res.status_code, 404)
+        db.add.assert_not_called()
+
+    async def test_absent_origin_still_served(self):
+        # Justified for this anonymous-only route: curl and privacy-stripped
+        # browsers send no Origin; they still face rate limit, honeypot and
+        # exact-key validation, and a session cookie would authorize nothing.
+        db = db_scripted(ok_script())
+        res = await self._post(self._app(db), origin=None)
+        self.assertEqual(res.status_code, 303)
+
+    async def test_wrong_shape_post_stays_csrf_protected(self):
+        # Same prefix family but not the exact anonymous route shape.
+        db = db_scripted(ok_script())
+        res = await self._post(self._app(db), path="/forms/site/contact")
+        self.assertEqual(res.status_code, 403)
+        self.assertIn("CSRF", res.json()["detail"])
+
+    async def test_admin_inbox_mark_read_stays_csrf_protected(self):
+        # The authenticated submissions inbox must never inherit the exemption:
+        # a cookie-session POST there without the token 403s in the middleware
+        # (before routing, so no mount needed to prove the boundary).
+        db = db_scripted(ok_script())
+        res = await self._post(self._app(db), path="/site/forms/submissions/abc/read")
+        self.assertEqual(res.status_code, 403)
+        self.assertIn("CSRF", res.json()["detail"])

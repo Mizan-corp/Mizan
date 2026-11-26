@@ -521,3 +521,18 @@
 .preview-frame .mz-reorder .mz-site-logo,.preview-frame .mz-reorder .mz-site-brand{order:var(--ord-brand,1)}.preview-frame .mz-reorder .mz-header-search{order:var(--ord-search,2)}.preview-frame .mz-reorder .mz-header-icons{order:var(--ord-icons,3)}.preview-frame .mz-reorder .mz-header-main>nav,.preview-frame .mz-reorder .mz-header-main>.mz-site-actions{order:2}.preview-frame .mz-reorder .mz-header-menu{order:9}@container(max-width:768px){.preview-frame .mz-reorder .mz-header-search{order:9;flex-basis:100%}}
 /* The connect (module data) panel hosts settings forms; give it room. */
 .canva-studio .studio-workspace:has(.website-module-settings){grid-template-columns:78px minmax(320px,400px) minmax(0,1fr)}
+/* Form block: mirrors render.py _BASE_CSS (.mz-form*) for the inert Studio preview. */
+.preview-frame .mz-form{display:flex;flex-direction:column;gap:14px;max-width:520px;margin:0 0 24px}
+.preview-frame .mz-form-center{margin-inline:auto;text-align:center}
+.preview-frame .mz-form-center .mz-form-field{text-align:start}
+.preview-frame .mz-form-title{font-size:clamp(21px,2.2cqw,27px);font-weight:750;margin:0}
+.preview-frame .mz-form-field{display:flex;flex-direction:column;gap:6px}
+.preview-frame .mz-form-label{font-size:14px;font-weight:600}
+.preview-frame .mz-form-input{width:100%;padding:10px 12px;border:1px solid color-mix(in srgb,var(--foreground,#262321) 22%,transparent);border-radius:var(--radius,8px);background:var(--card,#fff);color:inherit;font:inherit;font-size:15px}
+.preview-frame textarea.mz-form-input{resize:vertical}
+.preview-frame .mz-form-hp{display:none}
+.preview-frame .mz-form-success{padding:10px 14px;border-radius:var(--radius,8px);background:color-mix(in srgb,var(--primary,#651E2C) 12%,transparent);font-size:15px}
+.preview-frame .mz-form-submit{align-self:flex-start;border:0;cursor:pointer;font:inherit}
+.preview-frame .mz-form-center .mz-form-submit{align-self:center}
+.preview-frame .mz-form-inert .mz-form-input{pointer-events:none;opacity:.7}
+.preview-frame .mz-form-inert .mz-form-submit{opacity:.6;cursor:default}

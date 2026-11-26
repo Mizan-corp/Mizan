@@ -11,6 +11,7 @@ not rely on ambient cookie auth and are not CSRF-forgeable.
 The token is stateless — no server-side session store — so it works unchanged
 behind multi-worker/multi-instance deployments.
 """
+import re
 import secrets
 from collections.abc import Callable
 
@@ -48,6 +49,11 @@ CSRF_EXEMPT_SUFFIXES = (
 
 MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 
+# Exactly POST /forms/{slug}/{page_path}/{node_id} (public_forms.py): the only
+# unauthenticated browser-form route. Slugs are constrained by the route's own
+# validators; the shape here just keeps the exemption from covering anything else.
+_ANON_PUBLIC_FORM_RE = re.compile(r"/forms/[^/]+/[^/]+/[^/]+")
+
 
 def _script_rel_path(path: str) -> str:
     """Strip a deployment base prefix (e.g. /api) so exemptions match any mount point."""
@@ -73,6 +79,7 @@ def _is_exempt(path: str) -> bool:
     # Community modules' servers (ADR-007): no browser, no cookies; a scoped bearer token.
     if rel.startswith("/ext/v1/"):
         return True
+
     return rel in CSRF_EXEMPT_SUFFIXES
 
 
@@ -81,9 +88,19 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         path = request.url.path
         cookie_token = request.cookies.get(CSRF_COOKIE)
 
+        # The ONE anonymous public route with a native browser form: visitors hold
+        # no session and a native <form> cannot echo the double-submit cookie, so
+        # CSRF validation could only ever reject legitimate submissions here. Its
+        # cross-site boundary is the route's own Origin/activation-host check,
+        # rate limit, honeypot and exact-key validation. Method- and shape-exact:
+        # every other path, including the authenticated /site/forms admin inbox,
+        # stays fully CSRF-protected.
+        anon_public_form = request.method == "POST" and _ANON_PUBLIC_FORM_RE.fullmatch(_script_rel_path(path))
+
         needs_check = (
             request.method in MUTATING_METHODS
             and not _is_exempt(path)
+            and not anon_public_form
             and not request.headers.get("Authorization")  # header-auth is not CSRF-forgeable
         )
 
