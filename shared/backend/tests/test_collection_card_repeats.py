@@ -117,6 +117,31 @@ class ExpansionTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('zzz', node['content']['ar']['html'])
         self.assertEqual(manifest.page_problems(out, ('en', 'ar')), [])
 
+    async def test_query_never_matches_text_outside_the_disclosed_heading_field(self):
+        # Consent contract (2026-11-26): filtering sees only the disclosed
+        # heading text, through the same consent-checked reader the render
+        # uses. A needle that exists only in a record attribute the collection
+        # does not disclose (a description, say) must not match, count or
+        # rank. The runtime pins this two ways: items() rejects provider rows
+        # carrying keys outside the reviewed contract, and text() reads only
+        # the contracted heading field.
+        sneaky = dict(item('p2', 'Plain Box'))
+        sneaky['description'] = 'codeword'
+        runtime = rows(item('p1', 'Laptop HP'), sneaky)
+        ctx = r.SourceContext(A, 'en', frozenset({'inventory'}))
+        with self.assertRaises(collections.ProjectionInvalid):
+            await p.resolve_repeat(card_tree(), runtime, ctx, query='codeword')
+
+    async def test_query_cannot_target_an_undeclared_field(self):
+        # Asking the reader for a field outside the contract (e.g. a hidden
+        # description) fails closed instead of searching it.
+        runtime = rows(item('p1', 'Widget'))
+        ctx = r.SourceContext(A, 'en', frozenset({'inventory'}))
+        items = await runtime.items(ctx, 'inventory', 'products', 3)
+        with self.assertRaises(r.SourceUnavailable):
+            runtime.text(ctx, items[0], module='inventory', source='products',
+                         field='description', on_missing='hide')
+
     async def test_queryless_all_hidden_still_prunes_row(self):
         async def read(context, limit):
             return [dict(item('p1', None, img=None))]

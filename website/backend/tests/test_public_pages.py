@@ -200,6 +200,48 @@ class Tests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(cm.exception.status_code, 404)
             self.assertIsNone(current_tenant_id.get())
 
+    async def test_query_param_threads_to_render_and_respects_every_gate(self):
+        # Visitor search: ?q= reaches the render seam verbatim (whitespace
+        # preserved; stripping/bounding happens in the repeat resolver), an
+        # absent parameter threads None, and a query changes no gate: the
+        # synthetic scope still refuses provider nodes and a missing
+        # activation is still a generic 404.
+        seen = {}
+
+        async def render(db_, page, theme, tid, canonical, link_base="", query=None, **kwargs):
+            seen["query"] = query
+            return "<html>ok</html>"
+
+        req = make_request()
+        req.query_params = {"q": " wallet "}
+        db = db_scripted(ok_script(CARD_TREE, allow_data=True, theme=SYNTH_THEME))
+        with patch.object(pp, "_render_public", new=render):
+            resp = await pp.public_page("site", "home", req, db)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(seen["query"], " wallet ")
+
+        pp._rate_hits.clear()
+        req = make_request()
+        db = db_scripted(ok_script(CARD_TREE, allow_data=True, theme=SYNTH_THEME))
+        with patch.object(pp, "_render_public", new=render):
+            await pp.public_page("site", "home", req, db)
+        self.assertIsNone(seen["query"])
+
+        pp._rate_hits.clear()
+        req = make_request()
+        req.query_params = {"q": "wallet"}
+        db = db_scripted(ok_script(REPEAT_TREE))
+        with self.assertRaises(HTTPException) as cm:
+            await pp.public_page("site", "home", req, db)
+        self.assertEqual(cm.exception.status_code, 404)
+
+        pp._rate_hits.clear()
+        db = db_scripted([None, None, None])
+        with self.assertRaises(HTTPException) as cm:
+            await pp.public_page("site", "home", req, db)
+        self.assertEqual(cm.exception.status_code, 404)
+        self.assertIsNone(current_tenant_id.get())
+
     async def test_synthetic_refuses_offhost_destinations_and_mailto(self):
         for tree in (OFFHOST_IMG_TREE, MAILTO_TREE):
             pp._rate_hits.clear()

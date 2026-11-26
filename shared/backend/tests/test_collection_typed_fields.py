@@ -161,6 +161,15 @@ class ContractSchemaTests(unittest.TestCase):
         self.assertEqual(c['fields']['price']['type'], 'money')
         self.assertEqual(c['fields']['image']['type'], 'media')
 
+    def test_products_contract_declares_only_disclosed_fields(self):
+        # Search-filter consent pin (2026-11-26): the products collection
+        # declares exactly the displayable fields. A description (or any other
+        # record attribute) is not part of the contract, so repeat filtering
+        # can never match on it. Adding a field here is a consent-scope
+        # change and must arrive with its own wording/version work.
+        fields = provider.text_contract('products')['fields']
+        self.assertEqual(set(fields), {'name', 'price', 'image'})
+
     def test_categories_contract_stays_name_only(self):
         c = provider.text_contract('categories')
         self.assertEqual(set(c['fields']), {'name'})
@@ -268,6 +277,18 @@ class ProviderConsentTests(unittest.IsolatedAsyncioTestCase):
         rows = await self.products.read(self.ctx, 3)
         self.assertIsNone(rows[0]['price'])
         self.assertIsNone(rows[0]['image'])
+
+    async def test_read_never_selects_the_description_column(self):
+        # Companion to the contract pin: whatever the recorded consent, the
+        # products collection SELECT touches only id/name plus explicitly
+        # opted-in price/image columns. Description is never read, so a
+        # visitor query can never match, count or rank on hidden text.
+        self._scalars(catalog_selection(), v1_policy())
+        self._rows((P1, 'Widget', Decimal('10.00'), IMG))
+        await self.products.read(self.ctx, 3)
+        selected = {c.name for c in self.db.execute.call_args.args[0].columns}
+        self.assertLessEqual(selected, {'id', 'name', 'retail_price', 'image_url'})
+        self.assertNotIn('description', selected)
 
     async def test_no_consent_means_no_typed_values(self):
         self._scalars(catalog_selection(), None)

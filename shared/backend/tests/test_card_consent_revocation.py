@@ -64,19 +64,24 @@ class Tests(unittest.IsolatedAsyncioTestCase):
             rows = await c.read_cards(self.db, self.ctx, 6)
             self.assertEqual(rows, [{'item_key': str(P1), 'name': 'Versioned name', 'price': None, 'image': None}], schema)
 
-    async def test_public_reads_require_the_v3_public_pages_wording(self):
+    async def test_public_reads_require_the_public_pages_wording(self):
         # v0/v1/v2 were recorded under previews-only wording: valid for
         # previews, never authority for public card reads. v3 names public
-        # pages explicitly and is the only version public reads accept.
+        # pages explicitly and v4 keeps that wording while adding scope
+        # (docs/studio-consent-scope-v4.md), so public reads accept v3+.
         public_ctx = SourceContext(A, 'en', frozenset({'inventory'}), audience='public')
         for schema in (c.SCHEMA, c.SCHEMA_V1, c.SCHEMA_V2):
             self.db.scalar.return_value = json.dumps({'schema': schema, 'products': [str(P1)], 'show_price': False, 'show_image': False, 'currency': None})
             with self.assertRaises(SourceUnavailable, msg=schema):
                 await c.read_cards(self.db, public_ctx, 6)
-        self.db.scalar.return_value = json.dumps({'schema': c.SCHEMA_V3, 'products': [str(P1)], 'show_price': False, 'show_image': False, 'currency': None})
-        r = MagicMock(); r.all.return_value = [(P1, 'Public name')]; self.db.execute.return_value = r
-        rows = await c.read_cards(self.db, public_ctx, 6)
-        self.assertEqual(rows, [{'item_key': str(P1), 'name': 'Public name', 'price': None, 'image': None}])
+        for schema in (c.SCHEMA_V3, c.SCHEMA_V4):
+            value = {'schema': schema, 'products': [str(P1)], 'show_price': False, 'show_image': False, 'currency': None}
+            if schema == c.SCHEMA_V4:
+                value['show_description'] = False  # v4 rows carry the exact six-key shape
+            self.db.scalar.return_value = json.dumps(value)
+            r = MagicMock(); r.all.return_value = [(P1, 'Public name')]; self.db.execute.return_value = r
+            rows = await c.read_cards(self.db, public_ctx, 6)
+            self.assertEqual(rows, [{'item_key': str(P1), 'name': 'Public name', 'price': None, 'image': None}], schema)
 
     async def test_protective_errors_still_fail_closed(self):
         self.db.scalar.return_value = policy([P1])

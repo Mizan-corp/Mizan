@@ -145,7 +145,10 @@ async def read_cards(db, context, limit, products=None):
             recorded = json.loads(raw).get('schema') if raw is not None else None
         except (TypeError, ValueError):
             raise SourceUnavailable('Invalid website card policy.') from None
-        if recorded != SCHEMA_V3:
+        # v3 first named public pages; v4 keeps that wording and adds category
+        # linkage, URL-selected detail and the optional description field, so
+        # both are authority for public reads (docs/studio-consent-scope-v4.md).
+        if recorded not in (SCHEMA_V3, SCHEMA_V4):
             raise SourceUnavailable('Public product display requires the current website display consent.')
     # Cards were covered by every consent wording (v0 cards, v1 +lists, v2
     # +bound elements), so the render path accepts any recorded version via the
