@@ -1,3 +1,4 @@
+import { moduleDefinitions } from "@app/framework/registry";
 import { lazy, Suspense } from "react";
 const DashboardPage = lazy(() => import("@app/features/dashboard/DashboardPage"));
 const PosPage = lazy(() => import("@activities/general/modules/pos/PosPage"));
@@ -9,7 +10,6 @@ const ShiftsPage = lazy(() => import("@activities/general/modules/pos/screens/Sh
 const CustomersPage = lazy(() => import("@app/features/customers/CustomersPage"));
 const SettingsPage = lazy(() => import("@app/features/settings/SettingsPage"));
 const DesignerPage = lazy(() => import("@app/features/designer/DesignerPage"));
-const WebsitePage = lazy(() => import("@activities/general/modules/website/WebsitePage"));
 const CommunityEntityPage = lazy(() => import("@app/platform/community/screens/EntityPage"));
 const FinancePage = lazy(() => import("@activities/general/modules/finance/FinancePage"));
 const SuppliersPage = lazy(() => import("@app/features/suppliers/SuppliersPage"));
@@ -60,11 +60,6 @@ const GovernmentPage = lazy(() => import("@activities/government/modules/governm
 const EntertainmentPage = lazy(() => import("@activities/entertainment/modules/events/EntertainmentPage"));
 const OilGasPage = lazy(() => import("@activities/petroleum/modules/oil_gas/OilGasPage"));
 const TenantScopeLayout = lazy(() => import("@app/features/tenant/TenantScopeLayout"));
-const AccountingJournalPage = lazy(() => import("@activities/general/modules/accounting/screens/JournalPage"));
-const AccountingAccountsPage = lazy(() => import("@activities/general/modules/accounting/screens/AccountsPage"));
-const AccountingReportsPage = lazy(() => import("@activities/general/modules/accounting/screens/ReportsPage"));
-const AccountingPeriodsPage = lazy(() => import("@activities/general/modules/accounting/screens/PeriodsPage"));
-const AccountingOpeningPage = lazy(() => import("@activities/general/modules/accounting/screens/OpeningPage"));
 
 
 
@@ -178,11 +173,6 @@ function renderErpChildRoutes(includeIndex: boolean = true) {
       <Route path="customers" element={<Guard perm="customers"><CustomersPage /></Guard>} />
       <Route path="suppliers" element={<Guard perm="purchases|finance"><SuppliersPage /></Guard>} />
       <Route path="finance" element={<Guard perm="finance"><FinancePage /></Guard>} />
-      <Route path="accounting/journal" element={<Guard perm="accounting:view|accounting:journal" module="accounting"><AccountingJournalPage /></Guard>} />
-      <Route path="accounting/accounts" element={<Guard perm="accounting:view" module="accounting"><AccountingAccountsPage /></Guard>} />
-      <Route path="accounting/reports" element={<Guard perm="accounting:view" module="accounting"><AccountingReportsPage /></Guard>} />
-      <Route path="accounting/periods" element={<Guard perm="accounting:close|accounting:settings" module="accounting"><AccountingPeriodsPage /></Guard>} />
-      <Route path="accounting/opening" element={<Guard perm="accounting:settings" module="accounting"><AccountingOpeningPage /></Guard>} />
       <Route path="hr" element={<Guard perm="payroll"><HrPage /></Guard>} />
       <Route path="hr/payroll" element={<Guard perm="payroll"><PayrollPage /></Guard>} />
       <Route path="shifts" element={<Guard perm="shifts"><ShiftsPage /></Guard>} />
@@ -191,7 +181,6 @@ function renderErpChildRoutes(includeIndex: boolean = true) {
       <Route path="users" element={<Guard perm="users"><UsersPage /></Guard>} />
       <Route path="settings" element={<Guard perm="settings"><SettingsPage /></Guard>} />
       <Route path="designer" element={<Guard perm="designer"><DesignerPage /></Guard>} />
-      <Route path="website" element={<Guard perm="site.manage"><WebsitePage /></Guard>} />
       {/* Community modules (ADR-007): their records, drawn from the entity they declare. */}
       <Route path="x/:module/:entity" element={<CommunityEntityPage />} />
       <Route path="modules" element={<Guard perm=""><ModulesPage /></Guard>} />
@@ -230,6 +219,10 @@ function renderErpChildRoutes(includeIndex: boolean = true) {
       <Route path="oil" element={<Guard perm="" module="oil_gas"><OilGasPage /></Guard>} />
       <Route path="pricing" element={<Guard perm=""><PricingPage /></Guard>} />
       <Route path="login" element={<LoginPage />} />
+      {/* Routes the modules declare in their index.ts (migration step 2). */}
+      {moduleDefinitions.flatMap((m) => m.routes ?? []).map((r) => (
+        <Route key={r.path} path={r.path} element={<Guard perm={r.perm} module={r.module}><r.component /></Guard>} />
+      ))}
     </>
   );
 }

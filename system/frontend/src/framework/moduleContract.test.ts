@@ -1,10 +1,11 @@
 // Contract between the backend module manifests and the ERP frontend (docs/modular-core-exploration.md,
 // migration step 1). Pure checks over files: no behaviour change.
-//  1. every screen an active manifest declares has a route in App.tsx;
+//  1. every screen an active manifest declares has a route (App.tsx or its module);
 //  2. every active module has a frontend index.ts (ModuleDefinition) in the expected folder.
 import { describe, expect, it } from "vitest";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { moduleDefinitions } from "./registry";
 
 const ROOT = resolve(__dirname, "../../../..");
 const BACKEND = join(ROOT, "shared/backend/app");
@@ -24,7 +25,11 @@ function manifests(dir: string, out: Manifest[] = []): Manifest[] {
 
 const active = manifests(BACKEND).filter((m) => m.status === "active" && m.id);
 const appSource = readFileSync(join(FRONTEND, "App.tsx"), "utf8");
-const routes = new Set([...appSource.matchAll(/path="([^"]*)"/g)].map((m) => m[1]));
+// Routes live in App.tsx or, since migration step 2, in a module's index.ts (ModuleDefinition.routes).
+const routes = new Set([
+  ...[...appSource.matchAll(/path="([^"]*)"/g)].map((m) => m[1]),
+  ...moduleDefinitions.flatMap((m) => m.routes ?? []).map((r) => r.path),
+]);
 
 function indexPath(m: Manifest): string | null {
   if (m.kind === "business") return join(FRONTEND, "activities", m.activity ?? "general", "modules", m.id, "index.ts");
@@ -38,7 +43,7 @@ describe("module contract", () => {
     expect(active.length).toBeGreaterThan(5);
   });
 
-  it("every declared screen has a route in App.tsx", () => {
+  it("every declared screen has a route (App.tsx or its module)", () => {
     const missing = active.flatMap((m) =>
       (m.screens ?? []).filter((s) => !routes.has(s.path.replace(/^\/+/, ""))).map((s) => `${m.id}: ${s.path}`),
     );
