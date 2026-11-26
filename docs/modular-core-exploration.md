@@ -431,3 +431,9 @@ Collected from sections 5 to 8 at the owner's request (26 November 2026, 13:47) 
 
 ### Execution that follows this plan (not from the sections above)
 14. **Studio on the live server.** Deploy the current branch (Studio in the same web image as the ERP, ERP session reused so no second login) to homie, then test with a test account. Default: deploy only after the owner says so; it needs his approval click in GitHub. Until then nothing from this plan or the Studio changes is live.
+
+## 10. Migration progress log
+
+| Step | Branch | Status |
+|---|---|---|
+| 1. Contract tests (every active manifest screen has a route in `App.tsx`; every active module has a frontend `index.ts`) | `feat/modular-step1-contracts` | Done locally: `system/frontend/src/framework/moduleContract.test.ts`, passes against the current tree (no behaviour change) |
