@@ -575,3 +575,5 @@ A test enforces it: files under `system/core/` import nothing from `system/erp/`
 1. Confirm the `system/core` and `system/erp` split inside `system/` (recommended), instead of one flat `system/`.
 2. Timing: do the move now before steps 3 to 5 (recommended, smallest diff), or after the layout work.
 3. Branches: OK to rebase or merge the open feature branches around the move.
+| 2b-1. Dependency-direction test (no files moved): shared imports no app; owner, admin, website never import the ERP API or ERP frontend | `feat/modular-step2b-dependency-test` | Done: `system/frontend/src/framework/dependencyDirection.test.ts`, passes on today's tree, and was checked to fail when a probe violation is added |
+
