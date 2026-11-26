@@ -26,6 +26,7 @@ import { syncUILang } from "@app/features/studio/uiStrings";
 import WebsiteModuleSettings from "@app/features/studio/WebsiteModuleSettings";
 import WebsiteOrders from "./WebsiteOrders";
 import WebsitePublishedProducts from "./WebsitePublishedProducts";
+import WebsiteSubmissions from "./WebsiteSubmissions";
 import "./website.css";
 
 const API_BASE: string =
@@ -70,6 +71,8 @@ export default function WebsitePage() {
       />
 
       <WebsiteOrders apiBase={API_BASE} />
+
+      <WebsiteSubmissions apiBase={API_BASE} />
 
       <WebsitePublishedProducts apiBase={API_BASE} />
 
