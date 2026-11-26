@@ -1,8 +1,8 @@
 #!/bin/sh
 # Release a commit on the self-hosted server: back up, migrate, then switch the API and the apps.
 #   deploy.sh <tag>   (images ghcr.io/mizan-corp/mizan-{api,web}:<tag>; pulled if not here,
-#                      which needs `docker login ghcr.io`: the release workflow does it)
-# Run by .github/workflows/deploy-server.yml on homie's runner after CI passes; also by hand.
+#                      which needs `docker login ghcr.io`; or load them first with docker load)
+# Run by hand over SSH: see docs/deploy-homie.md. No GitHub workflow runs it.
 # A failed migration stops here: the running code keeps the old schema it works with.
 set -eu
 TAG="$1"
