@@ -1,0 +1,8 @@
+#!/bin/bash
+# Forced command for the mizan-deploy SSH key. Accepts exactly: deploy <40-hex commit sha>
+# The first line of stdin is a short-lived GHCR token. Nothing else is allowed.
+set -eu
+cmd="${SSH_ORIGINAL_COMMAND:-}"
+if [[ ! "$cmd" =~ ^deploy\ ([0-9a-f]{40})$ ]]; then echo "refused" >&2; exit 2; fi
+sha="${BASH_REMATCH[1]}"
+exec sudo -n -u ammar /usr/local/sbin/mizan-deploy-run "$sha"

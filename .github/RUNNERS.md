@@ -8,7 +8,7 @@ GitHub-hosted runners (`ubuntu-latest`); fork pull-request workflows are disable
 |---|---|
 | `ci.yml` | push to master/main, tags `v*`, pull requests to master/main, manual |
 | `installers.yml` | tags `v*`, pull requests touching installer paths, manual |
-| `deploy-server.yml` | manual only, and it only prints a notice: deploys are done by hand, see `docs/deploy-homie.md` |
+| `deploy-server.yml` | manual only; builds images, then SSH deploy to homie after approval of the `production` Environment (`docs/deploy-homie.md`) |
 | `jobs.yml` | manual only. It still says `runs-on: homie`, which no longer exists, so it will queue forever until re-pointed (scheduled jobs run from systemd timers on homie, see `deploy/server/README.md`) |
 
 `.github/ci-deps.sh` keeps its cache under `$MIZAN_CI_CACHE`, defaulting to `$RUNNER_TEMP/ci-cache`;

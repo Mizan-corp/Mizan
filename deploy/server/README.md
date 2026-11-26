@@ -23,9 +23,9 @@ internet ─ Cloudflare (DNS, TLS, *.allmizan.live) ─ tunnel ─┬─ api   (
 
 ## Releasing
 
-Releases are manual, from a person's machine over SSH: see [`docs/deploy-homie.md`](../../docs/deploy-homie.md).
-There is no GitHub runner on homie and no workflow that deploys (`deploy-server.yml` is only a notice).
-On the server, `/srv/mizan/deploy.sh <commit>` releases images already present on it.
+Manual: Actions > Deploy (homie) > Run workflow. A hosted runner builds the images; after the owner approves the
+`production` Environment it SSHes to homie as the restricted `mizan-deploy` user (forced command, key in an
+environment secret) and runs `deploy.sh`. No GitHub runner lives on homie. Details: [`docs/deploy-homie.md`](../../docs/deploy-homie.md).
 
 ## Secrets (`/srv/mizan/mizan.env`, mode 600, not in git)
 
