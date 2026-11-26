@@ -63,6 +63,15 @@ export function siteRequestHeaders(baseUrl: string, method: string, hasBody: boo
 
 async function request<T>(fetchImpl: FetchLike, baseUrl: string, method: string, path: string, body?: unknown): Promise<T> {
   const headers = siteRequestHeaders(baseUrl, method, body !== undefined, typeof document === 'undefined' ? '' : document.cookie);
+  // Single sign-on: opened from the ERP on the same host, reuse its session token. Only for
+  // the configured production API, never for a caller-supplied origin.
+  const hosted = import.meta.env.VITE_STUDIO_API as string | undefined;
+  if (hosted && baseUrl === hosted && typeof localStorage !== 'undefined') {
+    try {
+      const token = (JSON.parse(localStorage.getItem('mizan.session') ?? 'null') as { token?: string } | null)?.token;
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+    } catch { /* no ERP session: the API answers 401 */ }
+  }
   const response = await fetchImpl(`${baseUrl}${path}`, {
     method,
     credentials: 'include',
