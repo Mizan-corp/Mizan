@@ -127,3 +127,30 @@ def test_shell_defaults_to_classic_and_passes_valid_ids_only():
         assert resolved_screens(resolved()).shell == "rail"
     with patch.object(variants, "activity", with_shell("sparkly")):
         assert resolved()["shell"] is None  # unknown ids fall back to classic
+
+
+# ---- step 6: the owner's workspace-level choice ----
+def test_workspace_shell_is_the_owners_choice_among_the_options():
+    from unittest.mock import patch
+    from app.framework import variants
+
+    real = variants.activity
+
+    def offering(shells, shell=None):
+        def fake(activity_id=None):
+            return {**real(activity_id), "shells": shells, "shell": shell}
+        return fake
+
+    assert screens.shells_offered("general") == ["sidebar", "rail", "topnav"]
+    assert screens.activity_shell("general") == "sidebar"
+    assert screens.workspace_shell({"schema": 1, "shell": "rail"}, "general") == "rail"
+    assert screens.workspace_shell({"schema": 2, "shell": "rail"}, "general") is None
+    assert screens.workspace_shell({"schema": 1, "shell": "sparkly"}, "general") is None
+    assert screens.workspace_shell({}, "general") is None and screens.workspace_shell(None, None) is None
+    with patch.object(variants, "activity", offering(["sidebar", "topnav"], "topnav")):
+        assert screens.shells_offered("general") == ["sidebar", "topnav"]
+        assert screens.activity_shell("general") == "topnav"
+        assert screens.workspace_shell({"schema": 1, "shell": "rail"}, "general") is None  # not offered
+        assert screens.workspace_shell({"schema": 1, "shell": "topnav"}, "general") == "topnav"
+    with patch.object(variants, "activity", offering(["nonsense"])):
+        assert screens.shells_offered("general") == ["sidebar"]  # never an empty choice

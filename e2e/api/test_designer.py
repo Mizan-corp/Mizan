@@ -159,3 +159,19 @@ def test_customer_and_supplier_custom_fields(admin_api, reg):
     finally:
         admin_api.delete(f"/settings/fields/customer/{key}")
         admin_api.delete(f"/settings/fields/supplier/{key}")
+
+
+def test_the_owner_chooses_the_workspace_shell_among_the_offered_ones(admin_api, cashier_api):
+    start = admin_api.ok(admin_api.get("/settings/designer/shell"))
+    assert start["default"] == "sidebar" and {o["id"] for o in start["options"]} >= {"sidebar", "rail", "topnav"}
+    assert cashier_api.get("/settings/designer/shell").status_code == 403
+    try:
+        chosen = admin_api.ok(admin_api.put("/settings/designer/shell", json={"shell": "rail"}))
+        assert chosen["shell"] == "rail" and chosen["custom"] is True
+        assert admin_api.ok(admin_api.get("/settings/screens"))["shell"] == "rail"
+        assert cashier_api.ok(cashier_api.get("/settings/screens"))["shell"] == "rail"
+        assert admin_api.put("/settings/designer/shell", json={"shell": "sparkly"}).status_code == 422
+    finally:
+        assert admin_api.delete("/settings/designer/shell").status_code == 204
+    back = admin_api.ok(admin_api.get("/settings/designer/shell"))
+    assert back["shell"] == "sidebar" and back["custom"] is False

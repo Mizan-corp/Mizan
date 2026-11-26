@@ -59,8 +59,14 @@ async def my_screens(db: AsyncSession = Depends(get_db), user: User = Depends(ge
     # A developer's activity places its own modules' screens in its menus (ADR-012).
     own = {f"{c['module']}/{c['path'].rsplit('/', 1)[1]}": {**{k: c[k] for k in ("id", "path", "label", "icon")}, "module": c["module"]}
            for c in community}
-    out = resolve(layout, await workspace_activity(db), acting["code"] if acting else None,
+    activity = await workspace_activity(db)
+    out = resolve(layout, activity, acting["code"] if acting else None,
                   getattr(user, "effective_permissions", frozenset()), await get_active_modules(db), own)
+    # The owner's workspace-level shell choice (step 6) overrides the activity's default.
+    from app.framework.screens import workspace_shell
+    chosen = workspace_shell(await layouts.get(db, "workspace", "shell"), activity)
+    if chosen:
+        out["shell"] = chosen
     # Community modules' screens (ADR-007) the menu doesn't place, in a group of their own.
     placed = {i["path"] for g in out["menu"] for i in g["items"]}
     rest = [c for c in community if c["path"] not in placed]
@@ -180,4 +186,50 @@ async def reset_form_layout(record: str, db: AsyncSession = Depends(get_db), use
         raise HTTPException(404, "نموذج غير معروف")
     await layouts.reset(db, "form", record)
     await _audit(db, user, "reset", f"form:{record}", f"إعادة نموذج {layouts.forms()[record]['label']} للافتراضي")
+    await db.commit()
+
+
+class ShellIn(BaseModel):
+    shell: str
+
+
+async def _shell_state(db: AsyncSession) -> dict:
+    from app.framework import layouts, screens
+    from app.framework.hooks import workspace_activity
+
+    activity = await workspace_activity(db)
+    saved = await layouts.get(db, "workspace", "shell")
+    chosen = screens.workspace_shell(saved, activity)
+    return {"shell": chosen or screens.activity_shell(activity), "default": screens.activity_shell(activity),
+            "custom": chosen is not None,
+            "options": [{"id": i, "label": screens.SHELL_LABELS[i]} for i in screens.shells_offered(activity)]}
+
+
+@router.get("/designer/shell")
+async def get_shell(db: AsyncSession = Depends(get_db), _: User = Depends(require_perm("designer"))):
+    """The workspace's navigation shell, the one the activity sets by default, and the options the
+    owner may choose between. People can still pick their own in Appearance."""
+    return await _shell_state(db)
+
+
+@router.put("/designer/shell")
+async def save_shell(data: ShellIn, db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("designer"))):
+    from app.framework import layouts, screens
+    from app.framework.hooks import workspace_activity
+
+    if data.shell not in screens.shells_offered(await workspace_activity(db)):
+        raise HTTPException(422, "هذا الشكل غير متاح لنشاطك")
+    await layouts.save(db, "workspace", "shell", {"schema": 1, "shell": data.shell}, user.id)
+    await _audit(db, user, "save", "workspace:shell", f"تغيير شكل التنقل إلى {screens.SHELL_LABELS[data.shell]}")
+    await db.commit()
+    return await _shell_state(db)
+
+
+@router.delete("/designer/shell", status_code=204)
+async def reset_shell(db: AsyncSession = Depends(get_db), user: User = Depends(require_perm("designer"))):
+    """Back to the activity's default shell."""
+    from app.framework import layouts
+
+    await layouts.reset(db, "workspace", "shell")
+    await _audit(db, user, "reset", "workspace:shell", "إعادة شكل التنقل للافتراضي")
     await db.commit()
