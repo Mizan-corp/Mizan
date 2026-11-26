@@ -293,6 +293,23 @@ Both hosts already hit the same website web container and the website API (`ngin
 6. Approved: Mizan countersigns, the listing appears on the public marketplace and in the ERP store.
 7. Owners browse publicly, pick one, install from their workspace.
 
+### 7.4a Account-gated SDK download and CLI and Studio sign-in (owner addition, 13:43)
+
+The owner wants the SDK download (CLI tools and Studio included) to require a developer sign-in first. Today ADR-007 D6 plans the SDK as a public PyPI package (`mizan-sdk`) and as a wheel served at `dev.allmizan.live`. Gating the download means the public PyPI route is not the primary channel. Proposal:
+
+| Part | Proposal |
+|---|---|
+| Download | The signed-in developer gets the SDK from the portal on `dev.allmizan.live` (installer or wheel plus the Studio bundle). Anonymous requests get the sign-in page. Signed download URLs are short-lived and tied to the account, so shared links stop working |
+| Honest limit | A download gate controls distribution, not secrecy: once downloaded the package can be copied. The real protection is at publish time (signatures, scopes, review), not at download. If the SDK source is to be open (GitHub), a gate adds little; decide whether the gate is for tracking, terms acceptance and support, or for confidentiality |
+| CLI login | `mizan login` uses a device-code flow: the CLI shows a short code and a URL, the developer approves in the browser session on `dev.allmizan.live`, and the CLI receives a token. No password typed into the terminal |
+| Tokens | Per-developer, per-machine tokens, scoped (read docs and templates, publish for a named team), expiring, revocable from the portal, stored in the OS keychain where available. Separate publish tokens for CI (GitHub Actions), limited to one team and to publish only |
+| Studio (local) | The local Studio reads the same token. Without a valid token it starts in a limited offline mode (edit and validate, no publish, no account data). It never receives owner workspace sessions or customer data |
+| Separation | Developer tokens only work on developer endpoints and the publish API. They never work against a workspace's ERP API. Owner sessions never work on `dev.*` |
+| Updates | The CLI checks for updates against the portal and verifies the Mizan signature on SDK releases before installing them |
+| Terms | Sign-in is the natural place to accept the developer terms and show the review and signing rules once |
+
+Consequences: add device-code and token endpoints to the developer API (website API router), a token table with scopes and revocation, a download route with signed URLs, and CLI changes in `sdk/python`. No new hosting cost. Phase 3 of 7.6 carries this work, since it is where sign-in and tokens land; the SDK download page moves into phase 3 as "account-gated".
+
 ### 7.5 Pricing and payouts: decisions, not assumptions
 
 Nothing here is decided. Facts: ADR-007 says paid listings wait for Paymob (#65); revenue share, payout schedule and developer verification are open questions in the ADR. The owner said money is tight and free comes first.
@@ -322,4 +339,5 @@ Free-first approach: launch with free listings only. The listing schema reserves
 ### 7.8 Real open decisions for the owner
 1. First public release: free listings only, with price shown as "free", and paid items postponed until a payment provider and payout terms are decided. This plan assumes yes.
 2. Light review of listing text and images by Mizan staff for every edit at launch, or only for the first publish and any later change to price or name.
-3. GitHub: optional sign-in and Action-based publish first (my default), or required for all developer accounts.
+3. SDK download gate: confirm the purpose (tracking and terms, or confidentiality). If confidentiality, the SDK cannot also be published openly on PyPI or GitHub.
+4. GitHub: optional sign-in and Action-based publish first (my default), or required for all developer accounts.
