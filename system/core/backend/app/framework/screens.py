@@ -87,22 +87,6 @@ def defaults(activity_id: str | None, role_code: str | None) -> dict:
     }
 
 
-SHELL_LABELS = {"sidebar": "شريط جانبي (الكلاسيكي)", "rail": "شريط مصغّر", "topnav": "قائمة علوية"}
-
-
-def shells_offered(activity_id: str | None) -> list[str]:
-    """The shells the owner may choose between for this activity: the activity's `shells` list
-    (layout.json), else all of them. The owner only chooses; the options are the developer's."""
-    listed = variants.activity(activity_id).get("shells")
-    ids = [s for s in (listed or SHELL_IDS) if s in SHELL_IDS]
-    return ids or ["sidebar"]
-
-
-def activity_shell(activity_id: str | None) -> str:
-    shell = variants.activity(activity_id).get("shell")
-    return shell if shell in shells_offered(activity_id) else "sidebar"
-
-
 def resolve(layout: dict | None, activity_id: str | None, role_code: str | None,
             granted: frozenset, active_modules: list[str], extra: dict[str, dict] | None = None) -> dict:
     """The home, menu, dashboard and every available screen for a role. `extra`: community modules'
@@ -149,15 +133,6 @@ def resolve(layout: dict | None, activity_id: str | None, role_code: str | None,
     shell = variants.activity(activity_id).get("shell")
     return {"home": home["path"] if home else "/", "menu": menu, "dashboard": dashboard, "screens": available,
             "custom": bool(layout), "shell": shell if shell in SHELL_IDS else None}
-
-
-def workspace_shell(saved: dict | None, activity_id: str | None) -> str | None:
-    """The workspace owner's stored shell choice (`{"schema": 1, "shell": id}`), if it is still one the
-    activity offers; else None (the activity's default applies)."""
-    saved = saved or {}
-    if saved.get("schema") == 1 and saved.get("shell") in shells_offered(activity_id):
-        return saved["shell"]
-    return None
 
 
 def check_layout(layout: dict) -> dict:

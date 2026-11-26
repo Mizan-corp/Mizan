@@ -1,18 +1,11 @@
-"""Role screens and the screen builder (ADR-006 phase 5): menus, dashboards, forms, custom fields."""
+"""Role screens and custom fields (ADR-006 phase 5). The designer editing endpoints were removed in step 8d."""
 import io
-
-import pytest
 
 from helpers import uid
 
 
 def _screen_ids(api) -> set[str]:
     return {s["id"] for s in api.ok(api.get("/settings/screens"))["screens"]}
-
-
-def _role_id(api, code: str) -> str:
-    roles = api.ok(api.get("/settings/designer"))["roles"]
-    return next(r["id"] for r in roles if r["code"] == code)
 
 
 def test_screens_follow_the_acting_role(admin_api, cashier_api):
@@ -29,56 +22,10 @@ def test_screens_follow_the_acting_role(admin_api, cashier_api):
     assert {w["id"] for w in admin["dashboard"]} >= {"reporting.sales_today", "pos.shift_status"}
 
 
-def test_the_builder_needs_the_designer_permission(cashier_api):
-    assert cashier_api.get("/settings/designer").status_code == 403
+def test_custom_fields_need_the_designer_permission(admin_api, cashier_api):
+    assert admin_api.get("/settings/designer").status_code in (404, 405)  # the editing API is gone (step 8d)
+    assert admin_api.get("/settings/designer/shell").status_code in (404, 405)
     assert cashier_api.get("/settings/fields/product").status_code == 403
-
-
-def test_a_role_layout_changes_what_the_role_sees(admin_api, cashier_api):
-    cashier_role = _role_id(admin_api, "cashier")
-    layout = {
-        "home": "pos.pos",
-        "menu": [{"id": "till", "label": "الكاشير", "items": [
-            {"screen": "pos.pos", "label": "البيع"},
-            {"screen": "core.users"},  # the cashier can't open it: placed, but never shown
-        ]}],
-        "dashboard": [{"id": "pos.shift_status", "size": "m"}],
-    }
-    try:
-        saved = admin_api.ok(admin_api.put(f"/settings/designer/roles/{cashier_role}", json=layout))
-        assert saved["custom"] is True
-        assert [i["screen"] for i in saved["layout"]["menu"][0]["items"]] == ["pos.pos", "core.users"]
-        assert next(s for s in saved["screens"] if s["id"] == "core.users")["allowed"] is False
-
-        seen = cashier_api.ok(cashier_api.get("/settings/screens"))
-        assert seen["custom"] is True
-        assert seen["home"] == "/pos"
-        assert [(g["label"], [(i["id"], i["label"]) for i in g["items"]]) for g in seen["menu"]] == [
-            ("الكاشير", [("pos.pos", "البيع")])]
-        assert [(w["id"], w["size"]) for w in seen["dashboard"]] == [("pos.shift_status", "m")]
-        # The layout arranges screens; access is unchanged.
-        assert "core.users" not in _screen_ids(cashier_api)
-    finally:
-        admin_api.delete(f"/settings/designer/roles/{cashier_role}")
-    back = cashier_api.ok(cashier_api.get("/settings/screens"))
-    # Back to the activity's layout for the role (retail's cashier layout, not the custom one).
-    assert back["custom"] is False and back["menu"] != seen["menu"]
-
-
-@pytest.mark.parametrize("bad, message", [
-    ({"menu": [{"id": "g", "label": "x", "items": [{"screen": "nope.screen"}]}]}, "شاشة غير معروفة"),
-    ({"menu": [{"id": "g", "label": "x", "items": [{"screen": "pos.pos"}, {"screen": "pos.pos"}]}]}, "مكررة"),
-    ({"menu": [{"id": "Bad Id", "label": "x", "items": [{"screen": "pos.pos"}]}]}, "معرّف مجموعة"),
-    ({"menu": [{"id": "g", "label": "x", "items": [{"screen": "pos.pos"}]}], "dashboard": [{"id": "pos.shift_status", "size": "xl"}]}, "مقاس"),
-    ({"menu": [{"id": "g", "label": "x", "items": [{"screen": "pos.pos"}]}], "dashboard": ["nope.widget"]}, "عنصر لوحة"),
-    ({"menu": []}, "شاشة واحدة"),
-])
-def test_role_layouts_are_validated(admin_api, bad, message):
-    role = _role_id(admin_api, "cashier")
-    r = admin_api.put(f"/settings/designer/roles/{role}", json=bad)
-    assert r.status_code == 422, r.text
-    assert message in r.json()["detail"]
-    assert admin_api.ok(admin_api.get(f"/settings/designer/roles/{role}"))["custom"] is False
 
 
 def test_custom_fields_forms_and_reports(admin_api, subcategory, reg):
@@ -93,19 +40,6 @@ def test_custom_fields_forms_and_reports(admin_api, subcategory, reg):
         form = admin_api.ok(admin_api.get("/settings/forms/product"))
         assert key in [f["key"] for f in form["sections"][-1]["fields"]]
         assert "barcode" in [f["key"] for s in form["sections"] for f in s["fields"]]
-
-        # Arrange it: the field joins the main section, the barcode is hidden.
-        main = [f["key"] for f in form["sections"][0]["fields"] if f["key"] != "barcode"]
-        saved = admin_api.ok(admin_api.put("/settings/designer/forms/product", json={
-            "sections": [{"id": "main", "label": "الأساسي", "fields": [*main, key]}], "hidden": ["barcode"]}))
-        assert saved["custom"] is True
-        # In the order given; fields the layout doesn't mention (a variant's) follow.
-        assert [f["key"] for f in saved["sections"][0]["fields"]][:len(main) + 1] == [*main, key]
-        assert "barcode" in [f["key"] for f in saved["hidden"]]
-        # A basic field can't be hidden.
-        r = admin_api.put("/settings/designer/forms/product", json={
-            "sections": [{"id": "main", "label": "الأساسي", "fields": [key]}], "hidden": ["name"]})
-        assert r.status_code == 422
 
         # Values are checked, kept on the record, and reported.
         bad = admin_api.post("/products", json={"subcategory_id": subcategory["id"], "name": "E2E-PROD-" + uid("p"),
@@ -129,7 +63,6 @@ def test_custom_fields_forms_and_reports(admin_api, subcategory, reg):
         column = headers.index("درجة الجودة")
         assert "A" in [row[column] for row in ws.iter_rows(min_row=2, values_only=True)]
     finally:
-        admin_api.delete("/settings/designer/forms/product")
         admin_api.delete(f"/settings/fields/product/{key}")
     assert admin_api.ok(admin_api.get("/settings/forms/product"))["custom"] is False
 
@@ -159,19 +92,3 @@ def test_customer_and_supplier_custom_fields(admin_api, reg):
     finally:
         admin_api.delete(f"/settings/fields/customer/{key}")
         admin_api.delete(f"/settings/fields/supplier/{key}")
-
-
-def test_the_owner_chooses_the_workspace_shell_among_the_offered_ones(admin_api, cashier_api):
-    start = admin_api.ok(admin_api.get("/settings/designer/shell"))
-    assert start["default"] == "sidebar" and {o["id"] for o in start["options"]} >= {"sidebar", "rail", "topnav"}
-    assert cashier_api.get("/settings/designer/shell").status_code == 403
-    try:
-        chosen = admin_api.ok(admin_api.put("/settings/designer/shell", json={"shell": "rail"}))
-        assert chosen["shell"] == "rail" and chosen["custom"] is True
-        assert admin_api.ok(admin_api.get("/settings/screens"))["shell"] == "rail"
-        assert cashier_api.ok(cashier_api.get("/settings/screens"))["shell"] == "rail"
-        assert admin_api.put("/settings/designer/shell", json={"shell": "sparkly"}).status_code == 422
-    finally:
-        assert admin_api.delete("/settings/designer/shell").status_code == 204
-    back = admin_api.ok(admin_api.get("/settings/designer/shell"))
-    assert back["shell"] == "sidebar" and back["custom"] is False

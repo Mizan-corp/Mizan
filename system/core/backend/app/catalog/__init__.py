@@ -28,7 +28,7 @@ def families() -> dict[str, dict[str, Any]]:
 ACTIVITIES_DIR = CATALOG_DIR.parent / "activities"
 
 
-LAYOUT_KEYS = ("home", "menu", "dashboard", "roles", "shell", "shells")
+LAYOUT_KEYS = ("home", "menu", "dashboard", "roles", "shell")
 
 
 def layout_of(folder: Path) -> dict[str, Any]:
