@@ -6,8 +6,8 @@
   mizan activity new acme.laundry     a starter business activity: modules, variants, theme, menus
   mizan check [folder]                what Mizan would refuse, before you package
   mizan keys new --team acme          a signing key, certified by Mizan for your team
-  mizan package [folder]              a signed .mzm for owners to install from file
-  mizan publish [folder|file.mzm]     send it to the marketplace for review (needs `mizan login`)
+  mizan package [folder]              a signed package for owners to install from file (.mzmo module, .mzba activity, .mzth theme)
+  mizan publish [folder|package file]     send it to the marketplace for review (needs `mizan login`)
 
 Keys, certificates and credentials live in ~/.mizan (MIZAN_HOME). Signed in, `keys new` registers
 the key and saves its certificate as <key>.cert; otherwise register the printed public key in the
@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 from mizan_sdk import __version__
-from mizan_sdk.package import PackageError, build, module_files, problems
+from mizan_sdk.package import PackageError, build, module_files, package_name, problems
 
 HOME = Path(os.environ.get("MIZAN_HOME", Path.home() / ".mizan"))
 PORTAL_API = os.environ.get("MIZAN_PORTAL_API", "https://web-api.allmizan.live/api")
@@ -310,7 +310,7 @@ def cmd_package(a) -> int:
         print(f"✘ {e}", file=sys.stderr)
         return 1
     manifest = json.loads(files["manifest.json"])
-    out = Path(a.out or f"{manifest['id']}-{manifest['version']}.mzm")
+    out = Path(a.out or package_name(manifest))
     out.write_bytes(data)
     if manifest.get("kind") == "activity":
         print(f"✔ {out} ({len(data) // 1024 + 1} KB), a signed activity package. `mizan publish` sends it for review; then workspaces can change to it.")
@@ -339,9 +339,9 @@ def cmd_publish(a) -> int:
         if cmd_package(a):
             return 1
         manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
-        target = Path(f"{manifest['id']}-{manifest['version']}.mzm")
+        target = Path(package_name(manifest))
     if not target.is_file():
-        print(f"✘ {target} isn't a folder or a .mzm file", file=sys.stderr)
+        print(f"✘ {target} isn't a folder or a Mizan package file (.mzmo, .mzba, .mzth or .mzm)", file=sys.stderr)
         return 1
     data = target.read_bytes()
     try:
@@ -401,7 +401,7 @@ def main(argv: list[str] | None = None) -> int:
     kn.add_argument("--team", help="register it with this team and save its certificate (needs `mizan login`)")
     kn.set_defaults(func=cmd_keys_new)
 
-    pkg = sub.add_parser("package", help="build a signed .mzm")
+    pkg = sub.add_parser("package", help="build a signed package (.mzmo, .mzba or .mzth by kind)")
     pkg.add_argument("dir", nargs="?", default=".")
     pkg.add_argument("--key", help="private key file (default ~/.mizan/default.key)")
     pkg.add_argument("--certificate", help="certificate file (default: next to the key, .cert)")
@@ -409,7 +409,7 @@ def main(argv: list[str] | None = None) -> int:
     pkg.set_defaults(func=cmd_package)
 
     pub = sub.add_parser("publish", help="send a module or theme to the marketplace for review")
-    pub.add_argument("target", nargs="?", default=".", help="a .mzm file, or a folder to package first (default: .)")
+    pub.add_argument("target", nargs="?", default=".", help="a package file, or a folder to package first (default: .)")
     pub.add_argument("--team", help="the team (default: the package id's prefix)")
     pub.add_argument("--key", help="private key file, when packaging a folder (default ~/.mizan/default.key)")
     pub.add_argument("--certificate", help="certificate file (default: next to the key, .cert)")

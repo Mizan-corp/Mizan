@@ -29,7 +29,7 @@ def test_new_check_keys_package(home, capsys):
     assert main(["package", "acme.visits"]) == 1  # no certificate yet
     (home / ".mizan" / "default.cert").write_text("MZD1.x.y")
     assert main(["package", "acme.visits"]) == 0
-    with zipfile.ZipFile(home / "acme.visits-0.1.0.mzm") as z:
+    with zipfile.ZipFile(home / "acme.visits-0.1.0.mzmo") as z:
         names = set(z.namelist())
         sig = json.loads(z.read("SIGNATURE"))
     assert {"manifest.json", "entities/item.json", "README.md", "SIGNATURE"} <= names
@@ -97,7 +97,7 @@ def test_theme_new_check_package(home, capsys):
     assert main(["keys", "new"]) == 0
     (home / ".mizan" / "default.cert").write_text("MZD1.x.y")
     assert main(["package", "acme.sunrise"]) == 0
-    with zipfile.ZipFile(home / "acme.sunrise-0.1.0.mzm") as z:
+    with zipfile.ZipFile(home / "acme.sunrise-0.1.0.mzth") as z:
         assert {"manifest.json", "assets/sunrise.woff2", "SIGNATURE"} <= set(z.namelist())
     assert "Themes" in capsys.readouterr().out
 
@@ -118,7 +118,7 @@ def test_activity_new_check_package(home, capsys):
     assert main(["keys", "new"]) == 0
     (home / ".mizan" / "default.cert").write_text("MZD1.x.y")
     assert main(["package", "acme.laundry"]) == 0
-    with zipfile.ZipFile(home / "acme.laundry-0.1.0.mzm") as z:
+    with zipfile.ZipFile(home / "acme.laundry-0.1.0.mzba") as z:
         names = set(z.namelist())
     assert "modules/acme.laundry_orders/entities/order.json" in names and "themes/fresh/theme.json" in names
 
@@ -142,10 +142,19 @@ def test_publish(home, monkeypatch, capsys):
 
     assert main(["publish", "acme.visits"]) == 0  # a folder: packaged, then sent
     method, path, body = calls[-1]
-    assert (method, path) == ("POST", "/teams/acme/packages") and body == (home / "acme.visits-0.1.0.mzm").read_bytes()
+    assert (method, path) == ("POST", "/teams/acme/packages") and body == (home / "acme.visits-0.1.0.mzmo").read_bytes()
     assert "for review" in capsys.readouterr().out
 
-    assert main(["publish", "acme.visits-0.1.0.mzm", "--team", "other"]) == 0  # a file
+    assert main(["publish", "acme.visits-0.1.0.mzmo", "--team", "other"]) == 0  # a file
     assert calls[-1][1] == "/teams/other/packages"
     (home / "junk.mzm").write_bytes(b"nope")
     assert main(["publish", "junk.mzm"]) == 1
+
+
+def test_package_names_follow_the_kind():
+    from mizan_sdk.package import package_name
+
+    assert package_name({"id": "acme.visits", "version": "1.0.0", "kind": "community"}) == "acme.visits-1.0.0.mzmo"
+    assert package_name({"id": "acme.visits", "version": "1.0.0"}) == "acme.visits-1.0.0.mzmo"
+    assert package_name({"id": "acme.clinic", "version": "2.1.0", "kind": "activity"}) == "acme.clinic-2.1.0.mzba"
+    assert package_name({"id": "acme.sunrise", "version": "0.1.0", "kind": "theme"}) == "acme.sunrise-0.1.0.mzth"

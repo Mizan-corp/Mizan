@@ -12,6 +12,9 @@ from pathlib import Path, PurePosixPath
 from mizan_sdk.manifest import activity_package_problems, community_manifest_problems, entity_problems, theme_problems
 
 FORMAT = 1
+# The file extension says the kind (same table as the server, framework/package.py). `.mzm`, the
+# older name for every kind, is still accepted by Mizan.
+EXTENSIONS = {"community": ".mzmo", "activity": ".mzba", "theme": ".mzth"}
 MAX_BYTES = 4 * 1024 * 1024
 ALLOWED = (".json", ".png", ".svg", ".webp", ".jpg", ".md", ".txt", ".woff2", ".woff", ".ttf", ".otf")
 TOP = ("manifest.json", "README.md", "CHANGELOG.md")
@@ -20,6 +23,12 @@ FOLDERS = ("entities", "i18n", "assets", "modules", "variants", "themes", "seed"
 
 class PackageError(Exception):
     pass
+
+
+def package_name(manifest: dict) -> str:
+    """`<id>-<version>` plus the extension of the manifest's kind (a module by default)."""
+    ext = EXTENSIONS.get(manifest.get("kind", "community"), ".mzmo")
+    return f"{manifest['id']}-{manifest['version']}{ext}"
 
 
 def _b64e(raw: bytes) -> str:
