@@ -1,64 +1,18 @@
 import { moduleDefinitions } from "@app/framework/registry";
 import { lazy, Suspense } from "react";
 const DashboardPage = lazy(() => import("@app/features/dashboard/DashboardPage"));
-const PosPage = lazy(() => import("@activities/general/modules/pos/PosPage"));
 const ProductsPage = lazy(() => import("@app/features/products/ProductsPage"));
-const SalesPage = lazy(() => import("@activities/general/modules/sales/screens/SalesPage"));
-const PurchasesPage = lazy(() => import("@activities/general/modules/purchases/PurchasesPage"));
-const PayrollPage = lazy(() => import("@activities/general/modules/hr/PayrollPage"));
-const ShiftsPage = lazy(() => import("@activities/general/modules/pos/screens/ShiftsPage"));
 const CustomersPage = lazy(() => import("@app/features/customers/CustomersPage"));
 const SettingsPage = lazy(() => import("@app/features/settings/SettingsPage"));
 const DesignerPage = lazy(() => import("@app/features/designer/DesignerPage"));
 const CommunityEntityPage = lazy(() => import("@app/platform/community/screens/EntityPage"));
-const FinancePage = lazy(() => import("@activities/general/modules/finance/FinancePage"));
 const SuppliersPage = lazy(() => import("@app/features/suppliers/SuppliersPage"));
 const UsersPage = lazy(() => import("@app/features/users/UsersPage"));
-const HrPage = lazy(() => import("@activities/general/modules/hr/HrPage"));
-const InventoryPage = lazy(() => import("@activities/general/modules/inventory/InventoryPage"));
-const InventoryCategoriesPage = lazy(() => import("@activities/general/modules/inventory/screens/CategoriesPage"));
-const InventoryAdjustmentsPage = lazy(() => import("@activities/general/modules/inventory/screens/AdjustmentsPage"));
-const InventoryCollectionsPage = lazy(() => import("@activities/general/modules/inventory/screens/CollectionsPage"));
-const InventoryWarehousesPage = lazy(() => import("@activities/general/modules/inventory/screens/WarehousesPage"));
-const PurchaseOrderPage = lazy(() => import("@activities/general/modules/purchases/screens/PurchaseOrderPage"));
-const PurchaseSuggestionsPage = lazy(() => import("@activities/general/modules/purchases/screens/SuggestionsPage"));
-const PurchasePriceHistoryPage = lazy(() => import("@activities/general/modules/purchases/screens/PriceHistoryPage"));
 const ReportsPage = lazy(() => import("@app/features/reports/ReportsPage"));
 const ArchivePage = lazy(() => import("@app/features/archive/ArchivePage"));
 const OperationsPage = lazy(() => import("@app/features/operations/OperationsPage"));
 const ModulesPage = lazy(() => import("@app/features/modules/ModulesPage"));
-const RestaurantTablesPage = lazy(() => import("@activities/restaurant/modules/restaurant/RestaurantTablesPage"));
-const KitchenDisplayPage = lazy(() => import("@activities/restaurant/modules/kitchen_display/KitchenDisplayPage"));
-const SchoolStudentsPage = lazy(() => import("@activities/school/modules/school/SchoolStudentsPage"));
-const PharmacyPage = lazy(() => import("@activities/pharmacy/modules/pharmacy/PharmacyPage"));
-const ServicesConsultingPage = lazy(() => import("@activities/consulting/modules/services/ServicesConsultingPage"));
-const WholesaleDistributionPage = lazy(() => import("@activities/wholesale/modules/wholesale/WholesaleDistributionPage"));
-const LogisticsFleetPage = lazy(() => import("@activities/logistics/modules/logistics/LogisticsFleetPage"));
-const WmsWarehousePage = lazy(() => import("@activities/warehousing/modules/wms/WmsWarehousePage"));
-const EcommerceHubPage = lazy(() => import("@activities/ecommerce/modules/ecommerce/EcommerceHubPage"));
-const ClinicHealthcarePage = lazy(() => import("@activities/healthcare/modules/healthcare_clinic/ClinicHealthcarePage"));
-const WhatsAppGatewayPage = lazy(() => import("@app/integrations/whatsapp_gateway/WhatsAppGatewayPage"));
-const LawPracticePage = lazy(() => import("@activities/legal/modules/law/LawPracticePage"));
-const TravelTourismPage = lazy(() => import("@activities/travel/modules/travel/TravelTourismPage"));
-const HospitalityPmsPage = lazy(() => import("@activities/hotel/modules/hospitality/HospitalityPmsPage"));
-const GymFitnessPage = lazy(() => import("@activities/gym/modules/gym/GymFitnessPage"));
 const HelpdeskPage = lazy(() => import("./features/helpdesk/HelpdeskPage"));
-const SalonSpaPage = lazy(() => import("@activities/salon/modules/salon/SalonSpaPage"));
-const CreativeAgencyPage = lazy(() => import("@activities/agency/modules/agency/CreativeAgencyPage"));
-const FieldServicePage = lazy(() => import("@activities/maintenance/modules/field_service/FieldServicePage"));
-const DiscreteManufacturingPage = lazy(() => import("@activities/manufacturing/modules/manufacturing/DiscreteManufacturingPage"));
-const FoodProcessingPage = lazy(() => import("@activities/food/modules/food_manufacturing/FoodProcessingPage"));
-const PharmaGmpPage = lazy(() => import("@activities/pharmaceuticals/modules/pharma_manufacturing/PharmaGmpPage"));
-const PrintingPackagingPage = lazy(() => import("@activities/printing/modules/printing/PrintingPackagingPage"));
-const ConstructionPage = lazy(() => import("@activities/construction/modules/construction/ConstructionPage"));
-const RealEstatePage = lazy(() => import("@activities/property/modules/real_estate/RealEstatePage"));
-const AgricultureFarmPage = lazy(() => import("@activities/agriculture/modules/agriculture/AgricultureFarmPage"));
-const EnergyPowerPlantPage = lazy(() => import("@activities/energy/modules/energy/EnergyPowerPlantPage"));
-const BankingPage = lazy(() => import("@activities/banking/modules/banking/BankingPage"));
-const InsurancePage = lazy(() => import("@activities/insurance/modules/insurance/InsurancePage"));
-const GovernmentPage = lazy(() => import("@activities/government/modules/government/GovernmentPage"));
-const EntertainmentPage = lazy(() => import("@activities/entertainment/modules/events/EntertainmentPage"));
-const OilGasPage = lazy(() => import("@activities/petroleum/modules/oil_gas/OilGasPage"));
 const TenantScopeLayout = lazy(() => import("@app/features/tenant/TenantScopeLayout"));
 
 
@@ -157,25 +111,10 @@ function renderErpChildRoutes(includeIndex: boolean = true) {
     <>
       {includeIndex && <Route index element={<Guard perm=""><DashboardPage /></Guard>} />}
       <Route path="dashboard" element={<Guard perm=""><DashboardPage /></Guard>} />
-      <Route path="pos" element={<Guard perm="pos"><PosPage /></Guard>} />
       <Route path="products" element={<Guard perm="inventory"><ProductsPage /></Guard>} />
-      <Route path="sales" element={<Guard perm="sales"><SalesPage /></Guard>} />
-      <Route path="inventory" element={<Guard perm="inventory"><InventoryPage /></Guard>} />
-      <Route path="inventory/categories" element={<Guard perm="inventory"><InventoryCategoriesPage /></Guard>} />
-      <Route path="inventory/adjustments" element={<Guard perm="inventory"><InventoryAdjustmentsPage /></Guard>} />
-      <Route path="inventory/collections" element={<Guard perm="inventory"><InventoryCollectionsPage /></Guard>} />
-      <Route path="inventory/warehouses" element={<Guard perm="settings"><InventoryWarehousesPage /></Guard>} />
       <Route path="operations" element={<Guard perm="operations"><OperationsPage /></Guard>} />
-      <Route path="purchases" element={<Guard perm="purchases|finance"><PurchasesPage /></Guard>} />
-      <Route path="purchases/suggestions" element={<Guard perm="purchases|finance"><PurchaseSuggestionsPage /></Guard>} />
-      <Route path="purchases/price-history" element={<Guard perm="purchases|finance"><PurchasePriceHistoryPage /></Guard>} />
-      <Route path="purchases/:id" element={<Guard perm="purchases|finance"><PurchaseOrderPage /></Guard>} />
       <Route path="customers" element={<Guard perm="customers"><CustomersPage /></Guard>} />
       <Route path="suppliers" element={<Guard perm="purchases|finance"><SuppliersPage /></Guard>} />
-      <Route path="finance" element={<Guard perm="finance"><FinancePage /></Guard>} />
-      <Route path="hr" element={<Guard perm="payroll"><HrPage /></Guard>} />
-      <Route path="hr/payroll" element={<Guard perm="payroll"><PayrollPage /></Guard>} />
-      <Route path="shifts" element={<Guard perm="shifts"><ShiftsPage /></Guard>} />
       <Route path="archive" element={<Guard perm="archive"><ArchivePage /></Guard>} />
       <Route path="reports" element={<Guard perm="reports"><ReportsPage /></Guard>} />
       <Route path="users" element={<Guard perm="users"><UsersPage /></Guard>} />
@@ -184,39 +123,7 @@ function renderErpChildRoutes(includeIndex: boolean = true) {
       {/* Community modules (ADR-007): their records, drawn from the entity they declare. */}
       <Route path="x/:module/:entity" element={<CommunityEntityPage />} />
       <Route path="modules" element={<Guard perm=""><ModulesPage /></Guard>} />
-      <Route path="restaurant/tables" element={<Guard perm="" module="restaurant"><RestaurantTablesPage /></Guard>} />
-      <Route path="restaurant/kitchen" element={<Guard perm="" module="restaurant"><KitchenDisplayPage /></Guard>} />
-      <Route path="school/students" element={<Guard perm="" module="school"><SchoolStudentsPage /></Guard>} />
-      <Route path="pharmacy" element={<Guard perm="" module="pharmacy"><PharmacyPage /></Guard>} />
-      <Route path="services" element={<Guard perm="" module="services"><ServicesConsultingPage /></Guard>} />
-      <Route path="wholesale" element={<Guard perm="" module="wholesale"><WholesaleDistributionPage /></Guard>} />
-      <Route path="logistics" element={<Guard perm="" module="logistics"><LogisticsFleetPage /></Guard>} />
-      <Route path="wms" element={<Guard perm="" module="wms"><WmsWarehousePage /></Guard>} />
-      <Route path="ecommerce" element={<Guard perm="" module="ecommerce"><EcommerceHubPage /></Guard>} />
-      <Route path="clinic" element={<Guard perm="" module="healthcare_clinic"><ClinicHealthcarePage /></Guard>} />
-      <Route path="clinic/:moduleSlug" element={<Guard perm="" module="healthcare_clinic"><ClinicHealthcarePage /></Guard>} />
-      <Route path="integrations/whatsapp" element={<Guard perm="" module="whatsapp_gateway"><WhatsAppGatewayPage /></Guard>} />
-      <Route path="law" element={<Guard perm="" module="law"><LawPracticePage /></Guard>} />
-      <Route path="travel" element={<Guard perm="" module="travel"><TravelTourismPage /></Guard>} />
-      <Route path="hospitality" element={<Guard perm="" module="hospitality"><HospitalityPmsPage /></Guard>} />
-      <Route path="gym" element={<Guard perm="" module="gym"><GymFitnessPage /></Guard>} />
       <Route path="helpdesk" element={<Guard perm="helpdesk:view|helpdesk:work:view" module="helpdesk"><HelpdeskPage /></Guard>} />
-      <Route path="salon" element={<Guard perm="" module="salon"><SalonSpaPage /></Guard>} />
-      <Route path="agency" element={<Guard perm="" module="agency"><CreativeAgencyPage /></Guard>} />
-      <Route path="field-service" element={<Guard perm="" module="field_service"><FieldServicePage /></Guard>} />
-      <Route path="mfg" element={<Guard perm="" module="manufacturing"><DiscreteManufacturingPage /></Guard>} />
-      <Route path="fod" element={<Guard perm="" module="food_manufacturing"><FoodProcessingPage /></Guard>} />
-      <Route path="phm" element={<Guard perm="" module="pharma_manufacturing"><PharmaGmpPage /></Guard>} />
-      <Route path="prn" element={<Guard perm="" module="printing"><PrintingPackagingPage /></Guard>} />
-      <Route path="cst" element={<Guard perm="" module="construction"><ConstructionPage /></Guard>} />
-      <Route path="rec" element={<Guard perm="" module="real_estate"><RealEstatePage /></Guard>} />
-      <Route path="agr" element={<Guard perm="" module="agriculture"><AgricultureFarmPage /></Guard>} />
-      <Route path="eng" element={<Guard perm="" module="energy"><EnergyPowerPlantPage /></Guard>} />
-      <Route path="bnk" element={<Guard perm="" module="banking"><BankingPage /></Guard>} />
-      <Route path="ins" element={<Guard perm="" module="insurance"><InsurancePage /></Guard>} />
-      <Route path="gov" element={<Guard perm="" module="government"><GovernmentPage /></Guard>} />
-      <Route path="ent" element={<Guard perm="" module="events"><EntertainmentPage /></Guard>} />
-      <Route path="oil" element={<Guard perm="" module="oil_gas"><OilGasPage /></Guard>} />
       <Route path="pricing" element={<Guard perm=""><PricingPage /></Guard>} />
       <Route path="login" element={<LoginPage />} />
       {/* Routes the modules declare in their index.ts (migration step 2). */}

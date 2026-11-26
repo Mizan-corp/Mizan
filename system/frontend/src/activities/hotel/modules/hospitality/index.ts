@@ -1,3 +1,4 @@
+import { lazy } from "react";
 import type { ModuleDefinition } from "@app/framework/types";
 
 // Hotel Property Management System (PMS): what this module provides to the app (docs/MODULE_STANDARD.md). Routes are
@@ -10,6 +11,9 @@ const definition: ModuleDefinition = {
   status: "active",
   screens: {},
   widgets: {},
+  routes: [
+    { path: "hospitality", perm: "", module: "hospitality", component: lazy(() => import("./HospitalityPmsPage")) },
+  ],
 };
 
 export default definition;

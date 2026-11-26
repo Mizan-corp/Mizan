@@ -1,3 +1,4 @@
+import { lazy } from "react";
 import type { ModuleDefinition } from "@app/framework/types";
 
 // WhatsApp Business & Digital Receipt Dispatch: what this module provides to the app (docs/MODULE_STANDARD.md). Routes are
@@ -10,6 +11,9 @@ const definition: ModuleDefinition = {
   status: "active",
   screens: {},
   widgets: {},
+  routes: [
+    { path: "integrations/whatsapp", perm: "", module: "whatsapp_gateway", component: lazy(() => import("./WhatsAppGatewayPage")) },
+  ],
 };
 
 export default definition;

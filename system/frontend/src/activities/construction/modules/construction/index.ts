@@ -1,3 +1,4 @@
+import { lazy } from "react";
 import type { ModuleDefinition } from "@app/framework/types";
 
 // Construction & Contracting ERP: what this module provides to the app (docs/MODULE_STANDARD.md). Routes are
@@ -10,6 +11,9 @@ const definition: ModuleDefinition = {
   status: "active",
   screens: {},
   widgets: {},
+  routes: [
+    { path: "cst", perm: "", module: "construction", component: lazy(() => import("./ConstructionPage")) },
+  ],
 };
 
 export default definition;

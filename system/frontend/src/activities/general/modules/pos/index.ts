@@ -14,6 +14,10 @@ const definition: ModuleDefinition = {
     "pos.shift_status": lazy(() => import("./widgets").then((m) => ({ default: m.ShiftStatus }))),
     "pos.recent_sales": lazy(() => import("./widgets").then((m) => ({ default: m.RecentSales }))),
   },
+  routes: [
+    { path: "pos", perm: "pos", component: lazy(() => import("./PosPage")) },
+    { path: "shifts", perm: "shifts", component: lazy(() => import("./screens/ShiftsPage")) },
+  ],
 };
 
 export default definition;
