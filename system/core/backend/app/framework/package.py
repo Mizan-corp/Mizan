@@ -1,4 +1,4 @@
-"""Packages (.mzm): community modules (ADR-007 D1/D5), theme packs and activity packages (ADR-010):
+"""Packages (.mzmo module, .mzba activity, .mzth theme; .mzm is the older name for all): community modules (ADR-007 D1/D5), theme packs and activity packages (ADR-010):
 build, sign and verify. The manifest's "kind" says which ("community", "theme", "activity").
 
 A module package is a zip of manifest.json, entities/*.json, optional i18n/ and assets/, and
@@ -41,8 +41,32 @@ FOLDERS = ("entities", "i18n", "assets")
 ACTIVITY_FOLDERS = ("modules", "variants", "themes", "seed")  # activity packages only (ADR-010 D2)
 
 
+# The file extension says what a package is (step 9a). One per kind; `.mzm` is the older name for
+# all of them and is still read, so existing packages keep working. Only the names the owner chose
+# (`.mzmo`, `.mzba`) and the matching theme name are used; website-template and module-UI kinds
+# don't exist yet and get no extension until they do.
+EXTENSIONS = {"community": ".mzmo", "activity": ".mzba", "theme": ".mzth"}
+LEGACY_EXTENSION = ".mzm"
+
+
 class PackageError(Exception):
     pass
+
+
+def extension_for(kind: str) -> str:
+    """The extension a package of this kind is published with."""
+    try:
+        return EXTENSIONS[kind]
+    except KeyError:
+        raise PackageError(f"Unknown package kind: {kind}") from None
+
+
+def check_filename(filename: str | None, kind: str) -> None:
+    """A package file named for one kind but holding another is refused (`.mzmo` holding a theme,
+    for instance). `.mzm` and names without a Mizan extension are accepted as before."""
+    ext = PurePosixPath((filename or "").lower()).suffix
+    if ext in EXTENSIONS.values() and ext != EXTENSIONS.get(kind):
+        raise PackageError(f"The file is named {ext} but holds a {kind} package ({EXTENSIONS.get(kind, '?')})")
 
 
 def _b64e(raw: bytes) -> str:

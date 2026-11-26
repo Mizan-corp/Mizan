@@ -307,6 +307,10 @@ async def verify_upload(file, db: AsyncSession, kind: str):
         pkg = mzm.verify(data)
     except mzm.PackageError as e:
         raise HTTPException(422, f"تعذر قبول الحزمة: {e}") from None
+    try:
+        mzm.check_filename(getattr(file, "filename", None), pkg.kind)  # step 9a: the name must match the kind
+    except mzm.PackageError as e:
+        raise HTTPException(422, f"تعذر قبول الحزمة: {e}") from None
     if await key_revoked(db, pkg.key_id):  # ADR-007 D5
         raise HTTPException(422, "تعذر قبول الحزمة: مفتاح توقيع المطور أُلغي")
     if pkg.kind != kind:
