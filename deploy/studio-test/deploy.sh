@@ -55,7 +55,7 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
 
   echo "== build: erp (base /erp/, api /api)"
   rm -rf "$ERP_BUILD"
-  (cd "$REPO/system/frontend" && VITE_API_URL=/api VITE_BASE=/erp/ npx vite build --outDir "$ERP_BUILD")
+  (cd "$REPO/system/frontend" && VITE_API_URL=/api VITE_BASE=/erp/ VITE_WEBSITE_URL=https://mizan-studio-feature-test.vercel.app/erp VITE_SYSTEM_URL=https://mizan-studio-feature-test.vercel.app/erp VITE_OWNER_URL=https://mizan-studio-feature-test.vercel.app/erp/c/studio-test VITE_ADMIN_URL=https://mizan-studio-feature-test.vercel.app/erp  npx vite build --outDir "$ERP_BUILD")
 fi
 
 echo "== verify: entry HTML carries no relative asset refs (build base check)"
