@@ -30,12 +30,13 @@ def make_pages(prefix,kit_id=KIT_ID):
         def text(value):return node('text',{'html':'<p>'+value+'</p>'})
         def heading(value,level=2):return node('heading',{'text':value},settings={'desktop':{'level':level}})
         def row(children):return node('columns',children=[node('column',children=children)],settings={'desktop':{'columns':1,'gap':'m'},'mobile':{'stack':True}})
-        intro={'home':'A starting point for your website. Edit the words and arrange the sections.','products':'Connect explicitly selected inventory products in Studio. No records are connected by this starter.','about':'Write your own story here. Do not present starter copy as real business facts.','contact':'Add verified contact details before use. No form or message is connected.'}[key]
+        intro={'home':'A starting point for your website. Edit the words and arrange the sections.','products':'Connect explicitly selected inventory products in Studio. No records are connected by this starter.','about':'Write your own story here. Do not present starter copy as real business facts.','contact':'A working contact form is included. Messages reach the Website tab once the page is published and public access is enabled.'}[key]
         children=[row([heading(title,1),text(intro)])]
         if key=='home':children.append(row([heading('Explore the page set'),text('Home, products, about and contact are separate editable drafts. Public navigation is not installed.')]))
         if key=='products':children.append(row([heading('Your catalog'),text('Add product-card blocks and choose website consent and section products separately. Prices and images are off by default.')]))
         if key=='about':children.append(row([heading('What matters to you'),text('Replace this instruction with information you have chosen to share.')]))
-        if key=='contact':children.append(row([heading('Before visitors can contact you'),text('Choose a real destination and supported delivery workflow. This draft sends nothing.')]))
+        if key=='contact':children.append(row([heading('Talk to us'),text('Visitors send a message through the form below; you read every message in the Website tab.'),
+            node('form',{'title':'Contact us','name_label':'Name','email_label':'Email','message_label':'Message','submit_label':'Send','success_message':'Thank you! We will get back to you soon.'},settings={'desktop':{'field_name':True,'field_phone':False}})]))
         result.append({'slug':prefix+'-'+key,'titles':{'en':title},'tree':node('section',children=children)})
     return result
 
