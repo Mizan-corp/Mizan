@@ -4,9 +4,9 @@
  * same `/themes` API the module centre uses. Classic ("mizan") is the default and one click
  * brings it back. Anything deeper (page design, blocks) lives in Studio.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ExternalLink, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
 import { useUiStore, LAYOUT_MODES } from "@/stores/ui";
@@ -36,68 +36,68 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 const SHELL_NAMES: Record<string, string> = { sidebar: "قائمة جانبية كاملة", rail: "شريط أيقونات", topnav: "قائمة علوية" };
 const NAV = ["الرئيسية", "الكاشير", "الفواتير", "المخزون", "التقارير"];
+const DISPLAY = "Almarai, Tajawal, sans-serif";
 
-/** Small template thumbnail: a screen in the theme's colours. */
+/** Template thumbnail: a small screen in the theme's colours (menu on the right, RTL). */
 function Thumb({ swatches }: { swatches: string[] }) {
   const [primary = "#651E2C", background = "#FAF6F0", sidebar = "#35151D", , card = "#FFFFFF"] = swatches;
   return (
     <div aria-hidden className="flex h-[74px] overflow-hidden rounded-[11px]" style={{ background }}>
-      <div className="flex-1 space-y-1.5 p-2">
-        <div className="h-2 w-2/3 rounded" style={{ background: sidebar }} />
-        <div className="h-5 rounded-md" style={{ background: card }}><div className="m-1.5 h-1.5 w-1/3 rounded" style={{ background: primary }} /></div>
+      <div className="flex-1 p-2">
+        <div className="mb-1.5 h-2 w-[70%] rounded" style={{ background: sidebar }} />
+        <div className="h-5 rounded-md opacity-80" style={{ background: card }}><div className="m-1.5 h-1.5 w-1/3 rounded" style={{ background: primary }} /></div>
       </div>
       <div className="w-[28%]" style={{ background: sidebar }} />
     </div>
   );
 }
 
-/** The big live preview: the real home screen's structure in the chosen colours and menu shape. */
+/** The live preview: the home screen (menu, greeting, stat cards with deltas, chart) in the chosen colours, menu shape and font. */
 export function HomePreview({ swatches, radius = "0.875rem", shell = "sidebar", fontFamily }: { swatches: string[]; radius?: string; shell?: string; fontFamily?: string }) {
   const [primary = "#651E2C", background = "#FAF6F0", sidebar = "#35151D", accent = "#E7D6C1", card = "#FFFFFF"] = swatches;
-  const r = `calc(${radius} * 1.1)`;
+  const r = `calc(${radius} * 1.15)`;
   const top = shell === "topnav";
   const rail = shell === "rail";
-  const menu = (
-    <div className={top ? "flex items-center gap-4 px-5 py-3" : `flex flex-col gap-1 ${rail ? "w-16 items-center px-2" : "w-[200px] px-3.5"} py-5`}
-         style={{ background: sidebar, color: card }}>
-      <div className={`flex items-center gap-2.5 ${top ? "" : "mb-5"} ${rail ? "justify-center" : ""} font-bold`}>
-        <span className="size-6 rounded-lg" style={{ background: primary, filter: "brightness(1.35)" }} />{!rail && <span className="text-sm">متجر ميزان</span>}
-      </div>
-      {NAV.map((n, i) => (
-        <div key={n} className={`${rail ? "size-8" : top ? "px-3 py-1.5" : "px-3 py-2.5"} flex items-center justify-center rounded-[10px] text-xs ${i === 0 ? "font-bold" : "opacity-70"}`}
-             style={i === 0 ? { background: primary, color: "#fff" } : undefined}>
-          {rail ? <span className="size-2 rounded-sm bg-current" /> : n}
-        </div>
-      ))}
-    </div>
-  );
+  const stats = [["مبيعات اليوم", "12,480", "8.4%"], ["الفواتير", "186", "3.1%"], ["الأرباح", "3,920", "5.7%"]];
   return (
-    <div aria-hidden className={`flex h-full min-h-[430px] overflow-hidden ${top ? "flex-col" : ""}`} style={{ background, fontFamily }}>
-      {menu}
-      <div className="flex-1 space-y-4 p-6">
-        <div className="flex items-center justify-between">
-          <h4 className="text-xl font-bold" style={{ color: sidebar }}>صباح الخير، أحمد</h4>
-          <span className="size-8 rounded-full" style={{ background: accent }} />
+    <div aria-hidden className={`flex h-full w-full ${top ? "flex-col" : ""}`} style={{ background, fontFamily }}>
+      <div className={top ? "flex items-center gap-5 px-6 py-3.5" : `${rail ? "w-[72px] px-3" : "w-[210px] px-4"} py-[22px]`} style={{ background: sidebar, color: card }}>
+        <div className={`flex items-center gap-2.5 font-bold ${top ? "" : "mb-[22px]"} ${rail ? "justify-center" : ""}`} style={{ fontFamily: DISPLAY }}>
+          <span className="size-[26px] shrink-0 rounded-lg" style={{ background: primary }} />{!rail && <span className="text-[15px]">متجر ميزان</span>}
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          {[["مبيعات اليوم", "12,480"], ["الفواتير", "186"], ["الأرباح", "3,920"]].map(([l, v], i) => (
-            <div key={l} className="p-3.5 shadow-sm" style={{ background: card, borderRadius: r }}>
-              <p className="text-[11px] opacity-60" style={{ color: sidebar }}>{l}</p>
-              <p className="mt-1 text-2xl font-bold" style={{ color: i === 0 ? primary : sidebar }}>{v}</p>
+        <div className={top ? "flex gap-1" : "space-y-1"}>
+          {NAV.map((n, i) => (
+            <div key={n} className={`rounded-[10px] text-[13px] ${rail ? "flex size-10 items-center justify-center" : "px-3 py-2.5"} ${i === 0 ? "" : "opacity-75"}`}
+                 style={i === 0 ? { background: primary, color: "#fff" } : undefined}>
+              {rail ? <span className="size-2 rounded-sm bg-current" /> : n}
             </div>
           ))}
         </div>
-        <div className="flex h-44 items-end gap-3 p-4 shadow-sm" style={{ background: card, borderRadius: r }}>
-          {[40, 62, 50, 80, 95, 66, 72, 45, 84, 58].map((h, i) => <div key={i} className="flex-1 rounded-t-md" style={{ height: `${h}%`, background: i === 4 ? primary : accent }} />)}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col px-7 py-6">
+        <div className="mb-5 flex items-center justify-between">
+          <h2 className="text-[22px] font-bold" style={{ color: sidebar, fontFamily: DISPLAY }}>صباح الخير، أحمد</h2>
+          <span className="size-[34px] rounded-full" style={{ background: accent }} />
         </div>
-        <span className="inline-block px-5 py-2 text-xs font-bold" style={{ background: primary, color: "#fff", borderRadius: r }}>إتمام البيع</span>
+        <div className="mb-4 grid grid-cols-3 gap-3.5">
+          {stats.map(([l, v, d]) => (
+            <div key={l} className="p-4 shadow-[0_2px_10px_rgba(53,21,29,0.05)]" style={{ background: card, borderRadius: r }}>
+              <small className="text-xs opacity-60" style={{ color: sidebar }}>{l}</small>
+              <b className="mt-1.5 block text-[26px] leading-tight" style={{ color: sidebar, fontFamily: DISPLAY }}>{v}</b>
+              <span className="text-xs text-[#27835C]">▲ {d}</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex h-[230px] flex-none items-end gap-3.5 p-[18px] shadow-[0_2px_10px_rgba(53,21,29,0.05)]" style={{ background: card, borderRadius: r }}>
+          {[40, 62, 50, 80, 95, 66, 72, 45, 84, 58].map((h, i) => <i key={i} className="block flex-1 rounded-t-lg rounded-b-[3px]" style={{ height: `${h}%`, background: i === 4 ? primary : accent }} />)}
+        </div>
       </div>
     </div>
   );
 }
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <p className="mb-2.5 text-xs font-bold text-[#9A8C86]">{children}</p>;
+  return <p className="mb-2.5 text-xs font-bold tracking-[0.2px] text-[#9A8C86]">{children}</p>;
 }
 
 export function OwnerThemePicker() {
@@ -109,6 +109,8 @@ export function OwnerThemePicker() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("theme");
+  const refs = useRef<Record<Tab, HTMLElement | null>>({ theme: null, colors: null, font: null, menus: null });
+  const go = (t: Tab) => { setTab(t); refs.current[t]?.scrollIntoView({ behavior: "smooth", block: "start" }); };
 
   const themes = useQuery({ queryKey: ["themes"], queryFn: () => api.get<{ current: string; items: ThemeItem[] }>("/themes"), enabled: manage });
   const palettes = useQuery({
@@ -151,116 +153,110 @@ export function OwnerThemePicker() {
   const isClassic = JSON.stringify(draft) === JSON.stringify(CLASSIC_DRAFT);
   const set = (p: Partial<Draft>) => setDraft({ ...draft, ...p });
   const fam = (f: string) => (f ? { fontFamily: `"${f}", sans-serif` } : undefined);
-  const pick = (on: boolean) => (on ? "border-[#651E2C] bg-[#FBF3F4]" : "border-[#EADFD2] hover:border-[#651E2C]/40");
+  const section = (id: Tab) => ({ ref: (el: HTMLElement | null) => { refs.current[id] = el; }, className: "mb-6 scroll-mt-1" });
 
   return (
-    <div className="grid gap-0 overflow-hidden rounded-3xl border border-[#DECFC0] bg-white shadow-sm lg:grid-cols-[22rem_1fr]" data-testid="owner-theme-picker">
-      <div className="flex min-h-[640px] flex-col">
-        <div className="flex-1 p-6">
-          <div role="tablist" className="mb-6 flex rounded-2xl bg-[#F3ECE3] p-1">
+    <div className="grid h-[calc(100vh-7rem)] min-h-[700px] overflow-hidden rounded-[22px] border border-[#E7DCCF] bg-[#EFE8DE] lg:grid-cols-[420px_1fr]" data-testid="owner-theme-picker">
+      <div className="flex min-h-0 flex-col bg-white shadow-[-1px_0_0_#E7DCCF]">
+        <div className="min-h-0 flex-1 overflow-y-auto px-7 pt-7">
+          <p className="mb-1.5 text-xs text-[#9A8C86]">الإعدادات ‹ المظهر</p>
+          <h1 className="mb-[22px] text-[26px] font-bold text-[#35151D]" style={{ fontFamily: DISPLAY }}>مظهر المتجر</h1>
+          <div role="tablist" className="sticky top-0 z-10 mb-[22px] flex rounded-[14px] bg-[#F3ECE3] p-1">
             {TABS.map((t) => (
-              <button key={t.id} role="tab" type="button" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
-                      className={`flex-1 rounded-xl py-2.5 text-xs font-bold transition ${tab === t.id ? "bg-white text-[#651E2C] shadow-sm" : "text-[#8A7A74]"}`}>
+              <button key={t.id} role="tab" type="button" aria-selected={tab === t.id} onClick={() => go(t.id)}
+                      className={`flex-1 rounded-[11px] py-2.5 text-[13px] font-bold transition ${tab === t.id ? "bg-white text-[#651E2C] shadow-[0_2px_8px_rgba(53,21,29,0.08)]" : "text-[#8A7A74]"}`}>
                 {t.label}
               </button>
             ))}
           </div>
 
-          {tab === "theme" && (
-            <div>
-              <Label>القوالب</Label>
-              <ul className="grid grid-cols-2 gap-3">
-                {themes.data.items.map((t) => {
-                  const on = draft.theme === t.id;
-                  return (
-                    <li key={t.id}>
-                      <button type="button" aria-pressed={on} onClick={() => set({ theme: t.id })}
-                              className={`w-full rounded-2xl border-2 p-1.5 text-start transition ${on ? "border-[#651E2C] bg-white shadow-lg shadow-[#651E2C]/15" : "border-transparent bg-[#FAF6F0] hover:border-[#651E2C]/30"}`}>
-                        <Thumb swatches={t.swatches} />
-                        <span className="flex items-center justify-between gap-1 px-1.5 pb-1 pt-2 text-[13px] font-bold text-[#35151D]">
-                          {t.name}
-                          {t.id === CLASSIC_THEME_ID && <em className="rounded-full bg-[#651E2C] px-2 py-0.5 text-[10px] font-bold not-italic text-white">الكلاسيكي</em>}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
+          <section {...section("theme")} aria-label="القوالب">
+            <Label>القوالب</Label>
+            <ul className="grid grid-cols-2 gap-3">
+              {themes.data.items.map((t) => {
+                const on = draft.theme === t.id;
+                return (
+                  <li key={t.id}>
+                    <button type="button" aria-pressed={on} onClick={() => set({ theme: t.id })}
+                            className={`w-full rounded-2xl border-2 p-1.5 text-start transition ${on ? "border-[#651E2C] bg-white shadow-[0_8px_22px_rgba(101,30,44,0.13)]" : "border-transparent bg-[#FAF6F0] hover:border-[#651E2C]/30"}`}>
+                      <Thumb swatches={t.swatches} />
+                      <span className="flex items-center justify-between px-1.5 pb-1 pt-2 text-[13px] font-bold text-[#35151D]">
+                        {t.name}
+                        {t.id === CLASSIC_THEME_ID && <em className="rounded-full bg-[#651E2C] px-2 py-0.5 text-[10px] font-bold not-italic text-white">الكلاسيكي</em>}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
 
-          {tab === "colors" && (
-            <div>
-              <Label>الألوان</Label>
-              <p className="mb-4 text-[11px] text-[#9A8C86]">غيّر الألوان فقط دون تغيير القالب.</p>
-              <div className="flex flex-wrap gap-3">
-                <button type="button" aria-pressed={draft.palette === ""} onClick={() => set({ palette: "" })}
-                        className={`rounded-full border-2 px-4 py-2 text-xs font-bold ${pick(draft.palette === "")}`}>ألوان القالب</button>
-                {palettes.data.items.map((p) => (
-                  <button key={p.id} type="button" title={p.id} aria-label={`لوحة ${p.id}`} aria-pressed={draft.palette === p.id} onClick={() => set({ palette: p.id })}
-                          className={`size-11 rounded-full ring-offset-2 transition ${draft.palette === p.id ? "ring-[3px] ring-[#651E2C]" : "ring-1 ring-[#E1D6C9]"}`}
-                          style={{ background: `linear-gradient(135deg, ${p.swatches[0]} 55%, ${p.swatches[2] ?? p.swatches[1]} 55%)` }} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {tab === "font" && (
-            <div className="space-y-6">
-              {(["body", "display"] as const).map((which) => (
-                <div key={which}>
-                  <Label>{which === "body" ? "خط النصوص" : "خط العناوين"}</Label>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    {[{ id: "", label: "خط القالب" }, ...palettes.data.families.map((f) => ({ id: f, label: f }))].map((f) => (
-                      <button key={f.id} type="button" aria-pressed={draft[which] === f.id} onClick={() => set({ [which]: f.id } as Partial<Draft>)}
-                              className={`rounded-2xl border-[1.5px] p-3 text-center transition ${pick(draft[which] === f.id)}`}>
-                        <b className="block text-2xl" style={fam(f.id)}>أبجد</b>
-                        <small className="text-[11px] text-[#9A8C86]">{f.label}</small>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+          <section {...section("colors")} aria-label="الألوان">
+            <Label>الألوان</Label>
+            <div className="flex flex-wrap gap-2.5">
+              <button type="button" aria-pressed={draft.palette === ""} onClick={() => set({ palette: "" })}
+                      className={`rounded-full px-4 text-xs font-bold ${draft.palette === "" ? "bg-[#651E2C] text-white" : "bg-[#F3ECE3] text-[#651E2C]"}`}>ألوان القالب</button>
+              {palettes.data.items.map((p) => (
+                <button key={p.id} type="button" title={p.id} aria-label={`لوحة ${p.id}`} aria-pressed={draft.palette === p.id} onClick={() => set({ palette: p.id })}
+                        className={`size-[38px] rounded-full shadow-[inset_0_0_0_3px_#fff,0_0_0_1px_#E1D6C9] ${draft.palette === p.id ? "!shadow-[inset_0_0_0_3px_#fff,0_0_0_3px_#651E2C]" : ""}`}
+                        style={{ background: p.swatches[0] }} />
               ))}
             </div>
-          )}
+          </section>
 
-          {tab === "menus" && (
-            <div>
-              <Label>شكل القوائم</Label>
-              <p className="mb-4 text-[11px] text-[#9A8C86]">يُحفظ على هذا الجهاز فقط ولا يغيّر ما يراه الآخرون.</p>
-              <div className="space-y-2.5">
-                {LAYOUT_MODES.map((l) => (
-                  <button key={l.id} type="button" aria-pressed={layoutMode === l.id} onClick={() => setLayoutMode(l.id)}
-                          className={`flex w-full items-center justify-between rounded-2xl border-[1.5px] p-4 text-start text-sm font-bold transition ${pick(layoutMode === l.id)}`}>
-                    {SHELL_NAMES[l.id] ?? l.name.replace(/\s*\(.*\)$/, "")}
-                    {layoutMode === l.id && <Check className="size-4 text-[#651E2C]" />}
-                  </button>
-                ))}
+          <section {...section("font")} aria-label="الخط">
+            {(["body", "display"] as const).map((which) => (
+              <div key={which} className="mb-5">
+                <Label>{which === "body" ? "خط النصوص" : "خط العناوين"}</Label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {[{ id: "", label: "خط القالب" }, ...palettes.data.families.map((f) => ({ id: f, label: f }))].map((f) => (
+                    <button key={f.id} type="button" aria-pressed={draft[which] === f.id} onClick={() => set({ [which]: f.id } as Partial<Draft>)}
+                            className={`rounded-[14px] border-[1.5px] p-3 text-center transition ${draft[which] === f.id ? "border-[#651E2C] bg-[#FBF3F4]" : "border-[#EADFD2]"}`}>
+                      <b className="mb-0.5 block text-[22px]" style={fam(f.id)}>أبجد</b>
+                      <small className="text-[11px] text-[#9A8C86]">{f.label}</small>
+                    </button>
+                  ))}
+                </div>
               </div>
+            ))}
+          </section>
+
+          <section {...section("menus")} aria-label="شكل القوائم">
+            <Label>شكل القوائم</Label>
+            <div className="grid grid-cols-3 gap-2.5">
+              {LAYOUT_MODES.map((l) => (
+                <button key={l.id} type="button" aria-pressed={layoutMode === l.id} onClick={() => setLayoutMode(l.id)}
+                        className={`rounded-[14px] border-[1.5px] p-3 text-center text-xs font-bold transition ${layoutMode === l.id ? "border-[#651E2C] bg-[#FBF3F4] text-[#651E2C]" : "border-[#EADFD2] text-[#35151D]"}`}>
+                  {SHELL_NAMES[l.id] ?? l.name.replace(/\s*\(.*\)$/, "")}
+                </button>
+              ))}
             </div>
-          )}
+            <p className="mt-2 text-[11px] text-[#9A8C86]">يُحفظ على هذا الجهاز فقط ولا يغيّر ما يراه الآخرون.</p>
+          </section>
+          <div className="h-4" />
         </div>
-        <div className="flex gap-2.5 border-t border-[#EADFD2] bg-white p-5">
-          <Button variant="outline" className="flex-[0.8]" disabled={save.isPending || (isClassic && !dirty)} onClick={() => { setDraft(CLASSIC_DRAFT); save.mutate(CLASSIC_DRAFT); }}>
+        <div className="flex gap-2.5 border-t border-[#EADFD2] bg-white px-7 py-4">
+          <Button variant="outline" className="h-auto flex-[0.8] rounded-[13px] bg-[#F3ECE3] py-[13px] text-sm font-bold text-[#651E2C]" disabled={save.isPending || (isClassic && !dirty)}
+                  onClick={() => { setDraft(CLASSIC_DRAFT); save.mutate(CLASSIC_DRAFT); }}>
             <RotateCcw /> رجوع إلى الكلاسيكي
           </Button>
-          <Button className="flex-1 bg-[#651E2C] text-[#FAF6F0] shadow-lg shadow-[#651E2C]/30 hover:bg-[#521723]" disabled={!dirty || save.isPending} onClick={() => save.mutate(draft)}>
+          <Button className="h-auto flex-1 rounded-[13px] bg-[#651E2C] py-[13px] text-sm font-bold text-white shadow-[0_6px_16px_rgba(101,30,44,0.27)] hover:bg-[#521723]" disabled={!dirty || save.isPending} onClick={() => save.mutate(draft)}>
             {save.isPending ? <Spinner /> : dirty ? "حفظ المظهر" : "تم الحفظ"}
           </Button>
         </div>
       </div>
 
-      <div className="flex flex-col bg-[#EFE8DE] p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <span className="text-xs text-[#8A7A74]">معاينة مباشرة بصفحة «الرئيسية». لا يُحفظ شيء قبل الضغط على «حفظ المظهر».</span>
+      <div className="flex min-h-0 flex-col px-11 py-[34px]">
+        <div className="mb-[18px] flex items-center justify-between">
+          <span className="text-[13px] text-[#8A7A74]">معاينة مباشرة بصفحة «الرئيسية»</span>
           <button type="button" onClick={() => window.open(STUDIO_URL, "_blank", "noopener,noreferrer")}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-bold text-[#651E2C] shadow-sm hover:shadow">
-            <ExternalLink className="size-3.5" /> تعديل أكثر في الاستوديو
+                  className="rounded-full bg-white px-4 py-2 text-xs font-bold text-[#651E2C] shadow-[0_2px_8px_rgba(53,21,29,0.06)]">
+            تعديل أكثر في الاستوديو ↗
           </button>
         </div>
-        <div className="relative flex-1 overflow-hidden rounded-3xl border border-[#EADFD2] bg-white shadow-2xl shadow-[#35151D]/20">
+        <div className="relative min-h-0 flex-1 overflow-hidden rounded-[26px] border border-[#EADFD2] bg-white shadow-[0_30px_70px_rgba(53,21,29,0.15)]">
           <HomePreview swatches={view.swatches} radius={view.radius} shell={layoutMode} fontFamily={draft.body ? `"${draft.body}", sans-serif` : undefined} />
-          <span className="absolute bottom-4 end-4 rounded-full bg-[#35151D]/90 px-4 py-2 text-xs text-white">
+          <span className="absolute bottom-[22px] end-[22px] rounded-full bg-[#35151D]/90 px-4 py-[9px] text-xs text-white">
             {view.name}{draft.palette ? ` · ${draft.palette}` : ""}{draft.body ? ` · ${draft.body}` : ""}
           </span>
         </div>
