@@ -18,6 +18,13 @@ mizan activity new acme.laundry   # a whole business activity: modules, variants
 mizan whoami | logout
 ```
 
+Packages are written in signed **format 2**: the signature covers the package kind (module, activity or
+theme) as well as the files, so a signature for one kind cannot be reused as another. Format 1 packages
+are still read. Publishing needs a developer account that has accepted the current developer terms
+(`POST /developers/terms/accept`, or `accept_terms` at sign-up); listings are free only, and every
+submission and listing text change is reviewed by the Mizan team. Compiled (WebAssembly) modules are not
+supported yet (design: `docs/wasm-sandbox-design.md`).
+
 `mizan_sdk/manifest.py` is a byte copy of the platform's validator
 (`system/core/backend/app/framework/manifest.py`) and `mizan_sdk/themes.py` of Mizan's own theme;
 platform tests fail if either drifts. Tests: `python -m pytest` here (also run by

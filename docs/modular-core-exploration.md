@@ -1,6 +1,6 @@
 # Modular core: map and proposal
 
-Status: planning document. No code changed, nothing deployed. Written 26 November 2026 on `feat/studio-render-parity`. Everything in sections 1 to 3 was read from the repository at that commit. Section 4 is a proposal for the owner to decide on.
+Status (updated 27 November 2026): the steps in section 10 are merged to `master` (through 9c, 11a and 11b) but the latest `master` is not deployed to homie (homie runs the step 10a build); sections 1 to 9 are the original planning text, written before the steps and before `shared/` was merged into `system/` (section 12), so paths in them are historical. Not built yet: Community Studio owner choices (fonts and colours, admin-designed layouts), the retail activity layout, the WebAssembly runtime (design only), the developer terms text, GitHub sign-in (planned for later). Original status line: planning document. No code changed, nothing deployed. Written 26 November 2026 on `feat/studio-render-parity`. Everything in sections 1 to 3 was read from the repository at that commit. Section 4 is a proposal for the owner to decide on.
 
 ## 1. Map of the current structure
 
