@@ -169,6 +169,11 @@ async def test_marketplace_submission_review_and_store():
             key = (await c.post(f"/developers/teams/{handle}/keys", headers=h, json={"public_key": public})).json()
             v1 = mzm.build(files("1.0.0"), private, key["certificate"])
 
+            # Step 11b: signing up, teams and keys are open, but publishing needs the yes to the terms.
+            assert (await c.get("/developers/me", headers=h)).json()["terms_accepted"] is False
+            assert (await c.post(f"/developers/teams/{handle}/packages", headers=h, content=v1)).status_code == 403
+            assert (await c.post("/developers/terms/accept", headers=h)).json()["terms_accepted"] is True
+
             # Submit (raw body, as `mizan publish` sends it); the same version again is refused.
             r = await c.post(f"/developers/teams/{handle}/packages", headers=h, content=v1)
             assert r.status_code == 201, r.text

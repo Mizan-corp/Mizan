@@ -4648,3 +4648,10 @@ MIGRATIONS.append(("v123_workspace_file_blobs_tenant_unique", """
     ALTER TABLE workspace_file_blobs DROP CONSTRAINT IF EXISTS workspace_file_blobs_url_key;
     CREATE UNIQUE INDEX IF NOT EXISTS uq_workspace_file_blobs_tenant_url ON workspace_file_blobs (tenant_id, url);
 """))
+
+MIGRATIONS.append(("v124_developer_terms", """
+    -- Publishing needs the developer's yes to the current terms (step 11b). Additive: existing
+    -- developers have NULL and accept once before their next publish.
+    ALTER TABLE developer_users ADD COLUMN IF NOT EXISTS terms_version varchar(16);
+    ALTER TABLE developer_users ADD COLUMN IF NOT EXISTS terms_accepted_at timestamptz;
+"""))

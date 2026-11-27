@@ -37,6 +37,7 @@ class SignupIn(BaseModel):
     email: str = Field(min_length=5, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     full_name: str = Field(min_length=2, max_length=128)
     password: str = Field(min_length=8, max_length=128)
+    accept_terms: bool = False  # signing up is free; publishing needs this yes (accepted here or later)
 
 
 class LoginIn(BaseModel):
@@ -69,12 +70,13 @@ class CliTokenIn(BaseModel):
 
 
 def _me(user: DeveloperUser) -> dict:
-    return {"id": str(user.id), "email": user.email, "full_name": user.full_name}
+    return {"id": str(user.id), "email": user.email, "full_name": user.full_name,
+            "terms_accepted": service.has_accepted_terms(user), "terms_version": service.TERMS_VERSION}
 
 
 @router.post("/signup", status_code=201)
 async def signup(data: SignupIn, db: AsyncSession = Depends(get_db), _=Depends(signup_limiter)):
-    user = await service.signup(db, data.email, data.full_name, data.password)
+    user = await service.signup(db, data.email, data.full_name, data.password, data.accept_terms)
     return {"access_token": service.issue_session(user), "token_type": "bearer", "developer": _me(user)}
 
 
@@ -82,6 +84,12 @@ async def signup(data: SignupIn, db: AsyncSession = Depends(get_db), _=Depends(s
 async def login(data: LoginIn, db: AsyncSession = Depends(get_db), _=Depends(login_limiter)):
     user = await service.authenticate(db, data.email, data.password)
     return {"access_token": service.issue_session(user), "token_type": "bearer", "developer": _me(user)}
+
+
+@router.post("/terms/accept")
+async def accept_terms(db: AsyncSession = Depends(get_db), user: DeveloperUser = Depends(current_developer)):
+    await service.accept_terms(db, user)
+    return _me(user)
 
 
 @router.post("/logout", status_code=204)
@@ -167,6 +175,7 @@ async def submit_package(handle: str, request: Request, db: AsyncSession = Depen
     from app.framework.package import MAX_BYTES
     from app.platform.marketplace import listings
 
+    service.require_terms(user)
     t, _ = await service.membership(db, user, handle)
     if (request.headers.get("content-type") or "").startswith("multipart/form-data"):
         form = await request.form()
