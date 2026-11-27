@@ -71,6 +71,14 @@ class MarketplaceItem(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+PAID_KEYS = ("price", "prices", "pricing", "paid", "fee", "license_fee", "subscription", "currency")
+
+
+def listing_problems(manifest: dict) -> list[str]:
+    """Free listings only at launch: a package that asks for money is refused before review."""
+    return [f"'{k}' isn't allowed: listings are free for now" for k in PAID_KEYS if k in manifest]
+
+
 def _version(v: str) -> Version:
     try:
         return Version(v)
@@ -99,6 +107,9 @@ async def submit(db: AsyncSession, team, user_id, data: bytes, say=lambda en, ar
     if pkg.kind not in KINDS:
         raise HTTPException(422, say("Only modules, themes and activities can be published",
                                      "يمكن نشر الوحدات والمظاهر والأنشطة فقط"))
+    paid = listing_problems(pkg.manifest)
+    if paid:
+        raise HTTPException(422, say(paid[0], "القوائم مجانية حاليا: الحزمة تطلب سعرا"))
     item_id, version = pkg.manifest["id"], pkg.manifest["version"]
     if await db.scalar(select(MarketplaceVersion.id).where(MarketplaceVersion.item_id == item_id, MarketplaceVersion.version == version)):
         raise HTTPException(409, say(f"{item_id} {version} was already submitted: raise the version",
