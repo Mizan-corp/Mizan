@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useHref } from "react-router-dom";
 import { IS_ON_PREMISE } from "@app/lib/deployment";
 import { NetworkDevices } from "./NetworkDevices";
+import { OwnerThemePicker } from "@app/platform/themes/components/OwnerThemePicker";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Paintbrush,
@@ -74,7 +75,7 @@ export default function WorkspaceSettings() {
   const [dirty, setDirty] = useState(false);
   const [uform, setUform] = useState<UserSettings>({});
   const [udirty, setUdirty] = useState(false);
-  const [activeTab, setActiveTab] = useState<"branding" | "store" | "personal" | "devices">("branding");
+  const [activeTab, setActiveTab] = useState<"branding" | "store" | "personal" | "devices" | "appearance">("branding");
 
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
@@ -208,9 +209,9 @@ export default function WorkspaceSettings() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6 text-[#262321]">
+    <div className={`mx-auto ${activeTab === "appearance" ? "max-w-[1600px] space-y-3 p-3" : "max-w-4xl space-y-6 p-4 sm:p-6"} text-[#262321]`}>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#DECFC0] pb-5">
+      <div className={`${activeTab === "appearance" ? "hidden" : "flex"} flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#DECFC0] pb-5`}>
         <div>
           <h1 className="text-2xl sm:text-3xl font-serif-ar font-bold text-[#35151D] tracking-tight">
             الإعدادات والتخصيص
@@ -221,7 +222,7 @@ export default function WorkspaceSettings() {
         </div>
 
         {/* Global Save Button */}
-        {activeTab !== "personal" && (
+        {activeTab !== "personal" && activeTab !== "appearance" && (
           <div className="flex items-center gap-2">
             <Button
               disabled={save.isPending || !dirty}
@@ -258,6 +259,18 @@ export default function WorkspaceSettings() {
         >
           <Paintbrush className="h-4 w-4" />
           <span>الهوية وتسجيل الدخول</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("appearance")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+            activeTab === "appearance"
+              ? "bg-[#651E2C] text-[#FAF6F0] shadow-sm"
+              : "text-[#77716E] hover:text-[#262321] hover:bg-[#FFFFFF]"
+          }`}
+        >
+          <Paintbrush className="h-4 w-4" />
+          <span>المظهر</span>
         </button>
 
         <button
@@ -303,6 +316,8 @@ export default function WorkspaceSettings() {
       {save.isError && <ErrorBox message={(save.error as Error).message} />}
 
       {/* ── TAB 1: BRANDING & LOGIN CUSTOMIZATION ── */}
+      {activeTab === "appearance" && <OwnerThemePicker />}
+
       {activeTab === "branding" && (
         <div className="space-y-6">
           {/* Live Preview Header Card */}
