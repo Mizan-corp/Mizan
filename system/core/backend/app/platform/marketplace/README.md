@@ -15,3 +15,10 @@ From the SRS (`docs/developer/mizan/srs/SRS-Mizan-v1.0.md`):
 
 Today: The module centre (app/api/routers/modules.py); ADR-006 phase 7.
 
+## Launch rules (step 11a)
+
+- Free listings only: `listings.listing_problems()` refuses, before review, a package whose manifest
+  carries a price, fee, subscription or currency key (`PAID_KEYS`).
+- A listing's name and description change only inside `approve()`, so every text change waits for a manual
+  review by the Mizan team. The store has no listing image field yet.
+- Package format 2 signs the kind (see `framework/package.py`); format 1 is still read.

@@ -276,7 +276,7 @@ The full canon lives in [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md),
 | ✅ **Live** | Multi-tenant SaaS · self-serve signup & onboarding · owner panel with multiple workspaces per owner · POS (online + offline) · sales · inventory · purchasing · customers & suppliers · finance & ledger · HR & payroll · reports · notifications · storefront · thermal printing & barcode scanning · Arabic/English · admin panel · plan limits · workspace suspension |
 | 🧱 **Working, being deepened** | Restaurant & kitchen display · pharmacy · clinic (billing, clinical roles, FEFO dispensing, claims) · hotel PMS · school · gym · salon · wholesale |
 | 🪴 **Scaffolded** | Manufacturing, projects, specialised and remaining service modules: models, API and screens exist, with workflows still to be filled in |
-| ✅ **Developer platform** | Developer portal and docs at dev.allmizan.live (English, Arabic) · signed community modules installed from file, with scope approval · `/ext/v1` and signed webhooks · theme packs · activity packages (built, checked and signed; running one in a workspace comes with #107) · `mizan` CLI |
+| ✅ **Developer platform** | Developer portal and docs at dev.allmizan.live (English, Arabic) · signed community modules installed from file, with scope approval · `/ext/v1` and signed webhooks · theme packs · activity packages (built, checked and signed; running one in a workspace comes with #107) · `mizan` CLI · packages by kind (`.mzmo` module, `.mzba` activity, `.mzth` theme; `.mzm` still read) in signed format 2 (the kind is signed) · marketplace review, free listings only · publishing needs accepting the developer terms (terms text: not written yet). Compiled (WebAssembly) modules are **design only**: [`docs/wasm-sandbox-design.md`](docs/wasm-sandbox-design.md); no community code runs on a workspace yet. GitHub sign-in for developers: planned, not built |
 | 🔌 **In progress** | WhatsApp receipts (configured and logged; live sending queued) · Paymob payments (built and tested against signed callbacks; needs the production keys) · subscription expiry (paid periods are tracked; lapsing to read-only isn't automatic yet) · the module marketplace and paid modules/themes (#105, after Paymob) |
 | ✅ **On site** | Single-device and LAN workspaces: licences bound to one computer, Mizan Setup for Windows and Linux (built and smoke-tested in CI), `mizan.local`, daily and on-demand local backups, updates with automatic rollback, the in-app network page ([installer/](installer/README.md)) |
 | 🚧 **Deployment modes, next** | Checks on real tills (#88) · encrypted cloud backup (#117) · bring your own database (#91, designed in ADR-009) · Windows code signing (#93) |
@@ -343,18 +343,23 @@ python manage.py check           # lint + tests + builds
 ```
 
 Backend tests delete the workspaces they create, so the database is left as they found it.
-CI runs lint, every build, unit tests, an import check of every API and the full
-Docker-based end-to-end suite on every push. A second workflow (`installers.yml`) builds
+CI runs on GitHub-hosted runners (`ubuntu-latest`, free for this public repository; there are no
+self-hosted runners, see [`.github/RUNNERS.md`](.github/RUNNERS.md)). It runs lint, every build,
+unit tests, the PostgreSQL-backed backend tests, an import check of every API and the full
+Docker-based end-to-end suite on every push and pull request. A second workflow (`installers.yml`) builds
 Mizan Setup on Linux and Windows and smoke-tests both modes (`installer/ci_smoke.py`).
 
 ---
 
 ## Shipping changes
 
-**A push to `master` is a release.** GitHub builds the API and web images while CI runs; when CI
-passes, the runner on Mizan's server backs up the database, migrates it and switches to the new
-images (`.github/workflows/deploy-server.yml`, `deploy/server/`, ADR-011). Nothing goes live
-before its migrations, and a failed migration stops the release.
+**A release is a manual, approved run.** A push to `master` does not deploy. Run Actions → Deploy (homie)
+→ Run workflow (`.github/workflows/deploy-server.yml`). A GitHub-hosted runner builds the API and web
+images and pushes them to GHCR; the deploy job then waits for a required reviewer to approve the `production`
+Environment, and only after that connects to the server over SSH with a restricted key. On the server
+`deploy/server/deploy.sh` backs up the database, migrates it and switches to the new images
+([`docs/deploy-homie.md`](docs/deploy-homie.md), `deploy/server/`, ADR-011). Nothing goes live before its
+migrations, and a failed migration stops the release.
 
 | Service (on the server) | Built from | Serves |
 |---|---|---|
@@ -367,7 +372,7 @@ before its migrations, and a failed migration stops the release.
   way back (`/mnt/media/backups/mizan`).
 - **Changing `system/core/` affects every product**, so check every app that uses what you changed.
 - **Rollback**: on the server, `/srv/mizan/deploy.sh <previous commit>` (the previous release's
-  images are kept). Re-run a release: Actions → Deploy (server) → Run workflow.
+  images are kept). Make a release: Actions → Deploy (homie) → Run workflow, then approve it.
 - The four APIs share one database and one `SECRET_KEY`; production settings live in
   `/srv/mizan/mizan.env` on the server (`deploy/server/README.md`).
 - **Installers ship separately**: a `v*` tag builds them and publishes to the public
@@ -379,9 +384,10 @@ before its migrations, and a failed migration stops the release.
 ## Repository map
 
 ```
-system/                 the ERP
-  frontend/src/         app shell, ERP screens, tenant routing, activities/<activity>/{modules,variants}/
-  backend/              system-api: main.py + system_api/ (routes, tenant resolution)
+system/                 the ERP and its kernel
+  erp/frontend/src/     app shell, ERP screens, tenant routing, Studio (platform/site/studio),
+                        activities/<activity>/{modules,variants}/
+  erp/backend/          system-api: main.py + system_api/ (routes, tenant resolution); tests/
 website/                the public website
   frontend/src/         landing, product, pricing, blog, docs, signup, onboarding,
                         features/developers/ (the developer platform at dev.allmizan.live)
@@ -396,7 +402,7 @@ installer/              single-device and LAN installs
   server/               mizan-server: install engine, service (PostgreSQL + API + app), CLI
   setup/                Mizan Setup (Tauri): the guided installer, desktop app and headless installs
   build.py · stamp.py   build the installers · stamp a client's licence into one
-system/core/            code every product uses (kernel + kit)
+system/core/            code every product uses (kernel + kit; the former `shared/`)
   frontend/src/         design kit (components/kit), API client, stores, i18n, styles, pricing
   backend/app/          kernel: factory, core (config, errors), models, framework
                         (module loader, variants, template, package format), platform (engines:
@@ -409,8 +415,8 @@ sdk/python/             mizan-sdk: the `mizan` CLI (modules, themes, activities,
                         the /ext/v1 client and webhook verification
 e2e/                    live API end-to-end suite
 docs/                   product, architecture, design, security and requirements docs
-.github/workflows/      ci.yml (lint, tests, builds, e2e, browser) · deploy-server.yml (images, then release on the server) ·
-                        jobs.yml (scheduled jobs) · installers.yml (build + smoke-test Mizan Setup)
+.github/workflows/      ci.yml (lint, tests, builds, e2e; hosted runners) · deploy-server.yml ("Deploy (homie)": manual,
+                        approved release) · jobs.yml (manual jobs) · installers.yml (build + smoke-test Mizan Setup)
 docker-compose.yml      local stack: database + the four APIs
 package.json            npm workspaces: shared, the four frontends and installer/setup
 manage.py               the one CLI: setup, stack, db, dev, build, test, lint, module

@@ -133,13 +133,14 @@ A workspace runs in one of these, chosen when it's created:
 - **Licences** are Ed25519-signed (`MZN1.<payload>.<signature>`, `app.platform.licensing`),
   verified offline against the public key built into the app, and extended by
   `activate_invoice` when the owner pays.
-- **Releases** (ADR-011, `deploy/server/`): a push to `master` is a release
-  (`.github/workflows/deploy-server.yml`). The API and web images build on GitHub while CI runs
-  and go to GHCR; when CI passes, the runner on Mizan's server backs up the database, migrates it
-  (`manage.py db migrate --production --no-backup`), and switches the services
+- **Releases** (ADR-011, `deploy/server/`): a manual run of "Deploy (homie)"
+  (`.github/workflows/deploy-server.yml`); a push to `master` does not deploy. The API and web images
+  build on a GitHub-hosted runner and go to GHCR; the deploy job waits for a required reviewer on the
+  `production` Environment, then SSHes to the server with a restricted key; the server backs up the
+  database, migrates it (`manage.py db migrate --production --no-backup`), and switches the services
   (`deploy/server/deploy.sh`), keeping the previous release for rollback. Migrations must stay
-  backward compatible (the old code serves until the switch). Re-run by hand: Actions → Deploy
-  (server) → Run workflow. The web image includes the `mizan-sdk` wheel
+  backward compatible (the old code serves until the switch). There are no self-hosted runners
+  (`.github/RUNNERS.md`). The web image includes the `mizan-sdk` wheel
   (`dev.allmizan.live/sdk/`).
 - **Uploaded files** (logo and its PWA icons, sign-in cover, product images, purchase invoice
   images) go through one service, `app/framework/files.py` (#114). It writes to `UPLOAD_DIR`
