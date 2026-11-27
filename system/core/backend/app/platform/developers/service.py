@@ -55,7 +55,25 @@ def _hash(token: str) -> str:
 
 # ── Accounts ─────────────────────────────────────────────────────────────────
 
-async def signup(db: AsyncSession, email: str, full_name: str, password: str) -> DeveloperUser:
+TERMS_VERSION = "2026-11"  # raise it when the developer terms change: everyone accepts again before publishing
+
+
+def has_accepted_terms(user: DeveloperUser) -> bool:
+    return getattr(user, "terms_version", None) == TERMS_VERSION
+
+
+def require_terms(user: DeveloperUser) -> None:
+    """Publishing needs the developer's yes to the current terms (403 otherwise)."""
+    if not has_accepted_terms(user):
+        raise HTTPException(403, _("Accept the developer terms before publishing", "وافق على شروط المطورين قبل النشر"))
+
+
+async def accept_terms(db: AsyncSession, user: DeveloperUser) -> None:
+    user.terms_version, user.terms_accepted_at = TERMS_VERSION, datetime.now(UTC)
+    await db.commit()
+
+
+async def signup(db: AsyncSession, email: str, full_name: str, password: str, accept_terms: bool = False) -> DeveloperUser:
     from app.platform.auth.security import hash_password
 
     email = normalize_email(email)
@@ -63,6 +81,8 @@ async def signup(db: AsyncSession, email: str, full_name: str, password: str) ->
         raise HTTPException(409, _("This email is already registered; sign in", "هذا البريد مسجل بالفعل، سجّل الدخول"))
     user = DeveloperUser(email=email, full_name=full_name.strip(), password_hash=hash_password(password),
                          last_login_at=datetime.now(UTC))
+    if accept_terms:
+        user.terms_version, user.terms_accepted_at = TERMS_VERSION, datetime.now(UTC)
     db.add(user)
     await db.commit()
     return user
