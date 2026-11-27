@@ -112,7 +112,7 @@ Mizan replaces disconnected business tools (spreadsheets, paper ledgers, standal
 - All money stored as `Numeric/Decimal`, never float
 - All timestamps stored in UTC
 - Frontend deploy is CLI-only (not git-linked)
-- Backend deploy is git-only (push to master)
+- Backend deploy: historical Vercel-era note. Current releases are a manual, approved "Deploy (homie)" workflow run (see RUNNERS.md); a push to master does not deploy
 - `CORS_ORIGINS` is a Vercel env var, not in code
 
 ### 2.6 Assumptions and Dependencies
@@ -889,7 +889,7 @@ These apply across all business activities and deployment modes. Jurisdiction-sp
 | System | Interface | Notes |
 |---|---|---|
 | Neon PostgreSQL | asyncpg + PgBouncer | Pooled URL in Vercel env |
-| Vercel | Git push to master (backend) / CLI deploy (frontend) | Frontend is CLI-only |
+| Vercel | Historical: git push (backend) / CLI deploy (frontend); current deploys are the manual approved homie workflow | Frontend is CLI-only |
 | WhatsApp Cloud API | Meta Cloud API (v17+) | Background worker dispatch |
 | ZKTeco SDK | — | Removed (#110): device attendance sync was dropped; another approach will replace it |
 | ETA (Egyptian Tax Authority) | REST API (TBD) | `eta_einvoice` module — not built |
