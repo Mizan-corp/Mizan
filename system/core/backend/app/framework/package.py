@@ -5,10 +5,10 @@ A module package is a zip of manifest.json, entities/*.json, optional i18n/ and 
 SIGNATURE (a theme's manifest is the theme, with fonts in assets/; an activity adds modules/,
 variants/, themes/ and seed/):
 
-  {"format": 1, "module": "acme.visits", "version": "1.0.0",
+  {"format": 2, "kind": "community", "module": "acme.visits", "version": "1.0.0",
    "files": {"manifest.json": "<sha256>", ...},
    "certificate": "MZD1.<payload>.<sig>",     # Mizan certifies the developer's key
-   "signature": "<base64url Ed25519 over the canonical JSON of format/module/version/files>"}
+   "signature": "<base64url Ed25519 over the canonical JSON of format/kind/module/version/files (format 1 had no kind)>"}
 
 Trust: the certificate is verified with Mizan's platform keys (app.platform.licensing.keys, prefix
 MZD1: {developer, key_id, public_key, issued_at}); the signature with the certified key. Every
@@ -31,7 +31,8 @@ from app.framework.manifest import (
     theme_problems,
 )
 
-FORMAT = 1
+FORMAT = 2  # what build() writes. Format 2 signs the package kind too (step 9c); format 1 is still read.
+FORMATS = (1, 2)
 CERT_PREFIX = "MZD1"
 MAX_BYTES = 4 * 1024 * 1024  # Vercel functions accept request bodies up to 4.5 MB
 MAX_FILES = 200
@@ -77,9 +78,13 @@ def _b64d(text: str) -> bytes:
     return base64.urlsafe_b64decode(text + "=" * (-len(text) % 4))
 
 
-def _canonical(module: str, version: str, files: dict[str, str]) -> bytes:
-    return json.dumps({"format": FORMAT, "module": module, "version": version, "files": files},
-                      sort_keys=True, separators=(",", ":")).encode()
+def _canonical(module: str, version: str, files: dict[str, str], fmt: int = FORMAT, kind: str = "") -> bytes:
+    """The bytes that are signed. Format 2 adds the kind, so a signed theme can't be passed off as a
+    module (the extension and the manifest are then both covered by the signature)."""
+    body: dict = {"format": fmt, "module": module, "version": version, "files": files}
+    if fmt >= 2:
+        body["kind"] = kind
+    return json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
 
 
 def _check_path(name: str) -> None:
@@ -151,15 +156,18 @@ def verify(data: bytes) -> Package:
     except keys.LicenceError:
         raise PackageError("The developer's certificate isn't from Mizan") from None
     hashes = {name: hashlib.sha256(body).hexdigest() for name, body in files.items()}
-    if sig.get("format") != FORMAT or sig.get("files") != hashes:
+    fmt = sig.get("format")
+    if fmt not in FORMATS or sig.get("files") != hashes:
         raise PackageError("The package's files don't match its signature (changed after signing?)")
     try:
         public = Ed25519PublicKey.from_public_bytes(_b64d(cert["public_key"]))
-        public.verify(_b64d(sig.get("signature") or ""), _canonical(sig.get("module", ""), sig.get("version", ""), hashes))
+        public.verify(_b64d(sig.get("signature") or ""), _canonical(sig.get("module", ""), sig.get("version", ""), hashes, fmt, str(sig.get("kind") or "")))
     except (InvalidSignature, KeyError, ValueError):
         raise PackageError("The package's signature doesn't match the developer's key") from None
 
     package = parse(files)
+    if fmt >= 2 and sig.get("kind") != package.kind:
+        raise PackageError("The signed package kind doesn't match the manifest")
     if package.manifest.get("id") != sig.get("module") or package.manifest.get("version") != sig.get("version"):
         raise PackageError("The signature is for another module or version")
     if not package.manifest["id"].startswith(cert["developer"] + "."):
@@ -216,13 +224,14 @@ def build(files: dict[str, bytes], private_key: bytes, certificate: str) -> byte
     package = parse(files)
     hashes = {name: hashlib.sha256(body).hexdigest() for name, body in files.items()}
     module, version = package.manifest["id"], package.manifest["version"]
-    signature = Ed25519PrivateKey.from_private_bytes(private_key).sign(_canonical(module, version, hashes))
+    signature = Ed25519PrivateKey.from_private_bytes(private_key).sign(
+        _canonical(module, version, hashes, FORMAT, package.kind))
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for name in sorted(files):
             z.writestr(name, files[name])
-        z.writestr("SIGNATURE", json.dumps({"format": FORMAT, "module": module, "version": version, "files": hashes,
-                                            "certificate": certificate, "signature": _b64e(signature)}, indent=2))
+        z.writestr("SIGNATURE", json.dumps({"format": FORMAT, "kind": package.kind, "module": module,
+                                            "version": version, "files": hashes, "certificate": certificate, "signature": _b64e(signature)}, indent=2))
     return out.getvalue()
 
 

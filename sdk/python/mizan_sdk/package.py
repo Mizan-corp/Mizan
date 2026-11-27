@@ -11,7 +11,7 @@ from pathlib import Path, PurePosixPath
 
 from mizan_sdk.manifest import activity_package_problems, community_manifest_problems, entity_problems, theme_problems
 
-FORMAT = 1
+FORMAT = 2  # format 2 signs the package kind too (step 9c); Mizan still reads format 1
 # The file extension says the kind (same table as the server, framework/package.py). `.mzm`, the
 # older name for every kind, is still accepted by Mizan.
 EXTENSIONS = {"community": ".mzmo", "activity": ".mzba", "theme": ".mzth"}
@@ -89,15 +89,16 @@ def build(files: dict[str, bytes], private_key: bytes, certificate: str) -> byte
     manifest = json.loads(files["manifest.json"])
     module, version = manifest["id"], manifest["version"]
     hashes = {name: hashlib.sha256(body).hexdigest() for name, body in files.items()}
-    canonical = json.dumps({"format": FORMAT, "module": module, "version": version, "files": hashes},
+    kind = manifest.get("kind", "community")
+    canonical = json.dumps({"format": FORMAT, "kind": kind, "module": module, "version": version, "files": hashes},
                            sort_keys=True, separators=(",", ":")).encode()
     signature = Ed25519PrivateKey.from_private_bytes(private_key).sign(canonical)
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for name in sorted(files):
             z.writestr(name, files[name])
-        z.writestr("SIGNATURE", json.dumps({"format": FORMAT, "module": module, "version": version, "files": hashes,
-                                            "certificate": certificate.strip(), "signature": _b64e(signature)}, indent=2))
+        z.writestr("SIGNATURE", json.dumps({"format": FORMAT, "kind": kind, "module": module, "version": version,
+                                            "files": hashes, "certificate": certificate.strip(), "signature": _b64e(signature)}, indent=2))
     data = out.getvalue()
     if len(data) > MAX_BYTES:
         raise PackageError(f"The package is {len(data) // 1024} KB; Mizan accepts up to {MAX_BYTES // 1024} KB")
