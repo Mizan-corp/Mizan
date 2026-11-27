@@ -15,7 +15,7 @@ permissions: {}
 
 jobs:
   run:
-    runs-on: homie   # curls the production APIs; free on the server. Label is just "homie" (see .github/RUNNERS.md)
+    runs-on: ubuntu-latest   # manual only; no self-hosted runners (.github/RUNNERS.md)
     timeout-minutes: 10
     env:
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
