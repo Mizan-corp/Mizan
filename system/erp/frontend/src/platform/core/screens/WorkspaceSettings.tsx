@@ -209,7 +209,7 @@ export default function WorkspaceSettings() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6 text-[#262321]">
+    <div className={`mx-auto ${activeTab === "appearance" ? "max-w-6xl" : "max-w-4xl"} space-y-6 p-4 sm:p-6 text-[#262321]`}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#DECFC0] pb-5">
         <div>

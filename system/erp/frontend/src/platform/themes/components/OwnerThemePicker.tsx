@@ -6,66 +6,12 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ExternalLink, Palette, RotateCcw, Type, LayoutPanelLeft, Sparkles } from "lucide-react";
+import { Check, ExternalLink, RotateCcw } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
 import { useUiStore, LAYOUT_MODES } from "@/stores/ui";
 import type { ThemePack } from "@/lib/theme";
 import { Button, Spinner, useToast } from "@/components/ui";
-
-/** A small but real-looking app screen in a theme's colours: menu, top bar, stat cards, chart, button. */
-export function MiniApp({ swatches, radius = "0.875rem", big = false, shell = "sidebar" }: { swatches: string[]; radius?: string; big?: boolean; shell?: string }) {
-  const [primary = "#651E2C", background = "#FAF6F0", sidebar = "#35151D", accent = "#E7D6C1", card = "#FFFFFF"] = swatches;
-  const r = `calc(${radius} * 0.5)`;
-  const menu = (
-    <div className={shell === "topnav" ? "flex items-center gap-1.5 px-2.5 py-1.5" : `flex ${shell === "rail" ? "w-[12%] items-center" : "w-[24%]"} flex-col gap-1.5 p-2`} style={{ background: sidebar }}>
-      <div className="size-2.5 rounded-sm" style={{ background: primary, filter: "brightness(1.6)" }} />
-      {[0, 1, 2, 3].slice(0, big ? 4 : 3).map((i) => (
-        <div key={i} className={`h-1.5 rounded-full ${shell === "rail" ? "w-2.5" : shell === "topnav" ? "w-8" : "w-full"}`} style={{ background: card, opacity: i === 0 ? 0.85 : 0.3 }} />
-      ))}
-    </div>
-  );
-  return (
-    <div aria-hidden className={`flex overflow-hidden ${shell === "topnav" ? "flex-col" : ""} ${big ? "h-56" : "h-36"}`} style={{ background }}>
-      {menu}
-      <div className="flex-1 space-y-1.5 p-2.5">
-        <div className="flex items-center justify-between">
-          <div className="h-2 w-1/3 rounded-full" style={{ background: sidebar, opacity: 0.8 }} />
-          <div className="size-3 rounded-full" style={{ background: accent }} />
-        </div>
-        <div className="grid grid-cols-3 gap-1.5">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="space-y-1 p-1.5 shadow-sm" style={{ background: card, borderRadius: r }}>
-              <div className="h-1 w-2/3 rounded-full" style={{ background: accent }} />
-              <div className="h-2 w-1/2 rounded-full" style={{ background: i === 0 ? primary : sidebar, opacity: i === 0 ? 1 : 0.55 }} />
-            </div>
-          ))}
-        </div>
-        <div className="flex h-[34%] items-end gap-1 p-1.5 shadow-sm" style={{ background: card, borderRadius: r }}>
-          {[40, 65, 50, 85, 60, 95, 70].map((h, i) => <div key={i} className="flex-1 rounded-sm" style={{ height: `${h}%`, background: i === 5 ? primary : accent }} />)}
-        </div>
-        <div className="h-3.5 w-14" style={{ background: primary, borderRadius: r }} />
-      </div>
-    </div>
-  );
-}
-
-const SHELL_NAMES: Record<string, string> = { sidebar: "قائمة جانبية كاملة", rail: "شريط أيقونات", topnav: "قائمة علوية" };
-
-function Step({ n, icon: Icon, title, hint, children }: { n: number; icon: typeof Palette; title: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-2xl border border-[#DECFC0] bg-white p-5 shadow-sm" aria-label={title}>
-      <div className="mb-4 flex items-center gap-3">
-        <span className="flex size-9 items-center justify-center rounded-xl bg-[#651E2C]/10 text-[#651E2C]"><Icon className="size-[18px]" /></span>
-        <div>
-          <h3 className="text-sm font-bold text-[#35151D]"><span className="text-[#651E2C]">{n}.</span> {title}</h3>
-          {hint && <p className="text-[11px] text-[#77716E]">{hint}</p>}
-        </div>
-      </div>
-      {children}
-    </section>
-  );
-}
 
 export const CLASSIC_THEME_ID = "mizan";
 export const STUDIO_URL = "/studio-preview.html";
@@ -84,6 +30,76 @@ export function savePayload(d: Draft) {
 
 export const CLASSIC_DRAFT: Draft = { theme: CLASSIC_THEME_ID, palette: "", body: "", display: "" };
 
+type Tab = "theme" | "colors" | "font" | "menus";
+const TABS: { id: Tab; label: string }[] = [
+  { id: "theme", label: "القالب" }, { id: "colors", label: "الألوان" }, { id: "font", label: "الخط" }, { id: "menus", label: "القوائم" },
+];
+const SHELL_NAMES: Record<string, string> = { sidebar: "قائمة جانبية كاملة", rail: "شريط أيقونات", topnav: "قائمة علوية" };
+const NAV = ["الرئيسية", "الكاشير", "الفواتير", "المخزون", "التقارير"];
+
+/** Small template thumbnail: a screen in the theme's colours. */
+function Thumb({ swatches }: { swatches: string[] }) {
+  const [primary = "#651E2C", background = "#FAF6F0", sidebar = "#35151D", , card = "#FFFFFF"] = swatches;
+  return (
+    <div aria-hidden className="flex h-[74px] overflow-hidden rounded-[11px]" style={{ background }}>
+      <div className="flex-1 space-y-1.5 p-2">
+        <div className="h-2 w-2/3 rounded" style={{ background: sidebar }} />
+        <div className="h-5 rounded-md" style={{ background: card }}><div className="m-1.5 h-1.5 w-1/3 rounded" style={{ background: primary }} /></div>
+      </div>
+      <div className="w-[28%]" style={{ background: sidebar }} />
+    </div>
+  );
+}
+
+/** The big live preview: the real home screen's structure in the chosen colours and menu shape. */
+export function HomePreview({ swatches, radius = "0.875rem", shell = "sidebar", fontFamily }: { swatches: string[]; radius?: string; shell?: string; fontFamily?: string }) {
+  const [primary = "#651E2C", background = "#FAF6F0", sidebar = "#35151D", accent = "#E7D6C1", card = "#FFFFFF"] = swatches;
+  const r = `calc(${radius} * 1.1)`;
+  const top = shell === "topnav";
+  const rail = shell === "rail";
+  const menu = (
+    <div className={top ? "flex items-center gap-4 px-5 py-3" : `flex flex-col gap-1 ${rail ? "w-16 items-center px-2" : "w-[200px] px-3.5"} py-5`}
+         style={{ background: sidebar, color: card }}>
+      <div className={`flex items-center gap-2.5 ${top ? "" : "mb-5"} ${rail ? "justify-center" : ""} font-bold`}>
+        <span className="size-6 rounded-lg" style={{ background: primary, filter: "brightness(1.35)" }} />{!rail && <span className="text-sm">متجر ميزان</span>}
+      </div>
+      {NAV.map((n, i) => (
+        <div key={n} className={`${rail ? "size-8" : top ? "px-3 py-1.5" : "px-3 py-2.5"} flex items-center justify-center rounded-[10px] text-xs ${i === 0 ? "font-bold" : "opacity-70"}`}
+             style={i === 0 ? { background: primary, color: "#fff" } : undefined}>
+          {rail ? <span className="size-2 rounded-sm bg-current" /> : n}
+        </div>
+      ))}
+    </div>
+  );
+  return (
+    <div aria-hidden className={`flex h-full min-h-[430px] overflow-hidden ${top ? "flex-col" : ""}`} style={{ background, fontFamily }}>
+      {menu}
+      <div className="flex-1 space-y-4 p-6">
+        <div className="flex items-center justify-between">
+          <h4 className="text-xl font-bold" style={{ color: sidebar }}>صباح الخير، أحمد</h4>
+          <span className="size-8 rounded-full" style={{ background: accent }} />
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {[["مبيعات اليوم", "12,480"], ["الفواتير", "186"], ["الأرباح", "3,920"]].map(([l, v], i) => (
+            <div key={l} className="p-3.5 shadow-sm" style={{ background: card, borderRadius: r }}>
+              <p className="text-[11px] opacity-60" style={{ color: sidebar }}>{l}</p>
+              <p className="mt-1 text-2xl font-bold" style={{ color: i === 0 ? primary : sidebar }}>{v}</p>
+            </div>
+          ))}
+        </div>
+        <div className="flex h-44 items-end gap-3 p-4 shadow-sm" style={{ background: card, borderRadius: r }}>
+          {[40, 62, 50, 80, 95, 66, 72, 45, 84, 58].map((h, i) => <div key={i} className="flex-1 rounded-t-md" style={{ height: `${h}%`, background: i === 4 ? primary : accent }} />)}
+        </div>
+        <span className="inline-block px-5 py-2 text-xs font-bold" style={{ background: primary, color: "#fff", borderRadius: r }}>إتمام البيع</span>
+      </div>
+    </div>
+  );
+}
+
+function Label({ children }: { children: React.ReactNode }) {
+  return <p className="mb-2.5 text-xs font-bold text-[#9A8C86]">{children}</p>;
+}
+
 export function OwnerThemePicker() {
   const can = useAuth((s) => s.can);
   const tenant = useAuth((s) => s.tenant);
@@ -92,6 +108,7 @@ export function OwnerThemePicker() {
   const { layoutMode, setLayoutMode } = useUiStore();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [tab, setTab] = useState<Tab>("theme");
 
   const themes = useQuery({ queryKey: ["themes"], queryFn: () => api.get<{ current: string; items: ThemeItem[] }>("/themes"), enabled: manage });
   const palettes = useQuery({
@@ -122,7 +139,7 @@ export function OwnerThemePicker() {
   const view = useMemo(() => {
     const th = themes.data?.items.find((t) => t.id === draft?.theme);
     const pl = palettes.data?.items.find((p) => p.id === draft?.palette);
-    return { swatches: pl?.swatches ?? th?.swatches ?? [], radius: th?.radius };
+    return { swatches: pl?.swatches ?? th?.swatches ?? [], radius: th?.radius, name: th?.name ?? "" };
   }, [themes.data, palettes.data, draft]);
 
   if (!manage) {
@@ -133,127 +150,120 @@ export function OwnerThemePicker() {
   const dirty = !saved || JSON.stringify(saved) !== JSON.stringify(draft);
   const isClassic = JSON.stringify(draft) === JSON.stringify(CLASSIC_DRAFT);
   const set = (p: Partial<Draft>) => setDraft({ ...draft, ...p });
-  const families = palettes.data.families;
-  const ring = (on: boolean) => (on ? "border-[#651E2C] ring-4 ring-[#651E2C]/15" : "border-[#DECFC0] hover:border-[#651E2C]/50");
-  const tick = <span className="absolute end-2 top-2 flex size-5 items-center justify-center rounded-full bg-[#651E2C] text-white shadow"><Check className="size-3" /></span>;
+  const fam = (f: string) => (f ? { fontFamily: `"${f}", sans-serif` } : undefined);
+  const pick = (on: boolean) => (on ? "border-[#651E2C] bg-[#FBF3F4]" : "border-[#EADFD2] hover:border-[#651E2C]/40");
 
   return (
-    <div className="space-y-5" data-testid="owner-theme-picker">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#DECFC0] bg-[#FAF6F0] p-4">
-        <div>
-          <p className="text-sm font-bold text-[#35151D]">اختر شكل منشأتك</p>
-          <p className="text-[11px] text-[#77716E]">كل الخيارات جاهزة ومعتمدة. التغييرات لا تُحفظ حتى تضغط «حفظ المظهر».</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" disabled={save.isPending || (isClassic && !dirty)} onClick={() => { setDraft(CLASSIC_DRAFT); save.mutate(CLASSIC_DRAFT); }}>
-            <RotateCcw /> رجوع إلى الكلاسيكي
-          </Button>
-          <Button disabled={!dirty || save.isPending} onClick={() => save.mutate(draft)} className="bg-[#651E2C] px-6 text-[#FAF6F0] hover:bg-[#521723]">
-            {save.isPending ? <Spinner /> : dirty ? "حفظ المظهر" : "تم الحفظ"}
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem]">
-        <div className="space-y-5">
-          <Step n={1} icon={Sparkles} title="القالب" hint="الألوان والحواف والإحساس العام">
-            <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {themes.data.items.map((t) => {
-                const on = draft.theme === t.id;
-                return (
-                  <li key={t.id}>
-                    <button type="button" aria-pressed={on} onClick={() => set({ theme: t.id })}
-                            className={`relative block w-full overflow-hidden rounded-2xl border-2 bg-white text-start transition ${ring(on)}`}>
-                      <MiniApp swatches={t.swatches} radius={t.radius} />
-                      {on && tick}
-                      <span className="block p-3">
-                        <span className="flex items-center gap-2 text-sm font-bold text-[#35151D]">
-                          {t.name}
-                          {t.id === CLASSIC_THEME_ID && <span className="rounded-full bg-[#651E2C]/10 px-2 py-0.5 text-[10px] font-semibold text-[#651E2C]">الكلاسيكي</span>}
-                        </span>
-                        {t.description && <span className="mt-0.5 line-clamp-1 block text-[11px] font-normal text-[#77716E]">{t.description}</span>}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </Step>
-          <Step n={2} icon={Palette} title="الألوان" hint="غيّر الألوان فقط دون تغيير القالب">
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
-              <button type="button" aria-pressed={draft.palette === ""} onClick={() => set({ palette: "" })}
-                      className={`relative rounded-xl border-2 bg-white p-3 text-start text-xs font-semibold transition ${ring(draft.palette === "")}`}>
-                <span className="mb-2 flex h-6 overflow-hidden rounded-lg border border-black/5 bg-[repeating-linear-gradient(45deg,#f3ece2,#f3ece2_6px,#fff_6px,#fff_12px)]" />
-                ألوان القالب
-                {draft.palette === "" && tick}
+    <div className="grid gap-0 overflow-hidden rounded-3xl border border-[#DECFC0] bg-white shadow-sm lg:grid-cols-[22rem_1fr]" data-testid="owner-theme-picker">
+      <div className="flex min-h-[640px] flex-col">
+        <div className="flex-1 p-6">
+          <div role="tablist" className="mb-6 flex rounded-2xl bg-[#F3ECE3] p-1">
+            {TABS.map((t) => (
+              <button key={t.id} role="tab" type="button" aria-selected={tab === t.id} onClick={() => setTab(t.id)}
+                      className={`flex-1 rounded-xl py-2.5 text-xs font-bold transition ${tab === t.id ? "bg-white text-[#651E2C] shadow-sm" : "text-[#8A7A74]"}`}>
+                {t.label}
               </button>
-              {palettes.data.items.map((p) => (
-                <button key={p.id} type="button" title={p.id} aria-label={`لوحة ${p.id}`} aria-pressed={draft.palette === p.id}
-                        onClick={() => set({ palette: p.id })}
-                        className={`relative rounded-xl border-2 bg-white p-3 text-start text-xs font-semibold transition ${ring(draft.palette === p.id)}`}>
-                  <span className="mb-2 flex h-6 overflow-hidden rounded-lg border border-black/5">
-                    {p.swatches.slice(0, 5).map((c) => <span key={c} className="flex-1" style={{ background: c }} />)}
-                  </span>
-                  <span className="block truncate" dir="ltr">{p.id}</span>
-                  {draft.palette === p.id && tick}
-                </button>
-              ))}
+            ))}
+          </div>
+
+          {tab === "theme" && (
+            <div>
+              <Label>القوالب</Label>
+              <ul className="grid grid-cols-2 gap-3">
+                {themes.data.items.map((t) => {
+                  const on = draft.theme === t.id;
+                  return (
+                    <li key={t.id}>
+                      <button type="button" aria-pressed={on} onClick={() => set({ theme: t.id })}
+                              className={`w-full rounded-2xl border-2 p-1.5 text-start transition ${on ? "border-[#651E2C] bg-white shadow-lg shadow-[#651E2C]/15" : "border-transparent bg-[#FAF6F0] hover:border-[#651E2C]/30"}`}>
+                        <Thumb swatches={t.swatches} />
+                        <span className="flex items-center justify-between gap-1 px-1.5 pb-1 pt-2 text-[13px] font-bold text-[#35151D]">
+                          {t.name}
+                          {t.id === CLASSIC_THEME_ID && <em className="rounded-full bg-[#651E2C] px-2 py-0.5 text-[10px] font-bold not-italic text-white">الكلاسيكي</em>}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-          </Step>
-          <Step n={3} icon={Type} title="الخط" hint="خطوط معتمدة ومضمّنة فقط">
-            <div className="grid gap-4 sm:grid-cols-2">
+          )}
+
+          {tab === "colors" && (
+            <div>
+              <Label>الألوان</Label>
+              <p className="mb-4 text-[11px] text-[#9A8C86]">غيّر الألوان فقط دون تغيير القالب.</p>
+              <div className="flex flex-wrap gap-3">
+                <button type="button" aria-pressed={draft.palette === ""} onClick={() => set({ palette: "" })}
+                        className={`rounded-full border-2 px-4 py-2 text-xs font-bold ${pick(draft.palette === "")}`}>ألوان القالب</button>
+                {palettes.data.items.map((p) => (
+                  <button key={p.id} type="button" title={p.id} aria-label={`لوحة ${p.id}`} aria-pressed={draft.palette === p.id} onClick={() => set({ palette: p.id })}
+                          className={`size-11 rounded-full ring-offset-2 transition ${draft.palette === p.id ? "ring-[3px] ring-[#651E2C]" : "ring-1 ring-[#E1D6C9]"}`}
+                          style={{ background: `linear-gradient(135deg, ${p.swatches[0]} 55%, ${p.swatches[2] ?? p.swatches[1]} 55%)` }} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tab === "font" && (
+            <div className="space-y-6">
               {(["body", "display"] as const).map((which) => (
                 <div key={which}>
-                  <p className="mb-1.5 text-xs font-semibold text-[#35151D]">{which === "body" ? "خط النصوص" : "خط العناوين"}</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {[{ id: "", label: "خط القالب" }, ...families.map((f) => ({ id: f, label: f }))].map((f) => (
+                  <Label>{which === "body" ? "خط النصوص" : "خط العناوين"}</Label>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {[{ id: "", label: "خط القالب" }, ...palettes.data.families.map((f) => ({ id: f, label: f }))].map((f) => (
                       <button key={f.id} type="button" aria-pressed={draft[which] === f.id} onClick={() => set({ [which]: f.id } as Partial<Draft>)}
-                              style={f.id ? { fontFamily: `"${f.id}", sans-serif` } : undefined}
-                              className={`rounded-xl border-2 px-3 py-2 text-xs transition ${ring(draft[which] === f.id)} ${draft[which] === f.id ? "bg-[#651E2C]/5 font-bold" : "bg-white"}`}>
-                        {f.label}
+                              className={`rounded-2xl border-[1.5px] p-3 text-center transition ${pick(draft[which] === f.id)}`}>
+                        <b className="block text-2xl" style={fam(f.id)}>أبجد</b>
+                        <small className="text-[11px] text-[#9A8C86]">{f.label}</small>
                       </button>
                     ))}
                   </div>
                 </div>
               ))}
             </div>
-            <p className="mt-3 rounded-xl bg-[#FAF6F0] p-3 text-sm text-[#35151D]" style={draft.body ? { fontFamily: `"${draft.body}", sans-serif` } : undefined}>
-              مثال: فاتورة رقم 1042 · إجمالي 1,250.00 ج.م
-            </p>
-          </Step>
-          <Step n={4} icon={LayoutPanelLeft} title="شكل القوائم" hint="يُحفظ على هذا الجهاز فقط ولا يغيّر ما يراه الآخرون">
-            <div className="grid gap-3 sm:grid-cols-3">
-              {LAYOUT_MODES.map((l) => {
-                const on = layoutMode === l.id;
-                return (
-                  <button key={l.id} type="button" aria-pressed={on} onClick={() => setLayoutMode(l.id)}
-                          className={`relative overflow-hidden rounded-2xl border-2 bg-white text-start transition ${ring(on)}`}>
-                    <MiniApp swatches={view.swatches} radius={view.radius} shell={l.id} />
-                    {on && tick}
-                    <span className="block p-3 text-xs font-bold text-[#35151D]">{SHELL_NAMES[l.id] ?? l.name.replace(/\s*\(.*\)$/, "")}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </Step>
-        </div>
+          )}
 
-        <aside className="h-fit space-y-4 lg:sticky lg:top-4" aria-label="معاينة">
-          <div className="overflow-hidden rounded-2xl border border-[#DECFC0] bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-[#DECFC0] px-4 py-2.5">
-              <span className="text-xs font-bold text-[#35151D]">معاينة حيّة</span>
-              <span className="flex gap-1">{view.swatches.slice(0, 4).map((c) => <span key={c} className="size-3 rounded-full border border-black/10" style={{ background: c }} />)}</span>
+          {tab === "menus" && (
+            <div>
+              <Label>شكل القوائم</Label>
+              <p className="mb-4 text-[11px] text-[#9A8C86]">يُحفظ على هذا الجهاز فقط ولا يغيّر ما يراه الآخرون.</p>
+              <div className="space-y-2.5">
+                {LAYOUT_MODES.map((l) => (
+                  <button key={l.id} type="button" aria-pressed={layoutMode === l.id} onClick={() => setLayoutMode(l.id)}
+                          className={`flex w-full items-center justify-between rounded-2xl border-[1.5px] p-4 text-start text-sm font-bold transition ${pick(layoutMode === l.id)}`}>
+                    {SHELL_NAMES[l.id] ?? l.name.replace(/\s*\(.*\)$/, "")}
+                    {layoutMode === l.id && <Check className="size-4 text-[#651E2C]" />}
+                  </button>
+                ))}
+              </div>
             </div>
-            <MiniApp swatches={view.swatches} radius={view.radius} big shell={layoutMode} />
-          </div>
-          <div className="rounded-2xl border border-dashed border-[#651E2C]/40 bg-[#651E2C]/5 p-4">
-            <p className="text-sm font-bold text-[#35151D]">تريد تعديلاً أعمق؟</p>
-            <p className="mb-3 mt-0.5 text-[11px] text-[#77716E]">صمّم الصفحات والأقسام والكتل بالسحب والإفلات في الاستوديو.</p>
-            <Button variant="outline" className="w-full bg-white" onClick={() => window.open(STUDIO_URL, "_blank", "noopener,noreferrer")}>
-              <ExternalLink /> تعديل أكثر في الاستوديو
-            </Button>
-          </div>
-        </aside>
+          )}
+        </div>
+        <div className="flex gap-2.5 border-t border-[#EADFD2] bg-white p-5">
+          <Button variant="outline" className="flex-[0.8]" disabled={save.isPending || (isClassic && !dirty)} onClick={() => { setDraft(CLASSIC_DRAFT); save.mutate(CLASSIC_DRAFT); }}>
+            <RotateCcw /> رجوع إلى الكلاسيكي
+          </Button>
+          <Button className="flex-1 bg-[#651E2C] text-[#FAF6F0] shadow-lg shadow-[#651E2C]/30 hover:bg-[#521723]" disabled={!dirty || save.isPending} onClick={() => save.mutate(draft)}>
+            {save.isPending ? <Spinner /> : dirty ? "حفظ المظهر" : "تم الحفظ"}
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-col bg-[#EFE8DE] p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <span className="text-xs text-[#8A7A74]">معاينة مباشرة بصفحة «الرئيسية». لا يُحفظ شيء قبل الضغط على «حفظ المظهر».</span>
+          <button type="button" onClick={() => window.open(STUDIO_URL, "_blank", "noopener,noreferrer")}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-4 py-2 text-xs font-bold text-[#651E2C] shadow-sm hover:shadow">
+            <ExternalLink className="size-3.5" /> تعديل أكثر في الاستوديو
+          </button>
+        </div>
+        <div className="relative flex-1 overflow-hidden rounded-3xl border border-[#EADFD2] bg-white shadow-2xl shadow-[#35151D]/20">
+          <HomePreview swatches={view.swatches} radius={view.radius} shell={layoutMode} fontFamily={draft.body ? `"${draft.body}", sans-serif` : undefined} />
+          <span className="absolute bottom-4 end-4 rounded-full bg-[#35151D]/90 px-4 py-2 text-xs text-white">
+            {view.name}{draft.palette ? ` · ${draft.palette}` : ""}{draft.body ? ` · ${draft.body}` : ""}
+          </span>
+        </div>
       </div>
     </div>
   );
